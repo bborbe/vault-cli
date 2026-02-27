@@ -50,6 +50,7 @@ type Storage interface {
 	ReadTask(ctx context.Context, vaultPath string, taskID domain.TaskID) (*domain.Task, error)
 	WriteTask(ctx context.Context, task *domain.Task) error
 	FindTaskByName(ctx context.Context, vaultPath string, name string) (*domain.Task, error)
+	ListTasks(ctx context.Context, vaultPath string) ([]*domain.Task, error)
 
 	// Goal operations
 	ReadGoal(ctx context.Context, vaultPath string, goalID domain.GoalID) (*domain.Goal, error)
@@ -143,6 +144,43 @@ func (m *markdownStorage) FindTaskByName(
 		return nil, err
 	}
 	return m.readTaskFromPath(ctx, matchedPath, matchedName)
+}
+
+// ListTasks returns all tasks from the vault.
+func (m *markdownStorage) ListTasks(
+	ctx context.Context,
+	vaultPath string,
+) ([]*domain.Task, error) {
+	tasksDir := filepath.Join(vaultPath, m.config.TasksDir)
+
+	entries, err := os.ReadDir(tasksDir)
+	if err != nil {
+		return nil, fmt.Errorf("read tasks directory %s: %w", tasksDir, err)
+	}
+
+	tasks := make([]*domain.Task, 0, len(entries))
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		if !strings.HasSuffix(entry.Name(), ".md") {
+			continue
+		}
+
+		fileName := strings.TrimSuffix(entry.Name(), ".md")
+		filePath := filepath.Join(tasksDir, entry.Name())
+
+		task, err := m.readTaskFromPath(ctx, filePath, fileName)
+		if err != nil {
+			// Log error but continue with other tasks
+			fmt.Printf("Warning: failed to read task %s: %v\n", fileName, err)
+			continue
+		}
+
+		tasks = append(tasks, task)
+	}
+
+	return tasks, nil
 }
 
 // ReadGoal reads a goal from a markdown file.

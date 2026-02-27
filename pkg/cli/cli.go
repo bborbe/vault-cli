@@ -18,7 +18,6 @@ import (
 
 // Run executes the CLI application.
 func Run(ctx context.Context, args []string) error {
-	storage := storage.NewStorage()
 	configLoader := config.NewLoader("")
 
 	var vaultName string
@@ -34,25 +33,44 @@ func Run(ctx context.Context, args []string) error {
 		StringVar(&vaultName, "vault", "", "Vault name (uses default if not specified)")
 	rootCmd.PersistentFlags().StringVar(&configPath, "config", "", "Config file path")
 
-	// Complete command
-	completeCmd := &cobra.Command{
+	rootCmd.AddCommand(createCompleteCommand(ctx, configLoader, &vaultName))
+	rootCmd.AddCommand(createDeferCommand(ctx, configLoader, &vaultName))
+	rootCmd.AddCommand(createUpdateCommand(ctx, configLoader, &vaultName))
+
+	rootCmd.SetArgs(args)
+	return rootCmd.ExecuteContext(ctx)
+}
+
+func createCompleteCommand(
+	ctx context.Context,
+	configLoader config.Loader,
+	vaultName *string,
+) *cobra.Command {
+	return &cobra.Command{
 		Use:   "complete <task-name>",
 		Short: "Mark a task as complete",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			taskName := args[0]
-			vaultPath, err := configLoader.GetVaultPath(ctx, vaultName)
+			vault, err := configLoader.GetVault(ctx, *vaultName)
 			if err != nil {
-				return fmt.Errorf("get vault path: %w", err)
+				return fmt.Errorf("get vault: %w", err)
 			}
 
-			completeOp := ops.NewCompleteOperation(storage)
-			return completeOp.Execute(ctx, vaultPath, taskName)
+			storageConfig := storage.NewConfigFromVault(vault)
+			store := storage.NewStorage(storageConfig)
+			completeOp := ops.NewCompleteOperation(store)
+			return completeOp.Execute(ctx, vault.Path, taskName)
 		},
 	}
+}
 
-	// Defer command
-	deferCmd := &cobra.Command{
+func createDeferCommand(
+	ctx context.Context,
+	configLoader config.Loader,
+	vaultName *string,
+) *cobra.Command {
+	return &cobra.Command{
 		Use:   "defer <task-name> <date>",
 		Short: "Defer a task to a specific date",
 		Long: `Defer a task to a specific date.
@@ -66,39 +84,41 @@ Date formats:
 			taskName := args[0]
 			dateStr := args[1]
 
-			vaultPath, err := configLoader.GetVaultPath(ctx, vaultName)
+			vault, err := configLoader.GetVault(ctx, *vaultName)
 			if err != nil {
-				return fmt.Errorf("get vault path: %w", err)
+				return fmt.Errorf("get vault: %w", err)
 			}
 
-			deferOp := ops.NewDeferOperation(storage)
-			return deferOp.Execute(ctx, vaultPath, taskName, dateStr)
+			storageConfig := storage.NewConfigFromVault(vault)
+			store := storage.NewStorage(storageConfig)
+			deferOp := ops.NewDeferOperation(store)
+			return deferOp.Execute(ctx, vault.Path, taskName, dateStr)
 		},
 	}
+}
 
-	// Update command
-	updateCmd := &cobra.Command{
+func createUpdateCommand(
+	ctx context.Context,
+	configLoader config.Loader,
+	vaultName *string,
+) *cobra.Command {
+	return &cobra.Command{
 		Use:   "update <task-name>",
 		Short: "Update task progress from checkboxes",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			taskName := args[0]
-			vaultPath, err := configLoader.GetVaultPath(ctx, vaultName)
+			vault, err := configLoader.GetVault(ctx, *vaultName)
 			if err != nil {
-				return fmt.Errorf("get vault path: %w", err)
+				return fmt.Errorf("get vault: %w", err)
 			}
 
-			updateOp := ops.NewUpdateOperation(storage)
-			return updateOp.Execute(ctx, vaultPath, taskName)
+			storageConfig := storage.NewConfigFromVault(vault)
+			store := storage.NewStorage(storageConfig)
+			updateOp := ops.NewUpdateOperation(store)
+			return updateOp.Execute(ctx, vault.Path, taskName)
 		},
 	}
-
-	rootCmd.AddCommand(completeCmd)
-	rootCmd.AddCommand(deferCmd)
-	rootCmd.AddCommand(updateCmd)
-
-	rootCmd.SetArgs(args)
-	return rootCmd.ExecuteContext(ctx)
 }
 
 // Execute is the main entry point for the CLI.

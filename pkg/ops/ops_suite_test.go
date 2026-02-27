@@ -5,6 +5,7 @@
 package ops_test
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -12,6 +13,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/format"
 )
+
+var ErrTest = errors.New("test error")
 
 //go:generate go run -mod=mod github.com/maxbrunsfeld/counterfeiter/v6 -generate
 

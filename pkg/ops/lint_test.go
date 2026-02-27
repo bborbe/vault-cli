@@ -231,6 +231,113 @@ This task has an invalid status.
 		})
 	})
 
+	Context("INVALID_STATUS with migration map", func() {
+		Context("status: next", func() {
+			BeforeEach(func() {
+				nextStatusContent := `---
+status: next
+page_type: task
+priority: 1
+assignee: bborbe
+---
+# Task With Next Status
+
+This task has the old 'next' status.
+`
+				taskPath := filepath.Join(vaultPath, tasksDir, "Next Status.md")
+				Expect(os.WriteFile(taskPath, []byte(nextStatusContent), 0600)).To(Succeed())
+			})
+
+			It("detects 'next' as invalid status", func() {
+				err := lintOp.Execute(ctx, vaultPath, tasksDir, false)
+				Expect(err).NotTo(BeNil())
+				Expect(err.Error()).To(ContainSubstring("found 1 lint issue"))
+			})
+
+			It("fixes 'next' to 'todo'", func() {
+				err := lintOp.Execute(ctx, vaultPath, tasksDir, true)
+				Expect(err).To(BeNil())
+
+				// Verify file was fixed
+				taskPath := filepath.Join(vaultPath, tasksDir, "Next Status.md")
+				content, err := os.ReadFile(taskPath) //#nosec G304 -- test file
+				Expect(err).To(BeNil())
+				Expect(string(content)).To(ContainSubstring("status: todo"))
+				Expect(string(content)).NotTo(ContainSubstring("status: next"))
+			})
+		})
+
+		Context("status: current", func() {
+			BeforeEach(func() {
+				currentStatusContent := `---
+status: current
+page_type: task
+priority: 1
+assignee: bborbe
+---
+# Task With Current Status
+
+This task has the old 'current' status.
+`
+				taskPath := filepath.Join(vaultPath, tasksDir, "Current Status.md")
+				Expect(os.WriteFile(taskPath, []byte(currentStatusContent), 0600)).To(Succeed())
+			})
+
+			It("detects 'current' as invalid status", func() {
+				err := lintOp.Execute(ctx, vaultPath, tasksDir, false)
+				Expect(err).NotTo(BeNil())
+				Expect(err.Error()).To(ContainSubstring("found 1 lint issue"))
+			})
+
+			It("fixes 'current' to 'in_progress'", func() {
+				err := lintOp.Execute(ctx, vaultPath, tasksDir, true)
+				Expect(err).To(BeNil())
+
+				// Verify file was fixed
+				taskPath := filepath.Join(vaultPath, tasksDir, "Current Status.md")
+				content, err := os.ReadFile(taskPath) //#nosec G304 -- test file
+				Expect(err).To(BeNil())
+				Expect(string(content)).To(ContainSubstring("status: in_progress"))
+				Expect(string(content)).NotTo(ContainSubstring("status: current"))
+			})
+		})
+
+		Context("unknown invalid status (foo)", func() {
+			BeforeEach(func() {
+				fooStatusContent := `---
+status: foo
+page_type: task
+priority: 1
+assignee: bborbe
+---
+# Task With Foo Status
+
+This task has an unknown invalid status.
+`
+				taskPath := filepath.Join(vaultPath, tasksDir, "Foo Status.md")
+				Expect(os.WriteFile(taskPath, []byte(fooStatusContent), 0600)).To(Succeed())
+			})
+
+			It("detects 'foo' as invalid status", func() {
+				err := lintOp.Execute(ctx, vaultPath, tasksDir, false)
+				Expect(err).NotTo(BeNil())
+				Expect(err.Error()).To(ContainSubstring("found 1 lint issue"))
+			})
+
+			It("cannot fix 'foo' status", func() {
+				err := lintOp.Execute(ctx, vaultPath, tasksDir, true)
+				Expect(err).NotTo(BeNil())
+				Expect(err.Error()).To(ContainSubstring("found 1 lint issue"))
+
+				// Verify file was not changed
+				taskPath := filepath.Join(vaultPath, tasksDir, "Foo Status.md")
+				content, err := os.ReadFile(taskPath) //#nosec G304 -- test file
+				Expect(err).To(BeNil())
+				Expect(string(content)).To(ContainSubstring("status: foo"))
+			})
+		})
+	})
+
 	Context("multiple issues in one file", func() {
 		BeforeEach(func() {
 			multipleIssuesContent := `---

@@ -157,7 +157,7 @@ func (l *lintOperation) lintFile(filePath string, fix bool) ([]LintIssue, error)
 	}
 
 	// Check for invalid status
-	statusIssue, invalidStatusValue := l.detectInvalidStatus(frontmatterYAML)
+	statusIssue, invalidStatusValue, statusIsFixable := l.detectInvalidStatus(frontmatterYAML)
 	if statusIssue {
 		issues = append(issues, LintIssue{
 			FilePath:  filePath,
@@ -166,7 +166,7 @@ func (l *lintOperation) lintFile(filePath string, fix bool) ([]LintIssue, error)
 				"status is %q, expected one of: todo, in_progress, backlog, completed, hold, aborted",
 				invalidStatusValue,
 			),
-			Fixable: false,
+			Fixable: statusIsFixable,
 			Fixed:   false,
 		})
 	}
@@ -221,7 +221,8 @@ func (l *lintOperation) detectInvalidPriority(frontmatterYAML string) (bool, str
 }
 
 // detectInvalidStatus detects if status field has an invalid value.
-func (l *lintOperation) detectInvalidStatus(frontmatterYAML string) (bool, string) {
+// Returns: (issueFound, invalidValue, isFixable)
+func (l *lintOperation) detectInvalidStatus(frontmatterYAML string) (bool, string, bool) {
 	statusRegex := regexp.MustCompile(`(?m)^status:\s*['"]?([a-z_]+)['"]?\s*$`)
 	matches := statusRegex.FindStringSubmatch(frontmatterYAML)
 	if len(matches) >= 2 {
@@ -236,12 +237,19 @@ func (l *lintOperation) detectInvalidStatus(frontmatterYAML string) (bool, strin
 		}
 		for _, valid := range validStatuses {
 			if statusValue == valid {
-				return false, ""
+				return false, "", false
 			}
 		}
-		return true, statusValue
+
+		// Check if it's a fixable migration status
+		statusMigrationMap := map[string]string{
+			"next":    "todo",
+			"current": "in_progress",
+		}
+		_, isFixable := statusMigrationMap[statusValue]
+		return true, statusValue, isFixable
 	}
-	return false, ""
+	return false, "", false
 }
 
 // fixIssues fixes fixable issues in the file.
@@ -271,6 +279,15 @@ func (l *lintOperation) fixIssues(
 		case IssueTypeDuplicateKey:
 			// Fix duplicate keys by removing duplicates (keep first occurrence)
 			newContent, fixed := l.fixDuplicateKeys(updatedContent)
+			if fixed {
+				updatedContent = newContent
+				issues[i].Fixed = true
+				modified = true
+			}
+
+		case IssueTypeInvalidStatus:
+			// Fix invalid status by migrating to new value
+			newContent, fixed := l.fixInvalidStatus(updatedContent)
 			if fixed {
 				updatedContent = newContent
 				issues[i].Fixed = true
@@ -308,6 +325,30 @@ func (l *lintOperation) fixInvalidPriority(content string) (string, bool) {
 			newContent := priorityRegex.ReplaceAllString(
 				content,
 				fmt.Sprintf("priority: %d", newValue),
+			)
+			return newContent, true
+		}
+	}
+
+	return content, false
+}
+
+// fixInvalidStatus migrates old status values to new ones.
+func (l *lintOperation) fixInvalidStatus(content string) (string, bool) {
+	statusMigrationMap := map[string]string{
+		"next":    "todo",
+		"current": "in_progress",
+	}
+
+	// Match status field with invalid value (next or current)
+	statusRegex := regexp.MustCompile(`(?m)^status:\s*['"]?(next|current)['"]?\s*$`)
+	matches := statusRegex.FindStringSubmatch(content)
+	if len(matches) >= 2 {
+		oldValue := matches[1]
+		if newValue, ok := statusMigrationMap[oldValue]; ok {
+			newContent := statusRegex.ReplaceAllString(
+				content,
+				fmt.Sprintf("status: %s", newValue),
 			)
 			return newContent, true
 		}

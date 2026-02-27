@@ -5,23 +5,9 @@
 package main
 
 import (
-	"fmt"
-	"os"
+	"github.com/bborbe/vault-cli/pkg/cli"
 )
 
 func main() {
-	if err := run(); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
-}
-
-func run() error {
-	// TODO: Implement CLI commands
-	// - complete: Mark task as complete
-	// - defer: Defer task to specific date
-	// - update: Update task progress
-	fmt.Println("vault-cli - Obsidian vault task management")
-	fmt.Println("Implementation in progress")
-	return nil
+	cli.Execute()
 }

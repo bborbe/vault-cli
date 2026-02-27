@@ -14,8 +14,12 @@ run:
 
 # Development workflow
 .PHONY: precommit
-precommit: ensure format test check addlicense
+precommit: ensure generate format test check addlicense
 	@echo "ready to commit"
+
+.PHONY: generate
+generate:
+	find . -name "*_suite_test.go" -not -path './vendor/*' -exec dirname {} \; | sort -u | xargs -n 1 go generate -mod=mod
 
 .PHONY: ensure
 ensure:

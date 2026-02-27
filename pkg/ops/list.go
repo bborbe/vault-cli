@@ -52,30 +52,25 @@ func (l *listOperation) Execute(
 
 	// Determine which statuses to show
 	var statusesToShow map[domain.TaskStatus]bool
-	if showAll {
-		statusesToShow = map[domain.TaskStatus]bool{
-			domain.TaskStatusTodo:       true,
-			domain.TaskStatusInProgress: true,
-			domain.TaskStatusDone:       true,
-			domain.TaskStatusDeferred:   true,
-		}
-	} else if len(statusFilter) > 0 {
-		statusesToShow = make(map[domain.TaskStatus]bool)
-		for _, status := range statusFilter {
-			statusesToShow[status] = true
-		}
-	} else {
-		// Default: show only todo and in_progress
-		statusesToShow = map[domain.TaskStatus]bool{
-			domain.TaskStatusTodo:       true,
-			domain.TaskStatusInProgress: true,
+	if !showAll {
+		if len(statusFilter) > 0 {
+			statusesToShow = make(map[domain.TaskStatus]bool)
+			for _, status := range statusFilter {
+				statusesToShow[status] = true
+			}
+		} else {
+			// Default: show only todo and in_progress
+			statusesToShow = map[domain.TaskStatus]bool{
+				domain.TaskStatusTodo:       true,
+				domain.TaskStatusInProgress: true,
+			}
 		}
 	}
 
 	// Filter tasks by status
 	var filteredTasks []*domain.Task
 	for _, task := range tasks {
-		if statusesToShow[task.Status] {
+		if showAll || statusesToShow[task.Status] {
 			filteredTasks = append(filteredTasks, task)
 		}
 	}

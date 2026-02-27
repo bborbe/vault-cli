@@ -99,6 +99,53 @@ var _ = Describe("ListOperation", func() {
 			It("calls ListTasks", func() {
 				Expect(mockStorage.ListTasksCallCount()).To(Equal(1))
 			})
+
+			Context(
+				"with tasks of all statuses including backlog, completed, hold, aborted",
+				func() {
+					BeforeEach(func() {
+						tasks = []*domain.Task{
+							{
+								Name:   "Task Todo",
+								Status: domain.TaskStatus("todo"),
+							},
+							{
+								Name:   "Task InProgress",
+								Status: domain.TaskStatus("in_progress"),
+							},
+							{
+								Name:   "Task Done",
+								Status: domain.TaskStatus("done"),
+							},
+							{
+								Name:   "Task Deferred",
+								Status: domain.TaskStatus("deferred"),
+							},
+							{
+								Name:   "Task Backlog",
+								Status: domain.TaskStatus("backlog"),
+							},
+							{
+								Name:   "Task Completed",
+								Status: domain.TaskStatus("completed"),
+							},
+							{
+								Name:   "Task Hold",
+								Status: domain.TaskStatus("hold"),
+							},
+							{
+								Name:   "Task Aborted",
+								Status: domain.TaskStatus("aborted"),
+							},
+						}
+						mockStorage.ListTasksReturns(tasks, nil)
+					})
+
+					It("returns no error and processes all task statuses", func() {
+						Expect(err).To(BeNil())
+					})
+				},
+			)
 		})
 	})
 

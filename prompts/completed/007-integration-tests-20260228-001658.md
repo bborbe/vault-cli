@@ -1,0 +1,169 @@
+<objective>
+Add integration tests for the vault-cli binary using Ginkgo + gexec.
+
+These tests compile the real binary once and run CLI commands against a temporary vault directory, verifying end-to-end behavior including exit codes, stdout output, and actual file mutations.
+</objective>
+
+<context>
+Go CLI project for managing Obsidian vault tasks.
+Read CLAUDE.md for project conventions.
+
+The binary entry point is `./main.go`.
+Config is loaded from `~/.vault-cli/config.yaml` by default, but can be overridden with `--config` flag and `--vault` flag.
+
+Existing test patterns to follow:
+- `./pkg/ops/lint_test.go` — uses temp files with `os.MkdirTemp`
+- `./pkg/ops/ops_suite_test.go` — Ginkgo suite bootstrap pattern
+
+Key CLI commands to test:
+- `vault-cli list` — lists tasks, exits 0
+- `vault-cli lint` — detects issues, exits 1 on errors, exits 0 when clean
+- `vault-cli lint --fix` — fixes issues, exits 0
+- `vault-cli complete <task>` — marks task completed
+- `vault-cli defer <task> +7d` — updates defer_date
+</context>
+
+<requirements>
+Create `./integration/integration_suite_test.go` — suite bootstrap:
+```go
+package integration_test
+
+import (
+    "testing"
+    . "github.com/onsi/ginkgo/v2"
+    . "github.com/onsi/gomega"
+    "github.com/onsi/gomega/gexec"
+)
+
+var binPath string
+
+func TestIntegration(t *testing.T) {
+    RegisterFailHandler(Fail)
+    RunSpecs(t, "Integration Test Suite")
+}
+
+var _ = BeforeSuite(func() {
+    var err error
+    binPath, err = gexec.Build("github.com/bborbe/vault-cli")
+    Expect(err).NotTo(HaveOccurred())
+})
+
+var _ = AfterSuite(func() {
+    gexec.CleanupBuildArtifacts()
+})
+```
+
+Create `./integration/cli_test.go` with these test cases:
+
+1. **`vault-cli --help`** → exits 0, stdout contains "vault-cli"
+
+2. **`vault-cli list`** with temp vault containing 2 task files:
+   - one with `status: todo` → appears in output
+   - one with `status: completed` → NOT in output by default
+   - `--all` flag → both appear
+
+3. **`vault-cli lint`** with temp vault:
+   - clean vault (valid frontmatter) → exits 0, prints "No lint issues found"
+   - vault with `status: next` → exits 1, stdout contains "INVALID_STATUS"
+   - vault with `priority: high` (string) → exits 1, stdout contains "INVALID_PRIORITY"
+
+4. **`vault-cli lint --fix`** with temp vault:
+   - vault with `status: next` → exits 0, stdout contains "FIXED", file now has `status: todo`
+   - vault with `priority: high` → exits 0, file now has `priority: 1`
+
+5. **`vault-cli complete <task>`** with temp vault:
+   - task exists → exits 0, file has `status: completed`
+   - task not found → exits 1
+
+6. **`vault-cli defer <task> +7d`** with temp vault:
+   - task exists → exits 0, file has updated `defer_date`
+   - invalid date → exits 1
+</requirements>
+
+<implementation>
+Use a helper to create a temp vault with config:
+
+```go
+func createTempVault(tasks map[string]string) (vaultPath string, configPath string, cleanup func()) {
+    vaultPath, _ = os.MkdirTemp("", "vault-*")
+    tasksDir := filepath.Join(vaultPath, "Tasks")
+    os.MkdirAll(tasksDir, 0755)
+
+    for name, content := range tasks {
+        os.WriteFile(filepath.Join(tasksDir, name+".md"), []byte(content), 0600)
+    }
+
+    configContent := fmt.Sprintf(`
+default_vault: test
+vaults:
+  test:
+    name: test
+    path: %s
+    tasks_dir: Tasks
+`, vaultPath)
+    configFile, _ := os.CreateTemp("", "vault-config-*.yaml")
+    configFile.WriteString(configContent)
+    configFile.Close()
+
+    return vaultPath, configFile.Name(), func() {
+        os.RemoveAll(vaultPath)
+        os.Remove(configFile.Name())
+    }
+}
+```
+
+Run commands with `--config` and `--vault` flags to avoid touching real vault:
+```go
+cmd := exec.Command(binPath, "--config", configPath, "--vault", "test", "lint")
+session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+Expect(err).NotTo(HaveOccurred())
+Eventually(session).Should(gexec.Exit(0))
+```
+
+Sample task file content for tests:
+```go
+validTask := `---
+status: todo
+priority: 2
+---
+Task content here`
+
+invalidStatusTask := `---
+status: next
+priority: 2
+---
+Task content here`
+
+invalidPriorityTask := `---
+status: todo
+priority: high
+---
+Task content here`
+```
+</implementation>
+
+<output>
+Create:
+- `./integration/integration_suite_test.go`
+- `./integration/cli_test.go`
+</output>
+
+<verification>
+```
+make test
+go test -mod=mod -v ./integration/...
+```
+
+Confirm:
+- Binary builds successfully in BeforeSuite
+- All integration tests pass
+- Tests use temp vaults, no real vault touched
+</verification>
+
+<success_criteria>
+- `make test` passes (integration tests included)
+- At least 6 integration scenarios covered
+- Binary compiled once, reused across all tests
+- Temp vaults cleaned up after each test
+- No hardcoded paths to real vault
+</success_criteria>

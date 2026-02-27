@@ -1,0 +1,427 @@
+// Copyright (c) 2025 Benjamin Borbe All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
+package integration_test
+
+import (
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gbytes"
+	"github.com/onsi/gomega/gexec"
+)
+
+// createTempVault creates a temporary vault with tasks and config file
+func createTempVault(
+	tasks map[string]string,
+) (vaultPath string, configPath string, cleanup func()) {
+	var err error
+	vaultPath, err = os.MkdirTemp("", "vault-*")
+	Expect(err).NotTo(HaveOccurred())
+
+	tasksDir := filepath.Join(vaultPath, "Tasks")
+	err = os.MkdirAll(tasksDir, 0755)
+	Expect(err).NotTo(HaveOccurred())
+
+	for name, content := range tasks {
+		taskPath := filepath.Join(tasksDir, name+".md")
+		err = os.WriteFile(taskPath, []byte(content), 0600)
+		Expect(err).NotTo(HaveOccurred())
+	}
+
+	configContent := fmt.Sprintf(`default_vault: test
+vaults:
+  test:
+    name: test
+    path: %s
+    tasks_dir: Tasks
+`, vaultPath)
+
+	configFile, err := os.CreateTemp("", "vault-config-*.yaml")
+	Expect(err).NotTo(HaveOccurred())
+	_, err = configFile.WriteString(configContent)
+	Expect(err).NotTo(HaveOccurred())
+	err = configFile.Close()
+	Expect(err).NotTo(HaveOccurred())
+
+	return vaultPath, configFile.Name(), func() {
+		_ = os.RemoveAll(vaultPath)
+		_ = os.Remove(configFile.Name())
+	}
+}
+
+var _ = Describe("vault-cli integration tests", func() {
+	Describe("vault-cli --help", func() {
+		It("exits 0 and shows help text", func() {
+			cmd := exec.Command(binPath, "--help")
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(0))
+			Expect(session.Out).To(gbytes.Say("vault-cli"))
+		})
+	})
+
+	Describe("vault-cli list", func() {
+		var configPath string
+		var cleanup func()
+
+		BeforeEach(func() {
+			_, configPath, cleanup = createTempVault(map[string]string{
+				"todo-task": `---
+status: todo
+priority: 2
+---
+# Todo Task
+This is a todo task.
+`,
+				"done-task": `---
+status: done
+priority: 1
+---
+# Done Task
+This is a done task.
+`,
+			})
+		})
+
+		AfterEach(func() {
+			cleanup()
+		})
+
+		It("shows only non-completed tasks by default", func() {
+			cmd := exec.Command(binPath, "--config", configPath, "--vault", "test", "list")
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(0))
+			Expect(session.Out).To(gbytes.Say("todo-task"))
+			Expect(session.Out).NotTo(gbytes.Say("done-task"))
+		})
+
+		It("shows all tasks with --all flag", func() {
+			cmd := exec.Command(binPath, "--config", configPath, "--vault", "test", "list", "--all")
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(0))
+			Expect(session.Out).To(gbytes.Say("todo-task"))
+			Expect(session.Out).To(gbytes.Say("done-task"))
+		})
+	})
+
+	Describe("vault-cli lint", func() {
+		var configPath string
+		var cleanup func()
+
+		Context("with clean vault", func() {
+			BeforeEach(func() {
+				_, configPath, cleanup = createTempVault(map[string]string{
+					"valid-task": `---
+status: todo
+priority: 2
+---
+# Valid Task
+This task has valid frontmatter.
+`,
+				})
+			})
+
+			AfterEach(func() {
+				cleanup()
+			})
+
+			It("exits 0 and reports no issues", func() {
+				cmd := exec.Command(binPath, "--config", configPath, "--vault", "test", "lint")
+				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+				Expect(err).NotTo(HaveOccurred())
+				Eventually(session).Should(gexec.Exit(0))
+				Expect(session.Out).To(gbytes.Say("No lint issues found"))
+			})
+		})
+
+		Context("with invalid status", func() {
+			BeforeEach(func() {
+				_, configPath, cleanup = createTempVault(map[string]string{
+					"next-status-task": `---
+status: next
+priority: 2
+---
+# Task with next status
+`,
+				})
+			})
+
+			AfterEach(func() {
+				cleanup()
+			})
+
+			It("exits 1 and reports INVALID_STATUS", func() {
+				cmd := exec.Command(binPath, "--config", configPath, "--vault", "test", "lint")
+				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+				Expect(err).NotTo(HaveOccurred())
+				Eventually(session).Should(gexec.Exit(1))
+				Expect(session.Out).To(gbytes.Say("INVALID_STATUS"))
+			})
+		})
+
+		Context("with invalid priority", func() {
+			BeforeEach(func() {
+				_, configPath, cleanup = createTempVault(map[string]string{
+					"high-priority-task": `---
+status: todo
+priority: high
+---
+# Task with string priority
+`,
+				})
+			})
+
+			AfterEach(func() {
+				cleanup()
+			})
+
+			It("exits 1 and reports INVALID_PRIORITY", func() {
+				cmd := exec.Command(binPath, "--config", configPath, "--vault", "test", "lint")
+				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+				Expect(err).NotTo(HaveOccurred())
+				Eventually(session).Should(gexec.Exit(1))
+				Expect(session.Out).To(gbytes.Say("INVALID_PRIORITY"))
+			})
+		})
+	})
+
+	Describe("vault-cli lint --fix", func() {
+		var vaultPath, configPath string
+		var cleanup func()
+
+		Context("with status: next", func() {
+			BeforeEach(func() {
+				vaultPath, configPath, cleanup = createTempVault(map[string]string{
+					"next-status-task": `---
+status: next
+priority: 2
+---
+# Task with next status
+`,
+				})
+			})
+
+			AfterEach(func() {
+				cleanup()
+			})
+
+			It("exits 0, shows FIXED, and updates file to status: todo", func() {
+				cmd := exec.Command(
+					binPath,
+					"--config",
+					configPath,
+					"--vault",
+					"test",
+					"lint",
+					"--fix",
+				)
+				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+				Expect(err).NotTo(HaveOccurred())
+				Eventually(session).Should(gexec.Exit(0))
+				Expect(session.Out).To(gbytes.Say("FIXED"))
+
+				// Verify file was updated
+				taskPath := filepath.Join(vaultPath, "Tasks", "next-status-task.md")
+				content, err := os.ReadFile(taskPath) //#nosec G304 -- test file
+				Expect(err).NotTo(HaveOccurred())
+				Expect(string(content)).To(ContainSubstring("status: todo"))
+				Expect(string(content)).NotTo(ContainSubstring("status: next"))
+			})
+		})
+
+		Context("with priority: high", func() {
+			BeforeEach(func() {
+				vaultPath, configPath, cleanup = createTempVault(map[string]string{
+					"high-priority-task": `---
+status: todo
+priority: high
+---
+# Task with string priority
+`,
+				})
+			})
+
+			AfterEach(func() {
+				cleanup()
+			})
+
+			It("exits 0 and updates file to priority: 1", func() {
+				cmd := exec.Command(
+					binPath,
+					"--config",
+					configPath,
+					"--vault",
+					"test",
+					"lint",
+					"--fix",
+				)
+				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+				Expect(err).NotTo(HaveOccurred())
+				Eventually(session).Should(gexec.Exit(0))
+
+				// Verify file was updated
+				taskPath := filepath.Join(vaultPath, "Tasks", "high-priority-task.md")
+				content, err := os.ReadFile(taskPath) //#nosec G304 -- test file
+				Expect(err).NotTo(HaveOccurred())
+				Expect(string(content)).To(ContainSubstring("priority: 1"))
+				Expect(string(content)).NotTo(ContainSubstring("priority: high"))
+			})
+		})
+	})
+
+	Describe("vault-cli complete", func() {
+		var vaultPath, configPath string
+		var cleanup func()
+
+		Context("when task exists", func() {
+			BeforeEach(func() {
+				vaultPath, configPath, cleanup = createTempVault(map[string]string{
+					"my-task": `---
+status: todo
+priority: 2
+---
+# My Task
+This is my task.
+`,
+				})
+			})
+
+			AfterEach(func() {
+				cleanup()
+			})
+
+			It("exits 0 and updates status to done", func() {
+				cmd := exec.Command(
+					binPath,
+					"--config",
+					configPath,
+					"--vault",
+					"test",
+					"complete",
+					"my-task",
+				)
+				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+				Expect(err).NotTo(HaveOccurred())
+				Eventually(session).Should(gexec.Exit(0))
+
+				// Verify file was updated
+				taskPath := filepath.Join(vaultPath, "Tasks", "my-task.md")
+				content, err := os.ReadFile(taskPath) //#nosec G304 -- test file
+				Expect(err).NotTo(HaveOccurred())
+				Expect(string(content)).To(ContainSubstring("status: done"))
+			})
+		})
+
+		Context("when task does not exist", func() {
+			BeforeEach(func() {
+				vaultPath, configPath, cleanup = createTempVault(map[string]string{})
+			})
+
+			AfterEach(func() {
+				cleanup()
+			})
+
+			It("exits 1", func() {
+				cmd := exec.Command(
+					binPath,
+					"--config",
+					configPath,
+					"--vault",
+					"test",
+					"complete",
+					"non-existent-task",
+				)
+				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+				Expect(err).NotTo(HaveOccurred())
+				Eventually(session).Should(gexec.Exit(1))
+			})
+		})
+	})
+
+	Describe("vault-cli defer", func() {
+		var vaultPath, configPath string
+		var cleanup func()
+
+		Context("when task exists", func() {
+			BeforeEach(func() {
+				vaultPath, configPath, cleanup = createTempVault(map[string]string{
+					"my-task": `---
+status: todo
+priority: 2
+---
+# My Task
+This is my task.
+`,
+				})
+			})
+
+			AfterEach(func() {
+				cleanup()
+			})
+
+			It("exits 0 and adds defer_date", func() {
+				cmd := exec.Command(
+					binPath,
+					"--config",
+					configPath,
+					"--vault",
+					"test",
+					"defer",
+					"my-task",
+					"+7d",
+				)
+				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+				Expect(err).NotTo(HaveOccurred())
+				Eventually(session).Should(gexec.Exit(0))
+
+				// Verify file was updated with defer_date
+				taskPath := filepath.Join(vaultPath, "Tasks", "my-task.md")
+				content, err := os.ReadFile(taskPath) //#nosec G304 -- test file
+				Expect(err).NotTo(HaveOccurred())
+				Expect(string(content)).To(ContainSubstring("defer_date:"))
+			})
+		})
+
+		Context("with invalid date format", func() {
+			BeforeEach(func() {
+				vaultPath, configPath, cleanup = createTempVault(map[string]string{
+					"my-task": `---
+status: todo
+priority: 2
+---
+# My Task
+`,
+				})
+			})
+
+			AfterEach(func() {
+				cleanup()
+			})
+
+			It("exits 1", func() {
+				cmd := exec.Command(
+					binPath,
+					"--config",
+					configPath,
+					"--vault",
+					"test",
+					"defer",
+					"my-task",
+					"invalid-date",
+				)
+				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+				Expect(err).NotTo(HaveOccurred())
+				Eventually(session).Should(gexec.Exit(1))
+			})
+		})
+	})
+
+})

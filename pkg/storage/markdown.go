@@ -15,8 +15,34 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/bborbe/vault-cli/pkg/config"
 	"github.com/bborbe/vault-cli/pkg/domain"
 )
+
+// Config holds the configuration for storage paths.
+type Config struct {
+	TasksDir string
+	GoalsDir string
+	DailyDir string
+}
+
+// NewConfigFromVault creates a Config from a Vault.
+func NewConfigFromVault(vault *config.Vault) *Config {
+	return &Config{
+		TasksDir: vault.GetTasksDir(),
+		GoalsDir: vault.GetGoalsDir(),
+		DailyDir: vault.GetDailyDir(),
+	}
+}
+
+// DefaultConfig returns the default storage configuration.
+func DefaultConfig() *Config {
+	return &Config{
+		TasksDir: "Tasks",
+		GoalsDir: "Goals",
+		DailyDir: "Daily Notes",
+	}
+}
 
 //counterfeiter:generate -o ../../mocks/storage.go --fake-name Storage . Storage
 type Storage interface {
@@ -39,12 +65,19 @@ type Storage interface {
 	WriteDailyNote(ctx context.Context, vaultPath string, date string, content string) error
 }
 
-// NewStorage creates a new markdown storage instance.
-func NewStorage() Storage {
-	return &markdownStorage{}
+// NewStorage creates a new markdown storage instance with custom configuration.
+func NewStorage(storageConfig *Config) Storage {
+	if storageConfig == nil {
+		storageConfig = DefaultConfig()
+	}
+	return &markdownStorage{
+		config: storageConfig,
+	}
 }
 
-type markdownStorage struct{}
+type markdownStorage struct {
+	config *Config
+}
 
 var (
 	frontmatterRegex = regexp.MustCompile(`(?s)^---\n(.*?)\n---\n(.*)$`)
@@ -57,7 +90,7 @@ func (m *markdownStorage) ReadTask(
 	vaultPath string,
 	taskID domain.TaskID,
 ) (*domain.Task, error) {
-	filePath := filepath.Join(vaultPath, "Tasks", taskID.String()+".md")
+	filePath := filepath.Join(vaultPath, m.config.TasksDir, taskID.String()+".md")
 	return m.readTaskFromPath(ctx, filePath, taskID.String())
 }
 
@@ -104,7 +137,7 @@ func (m *markdownStorage) FindTaskByName(
 	vaultPath string,
 	name string,
 ) (*domain.Task, error) {
-	tasksDir := filepath.Join(vaultPath, "Tasks")
+	tasksDir := filepath.Join(vaultPath, m.config.TasksDir)
 	matchedPath, matchedName, err := m.findFileByName(tasksDir, name)
 	if err != nil {
 		return nil, err
@@ -118,7 +151,7 @@ func (m *markdownStorage) ReadGoal(
 	vaultPath string,
 	goalID domain.GoalID,
 ) (*domain.Goal, error) {
-	filePath := filepath.Join(vaultPath, "Goals", goalID.String()+".md")
+	filePath := filepath.Join(vaultPath, m.config.GoalsDir, goalID.String()+".md")
 	return m.readGoalFromPath(ctx, filePath, goalID.String())
 }
 
@@ -168,7 +201,7 @@ func (m *markdownStorage) FindGoalByName(
 	vaultPath string,
 	name string,
 ) (*domain.Goal, error) {
-	goalsDir := filepath.Join(vaultPath, "Goals")
+	goalsDir := filepath.Join(vaultPath, m.config.GoalsDir)
 	matchedPath, matchedName, err := m.findFileByName(goalsDir, name)
 	if err != nil {
 		return nil, err
@@ -229,7 +262,7 @@ func (m *markdownStorage) ReadDailyNote(
 	vaultPath string,
 	date string,
 ) (string, error) {
-	filePath := filepath.Join(vaultPath, "Daily Notes", date+".md")
+	filePath := filepath.Join(vaultPath, m.config.DailyDir, date+".md")
 	content, err := os.ReadFile(filePath) //nolint:gosec // User-controlled vault path
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -247,7 +280,7 @@ func (m *markdownStorage) WriteDailyNote(
 	date string,
 	content string,
 ) error {
-	dailyNotesDir := filepath.Join(vaultPath, "Daily Notes")
+	dailyNotesDir := filepath.Join(vaultPath, m.config.DailyDir)
 	if err := os.MkdirAll(dailyNotesDir, 0750); err != nil {
 		return fmt.Errorf("create daily notes directory: %w", err)
 	}

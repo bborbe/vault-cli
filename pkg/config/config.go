@@ -21,14 +21,42 @@ type Config struct {
 
 // Vault represents a single vault configuration.
 type Vault struct {
-	Path string `yaml:"path"`
-	Name string `yaml:"name"`
+	Path     string `yaml:"path"`
+	Name     string `yaml:"name"`
+	TasksDir string `yaml:"tasks_dir,omitempty"`
+	GoalsDir string `yaml:"goals_dir,omitempty"`
+	DailyDir string `yaml:"daily_dir,omitempty"`
+}
+
+// GetTasksDir returns the tasks directory, defaulting to "Tasks" if not set.
+func (v *Vault) GetTasksDir() string {
+	if v.TasksDir != "" {
+		return v.TasksDir
+	}
+	return "Tasks"
+}
+
+// GetGoalsDir returns the goals directory, defaulting to "Goals" if not set.
+func (v *Vault) GetGoalsDir() string {
+	if v.GoalsDir != "" {
+		return v.GoalsDir
+	}
+	return "Goals"
+}
+
+// GetDailyDir returns the daily notes directory, defaulting to "Daily Notes" if not set.
+func (v *Vault) GetDailyDir() string {
+	if v.DailyDir != "" {
+		return v.DailyDir
+	}
+	return "Daily Notes"
 }
 
 //counterfeiter:generate -o ../../mocks/config-loader.go --fake-name Loader . Loader
 type Loader interface {
 	Load(ctx context.Context) (*Config, error)
 	GetVaultPath(ctx context.Context, vaultName string) (string, error)
+	GetVault(ctx context.Context, vaultName string) (*Vault, error)
 }
 
 // NewLoader creates a new config loader.
@@ -74,11 +102,11 @@ func (c *configLoader) Load(ctx context.Context) (*Config, error) {
 	return &config, nil
 }
 
-// GetVaultPath returns the path for a given vault name or the default vault.
-func (c *configLoader) GetVaultPath(ctx context.Context, vaultName string) (string, error) {
+// GetVault returns the vault configuration for a given vault name or the default vault.
+func (c *configLoader) GetVault(ctx context.Context, vaultName string) (*Vault, error) {
 	config, err := c.Load(ctx)
 	if err != nil {
-		return "", fmt.Errorf("load config: %w", err)
+		return nil, fmt.Errorf("load config: %w", err)
 	}
 
 	// If no vault name specified, use default
@@ -86,23 +114,31 @@ func (c *configLoader) GetVaultPath(ctx context.Context, vaultName string) (stri
 		vaultName = config.DefaultVault
 	}
 
-	// Look up vault path
+	// Look up vault
 	vault, ok := config.Vaults[vaultName]
 	if !ok {
-		return "", fmt.Errorf("vault not found: %s", vaultName)
+		return nil, fmt.Errorf("vault not found: %s", vaultName)
 	}
 
 	// Expand home directory if path starts with ~
-	path := vault.Path
-	if len(path) > 0 && path[0] == '~' {
+	if len(vault.Path) > 0 && vault.Path[0] == '~' {
 		homeDir, err := os.UserHomeDir()
 		if err != nil {
-			return "", fmt.Errorf("get home directory: %w", err)
+			return nil, fmt.Errorf("get home directory: %w", err)
 		}
-		path = filepath.Join(homeDir, path[1:])
+		vault.Path = filepath.Join(homeDir, vault.Path[1:])
 	}
 
-	return path, nil
+	return &vault, nil
+}
+
+// GetVaultPath returns the path for a given vault name or the default vault.
+func (c *configLoader) GetVaultPath(ctx context.Context, vaultName string) (string, error) {
+	vault, err := c.GetVault(ctx, vaultName)
+	if err != nil {
+		return "", err
+	}
+	return vault.Path, nil
 }
 
 // getDefaultConfig returns a default configuration.

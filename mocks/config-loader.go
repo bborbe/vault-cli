@@ -9,6 +9,20 @@ import (
 )
 
 type Loader struct {
+	GetVaultStub        func(context.Context, string) (*config.Vault, error)
+	getVaultMutex       sync.RWMutex
+	getVaultArgsForCall []struct {
+		arg1 context.Context
+		arg2 string
+	}
+	getVaultReturns struct {
+		result1 *config.Vault
+		result2 error
+	}
+	getVaultReturnsOnCall map[int]struct {
+		result1 *config.Vault
+		result2 error
+	}
 	GetVaultPathStub        func(context.Context, string) (string, error)
 	getVaultPathMutex       sync.RWMutex
 	getVaultPathArgsForCall []struct {
@@ -38,6 +52,71 @@ type Loader struct {
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
+}
+
+func (fake *Loader) GetVault(arg1 context.Context, arg2 string) (*config.Vault, error) {
+	fake.getVaultMutex.Lock()
+	ret, specificReturn := fake.getVaultReturnsOnCall[len(fake.getVaultArgsForCall)]
+	fake.getVaultArgsForCall = append(fake.getVaultArgsForCall, struct {
+		arg1 context.Context
+		arg2 string
+	}{arg1, arg2})
+	stub := fake.GetVaultStub
+	fakeReturns := fake.getVaultReturns
+	fake.recordInvocation("GetVault", []interface{}{arg1, arg2})
+	fake.getVaultMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *Loader) GetVaultCallCount() int {
+	fake.getVaultMutex.RLock()
+	defer fake.getVaultMutex.RUnlock()
+	return len(fake.getVaultArgsForCall)
+}
+
+func (fake *Loader) GetVaultCalls(stub func(context.Context, string) (*config.Vault, error)) {
+	fake.getVaultMutex.Lock()
+	defer fake.getVaultMutex.Unlock()
+	fake.GetVaultStub = stub
+}
+
+func (fake *Loader) GetVaultArgsForCall(i int) (context.Context, string) {
+	fake.getVaultMutex.RLock()
+	defer fake.getVaultMutex.RUnlock()
+	argsForCall := fake.getVaultArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2
+}
+
+func (fake *Loader) GetVaultReturns(result1 *config.Vault, result2 error) {
+	fake.getVaultMutex.Lock()
+	defer fake.getVaultMutex.Unlock()
+	fake.GetVaultStub = nil
+	fake.getVaultReturns = struct {
+		result1 *config.Vault
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *Loader) GetVaultReturnsOnCall(i int, result1 *config.Vault, result2 error) {
+	fake.getVaultMutex.Lock()
+	defer fake.getVaultMutex.Unlock()
+	fake.GetVaultStub = nil
+	if fake.getVaultReturnsOnCall == nil {
+		fake.getVaultReturnsOnCall = make(map[int]struct {
+			result1 *config.Vault
+			result2 error
+		})
+	}
+	fake.getVaultReturnsOnCall[i] = struct {
+		result1 *config.Vault
+		result2 error
+	}{result1, result2}
 }
 
 func (fake *Loader) GetVaultPath(arg1 context.Context, arg2 string) (string, error) {

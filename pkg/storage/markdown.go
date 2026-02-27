@@ -99,7 +99,7 @@ func (m *markdownStorage) readTaskFromPath(
 	filePath string,
 	name string,
 ) (*domain.Task, error) {
-	content, err := os.ReadFile(filePath) //nolint:gosec // User-controlled vault path
+	content, err := os.ReadFile(filePath) //#nosec G304 -- user-controlled vault path
 	if err != nil {
 		return nil, fmt.Errorf("read file %s: %w", filePath, err)
 	}
@@ -160,7 +160,7 @@ func (m *markdownStorage) readGoalFromPath(
 	filePath string,
 	name string,
 ) (*domain.Goal, error) {
-	content, err := os.ReadFile(filePath) //nolint:gosec // User-controlled vault path
+	content, err := os.ReadFile(filePath) //#nosec G304 -- user-controlled vault path
 	if err != nil {
 		return nil, fmt.Errorf("read file %s: %w", filePath, err)
 	}
@@ -224,7 +224,7 @@ func (m *markdownStorage) readThemeFromPath(
 	filePath string,
 	name string,
 ) (*domain.Theme, error) {
-	content, err := os.ReadFile(filePath) //nolint:gosec // User-controlled vault path
+	content, err := os.ReadFile(filePath) //#nosec G304 -- user-controlled vault path
 	if err != nil {
 		return nil, fmt.Errorf("read file %s: %w", filePath, err)
 	}
@@ -263,7 +263,7 @@ func (m *markdownStorage) ReadDailyNote(
 	date string,
 ) (string, error) {
 	filePath := filepath.Join(vaultPath, m.config.DailyDir, date+".md")
-	content, err := os.ReadFile(filePath) //nolint:gosec // User-controlled vault path
+	content, err := os.ReadFile(filePath) //#nosec G304 -- user-controlled vault path
 	if err != nil {
 		if os.IsNotExist(err) {
 			return "", nil // Return empty content if file doesn't exist

@@ -88,7 +88,7 @@ func (c *configLoader) Load(ctx context.Context) (*Config, error) {
 	}
 
 	// Read config file
-	data, err := os.ReadFile(configPath) //nolint:gosec // User-controlled config path
+	data, err := os.ReadFile(configPath) //#nosec G304 -- user-controlled config path
 	if err != nil {
 		return nil, fmt.Errorf("read config file %s: %w", configPath, err)
 	}

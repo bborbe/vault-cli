@@ -18,8 +18,7 @@ import (
 
 // Run executes the CLI application.
 func Run(ctx context.Context, args []string) error {
-	configLoader := config.NewLoader("")
-
+	var configLoader config.Loader
 	var vaultName string
 	var configPath string
 
@@ -27,15 +26,19 @@ func Run(ctx context.Context, args []string) error {
 		Use:   "vault-cli",
 		Short: "Obsidian vault task management CLI",
 		Long:  "Fast CRUD operations for Obsidian markdown files (tasks, goals, themes).",
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			configLoader = config.NewLoader(configPath)
+			return nil
+		},
 	}
 
 	rootCmd.PersistentFlags().
 		StringVar(&vaultName, "vault", "", "Vault name (uses default if not specified)")
 	rootCmd.PersistentFlags().StringVar(&configPath, "config", "", "Config file path")
 
-	rootCmd.AddCommand(createCompleteCommand(ctx, configLoader, &vaultName))
-	rootCmd.AddCommand(createDeferCommand(ctx, configLoader, &vaultName))
-	rootCmd.AddCommand(createUpdateCommand(ctx, configLoader, &vaultName))
+	rootCmd.AddCommand(createCompleteCommand(ctx, &configLoader, &vaultName))
+	rootCmd.AddCommand(createDeferCommand(ctx, &configLoader, &vaultName))
+	rootCmd.AddCommand(createUpdateCommand(ctx, &configLoader, &vaultName))
 
 	rootCmd.SetArgs(args)
 	return rootCmd.ExecuteContext(ctx)
@@ -43,7 +46,7 @@ func Run(ctx context.Context, args []string) error {
 
 func createCompleteCommand(
 	ctx context.Context,
-	configLoader config.Loader,
+	configLoader *config.Loader,
 	vaultName *string,
 ) *cobra.Command {
 	return &cobra.Command{
@@ -52,7 +55,7 @@ func createCompleteCommand(
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			taskName := args[0]
-			vault, err := configLoader.GetVault(ctx, *vaultName)
+			vault, err := (*configLoader).GetVault(ctx, *vaultName)
 			if err != nil {
 				return fmt.Errorf("get vault: %w", err)
 			}
@@ -67,7 +70,7 @@ func createCompleteCommand(
 
 func createDeferCommand(
 	ctx context.Context,
-	configLoader config.Loader,
+	configLoader *config.Loader,
 	vaultName *string,
 ) *cobra.Command {
 	return &cobra.Command{
@@ -84,7 +87,7 @@ Date formats:
 			taskName := args[0]
 			dateStr := args[1]
 
-			vault, err := configLoader.GetVault(ctx, *vaultName)
+			vault, err := (*configLoader).GetVault(ctx, *vaultName)
 			if err != nil {
 				return fmt.Errorf("get vault: %w", err)
 			}
@@ -99,7 +102,7 @@ Date formats:
 
 func createUpdateCommand(
 	ctx context.Context,
-	configLoader config.Loader,
+	configLoader *config.Loader,
 	vaultName *string,
 ) *cobra.Command {
 	return &cobra.Command{
@@ -108,7 +111,7 @@ func createUpdateCommand(
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			taskName := args[0]
-			vault, err := configLoader.GetVault(ctx, *vaultName)
+			vault, err := (*configLoader).GetVault(ctx, *vaultName)
 			if err != nil {
 				return fmt.Errorf("get vault: %w", err)
 			}

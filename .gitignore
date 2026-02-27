@@ -13,3 +13,5 @@ gha-creds-*.json
 /.mcp-*
 /vault-cli
 .logs/
+.yolo-lock
+coverage.out

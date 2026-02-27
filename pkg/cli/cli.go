@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/bborbe/vault-cli/pkg/config"
+	"github.com/bborbe/vault-cli/pkg/domain"
 	"github.com/bborbe/vault-cli/pkg/ops"
 	"github.com/bborbe/vault-cli/pkg/storage"
 )
@@ -39,6 +40,7 @@ func Run(ctx context.Context, args []string) error {
 	rootCmd.AddCommand(createCompleteCommand(ctx, &configLoader, &vaultName))
 	rootCmd.AddCommand(createDeferCommand(ctx, &configLoader, &vaultName))
 	rootCmd.AddCommand(createUpdateCommand(ctx, &configLoader, &vaultName))
+	rootCmd.AddCommand(createListCommand(ctx, &configLoader, &vaultName))
 
 	rootCmd.SetArgs(args)
 	return rootCmd.ExecuteContext(ctx)
@@ -122,6 +124,50 @@ func createUpdateCommand(
 			return updateOp.Execute(ctx, vault.Path, taskName)
 		},
 	}
+}
+
+func createListCommand(
+	ctx context.Context,
+	configLoader *config.Loader,
+	vaultName *string,
+) *cobra.Command {
+	var statusFlag []string
+	var showAll bool
+
+	cmd := &cobra.Command{
+		Use:   "list",
+		Short: "List tasks from the vault",
+		Long: `List tasks from the vault, optionally filtered by status.
+
+By default, shows only tasks with status "todo" or "in_progress".
+Use --status to filter by specific statuses, or --all to show all tasks.`,
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			vault, err := (*configLoader).GetVault(ctx, *vaultName)
+			if err != nil {
+				return fmt.Errorf("get vault: %w", err)
+			}
+
+			storageConfig := storage.NewConfigFromVault(vault)
+			store := storage.NewStorage(storageConfig)
+			listOp := ops.NewListOperation(store)
+
+			// Parse status filter
+			var statusFilter []domain.TaskStatus
+			for _, s := range statusFlag {
+				statusFilter = append(statusFilter, domain.TaskStatus(s))
+			}
+
+			return listOp.Execute(ctx, vault.Path, statusFilter, showAll)
+		},
+	}
+
+	cmd.Flags().StringSliceVar(&statusFlag, "status", nil,
+		"Filter by status (can be repeated): todo, in_progress, done, deferred")
+	cmd.Flags().BoolVar(&showAll, "all", false,
+		"Show all tasks regardless of status")
+
+	return cmd
 }
 
 // Execute is the main entry point for the CLI.

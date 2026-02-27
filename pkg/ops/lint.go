@@ -1,0 +1,369 @@
+// Copyright (c) 2025 Benjamin Borbe All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
+package ops
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"path/filepath"
+	"regexp"
+	"strings"
+
+	"gopkg.in/yaml.v3"
+)
+
+//counterfeiter:generate -o ../../mocks/lint-operation.go --fake-name LintOperation . LintOperation
+type LintOperation interface {
+	Execute(ctx context.Context, vaultPath string, tasksDir string, fix bool) error
+}
+
+// NewLintOperation creates a new lint operation.
+func NewLintOperation() LintOperation {
+	return &lintOperation{}
+}
+
+type lintOperation struct{}
+
+// IssueType represents the type of lint issue found.
+type IssueType string
+
+const (
+	IssueTypeMissingFrontmatter IssueType = "MISSING_FRONTMATTER"
+	IssueTypeInvalidPriority    IssueType = "INVALID_PRIORITY"
+	IssueTypeDuplicateKey       IssueType = "DUPLICATE_KEY"
+	IssueTypeInvalidStatus      IssueType = "INVALID_STATUS"
+)
+
+// LintIssue represents a single lint issue found in a file.
+type LintIssue struct {
+	FilePath    string
+	IssueType   IssueType
+	Description string
+	Fixable     bool
+	Fixed       bool
+}
+
+// Execute scans all task files for lint issues and optionally fixes them.
+func (l *lintOperation) Execute(
+	ctx context.Context,
+	vaultPath string,
+	tasksDir string,
+	fix bool,
+) error {
+	tasksDirPath := filepath.Join(vaultPath, tasksDir)
+
+	// Walk through all .md files in the tasks directory
+	var issues []LintIssue
+	err := filepath.Walk(tasksDirPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() || !strings.HasSuffix(path, ".md") {
+			return nil
+		}
+
+		fileIssues, err := l.lintFile(path, fix)
+		if err != nil {
+			return fmt.Errorf("lint file %s: %w", path, err)
+		}
+		issues = append(issues, fileIssues...)
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("walk tasks directory: %w", err)
+	}
+
+	// Report all issues
+	for _, issue := range issues {
+		relPath, _ := filepath.Rel(vaultPath, issue.FilePath)
+		if issue.Fixed {
+			fmt.Printf("FIXED %s: %s %s\n", relPath, issue.IssueType, issue.Description)
+		} else if issue.Fixable && !fix {
+			fmt.Printf("WARN  %s: %s %s\n", relPath, issue.IssueType, issue.Description)
+		} else {
+			fmt.Printf("ERROR %s: %s %s\n", relPath, issue.IssueType, issue.Description)
+		}
+	}
+
+	// Determine exit code
+	unfixedIssues := 0
+	for _, issue := range issues {
+		if !issue.Fixed {
+			unfixedIssues++
+		}
+	}
+
+	if unfixedIssues > 0 {
+		return fmt.Errorf("found %d lint issue(s)", unfixedIssues)
+	}
+
+	if len(issues) == 0 {
+		fmt.Println("No lint issues found")
+	}
+
+	return nil
+}
+
+// lintFile checks a single file for lint issues and optionally fixes them.
+func (l *lintOperation) lintFile(filePath string, fix bool) ([]LintIssue, error) {
+	content, err := os.ReadFile(filePath) //#nosec G304 -- user-controlled vault path
+	if err != nil {
+		return nil, fmt.Errorf("read file: %w", err)
+	}
+
+	issues := make([]LintIssue, 0, 4)
+
+	// Check for frontmatter existence
+	frontmatterRegex := regexp.MustCompile(`(?s)^---\n(.*?)\n---\n`)
+	matches := frontmatterRegex.FindSubmatch(content)
+	if len(matches) < 2 {
+		issues = append(issues, LintIssue{
+			FilePath:    filePath,
+			IssueType:   IssueTypeMissingFrontmatter,
+			Description: "no frontmatter block found",
+			Fixable:     false,
+			Fixed:       false,
+		})
+		return issues, nil // Can't check further without frontmatter
+	}
+
+	frontmatterYAML := string(matches[1])
+
+	// Check for duplicate keys by parsing lines manually
+	duplicateIssues := l.detectDuplicateKeys(frontmatterYAML)
+	for _, key := range duplicateIssues {
+		issues = append(issues, LintIssue{
+			FilePath:    filePath,
+			IssueType:   IssueTypeDuplicateKey,
+			Description: fmt.Sprintf("key %q defined multiple times", key),
+			Fixable:     true,
+			Fixed:       false,
+		})
+	}
+
+	// Check for invalid priority (string instead of int)
+	priorityIssue, invalidPriorityValue := l.detectInvalidPriority(frontmatterYAML)
+	if priorityIssue {
+		issues = append(issues, LintIssue{
+			FilePath:    filePath,
+			IssueType:   IssueTypeInvalidPriority,
+			Description: fmt.Sprintf("priority is %q, expected int", invalidPriorityValue),
+			Fixable:     true,
+			Fixed:       false,
+		})
+	}
+
+	// Check for invalid status
+	statusIssue, invalidStatusValue := l.detectInvalidStatus(frontmatterYAML)
+	if statusIssue {
+		issues = append(issues, LintIssue{
+			FilePath:  filePath,
+			IssueType: IssueTypeInvalidStatus,
+			Description: fmt.Sprintf(
+				"status is %q, expected one of: todo, in_progress, backlog, completed, hold, aborted",
+				invalidStatusValue,
+			),
+			Fixable: false,
+			Fixed:   false,
+		})
+	}
+
+	// Fix issues if requested
+	if fix && len(issues) > 0 {
+		issues, err = l.fixIssues(filePath, string(content), issues)
+		if err != nil {
+			return nil, fmt.Errorf("fix issues: %w", err)
+		}
+	}
+
+	return issues, nil
+}
+
+// detectDuplicateKeys detects duplicate YAML keys in frontmatter.
+func (l *lintOperation) detectDuplicateKeys(frontmatterYAML string) []string {
+	lines := strings.Split(frontmatterYAML, "\n")
+	keysSeen := make(map[string]int)
+	var duplicates []string
+
+	keyRegex := regexp.MustCompile(`^([a-z_]+):\s*`)
+	for _, line := range lines {
+		matches := keyRegex.FindStringSubmatch(line)
+		if len(matches) >= 2 {
+			key := matches[1]
+			keysSeen[key]++
+			if keysSeen[key] == 2 {
+				duplicates = append(duplicates, key)
+			}
+		}
+	}
+
+	return duplicates
+}
+
+// detectInvalidPriority detects if priority field is a string instead of int.
+func (l *lintOperation) detectInvalidPriority(frontmatterYAML string) (bool, string) {
+	priorityRegex := regexp.MustCompile(`(?m)^priority:\s*['"]?([a-z]+)['"]?\s*$`)
+	matches := priorityRegex.FindStringSubmatch(frontmatterYAML)
+	if len(matches) >= 2 {
+		priorityValue := matches[1]
+		// Check if it's a known string value
+		validStringPriorities := []string{"high", "must", "should", "medium", "low"}
+		for _, valid := range validStringPriorities {
+			if priorityValue == valid {
+				return true, priorityValue
+			}
+		}
+	}
+	return false, ""
+}
+
+// detectInvalidStatus detects if status field has an invalid value.
+func (l *lintOperation) detectInvalidStatus(frontmatterYAML string) (bool, string) {
+	statusRegex := regexp.MustCompile(`(?m)^status:\s*['"]?([a-z_]+)['"]?\s*$`)
+	matches := statusRegex.FindStringSubmatch(frontmatterYAML)
+	if len(matches) >= 2 {
+		statusValue := matches[1]
+		validStatuses := []string{
+			"todo",
+			"in_progress",
+			"backlog",
+			"completed",
+			"hold",
+			"aborted",
+		}
+		for _, valid := range validStatuses {
+			if statusValue == valid {
+				return false, ""
+			}
+		}
+		return true, statusValue
+	}
+	return false, ""
+}
+
+// fixIssues fixes fixable issues in the file.
+func (l *lintOperation) fixIssues(
+	filePath string,
+	content string,
+	issues []LintIssue,
+) ([]LintIssue, error) {
+	modified := false
+	updatedContent := content
+
+	for i := range issues {
+		if !issues[i].Fixable {
+			continue
+		}
+
+		switch issues[i].IssueType {
+		case IssueTypeInvalidPriority:
+			// Fix invalid priority by converting string to int
+			newContent, fixed := l.fixInvalidPriority(updatedContent)
+			if fixed {
+				updatedContent = newContent
+				issues[i].Fixed = true
+				modified = true
+			}
+
+		case IssueTypeDuplicateKey:
+			// Fix duplicate keys by removing duplicates (keep first occurrence)
+			newContent, fixed := l.fixDuplicateKeys(updatedContent)
+			if fixed {
+				updatedContent = newContent
+				issues[i].Fixed = true
+				modified = true
+			}
+		}
+	}
+
+	// Write fixed content back to file
+	if modified {
+		if err := os.WriteFile(filePath, []byte(updatedContent), 0600); err != nil { //#nosec G304,G703 -- user-controlled vault path
+			return issues, fmt.Errorf("write file: %w", err)
+		}
+	}
+
+	return issues, nil
+}
+
+// fixInvalidPriority converts string priority values to integers.
+func (l *lintOperation) fixInvalidPriority(content string) (string, bool) {
+	priorityMap := map[string]int{
+		"high":   1,
+		"must":   1,
+		"medium": 2,
+		"should": 2,
+		"low":    3,
+	}
+
+	// Match priority field with string value
+	priorityRegex := regexp.MustCompile(`(?m)^priority:\s*['"]?([a-z]+)['"]?\s*$`)
+	matches := priorityRegex.FindStringSubmatch(content)
+	if len(matches) >= 2 {
+		oldValue := matches[1]
+		if newValue, ok := priorityMap[oldValue]; ok {
+			newContent := priorityRegex.ReplaceAllString(
+				content,
+				fmt.Sprintf("priority: %d", newValue),
+			)
+			return newContent, true
+		}
+	}
+
+	return content, false
+}
+
+// fixDuplicateKeys removes duplicate YAML keys, keeping the first occurrence.
+func (l *lintOperation) fixDuplicateKeys(content string) (string, bool) {
+	// Extract frontmatter
+	frontmatterRegex := regexp.MustCompile(`(?s)^(---\n)(.*?)(\n---\n)(.*)$`)
+	matches := frontmatterRegex.FindStringSubmatch(content)
+	if len(matches) < 5 {
+		return content, false
+	}
+
+	frontmatterStart := matches[1]
+	frontmatterYAML := matches[2]
+	frontmatterEnd := matches[3]
+	body := matches[4]
+
+	// Parse frontmatter line by line, keeping only first occurrence of each key
+	lines := strings.Split(frontmatterYAML, "\n")
+	keysSeen := make(map[string]bool)
+	newLines := make([]string, 0, len(lines))
+	modified := false
+
+	keyRegex := regexp.MustCompile(`^([a-z_]+):\s*`)
+	for _, line := range lines {
+		matches := keyRegex.FindStringSubmatch(line)
+		if len(matches) >= 2 {
+			key := matches[1]
+			if keysSeen[key] {
+				// Skip duplicate key
+				modified = true
+				continue
+			}
+			keysSeen[key] = true
+		}
+		newLines = append(newLines, line)
+	}
+
+	if !modified {
+		return content, false
+	}
+
+	// Reconstruct content
+	newFrontmatter := strings.Join(newLines, "\n")
+	newContent := frontmatterStart + newFrontmatter + frontmatterEnd + body
+
+	// Validate that the new YAML is still valid
+	var testMap map[string]interface{}
+	if err := yaml.Unmarshal([]byte(newFrontmatter), &testMap); err != nil {
+		return content, false // Don't apply fix if it creates invalid YAML
+	}
+
+	return newContent, true
+}

@@ -41,6 +41,7 @@ func Run(ctx context.Context, args []string) error {
 	rootCmd.AddCommand(createDeferCommand(ctx, &configLoader, &vaultName))
 	rootCmd.AddCommand(createUpdateCommand(ctx, &configLoader, &vaultName))
 	rootCmd.AddCommand(createListCommand(ctx, &configLoader, &vaultName))
+	rootCmd.AddCommand(createLintCommand(ctx, &configLoader, &vaultName))
 
 	rootCmd.SetArgs(args)
 	return rootCmd.ExecuteContext(ctx)
@@ -166,6 +167,43 @@ Use --status to filter by specific statuses, or --all to show all tasks.`,
 		"Filter by status (can be repeated): todo, in_progress, done, deferred")
 	cmd.Flags().BoolVar(&showAll, "all", false,
 		"Show all tasks regardless of status")
+
+	return cmd
+}
+
+func createLintCommand(
+	ctx context.Context,
+	configLoader *config.Loader,
+	vaultName *string,
+) *cobra.Command {
+	var fix bool
+
+	cmd := &cobra.Command{
+		Use:   "lint",
+		Short: "Detect and optionally fix frontmatter issues in task files",
+		Long: `Detect and optionally fix common frontmatter issues in task files.
+
+Issues detected:
+  - MISSING_FRONTMATTER: file has no frontmatter block
+  - INVALID_PRIORITY: priority field is string instead of int
+  - DUPLICATE_KEY: duplicate YAML key in frontmatter
+  - INVALID_STATUS: status value not in allowed set
+
+Use --fix to automatically fix INVALID_PRIORITY and DUPLICATE_KEY issues.`,
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			vault, err := (*configLoader).GetVault(ctx, *vaultName)
+			if err != nil {
+				return fmt.Errorf("get vault: %w", err)
+			}
+
+			storageConfig := storage.NewConfigFromVault(vault)
+			lintOp := ops.NewLintOperation()
+			return lintOp.Execute(ctx, vault.Path, storageConfig.TasksDir, fix)
+		},
+	}
+
+	cmd.Flags().BoolVar(&fix, "fix", false, "Automatically fix fixable issues")
 
 	return cmd
 }

@@ -28,7 +28,7 @@ var _ = Describe("Storage", func() {
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		store = storage.NewStorage()
+		store = storage.NewStorage(nil) // Use default config
 
 		// Create temp vault directory
 		var err error

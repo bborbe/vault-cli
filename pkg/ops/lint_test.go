@@ -302,6 +302,41 @@ This task has the old 'current' status.
 			})
 		})
 
+		Context("status: done", func() {
+			BeforeEach(func() {
+				doneStatusContent := `---
+status: done
+page_type: task
+priority: 1
+assignee: bborbe
+---
+# Task With Done Status
+
+This task has the old 'done' status.
+`
+				taskPath := filepath.Join(vaultPath, tasksDir, "Done Status.md")
+				Expect(os.WriteFile(taskPath, []byte(doneStatusContent), 0600)).To(Succeed())
+			})
+
+			It("detects 'done' as invalid status", func() {
+				err := lintOp.Execute(ctx, vaultPath, tasksDir, false)
+				Expect(err).NotTo(BeNil())
+				Expect(err.Error()).To(ContainSubstring("found 1 lint issue"))
+			})
+
+			It("fixes 'done' to 'completed'", func() {
+				err := lintOp.Execute(ctx, vaultPath, tasksDir, true)
+				Expect(err).To(BeNil())
+
+				// Verify file was fixed
+				taskPath := filepath.Join(vaultPath, tasksDir, "Done Status.md")
+				content, err := os.ReadFile(taskPath) //#nosec G304 -- test file
+				Expect(err).To(BeNil())
+				Expect(string(content)).To(ContainSubstring("status: completed"))
+				Expect(string(content)).NotTo(ContainSubstring("status: done"))
+			})
+		})
+
 		Context("unknown invalid status (foo)", func() {
 			BeforeEach(func() {
 				fooStatusContent := `---

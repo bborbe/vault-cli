@@ -245,6 +245,7 @@ func (l *lintOperation) detectInvalidStatus(frontmatterYAML string) (bool, strin
 		statusMigrationMap := map[string]string{
 			"next":    "todo",
 			"current": "in_progress",
+			"done":    "completed",
 		}
 		_, isFixable := statusMigrationMap[statusValue]
 		return true, statusValue, isFixable
@@ -338,10 +339,11 @@ func (l *lintOperation) fixInvalidStatus(content string) (string, bool) {
 	statusMigrationMap := map[string]string{
 		"next":    "todo",
 		"current": "in_progress",
+		"done":    "completed",
 	}
 
-	// Match status field with invalid value (next or current)
-	statusRegex := regexp.MustCompile(`(?m)^status:\s*['"]?(next|current)['"]?\s*$`)
+	// Match status field with invalid value (next, current, or done)
+	statusRegex := regexp.MustCompile(`(?m)^status:\s*['"]?(next|current|done)['"]?\s*$`)
 	matches := statusRegex.FindStringSubmatch(content)
 	if len(matches) >= 2 {
 		oldValue := matches[1]

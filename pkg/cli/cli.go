@@ -200,21 +200,29 @@ func createLintCommand(
 	configLoader *config.Loader,
 	vaultName *string,
 ) *cobra.Command {
+	return createGenericLintCommand(
+		ctx,
+		configLoader,
+		vaultName,
+		"task",
+		func(c *storage.Config) string { return c.TasksDir },
+	)
+}
+
+// createGenericLintCommand creates a lint command for any page type.
+func createGenericLintCommand(
+	ctx context.Context,
+	configLoader *config.Loader,
+	vaultName *string,
+	pageType string,
+	getDirFunc func(*storage.Config) string,
+) *cobra.Command {
 	var fix bool
 
 	cmd := &cobra.Command{
 		Use:   "lint",
-		Short: "Detect and optionally fix frontmatter issues in task files",
-		Long: `Detect and optionally fix common frontmatter issues in task files.
-
-Issues detected:
-  - MISSING_FRONTMATTER: file has no frontmatter block
-  - INVALID_PRIORITY: priority field is string instead of int
-  - DUPLICATE_KEY: duplicate YAML key in frontmatter
-  - INVALID_STATUS: status value not in allowed set
-
-Use --fix to automatically fix INVALID_PRIORITY and DUPLICATE_KEY issues.`,
-		Args: cobra.NoArgs,
+		Short: fmt.Sprintf("Detect and optionally fix frontmatter issues in %s files", pageType),
+		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			vault, err := (*configLoader).GetVault(ctx, *vaultName)
 			if err != nil {
@@ -223,7 +231,7 @@ Use --fix to automatically fix INVALID_PRIORITY and DUPLICATE_KEY issues.`,
 
 			storageConfig := storage.NewConfigFromVault(vault)
 			lintOp := ops.NewLintOperation()
-			return lintOp.Execute(ctx, vault.Path, storageConfig.TasksDir, fix)
+			return lintOp.Execute(ctx, vault.Path, getDirFunc(storageConfig), fix)
 		},
 	}
 
@@ -302,6 +310,15 @@ func createGoalCommands(
 		),
 	)
 	cmd.AddCommand(
+		createGenericLintCommand(
+			ctx,
+			configLoader,
+			vaultName,
+			"goal",
+			func(c *storage.Config) string { return c.GoalsDir },
+		),
+	)
+	cmd.AddCommand(
 		createGenericSearchCommand(
 			ctx,
 			configLoader,
@@ -328,6 +345,15 @@ func createThemeCommands(
 			configLoader,
 			vaultName,
 			"themes",
+			func(c *storage.Config) string { return c.ThemesDir },
+		),
+	)
+	cmd.AddCommand(
+		createGenericLintCommand(
+			ctx,
+			configLoader,
+			vaultName,
+			"theme",
 			func(c *storage.Config) string { return c.ThemesDir },
 		),
 	)
@@ -362,6 +388,15 @@ func createObjectiveCommands(
 		),
 	)
 	cmd.AddCommand(
+		createGenericLintCommand(
+			ctx,
+			configLoader,
+			vaultName,
+			"objective",
+			func(c *storage.Config) string { return c.ObjectivesDir },
+		),
+	)
+	cmd.AddCommand(
 		createGenericSearchCommand(
 			ctx,
 			configLoader,
@@ -388,6 +423,15 @@ func createVisionCommands(
 			configLoader,
 			vaultName,
 			"vision items",
+			func(c *storage.Config) string { return c.VisionDir },
+		),
+	)
+	cmd.AddCommand(
+		createGenericLintCommand(
+			ctx,
+			configLoader,
+			vaultName,
+			"vision",
 			func(c *storage.Config) string { return c.VisionDir },
 		),
 	)

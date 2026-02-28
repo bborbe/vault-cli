@@ -75,16 +75,27 @@ This task has no frontmatter.
 			Expect(os.WriteFile(taskPath, []byte(noFrontmatterContent), 0600)).To(Succeed())
 		})
 
-		It("detects missing frontmatter", func() {
+		It("detects missing frontmatter as fixable", func() {
 			err := lintOp.Execute(ctx, vaultPath, tasksDir, false)
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(ContainSubstring("found 1 lint issue"))
 		})
 
-		It("cannot fix missing frontmatter", func() {
+		It("fixes missing frontmatter by prepending status: backlog", func() {
 			err := lintOp.Execute(ctx, vaultPath, tasksDir, true)
-			Expect(err).NotTo(BeNil())
-			Expect(err.Error()).To(ContainSubstring("found 1 lint issue"))
+			Expect(err).To(BeNil())
+
+			// Verify file was fixed
+			taskPath := filepath.Join(vaultPath, tasksDir, "No Frontmatter.md")
+			content, err := os.ReadFile(taskPath) //#nosec G304 -- test file
+			Expect(err).To(BeNil())
+
+			// Should start with minimal frontmatter
+			Expect(string(content)).To(HavePrefix("---\nstatus: backlog\n---\n"))
+
+			// Original content should be preserved after frontmatter
+			Expect(string(content)).To(ContainSubstring("# Task Without Frontmatter"))
+			Expect(string(content)).To(ContainSubstring("This task has no frontmatter."))
 		})
 	})
 

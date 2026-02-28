@@ -25,6 +25,13 @@ type LintOperation interface {
 		fix bool,
 		outputFormat string,
 	) error
+	ExecuteFile(
+		ctx context.Context,
+		filePath string,
+		taskName string,
+		vaultName string,
+		outputFormat string,
+	) error
 }
 
 // NewLintOperation creates a new lint operation.
@@ -93,6 +100,95 @@ func (l *lintOperation) Execute(
 	}
 
 	return l.outputIssues(vaultPath, issues, fix, outputFormat)
+}
+
+// ExecuteFile lints a single file and returns error if issues found.
+func (l *lintOperation) ExecuteFile(
+	ctx context.Context,
+	filePath string,
+	taskName string,
+	vaultName string,
+	outputFormat string,
+) error {
+	// Lint the single file (read-only, no fix)
+	issues, err := l.lintFile(filePath, false)
+	if err != nil {
+		return fmt.Errorf("lint file %s: %w", filePath, err)
+	}
+
+	// Output results
+	if outputFormat == "json" {
+		return l.outputValidateJSON(taskName, vaultName, issues)
+	}
+	return l.outputValidatePlain(taskName, issues)
+}
+
+// outputValidateJSON outputs validation results in JSON format.
+func (l *lintOperation) outputValidateJSON(
+	taskName string,
+	vaultName string,
+	issues []LintIssue,
+) error {
+	type ValidateIssue struct {
+		Type        string `json:"type"`
+		IssueType   string `json:"issue_type"`
+		Description string `json:"description"`
+	}
+
+	result := map[string]interface{}{
+		"name":  taskName,
+		"vault": vaultName,
+	}
+
+	jsonIssues := make([]ValidateIssue, len(issues))
+	for i, issue := range issues {
+		issueTypeStr := "WARN"
+		if !issue.Fixable {
+			issueTypeStr = "ERROR"
+		}
+		jsonIssues[i] = ValidateIssue{
+			Type:        issueTypeStr,
+			IssueType:   string(issue.IssueType),
+			Description: issue.Description,
+		}
+	}
+	result["issues"] = jsonIssues
+
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(result); err != nil {
+		return fmt.Errorf("encode json: %w", err)
+	}
+
+	if len(issues) > 0 {
+		os.Exit(1)
+	}
+	return nil
+}
+
+// outputValidatePlain outputs validation results in plain text format.
+func (l *lintOperation) outputValidatePlain(taskName string, issues []LintIssue) error {
+	if len(issues) == 0 {
+		fmt.Printf("✅ %s: no lint issues found\n", taskName)
+		return nil
+	}
+
+	for _, issue := range issues {
+		issueTypeStr := "WARN"
+		if !issue.Fixable {
+			issueTypeStr = "ERROR"
+		}
+		fmt.Printf(
+			"%-5s %s: %s %s\n",
+			issueTypeStr,
+			taskName+".md",
+			string(issue.IssueType),
+			issue.Description,
+		)
+	}
+
+	os.Exit(1)
+	return nil
 }
 
 // outputIssues prints lint issues in the requested format and returns an error if any unfixed issues exist.

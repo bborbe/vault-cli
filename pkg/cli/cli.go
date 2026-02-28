@@ -68,6 +68,7 @@ func Run(ctx context.Context, args []string) error {
 
 	taskCmd.AddCommand(createTaskListCommand(ctx, &configLoader, &vaultName, &outputFormat))
 	taskCmd.AddCommand(createLintCommand(ctx, &configLoader, &vaultName, &outputFormat))
+	taskCmd.AddCommand(createValidateCommand(ctx, &configLoader, &vaultName, &outputFormat))
 	taskCmd.AddCommand(createCompleteCommand(ctx, &configLoader, &vaultName, &outputFormat))
 	taskCmd.AddCommand(createDeferCommand(ctx, &configLoader, &vaultName, &outputFormat))
 	taskCmd.AddCommand(createUpdateCommand(ctx, &configLoader, &vaultName, &outputFormat))
@@ -371,6 +372,59 @@ func createLintCommand(
 		func(c *storage.Config) string { return c.TasksDir },
 		outputFormat,
 	)
+}
+
+func createValidateCommand(
+	ctx context.Context,
+	configLoader *config.Loader,
+	vaultName *string,
+	outputFormat *string,
+) *cobra.Command {
+	return &cobra.Command{
+		Use:   "validate <task-name>",
+		Short: "Validate a single task by name",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			taskName := args[0]
+			vaults, err := getVaults(ctx, configLoader, vaultName)
+			if err != nil {
+				return fmt.Errorf("get vaults: %w", err)
+			}
+
+			// Track if task was found in any vault
+			var foundInVault *config.Vault
+			var taskFilePath string
+
+			// Search for the task across vaults
+			for _, vault := range vaults {
+				storageConfig := storage.NewConfigFromVault(vault)
+				store := storage.NewStorage(storageConfig)
+
+				task, err := store.FindTaskByName(ctx, vault.Path, taskName)
+				if err == nil {
+					foundInVault = vault
+					taskFilePath = task.FilePath
+					break
+				}
+			}
+
+			// Task not found in any vault
+			if foundInVault == nil {
+				if *outputFormat == OutputFormatJSON {
+					result := map[string]any{
+						"success": false,
+						"error":   "task not found",
+					}
+					return PrintJSON(result)
+				}
+				return fmt.Errorf("task not found: %s", taskName)
+			}
+
+			// Validate the task file
+			lintOp := ops.NewLintOperation()
+			return lintOp.ExecuteFile(ctx, taskFilePath, taskName, foundInVault.Name, *outputFormat)
+		},
+	}
 }
 
 // createGenericLintCommand creates a lint command for any page type.

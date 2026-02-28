@@ -24,6 +24,21 @@ type LintOperation struct {
 	executeReturnsOnCall map[int]struct {
 		result1 error
 	}
+	ExecuteFileStub        func(context.Context, string, string, string, string) error
+	executeFileMutex       sync.RWMutex
+	executeFileArgsForCall []struct {
+		arg1 context.Context
+		arg2 string
+		arg3 string
+		arg4 string
+		arg5 string
+	}
+	executeFileReturns struct {
+		result1 error
+	}
+	executeFileReturnsOnCall map[int]struct {
+		result1 error
+	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -89,6 +104,71 @@ func (fake *LintOperation) ExecuteReturnsOnCall(i int, result1 error) {
 		})
 	}
 	fake.executeReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *LintOperation) ExecuteFile(arg1 context.Context, arg2 string, arg3 string, arg4 string, arg5 string) error {
+	fake.executeFileMutex.Lock()
+	ret, specificReturn := fake.executeFileReturnsOnCall[len(fake.executeFileArgsForCall)]
+	fake.executeFileArgsForCall = append(fake.executeFileArgsForCall, struct {
+		arg1 context.Context
+		arg2 string
+		arg3 string
+		arg4 string
+		arg5 string
+	}{arg1, arg2, arg3, arg4, arg5})
+	stub := fake.ExecuteFileStub
+	fakeReturns := fake.executeFileReturns
+	fake.recordInvocation("ExecuteFile", []interface{}{arg1, arg2, arg3, arg4, arg5})
+	fake.executeFileMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3, arg4, arg5)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *LintOperation) ExecuteFileCallCount() int {
+	fake.executeFileMutex.RLock()
+	defer fake.executeFileMutex.RUnlock()
+	return len(fake.executeFileArgsForCall)
+}
+
+func (fake *LintOperation) ExecuteFileCalls(stub func(context.Context, string, string, string, string) error) {
+	fake.executeFileMutex.Lock()
+	defer fake.executeFileMutex.Unlock()
+	fake.ExecuteFileStub = stub
+}
+
+func (fake *LintOperation) ExecuteFileArgsForCall(i int) (context.Context, string, string, string, string) {
+	fake.executeFileMutex.RLock()
+	defer fake.executeFileMutex.RUnlock()
+	argsForCall := fake.executeFileArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4, argsForCall.arg5
+}
+
+func (fake *LintOperation) ExecuteFileReturns(result1 error) {
+	fake.executeFileMutex.Lock()
+	defer fake.executeFileMutex.Unlock()
+	fake.ExecuteFileStub = nil
+	fake.executeFileReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *LintOperation) ExecuteFileReturnsOnCall(i int, result1 error) {
+	fake.executeFileMutex.Lock()
+	defer fake.executeFileMutex.Unlock()
+	fake.ExecuteFileStub = nil
+	if fake.executeFileReturnsOnCall == nil {
+		fake.executeFileReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.executeFileReturnsOnCall[i] = struct {
 		result1 error
 	}{result1}
 }

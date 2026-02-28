@@ -6,6 +6,7 @@ package ops
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -16,7 +17,14 @@ import (
 
 //counterfeiter:generate -o ../../mocks/search-operation.go --fake-name SearchOperation . SearchOperation
 type SearchOperation interface {
-	Execute(ctx context.Context, vaultPath string, scopeDir string, query string, topK int) error
+	Execute(
+		ctx context.Context,
+		vaultPath string,
+		scopeDir string,
+		query string,
+		topK int,
+		outputFormat string,
+	) error
 }
 
 // NewSearchOperation creates a new search operation.
@@ -33,6 +41,7 @@ func (s *searchOperation) Execute(
 	scopeDir string,
 	query string,
 	topK int,
+	outputFormat string,
 ) error {
 	// Determine the content path
 	contentPath := vaultPath
@@ -60,11 +69,27 @@ func (s *searchOperation) Execute(
 		return fmt.Errorf("semantic-search-mcp failed: %w\nOutput: %s", err, string(output))
 	}
 
-	// Print results
+	// Process results based on output format
 	result := strings.TrimSpace(string(output))
-	if result != "" {
-		fmt.Println(result)
+	if result == "" {
+		if outputFormat == "json" {
+			// Empty result array
+			enc := json.NewEncoder(os.Stdout)
+			enc.SetIndent("", "  ")
+			return enc.Encode([]string{})
+		}
+		return nil
 	}
 
+	if outputFormat == "json" {
+		// Convert line-separated results to JSON array
+		lines := strings.Split(result, "\n")
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		return enc.Encode(lines)
+	}
+
+	// Plain output
+	fmt.Println(result)
 	return nil
 }

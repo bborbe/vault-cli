@@ -60,7 +60,16 @@ var _ = Describe("ListOperation", func() {
 	})
 
 	JustBeforeEach(func() {
-		err = listOp.Execute(ctx, vaultPath, pagesDir, statusFilter, showAll, assigneeFilter)
+		err = listOp.Execute(
+			ctx,
+			vaultPath,
+			"test-vault",
+			pagesDir,
+			statusFilter,
+			showAll,
+			assigneeFilter,
+			"plain",
+		)
 	})
 
 	Context("success", func() {

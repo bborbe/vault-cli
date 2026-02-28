@@ -9,7 +9,7 @@ import (
 )
 
 type SearchOperation struct {
-	ExecuteStub        func(context.Context, string, string, string, int) error
+	ExecuteStub        func(context.Context, string, string, string, int, string) error
 	executeMutex       sync.RWMutex
 	executeArgsForCall []struct {
 		arg1 context.Context
@@ -17,6 +17,7 @@ type SearchOperation struct {
 		arg3 string
 		arg4 string
 		arg5 int
+		arg6 string
 	}
 	executeReturns struct {
 		result1 error
@@ -28,7 +29,7 @@ type SearchOperation struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *SearchOperation) Execute(arg1 context.Context, arg2 string, arg3 string, arg4 string, arg5 int) error {
+func (fake *SearchOperation) Execute(arg1 context.Context, arg2 string, arg3 string, arg4 string, arg5 int, arg6 string) error {
 	fake.executeMutex.Lock()
 	ret, specificReturn := fake.executeReturnsOnCall[len(fake.executeArgsForCall)]
 	fake.executeArgsForCall = append(fake.executeArgsForCall, struct {
@@ -37,13 +38,14 @@ func (fake *SearchOperation) Execute(arg1 context.Context, arg2 string, arg3 str
 		arg3 string
 		arg4 string
 		arg5 int
-	}{arg1, arg2, arg3, arg4, arg5})
+		arg6 string
+	}{arg1, arg2, arg3, arg4, arg5, arg6})
 	stub := fake.ExecuteStub
 	fakeReturns := fake.executeReturns
-	fake.recordInvocation("Execute", []interface{}{arg1, arg2, arg3, arg4, arg5})
+	fake.recordInvocation("Execute", []interface{}{arg1, arg2, arg3, arg4, arg5, arg6})
 	fake.executeMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2, arg3, arg4, arg5)
+		return stub(arg1, arg2, arg3, arg4, arg5, arg6)
 	}
 	if specificReturn {
 		return ret.result1
@@ -57,17 +59,17 @@ func (fake *SearchOperation) ExecuteCallCount() int {
 	return len(fake.executeArgsForCall)
 }
 
-func (fake *SearchOperation) ExecuteCalls(stub func(context.Context, string, string, string, int) error) {
+func (fake *SearchOperation) ExecuteCalls(stub func(context.Context, string, string, string, int, string) error) {
 	fake.executeMutex.Lock()
 	defer fake.executeMutex.Unlock()
 	fake.ExecuteStub = stub
 }
 
-func (fake *SearchOperation) ExecuteArgsForCall(i int) (context.Context, string, string, string, int) {
+func (fake *SearchOperation) ExecuteArgsForCall(i int) (context.Context, string, string, string, int, string) {
 	fake.executeMutex.RLock()
 	defer fake.executeMutex.RUnlock()
 	argsForCall := fake.executeArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4, argsForCall.arg5
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4, argsForCall.arg5, argsForCall.arg6
 }
 
 func (fake *SearchOperation) ExecuteReturns(result1 error) {

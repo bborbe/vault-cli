@@ -45,7 +45,7 @@ var _ = Describe("WorkOnOperation", func() {
 	})
 
 	JustBeforeEach(func() {
-		err = workOnOp.Execute(ctx, vaultPath, taskName, assignee)
+		err = workOnOp.Execute(ctx, vaultPath, taskName, assignee, "test-vault", "plain")
 	})
 
 	Context("success", func() {

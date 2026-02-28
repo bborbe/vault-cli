@@ -6,7 +6,9 @@ package ops
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 
@@ -19,10 +21,12 @@ type ListOperation interface {
 	Execute(
 		ctx context.Context,
 		vaultPath string,
+		vaultName string,
 		pagesDir string,
 		statusFilter string,
 		showAll bool,
 		assigneeFilter string,
+		outputFormat string,
 	) error
 }
 
@@ -39,14 +43,25 @@ type listOperation struct {
 	storage storage.Storage
 }
 
+// TaskListItem represents a task in list output.
+type TaskListItem struct {
+	Name     string `json:"name"`
+	Status   string `json:"status"`
+	Assignee string `json:"assignee,omitempty"`
+	Priority int    `json:"priority,omitempty"`
+	Vault    string `json:"vault"`
+}
+
 // Execute lists tasks from the vault, optionally filtered by status and assignee.
 func (l *listOperation) Execute(
 	ctx context.Context,
 	vaultPath string,
+	vaultName string,
 	pagesDir string,
 	statusFilter string,
 	showAll bool,
 	assigneeFilter string,
+	outputFormat string,
 ) error {
 	// Read all tasks/pages from the specified directory
 	tasks, err := l.storage.ListPages(ctx, vaultPath, pagesDir)
@@ -71,7 +86,24 @@ func (l *listOperation) Execute(
 		return strings.ToLower(taskI.Name) < strings.ToLower(taskJ.Name)
 	})
 
-	// Output tasks
+	// Output tasks based on format
+	if outputFormat == "json" {
+		items := make([]TaskListItem, len(filteredTasks))
+		for i, task := range filteredTasks {
+			items[i] = TaskListItem{
+				Name:     task.Name,
+				Status:   string(task.Status),
+				Assignee: task.Assignee,
+				Priority: int(task.Priority),
+				Vault:    vaultName,
+			}
+		}
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		return enc.Encode(items)
+	}
+
+	// Plain output
 	for _, task := range filteredTasks {
 		fmt.Printf("[%s] %s\n", task.Status, task.Name)
 	}

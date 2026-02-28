@@ -84,6 +84,7 @@ type Loader interface {
 	Load(ctx context.Context) (*Config, error)
 	GetVaultPath(ctx context.Context, vaultName string) (string, error)
 	GetVault(ctx context.Context, vaultName string) (*Vault, error)
+	GetAllVaults(ctx context.Context) ([]*Vault, error)
 }
 
 // NewLoader creates a new config loader.
@@ -157,6 +158,30 @@ func (c *configLoader) GetVault(ctx context.Context, vaultName string) (*Vault, 
 	}
 
 	return &vault, nil
+}
+
+// GetAllVaults returns all configured vaults with expanded paths.
+func (c *configLoader) GetAllVaults(ctx context.Context) ([]*Vault, error) {
+	config, err := c.Load(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("load config: %w", err)
+	}
+
+	vaults := make([]*Vault, 0, len(config.Vaults))
+	for _, vault := range config.Vaults {
+		v := vault // Create a copy to avoid pointer issues
+		// Expand home directory if path starts with ~
+		if len(v.Path) > 0 && v.Path[0] == '~' {
+			homeDir, err := os.UserHomeDir()
+			if err != nil {
+				return nil, fmt.Errorf("get home directory: %w", err)
+			}
+			v.Path = filepath.Join(homeDir, v.Path[1:])
+		}
+		vaults = append(vaults, &v)
+	}
+
+	return vaults, nil
 }
 
 // GetVaultPath returns the path for a given vault name or the default vault.

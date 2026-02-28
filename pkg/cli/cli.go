@@ -17,6 +17,24 @@ import (
 	"github.com/bborbe/vault-cli/pkg/storage"
 )
 
+// getVaults returns the vaults to operate on.
+// If vaultName is set, returns just that vault.
+// If vaultName is empty, returns all configured vaults.
+func getVaults(
+	ctx context.Context,
+	configLoader *config.Loader,
+	vaultName *string,
+) ([]*config.Vault, error) {
+	if *vaultName != "" {
+		vault, err := (*configLoader).GetVault(ctx, *vaultName)
+		if err != nil {
+			return nil, err
+		}
+		return []*config.Vault{vault}, nil
+	}
+	return (*configLoader).GetAllVaults(ctx)
+}
+
 // Run executes the CLI application.
 func Run(ctx context.Context, args []string) error {
 	var configLoader config.Loader
@@ -71,6 +89,7 @@ func Run(ctx context.Context, args []string) error {
 	return rootCmd.ExecuteContext(ctx)
 }
 
+//nolint:dupl // Mutation commands have similar structure but different operations
 func createCompleteCommand(
 	ctx context.Context,
 	configLoader *config.Loader,
@@ -82,19 +101,39 @@ func createCompleteCommand(
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			taskName := args[0]
-			vault, err := (*configLoader).GetVault(ctx, *vaultName)
+			vaults, err := getVaults(ctx, configLoader, vaultName)
 			if err != nil {
-				return fmt.Errorf("get vault: %w", err)
+				return fmt.Errorf("get vaults: %w", err)
 			}
 
-			storageConfig := storage.NewConfigFromVault(vault)
-			store := storage.NewStorage(storageConfig)
-			completeOp := ops.NewCompleteOperation(store)
-			return completeOp.Execute(ctx, vault.Path, taskName)
+			// If only one vault, execute directly
+			if len(vaults) == 1 {
+				vault := vaults[0]
+				storageConfig := storage.NewConfigFromVault(vault)
+				store := storage.NewStorage(storageConfig)
+				completeOp := ops.NewCompleteOperation(store)
+				return completeOp.Execute(ctx, vault.Path, taskName)
+			}
+
+			// Multiple vaults: try each until successful
+			var lastErr error
+			for _, vault := range vaults {
+				storageConfig := storage.NewConfigFromVault(vault)
+				store := storage.NewStorage(storageConfig)
+				completeOp := ops.NewCompleteOperation(store)
+				if err := completeOp.Execute(ctx, vault.Path, taskName); err == nil {
+					return nil
+				}
+				lastErr = err
+			}
+
+			// Not found in any vault
+			return fmt.Errorf("task not found in any vault: %w", lastErr)
 		},
 	}
 }
 
+//nolint:dupl // Mutation commands have similar structure but different operations
 func createDeferCommand(
 	ctx context.Context,
 	configLoader *config.Loader,
@@ -114,19 +153,39 @@ Date formats:
 			taskName := args[0]
 			dateStr := args[1]
 
-			vault, err := (*configLoader).GetVault(ctx, *vaultName)
+			vaults, err := getVaults(ctx, configLoader, vaultName)
 			if err != nil {
-				return fmt.Errorf("get vault: %w", err)
+				return fmt.Errorf("get vaults: %w", err)
 			}
 
-			storageConfig := storage.NewConfigFromVault(vault)
-			store := storage.NewStorage(storageConfig)
-			deferOp := ops.NewDeferOperation(store)
-			return deferOp.Execute(ctx, vault.Path, taskName, dateStr)
+			// If only one vault, execute directly
+			if len(vaults) == 1 {
+				vault := vaults[0]
+				storageConfig := storage.NewConfigFromVault(vault)
+				store := storage.NewStorage(storageConfig)
+				deferOp := ops.NewDeferOperation(store)
+				return deferOp.Execute(ctx, vault.Path, taskName, dateStr)
+			}
+
+			// Multiple vaults: try each until successful
+			var lastErr error
+			for _, vault := range vaults {
+				storageConfig := storage.NewConfigFromVault(vault)
+				store := storage.NewStorage(storageConfig)
+				deferOp := ops.NewDeferOperation(store)
+				if err := deferOp.Execute(ctx, vault.Path, taskName, dateStr); err == nil {
+					return nil
+				}
+				lastErr = err
+			}
+
+			// Not found in any vault
+			return fmt.Errorf("task not found in any vault: %w", lastErr)
 		},
 	}
 }
 
+//nolint:dupl // Mutation commands have similar structure but different operations
 func createUpdateCommand(
 	ctx context.Context,
 	configLoader *config.Loader,
@@ -138,15 +197,34 @@ func createUpdateCommand(
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			taskName := args[0]
-			vault, err := (*configLoader).GetVault(ctx, *vaultName)
+			vaults, err := getVaults(ctx, configLoader, vaultName)
 			if err != nil {
-				return fmt.Errorf("get vault: %w", err)
+				return fmt.Errorf("get vaults: %w", err)
 			}
 
-			storageConfig := storage.NewConfigFromVault(vault)
-			store := storage.NewStorage(storageConfig)
-			updateOp := ops.NewUpdateOperation(store)
-			return updateOp.Execute(ctx, vault.Path, taskName)
+			// If only one vault, execute directly
+			if len(vaults) == 1 {
+				vault := vaults[0]
+				storageConfig := storage.NewConfigFromVault(vault)
+				store := storage.NewStorage(storageConfig)
+				updateOp := ops.NewUpdateOperation(store)
+				return updateOp.Execute(ctx, vault.Path, taskName)
+			}
+
+			// Multiple vaults: try each until successful
+			var lastErr error
+			for _, vault := range vaults {
+				storageConfig := storage.NewConfigFromVault(vault)
+				store := storage.NewStorage(storageConfig)
+				updateOp := ops.NewUpdateOperation(store)
+				if err := updateOp.Execute(ctx, vault.Path, taskName); err == nil {
+					return nil
+				}
+				lastErr = err
+			}
+
+			// Not found in any vault
+			return fmt.Errorf("task not found in any vault: %w", lastErr)
 		},
 	}
 }
@@ -168,22 +246,32 @@ By default, shows only tasks with status "todo" or "in_progress".
 Use --status to filter by specific statuses, or --all to show all tasks.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			vault, err := (*configLoader).GetVault(ctx, *vaultName)
+			vaults, err := getVaults(ctx, configLoader, vaultName)
 			if err != nil {
-				return fmt.Errorf("get vault: %w", err)
+				return fmt.Errorf("get vaults: %w", err)
 			}
 
-			storageConfig := storage.NewConfigFromVault(vault)
-			store := storage.NewStorage(storageConfig)
-			listOp := ops.NewListOperation(store)
+			for _, vault := range vaults {
+				if len(vaults) > 1 {
+					fmt.Printf("=== %s ===\n", vault.Name)
+				}
 
-			// Parse status filter
-			var statusFilter []domain.TaskStatus
-			for _, s := range statusFlag {
-				statusFilter = append(statusFilter, domain.TaskStatus(s))
+				storageConfig := storage.NewConfigFromVault(vault)
+				store := storage.NewStorage(storageConfig)
+				listOp := ops.NewListOperation(store)
+
+				// Parse status filter
+				var statusFilter []domain.TaskStatus
+				for _, s := range statusFlag {
+					statusFilter = append(statusFilter, domain.TaskStatus(s))
+				}
+
+				if err := listOp.Execute(ctx, vault.Path, storageConfig.TasksDir, statusFilter, showAll); err != nil {
+					return err
+				}
 			}
 
-			return listOp.Execute(ctx, vault.Path, storageConfig.TasksDir, statusFilter, showAll)
+			return nil
 		},
 	}
 
@@ -224,14 +312,24 @@ func createGenericLintCommand(
 		Short: fmt.Sprintf("Detect and optionally fix frontmatter issues in %s files", pageType),
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			vault, err := (*configLoader).GetVault(ctx, *vaultName)
+			vaults, err := getVaults(ctx, configLoader, vaultName)
 			if err != nil {
-				return fmt.Errorf("get vault: %w", err)
+				return fmt.Errorf("get vaults: %w", err)
 			}
 
-			storageConfig := storage.NewConfigFromVault(vault)
-			lintOp := ops.NewLintOperation()
-			return lintOp.Execute(ctx, vault.Path, getDirFunc(storageConfig), fix)
+			for _, vault := range vaults {
+				if len(vaults) > 1 {
+					fmt.Printf("=== %s ===\n", vault.Name)
+				}
+
+				storageConfig := storage.NewConfigFromVault(vault)
+				lintOp := ops.NewLintOperation()
+				if err := lintOp.Execute(ctx, vault.Path, getDirFunc(storageConfig), fix); err != nil {
+					return err
+				}
+			}
+
+			return nil
 		},
 	}
 
@@ -256,22 +354,32 @@ func createGenericListCommand(
 		Short: fmt.Sprintf("List %s from the vault", pageType),
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			vault, err := (*configLoader).GetVault(ctx, *vaultName)
+			vaults, err := getVaults(ctx, configLoader, vaultName)
 			if err != nil {
-				return fmt.Errorf("get vault: %w", err)
+				return fmt.Errorf("get vaults: %w", err)
 			}
 
-			storageConfig := storage.NewConfigFromVault(vault)
-			store := storage.NewStorage(storageConfig)
-			listOp := ops.NewListOperation(store)
+			for _, vault := range vaults {
+				if len(vaults) > 1 {
+					fmt.Printf("=== %s ===\n", vault.Name)
+				}
 
-			// Parse status filter
-			var statusFilter []domain.TaskStatus
-			for _, s := range statusFlag {
-				statusFilter = append(statusFilter, domain.TaskStatus(s))
+				storageConfig := storage.NewConfigFromVault(vault)
+				store := storage.NewStorage(storageConfig)
+				listOp := ops.NewListOperation(store)
+
+				// Parse status filter
+				var statusFilter []domain.TaskStatus
+				for _, s := range statusFlag {
+					statusFilter = append(statusFilter, domain.TaskStatus(s))
+				}
+
+				if err := listOp.Execute(ctx, vault.Path, getDirFunc(storageConfig), statusFilter, showAll); err != nil {
+					return err
+				}
 			}
 
-			return listOp.Execute(ctx, vault.Path, getDirFunc(storageConfig), statusFilter, showAll)
+			return nil
 		},
 	}
 
@@ -460,13 +568,23 @@ func createSearchCommand(
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			query := args[0]
-			vault, err := (*configLoader).GetVault(ctx, *vaultName)
+			vaults, err := getVaults(ctx, configLoader, vaultName)
 			if err != nil {
-				return fmt.Errorf("get vault: %w", err)
+				return fmt.Errorf("get vaults: %w", err)
 			}
 
-			searchOp := ops.NewSearchOperation()
-			return searchOp.Execute(ctx, vault.Path, "", query, topK)
+			for _, vault := range vaults {
+				if len(vaults) > 1 {
+					fmt.Printf("=== %s ===\n", vault.Name)
+				}
+
+				searchOp := ops.NewSearchOperation()
+				if err := searchOp.Execute(ctx, vault.Path, "", query, topK); err != nil {
+					return err
+				}
+			}
+
+			return nil
 		},
 	}
 
@@ -491,16 +609,26 @@ func createGenericSearchCommand(
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			query := args[0]
-			vault, err := (*configLoader).GetVault(ctx, *vaultName)
+			vaults, err := getVaults(ctx, configLoader, vaultName)
 			if err != nil {
-				return fmt.Errorf("get vault: %w", err)
+				return fmt.Errorf("get vaults: %w", err)
 			}
 
-			storageConfig := storage.NewConfigFromVault(vault)
-			scopeDir := getDirFunc(storageConfig)
+			for _, vault := range vaults {
+				if len(vaults) > 1 {
+					fmt.Printf("=== %s ===\n", vault.Name)
+				}
 
-			searchOp := ops.NewSearchOperation()
-			return searchOp.Execute(ctx, vault.Path, scopeDir, query, topK)
+				storageConfig := storage.NewConfigFromVault(vault)
+				scopeDir := getDirFunc(storageConfig)
+
+				searchOp := ops.NewSearchOperation()
+				if err := searchOp.Execute(ctx, vault.Path, scopeDir, query, topK); err != nil {
+					return err
+				}
+			}
+
+			return nil
 		},
 	}
 

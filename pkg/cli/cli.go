@@ -43,13 +43,17 @@ func Run(ctx context.Context, args []string) error {
 		Short: "Manage tasks in the vault",
 	}
 
-	taskCmd.AddCommand(createListCommand(ctx, &configLoader, &vaultName))
+	taskCmd.AddCommand(createTaskListCommand(ctx, &configLoader, &vaultName))
 	taskCmd.AddCommand(createLintCommand(ctx, &configLoader, &vaultName))
 	taskCmd.AddCommand(createCompleteCommand(ctx, &configLoader, &vaultName))
 	taskCmd.AddCommand(createDeferCommand(ctx, &configLoader, &vaultName))
 	taskCmd.AddCommand(createUpdateCommand(ctx, &configLoader, &vaultName))
 
 	rootCmd.AddCommand(taskCmd)
+	rootCmd.AddCommand(createGoalCommands(ctx, &configLoader, &vaultName))
+	rootCmd.AddCommand(createThemeCommands(ctx, &configLoader, &vaultName))
+	rootCmd.AddCommand(createObjectiveCommands(ctx, &configLoader, &vaultName))
+	rootCmd.AddCommand(createVisionCommands(ctx, &configLoader, &vaultName))
 
 	rootCmd.SetArgs(args)
 	return rootCmd.ExecuteContext(ctx)
@@ -135,7 +139,7 @@ func createUpdateCommand(
 	}
 }
 
-func createListCommand(
+func createTaskListCommand(
 	ctx context.Context,
 	configLoader *config.Loader,
 	vaultName *string,
@@ -167,7 +171,7 @@ Use --status to filter by specific statuses, or --all to show all tasks.`,
 				statusFilter = append(statusFilter, domain.TaskStatus(s))
 			}
 
-			return listOp.Execute(ctx, vault.Path, statusFilter, showAll)
+			return listOp.Execute(ctx, vault.Path, storageConfig.TasksDir, statusFilter, showAll)
 		},
 	}
 
@@ -213,6 +217,141 @@ Use --fix to automatically fix INVALID_PRIORITY and DUPLICATE_KEY issues.`,
 
 	cmd.Flags().BoolVar(&fix, "fix", false, "Automatically fix fixable issues")
 
+	return cmd
+}
+
+// createGenericListCommand creates a list command for any page type.
+func createGenericListCommand(
+	ctx context.Context,
+	configLoader *config.Loader,
+	vaultName *string,
+	pageType string,
+	getDirFunc func(*storage.Config) string,
+) *cobra.Command {
+	var statusFlag []string
+	var showAll bool
+
+	cmd := &cobra.Command{
+		Use:   "list",
+		Short: fmt.Sprintf("List %s from the vault", pageType),
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			vault, err := (*configLoader).GetVault(ctx, *vaultName)
+			if err != nil {
+				return fmt.Errorf("get vault: %w", err)
+			}
+
+			storageConfig := storage.NewConfigFromVault(vault)
+			store := storage.NewStorage(storageConfig)
+			listOp := ops.NewListOperation(store)
+
+			// Parse status filter
+			var statusFilter []domain.TaskStatus
+			for _, s := range statusFlag {
+				statusFilter = append(statusFilter, domain.TaskStatus(s))
+			}
+
+			return listOp.Execute(ctx, vault.Path, getDirFunc(storageConfig), statusFilter, showAll)
+		},
+	}
+
+	cmd.Flags().StringSliceVar(
+		&statusFlag,
+		"status",
+		nil,
+		"Filter by status (can be repeated): todo, in_progress, done, deferred",
+	)
+	cmd.Flags().BoolVar(
+		&showAll,
+		"all",
+		false,
+		fmt.Sprintf("Show all %s regardless of status", pageType),
+	)
+
+	return cmd
+}
+
+func createGoalCommands(
+	ctx context.Context,
+	configLoader *config.Loader,
+	vaultName *string,
+) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "goal",
+		Short: "Manage goals in the vault",
+	}
+	cmd.AddCommand(
+		createGenericListCommand(
+			ctx,
+			configLoader,
+			vaultName,
+			"goals",
+			func(c *storage.Config) string { return c.GoalsDir },
+		),
+	)
+	return cmd
+}
+
+func createThemeCommands(
+	ctx context.Context,
+	configLoader *config.Loader,
+	vaultName *string,
+) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "theme",
+		Short: "Manage themes in the vault",
+	}
+	cmd.AddCommand(
+		createGenericListCommand(
+			ctx,
+			configLoader,
+			vaultName,
+			"themes",
+			func(c *storage.Config) string { return c.ThemesDir },
+		),
+	)
+	return cmd
+}
+
+func createObjectiveCommands(
+	ctx context.Context,
+	configLoader *config.Loader,
+	vaultName *string,
+) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "objective",
+		Short: "Manage objectives in the vault",
+	}
+	cmd.AddCommand(
+		createGenericListCommand(
+			ctx,
+			configLoader,
+			vaultName,
+			"objectives",
+			func(c *storage.Config) string { return c.ObjectivesDir },
+		),
+	)
+	return cmd
+}
+
+func createVisionCommands(
+	ctx context.Context,
+	configLoader *config.Loader,
+	vaultName *string,
+) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "vision",
+		Short: "Manage vision in the vault",
+	}
+	cmd.AddCommand(
+		createGenericListCommand(
+			ctx,
+			configLoader,
+			vaultName,
+			"vision items",
+			func(c *storage.Config) string { return c.VisionDir },
+		),
+	)
 	return cmd
 }
 

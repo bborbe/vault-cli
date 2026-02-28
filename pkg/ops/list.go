@@ -19,6 +19,7 @@ type ListOperation interface {
 	Execute(
 		ctx context.Context,
 		vaultPath string,
+		pagesDir string,
 		statusFilter []domain.TaskStatus,
 		showAll bool,
 	) error
@@ -41,13 +42,14 @@ type listOperation struct {
 func (l *listOperation) Execute(
 	ctx context.Context,
 	vaultPath string,
+	pagesDir string,
 	statusFilter []domain.TaskStatus,
 	showAll bool,
 ) error {
-	// Read all tasks
-	tasks, err := l.storage.ListTasks(ctx, vaultPath)
+	// Read all tasks/pages from the specified directory
+	tasks, err := l.storage.ListPages(ctx, vaultPath, pagesDir)
 	if err != nil {
-		return fmt.Errorf("list tasks: %w", err)
+		return fmt.Errorf("list pages: %w", err)
 	}
 
 	// Determine which statuses to show

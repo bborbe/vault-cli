@@ -21,6 +21,7 @@ var _ = Describe("ListOperation", func() {
 	var listOp ops.ListOperation
 	var mockStorage *mocks.Storage
 	var vaultPath string
+	var pagesDir string
 	var statusFilter []domain.TaskStatus
 	var showAll bool
 	var tasks []*domain.Task
@@ -30,6 +31,7 @@ var _ = Describe("ListOperation", func() {
 		mockStorage = &mocks.Storage{}
 		listOp = ops.NewListOperation(mockStorage)
 		vaultPath = "/path/to/vault"
+		pagesDir = "Tasks"
 		statusFilter = nil
 		showAll = false
 
@@ -52,11 +54,11 @@ var _ = Describe("ListOperation", func() {
 				Status: domain.TaskStatusDeferred,
 			},
 		}
-		mockStorage.ListTasksReturns(tasks, nil)
+		mockStorage.ListPagesReturns(tasks, nil)
 	})
 
 	JustBeforeEach(func() {
-		err = listOp.Execute(ctx, vaultPath, statusFilter, showAll)
+		err = listOp.Execute(ctx, vaultPath, pagesDir, statusFilter, showAll)
 	})
 
 	Context("success", func() {
@@ -65,11 +67,12 @@ var _ = Describe("ListOperation", func() {
 				Expect(err).To(BeNil())
 			})
 
-			It("calls ListTasks", func() {
-				Expect(mockStorage.ListTasksCallCount()).To(Equal(1))
-				actualCtx, actualVaultPath := mockStorage.ListTasksArgsForCall(0)
+			It("calls ListPages", func() {
+				Expect(mockStorage.ListPagesCallCount()).To(Equal(1))
+				actualCtx, actualVaultPath, actualPagesDir := mockStorage.ListPagesArgsForCall(0)
 				Expect(actualCtx).To(Equal(ctx))
 				Expect(actualVaultPath).To(Equal(vaultPath))
+				Expect(actualPagesDir).To(Equal(pagesDir))
 			})
 		})
 
@@ -82,8 +85,8 @@ var _ = Describe("ListOperation", func() {
 				Expect(err).To(BeNil())
 			})
 
-			It("calls ListTasks", func() {
-				Expect(mockStorage.ListTasksCallCount()).To(Equal(1))
+			It("calls ListPages", func() {
+				Expect(mockStorage.ListPagesCallCount()).To(Equal(1))
 			})
 		})
 
@@ -96,8 +99,8 @@ var _ = Describe("ListOperation", func() {
 				Expect(err).To(BeNil())
 			})
 
-			It("calls ListTasks", func() {
-				Expect(mockStorage.ListTasksCallCount()).To(Equal(1))
+			It("calls ListPages", func() {
+				Expect(mockStorage.ListPagesCallCount()).To(Equal(1))
 			})
 
 			Context(
@@ -138,7 +141,7 @@ var _ = Describe("ListOperation", func() {
 								Status: domain.TaskStatus("aborted"),
 							},
 						}
-						mockStorage.ListTasksReturns(tasks, nil)
+						mockStorage.ListPagesReturns(tasks, nil)
 					})
 
 					It("returns no error and processes all task statuses", func() {
@@ -151,7 +154,7 @@ var _ = Describe("ListOperation", func() {
 
 	Context("storage error", func() {
 		BeforeEach(func() {
-			mockStorage.ListTasksReturns(nil, ErrTest)
+			mockStorage.ListPagesReturns(nil, ErrTest)
 		})
 
 		It("returns error", func() {

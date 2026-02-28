@@ -21,11 +21,14 @@ type Config struct {
 
 // Vault represents a single vault configuration.
 type Vault struct {
-	Path     string `yaml:"path"`
-	Name     string `yaml:"name"`
-	TasksDir string `yaml:"tasks_dir,omitempty"`
-	GoalsDir string `yaml:"goals_dir,omitempty"`
-	DailyDir string `yaml:"daily_dir,omitempty"`
+	Path          string `yaml:"path"`
+	Name          string `yaml:"name"`
+	TasksDir      string `yaml:"tasks_dir,omitempty"`
+	GoalsDir      string `yaml:"goals_dir,omitempty"`
+	ThemesDir     string `yaml:"themes_dir,omitempty"`
+	ObjectivesDir string `yaml:"objectives_dir,omitempty"`
+	VisionDir     string `yaml:"vision_dir,omitempty"`
+	DailyDir      string `yaml:"daily_dir,omitempty"`
 }
 
 // GetTasksDir returns the tasks directory, defaulting to "Tasks" if not set.
@@ -42,6 +45,30 @@ func (v *Vault) GetGoalsDir() string {
 		return v.GoalsDir
 	}
 	return "Goals"
+}
+
+// GetThemesDir returns the themes directory, defaulting to "21 Themes" if not set.
+func (v *Vault) GetThemesDir() string {
+	if v.ThemesDir != "" {
+		return v.ThemesDir
+	}
+	return "21 Themes"
+}
+
+// GetObjectivesDir returns the objectives directory, defaulting to "22 Objectives" if not set.
+func (v *Vault) GetObjectivesDir() string {
+	if v.ObjectivesDir != "" {
+		return v.ObjectivesDir
+	}
+	return "22 Objectives"
+}
+
+// GetVisionDir returns the vision directory, defaulting to "20 Vision" if not set.
+func (v *Vault) GetVisionDir() string {
+	if v.VisionDir != "" {
+		return v.VisionDir
+	}
+	return "20 Vision"
 }
 
 // GetDailyDir returns the daily notes directory, defaulting to "Daily Notes" if not set.

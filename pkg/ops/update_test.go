@@ -53,7 +53,7 @@ status: todo
 	})
 
 	JustBeforeEach(func() {
-		err = updateOp.Execute(ctx, vaultPath, taskName)
+		err = updateOp.Execute(ctx, vaultPath, taskName, "test-vault", "plain")
 	})
 
 	Context("success", func() {

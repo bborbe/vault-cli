@@ -43,7 +43,7 @@ var _ = Describe("CompleteOperation", func() {
 	})
 
 	JustBeforeEach(func() {
-		err = completeOp.Execute(ctx, vaultPath, taskName)
+		err = completeOp.Execute(ctx, vaultPath, taskName, "test-vault", "plain")
 	})
 
 	Context("success", func() {

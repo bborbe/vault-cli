@@ -41,7 +41,7 @@ var _ = Describe("SearchOperation", func() {
 			It("returns an error about PATH", func() {
 				// This will fail unless semantic-search-mcp is actually installed
 				// In a real environment with semantic-search-mcp, we'd need to mock exec
-				err := searchOp.Execute(ctx, vaultPath, scopeDir, query, topK)
+				err := searchOp.Execute(ctx, vaultPath, scopeDir, query, topK, "plain")
 				if err != nil {
 					Expect(err.Error()).To(ContainSubstring("semantic-search-mcp"))
 				}

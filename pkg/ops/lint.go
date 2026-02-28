@@ -6,6 +6,7 @@ package ops
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -17,7 +18,13 @@ import (
 
 //counterfeiter:generate -o ../../mocks/lint-operation.go --fake-name LintOperation . LintOperation
 type LintOperation interface {
-	Execute(ctx context.Context, vaultPath string, tasksDir string, fix bool) error
+	Execute(
+		ctx context.Context,
+		vaultPath string,
+		tasksDir string,
+		fix bool,
+		outputFormat string,
+	) error
 }
 
 // NewLintOperation creates a new lint operation.
@@ -46,12 +53,21 @@ type LintIssue struct {
 	Fixed       bool
 }
 
+// LintIssueJSON represents a lint issue in JSON format.
+type LintIssueJSON struct {
+	File        string `json:"file"`
+	Type        string `json:"type"`
+	Description string `json:"description"`
+	Fixed       bool   `json:"fixed,omitempty"`
+}
+
 // Execute scans all task files for lint issues and optionally fixes them.
 func (l *lintOperation) Execute(
 	ctx context.Context,
 	vaultPath string,
 	tasksDir string,
 	fix bool,
+	outputFormat string,
 ) error {
 	tasksDirPath := filepath.Join(vaultPath, tasksDir)
 
@@ -76,34 +92,78 @@ func (l *lintOperation) Execute(
 		return fmt.Errorf("walk tasks directory: %w", err)
 	}
 
-	// Report all issues
+	return l.outputIssues(vaultPath, issues, fix, outputFormat)
+}
+
+// outputIssues prints lint issues in the requested format and returns an error if any unfixed issues exist.
+func (l *lintOperation) outputIssues(
+	vaultPath string,
+	issues []LintIssue,
+	fix bool,
+	outputFormat string,
+) error {
+	if outputFormat == "json" {
+		return l.outputIssuesJSON(vaultPath, issues, fix)
+	}
+	return l.outputIssuesPlain(vaultPath, issues, fix)
+}
+
+func (l *lintOperation) outputIssuesJSON(vaultPath string, issues []LintIssue, fix bool) error {
+	jsonIssues := make([]LintIssueJSON, len(issues))
+	for i, issue := range issues {
+		relPath, _ := filepath.Rel(vaultPath, issue.FilePath)
+		jsonIssues[i] = LintIssueJSON{
+			File:        relPath,
+			Type:        l.issueTypeName(issue, fix),
+			Description: issue.Description,
+			Fixed:       issue.Fixed,
+		}
+	}
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(jsonIssues); err != nil {
+		return fmt.Errorf("encode json: %w", err)
+	}
+	return l.countUnfixedError(issues)
+}
+
+func (l *lintOperation) outputIssuesPlain(vaultPath string, issues []LintIssue, fix bool) error {
 	for _, issue := range issues {
 		relPath, _ := filepath.Rel(vaultPath, issue.FilePath)
-		if issue.Fixed {
-			fmt.Printf("FIXED %s: %s %s\n", relPath, issue.IssueType, issue.Description)
-		} else if issue.Fixable && !fix {
-			fmt.Printf("WARN  %s: %s %s\n", relPath, issue.IssueType, issue.Description)
-		} else {
-			fmt.Printf("ERROR %s: %s %s\n", relPath, issue.IssueType, issue.Description)
-		}
+		fmt.Printf(
+			"%-5s %s: %s %s\n",
+			l.issueTypeName(issue, fix),
+			relPath,
+			issue.IssueType,
+			issue.Description,
+		)
 	}
-
-	// Determine exit code
-	unfixedIssues := 0
-	for _, issue := range issues {
-		if !issue.Fixed {
-			unfixedIssues++
-		}
-	}
-
-	if unfixedIssues > 0 {
-		return fmt.Errorf("found %d lint issue(s)", unfixedIssues)
-	}
-
 	if len(issues) == 0 {
 		fmt.Println("No lint issues found")
 	}
+	return l.countUnfixedError(issues)
+}
 
+func (l *lintOperation) issueTypeName(issue LintIssue, fix bool) string {
+	if issue.Fixed {
+		return "FIXED"
+	}
+	if issue.Fixable && !fix {
+		return "WARN"
+	}
+	return "ERROR"
+}
+
+func (l *lintOperation) countUnfixedError(issues []LintIssue) error {
+	unfixed := 0
+	for _, issue := range issues {
+		if !issue.Fixed {
+			unfixed++
+		}
+	}
+	if unfixed > 0 {
+		return fmt.Errorf("found %d lint issue(s)", unfixed)
+	}
 	return nil
 }
 

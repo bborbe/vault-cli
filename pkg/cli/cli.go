@@ -39,6 +39,7 @@ func Run(ctx context.Context, args []string) error {
 	var configLoader config.Loader
 	var vaultName string
 	var configPath string
+	var outputFormat string
 
 	rootCmd := &cobra.Command{
 		Use:          "vault-cli",
@@ -54,21 +55,23 @@ func Run(ctx context.Context, args []string) error {
 	rootCmd.PersistentFlags().
 		StringVar(&vaultName, "vault", "", "Vault name (uses default if not specified)")
 	rootCmd.PersistentFlags().StringVar(&configPath, "config", "", "Config file path")
+	rootCmd.PersistentFlags().
+		StringVar(&outputFormat, "output", OutputFormatPlain, "Output format: plain or json")
 
 	// Add root-level search command
-	rootCmd.AddCommand(createSearchCommand(ctx, &configLoader, &vaultName))
+	rootCmd.AddCommand(createSearchCommand(ctx, &configLoader, &vaultName, &outputFormat))
 
 	taskCmd := &cobra.Command{
 		Use:   "task",
 		Short: "Manage tasks in the vault",
 	}
 
-	taskCmd.AddCommand(createTaskListCommand(ctx, &configLoader, &vaultName))
-	taskCmd.AddCommand(createLintCommand(ctx, &configLoader, &vaultName))
-	taskCmd.AddCommand(createCompleteCommand(ctx, &configLoader, &vaultName))
-	taskCmd.AddCommand(createDeferCommand(ctx, &configLoader, &vaultName))
-	taskCmd.AddCommand(createUpdateCommand(ctx, &configLoader, &vaultName))
-	taskCmd.AddCommand(createWorkOnCommand(ctx, &configLoader, &vaultName))
+	taskCmd.AddCommand(createTaskListCommand(ctx, &configLoader, &vaultName, &outputFormat))
+	taskCmd.AddCommand(createLintCommand(ctx, &configLoader, &vaultName, &outputFormat))
+	taskCmd.AddCommand(createCompleteCommand(ctx, &configLoader, &vaultName, &outputFormat))
+	taskCmd.AddCommand(createDeferCommand(ctx, &configLoader, &vaultName, &outputFormat))
+	taskCmd.AddCommand(createUpdateCommand(ctx, &configLoader, &vaultName, &outputFormat))
+	taskCmd.AddCommand(createWorkOnCommand(ctx, &configLoader, &vaultName, &outputFormat))
 	taskCmd.AddCommand(
 		createGenericSearchCommand(
 			ctx,
@@ -76,14 +79,15 @@ func Run(ctx context.Context, args []string) error {
 			&vaultName,
 			"tasks",
 			func(c *storage.Config) string { return c.TasksDir },
+			&outputFormat,
 		),
 	)
 
 	rootCmd.AddCommand(taskCmd)
-	rootCmd.AddCommand(createGoalCommands(ctx, &configLoader, &vaultName))
-	rootCmd.AddCommand(createThemeCommands(ctx, &configLoader, &vaultName))
-	rootCmd.AddCommand(createObjectiveCommands(ctx, &configLoader, &vaultName))
-	rootCmd.AddCommand(createVisionCommands(ctx, &configLoader, &vaultName))
+	rootCmd.AddCommand(createGoalCommands(ctx, &configLoader, &vaultName, &outputFormat))
+	rootCmd.AddCommand(createThemeCommands(ctx, &configLoader, &vaultName, &outputFormat))
+	rootCmd.AddCommand(createObjectiveCommands(ctx, &configLoader, &vaultName, &outputFormat))
+	rootCmd.AddCommand(createVisionCommands(ctx, &configLoader, &vaultName, &outputFormat))
 
 	rootCmd.SetArgs(args)
 	return rootCmd.ExecuteContext(ctx)
@@ -94,6 +98,7 @@ func createCompleteCommand(
 	ctx context.Context,
 	configLoader *config.Loader,
 	vaultName *string,
+	outputFormat *string,
 ) *cobra.Command {
 	return &cobra.Command{
 		Use:   "complete <task-name>",
@@ -112,7 +117,7 @@ func createCompleteCommand(
 				storageConfig := storage.NewConfigFromVault(vault)
 				store := storage.NewStorage(storageConfig)
 				completeOp := ops.NewCompleteOperation(store)
-				return completeOp.Execute(ctx, vault.Path, taskName)
+				return completeOp.Execute(ctx, vault.Path, taskName, vault.Name, *outputFormat)
 			}
 
 			// Multiple vaults: try each until successful
@@ -121,7 +126,7 @@ func createCompleteCommand(
 				storageConfig := storage.NewConfigFromVault(vault)
 				store := storage.NewStorage(storageConfig)
 				completeOp := ops.NewCompleteOperation(store)
-				if err := completeOp.Execute(ctx, vault.Path, taskName); err == nil {
+				if err := completeOp.Execute(ctx, vault.Path, taskName, vault.Name, *outputFormat); err == nil {
 					return nil
 				}
 				lastErr = err
@@ -138,6 +143,7 @@ func createDeferCommand(
 	ctx context.Context,
 	configLoader *config.Loader,
 	vaultName *string,
+	outputFormat *string,
 ) *cobra.Command {
 	return &cobra.Command{
 		Use:   "defer <task-name> <date>",
@@ -164,7 +170,14 @@ Date formats:
 				storageConfig := storage.NewConfigFromVault(vault)
 				store := storage.NewStorage(storageConfig)
 				deferOp := ops.NewDeferOperation(store)
-				return deferOp.Execute(ctx, vault.Path, taskName, dateStr)
+				return deferOp.Execute(
+					ctx,
+					vault.Path,
+					taskName,
+					dateStr,
+					vault.Name,
+					*outputFormat,
+				)
 			}
 
 			// Multiple vaults: try each until successful
@@ -173,7 +186,7 @@ Date formats:
 				storageConfig := storage.NewConfigFromVault(vault)
 				store := storage.NewStorage(storageConfig)
 				deferOp := ops.NewDeferOperation(store)
-				if err := deferOp.Execute(ctx, vault.Path, taskName, dateStr); err == nil {
+				if err := deferOp.Execute(ctx, vault.Path, taskName, dateStr, vault.Name, *outputFormat); err == nil {
 					return nil
 				}
 				lastErr = err
@@ -190,6 +203,7 @@ func createUpdateCommand(
 	ctx context.Context,
 	configLoader *config.Loader,
 	vaultName *string,
+	outputFormat *string,
 ) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <task-name>",
@@ -208,7 +222,7 @@ func createUpdateCommand(
 				storageConfig := storage.NewConfigFromVault(vault)
 				store := storage.NewStorage(storageConfig)
 				updateOp := ops.NewUpdateOperation(store)
-				return updateOp.Execute(ctx, vault.Path, taskName)
+				return updateOp.Execute(ctx, vault.Path, taskName, vault.Name, *outputFormat)
 			}
 
 			// Multiple vaults: try each until successful
@@ -217,7 +231,7 @@ func createUpdateCommand(
 				storageConfig := storage.NewConfigFromVault(vault)
 				store := storage.NewStorage(storageConfig)
 				updateOp := ops.NewUpdateOperation(store)
-				if err := updateOp.Execute(ctx, vault.Path, taskName); err == nil {
+				if err := updateOp.Execute(ctx, vault.Path, taskName, vault.Name, *outputFormat); err == nil {
 					return nil
 				}
 				lastErr = err
@@ -234,6 +248,7 @@ func createWorkOnCommand(
 	ctx context.Context,
 	configLoader *config.Loader,
 	vaultName *string,
+	outputFormat *string,
 ) *cobra.Command {
 	return &cobra.Command{
 		Use:   "work-on <task-name>",
@@ -259,7 +274,14 @@ func createWorkOnCommand(
 				storageConfig := storage.NewConfigFromVault(vault)
 				store := storage.NewStorage(storageConfig)
 				workOnOp := ops.NewWorkOnOperation(store)
-				return workOnOp.Execute(ctx, vault.Path, taskName, currentUser)
+				return workOnOp.Execute(
+					ctx,
+					vault.Path,
+					taskName,
+					currentUser,
+					vault.Name,
+					*outputFormat,
+				)
 			}
 
 			// Multiple vaults: try each until successful
@@ -268,7 +290,7 @@ func createWorkOnCommand(
 				storageConfig := storage.NewConfigFromVault(vault)
 				store := storage.NewStorage(storageConfig)
 				workOnOp := ops.NewWorkOnOperation(store)
-				if err := workOnOp.Execute(ctx, vault.Path, taskName, currentUser); err == nil {
+				if err := workOnOp.Execute(ctx, vault.Path, taskName, currentUser, vault.Name, *outputFormat); err == nil {
 					return nil
 				}
 				lastErr = err
@@ -284,6 +306,7 @@ func createTaskListCommand(
 	ctx context.Context,
 	configLoader *config.Loader,
 	vaultName *string,
+	outputFormat *string,
 ) *cobra.Command {
 	var statusFilter string
 	var showAll bool
@@ -305,7 +328,7 @@ Use --assignee to filter by assignee.`,
 			}
 
 			for _, vault := range vaults {
-				if len(vaults) > 1 {
+				if len(vaults) > 1 && *outputFormat == OutputFormatPlain {
 					fmt.Printf("=== %s ===\n", vault.Name)
 				}
 
@@ -313,7 +336,7 @@ Use --assignee to filter by assignee.`,
 				store := storage.NewStorage(storageConfig)
 				listOp := ops.NewListOperation(store)
 
-				if err := listOp.Execute(ctx, vault.Path, storageConfig.TasksDir, statusFilter, showAll, assigneeFlag); err != nil {
+				if err := listOp.Execute(ctx, vault.Path, vault.Name, storageConfig.TasksDir, statusFilter, showAll, assigneeFlag, *outputFormat); err != nil {
 					return err
 				}
 			}
@@ -335,6 +358,7 @@ func createLintCommand(
 	ctx context.Context,
 	configLoader *config.Loader,
 	vaultName *string,
+	outputFormat *string,
 ) *cobra.Command {
 	return createGenericLintCommand(
 		ctx,
@@ -342,6 +366,7 @@ func createLintCommand(
 		vaultName,
 		"task",
 		func(c *storage.Config) string { return c.TasksDir },
+		outputFormat,
 	)
 }
 
@@ -352,6 +377,7 @@ func createGenericLintCommand(
 	vaultName *string,
 	pageType string,
 	getDirFunc func(*storage.Config) string,
+	outputFormat *string,
 ) *cobra.Command {
 	var fix bool
 
@@ -366,13 +392,13 @@ func createGenericLintCommand(
 			}
 
 			for _, vault := range vaults {
-				if len(vaults) > 1 {
+				if len(vaults) > 1 && *outputFormat == OutputFormatPlain {
 					fmt.Printf("=== %s ===\n", vault.Name)
 				}
 
 				storageConfig := storage.NewConfigFromVault(vault)
 				lintOp := ops.NewLintOperation()
-				if err := lintOp.Execute(ctx, vault.Path, getDirFunc(storageConfig), fix); err != nil {
+				if err := lintOp.Execute(ctx, vault.Path, getDirFunc(storageConfig), fix, *outputFormat); err != nil {
 					return err
 				}
 			}
@@ -393,6 +419,7 @@ func createGenericListCommand(
 	vaultName *string,
 	pageType string,
 	getDirFunc func(*storage.Config) string,
+	outputFormat *string,
 ) *cobra.Command {
 	var statusFilter string
 	var showAll bool
@@ -409,7 +436,7 @@ func createGenericListCommand(
 			}
 
 			for _, vault := range vaults {
-				if len(vaults) > 1 {
+				if len(vaults) > 1 && *outputFormat == OutputFormatPlain {
 					fmt.Printf("=== %s ===\n", vault.Name)
 				}
 
@@ -417,7 +444,7 @@ func createGenericListCommand(
 				store := storage.NewStorage(storageConfig)
 				listOp := ops.NewListOperation(store)
 
-				if err := listOp.Execute(ctx, vault.Path, getDirFunc(storageConfig), statusFilter, showAll, assigneeFlag); err != nil {
+				if err := listOp.Execute(ctx, vault.Path, vault.Name, getDirFunc(storageConfig), statusFilter, showAll, assigneeFlag, *outputFormat); err != nil {
 					return err
 				}
 			}
@@ -452,6 +479,7 @@ func createGoalCommands(
 	ctx context.Context,
 	configLoader *config.Loader,
 	vaultName *string,
+	outputFormat *string,
 ) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "goal",
@@ -464,6 +492,7 @@ func createGoalCommands(
 			vaultName,
 			"goals",
 			func(c *storage.Config) string { return c.GoalsDir },
+			outputFormat,
 		),
 	)
 	cmd.AddCommand(
@@ -473,6 +502,7 @@ func createGoalCommands(
 			vaultName,
 			"goal",
 			func(c *storage.Config) string { return c.GoalsDir },
+			outputFormat,
 		),
 	)
 	cmd.AddCommand(
@@ -482,6 +512,7 @@ func createGoalCommands(
 			vaultName,
 			"goals",
 			func(c *storage.Config) string { return c.GoalsDir },
+			outputFormat,
 		),
 	)
 	return cmd
@@ -491,6 +522,7 @@ func createThemeCommands(
 	ctx context.Context,
 	configLoader *config.Loader,
 	vaultName *string,
+	outputFormat *string,
 ) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "theme",
@@ -503,6 +535,7 @@ func createThemeCommands(
 			vaultName,
 			"themes",
 			func(c *storage.Config) string { return c.ThemesDir },
+			outputFormat,
 		),
 	)
 	cmd.AddCommand(
@@ -512,6 +545,7 @@ func createThemeCommands(
 			vaultName,
 			"theme",
 			func(c *storage.Config) string { return c.ThemesDir },
+			outputFormat,
 		),
 	)
 	cmd.AddCommand(
@@ -521,6 +555,7 @@ func createThemeCommands(
 			vaultName,
 			"themes",
 			func(c *storage.Config) string { return c.ThemesDir },
+			outputFormat,
 		),
 	)
 	return cmd
@@ -530,6 +565,7 @@ func createObjectiveCommands(
 	ctx context.Context,
 	configLoader *config.Loader,
 	vaultName *string,
+	outputFormat *string,
 ) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "objective",
@@ -542,6 +578,7 @@ func createObjectiveCommands(
 			vaultName,
 			"objectives",
 			func(c *storage.Config) string { return c.ObjectivesDir },
+			outputFormat,
 		),
 	)
 	cmd.AddCommand(
@@ -551,6 +588,7 @@ func createObjectiveCommands(
 			vaultName,
 			"objective",
 			func(c *storage.Config) string { return c.ObjectivesDir },
+			outputFormat,
 		),
 	)
 	cmd.AddCommand(
@@ -560,6 +598,7 @@ func createObjectiveCommands(
 			vaultName,
 			"objectives",
 			func(c *storage.Config) string { return c.ObjectivesDir },
+			outputFormat,
 		),
 	)
 	return cmd
@@ -569,6 +608,7 @@ func createVisionCommands(
 	ctx context.Context,
 	configLoader *config.Loader,
 	vaultName *string,
+	outputFormat *string,
 ) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "vision",
@@ -581,6 +621,7 @@ func createVisionCommands(
 			vaultName,
 			"vision items",
 			func(c *storage.Config) string { return c.VisionDir },
+			outputFormat,
 		),
 	)
 	cmd.AddCommand(
@@ -590,6 +631,7 @@ func createVisionCommands(
 			vaultName,
 			"vision",
 			func(c *storage.Config) string { return c.VisionDir },
+			outputFormat,
 		),
 	)
 	cmd.AddCommand(
@@ -599,6 +641,7 @@ func createVisionCommands(
 			vaultName,
 			"vision items",
 			func(c *storage.Config) string { return c.VisionDir },
+			outputFormat,
 		),
 	)
 	return cmd
@@ -608,6 +651,7 @@ func createSearchCommand(
 	ctx context.Context,
 	configLoader *config.Loader,
 	vaultName *string,
+	outputFormat *string,
 ) *cobra.Command {
 	var topK int
 
@@ -623,12 +667,12 @@ func createSearchCommand(
 			}
 
 			for _, vault := range vaults {
-				if len(vaults) > 1 {
+				if len(vaults) > 1 && *outputFormat == OutputFormatPlain {
 					fmt.Printf("=== %s ===\n", vault.Name)
 				}
 
 				searchOp := ops.NewSearchOperation()
-				if err := searchOp.Execute(ctx, vault.Path, "", query, topK); err != nil {
+				if err := searchOp.Execute(ctx, vault.Path, "", query, topK, *outputFormat); err != nil {
 					return err
 				}
 			}
@@ -649,6 +693,7 @@ func createGenericSearchCommand(
 	vaultName *string,
 	pageType string,
 	getDirFunc func(*storage.Config) string,
+	outputFormat *string,
 ) *cobra.Command {
 	var topK int
 
@@ -664,7 +709,7 @@ func createGenericSearchCommand(
 			}
 
 			for _, vault := range vaults {
-				if len(vaults) > 1 {
+				if len(vaults) > 1 && *outputFormat == OutputFormatPlain {
 					fmt.Printf("=== %s ===\n", vault.Name)
 				}
 
@@ -672,7 +717,7 @@ func createGenericSearchCommand(
 				scopeDir := getDirFunc(storageConfig)
 
 				searchOp := ops.NewSearchOperation()
-				if err := searchOp.Execute(ctx, vault.Path, scopeDir, query, topK); err != nil {
+				if err := searchOp.Execute(ctx, vault.Path, scopeDir, query, topK, *outputFormat); err != nil {
 					return err
 				}
 			}

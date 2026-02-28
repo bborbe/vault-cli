@@ -6,7 +6,9 @@ package ops
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"os"
 
 	"github.com/bborbe/vault-cli/pkg/domain"
 	"github.com/bborbe/vault-cli/pkg/storage"
@@ -14,7 +16,14 @@ import (
 
 //counterfeiter:generate -o ../../mocks/workon-operation.go --fake-name WorkOnOperation . WorkOnOperation
 type WorkOnOperation interface {
-	Execute(ctx context.Context, vaultPath string, taskName string, assignee string) error
+	Execute(
+		ctx context.Context,
+		vaultPath string,
+		taskName string,
+		assignee string,
+		vaultName string,
+		outputFormat string,
+	) error
 }
 
 // NewWorkOnOperation creates a new work-on operation.
@@ -36,10 +45,21 @@ func (w *workOnOperation) Execute(
 	vaultPath string,
 	taskName string,
 	assignee string,
+	vaultName string,
+	outputFormat string,
 ) error {
 	// Find and read the task
 	task, err := w.storage.FindTaskByName(ctx, vaultPath, taskName)
 	if err != nil {
+		if outputFormat == "json" {
+			result := MutationResult{
+				Success: false,
+				Error:   err.Error(),
+			}
+			enc := json.NewEncoder(os.Stdout)
+			enc.SetIndent("", "  ")
+			_ = enc.Encode(result)
+		}
 		return fmt.Errorf("find task: %w", err)
 	}
 
@@ -49,7 +69,27 @@ func (w *workOnOperation) Execute(
 
 	// Write updated task
 	if err := w.storage.WriteTask(ctx, task); err != nil {
+		if outputFormat == "json" {
+			result := MutationResult{
+				Success: false,
+				Error:   err.Error(),
+			}
+			enc := json.NewEncoder(os.Stdout)
+			enc.SetIndent("", "  ")
+			_ = enc.Encode(result)
+		}
 		return fmt.Errorf("write task: %w", err)
+	}
+
+	if outputFormat == "json" {
+		result := MutationResult{
+			Success: true,
+			Name:    task.Name,
+			Vault:   vaultName,
+		}
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		return enc.Encode(result)
 	}
 
 	fmt.Printf("✅ Now working on: %s (assigned to %s)\n", task.Name, assignee)

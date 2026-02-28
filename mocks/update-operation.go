@@ -9,12 +9,14 @@ import (
 )
 
 type UpdateOperation struct {
-	ExecuteStub        func(context.Context, string, string) error
+	ExecuteStub        func(context.Context, string, string, string, string) error
 	executeMutex       sync.RWMutex
 	executeArgsForCall []struct {
 		arg1 context.Context
 		arg2 string
 		arg3 string
+		arg4 string
+		arg5 string
 	}
 	executeReturns struct {
 		result1 error
@@ -26,20 +28,22 @@ type UpdateOperation struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *UpdateOperation) Execute(arg1 context.Context, arg2 string, arg3 string) error {
+func (fake *UpdateOperation) Execute(arg1 context.Context, arg2 string, arg3 string, arg4 string, arg5 string) error {
 	fake.executeMutex.Lock()
 	ret, specificReturn := fake.executeReturnsOnCall[len(fake.executeArgsForCall)]
 	fake.executeArgsForCall = append(fake.executeArgsForCall, struct {
 		arg1 context.Context
 		arg2 string
 		arg3 string
-	}{arg1, arg2, arg3})
+		arg4 string
+		arg5 string
+	}{arg1, arg2, arg3, arg4, arg5})
 	stub := fake.ExecuteStub
 	fakeReturns := fake.executeReturns
-	fake.recordInvocation("Execute", []interface{}{arg1, arg2, arg3})
+	fake.recordInvocation("Execute", []interface{}{arg1, arg2, arg3, arg4, arg5})
 	fake.executeMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2, arg3)
+		return stub(arg1, arg2, arg3, arg4, arg5)
 	}
 	if specificReturn {
 		return ret.result1
@@ -53,17 +57,17 @@ func (fake *UpdateOperation) ExecuteCallCount() int {
 	return len(fake.executeArgsForCall)
 }
 
-func (fake *UpdateOperation) ExecuteCalls(stub func(context.Context, string, string) error) {
+func (fake *UpdateOperation) ExecuteCalls(stub func(context.Context, string, string, string, string) error) {
 	fake.executeMutex.Lock()
 	defer fake.executeMutex.Unlock()
 	fake.ExecuteStub = stub
 }
 
-func (fake *UpdateOperation) ExecuteArgsForCall(i int) (context.Context, string, string) {
+func (fake *UpdateOperation) ExecuteArgsForCall(i int) (context.Context, string, string, string, string) {
 	fake.executeMutex.RLock()
 	defer fake.executeMutex.RUnlock()
 	argsForCall := fake.executeArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4, argsForCall.arg5
 }
 
 func (fake *UpdateOperation) ExecuteReturns(result1 error) {

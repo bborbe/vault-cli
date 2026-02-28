@@ -236,14 +236,16 @@ func createTaskListCommand(
 ) *cobra.Command {
 	var statusFlag []string
 	var showAll bool
+	var assigneeFlag string
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List tasks from the vault",
-		Long: `List tasks from the vault, optionally filtered by status.
+		Long: `List tasks from the vault, optionally filtered by status and assignee.
 
 By default, shows only tasks with status "todo" or "in_progress".
-Use --status to filter by specific statuses, or --all to show all tasks.`,
+Use --status to filter by specific statuses, or --all to show all tasks.
+Use --assignee to filter by assignee.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			vaults, err := getVaults(ctx, configLoader, vaultName)
@@ -266,7 +268,7 @@ Use --status to filter by specific statuses, or --all to show all tasks.`,
 					statusFilter = append(statusFilter, domain.TaskStatus(s))
 				}
 
-				if err := listOp.Execute(ctx, vault.Path, storageConfig.TasksDir, statusFilter, showAll); err != nil {
+				if err := listOp.Execute(ctx, vault.Path, storageConfig.TasksDir, statusFilter, showAll, assigneeFlag); err != nil {
 					return err
 				}
 			}
@@ -279,6 +281,7 @@ Use --status to filter by specific statuses, or --all to show all tasks.`,
 		"Filter by status (can be repeated): todo, in_progress, done, deferred")
 	cmd.Flags().BoolVar(&showAll, "all", false,
 		"Show all tasks regardless of status")
+	cmd.Flags().StringVar(&assigneeFlag, "assignee", "", "Filter by assignee")
 
 	return cmd
 }
@@ -348,6 +351,7 @@ func createGenericListCommand(
 ) *cobra.Command {
 	var statusFlag []string
 	var showAll bool
+	var assigneeFlag string
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -374,7 +378,7 @@ func createGenericListCommand(
 					statusFilter = append(statusFilter, domain.TaskStatus(s))
 				}
 
-				if err := listOp.Execute(ctx, vault.Path, getDirFunc(storageConfig), statusFilter, showAll); err != nil {
+				if err := listOp.Execute(ctx, vault.Path, getDirFunc(storageConfig), statusFilter, showAll, assigneeFlag); err != nil {
 					return err
 				}
 			}
@@ -394,6 +398,12 @@ func createGenericListCommand(
 		"all",
 		false,
 		fmt.Sprintf("Show all %s regardless of status", pageType),
+	)
+	cmd.Flags().StringVar(
+		&assigneeFlag,
+		"assignee",
+		"",
+		"Filter by assignee",
 	)
 
 	return cmd

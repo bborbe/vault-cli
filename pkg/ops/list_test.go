@@ -24,6 +24,7 @@ var _ = Describe("ListOperation", func() {
 	var pagesDir string
 	var statusFilter []domain.TaskStatus
 	var showAll bool
+	var assigneeFilter string
 	var tasks []*domain.Task
 
 	BeforeEach(func() {
@@ -34,6 +35,7 @@ var _ = Describe("ListOperation", func() {
 		pagesDir = "Tasks"
 		statusFilter = nil
 		showAll = false
+		assigneeFilter = ""
 
 		// Default: return some test tasks
 		tasks = []*domain.Task{
@@ -58,7 +60,7 @@ var _ = Describe("ListOperation", func() {
 	})
 
 	JustBeforeEach(func() {
-		err = listOp.Execute(ctx, vaultPath, pagesDir, statusFilter, showAll)
+		err = listOp.Execute(ctx, vaultPath, pagesDir, statusFilter, showAll, assigneeFilter)
 	})
 
 	Context("success", func() {

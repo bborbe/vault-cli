@@ -120,14 +120,20 @@ func (l *lintOperation) lintFile(filePath string, fix bool) ([]LintIssue, error)
 	frontmatterRegex := regexp.MustCompile(`(?s)^---\n(.*?)\n---\n`)
 	matches := frontmatterRegex.FindSubmatch(content)
 	if len(matches) < 2 {
-		issues = append(issues, LintIssue{
-			FilePath:    filePath,
-			IssueType:   IssueTypeMissingFrontmatter,
-			Description: "no frontmatter block found",
-			Fixable:     false,
-			Fixed:       false,
-		})
-		return issues, nil // Can't check further without frontmatter
+		issue, updatedContent, shouldReturn := l.handleMissingFrontmatter(
+			filePath,
+			content,
+			fix,
+		)
+		issues = append(issues, issue)
+
+		if shouldReturn {
+			return issues, nil
+		}
+
+		// Update content and re-parse for further checks
+		content = updatedContent
+		matches = frontmatterRegex.FindSubmatch(content)
 	}
 
 	frontmatterYAML := string(matches[1])
@@ -180,6 +186,45 @@ func (l *lintOperation) lintFile(filePath string, fix bool) ([]LintIssue, error)
 	}
 
 	return issues, nil
+}
+
+// handleMissingFrontmatter handles the case when a file is missing frontmatter.
+// Returns: (issue, updatedContent, shouldReturn)
+func (l *lintOperation) handleMissingFrontmatter(
+	filePath string,
+	content []byte,
+	fix bool,
+) (LintIssue, []byte, bool) {
+	issue := LintIssue{
+		FilePath:    filePath,
+		IssueType:   IssueTypeMissingFrontmatter,
+		Description: "no frontmatter block found",
+		Fixable:     true,
+		Fixed:       false,
+	}
+
+	if !fix {
+		return issue, content, true // Can't check further without frontmatter
+	}
+
+	// Fix missing frontmatter
+	newContent, fixed := l.fixMissingFrontmatter(string(content))
+	if !fixed {
+		return issue, content, true
+	}
+
+	content = []byte(newContent)
+	issue.Fixed = true
+
+	// Write the fixed content to file
+	//#nosec G304,G703 -- user-controlled vault path
+	if err := os.WriteFile(filePath, content, 0600); err != nil {
+		// If write fails, return the issue as unfixed
+		issue.Fixed = false
+		return issue, content, true
+	}
+
+	return issue, content, false // Continue checking other issues
 }
 
 // detectDuplicateKeys detects duplicate YAML keys in frontmatter.
@@ -357,6 +402,13 @@ func (l *lintOperation) fixInvalidStatus(content string) (string, bool) {
 	}
 
 	return content, false
+}
+
+// fixMissingFrontmatter prepends minimal frontmatter to files without frontmatter.
+func (l *lintOperation) fixMissingFrontmatter(content string) (string, bool) {
+	minimalFrontmatter := "---\nstatus: backlog\n---\n"
+	newContent := minimalFrontmatter + content
+	return newContent, true
 }
 
 // fixDuplicateKeys removes duplicate YAML keys, keeping the first occurrence.

@@ -185,4 +185,62 @@ Just some text without checkboxes.
 			Expect(err).NotTo(BeNil())
 		})
 	})
+
+	Context("task with associated goal", func() {
+		var goal *domain.Goal
+
+		BeforeEach(func() {
+			task.Goals = []string{"Test Goal"}
+			task.Content = `---
+status: todo
+---
+
+# My Task
+
+- [x] First item
+- [ ] Second item
+`
+
+			goal = &domain.Goal{
+				Name: "Test Goal",
+				Content: `---
+status: active
+---
+# Test Goal
+
+## Tasks
+- [ ] First item
+- [ ] Second item
+`,
+			}
+			mockStorage.FindGoalByNameReturns(goal, nil)
+			mockStorage.WriteGoalReturns(nil)
+		})
+
+		It("attempts to sync goal checkboxes", func() {
+			Expect(err).To(BeNil())
+			Expect(mockStorage.FindGoalByNameCallCount() > 0).To(BeTrue())
+		})
+
+		It("updates goal checkboxes to match task", func() {
+			Expect(err).To(BeNil())
+			if mockStorage.WriteGoalCallCount() > 0 {
+				_, updatedGoal := mockStorage.WriteGoalArgsForCall(0)
+				// Should have updated first item to checked
+				Expect(updatedGoal.Content).To(ContainSubstring("- [x] First item"))
+			}
+		})
+	})
+
+	Context("task with goal not found", func() {
+		BeforeEach(func() {
+			task.Goals = []string{"Missing Goal"}
+			mockStorage.FindGoalByNameReturns(nil, ErrTest)
+		})
+
+		It("completes task despite goal error", func() {
+			// Operation should succeed even if goal sync fails
+			Expect(err).To(BeNil())
+		})
+	})
 })

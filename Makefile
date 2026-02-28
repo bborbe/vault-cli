@@ -56,10 +56,17 @@ gosec:
 	go run -mod=mod github.com/securego/gosec/v2/cmd/gosec -exclude=G104 ./...
 
 trivy:
-	trivy fs --scanners vuln,secret --quiet --no-progress --disable-telemetry --exit-code 1 .
+	trivy fs \
+	--db-repository ghcr.io/aquasecurity/trivy-db \
+	--scanners vuln,secret \
+	--quiet \
+	--no-progress \
+	--disable-telemetry \
+	--exit-code 1 .
 
 lint:
-	go run -mod=mod github.com/golangci/golangci-lint/cmd/golangci-lint run --config .golangci.yml ./...
+	go run -mod=mod \
+	github.com/golangci/golangci-lint/cmd/golangci-lint run --config .golangci.yml ./...
 
 addlicense:
 	go run -mod=mod github.com/google/addlicense -c "Benjamin Borbe" -y $$(date +'%Y') -l bsd $$(find . -name "*.go" -not -path './vendor/*')

@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.9.0
+
+### Added
+- `vault-cli task get <name> <key>` — get frontmatter field value
+- `vault-cli task set <name> <key> <value>` — set frontmatter field value
+- `vault-cli task clear <name> <key>` — clear frontmatter field value
+- Supported keys: phase, claude_session_id, assignee, status, priority, defer_date
+- Added `Phase` and `ClaudeSessionID` fields to Task domain type
+
 ## v0.8.0
 
 ### Added

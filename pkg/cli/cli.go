@@ -72,6 +72,9 @@ func Run(ctx context.Context, args []string) error {
 	taskCmd.AddCommand(createDeferCommand(ctx, &configLoader, &vaultName, &outputFormat))
 	taskCmd.AddCommand(createUpdateCommand(ctx, &configLoader, &vaultName, &outputFormat))
 	taskCmd.AddCommand(createWorkOnCommand(ctx, &configLoader, &vaultName, &outputFormat))
+	taskCmd.AddCommand(createTaskGetCommand(ctx, &configLoader, &vaultName, &outputFormat))
+	taskCmd.AddCommand(createTaskSetCommand(ctx, &configLoader, &vaultName, &outputFormat))
+	taskCmd.AddCommand(createTaskClearCommand(ctx, &configLoader, &vaultName, &outputFormat))
 	taskCmd.AddCommand(
 		createGenericSearchCommand(
 			ctx,
@@ -729,6 +732,263 @@ func createGenericSearchCommand(
 	cmd.Flags().IntVar(&topK, "top-k", 5, "Maximum number of results to return")
 
 	return cmd
+}
+
+//nolint:dupl,gocognit,nestif // Mutation commands have similar structure but different operations
+func createTaskGetCommand(
+	ctx context.Context,
+	configLoader *config.Loader,
+	vaultName *string,
+	outputFormat *string,
+) *cobra.Command {
+	return &cobra.Command{
+		Use:   "get <task-name> <key>",
+		Short: "Get a frontmatter field value",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			taskName := args[0]
+			key := args[1]
+
+			vaults, err := getVaults(ctx, configLoader, vaultName)
+			if err != nil {
+				return fmt.Errorf("get vaults: %w", err)
+			}
+
+			// If only one vault, execute directly
+			if len(vaults) == 1 {
+				vault := vaults[0]
+				storageConfig := storage.NewConfigFromVault(vault)
+				store := storage.NewStorage(storageConfig)
+				getOp := ops.NewFrontmatterGetOperation(store)
+				value, err := getOp.Execute(ctx, vault.Path, taskName, key)
+				if err != nil {
+					if *outputFormat == OutputFormatJSON {
+						result := map[string]any{
+							"success": false,
+							"error":   err.Error(),
+						}
+						return PrintJSON(result)
+					}
+					return err
+				}
+
+				if *outputFormat == OutputFormatJSON {
+					result := map[string]any{
+						"key":   key,
+						"value": value,
+						"name":  taskName,
+					}
+					return PrintJSON(result)
+				}
+
+				fmt.Println(value)
+				return nil
+			}
+
+			// Multiple vaults: try each until successful
+			var lastErr error
+			for _, vault := range vaults {
+				storageConfig := storage.NewConfigFromVault(vault)
+				store := storage.NewStorage(storageConfig)
+				getOp := ops.NewFrontmatterGetOperation(store)
+				value, err := getOp.Execute(ctx, vault.Path, taskName, key)
+				if err == nil {
+					if *outputFormat == OutputFormatJSON {
+						result := map[string]any{
+							"key":   key,
+							"value": value,
+							"name":  taskName,
+						}
+						return PrintJSON(result)
+					}
+					fmt.Println(value)
+					return nil
+				}
+				lastErr = err
+			}
+
+			// Not found in any vault
+			if *outputFormat == OutputFormatJSON {
+				result := map[string]any{
+					"success": false,
+					"error":   lastErr.Error(),
+				}
+				return PrintJSON(result)
+			}
+			return fmt.Errorf("task not found in any vault: %w", lastErr)
+		},
+	}
+}
+
+//nolint:dupl,gocognit,nestif // Mutation commands have similar structure but different operations
+func createTaskSetCommand(
+	ctx context.Context,
+	configLoader *config.Loader,
+	vaultName *string,
+	outputFormat *string,
+) *cobra.Command {
+	return &cobra.Command{
+		Use:   "set <task-name> <key> <value>",
+		Short: "Set a frontmatter field value",
+		Args:  cobra.ExactArgs(3),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			taskName := args[0]
+			key := args[1]
+			value := args[2]
+
+			vaults, err := getVaults(ctx, configLoader, vaultName)
+			if err != nil {
+				return fmt.Errorf("get vaults: %w", err)
+			}
+
+			// If only one vault, execute directly
+			if len(vaults) == 1 {
+				vault := vaults[0]
+				storageConfig := storage.NewConfigFromVault(vault)
+				store := storage.NewStorage(storageConfig)
+				setOp := ops.NewFrontmatterSetOperation(store)
+				if err := setOp.Execute(ctx, vault.Path, taskName, key, value); err != nil {
+					if *outputFormat == OutputFormatJSON {
+						result := map[string]any{
+							"success": false,
+							"error":   err.Error(),
+						}
+						return PrintJSON(result)
+					}
+					return err
+				}
+
+				if *outputFormat == OutputFormatJSON {
+					result := map[string]any{
+						"success": true,
+						"key":     key,
+						"value":   value,
+						"name":    taskName,
+					}
+					return PrintJSON(result)
+				}
+
+				fmt.Printf("✅ Set %s=%s on: %s\n", key, value, taskName)
+				return nil
+			}
+
+			// Multiple vaults: try each until successful
+			var lastErr error
+			for _, vault := range vaults {
+				storageConfig := storage.NewConfigFromVault(vault)
+				store := storage.NewStorage(storageConfig)
+				setOp := ops.NewFrontmatterSetOperation(store)
+				if err := setOp.Execute(ctx, vault.Path, taskName, key, value); err == nil {
+					if *outputFormat == OutputFormatJSON {
+						result := map[string]any{
+							"success": true,
+							"key":     key,
+							"value":   value,
+							"name":    taskName,
+						}
+						return PrintJSON(result)
+					}
+					fmt.Printf("✅ Set %s=%s on: %s\n", key, value, taskName)
+					return nil
+				}
+				lastErr = err
+			}
+
+			// Not found in any vault
+			if *outputFormat == OutputFormatJSON {
+				result := map[string]any{
+					"success": false,
+					"error":   lastErr.Error(),
+				}
+				return PrintJSON(result)
+			}
+			return fmt.Errorf("task not found in any vault: %w", lastErr)
+		},
+	}
+}
+
+//nolint:dupl,gocognit,nestif // Mutation commands have similar structure but different operations
+func createTaskClearCommand(
+	ctx context.Context,
+	configLoader *config.Loader,
+	vaultName *string,
+	outputFormat *string,
+) *cobra.Command {
+	return &cobra.Command{
+		Use:   "clear <task-name> <key>",
+		Short: "Clear a frontmatter field value",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			taskName := args[0]
+			key := args[1]
+
+			vaults, err := getVaults(ctx, configLoader, vaultName)
+			if err != nil {
+				return fmt.Errorf("get vaults: %w", err)
+			}
+
+			// If only one vault, execute directly
+			if len(vaults) == 1 {
+				vault := vaults[0]
+				storageConfig := storage.NewConfigFromVault(vault)
+				store := storage.NewStorage(storageConfig)
+				clearOp := ops.NewFrontmatterClearOperation(store)
+				if err := clearOp.Execute(ctx, vault.Path, taskName, key); err != nil {
+					if *outputFormat == OutputFormatJSON {
+						result := map[string]any{
+							"success": false,
+							"error":   err.Error(),
+						}
+						return PrintJSON(result)
+					}
+					return err
+				}
+
+				if *outputFormat == OutputFormatJSON {
+					result := map[string]any{
+						"success": true,
+						"key":     key,
+						"name":    taskName,
+					}
+					return PrintJSON(result)
+				}
+
+				fmt.Printf("✅ Cleared %s on: %s\n", key, taskName)
+				return nil
+			}
+
+			// Multiple vaults: try each until successful
+			var lastErr error
+			for _, vault := range vaults {
+				storageConfig := storage.NewConfigFromVault(vault)
+				store := storage.NewStorage(storageConfig)
+				clearOp := ops.NewFrontmatterClearOperation(store)
+				if err := clearOp.Execute(ctx, vault.Path, taskName, key); err == nil {
+					if *outputFormat == OutputFormatJSON {
+						result := map[string]any{
+							"success": true,
+							"key":     key,
+							"name":    taskName,
+						}
+						return PrintJSON(result)
+					}
+					fmt.Printf("✅ Cleared %s on: %s\n", key, taskName)
+					return nil
+				}
+				lastErr = err
+			}
+
+			// Not found in any vault
+			if *outputFormat == OutputFormatJSON {
+				result := map[string]any{
+					"success": false,
+					"error":   lastErr.Error(),
+				}
+				return PrintJSON(result)
+			}
+			return fmt.Errorf("task not found in any vault: %w", lastErr)
+		},
+	}
 }
 
 // Execute is the main entry point for the CLI.

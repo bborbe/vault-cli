@@ -81,9 +81,32 @@ This is a test task.
 				Expect(task.Name).To(Equal("Test Task"))
 				Expect(task.Status).To(Equal(domain.TaskStatusTodo))
 				Expect(task.PageType).To(Equal("task"))
-				Expect(task.Priority).To(Equal(1))
+				Expect(task.Priority).To(Equal(domain.Priority(1)))
 				Expect(task.Assignee).To(Equal("bborbe"))
 				Expect(task.Goals).To(ContainElement("Build vault-cli Core Library"))
+			})
+
+			It("reads a task with string priority as -1 (resilient parsing)", func() {
+				// Create a task with string priority value
+				taskContent := `---
+status: todo
+page_type: task
+priority: medium
+assignee: bborbe
+---
+# Task with String Priority
+
+This task has a string priority value that should parse as -1.
+`
+				taskPath := filepath.Join(tasksDir, "String Priority Task.md")
+				Expect(os.WriteFile(taskPath, []byte(taskContent), 0600)).To(Succeed())
+
+				task, err := store.ReadTask(ctx, vaultPath, "String Priority Task")
+				Expect(err).To(BeNil())
+				Expect(task).NotTo(BeNil())
+				Expect(task.Name).To(Equal("String Priority Task"))
+				Expect(task.Status).To(Equal(domain.TaskStatusTodo))
+				Expect(task.Priority).To(Equal(domain.Priority(-1)))
 			})
 		})
 

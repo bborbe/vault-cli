@@ -14,7 +14,7 @@ type Task struct {
 	Status    TaskStatus `yaml:"status"`
 	PageType  string     `yaml:"page_type"`
 	Goals     []string   `yaml:"goals,omitempty"`
-	Priority  int        `yaml:"priority,omitempty"`
+	Priority  Priority   `yaml:"priority,omitempty"`
 	Assignee  string     `yaml:"assignee,omitempty"`
 	DeferDate *time.Time `yaml:"defer_date,omitempty"`
 	Tags      []string   `yaml:"tags,omitempty"`

@@ -22,6 +22,19 @@ type Loader struct {
 		result1 []*config.Vault
 		result2 error
 	}
+	GetCurrentUserStub        func(context.Context) (string, error)
+	getCurrentUserMutex       sync.RWMutex
+	getCurrentUserArgsForCall []struct {
+		arg1 context.Context
+	}
+	getCurrentUserReturns struct {
+		result1 string
+		result2 error
+	}
+	getCurrentUserReturnsOnCall map[int]struct {
+		result1 string
+		result2 error
+	}
 	GetVaultStub        func(context.Context, string) (*config.Vault, error)
 	getVaultMutex       sync.RWMutex
 	getVaultArgsForCall []struct {
@@ -127,6 +140,70 @@ func (fake *Loader) GetAllVaultsReturnsOnCall(i int, result1 []*config.Vault, re
 	}
 	fake.getAllVaultsReturnsOnCall[i] = struct {
 		result1 []*config.Vault
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *Loader) GetCurrentUser(arg1 context.Context) (string, error) {
+	fake.getCurrentUserMutex.Lock()
+	ret, specificReturn := fake.getCurrentUserReturnsOnCall[len(fake.getCurrentUserArgsForCall)]
+	fake.getCurrentUserArgsForCall = append(fake.getCurrentUserArgsForCall, struct {
+		arg1 context.Context
+	}{arg1})
+	stub := fake.GetCurrentUserStub
+	fakeReturns := fake.getCurrentUserReturns
+	fake.recordInvocation("GetCurrentUser", []interface{}{arg1})
+	fake.getCurrentUserMutex.Unlock()
+	if stub != nil {
+		return stub(arg1)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *Loader) GetCurrentUserCallCount() int {
+	fake.getCurrentUserMutex.RLock()
+	defer fake.getCurrentUserMutex.RUnlock()
+	return len(fake.getCurrentUserArgsForCall)
+}
+
+func (fake *Loader) GetCurrentUserCalls(stub func(context.Context) (string, error)) {
+	fake.getCurrentUserMutex.Lock()
+	defer fake.getCurrentUserMutex.Unlock()
+	fake.GetCurrentUserStub = stub
+}
+
+func (fake *Loader) GetCurrentUserArgsForCall(i int) context.Context {
+	fake.getCurrentUserMutex.RLock()
+	defer fake.getCurrentUserMutex.RUnlock()
+	argsForCall := fake.getCurrentUserArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *Loader) GetCurrentUserReturns(result1 string, result2 error) {
+	fake.getCurrentUserMutex.Lock()
+	defer fake.getCurrentUserMutex.Unlock()
+	fake.GetCurrentUserStub = nil
+	fake.getCurrentUserReturns = struct {
+		result1 string
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *Loader) GetCurrentUserReturnsOnCall(i int, result1 string, result2 error) {
+	fake.getCurrentUserMutex.Lock()
+	defer fake.getCurrentUserMutex.Unlock()
+	fake.GetCurrentUserStub = nil
+	if fake.getCurrentUserReturnsOnCall == nil {
+		fake.getCurrentUserReturnsOnCall = make(map[int]struct {
+			result1 string
+			result2 error
+		})
+	}
+	fake.getCurrentUserReturnsOnCall[i] = struct {
+		result1 string
 		result2 error
 	}{result1, result2}
 }

@@ -69,6 +69,7 @@ func Run(ctx context.Context, args []string) error {
 	taskCmd.AddCommand(createCompleteCommand(ctx, &configLoader, &vaultName))
 	taskCmd.AddCommand(createDeferCommand(ctx, &configLoader, &vaultName))
 	taskCmd.AddCommand(createUpdateCommand(ctx, &configLoader, &vaultName))
+	taskCmd.AddCommand(createWorkOnCommand(ctx, &configLoader, &vaultName))
 	taskCmd.AddCommand(
 		createGenericSearchCommand(
 			ctx,
@@ -218,6 +219,57 @@ func createUpdateCommand(
 				store := storage.NewStorage(storageConfig)
 				updateOp := ops.NewUpdateOperation(store)
 				if err := updateOp.Execute(ctx, vault.Path, taskName); err == nil {
+					return nil
+				}
+				lastErr = err
+			}
+
+			// Not found in any vault
+			return fmt.Errorf("task not found in any vault: %w", lastErr)
+		},
+	}
+}
+
+//nolint:dupl // Mutation commands have similar structure but different operations
+func createWorkOnCommand(
+	ctx context.Context,
+	configLoader *config.Loader,
+	vaultName *string,
+) *cobra.Command {
+	return &cobra.Command{
+		Use:   "work-on <task-name>",
+		Short: "Mark a task as in_progress and assign it to current user",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			taskName := args[0]
+
+			// Get current user from config
+			currentUser, err := (*configLoader).GetCurrentUser(ctx)
+			if err != nil {
+				return fmt.Errorf("get current user: %w", err)
+			}
+
+			vaults, err := getVaults(ctx, configLoader, vaultName)
+			if err != nil {
+				return fmt.Errorf("get vaults: %w", err)
+			}
+
+			// If only one vault, execute directly
+			if len(vaults) == 1 {
+				vault := vaults[0]
+				storageConfig := storage.NewConfigFromVault(vault)
+				store := storage.NewStorage(storageConfig)
+				workOnOp := ops.NewWorkOnOperation(store)
+				return workOnOp.Execute(ctx, vault.Path, taskName, currentUser)
+			}
+
+			// Multiple vaults: try each until successful
+			var lastErr error
+			for _, vault := range vaults {
+				storageConfig := storage.NewConfigFromVault(vault)
+				store := storage.NewStorage(storageConfig)
+				workOnOp := ops.NewWorkOnOperation(store)
+				if err := workOnOp.Execute(ctx, vault.Path, taskName, currentUser); err == nil {
 					return nil
 				}
 				lastErr = err

@@ -38,11 +38,18 @@ func Run(ctx context.Context, args []string) error {
 		StringVar(&vaultName, "vault", "", "Vault name (uses default if not specified)")
 	rootCmd.PersistentFlags().StringVar(&configPath, "config", "", "Config file path")
 
-	rootCmd.AddCommand(createCompleteCommand(ctx, &configLoader, &vaultName))
-	rootCmd.AddCommand(createDeferCommand(ctx, &configLoader, &vaultName))
-	rootCmd.AddCommand(createUpdateCommand(ctx, &configLoader, &vaultName))
-	rootCmd.AddCommand(createListCommand(ctx, &configLoader, &vaultName))
-	rootCmd.AddCommand(createLintCommand(ctx, &configLoader, &vaultName))
+	taskCmd := &cobra.Command{
+		Use:   "task",
+		Short: "Manage tasks in the vault",
+	}
+
+	taskCmd.AddCommand(createListCommand(ctx, &configLoader, &vaultName))
+	taskCmd.AddCommand(createLintCommand(ctx, &configLoader, &vaultName))
+	taskCmd.AddCommand(createCompleteCommand(ctx, &configLoader, &vaultName))
+	taskCmd.AddCommand(createDeferCommand(ctx, &configLoader, &vaultName))
+	taskCmd.AddCommand(createUpdateCommand(ctx, &configLoader, &vaultName))
+
+	rootCmd.AddCommand(taskCmd)
 
 	rootCmd.SetArgs(args)
 	return rootCmd.ExecuteContext(ctx)

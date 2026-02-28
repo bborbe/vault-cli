@@ -38,6 +38,9 @@ func Run(ctx context.Context, args []string) error {
 		StringVar(&vaultName, "vault", "", "Vault name (uses default if not specified)")
 	rootCmd.PersistentFlags().StringVar(&configPath, "config", "", "Config file path")
 
+	// Add root-level search command
+	rootCmd.AddCommand(createSearchCommand(ctx, &configLoader, &vaultName))
+
 	taskCmd := &cobra.Command{
 		Use:   "task",
 		Short: "Manage tasks in the vault",
@@ -48,6 +51,15 @@ func Run(ctx context.Context, args []string) error {
 	taskCmd.AddCommand(createCompleteCommand(ctx, &configLoader, &vaultName))
 	taskCmd.AddCommand(createDeferCommand(ctx, &configLoader, &vaultName))
 	taskCmd.AddCommand(createUpdateCommand(ctx, &configLoader, &vaultName))
+	taskCmd.AddCommand(
+		createGenericSearchCommand(
+			ctx,
+			&configLoader,
+			&vaultName,
+			"tasks",
+			func(c *storage.Config) string { return c.TasksDir },
+		),
+	)
 
 	rootCmd.AddCommand(taskCmd)
 	rootCmd.AddCommand(createGoalCommands(ctx, &configLoader, &vaultName))
@@ -289,6 +301,15 @@ func createGoalCommands(
 			func(c *storage.Config) string { return c.GoalsDir },
 		),
 	)
+	cmd.AddCommand(
+		createGenericSearchCommand(
+			ctx,
+			configLoader,
+			vaultName,
+			"goals",
+			func(c *storage.Config) string { return c.GoalsDir },
+		),
+	)
 	return cmd
 }
 
@@ -303,6 +324,15 @@ func createThemeCommands(
 	}
 	cmd.AddCommand(
 		createGenericListCommand(
+			ctx,
+			configLoader,
+			vaultName,
+			"themes",
+			func(c *storage.Config) string { return c.ThemesDir },
+		),
+	)
+	cmd.AddCommand(
+		createGenericSearchCommand(
 			ctx,
 			configLoader,
 			vaultName,
@@ -331,6 +361,15 @@ func createObjectiveCommands(
 			func(c *storage.Config) string { return c.ObjectivesDir },
 		),
 	)
+	cmd.AddCommand(
+		createGenericSearchCommand(
+			ctx,
+			configLoader,
+			vaultName,
+			"objectives",
+			func(c *storage.Config) string { return c.ObjectivesDir },
+		),
+	)
 	return cmd
 }
 
@@ -352,6 +391,77 @@ func createVisionCommands(
 			func(c *storage.Config) string { return c.VisionDir },
 		),
 	)
+	cmd.AddCommand(
+		createGenericSearchCommand(
+			ctx,
+			configLoader,
+			vaultName,
+			"vision items",
+			func(c *storage.Config) string { return c.VisionDir },
+		),
+	)
+	return cmd
+}
+
+func createSearchCommand(
+	ctx context.Context,
+	configLoader *config.Loader,
+	vaultName *string,
+) *cobra.Command {
+	var topK int
+
+	cmd := &cobra.Command{
+		Use:   "search <query>",
+		Short: "Search the entire vault using semantic search",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			query := args[0]
+			vault, err := (*configLoader).GetVault(ctx, *vaultName)
+			if err != nil {
+				return fmt.Errorf("get vault: %w", err)
+			}
+
+			searchOp := ops.NewSearchOperation()
+			return searchOp.Execute(ctx, vault.Path, "", query, topK)
+		},
+	}
+
+	cmd.Flags().IntVar(&topK, "top-k", 5, "Maximum number of results to return")
+
+	return cmd
+}
+
+// createGenericSearchCommand creates a search command for any page type.
+func createGenericSearchCommand(
+	ctx context.Context,
+	configLoader *config.Loader,
+	vaultName *string,
+	pageType string,
+	getDirFunc func(*storage.Config) string,
+) *cobra.Command {
+	var topK int
+
+	cmd := &cobra.Command{
+		Use:   "search <query>",
+		Short: fmt.Sprintf("Search %s using semantic search", pageType),
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			query := args[0]
+			vault, err := (*configLoader).GetVault(ctx, *vaultName)
+			if err != nil {
+				return fmt.Errorf("get vault: %w", err)
+			}
+
+			storageConfig := storage.NewConfigFromVault(vault)
+			scopeDir := getDirFunc(storageConfig)
+
+			searchOp := ops.NewSearchOperation()
+			return searchOp.Execute(ctx, vault.Path, scopeDir, query, topK)
+		},
+	}
+
+	cmd.Flags().IntVar(&topK, "top-k", 5, "Maximum number of results to return")
+
 	return cmd
 }
 

@@ -15,6 +15,7 @@ import (
 
 // Config represents the vault-cli configuration.
 type Config struct {
+	CurrentUser  string           `yaml:"current_user"`
 	DefaultVault string           `yaml:"default_vault"`
 	Vaults       map[string]Vault `yaml:"vaults"`
 }
@@ -85,6 +86,7 @@ type Loader interface {
 	GetVaultPath(ctx context.Context, vaultName string) (string, error)
 	GetVault(ctx context.Context, vaultName string) (*Vault, error)
 	GetAllVaults(ctx context.Context) ([]*Vault, error)
+	GetCurrentUser(ctx context.Context) (string, error)
 }
 
 // NewLoader creates a new config loader.
@@ -191,6 +193,18 @@ func (c *configLoader) GetVaultPath(ctx context.Context, vaultName string) (stri
 		return "", err
 	}
 	return vault.Path, nil
+}
+
+// GetCurrentUser returns the current user from config.
+func (c *configLoader) GetCurrentUser(ctx context.Context) (string, error) {
+	config, err := c.Load(ctx)
+	if err != nil {
+		return "", fmt.Errorf("load config: %w", err)
+	}
+	if config.CurrentUser == "" {
+		return "", fmt.Errorf("current_user not configured")
+	}
+	return config.CurrentUser, nil
 }
 
 // getDefaultConfig returns a default configuration.

@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.6.0
+
+### Added
+- `vault-cli task work-on <task-name>` command: sets status to in_progress and assigns to current user
+- `current_user` field in config (~/.vault-cli/config.yaml) to identify the active user
+
 ## v0.5.0
 
 ### Added

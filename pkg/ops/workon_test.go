@@ -15,23 +15,25 @@ import (
 	"github.com/bborbe/vault-cli/pkg/ops"
 )
 
-var _ = Describe("CompleteOperation", func() {
+var _ = Describe("WorkOnOperation", func() {
 	var (
 		ctx         context.Context
 		err         error
-		completeOp  ops.CompleteOperation
+		workOnOp    ops.WorkOnOperation
 		mockStorage *mocks.Storage
 		vaultPath   string
 		taskName    string
+		assignee    string
 		task        *domain.Task
 	)
 
 	BeforeEach(func() {
 		ctx = context.Background()
 		mockStorage = &mocks.Storage{}
-		completeOp = ops.NewCompleteOperation(mockStorage)
+		workOnOp = ops.NewWorkOnOperation(mockStorage)
 		vaultPath = "/path/to/vault"
 		taskName = "my-task"
+		assignee = "user@example.com"
 
 		// Default: return a task
 		task = &domain.Task{
@@ -43,7 +45,7 @@ var _ = Describe("CompleteOperation", func() {
 	})
 
 	JustBeforeEach(func() {
-		err = completeOp.Execute(ctx, vaultPath, taskName)
+		err = workOnOp.Execute(ctx, vaultPath, taskName, assignee)
 	})
 
 	Context("success", func() {
@@ -59,10 +61,16 @@ var _ = Describe("CompleteOperation", func() {
 			Expect(actualTaskName).To(Equal(taskName))
 		})
 
-		It("marks task as done", func() {
+		It("marks task as in_progress", func() {
 			Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.Status).To(Equal(domain.TaskStatusDone))
+			Expect(writtenTask.Status).To(Equal(domain.TaskStatusInProgress))
+		})
+
+		It("sets assignee correctly", func() {
+			Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
+			Expect(writtenTask.Assignee).To(Equal(assignee))
 		})
 
 		It("calls WriteTask with updated task", func() {
@@ -94,53 +102,6 @@ var _ = Describe("CompleteOperation", func() {
 
 		It("returns error", func() {
 			Expect(err).NotTo(BeNil())
-		})
-	})
-
-	Context("task with associated goal", func() {
-		var goal *domain.Goal
-
-		BeforeEach(func() {
-			task.Goals = []string{"Test Goal"}
-
-			goal = &domain.Goal{
-				Name: "Test Goal",
-				Content: `---
-status: active
----
-# Test Goal
-
-## Tasks
-- [ ] my-task
-`,
-			}
-			mockStorage.FindGoalByNameReturns(goal, nil)
-			mockStorage.WriteGoalReturns(nil)
-		})
-
-		It("attempts to update goal checkbox", func() {
-			Expect(err).To(BeNil())
-			Expect(mockStorage.FindGoalByNameCallCount() > 0).To(BeTrue())
-		})
-
-		It("marks checkbox in goal as complete", func() {
-			Expect(err).To(BeNil())
-			if mockStorage.WriteGoalCallCount() > 0 {
-				_, updatedGoal := mockStorage.WriteGoalArgsForCall(0)
-				Expect(updatedGoal.Content).To(ContainSubstring("- [x]"))
-			}
-		})
-	})
-
-	Context("task with goal not found", func() {
-		BeforeEach(func() {
-			task.Goals = []string{"Missing Goal"}
-			mockStorage.FindGoalByNameReturns(nil, ErrTest)
-		})
-
-		It("completes task despite goal error", func() {
-			// Operation should succeed even if goal update fails
-			Expect(err).To(BeNil())
 		})
 	})
 })

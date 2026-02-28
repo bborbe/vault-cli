@@ -22,6 +22,7 @@ type ListOperation interface {
 		pagesDir string,
 		statusFilter []domain.TaskStatus,
 		showAll bool,
+		assigneeFilter string,
 	) error
 }
 
@@ -38,13 +39,14 @@ type listOperation struct {
 	storage storage.Storage
 }
 
-// Execute lists tasks from the vault, optionally filtered by status.
+// Execute lists tasks from the vault, optionally filtered by status and assignee.
 func (l *listOperation) Execute(
 	ctx context.Context,
 	vaultPath string,
 	pagesDir string,
 	statusFilter []domain.TaskStatus,
 	showAll bool,
+	assigneeFilter string,
 ) error {
 	// Read all tasks/pages from the specified directory
 	tasks, err := l.storage.ListPages(ctx, vaultPath, pagesDir)
@@ -69,12 +71,20 @@ func (l *listOperation) Execute(
 		}
 	}
 
-	// Filter tasks by status
-	var filteredTasks []*domain.Task
+	// Filter tasks by status and assignee
+	filteredTasks := make([]*domain.Task, 0, len(tasks))
 	for _, task := range tasks {
-		if showAll || statusesToShow[task.Status] {
-			filteredTasks = append(filteredTasks, task)
+		// Filter by status
+		if !showAll && !statusesToShow[task.Status] {
+			continue
 		}
+
+		// Filter by assignee if specified
+		if assigneeFilter != "" && task.Assignee != assigneeFilter {
+			continue
+		}
+
+		filteredTasks = append(filteredTasks, task)
 	}
 
 	// Sort tasks: in_progress first, then todo, then alphabetically within each group

@@ -24,9 +24,10 @@ func Run(ctx context.Context, args []string) error {
 	var configPath string
 
 	rootCmd := &cobra.Command{
-		Use:   "vault-cli",
-		Short: "Obsidian vault task management CLI",
-		Long:  "Fast CRUD operations for Obsidian markdown files (tasks, goals, themes).",
+		Use:          "vault-cli",
+		Short:        "Obsidian vault task management CLI",
+		Long:         "Fast CRUD operations for Obsidian markdown files (tasks, goals, themes).",
+		SilenceUsage: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			configLoader = config.NewLoader(configPath)
 			return nil

@@ -22,7 +22,7 @@ var _ = Describe("ListOperation", func() {
 	var mockStorage *mocks.Storage
 	var vaultPath string
 	var pagesDir string
-	var statusFilter []domain.TaskStatus
+	var statusFilter string
 	var showAll bool
 	var assigneeFilter string
 	var tasks []*domain.Task
@@ -33,7 +33,7 @@ var _ = Describe("ListOperation", func() {
 		listOp = ops.NewListOperation(mockStorage)
 		vaultPath = "/path/to/vault"
 		pagesDir = "Tasks"
-		statusFilter = nil
+		statusFilter = ""
 		showAll = false
 		assigneeFilter = ""
 
@@ -80,7 +80,21 @@ var _ = Describe("ListOperation", func() {
 
 		Context("with --status filter", func() {
 			BeforeEach(func() {
-				statusFilter = []domain.TaskStatus{domain.TaskStatusInProgress}
+				statusFilter = "in_progress"
+			})
+
+			It("returns no error", func() {
+				Expect(err).To(BeNil())
+			})
+
+			It("calls ListPages", func() {
+				Expect(mockStorage.ListPagesCallCount()).To(Equal(1))
+			})
+		})
+
+		Context("with --status filter (case-insensitive)", func() {
+			BeforeEach(func() {
+				statusFilter = "In_Progress"
 			})
 
 			It("returns no error", func() {

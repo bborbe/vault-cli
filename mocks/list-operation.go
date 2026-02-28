@@ -5,18 +5,17 @@ import (
 	"context"
 	"sync"
 
-	"github.com/bborbe/vault-cli/pkg/domain"
 	"github.com/bborbe/vault-cli/pkg/ops"
 )
 
 type ListOperation struct {
-	ExecuteStub        func(context.Context, string, string, []domain.TaskStatus, bool, string) error
+	ExecuteStub        func(context.Context, string, string, string, bool, string) error
 	executeMutex       sync.RWMutex
 	executeArgsForCall []struct {
 		arg1 context.Context
 		arg2 string
 		arg3 string
-		arg4 []domain.TaskStatus
+		arg4 string
 		arg5 bool
 		arg6 string
 	}
@@ -30,25 +29,20 @@ type ListOperation struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *ListOperation) Execute(arg1 context.Context, arg2 string, arg3 string, arg4 []domain.TaskStatus, arg5 bool, arg6 string) error {
-	var arg4Copy []domain.TaskStatus
-	if arg4 != nil {
-		arg4Copy = make([]domain.TaskStatus, len(arg4))
-		copy(arg4Copy, arg4)
-	}
+func (fake *ListOperation) Execute(arg1 context.Context, arg2 string, arg3 string, arg4 string, arg5 bool, arg6 string) error {
 	fake.executeMutex.Lock()
 	ret, specificReturn := fake.executeReturnsOnCall[len(fake.executeArgsForCall)]
 	fake.executeArgsForCall = append(fake.executeArgsForCall, struct {
 		arg1 context.Context
 		arg2 string
 		arg3 string
-		arg4 []domain.TaskStatus
+		arg4 string
 		arg5 bool
 		arg6 string
-	}{arg1, arg2, arg3, arg4Copy, arg5, arg6})
+	}{arg1, arg2, arg3, arg4, arg5, arg6})
 	stub := fake.ExecuteStub
 	fakeReturns := fake.executeReturns
-	fake.recordInvocation("Execute", []interface{}{arg1, arg2, arg3, arg4Copy, arg5, arg6})
+	fake.recordInvocation("Execute", []interface{}{arg1, arg2, arg3, arg4, arg5, arg6})
 	fake.executeMutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2, arg3, arg4, arg5, arg6)
@@ -65,13 +59,13 @@ func (fake *ListOperation) ExecuteCallCount() int {
 	return len(fake.executeArgsForCall)
 }
 
-func (fake *ListOperation) ExecuteCalls(stub func(context.Context, string, string, []domain.TaskStatus, bool, string) error) {
+func (fake *ListOperation) ExecuteCalls(stub func(context.Context, string, string, string, bool, string) error) {
 	fake.executeMutex.Lock()
 	defer fake.executeMutex.Unlock()
 	fake.ExecuteStub = stub
 }
 
-func (fake *ListOperation) ExecuteArgsForCall(i int) (context.Context, string, string, []domain.TaskStatus, bool, string) {
+func (fake *ListOperation) ExecuteArgsForCall(i int) (context.Context, string, string, string, bool, string) {
 	fake.executeMutex.RLock()
 	defer fake.executeMutex.RUnlock()
 	argsForCall := fake.executeArgsForCall[i]

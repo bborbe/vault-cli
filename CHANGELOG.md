@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.7.0
+
+### Added
+- `--status` filter flag for all list commands (task, goal, theme, objective, vision)
+- Case-insensitive status matching (e.g. `--status in_progress`)
+- Works in combination with existing `--vault` and `--assignee` filters
+
 ## v0.6.1
 
 ### Added

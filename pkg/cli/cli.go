@@ -12,7 +12,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/bborbe/vault-cli/pkg/config"
-	"github.com/bborbe/vault-cli/pkg/domain"
 	"github.com/bborbe/vault-cli/pkg/ops"
 	"github.com/bborbe/vault-cli/pkg/storage"
 )
@@ -286,7 +285,7 @@ func createTaskListCommand(
 	configLoader *config.Loader,
 	vaultName *string,
 ) *cobra.Command {
-	var statusFlag []string
+	var statusFilter string
 	var showAll bool
 	var assigneeFlag string
 
@@ -296,7 +295,7 @@ func createTaskListCommand(
 		Long: `List tasks from the vault, optionally filtered by status and assignee.
 
 By default, shows only tasks with status "todo" or "in_progress".
-Use --status to filter by specific statuses, or --all to show all tasks.
+Use --status to filter by specific status, or --all to show all tasks.
 Use --assignee to filter by assignee.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -314,12 +313,6 @@ Use --assignee to filter by assignee.`,
 				store := storage.NewStorage(storageConfig)
 				listOp := ops.NewListOperation(store)
 
-				// Parse status filter
-				var statusFilter []domain.TaskStatus
-				for _, s := range statusFlag {
-					statusFilter = append(statusFilter, domain.TaskStatus(s))
-				}
-
 				if err := listOp.Execute(ctx, vault.Path, storageConfig.TasksDir, statusFilter, showAll, assigneeFlag); err != nil {
 					return err
 				}
@@ -329,8 +322,8 @@ Use --assignee to filter by assignee.`,
 		},
 	}
 
-	cmd.Flags().StringSliceVar(&statusFlag, "status", nil,
-		"Filter by status (can be repeated): todo, in_progress, done, deferred")
+	cmd.Flags().StringVar(&statusFilter, "status", "",
+		"Filter by status (e.g. todo, in_progress, completed, done, deferred)")
 	cmd.Flags().BoolVar(&showAll, "all", false,
 		"Show all tasks regardless of status")
 	cmd.Flags().StringVar(&assigneeFlag, "assignee", "", "Filter by assignee")
@@ -401,7 +394,7 @@ func createGenericListCommand(
 	pageType string,
 	getDirFunc func(*storage.Config) string,
 ) *cobra.Command {
-	var statusFlag []string
+	var statusFilter string
 	var showAll bool
 	var assigneeFlag string
 
@@ -424,12 +417,6 @@ func createGenericListCommand(
 				store := storage.NewStorage(storageConfig)
 				listOp := ops.NewListOperation(store)
 
-				// Parse status filter
-				var statusFilter []domain.TaskStatus
-				for _, s := range statusFlag {
-					statusFilter = append(statusFilter, domain.TaskStatus(s))
-				}
-
 				if err := listOp.Execute(ctx, vault.Path, getDirFunc(storageConfig), statusFilter, showAll, assigneeFlag); err != nil {
 					return err
 				}
@@ -439,11 +426,11 @@ func createGenericListCommand(
 		},
 	}
 
-	cmd.Flags().StringSliceVar(
-		&statusFlag,
+	cmd.Flags().StringVar(
+		&statusFilter,
 		"status",
-		nil,
-		"Filter by status (can be repeated): todo, in_progress, done, deferred",
+		"",
+		"Filter by status (e.g. todo, in_progress, completed, done, deferred)",
 	)
 	cmd.Flags().BoolVar(
 		&showAll,

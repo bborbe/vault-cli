@@ -20,7 +20,7 @@ type ListOperation interface {
 		ctx context.Context,
 		vaultPath string,
 		pagesDir string,
-		statusFilter []domain.TaskStatus,
+		statusFilter string,
 		showAll bool,
 		assigneeFilter string,
 	) error
@@ -44,7 +44,7 @@ func (l *listOperation) Execute(
 	ctx context.Context,
 	vaultPath string,
 	pagesDir string,
-	statusFilter []domain.TaskStatus,
+	statusFilter string,
 	showAll bool,
 	assigneeFilter string,
 ) error {
@@ -54,38 +54,8 @@ func (l *listOperation) Execute(
 		return fmt.Errorf("list pages: %w", err)
 	}
 
-	// Determine which statuses to show
-	var statusesToShow map[domain.TaskStatus]bool
-	if !showAll {
-		if len(statusFilter) > 0 {
-			statusesToShow = make(map[domain.TaskStatus]bool)
-			for _, status := range statusFilter {
-				statusesToShow[status] = true
-			}
-		} else {
-			// Default: show only todo and in_progress
-			statusesToShow = map[domain.TaskStatus]bool{
-				domain.TaskStatusTodo:       true,
-				domain.TaskStatusInProgress: true,
-			}
-		}
-	}
-
 	// Filter tasks by status and assignee
-	filteredTasks := make([]*domain.Task, 0, len(tasks))
-	for _, task := range tasks {
-		// Filter by status
-		if !showAll && !statusesToShow[task.Status] {
-			continue
-		}
-
-		// Filter by assignee if specified
-		if assigneeFilter != "" && task.Assignee != assigneeFilter {
-			continue
-		}
-
-		filteredTasks = append(filteredTasks, task)
-	}
+	filteredTasks := filterTasks(tasks, statusFilter, showAll, assigneeFilter)
 
 	// Sort tasks: in_progress first, then todo, then alphabetically within each group
 	sort.Slice(filteredTasks, func(i, j int) bool {
@@ -107,6 +77,54 @@ func (l *listOperation) Execute(
 	}
 
 	return nil
+}
+
+// filterTasks filters tasks by status and assignee.
+func filterTasks(
+	tasks []*domain.Task,
+	statusFilter string,
+	showAll bool,
+	assigneeFilter string,
+) []*domain.Task {
+	filteredTasks := make([]*domain.Task, 0, len(tasks))
+	for _, task := range tasks {
+		if !shouldIncludeTask(task, statusFilter, showAll, assigneeFilter) {
+			continue
+		}
+		filteredTasks = append(filteredTasks, task)
+	}
+	return filteredTasks
+}
+
+// shouldIncludeTask determines if a task should be included based on filters.
+func shouldIncludeTask(
+	task *domain.Task,
+	statusFilter string,
+	showAll bool,
+	assigneeFilter string,
+) bool {
+	// Filter by assignee if specified
+	if assigneeFilter != "" && task.Assignee != assigneeFilter {
+		return false
+	}
+
+	// Skip status filtering if showAll is true
+	if showAll {
+		return true
+	}
+
+	// Apply status filter
+	return matchesStatusFilter(task.Status, statusFilter)
+}
+
+// matchesStatusFilter checks if task status matches the filter.
+func matchesStatusFilter(status domain.TaskStatus, filter string) bool {
+	if filter != "" {
+		// When status filter is set, match case-insensitively
+		return strings.EqualFold(string(status), filter)
+	}
+	// Default: show only todo and in_progress
+	return status == domain.TaskStatusTodo || status == domain.TaskStatusInProgress
 }
 
 // statusPriority returns a numeric priority for sorting task statuses.

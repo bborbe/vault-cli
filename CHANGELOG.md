@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.10.4
+
+### Added
+- 026-error-wrapping
+
 ## v0.10.3
 
 ### Added

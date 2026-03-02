@@ -157,6 +157,67 @@ This task has a string priority value that should parse as -1.
 				Expect(err).To(BeNil())
 				Expect(updatedTask.Status).To(Equal(domain.TaskStatusDone))
 			})
+
+			It("returns error when writing to read-only directory", func() {
+				// Create read-only directory
+				readOnlyVault, err := os.MkdirTemp("", "vault-readonly-*")
+				Expect(err).To(BeNil())
+				defer func() { _ = os.RemoveAll(readOnlyVault) }()
+
+				readOnlyTasksDir := filepath.Join(readOnlyVault, "Tasks")
+				Expect(os.MkdirAll(readOnlyTasksDir, 0755)).To(Succeed())
+
+				// Make directory read-only
+				Expect(os.Chmod(readOnlyTasksDir, 0444)).To(Succeed())
+
+				task := &domain.Task{
+					Name:     "Read-Only Task",
+					FilePath: filepath.Join(readOnlyTasksDir, "Read-Only Task.md"),
+					Status:   domain.TaskStatusTodo,
+				}
+
+				err = store.WriteTask(ctx, task)
+				Expect(err).NotTo(BeNil())
+			})
+
+			It("round-trips task with all fields preserved", func() {
+				newTask := &domain.Task{
+					Name:     "Complete Task",
+					FilePath: filepath.Join(tasksDir, "Complete Task.md"),
+					Status:   domain.TaskStatusInProgress,
+					PageType: "task",
+					Priority: 2,
+					Assignee: "alice",
+					Goals:    []string{"Goal A", "Goal B"},
+					Content: `---
+status: in_progress
+page_type: task
+goals:
+  - Goal A
+  - Goal B
+priority: 2
+assignee: alice
+---
+# Complete Task
+
+Task with all fields.
+`,
+				}
+
+				// Write task
+				Expect(store.WriteTask(ctx, newTask)).To(Succeed())
+
+				// Find by name
+				found, err := store.FindTaskByName(ctx, vaultPath, "Complete Task")
+				Expect(err).To(BeNil())
+				Expect(found).NotTo(BeNil())
+				Expect(found.Name).To(Equal("Complete Task"))
+				Expect(found.Status).To(Equal(domain.TaskStatusInProgress))
+				Expect(found.PageType).To(Equal("task"))
+				Expect(found.Priority).To(Equal(domain.Priority(2)))
+				Expect(found.Assignee).To(Equal("alice"))
+				Expect(found.Goals).To(Equal([]string{"Goal A", "Goal B"}))
+			})
 		})
 
 		Describe("FindTaskByName", func() {
@@ -215,6 +276,37 @@ Another test task.
 				tasks, err := store.ListTasks(ctx, emptyVault)
 				Expect(err).To(BeNil())
 				Expect(tasks).To(HaveLen(0))
+			})
+
+			It("skips non-.md files", func() {
+				// Create a non-.md file
+				txtPath := filepath.Join(tasksDir, "notes.txt")
+				Expect(os.WriteFile(txtPath, []byte("not a markdown file"), 0600)).To(Succeed())
+
+				tasks, err := store.ListTasks(ctx, vaultPath)
+				Expect(err).To(BeNil())
+				// Should only have the Test Task from BeforeEach
+				Expect(tasks).To(HaveLen(1))
+				Expect(tasks[0].Name).To(Equal("Test Task"))
+			})
+
+			It("skips files with invalid frontmatter", func() {
+				// Create file with invalid frontmatter
+				invalidContent := `---
+status: todo
+invalid yaml: [unclosed
+---
+# Invalid Task
+`
+				invalidPath := filepath.Join(tasksDir, "Invalid Task.md")
+				Expect(os.WriteFile(invalidPath, []byte(invalidContent), 0600)).To(Succeed())
+
+				// ListTasks should continue and return valid tasks
+				tasks, err := store.ListTasks(ctx, vaultPath)
+				Expect(err).To(BeNil())
+				// Should only have the Test Task from BeforeEach
+				Expect(tasks).To(HaveLen(1))
+				Expect(tasks[0].Name).To(Equal("Test Task"))
 			})
 		})
 	})
@@ -292,6 +384,28 @@ This is a test goal.
 				Expect(err).To(BeNil())
 				Expect(found.Name).To(Equal("Unique Goal Name"))
 			})
+
+			It("returns error when writing to read-only directory", func() {
+				// Create read-only directory
+				readOnlyVault, err := os.MkdirTemp("", "vault-readonly-*")
+				Expect(err).To(BeNil())
+				defer func() { _ = os.RemoveAll(readOnlyVault) }()
+
+				readOnlyGoalsDir := filepath.Join(readOnlyVault, "Goals")
+				Expect(os.MkdirAll(readOnlyGoalsDir, 0755)).To(Succeed())
+
+				// Make directory read-only
+				Expect(os.Chmod(readOnlyGoalsDir, 0444)).To(Succeed())
+
+				goal := &domain.Goal{
+					Name:     "Read-Only Goal",
+					FilePath: filepath.Join(readOnlyGoalsDir, "Read-Only Goal.md"),
+					Status:   domain.GoalStatusActive,
+				}
+
+				err = store.WriteGoal(ctx, goal)
+				Expect(err).NotTo(BeNil())
+			})
 		})
 	})
 
@@ -322,6 +436,28 @@ This is a test goal.
 				Expect(read).NotTo(BeNil())
 				Expect(read.Name).To(Equal("Health & Fitness"))
 				Expect(read.Status).To(Equal(domain.ThemeStatusActive))
+			})
+
+			It("returns error when writing to read-only directory", func() {
+				// Create read-only directory
+				readOnlyVault, err := os.MkdirTemp("", "vault-readonly-*")
+				Expect(err).To(BeNil())
+				defer func() { _ = os.RemoveAll(readOnlyVault) }()
+
+				readOnlyThemesDir := filepath.Join(readOnlyVault, "Themes")
+				Expect(os.MkdirAll(readOnlyThemesDir, 0755)).To(Succeed())
+
+				// Make directory read-only
+				Expect(os.Chmod(readOnlyThemesDir, 0444)).To(Succeed())
+
+				theme := &domain.Theme{
+					Name:     "Read-Only Theme",
+					FilePath: filepath.Join(readOnlyThemesDir, "Read-Only Theme.md"),
+					Status:   domain.ThemeStatusActive,
+				}
+
+				err = store.WriteTheme(ctx, theme)
+				Expect(err).NotTo(BeNil())
 			})
 		})
 	})
@@ -403,6 +539,75 @@ page_type: task
 				Expect(err).To(BeNil())
 				Expect(readContent).To(Equal(content))
 			})
+
+			It("returns error when writing to invalid path", func() {
+				// Try to write to a path that cannot be created
+				invalidVault := "/nonexistent/vault/path"
+				content := "# 2024-01-01\n"
+
+				err := store.WriteDailyNote(ctx, invalidVault, "2024-01-01", content)
+				Expect(err).NotTo(BeNil())
+			})
+		})
+	})
+
+	Context("parseFrontmatter", func() {
+		It("handles file with no frontmatter markers", func() {
+			content := `# Task without frontmatter
+
+This is just plain markdown content.
+`
+			// Create a file without frontmatter
+			noFrontmatterPath := filepath.Join(tasksDir, "No Frontmatter.md")
+			Expect(os.WriteFile(noFrontmatterPath, []byte(content), 0600)).To(Succeed())
+
+			// ReadTask should return an error since parseFrontmatter expects frontmatter
+			_, err := store.ReadTask(ctx, vaultPath, "No Frontmatter")
+			Expect(err).NotTo(BeNil())
+		})
+
+		It("handles file with malformed YAML in frontmatter", func() {
+			content := `---
+status: todo
+invalid: [unclosed array
+page_type: task
+---
+# Task with malformed YAML
+`
+			malformedPath := filepath.Join(tasksDir, "Malformed YAML.md")
+			Expect(os.WriteFile(malformedPath, []byte(content), 0600)).To(Succeed())
+
+			// ReadTask should return an error due to malformed YAML
+			_, err := store.ReadTask(ctx, vaultPath, "Malformed YAML")
+			Expect(err).NotTo(BeNil())
+		})
+
+		It("parses valid frontmatter correctly", func() {
+			content := `---
+status: done
+page_type: task
+priority: 3
+assignee: bob
+goals:
+  - Goal X
+  - Goal Y
+---
+# Valid Task
+
+Task with valid frontmatter.
+`
+			validPath := filepath.Join(tasksDir, "Valid Frontmatter.md")
+			Expect(os.WriteFile(validPath, []byte(content), 0600)).To(Succeed())
+
+			task, err := store.ReadTask(ctx, vaultPath, "Valid Frontmatter")
+			Expect(err).To(BeNil())
+			Expect(task).NotTo(BeNil())
+			Expect(task.Name).To(Equal("Valid Frontmatter"))
+			Expect(task.Status).To(Equal(domain.TaskStatusDone))
+			Expect(task.PageType).To(Equal("task"))
+			Expect(task.Priority).To(Equal(domain.Priority(3)))
+			Expect(task.Assignee).To(Equal("bob"))
+			Expect(task.Goals).To(Equal([]string{"Goal X", "Goal Y"}))
 		})
 	})
 })

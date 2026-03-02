@@ -13,6 +13,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bborbe/errors"
+
 	"github.com/bborbe/vault-cli/pkg/domain"
 	"github.com/bborbe/vault-cli/pkg/storage"
 )
@@ -54,7 +56,7 @@ func (d *deferOperation) Execute(
 	// Parse and validate date
 	targetDate, err := d.parseDate(dateStr)
 	if err != nil {
-		return d.returnError(err, "parse date", outputFormat)
+		return d.returnError(ctx, err, "parse date", outputFormat)
 	}
 
 	// Find and update task
@@ -71,13 +73,18 @@ func (d *deferOperation) Execute(
 }
 
 // returnError formats and returns an error based on output format.
-func (d *deferOperation) returnError(err error, context string, format string) error {
+func (d *deferOperation) returnError(
+	ctx context.Context,
+	err error,
+	msg string,
+	format string,
+) error {
 	if format == "json" {
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
 		_ = enc.Encode(MutationResult{Success: false, Error: err.Error()})
 	}
-	return fmt.Errorf("%s: %w", context, err)
+	return errors.Wrap(ctx, err, msg)
 }
 
 // findAndDeferTask finds and updates task defer status.
@@ -90,12 +97,12 @@ func (d *deferOperation) findAndDeferTask(
 ) (*domain.Task, error) {
 	task, err := d.storage.FindTaskByName(ctx, vaultPath, taskName)
 	if err != nil {
-		return nil, d.returnError(err, "find task", format)
+		return nil, d.returnError(ctx, err, "find task", format)
 	}
 	task.Status = domain.TaskStatusDeferred
 	task.DeferDate = &targetDate
 	if err := d.storage.WriteTask(ctx, task); err != nil {
-		return nil, d.returnError(err, "write task", format)
+		return nil, d.returnError(ctx, err, "write task", format)
 	}
 	return task, nil
 }
@@ -205,7 +212,7 @@ func (d *deferOperation) removeFromDailyNote(
 ) error {
 	content, err := d.storage.ReadDailyNote(ctx, vaultPath, date)
 	if err != nil {
-		return fmt.Errorf("read daily note: %w", err)
+		return errors.Wrap(ctx, err, "read daily note")
 	}
 
 	if content == "" {
@@ -228,7 +235,7 @@ func (d *deferOperation) removeFromDailyNote(
 
 	updatedContent := strings.Join(filteredLines, "\n")
 	if err := d.storage.WriteDailyNote(ctx, vaultPath, date, updatedContent); err != nil {
-		return fmt.Errorf("write daily note: %w", err)
+		return errors.Wrap(ctx, err, "write daily note")
 	}
 
 	return nil
@@ -243,7 +250,7 @@ func (d *deferOperation) addToDailyNote(
 ) error {
 	content, err := d.storage.ReadDailyNote(ctx, vaultPath, date)
 	if err != nil {
-		return fmt.Errorf("read daily note: %w", err)
+		return errors.Wrap(ctx, err, "read daily note")
 	}
 
 	// Create task line
@@ -258,7 +265,7 @@ func (d *deferOperation) addToDailyNote(
 	}
 
 	if err := d.storage.WriteDailyNote(ctx, vaultPath, date, content); err != nil {
-		return fmt.Errorf("write daily note: %w", err)
+		return errors.Wrap(ctx, err, "write daily note")
 	}
 
 	return nil

@@ -13,6 +13,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bborbe/errors"
+
 	"github.com/bborbe/vault-cli/pkg/domain"
 	"github.com/bborbe/vault-cli/pkg/storage"
 )
@@ -72,7 +74,7 @@ func (c *completeOperation) Execute(
 			enc.SetIndent("", "  ")
 			_ = enc.Encode(result)
 		}
-		return fmt.Errorf("find task: %w", err)
+		return errors.Wrap(ctx, err, "find task")
 	}
 
 	// Update task status to done
@@ -89,7 +91,7 @@ func (c *completeOperation) Execute(
 			enc.SetIndent("", "  ")
 			_ = enc.Encode(result)
 		}
-		return fmt.Errorf("write task: %w", err)
+		return errors.Wrap(ctx, err, "write task")
 	}
 
 	// Update associated goals
@@ -138,7 +140,7 @@ func (c *completeOperation) markGoalCheckbox(
 ) error {
 	goal, err := c.storage.FindGoalByName(ctx, vaultPath, goalName)
 	if err != nil {
-		return fmt.Errorf("find goal: %w", err)
+		return errors.Wrap(ctx, err, "find goal")
 	}
 
 	// Find checkbox that matches task name
@@ -164,7 +166,7 @@ func (c *completeOperation) markGoalCheckbox(
 
 	// Write updated goal
 	if err := c.storage.WriteGoal(ctx, goal); err != nil {
-		return fmt.Errorf("write goal: %w", err)
+		return errors.Wrap(ctx, err, "write goal")
 	}
 
 	return nil
@@ -180,7 +182,7 @@ func (c *completeOperation) updateDailyNote(
 ) error {
 	content, err := c.storage.ReadDailyNote(ctx, vaultPath, date)
 	if err != nil {
-		return fmt.Errorf("read daily note: %w", err)
+		return errors.Wrap(ctx, err, "read daily note")
 	}
 
 	if content == "" {
@@ -214,7 +216,7 @@ func (c *completeOperation) updateDailyNote(
 	// Write updated daily note
 	updatedContent := strings.Join(lines, "\n")
 	if err := c.storage.WriteDailyNote(ctx, vaultPath, date, updatedContent); err != nil {
-		return fmt.Errorf("write daily note: %w", err)
+		return errors.Wrap(ctx, err, "write daily note")
 	}
 
 	return nil

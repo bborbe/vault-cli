@@ -13,6 +13,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/bborbe/errors"
 	"gopkg.in/yaml.v3"
 
 	"github.com/bborbe/vault-cli/pkg/config"
@@ -108,13 +109,13 @@ func (m *markdownStorage) ReadTask(
 }
 
 func (m *markdownStorage) readTaskFromPath(
-	_ context.Context,
+	ctx context.Context,
 	filePath string,
 	name string,
 ) (*domain.Task, error) {
 	content, err := os.ReadFile(filePath) //#nosec G304 -- user-controlled vault path
 	if err != nil {
-		return nil, fmt.Errorf("read file %s: %w", filePath, err)
+		return nil, errors.Wrap(ctx, err, fmt.Sprintf("read file %s", filePath))
 	}
 
 	task := &domain.Task{
@@ -124,7 +125,7 @@ func (m *markdownStorage) readTaskFromPath(
 	}
 
 	if err := m.parseFrontmatter(content, task); err != nil {
-		return nil, fmt.Errorf("parse frontmatter: %w", err)
+		return nil, errors.Wrap(ctx, err, "parse frontmatter")
 	}
 
 	return task, nil
@@ -134,11 +135,11 @@ func (m *markdownStorage) readTaskFromPath(
 func (m *markdownStorage) WriteTask(ctx context.Context, task *domain.Task) error {
 	content, err := m.serializeWithFrontmatter(task, task.Content)
 	if err != nil {
-		return fmt.Errorf("serialize frontmatter: %w", err)
+		return errors.Wrap(ctx, err, "serialize frontmatter")
 	}
 
 	if err := os.WriteFile(task.FilePath, []byte(content), 0600); err != nil {
-		return fmt.Errorf("write file %s: %w", task.FilePath, err)
+		return errors.Wrap(ctx, err, fmt.Sprintf("write file %s", task.FilePath))
 	}
 
 	return nil
@@ -167,7 +168,7 @@ func (m *markdownStorage) ListTasks(
 
 	entries, err := os.ReadDir(tasksDir)
 	if err != nil {
-		return nil, fmt.Errorf("read tasks directory %s: %w", tasksDir, err)
+		return nil, errors.Wrap(ctx, err, fmt.Sprintf("read tasks directory %s", tasksDir))
 	}
 
 	tasks := make([]*domain.Task, 0, len(entries))
@@ -205,7 +206,7 @@ func (m *markdownStorage) ListPages(
 
 	entries, err := os.ReadDir(targetDir)
 	if err != nil {
-		return nil, fmt.Errorf("read directory %s: %w", targetDir, err)
+		return nil, errors.Wrap(ctx, err, fmt.Sprintf("read directory %s", targetDir))
 	}
 
 	tasks := make([]*domain.Task, 0, len(entries))
@@ -244,13 +245,13 @@ func (m *markdownStorage) ReadGoal(
 }
 
 func (m *markdownStorage) readGoalFromPath(
-	_ context.Context,
+	ctx context.Context,
 	filePath string,
 	name string,
 ) (*domain.Goal, error) {
 	content, err := os.ReadFile(filePath) //#nosec G304 -- user-controlled vault path
 	if err != nil {
-		return nil, fmt.Errorf("read file %s: %w", filePath, err)
+		return nil, errors.Wrap(ctx, err, fmt.Sprintf("read file %s", filePath))
 	}
 
 	goal := &domain.Goal{
@@ -260,7 +261,7 @@ func (m *markdownStorage) readGoalFromPath(
 	}
 
 	if err := m.parseFrontmatter(content, goal); err != nil {
-		return nil, fmt.Errorf("parse frontmatter: %w", err)
+		return nil, errors.Wrap(ctx, err, "parse frontmatter")
 	}
 
 	// Parse checkbox items from content
@@ -273,11 +274,11 @@ func (m *markdownStorage) readGoalFromPath(
 func (m *markdownStorage) WriteGoal(ctx context.Context, goal *domain.Goal) error {
 	content, err := m.serializeWithFrontmatter(goal, goal.Content)
 	if err != nil {
-		return fmt.Errorf("serialize frontmatter: %w", err)
+		return errors.Wrap(ctx, err, "serialize frontmatter")
 	}
 
 	if err := os.WriteFile(goal.FilePath, []byte(content), 0600); err != nil {
-		return fmt.Errorf("write file %s: %w", goal.FilePath, err)
+		return errors.Wrap(ctx, err, fmt.Sprintf("write file %s", goal.FilePath))
 	}
 
 	return nil
@@ -308,13 +309,13 @@ func (m *markdownStorage) ReadTheme(
 }
 
 func (m *markdownStorage) readThemeFromPath(
-	_ context.Context,
+	ctx context.Context,
 	filePath string,
 	name string,
 ) (*domain.Theme, error) {
 	content, err := os.ReadFile(filePath) //#nosec G304 -- user-controlled vault path
 	if err != nil {
-		return nil, fmt.Errorf("read file %s: %w", filePath, err)
+		return nil, errors.Wrap(ctx, err, fmt.Sprintf("read file %s", filePath))
 	}
 
 	theme := &domain.Theme{
@@ -324,7 +325,7 @@ func (m *markdownStorage) readThemeFromPath(
 	}
 
 	if err := m.parseFrontmatter(content, theme); err != nil {
-		return nil, fmt.Errorf("parse frontmatter: %w", err)
+		return nil, errors.Wrap(ctx, err, "parse frontmatter")
 	}
 
 	return theme, nil
@@ -334,11 +335,11 @@ func (m *markdownStorage) readThemeFromPath(
 func (m *markdownStorage) WriteTheme(ctx context.Context, theme *domain.Theme) error {
 	content, err := m.serializeWithFrontmatter(theme, theme.Content)
 	if err != nil {
-		return fmt.Errorf("serialize frontmatter: %w", err)
+		return errors.Wrap(ctx, err, "serialize frontmatter")
 	}
 
 	if err := os.WriteFile(theme.FilePath, []byte(content), 0600); err != nil {
-		return fmt.Errorf("write file %s: %w", theme.FilePath, err)
+		return errors.Wrap(ctx, err, fmt.Sprintf("write file %s", theme.FilePath))
 	}
 
 	return nil
@@ -356,7 +357,7 @@ func (m *markdownStorage) ReadDailyNote(
 		if os.IsNotExist(err) {
 			return "", nil // Return empty content if file doesn't exist
 		}
-		return "", fmt.Errorf("read daily note %s: %w", filePath, err)
+		return "", errors.Wrap(ctx, err, fmt.Sprintf("read daily note %s", filePath))
 	}
 	return string(content), nil
 }
@@ -370,12 +371,12 @@ func (m *markdownStorage) WriteDailyNote(
 ) error {
 	dailyNotesDir := filepath.Join(vaultPath, m.config.DailyDir)
 	if err := os.MkdirAll(dailyNotesDir, 0750); err != nil {
-		return fmt.Errorf("create daily notes directory: %w", err)
+		return errors.Wrap(ctx, err, "create daily notes directory")
 	}
 
 	filePath := filepath.Join(dailyNotesDir, date+".md")
 	if err := os.WriteFile(filePath, []byte(content), 0600); err != nil {
-		return fmt.Errorf("write daily note %s: %w", filePath, err)
+		return errors.Wrap(ctx, err, fmt.Sprintf("write daily note %s", filePath))
 	}
 
 	return nil

@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/bborbe/errors"
+
 	"github.com/bborbe/vault-cli/pkg/domain"
 	"github.com/bborbe/vault-cli/pkg/storage"
 )
@@ -60,7 +62,7 @@ func (w *workOnOperation) Execute(
 			enc.SetIndent("", "  ")
 			_ = enc.Encode(result)
 		}
-		return fmt.Errorf("find task: %w", err)
+		return errors.Wrap(ctx, err, "find task")
 	}
 
 	// Update task status to in_progress and set assignee
@@ -78,7 +80,7 @@ func (w *workOnOperation) Execute(
 			enc.SetIndent("", "  ")
 			_ = enc.Encode(result)
 		}
-		return fmt.Errorf("write task: %w", err)
+		return errors.Wrap(ctx, err, "write task")
 	}
 
 	if outputFormat == "json" {

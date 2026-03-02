@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/bborbe/errors"
+
 	"github.com/bborbe/vault-cli/pkg/domain"
 	"github.com/bborbe/vault-cli/pkg/storage"
 )
@@ -37,7 +39,7 @@ func (o *frontmatterGetOperation) Execute(
 ) (string, error) {
 	task, err := o.storage.FindTaskByName(ctx, vaultPath, taskName)
 	if err != nil {
-		return "", fmt.Errorf("find task: %w", err)
+		return "", errors.Wrap(ctx, err, "find task")
 	}
 
 	switch key {
@@ -84,7 +86,7 @@ func (o *frontmatterSetOperation) Execute(
 ) error {
 	task, err := o.storage.FindTaskByName(ctx, vaultPath, taskName)
 	if err != nil {
-		return fmt.Errorf("find task: %w", err)
+		return errors.Wrap(ctx, err, "find task")
 	}
 
 	switch key {
@@ -99,7 +101,7 @@ func (o *frontmatterSetOperation) Execute(
 	case "priority":
 		p, err := strconv.Atoi(value)
 		if err != nil {
-			return fmt.Errorf("invalid priority value (expected integer): %w", err)
+			return errors.Wrap(ctx, err, "invalid priority value (expected integer)")
 		}
 		task.Priority = domain.Priority(p)
 	case "defer_date":
@@ -108,7 +110,7 @@ func (o *frontmatterSetOperation) Execute(
 		} else {
 			t, err := time.Parse("2006-01-02", value)
 			if err != nil {
-				return fmt.Errorf("invalid date format (expected YYYY-MM-DD): %w", err)
+				return errors.Wrap(ctx, err, "invalid date format (expected YYYY-MM-DD)")
 			}
 			task.DeferDate = &t
 		}
@@ -117,7 +119,7 @@ func (o *frontmatterSetOperation) Execute(
 	}
 
 	if err := o.storage.WriteTask(ctx, task); err != nil {
-		return fmt.Errorf("write task: %w", err)
+		return errors.Wrap(ctx, err, "write task")
 	}
 
 	return nil
@@ -146,7 +148,7 @@ func (o *frontmatterClearOperation) Execute(
 ) error {
 	task, err := o.storage.FindTaskByName(ctx, vaultPath, taskName)
 	if err != nil {
-		return fmt.Errorf("find task: %w", err)
+		return errors.Wrap(ctx, err, "find task")
 	}
 
 	switch key {
@@ -167,7 +169,7 @@ func (o *frontmatterClearOperation) Execute(
 	}
 
 	if err := o.storage.WriteTask(ctx, task); err != nil {
-		return fmt.Errorf("write task: %w", err)
+		return errors.Wrap(ctx, err, "write task")
 	}
 
 	return nil

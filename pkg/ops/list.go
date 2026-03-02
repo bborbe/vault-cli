@@ -12,6 +12,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/bborbe/errors"
+
 	"github.com/bborbe/vault-cli/pkg/domain"
 	"github.com/bborbe/vault-cli/pkg/storage"
 )
@@ -66,7 +68,7 @@ func (l *listOperation) Execute(
 	// Read all tasks/pages from the specified directory
 	tasks, err := l.storage.ListPages(ctx, vaultPath, pagesDir)
 	if err != nil {
-		return fmt.Errorf("list pages: %w", err)
+		return errors.Wrap(ctx, err, "list pages")
 	}
 
 	// Filter tasks by status and assignee

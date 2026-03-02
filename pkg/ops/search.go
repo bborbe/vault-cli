@@ -13,6 +13,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/bborbe/errors"
 )
 
 //counterfeiter:generate -o ../../mocks/search-operation.go --fake-name SearchOperation . SearchOperation
@@ -51,7 +53,7 @@ func (s *searchOperation) Execute(
 
 	// Check if semantic-search-mcp is available
 	if _, err := exec.LookPath("semantic-search-mcp"); err != nil {
-		return fmt.Errorf("semantic-search-mcp not found on PATH: %w", err)
+		return errors.Wrap(ctx, err, "semantic-search-mcp not found on PATH")
 	}
 
 	// Build command
@@ -66,7 +68,11 @@ func (s *searchOperation) Execute(
 	// Capture output
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("semantic-search-mcp failed: %w\nOutput: %s", err, string(output))
+		return errors.Wrap(
+			ctx,
+			err,
+			fmt.Sprintf("semantic-search-mcp failed\nOutput: %s", string(output)),
+		)
 	}
 
 	// Process results based on output format

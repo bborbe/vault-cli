@@ -60,7 +60,7 @@ This task has no issues.
 		})
 
 		It("reports no issues", func() {
-			err := lintOp.Execute(ctx, vaultPath, tasksDir, false)
+			err := lintOp.Execute(ctx, vaultPath, tasksDir, false, "plain")
 			Expect(err).To(BeNil())
 		})
 	})
@@ -75,16 +75,27 @@ This task has no frontmatter.
 			Expect(os.WriteFile(taskPath, []byte(noFrontmatterContent), 0600)).To(Succeed())
 		})
 
-		It("detects missing frontmatter", func() {
-			err := lintOp.Execute(ctx, vaultPath, tasksDir, false)
+		It("detects missing frontmatter as fixable", func() {
+			err := lintOp.Execute(ctx, vaultPath, tasksDir, false, "plain")
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(ContainSubstring("found 1 lint issue"))
 		})
 
-		It("cannot fix missing frontmatter", func() {
-			err := lintOp.Execute(ctx, vaultPath, tasksDir, true)
-			Expect(err).NotTo(BeNil())
-			Expect(err.Error()).To(ContainSubstring("found 1 lint issue"))
+		It("fixes missing frontmatter by prepending status: backlog", func() {
+			err := lintOp.Execute(ctx, vaultPath, tasksDir, true, "plain")
+			Expect(err).To(BeNil())
+
+			// Verify file was fixed
+			taskPath := filepath.Join(vaultPath, tasksDir, "No Frontmatter.md")
+			content, err := os.ReadFile(taskPath) //#nosec G304 -- test file
+			Expect(err).To(BeNil())
+
+			// Should start with minimal frontmatter
+			Expect(string(content)).To(HavePrefix("---\nstatus: backlog\n---\n"))
+
+			// Original content should be preserved after frontmatter
+			Expect(string(content)).To(ContainSubstring("# Task Without Frontmatter"))
+			Expect(string(content)).To(ContainSubstring("This task has no frontmatter."))
 		})
 	})
 
@@ -105,13 +116,13 @@ This task has a string priority.
 		})
 
 		It("detects invalid priority", func() {
-			err := lintOp.Execute(ctx, vaultPath, tasksDir, false)
+			err := lintOp.Execute(ctx, vaultPath, tasksDir, false, "plain")
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(ContainSubstring("found 1 lint issue"))
 		})
 
 		It("fixes invalid priority 'high' to 1", func() {
-			err := lintOp.Execute(ctx, vaultPath, tasksDir, true)
+			err := lintOp.Execute(ctx, vaultPath, tasksDir, true, "plain")
 			Expect(err).To(BeNil())
 
 			// Verify file was fixed
@@ -137,7 +148,7 @@ assignee: bborbe
 				taskPath := filepath.Join(vaultPath, tasksDir, "Priority Test.md")
 				Expect(os.WriteFile(taskPath, []byte(taskContent), 0600)).To(Succeed())
 
-				err := lintOp.Execute(ctx, vaultPath, tasksDir, true)
+				err := lintOp.Execute(ctx, vaultPath, tasksDir, true, "plain")
 				Expect(err).To(BeNil())
 
 				content, err := os.ReadFile(taskPath) //#nosec G304 -- test file
@@ -172,13 +183,13 @@ This task has duplicate assignee key.
 		})
 
 		It("detects duplicate keys", func() {
-			err := lintOp.Execute(ctx, vaultPath, tasksDir, false)
+			err := lintOp.Execute(ctx, vaultPath, tasksDir, false, "plain")
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(ContainSubstring("found 1 lint issue"))
 		})
 
 		It("fixes duplicate keys by keeping first occurrence", func() {
-			err := lintOp.Execute(ctx, vaultPath, tasksDir, true)
+			err := lintOp.Execute(ctx, vaultPath, tasksDir, true, "plain")
 			Expect(err).To(BeNil())
 
 			// Verify file was fixed
@@ -219,13 +230,13 @@ This task has an invalid status.
 		})
 
 		It("detects invalid status", func() {
-			err := lintOp.Execute(ctx, vaultPath, tasksDir, false)
+			err := lintOp.Execute(ctx, vaultPath, tasksDir, false, "plain")
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(ContainSubstring("found 1 lint issue"))
 		})
 
 		It("cannot fix invalid status", func() {
-			err := lintOp.Execute(ctx, vaultPath, tasksDir, true)
+			err := lintOp.Execute(ctx, vaultPath, tasksDir, true, "plain")
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(ContainSubstring("found 1 lint issue"))
 		})
@@ -249,13 +260,13 @@ This task has the old 'next' status.
 			})
 
 			It("detects 'next' as invalid status", func() {
-				err := lintOp.Execute(ctx, vaultPath, tasksDir, false)
+				err := lintOp.Execute(ctx, vaultPath, tasksDir, false, "plain")
 				Expect(err).NotTo(BeNil())
 				Expect(err.Error()).To(ContainSubstring("found 1 lint issue"))
 			})
 
 			It("fixes 'next' to 'todo'", func() {
-				err := lintOp.Execute(ctx, vaultPath, tasksDir, true)
+				err := lintOp.Execute(ctx, vaultPath, tasksDir, true, "plain")
 				Expect(err).To(BeNil())
 
 				// Verify file was fixed
@@ -284,13 +295,13 @@ This task has the old 'current' status.
 			})
 
 			It("detects 'current' as invalid status", func() {
-				err := lintOp.Execute(ctx, vaultPath, tasksDir, false)
+				err := lintOp.Execute(ctx, vaultPath, tasksDir, false, "plain")
 				Expect(err).NotTo(BeNil())
 				Expect(err.Error()).To(ContainSubstring("found 1 lint issue"))
 			})
 
 			It("fixes 'current' to 'in_progress'", func() {
-				err := lintOp.Execute(ctx, vaultPath, tasksDir, true)
+				err := lintOp.Execute(ctx, vaultPath, tasksDir, true, "plain")
 				Expect(err).To(BeNil())
 
 				// Verify file was fixed
@@ -319,13 +330,13 @@ This task has the old 'done' status.
 			})
 
 			It("detects 'done' as invalid status", func() {
-				err := lintOp.Execute(ctx, vaultPath, tasksDir, false)
+				err := lintOp.Execute(ctx, vaultPath, tasksDir, false, "plain")
 				Expect(err).NotTo(BeNil())
 				Expect(err.Error()).To(ContainSubstring("found 1 lint issue"))
 			})
 
 			It("fixes 'done' to 'completed'", func() {
-				err := lintOp.Execute(ctx, vaultPath, tasksDir, true)
+				err := lintOp.Execute(ctx, vaultPath, tasksDir, true, "plain")
 				Expect(err).To(BeNil())
 
 				// Verify file was fixed
@@ -354,13 +365,13 @@ This task has an unknown invalid status.
 			})
 
 			It("detects 'foo' as invalid status", func() {
-				err := lintOp.Execute(ctx, vaultPath, tasksDir, false)
+				err := lintOp.Execute(ctx, vaultPath, tasksDir, false, "plain")
 				Expect(err).NotTo(BeNil())
 				Expect(err.Error()).To(ContainSubstring("found 1 lint issue"))
 			})
 
 			It("cannot fix 'foo' status", func() {
-				err := lintOp.Execute(ctx, vaultPath, tasksDir, true)
+				err := lintOp.Execute(ctx, vaultPath, tasksDir, true, "plain")
 				Expect(err).NotTo(BeNil())
 				Expect(err.Error()).To(ContainSubstring("found 1 lint issue"))
 
@@ -391,13 +402,13 @@ This task has multiple issues.
 		})
 
 		It("detects all issues", func() {
-			err := lintOp.Execute(ctx, vaultPath, tasksDir, false)
+			err := lintOp.Execute(ctx, vaultPath, tasksDir, false, "plain")
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(ContainSubstring("found 3 lint issue"))
 		})
 
 		It("fixes fixable issues and reports unfixable ones", func() {
-			err := lintOp.Execute(ctx, vaultPath, tasksDir, true)
+			err := lintOp.Execute(ctx, vaultPath, tasksDir, true, "plain")
 			Expect(err).NotTo(BeNil())
 			// Should have 1 unfixed issue (invalid status)
 			Expect(err.Error()).To(ContainSubstring("found 1 lint issue"))
@@ -431,13 +442,13 @@ assignee: alice
 		})
 
 		It("detects issues in all files", func() {
-			err := lintOp.Execute(ctx, vaultPath, tasksDir, false)
+			err := lintOp.Execute(ctx, vaultPath, tasksDir, false, "plain")
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(ContainSubstring("found 2 lint issue"))
 		})
 
 		It("fixes issues in all files", func() {
-			err := lintOp.Execute(ctx, vaultPath, tasksDir, true)
+			err := lintOp.Execute(ctx, vaultPath, tasksDir, true, "plain")
 			Expect(err).To(BeNil())
 		})
 	})

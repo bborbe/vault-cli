@@ -21,26 +21,35 @@ import (
 
 // Config holds the configuration for storage paths.
 type Config struct {
-	TasksDir string
-	GoalsDir string
-	DailyDir string
+	TasksDir      string
+	GoalsDir      string
+	ThemesDir     string
+	ObjectivesDir string
+	VisionDir     string
+	DailyDir      string
 }
 
 // NewConfigFromVault creates a Config from a Vault.
 func NewConfigFromVault(vault *config.Vault) *Config {
 	return &Config{
-		TasksDir: vault.GetTasksDir(),
-		GoalsDir: vault.GetGoalsDir(),
-		DailyDir: vault.GetDailyDir(),
+		TasksDir:      vault.GetTasksDir(),
+		GoalsDir:      vault.GetGoalsDir(),
+		ThemesDir:     vault.GetThemesDir(),
+		ObjectivesDir: vault.GetObjectivesDir(),
+		VisionDir:     vault.GetVisionDir(),
+		DailyDir:      vault.GetDailyDir(),
 	}
 }
 
 // DefaultConfig returns the default storage configuration.
 func DefaultConfig() *Config {
 	return &Config{
-		TasksDir: "Tasks",
-		GoalsDir: "Goals",
-		DailyDir: "Daily Notes",
+		TasksDir:      "Tasks",
+		GoalsDir:      "Goals",
+		ThemesDir:     "21 Themes",
+		ObjectivesDir: "22 Objectives",
+		VisionDir:     "20 Vision",
+		DailyDir:      "Daily Notes",
 	}
 }
 
@@ -64,6 +73,9 @@ type Storage interface {
 	// Daily note operations
 	ReadDailyNote(ctx context.Context, vaultPath string, date string) (string, error)
 	WriteDailyNote(ctx context.Context, vaultPath string, date string, content string) error
+
+	// Generic page operations
+	ListPages(ctx context.Context, vaultPath string, pagesDir string) ([]*domain.Task, error)
 }
 
 // NewStorage creates a new markdown storage instance with custom configuration.
@@ -174,6 +186,44 @@ func (m *markdownStorage) ListTasks(
 		if err != nil {
 			// Log error but continue with other tasks
 			fmt.Printf("Warning: failed to read task %s: %v\n", fileName, err)
+			continue
+		}
+
+		tasks = append(tasks, task)
+	}
+
+	return tasks, nil
+}
+
+// ListPages returns all pages from a specific directory in the vault.
+func (m *markdownStorage) ListPages(
+	ctx context.Context,
+	vaultPath string,
+	pagesDir string,
+) ([]*domain.Task, error) {
+	targetDir := filepath.Join(vaultPath, pagesDir)
+
+	entries, err := os.ReadDir(targetDir)
+	if err != nil {
+		return nil, fmt.Errorf("read directory %s: %w", targetDir, err)
+	}
+
+	tasks := make([]*domain.Task, 0, len(entries))
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		if !strings.HasSuffix(entry.Name(), ".md") {
+			continue
+		}
+
+		fileName := strings.TrimSuffix(entry.Name(), ".md")
+		filePath := filepath.Join(targetDir, entry.Name())
+
+		task, err := m.readTaskFromPath(ctx, filePath, fileName)
+		if err != nil {
+			// Log error but continue with other tasks
+			fmt.Printf("Warning: failed to read page %s: %v\n", fileName, err)
 			continue
 		}
 

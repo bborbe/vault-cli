@@ -5,18 +5,21 @@ import (
 	"context"
 	"sync"
 
-	"github.com/bborbe/vault-cli/pkg/domain"
 	"github.com/bborbe/vault-cli/pkg/ops"
 )
 
 type ListOperation struct {
-	ExecuteStub        func(context.Context, string, []domain.TaskStatus, bool) error
+	ExecuteStub        func(context.Context, string, string, string, string, bool, string, string) error
 	executeMutex       sync.RWMutex
 	executeArgsForCall []struct {
 		arg1 context.Context
 		arg2 string
-		arg3 []domain.TaskStatus
-		arg4 bool
+		arg3 string
+		arg4 string
+		arg5 string
+		arg6 bool
+		arg7 string
+		arg8 string
 	}
 	executeReturns struct {
 		result1 error
@@ -28,26 +31,25 @@ type ListOperation struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *ListOperation) Execute(arg1 context.Context, arg2 string, arg3 []domain.TaskStatus, arg4 bool) error {
-	var arg3Copy []domain.TaskStatus
-	if arg3 != nil {
-		arg3Copy = make([]domain.TaskStatus, len(arg3))
-		copy(arg3Copy, arg3)
-	}
+func (fake *ListOperation) Execute(arg1 context.Context, arg2 string, arg3 string, arg4 string, arg5 string, arg6 bool, arg7 string, arg8 string) error {
 	fake.executeMutex.Lock()
 	ret, specificReturn := fake.executeReturnsOnCall[len(fake.executeArgsForCall)]
 	fake.executeArgsForCall = append(fake.executeArgsForCall, struct {
 		arg1 context.Context
 		arg2 string
-		arg3 []domain.TaskStatus
-		arg4 bool
-	}{arg1, arg2, arg3Copy, arg4})
+		arg3 string
+		arg4 string
+		arg5 string
+		arg6 bool
+		arg7 string
+		arg8 string
+	}{arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8})
 	stub := fake.ExecuteStub
 	fakeReturns := fake.executeReturns
-	fake.recordInvocation("Execute", []interface{}{arg1, arg2, arg3Copy, arg4})
+	fake.recordInvocation("Execute", []interface{}{arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8})
 	fake.executeMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2, arg3, arg4)
+		return stub(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8)
 	}
 	if specificReturn {
 		return ret.result1
@@ -61,17 +63,17 @@ func (fake *ListOperation) ExecuteCallCount() int {
 	return len(fake.executeArgsForCall)
 }
 
-func (fake *ListOperation) ExecuteCalls(stub func(context.Context, string, []domain.TaskStatus, bool) error) {
+func (fake *ListOperation) ExecuteCalls(stub func(context.Context, string, string, string, string, bool, string, string) error) {
 	fake.executeMutex.Lock()
 	defer fake.executeMutex.Unlock()
 	fake.ExecuteStub = stub
 }
 
-func (fake *ListOperation) ExecuteArgsForCall(i int) (context.Context, string, []domain.TaskStatus, bool) {
+func (fake *ListOperation) ExecuteArgsForCall(i int) (context.Context, string, string, string, string, bool, string, string) {
 	fake.executeMutex.RLock()
 	defer fake.executeMutex.RUnlock()
 	argsForCall := fake.executeArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4, argsForCall.arg5, argsForCall.arg6, argsForCall.arg7, argsForCall.arg8
 }
 
 func (fake *ListOperation) ExecuteReturns(result1 error) {

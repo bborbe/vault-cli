@@ -6,6 +6,7 @@ package ops
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -17,7 +18,20 @@ import (
 
 //counterfeiter:generate -o ../../mocks/lint-operation.go --fake-name LintOperation . LintOperation
 type LintOperation interface {
-	Execute(ctx context.Context, vaultPath string, tasksDir string, fix bool) error
+	Execute(
+		ctx context.Context,
+		vaultPath string,
+		tasksDir string,
+		fix bool,
+		outputFormat string,
+	) error
+	ExecuteFile(
+		ctx context.Context,
+		filePath string,
+		taskName string,
+		vaultName string,
+		outputFormat string,
+	) error
 }
 
 // NewLintOperation creates a new lint operation.
@@ -46,12 +60,21 @@ type LintIssue struct {
 	Fixed       bool
 }
 
+// LintIssueJSON represents a lint issue in JSON format.
+type LintIssueJSON struct {
+	File        string `json:"file"`
+	Type        string `json:"type"`
+	Description string `json:"description"`
+	Fixed       bool   `json:"fixed,omitempty"`
+}
+
 // Execute scans all task files for lint issues and optionally fixes them.
 func (l *lintOperation) Execute(
 	ctx context.Context,
 	vaultPath string,
 	tasksDir string,
 	fix bool,
+	outputFormat string,
 ) error {
 	tasksDirPath := filepath.Join(vaultPath, tasksDir)
 
@@ -76,34 +99,167 @@ func (l *lintOperation) Execute(
 		return fmt.Errorf("walk tasks directory: %w", err)
 	}
 
-	// Report all issues
+	return l.outputIssues(vaultPath, issues, fix, outputFormat)
+}
+
+// ExecuteFile lints a single file and returns error if issues found.
+func (l *lintOperation) ExecuteFile(
+	ctx context.Context,
+	filePath string,
+	taskName string,
+	vaultName string,
+	outputFormat string,
+) error {
+	// Lint the single file (read-only, no fix)
+	issues, err := l.lintFile(filePath, false)
+	if err != nil {
+		return fmt.Errorf("lint file %s: %w", filePath, err)
+	}
+
+	// Output results
+	if outputFormat == "json" {
+		return l.outputValidateJSON(taskName, vaultName, issues)
+	}
+	return l.outputValidatePlain(taskName, issues)
+}
+
+// outputValidateJSON outputs validation results in JSON format.
+func (l *lintOperation) outputValidateJSON(
+	taskName string,
+	vaultName string,
+	issues []LintIssue,
+) error {
+	type ValidateIssue struct {
+		Type        string `json:"type"`
+		IssueType   string `json:"issue_type"`
+		Description string `json:"description"`
+	}
+
+	result := map[string]interface{}{
+		"name":  taskName,
+		"vault": vaultName,
+	}
+
+	jsonIssues := make([]ValidateIssue, len(issues))
+	for i, issue := range issues {
+		issueTypeStr := "WARN"
+		if !issue.Fixable {
+			issueTypeStr = "ERROR"
+		}
+		jsonIssues[i] = ValidateIssue{
+			Type:        issueTypeStr,
+			IssueType:   string(issue.IssueType),
+			Description: issue.Description,
+		}
+	}
+	result["issues"] = jsonIssues
+
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(result); err != nil {
+		return fmt.Errorf("encode json: %w", err)
+	}
+
+	if len(issues) > 0 {
+		os.Exit(1)
+	}
+	return nil
+}
+
+// outputValidatePlain outputs validation results in plain text format.
+func (l *lintOperation) outputValidatePlain(taskName string, issues []LintIssue) error {
+	if len(issues) == 0 {
+		fmt.Printf("✅ %s: no lint issues found\n", taskName)
+		return nil
+	}
+
+	for _, issue := range issues {
+		issueTypeStr := "WARN"
+		if !issue.Fixable {
+			issueTypeStr = "ERROR"
+		}
+		fmt.Printf(
+			"%-5s %s: %s %s\n",
+			issueTypeStr,
+			taskName+".md",
+			string(issue.IssueType),
+			issue.Description,
+		)
+	}
+
+	os.Exit(1)
+	return nil
+}
+
+// outputIssues prints lint issues in the requested format and returns an error if any unfixed issues exist.
+func (l *lintOperation) outputIssues(
+	vaultPath string,
+	issues []LintIssue,
+	fix bool,
+	outputFormat string,
+) error {
+	if outputFormat == "json" {
+		return l.outputIssuesJSON(vaultPath, issues, fix)
+	}
+	return l.outputIssuesPlain(vaultPath, issues, fix)
+}
+
+func (l *lintOperation) outputIssuesJSON(vaultPath string, issues []LintIssue, fix bool) error {
+	jsonIssues := make([]LintIssueJSON, len(issues))
+	for i, issue := range issues {
+		relPath, _ := filepath.Rel(vaultPath, issue.FilePath)
+		jsonIssues[i] = LintIssueJSON{
+			File:        relPath,
+			Type:        l.issueTypeName(issue, fix),
+			Description: issue.Description,
+			Fixed:       issue.Fixed,
+		}
+	}
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(jsonIssues); err != nil {
+		return fmt.Errorf("encode json: %w", err)
+	}
+	return l.countUnfixedError(issues)
+}
+
+func (l *lintOperation) outputIssuesPlain(vaultPath string, issues []LintIssue, fix bool) error {
 	for _, issue := range issues {
 		relPath, _ := filepath.Rel(vaultPath, issue.FilePath)
-		if issue.Fixed {
-			fmt.Printf("FIXED %s: %s %s\n", relPath, issue.IssueType, issue.Description)
-		} else if issue.Fixable && !fix {
-			fmt.Printf("WARN  %s: %s %s\n", relPath, issue.IssueType, issue.Description)
-		} else {
-			fmt.Printf("ERROR %s: %s %s\n", relPath, issue.IssueType, issue.Description)
-		}
+		fmt.Printf(
+			"%-5s %s: %s %s\n",
+			l.issueTypeName(issue, fix),
+			relPath,
+			issue.IssueType,
+			issue.Description,
+		)
 	}
-
-	// Determine exit code
-	unfixedIssues := 0
-	for _, issue := range issues {
-		if !issue.Fixed {
-			unfixedIssues++
-		}
-	}
-
-	if unfixedIssues > 0 {
-		return fmt.Errorf("found %d lint issue(s)", unfixedIssues)
-	}
-
 	if len(issues) == 0 {
 		fmt.Println("No lint issues found")
 	}
+	return l.countUnfixedError(issues)
+}
 
+func (l *lintOperation) issueTypeName(issue LintIssue, fix bool) string {
+	if issue.Fixed {
+		return "FIXED"
+	}
+	if issue.Fixable && !fix {
+		return "WARN"
+	}
+	return "ERROR"
+}
+
+func (l *lintOperation) countUnfixedError(issues []LintIssue) error {
+	unfixed := 0
+	for _, issue := range issues {
+		if !issue.Fixed {
+			unfixed++
+		}
+	}
+	if unfixed > 0 {
+		return fmt.Errorf("found %d lint issue(s)", unfixed)
+	}
 	return nil
 }
 
@@ -120,14 +276,20 @@ func (l *lintOperation) lintFile(filePath string, fix bool) ([]LintIssue, error)
 	frontmatterRegex := regexp.MustCompile(`(?s)^---\n(.*?)\n---\n`)
 	matches := frontmatterRegex.FindSubmatch(content)
 	if len(matches) < 2 {
-		issues = append(issues, LintIssue{
-			FilePath:    filePath,
-			IssueType:   IssueTypeMissingFrontmatter,
-			Description: "no frontmatter block found",
-			Fixable:     false,
-			Fixed:       false,
-		})
-		return issues, nil // Can't check further without frontmatter
+		issue, updatedContent, shouldReturn := l.handleMissingFrontmatter(
+			filePath,
+			content,
+			fix,
+		)
+		issues = append(issues, issue)
+
+		if shouldReturn {
+			return issues, nil
+		}
+
+		// Update content and re-parse for further checks
+		content = updatedContent
+		matches = frontmatterRegex.FindSubmatch(content)
 	}
 
 	frontmatterYAML := string(matches[1])
@@ -180,6 +342,45 @@ func (l *lintOperation) lintFile(filePath string, fix bool) ([]LintIssue, error)
 	}
 
 	return issues, nil
+}
+
+// handleMissingFrontmatter handles the case when a file is missing frontmatter.
+// Returns: (issue, updatedContent, shouldReturn)
+func (l *lintOperation) handleMissingFrontmatter(
+	filePath string,
+	content []byte,
+	fix bool,
+) (LintIssue, []byte, bool) {
+	issue := LintIssue{
+		FilePath:    filePath,
+		IssueType:   IssueTypeMissingFrontmatter,
+		Description: "no frontmatter block found",
+		Fixable:     true,
+		Fixed:       false,
+	}
+
+	if !fix {
+		return issue, content, true // Can't check further without frontmatter
+	}
+
+	// Fix missing frontmatter
+	newContent, fixed := l.fixMissingFrontmatter(string(content))
+	if !fixed {
+		return issue, content, true
+	}
+
+	content = []byte(newContent)
+	issue.Fixed = true
+
+	// Write the fixed content to file
+	//#nosec G304,G703 -- user-controlled vault path
+	if err := os.WriteFile(filePath, content, 0600); err != nil {
+		// If write fails, return the issue as unfixed
+		issue.Fixed = false
+		return issue, content, true
+	}
+
+	return issue, content, false // Continue checking other issues
 }
 
 // detectDuplicateKeys detects duplicate YAML keys in frontmatter.
@@ -357,6 +558,13 @@ func (l *lintOperation) fixInvalidStatus(content string) (string, bool) {
 	}
 
 	return content, false
+}
+
+// fixMissingFrontmatter prepends minimal frontmatter to files without frontmatter.
+func (l *lintOperation) fixMissingFrontmatter(content string) (string, bool) {
+	minimalFrontmatter := "---\nstatus: backlog\n---\n"
+	newContent := minimalFrontmatter + content
+	return newContent, true
 }
 
 // fixDuplicateKeys removes duplicate YAML keys, keeping the first occurrence.

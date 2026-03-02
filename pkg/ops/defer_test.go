@@ -46,7 +46,7 @@ var _ = Describe("DeferOperation", func() {
 	})
 
 	JustBeforeEach(func() {
-		err = deferOp.Execute(ctx, vaultPath, taskName, dateStr)
+		err = deferOp.Execute(ctx, vaultPath, taskName, dateStr, "test-vault", "plain")
 	})
 
 	Context("success", func() {

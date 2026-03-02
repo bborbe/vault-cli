@@ -6,7 +6,9 @@ package ops
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -17,7 +19,14 @@ import (
 
 //counterfeiter:generate -o ../../mocks/defer-operation.go --fake-name DeferOperation . DeferOperation
 type DeferOperation interface {
-	Execute(ctx context.Context, vaultPath string, taskName string, dateStr string) error
+	Execute(
+		ctx context.Context,
+		vaultPath string,
+		taskName string,
+		dateStr string,
+		vaultName string,
+		outputFormat string,
+	) error
 }
 
 // NewDeferOperation creates a new defer operation.
@@ -39,41 +48,103 @@ func (d *deferOperation) Execute(
 	vaultPath string,
 	taskName string,
 	dateStr string,
+	vaultName string,
+	outputFormat string,
 ) error {
-	// Parse the date string
+	// Parse and validate date
 	targetDate, err := d.parseDate(dateStr)
 	if err != nil {
-		return fmt.Errorf("parse date: %w", err)
+		return d.returnError(err, "parse date", outputFormat)
 	}
 
-	// Find and read the task
+	// Find and update task
+	task, err := d.findAndDeferTask(ctx, vaultPath, taskName, targetDate, outputFormat)
+	if err != nil {
+		return err
+	}
+
+	// Update daily notes
+	warnings := d.updateDailyNotes(ctx, vaultPath, task.Name, targetDate, outputFormat)
+
+	// Return result
+	return d.formatResult(task.Name, vaultName, targetDate, warnings, outputFormat)
+}
+
+// returnError formats and returns an error based on output format.
+func (d *deferOperation) returnError(err error, context string, format string) error {
+	if format == "json" {
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		_ = enc.Encode(MutationResult{Success: false, Error: err.Error()})
+	}
+	return fmt.Errorf("%s: %w", context, err)
+}
+
+// findAndDeferTask finds and updates task defer status.
+func (d *deferOperation) findAndDeferTask(
+	ctx context.Context,
+	vaultPath string,
+	taskName string,
+	targetDate time.Time,
+	format string,
+) (*domain.Task, error) {
 	task, err := d.storage.FindTaskByName(ctx, vaultPath, taskName)
 	if err != nil {
-		return fmt.Errorf("find task: %w", err)
+		return nil, d.returnError(err, "find task", format)
 	}
-
-	// Update task status and defer date
 	task.Status = domain.TaskStatusDeferred
 	task.DeferDate = &targetDate
-
-	// Write updated task
 	if err := d.storage.WriteTask(ctx, task); err != nil {
-		return fmt.Errorf("write task: %w", err)
+		return nil, d.returnError(err, "write task", format)
 	}
+	return task, nil
+}
 
-	// Remove from today's daily note
+// updateDailyNotes updates daily notes and returns warnings.
+func (d *deferOperation) updateDailyNotes(
+	ctx context.Context,
+	vaultPath string,
+	taskName string,
+	targetDate time.Time,
+	format string,
+) []string {
+	var warnings []string
 	today := time.Now().Format("2006-01-02")
-	if err := d.removeFromDailyNote(ctx, vaultPath, today, task.Name); err != nil {
-		fmt.Printf("Warning: failed to update today's daily note: %v\n", err)
+	if err := d.removeFromDailyNote(ctx, vaultPath, today, taskName); err != nil {
+		w := fmt.Sprintf("failed to update today's daily note: %v", err)
+		warnings = append(warnings, w)
+		if format == "plain" {
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", w)
+		}
 	}
-
-	// Add to target date's daily note
 	targetDateStr := targetDate.Format("2006-01-02")
-	if err := d.addToDailyNote(ctx, vaultPath, targetDateStr, task.Name); err != nil {
-		fmt.Printf("Warning: failed to update target daily note: %v\n", err)
+	if err := d.addToDailyNote(ctx, vaultPath, targetDateStr, taskName); err != nil {
+		w := fmt.Sprintf("failed to update target daily note: %v", err)
+		warnings = append(warnings, w)
+		if format == "plain" {
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", w)
+		}
 	}
+	return warnings
+}
 
-	fmt.Printf("📅 Task deferred to %s: %s\n", targetDateStr, task.Name)
+// formatResult formats output based on format type.
+func (d *deferOperation) formatResult(
+	name string,
+	vault string,
+	targetDate time.Time,
+	warnings []string,
+	format string,
+) error {
+	dateStr := targetDate.Format("2006-01-02")
+	if format == "json" {
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		return enc.Encode(
+			MutationResult{Success: true, Name: name, Vault: vault, Warnings: warnings},
+		)
+	}
+	fmt.Printf("📅 Task deferred to %s: %s\n", dateStr, name)
 	return nil
 }
 

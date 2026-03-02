@@ -1,3 +1,7 @@
+---
+status: completed
+---
+
 <objective>
 Add per-vault folder configuration to vault-cli so the storage layer uses configurable directory names instead of hardcoded paths. Create ~/.vault-cli/config.yaml for the Personal and Brogrammers Obsidian vaults.
 </objective>

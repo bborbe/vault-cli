@@ -1,3 +1,13 @@
+---
+status: completed
+summary: Increased pkg/storage test coverage from 79.1% to 85.6% by adding error path and edge case tests
+container: vault-cli-025-storage-coverage
+dark-factory-version: v0.13.1
+created: "2026-03-02T23:02:58Z"
+queued: "2026-03-02T23:02:58Z"
+started: "2026-03-02T23:02:58Z"
+completed: "2026-03-02T23:07:28Z"
+---
 
 <objective>
 Increase `pkg/storage` test coverage from 79.1% to ≥80%.

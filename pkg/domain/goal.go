@@ -14,7 +14,8 @@ type Goal struct {
 	Status     GoalStatus `yaml:"status"`
 	PageType   string     `yaml:"page_type"`
 	Theme      string     `yaml:"theme,omitempty"`
-	Priority   int        `yaml:"priority,omitempty"`
+	Priority   Priority   `yaml:"priority,omitempty"`
+	Assignee   string     `yaml:"assignee,omitempty"`
 	StartDate  *time.Time `yaml:"start_date,omitempty"`
 	TargetDate *time.Time `yaml:"target_date,omitempty"`
 	Tags       []string   `yaml:"tags,omitempty"`

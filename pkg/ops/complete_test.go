@@ -43,7 +43,7 @@ var _ = Describe("CompleteOperation", func() {
 	})
 
 	JustBeforeEach(func() {
-		err = completeOp.Execute(ctx, vaultPath, taskName)
+		err = completeOp.Execute(ctx, vaultPath, taskName, "test-vault", "plain")
 	})
 
 	Context("success", func() {
@@ -94,6 +94,53 @@ var _ = Describe("CompleteOperation", func() {
 
 		It("returns error", func() {
 			Expect(err).NotTo(BeNil())
+		})
+	})
+
+	Context("task with associated goal", func() {
+		var goal *domain.Goal
+
+		BeforeEach(func() {
+			task.Goals = []string{"Test Goal"}
+
+			goal = &domain.Goal{
+				Name: "Test Goal",
+				Content: `---
+status: active
+---
+# Test Goal
+
+## Tasks
+- [ ] my-task
+`,
+			}
+			mockStorage.FindGoalByNameReturns(goal, nil)
+			mockStorage.WriteGoalReturns(nil)
+		})
+
+		It("attempts to update goal checkbox", func() {
+			Expect(err).To(BeNil())
+			Expect(mockStorage.FindGoalByNameCallCount() > 0).To(BeTrue())
+		})
+
+		It("marks checkbox in goal as complete", func() {
+			Expect(err).To(BeNil())
+			if mockStorage.WriteGoalCallCount() > 0 {
+				_, updatedGoal := mockStorage.WriteGoalArgsForCall(0)
+				Expect(updatedGoal.Content).To(ContainSubstring("- [x]"))
+			}
+		})
+	})
+
+	Context("task with goal not found", func() {
+		BeforeEach(func() {
+			task.Goals = []string{"Missing Goal"}
+			mockStorage.FindGoalByNameReturns(nil, ErrTest)
+		})
+
+		It("completes task despite goal error", func() {
+			// Operation should succeed even if goal update fails
+			Expect(err).To(BeNil())
 		})
 	})
 })

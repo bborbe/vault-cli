@@ -40,6 +40,21 @@ type Storage struct {
 		result1 *domain.Task
 		result2 error
 	}
+	ListPagesStub        func(context.Context, string, string) ([]*domain.Task, error)
+	listPagesMutex       sync.RWMutex
+	listPagesArgsForCall []struct {
+		arg1 context.Context
+		arg2 string
+		arg3 string
+	}
+	listPagesReturns struct {
+		result1 []*domain.Task
+		result2 error
+	}
+	listPagesReturnsOnCall map[int]struct {
+		result1 []*domain.Task
+		result2 error
+	}
 	ListTasksStub        func(context.Context, string) ([]*domain.Task, error)
 	listTasksMutex       sync.RWMutex
 	listTasksArgsForCall []struct {
@@ -296,6 +311,72 @@ func (fake *Storage) FindTaskByNameReturnsOnCall(i int, result1 *domain.Task, re
 	}
 	fake.findTaskByNameReturnsOnCall[i] = struct {
 		result1 *domain.Task
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *Storage) ListPages(arg1 context.Context, arg2 string, arg3 string) ([]*domain.Task, error) {
+	fake.listPagesMutex.Lock()
+	ret, specificReturn := fake.listPagesReturnsOnCall[len(fake.listPagesArgsForCall)]
+	fake.listPagesArgsForCall = append(fake.listPagesArgsForCall, struct {
+		arg1 context.Context
+		arg2 string
+		arg3 string
+	}{arg1, arg2, arg3})
+	stub := fake.ListPagesStub
+	fakeReturns := fake.listPagesReturns
+	fake.recordInvocation("ListPages", []interface{}{arg1, arg2, arg3})
+	fake.listPagesMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *Storage) ListPagesCallCount() int {
+	fake.listPagesMutex.RLock()
+	defer fake.listPagesMutex.RUnlock()
+	return len(fake.listPagesArgsForCall)
+}
+
+func (fake *Storage) ListPagesCalls(stub func(context.Context, string, string) ([]*domain.Task, error)) {
+	fake.listPagesMutex.Lock()
+	defer fake.listPagesMutex.Unlock()
+	fake.ListPagesStub = stub
+}
+
+func (fake *Storage) ListPagesArgsForCall(i int) (context.Context, string, string) {
+	fake.listPagesMutex.RLock()
+	defer fake.listPagesMutex.RUnlock()
+	argsForCall := fake.listPagesArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *Storage) ListPagesReturns(result1 []*domain.Task, result2 error) {
+	fake.listPagesMutex.Lock()
+	defer fake.listPagesMutex.Unlock()
+	fake.ListPagesStub = nil
+	fake.listPagesReturns = struct {
+		result1 []*domain.Task
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *Storage) ListPagesReturnsOnCall(i int, result1 []*domain.Task, result2 error) {
+	fake.listPagesMutex.Lock()
+	defer fake.listPagesMutex.Unlock()
+	fake.ListPagesStub = nil
+	if fake.listPagesReturnsOnCall == nil {
+		fake.listPagesReturnsOnCall = make(map[int]struct {
+			result1 []*domain.Task
+			result2 error
+		})
+	}
+	fake.listPagesReturnsOnCall[i] = struct {
+		result1 []*domain.Task
 		result2 error
 	}{result1, result2}
 }

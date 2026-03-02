@@ -15,17 +15,21 @@ import (
 
 // Config represents the vault-cli configuration.
 type Config struct {
+	CurrentUser  string           `yaml:"current_user"`
 	DefaultVault string           `yaml:"default_vault"`
 	Vaults       map[string]Vault `yaml:"vaults"`
 }
 
 // Vault represents a single vault configuration.
 type Vault struct {
-	Path     string `yaml:"path"`
-	Name     string `yaml:"name"`
-	TasksDir string `yaml:"tasks_dir,omitempty"`
-	GoalsDir string `yaml:"goals_dir,omitempty"`
-	DailyDir string `yaml:"daily_dir,omitempty"`
+	Path          string `yaml:"path"`
+	Name          string `yaml:"name"`
+	TasksDir      string `yaml:"tasks_dir,omitempty"`
+	GoalsDir      string `yaml:"goals_dir,omitempty"`
+	ThemesDir     string `yaml:"themes_dir,omitempty"`
+	ObjectivesDir string `yaml:"objectives_dir,omitempty"`
+	VisionDir     string `yaml:"vision_dir,omitempty"`
+	DailyDir      string `yaml:"daily_dir,omitempty"`
 }
 
 // GetTasksDir returns the tasks directory, defaulting to "Tasks" if not set.
@@ -44,6 +48,30 @@ func (v *Vault) GetGoalsDir() string {
 	return "Goals"
 }
 
+// GetThemesDir returns the themes directory, defaulting to "21 Themes" if not set.
+func (v *Vault) GetThemesDir() string {
+	if v.ThemesDir != "" {
+		return v.ThemesDir
+	}
+	return "21 Themes"
+}
+
+// GetObjectivesDir returns the objectives directory, defaulting to "22 Objectives" if not set.
+func (v *Vault) GetObjectivesDir() string {
+	if v.ObjectivesDir != "" {
+		return v.ObjectivesDir
+	}
+	return "22 Objectives"
+}
+
+// GetVisionDir returns the vision directory, defaulting to "20 Vision" if not set.
+func (v *Vault) GetVisionDir() string {
+	if v.VisionDir != "" {
+		return v.VisionDir
+	}
+	return "20 Vision"
+}
+
 // GetDailyDir returns the daily notes directory, defaulting to "Daily Notes" if not set.
 func (v *Vault) GetDailyDir() string {
 	if v.DailyDir != "" {
@@ -57,6 +85,8 @@ type Loader interface {
 	Load(ctx context.Context) (*Config, error)
 	GetVaultPath(ctx context.Context, vaultName string) (string, error)
 	GetVault(ctx context.Context, vaultName string) (*Vault, error)
+	GetAllVaults(ctx context.Context) ([]*Vault, error)
+	GetCurrentUser(ctx context.Context) (string, error)
 }
 
 // NewLoader creates a new config loader.
@@ -132,6 +162,30 @@ func (c *configLoader) GetVault(ctx context.Context, vaultName string) (*Vault, 
 	return &vault, nil
 }
 
+// GetAllVaults returns all configured vaults with expanded paths.
+func (c *configLoader) GetAllVaults(ctx context.Context) ([]*Vault, error) {
+	config, err := c.Load(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("load config: %w", err)
+	}
+
+	vaults := make([]*Vault, 0, len(config.Vaults))
+	for _, vault := range config.Vaults {
+		v := vault // Create a copy to avoid pointer issues
+		// Expand home directory if path starts with ~
+		if len(v.Path) > 0 && v.Path[0] == '~' {
+			homeDir, err := os.UserHomeDir()
+			if err != nil {
+				return nil, fmt.Errorf("get home directory: %w", err)
+			}
+			v.Path = filepath.Join(homeDir, v.Path[1:])
+		}
+		vaults = append(vaults, &v)
+	}
+
+	return vaults, nil
+}
+
 // GetVaultPath returns the path for a given vault name or the default vault.
 func (c *configLoader) GetVaultPath(ctx context.Context, vaultName string) (string, error) {
 	vault, err := c.GetVault(ctx, vaultName)
@@ -139,6 +193,18 @@ func (c *configLoader) GetVaultPath(ctx context.Context, vaultName string) (stri
 		return "", err
 	}
 	return vault.Path, nil
+}
+
+// GetCurrentUser returns the current user from config.
+func (c *configLoader) GetCurrentUser(ctx context.Context) (string, error) {
+	config, err := c.Load(ctx)
+	if err != nil {
+		return "", fmt.Errorf("load config: %w", err)
+	}
+	if config.CurrentUser == "" {
+		return "", fmt.Errorf("current_user not configured")
+	}
+	return config.CurrentUser, nil
 }
 
 // getDefaultConfig returns a default configuration.

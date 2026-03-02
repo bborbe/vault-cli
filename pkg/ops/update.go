@@ -6,7 +6,9 @@ package ops
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"os"
 	"regexp"
 	"strings"
 
@@ -16,7 +18,13 @@ import (
 
 //counterfeiter:generate -o ../../mocks/update-operation.go --fake-name UpdateOperation . UpdateOperation
 type UpdateOperation interface {
-	Execute(ctx context.Context, vaultPath string, taskName string) error
+	Execute(
+		ctx context.Context,
+		vaultPath string,
+		taskName string,
+		vaultName string,
+		outputFormat string,
+	) error
 }
 
 // NewUpdateOperation creates a new update operation.
@@ -33,56 +41,140 @@ type updateOperation struct {
 }
 
 // Execute syncs checkbox progress from the task content.
-func (u *updateOperation) Execute(ctx context.Context, vaultPath string, taskName string) error {
-	// Find and read the task
+func (u *updateOperation) Execute(
+	ctx context.Context,
+	vaultPath string,
+	taskName string,
+	vaultName string,
+	outputFormat string,
+) error {
+	var warnings []string
+
 	task, err := u.storage.FindTaskByName(ctx, vaultPath, taskName)
 	if err != nil {
+		u.outputErrorJSON(outputFormat, err)
 		return fmt.Errorf("find task: %w", err)
 	}
 
-	// Parse checkboxes from task content
 	checkboxes := u.parseCheckboxes(task.Content)
 	if len(checkboxes) == 0 {
-		fmt.Printf("No checkboxes found in task: %s\n", task.Name)
-		return nil
+		return u.handleNoCheckboxes(task.Name, vaultName, outputFormat)
 	}
 
-	// Count completed vs total
+	completed, total := u.countCompleted(checkboxes)
+	task.Status = u.statusFromProgress(completed, total)
+
+	if err := u.storage.WriteTask(ctx, task); err != nil {
+		u.outputErrorJSON(outputFormat, err)
+		return fmt.Errorf("write task: %w", err)
+	}
+
+	warnings = u.syncGoals(ctx, vaultPath, task.Goals, checkboxes, outputFormat, warnings)
+
+	return u.outputUpdateResult(
+		outputFormat,
+		task.Name,
+		vaultName,
+		completed,
+		total,
+		task.Status,
+		warnings,
+	)
+}
+
+func (u *updateOperation) outputErrorJSON(outputFormat string, err error) {
+	if outputFormat != "json" {
+		return
+	}
+	result := MutationResult{Success: false, Error: err.Error()}
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	_ = enc.Encode(result)
+}
+
+func (u *updateOperation) handleNoCheckboxes(taskName, vaultName, outputFormat string) error {
+	warning := "No checkboxes found in task"
+	if outputFormat == "plain" {
+		fmt.Printf("%s: %s\n", warning, taskName)
+		return nil
+	}
+	result := MutationResult{
+		Success:  true,
+		Name:     taskName,
+		Vault:    vaultName,
+		Warnings: []string{warning},
+	}
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	return enc.Encode(result)
+}
+
+func (u *updateOperation) countCompleted(checkboxes []domain.CheckboxItem) (int, int) {
 	completed := 0
-	total := len(checkboxes)
 	for _, cb := range checkboxes {
 		if cb.Checked {
 			completed++
 		}
 	}
+	return completed, len(checkboxes)
+}
 
-	// Update task status based on progress
+func (u *updateOperation) statusFromProgress(completed, total int) domain.TaskStatus {
 	if completed == total {
-		task.Status = domain.TaskStatusDone
-	} else if completed > 0 {
-		task.Status = domain.TaskStatusInProgress
-	} else {
-		task.Status = domain.TaskStatusTodo
+		return domain.TaskStatusDone
 	}
-
-	// Write updated task
-	if err := u.storage.WriteTask(ctx, task); err != nil {
-		return fmt.Errorf("write task: %w", err)
+	if completed > 0 {
+		return domain.TaskStatusInProgress
 	}
+	return domain.TaskStatusTodo
+}
 
-	// Update associated goals
-	for _, goalName := range task.Goals {
+func (u *updateOperation) syncGoals(
+	ctx context.Context,
+	vaultPath string,
+	goals []string,
+	checkboxes []domain.CheckboxItem,
+	outputFormat string,
+	warnings []string,
+) []string {
+	for _, goalName := range goals {
 		if err := u.syncGoalCheckboxes(ctx, vaultPath, goalName, checkboxes); err != nil {
-			fmt.Printf("Warning: failed to sync goal %s: %v\n", goalName, err)
+			warning := fmt.Sprintf("failed to sync goal %s: %v", goalName, err)
+			warnings = append(warnings, warning)
+			if outputFormat == "plain" {
+				fmt.Fprintf(os.Stderr, "Warning: %s\n", warning)
+			}
 		}
 	}
+	return warnings
+}
 
+func (u *updateOperation) outputUpdateResult(
+	outputFormat string,
+	taskName string,
+	vaultName string,
+	completed int,
+	total int,
+	status domain.TaskStatus,
+	warnings []string,
+) error {
+	if outputFormat == "json" {
+		result := MutationResult{
+			Success:  true,
+			Name:     taskName,
+			Vault:    vaultName,
+			Warnings: warnings,
+		}
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		return enc.Encode(result)
+	}
 	fmt.Printf(
 		"✅ Task updated: %s (%d/%d completed, status: %s)\n",
-		task.Name,
+		taskName,
 		completed,
 		total,
-		task.Status,
+		status,
 	)
 	return nil
 }

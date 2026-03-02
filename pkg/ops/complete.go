@@ -6,7 +6,9 @@ package ops
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -17,7 +19,13 @@ import (
 
 //counterfeiter:generate -o ../../mocks/complete-operation.go --fake-name CompleteOperation . CompleteOperation
 type CompleteOperation interface {
-	Execute(ctx context.Context, vaultPath string, taskName string) error
+	Execute(
+		ctx context.Context,
+		vaultPath string,
+		taskName string,
+		vaultName string,
+		outputFormat string,
+	) error
 }
 
 // NewCompleteOperation creates a new complete operation.
@@ -33,11 +41,37 @@ type completeOperation struct {
 	storage storage.Storage
 }
 
+// MutationResult represents the result of a mutation operation.
+type MutationResult struct {
+	Success  bool     `json:"success"`
+	Name     string   `json:"name,omitempty"`
+	Vault    string   `json:"vault,omitempty"`
+	Error    string   `json:"error,omitempty"`
+	Warnings []string `json:"warnings,omitempty"`
+}
+
 // Execute marks a task as complete and updates the associated goal.
-func (c *completeOperation) Execute(ctx context.Context, vaultPath string, taskName string) error {
+func (c *completeOperation) Execute(
+	ctx context.Context,
+	vaultPath string,
+	taskName string,
+	vaultName string,
+	outputFormat string,
+) error {
+	var warnings []string
+
 	// Find and read the task
 	task, err := c.storage.FindTaskByName(ctx, vaultPath, taskName)
 	if err != nil {
+		if outputFormat == "json" {
+			result := MutationResult{
+				Success: false,
+				Error:   err.Error(),
+			}
+			enc := json.NewEncoder(os.Stdout)
+			enc.SetIndent("", "  ")
+			_ = enc.Encode(result)
+		}
 		return fmt.Errorf("find task: %w", err)
 	}
 
@@ -46,22 +80,49 @@ func (c *completeOperation) Execute(ctx context.Context, vaultPath string, taskN
 
 	// Write updated task
 	if err := c.storage.WriteTask(ctx, task); err != nil {
+		if outputFormat == "json" {
+			result := MutationResult{
+				Success: false,
+				Error:   err.Error(),
+			}
+			enc := json.NewEncoder(os.Stdout)
+			enc.SetIndent("", "  ")
+			_ = enc.Encode(result)
+		}
 		return fmt.Errorf("write task: %w", err)
 	}
 
 	// Update associated goals
 	for _, goalName := range task.Goals {
 		if err := c.markGoalCheckbox(ctx, vaultPath, goalName, task.Name); err != nil {
-			// Log error but don't fail the operation
-			fmt.Printf("Warning: failed to update goal %s: %v\n", goalName, err)
+			warning := fmt.Sprintf("failed to update goal %s: %v", goalName, err)
+			warnings = append(warnings, warning)
+			if outputFormat == "plain" {
+				fmt.Fprintf(os.Stderr, "Warning: %s\n", warning)
+			}
 		}
 	}
 
 	// Update today's daily note
 	today := time.Now().Format("2006-01-02")
 	if err := c.updateDailyNote(ctx, vaultPath, today, task.Name, true); err != nil {
-		// Log error but don't fail the operation
-		fmt.Printf("Warning: failed to update daily note: %v\n", err)
+		warning := fmt.Sprintf("failed to update daily note: %v", err)
+		warnings = append(warnings, warning)
+		if outputFormat == "plain" {
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", warning)
+		}
+	}
+
+	if outputFormat == "json" {
+		result := MutationResult{
+			Success:  true,
+			Name:     task.Name,
+			Vault:    vaultName,
+			Warnings: warnings,
+		}
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		return enc.Encode(result)
 	}
 
 	fmt.Printf("✅ Task completed: %s\n", task.Name)

@@ -5,7 +5,76 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## v0.10.0
+
+### Added
+- `vault-cli task validate <task-name>` — lint single task by name
+- Exit code 0 = no issues, 1 = issues found
+- JSON output returns structured issues array
+- Reuses existing LintOperation via new ExecuteFile method
+
+## v0.9.0
+
+### Added
+- `vault-cli task get <name> <key>` — get frontmatter field value
+- `vault-cli task set <name> <key> <value>` — set frontmatter field value
+- `vault-cli task clear <name> <key>` — clear frontmatter field value
+- Supported keys: phase, claude_session_id, assignee, status, priority, defer_date
+- Added `Phase` and `ClaudeSessionID` fields to Task domain type
+
+## v0.8.0
+
+### Added
+- `--output plain|json` flag for all commands (list, mutate, lint, search)
+- JSON output includes `vault` field, warnings in response body
+- New `pkg/cli/output.go` helper for JSON encoding
+- Refactored lint and update operations for lower cognitive complexity
+
+## v0.7.0
+
+### Added
+- `--status` filter flag for all list commands (task, goal, theme, objective, vision)
+- Case-insensitive status matching (e.g. `--status in_progress`)
+- Works in combination with existing `--vault` and `--assignee` filters
+
+## v0.6.1
+
+### Added
+- Test coverage for pkg/ops, pkg/config, pkg/domain, pkg/storage
+- Tests for workon operation, priority parsing, config loading, and storage round-trips
+
+## v0.6.0
+
+### Added
+- `vault-cli task work-on <task-name>` command: sets status to in_progress and assigns to current user
+- `current_user` field in config (~/.vault-cli/config.yaml) to identify the active user
+
+## v0.5.0
+
+### Added
+- `--assignee` flag for all list commands (task, goal, theme, objective, vision)
+- Filter tasks/goals by assignee frontmatter field
+
+## v0.4.0
+
+### Changed
+- Priority field parsing is now resilient: invalid string values (e.g. "medium", "high") use -1 instead of skipping the file
+- Eliminated INVALID_PRIORITY warnings during list operations
+
+## v0.3.0
+
+### Changed
+- All commands (list, lint, search) now run across all configured vaults by default
+- `--vault` flag becomes a filter to restrict output to a single vault
+- Output prefixed with `=== vault-name ===` header when multiple vaults are shown
+
+## v0.2.0
+
+### Added
+- `lint` subcommand for goal, theme, objective, and vision entity types
+- Generic lint command supporting all vault entity types with `--fix` flag
+
+## v0.1.0
 
 ### Added
 - Initial project structure from go-skeleton

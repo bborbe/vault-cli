@@ -11,13 +11,15 @@ import (
 // Task represents a task in the Obsidian vault with YAML frontmatter.
 type Task struct {
 	// Frontmatter fields
-	Status    TaskStatus `yaml:"status"`
-	PageType  string     `yaml:"page_type"`
-	Goals     []string   `yaml:"goals,omitempty"`
-	Priority  int        `yaml:"priority,omitempty"`
-	Assignee  string     `yaml:"assignee,omitempty"`
-	DeferDate *time.Time `yaml:"defer_date,omitempty"`
-	Tags      []string   `yaml:"tags,omitempty"`
+	Status          TaskStatus `yaml:"status"`
+	PageType        string     `yaml:"page_type"`
+	Goals           []string   `yaml:"goals,omitempty"`
+	Priority        Priority   `yaml:"priority,omitempty"`
+	Assignee        string     `yaml:"assignee,omitempty"`
+	DeferDate       *time.Time `yaml:"defer_date,omitempty"`
+	Tags            []string   `yaml:"tags,omitempty"`
+	Phase           string     `yaml:"phase,omitempty"`
+	ClaudeSessionID string     `yaml:"claude_session_id,omitempty"`
 
 	// Metadata
 	Name     string // Filename without extension

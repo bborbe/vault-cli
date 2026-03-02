@@ -1,3 +1,7 @@
+---
+status: completed
+---
+
 <objective>
 Add `goal`, `theme`, `objective`, and `vision` subcommand groups to vault-cli, each with a `list` subcommand.
 

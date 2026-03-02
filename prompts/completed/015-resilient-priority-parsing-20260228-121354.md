@@ -1,3 +1,7 @@
+---
+status: completed
+---
+
 <objective>
 Make priority field parsing resilient: if priority cannot be parsed as int (e.g. "medium", "high"), use -1 to represent invalid priority instead of skipping the file with a warning.
 This eliminates noisy warnings during list/lint for files with string priority values.

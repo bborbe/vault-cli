@@ -1,6 +1,13 @@
 ---
 status: queued
+created: "2026-03-02T11:56:19Z"
 ---
+
+
+
+
+
+
 
 <objective>
 Increase test coverage for `pkg/ops/lint.go` validate functions from 0% to ≥80%.

@@ -1,3 +1,7 @@
+---
+status: completed
+---
+
 <objective>
 Refactor vault-cli commands to group task operations under a `task` subcommand.
 

@@ -1,3 +1,7 @@
+---
+status: completed
+---
+
 <objective>
 Make `vault-cli lint --fix` auto-fix `MISSING_FRONTMATTER` by inserting minimal frontmatter with `status: backlog` at the top of the file.
 

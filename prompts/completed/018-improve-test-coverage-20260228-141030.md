@@ -1,3 +1,7 @@
+---
+status: completed
+---
+
 <objective>
 Improve test coverage across vault-cli packages.
 Target: pkg/ops ≥85%, pkg/storage ≥75%, pkg/config ≥80%, pkg/domain ≥80%.

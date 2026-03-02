@@ -16,3 +16,4 @@
 /vault-cli
 /vendor
 gha-creds-*.json
+/.dark-factory.lock

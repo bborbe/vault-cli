@@ -1,3 +1,12 @@
+---
+status: completed
+container: vault-cli-023-ops-lint-validate-coverage
+dark-factory-version: v0.12.2
+created: "2026-03-02T21:23:43Z"
+queued: "2026-03-02T21:23:43Z"
+started: "2026-03-02T22:29:42Z"
+completed: "2026-03-02T22:44:44Z"
+---
 
 <objective>
 Increase test coverage for `pkg/ops/lint.go` validate functions from 0% to ≥80%.

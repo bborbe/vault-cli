@@ -17,13 +17,14 @@ import (
 
 var _ = Describe("UpdateOperation", func() {
 	var (
-		ctx         context.Context
-		err         error
-		updateOp    ops.UpdateOperation
-		mockStorage *mocks.Storage
-		vaultPath   string
-		taskName    string
-		task        *domain.Task
+		ctx          context.Context
+		err          error
+		updateOp     ops.UpdateOperation
+		mockStorage  *mocks.Storage
+		vaultPath    string
+		taskName     string
+		task         *domain.Task
+		outputFormat string
 	)
 
 	BeforeEach(func() {
@@ -32,6 +33,7 @@ var _ = Describe("UpdateOperation", func() {
 		updateOp = ops.NewUpdateOperation(mockStorage)
 		vaultPath = "/path/to/vault"
 		taskName = "my-task"
+		outputFormat = "plain" // default
 
 		// Default: return a task with mixed checkboxes
 		task = &domain.Task{
@@ -53,7 +55,7 @@ status: todo
 	})
 
 	JustBeforeEach(func() {
-		err = updateOp.Execute(ctx, vaultPath, taskName, "test-vault", "plain")
+		err = updateOp.Execute(ctx, vaultPath, taskName, "test-vault", outputFormat)
 	})
 
 	Context("success", func() {
@@ -241,6 +243,103 @@ status: active
 		It("completes task despite goal error", func() {
 			// Operation should succeed even if goal sync fails
 			Expect(err).To(BeNil())
+		})
+	})
+
+	Context("JSON output format", func() {
+		BeforeEach(func() {
+			outputFormat = "json"
+		})
+
+		Context("success with all checkboxes checked", func() {
+			BeforeEach(func() {
+				task.Content = `---
+status: todo
+---
+
+# My Task
+
+- [x] First item
+- [x] Second item
+- [x] Third item
+`
+			})
+
+			It("returns no error", func() {
+				Expect(err).To(BeNil())
+			})
+
+			It("sets status to done", func() {
+				Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
+				_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
+				Expect(writtenTask.Status).To(Equal(domain.TaskStatusDone))
+			})
+		})
+
+		Context("success with no checkboxes checked", func() {
+			BeforeEach(func() {
+				task.Content = `---
+status: in_progress
+---
+
+# My Task
+
+- [ ] First item
+- [ ] Second item
+- [ ] Third item
+`
+			})
+
+			It("returns no error", func() {
+				Expect(err).To(BeNil())
+			})
+
+			It("sets status to todo", func() {
+				Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
+				_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
+				Expect(writtenTask.Status).To(Equal(domain.TaskStatusTodo))
+			})
+		})
+
+		Context("task with no checkboxes in content", func() {
+			BeforeEach(func() {
+				task.Content = `---
+status: todo
+---
+
+# My Task
+
+Just some text without checkboxes.
+`
+			})
+
+			It("returns no error", func() {
+				Expect(err).To(BeNil())
+			})
+
+			It("does not call WriteTask", func() {
+				Expect(mockStorage.WriteTaskCallCount()).To(Equal(0))
+			})
+		})
+
+		Context("WriteTask returns error", func() {
+			BeforeEach(func() {
+				mockStorage.WriteTaskReturns(ErrTest)
+			})
+
+			It("returns error", func() {
+				Expect(err).NotTo(BeNil())
+			})
+		})
+
+		Context("FindTaskByName returns error", func() {
+			BeforeEach(func() {
+				mockStorage.FindTaskByNameReturns(nil, ErrTest)
+			})
+
+			It("returns error", func() {
+				Expect(err).NotTo(BeNil())
+			})
 		})
 	})
 })

@@ -1,3 +1,13 @@
+---
+status: completed
+summary: Increased pkg/ops test coverage from 77.5% to 83.0% by adding tests for complete.go and update.go output/helper methods
+container: vault-cli-024-ops-complete-update-coverage
+dark-factory-version: v0.13.1
+created: "2026-03-02T22:58:00Z"
+queued: "2026-03-02T22:58:00Z"
+started: "2026-03-02T22:58:00Z"
+completed: "2026-03-02T23:02:56Z"
+---
 
 <objective>
 Increase test coverage for `complete.go` and `update.go` output/helper methods.

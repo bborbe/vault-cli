@@ -1,3 +1,7 @@
+---
+status: completed
+---
+
 <objective>
 Suppress cobra's usage/help output when a command returns a runtime error.
 

@@ -1,6 +1,16 @@
 ---
 status: queued
+created: "2026-03-02T11:56:19Z"
 ---
+
+
+
+
+
+
+
+
+
 
 <objective>
 Increase `pkg/storage` test coverage from 79.1% to ≥80%.

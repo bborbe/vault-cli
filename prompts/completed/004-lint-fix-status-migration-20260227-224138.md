@@ -1,3 +1,7 @@
+---
+status: completed
+---
+
 <objective>
 Extend `vault-cli lint --fix` to auto-correct invalid status values using a migration map.
 

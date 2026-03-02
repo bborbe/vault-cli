@@ -1,3 +1,7 @@
+---
+status: completed
+---
+
 <objective>
 Add generic frontmatter field operations to vault-cli:
 `vault-cli task get <name> <key>`, `vault-cli task set <name> <key> <value>`, `vault-cli task clear <name> <key>`.

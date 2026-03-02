@@ -17,3 +17,4 @@
 /vendor
 gha-creds-*.json
 /.dark-factory.lock
+/prompts/log

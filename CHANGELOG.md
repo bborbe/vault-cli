@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.10.2
+
+### Added
+- 024-ops-complete-update-coverage
+
 ## v0.10.1
 
 ### Added

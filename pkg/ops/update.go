@@ -12,6 +12,8 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/bborbe/errors"
+
 	"github.com/bborbe/vault-cli/pkg/domain"
 	"github.com/bborbe/vault-cli/pkg/storage"
 )
@@ -53,7 +55,7 @@ func (u *updateOperation) Execute(
 	task, err := u.storage.FindTaskByName(ctx, vaultPath, taskName)
 	if err != nil {
 		u.outputErrorJSON(outputFormat, err)
-		return fmt.Errorf("find task: %w", err)
+		return errors.Wrap(ctx, err, "find task")
 	}
 
 	checkboxes := u.parseCheckboxes(task.Content)
@@ -66,7 +68,7 @@ func (u *updateOperation) Execute(
 
 	if err := u.storage.WriteTask(ctx, task); err != nil {
 		u.outputErrorJSON(outputFormat, err)
-		return fmt.Errorf("write task: %w", err)
+		return errors.Wrap(ctx, err, "write task")
 	}
 
 	warnings = u.syncGoals(ctx, vaultPath, task.Goals, checkboxes, outputFormat, warnings)
@@ -208,7 +210,7 @@ func (u *updateOperation) syncGoalCheckboxes(
 ) error {
 	goal, err := u.storage.FindGoalByName(ctx, vaultPath, goalName)
 	if err != nil {
-		return fmt.Errorf("find goal: %w", err)
+		return errors.Wrap(ctx, err, "find goal")
 	}
 
 	lines := strings.Split(goal.Content, "\n")
@@ -239,7 +241,7 @@ func (u *updateOperation) syncGoalCheckboxes(
 	// Update goal content and write
 	goal.Content = strings.Join(lines, "\n")
 	if err := u.storage.WriteGoal(ctx, goal); err != nil {
-		return fmt.Errorf("write goal: %w", err)
+		return errors.Wrap(ctx, err, "write goal")
 	}
 
 	return nil

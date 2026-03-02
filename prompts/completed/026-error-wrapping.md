@@ -1,3 +1,13 @@
+---
+status: completed
+summary: Adopted github.com/bborbe/errors for error wrapping across pkg/ops/ and pkg/storage/, replacing fmt.Errorf with errors.Wrap(ctx, err, msg)
+container: vault-cli-026-error-wrapping
+dark-factory-version: v0.13.1
+created: "2026-03-02T23:07:31Z"
+queued: "2026-03-02T23:07:31Z"
+started: "2026-03-02T23:07:31Z"
+completed: "2026-03-02T23:16:22Z"
+---
 
 <objective>
 Adopt `github.com/bborbe/errors` for error wrapping across `pkg/ops/` and `pkg/storage/`.

@@ -13,6 +13,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/bborbe/errors"
 	"gopkg.in/yaml.v3"
 )
 
@@ -90,13 +91,13 @@ func (l *lintOperation) Execute(
 
 		fileIssues, err := l.lintFile(path, fix)
 		if err != nil {
-			return fmt.Errorf("lint file %s: %w", path, err)
+			return errors.Wrap(ctx, err, fmt.Sprintf("lint file %s", path))
 		}
 		issues = append(issues, fileIssues...)
 		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("walk tasks directory: %w", err)
+		return errors.Wrap(ctx, err, "walk tasks directory")
 	}
 
 	return l.outputIssues(vaultPath, issues, fix, outputFormat)
@@ -113,7 +114,7 @@ func (l *lintOperation) ExecuteFile(
 	// Lint the single file (read-only, no fix)
 	issues, err := l.lintFile(filePath, false)
 	if err != nil {
-		return fmt.Errorf("lint file %s: %w", filePath, err)
+		return errors.Wrap(ctx, err, fmt.Sprintf("lint file %s", filePath))
 	}
 
 	// Output results

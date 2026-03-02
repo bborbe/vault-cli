@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.10.3
+
+### Added
+- 025-storage-coverage
+
 ## v0.10.2
 
 ### Added

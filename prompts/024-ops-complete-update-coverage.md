@@ -8,7 +8,7 @@ Targets: `complete.go:Execute` (55.6%), `update.go:outputUpdateResult` (42.9%),
 <context>
 Go CLI project at ~/Documents/workspaces/vault-cli.
 Read CLAUDE.md for project conventions.
-Read ~/.claude/docs/go-testing.go for testing patterns.
+Read ~/.claude/docs/go-testing.md for testing patterns.
 
 Existing test files: `complete_test.go`, `update_test.go` — add tests there.
 Use mock storage pattern (counterfeiter mocks from `mocks/` package).

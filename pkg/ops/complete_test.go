@@ -143,4 +143,82 @@ status: active
 			Expect(err).To(BeNil())
 		})
 	})
+
+	Context("task with goal WriteGoal error", func() {
+		BeforeEach(func() {
+			task.Goals = []string{"Test Goal"}
+			goal := &domain.Goal{
+				Name: "Test Goal",
+				Content: `---
+status: active
+---
+# Test Goal
+
+## Tasks
+- [ ] my-task
+`,
+			}
+			mockStorage.FindGoalByNameReturns(goal, nil)
+			mockStorage.WriteGoalReturns(ErrTest)
+		})
+
+		It("completes task despite goal write error", func() {
+			// Operation should succeed even if goal write fails
+			Expect(err).To(BeNil())
+		})
+	})
+
+	Context("updateDailyNote path", func() {
+		BeforeEach(func() {
+			dailyContent := `# 2026-03-02
+
+## Tasks
+- [ ] my-task
+`
+			mockStorage.ReadDailyNoteReturns(dailyContent, nil)
+			mockStorage.WriteDailyNoteReturns(nil)
+		})
+
+		It("updates daily note checkbox", func() {
+			Expect(err).To(BeNil())
+			Expect(mockStorage.ReadDailyNoteCallCount()).To(Equal(1))
+			Expect(mockStorage.WriteDailyNoteCallCount()).To(Equal(1))
+		})
+
+		It("marks checkbox as checked in daily note", func() {
+			Expect(err).To(BeNil())
+			if mockStorage.WriteDailyNoteCallCount() > 0 {
+				_, _, _, updatedContent := mockStorage.WriteDailyNoteArgsForCall(0)
+				Expect(updatedContent).To(ContainSubstring("- [x]"))
+			}
+		})
+	})
+
+	Context("ReadDailyNote returns error", func() {
+		BeforeEach(func() {
+			mockStorage.ReadDailyNoteReturns("", ErrTest)
+		})
+
+		It("completes task despite daily note read error", func() {
+			// Operation should succeed even if daily note read fails
+			Expect(err).To(BeNil())
+		})
+	})
+
+	Context("WriteDailyNote returns error", func() {
+		BeforeEach(func() {
+			dailyContent := `# 2026-03-02
+
+## Tasks
+- [ ] my-task
+`
+			mockStorage.ReadDailyNoteReturns(dailyContent, nil)
+			mockStorage.WriteDailyNoteReturns(ErrTest)
+		})
+
+		It("completes task despite daily note write error", func() {
+			// Operation should succeed even if daily note write fails
+			Expect(err).To(BeNil())
+		})
+	})
 })

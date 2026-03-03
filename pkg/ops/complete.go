@@ -223,18 +223,7 @@ func (c *completeOperation) handleRecurringTask(
 	task.LastCompleted = today
 
 	// 3. Bump defer_date based on recurring interval
-	var newDeferDate time.Time
-	switch task.Recurring {
-	case "daily":
-		newDeferDate = now.AddDate(0, 0, 1) // tomorrow
-	case "weekly":
-		newDeferDate = now.AddDate(0, 0, 7) // +7 days
-	case "monthly":
-		newDeferDate = now.AddDate(0, 1, 0) // +1 month
-	default:
-		// Unknown recurring type, treat as daily
-		newDeferDate = now.AddDate(0, 0, 1)
-	}
+	newDeferDate := calculateNextDeferDate(task.Recurring, now)
 	task.DeferDate = &newDeferDate
 
 	// 4. If planned_date exists and < new defer_date, clear it
@@ -287,6 +276,36 @@ func (c *completeOperation) handleRecurringTask(
 
 	fmt.Printf("🔄 Recurring task reset: %s (next: %s)\n", task.Name, nextDateStr)
 	return nil
+}
+
+// calculateNextDeferDate calculates the next defer date based on recurring interval.
+func calculateNextDeferDate(recurring string, now time.Time) time.Time {
+	switch recurring {
+	case "daily":
+		return now.AddDate(0, 0, 1) // tomorrow
+	case "weekly":
+		return now.AddDate(0, 0, 7) // +7 days
+	case "monthly":
+		return now.AddDate(0, 1, 0) // +1 month
+	case "weekdays":
+		next := now.AddDate(0, 0, 1) // tomorrow
+		switch next.Weekday() {
+		case time.Saturday:
+			return now.AddDate(0, 0, 3) // Saturday → Monday
+		case time.Sunday:
+			return now.AddDate(0, 0, 2) // Sunday → Monday
+		default:
+			return next
+		}
+	default:
+		// Unknown recurring type, treat as daily
+		fmt.Fprintf(
+			os.Stderr,
+			"Warning: unknown recurring interval %q, treating as daily\n",
+			recurring,
+		)
+		return now.AddDate(0, 0, 1)
+	}
 }
 
 // resetCheckboxes resets all checked checkboxes in content to unchecked.

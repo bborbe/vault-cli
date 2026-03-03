@@ -1,125 +1,90 @@
 # Changelog
 
+All notable changes to this project will be documented in this file.
+
+Please choose versions by [Semantic Versioning](http://semver.org/).
+
+* MAJOR version when you make incompatible API changes,
+* MINOR version when you add functionality in a backwards-compatible manner, and
+* PATCH version when you make backwards-compatible bug fixes.
+
 ## v0.10.7
 
-### Added
-- 029-recurring-task-complete
+- Add recurring task support to complete command (reset checkboxes, bump defer_date, keep in_progress)
 
 ## v0.10.6
 
-### Added
-- 028-fix-frontmatter-serialization
+- Fix frontmatter serialization: exclude Name, Content, FilePath from YAML output via `yaml:"-"` tags
 
 ## v0.10.5
 
-### Added
-- 027-remove-root-level-aliases
+- Remove root-level command aliases (complete, defer, list, lint) — use `task` subcommand instead
 
 ## v0.10.4
 
-### Added
-- 026-error-wrapping
+- Add context-aware error wrapping with github.com/bborbe/errors
 
 ## v0.10.3
 
-### Added
-- 025-storage-coverage
+- Improve test coverage for pkg/storage
 
 ## v0.10.2
 
-### Added
-- 024-ops-complete-update-coverage
+- Improve test coverage for pkg/ops (complete, update operations)
 
 ## v0.10.1
 
-### Added
-- 023-ops-lint-validate-coverage
-
-All notable changes to this project will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+- Improve test coverage for pkg/ops (lint, validate operations)
 
 ## v0.10.0
 
-### Added
-- `vault-cli task validate <task-name>` — lint single task by name
-- Exit code 0 = no issues, 1 = issues found
-- JSON output returns structured issues array
-- Reuses existing LintOperation via new ExecuteFile method
+- Add `vault-cli task validate <task-name>` command for single-task linting
 
 ## v0.9.0
 
-### Added
-- `vault-cli task get <name> <key>` — get frontmatter field value
-- `vault-cli task set <name> <key> <value>` — set frontmatter field value
-- `vault-cli task clear <name> <key>` — clear frontmatter field value
-- Supported keys: phase, claude_session_id, assignee, status, priority, defer_date
-- Added `Phase` and `ClaudeSessionID` fields to Task domain type
+- Add `vault-cli task get <name> <key>` to read frontmatter field values
+- Add `vault-cli task set <name> <key> <value>` to write frontmatter field values
+- Add `vault-cli task clear <name> <key>` to remove frontmatter field values
+- Add Phase and ClaudeSessionID fields to Task domain type
 
 ## v0.8.0
 
-### Added
-- `--output plain|json` flag for all commands (list, mutate, lint, search)
-- JSON output includes `vault` field, warnings in response body
-- New `pkg/cli/output.go` helper for JSON encoding
-- Refactored lint and update operations for lower cognitive complexity
+- Add `--output plain|json` flag for all commands
+- Add JSON output with vault field and warnings in response body
 
 ## v0.7.0
 
-### Added
-- `--status` filter flag for all list commands (task, goal, theme, objective, vision)
-- Case-insensitive status matching (e.g. `--status in_progress`)
-- Works in combination with existing `--vault` and `--assignee` filters
+- Add `--status` filter flag for all list commands (task, goal, theme, objective, vision)
 
 ## v0.6.1
 
-### Added
-- Test coverage for pkg/ops, pkg/config, pkg/domain, pkg/storage
-- Tests for workon operation, priority parsing, config loading, and storage round-trips
+- Improve test coverage for pkg/ops, pkg/config, pkg/domain, pkg/storage
 
 ## v0.6.0
 
-### Added
-- `vault-cli task work-on <task-name>` command: sets status to in_progress and assigns to current user
-- `current_user` field in config (~/.vault-cli/config.yaml) to identify the active user
+- Add `vault-cli task work-on <task-name>` command (sets in_progress + assigns current user)
+- Add `current_user` field in config
 
 ## v0.5.0
 
-### Added
-- `--assignee` flag for all list commands (task, goal, theme, objective, vision)
-- Filter tasks/goals by assignee frontmatter field
+- Add `--assignee` flag for all list commands
 
 ## v0.4.0
 
-### Changed
-- Priority field parsing is now resilient: invalid string values (e.g. "medium", "high") use -1 instead of skipping the file
-- Eliminated INVALID_PRIORITY warnings during list operations
+- Fix priority parsing to handle invalid string values gracefully (use -1 instead of skipping)
 
 ## v0.3.0
 
-### Changed
-- All commands (list, lint, search) now run across all configured vaults by default
-- `--vault` flag becomes a filter to restrict output to a single vault
-- Output prefixed with `=== vault-name ===` header when multiple vaults are shown
+- Run all commands across all configured vaults by default
+- Add `--vault` flag to restrict output to a single vault
 
 ## v0.2.0
 
-### Added
-- `lint` subcommand for goal, theme, objective, and vision entity types
-- Generic lint command supporting all vault entity types with `--fix` flag
+- Add lint subcommand for goal, theme, objective, and vision entity types
 
 ## v0.1.0
 
-### Added
-- Initial project structure from go-skeleton
-- Go module github.com/bborbe/vault-cli
-- `vault-cli list` command to list tasks from vault
-- Support for filtering tasks by status with `--status` flag
-- Support for showing all tasks with `--all` flag
-- Default behavior shows only todo and in_progress tasks
-- `vault-cli lint` command to detect and fix common frontmatter issues in task files
-  - Detects: MISSING_FRONTMATTER, INVALID_PRIORITY, DUPLICATE_KEY, INVALID_STATUS
-  - Auto-fixes: INVALID_PRIORITY (string to int conversion), DUPLICATE_KEY (keeps first occurrence)
-  - `--fix` flag to automatically fix fixable issues
-- Fix INVALID_STATUS allowed values to match vault schema (todo, in_progress, backlog, completed, hold, aborted)
+- Add `vault-cli list` command with `--status` and `--all` flags
+- Add `vault-cli lint` command with `--fix` flag
+- Detect MISSING_FRONTMATTER, INVALID_PRIORITY, DUPLICATE_KEY, INVALID_STATUS
+- Auto-fix INVALID_PRIORITY and DUPLICATE_KEY issues

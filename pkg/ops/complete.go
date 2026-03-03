@@ -140,6 +140,7 @@ func (c *completeOperation) Execute(
 type RecurringMutationResult struct {
 	Success   bool     `json:"success"`
 	Name      string   `json:"name,omitempty"`
+	Vault     string   `json:"vault,omitempty"`
 	Recurring bool     `json:"recurring"`
 	NextDate  string   `json:"next_date,omitempty"`
 	Error     string   `json:"error,omitempty"`
@@ -191,6 +192,7 @@ func (c *completeOperation) handleRecurringTask(
 		if outputFormat == "json" {
 			result := RecurringMutationResult{
 				Success:   false,
+				Vault:     vaultName,
 				Recurring: true,
 				Error:     err.Error(),
 			}
@@ -216,6 +218,7 @@ func (c *completeOperation) handleRecurringTask(
 		result := RecurringMutationResult{
 			Success:   true,
 			Name:      task.Name,
+			Vault:     vaultName,
 			Recurring: true,
 			NextDate:  nextDateStr,
 			Warnings:  warnings,

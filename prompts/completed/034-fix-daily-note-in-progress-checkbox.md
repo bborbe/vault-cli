@@ -1,3 +1,13 @@
+---
+status: completed
+summary: Added support for [/] in-progress checkbox state in daily notes and storage layer
+container: vault-cli-034-fix-daily-note-in-progress-checkbox
+dark-factory-version: v0.14.5
+created: "2026-03-03T22:40:04Z"
+queued: "2026-03-03T22:40:04Z"
+started: "2026-03-03T22:40:04Z"
+completed: "2026-03-03T22:44:14Z"
+---
 <objective>
 Fix daily note checkbox regex to handle `[/]` (in-progress) state in addition to `[ ]` and `[x]`. This affects complete, defer, and storage layer.
 </objective>

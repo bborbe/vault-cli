@@ -95,7 +95,7 @@ type markdownStorage struct {
 
 var (
 	frontmatterRegex = regexp.MustCompile(`(?s)^---\n(.*?)\n---\n(.*)$`)
-	checkboxRegex    = regexp.MustCompile(`^(\s*)- \[([ x])\] (.+)$`)
+	checkboxRegex    = regexp.MustCompile(`^(\s*)- \[([ x/])\] (.+)$`)
 )
 
 // ReadTask reads a task from a markdown file.
@@ -432,11 +432,13 @@ func (m *markdownStorage) parseCheckboxes(content string) []domain.CheckboxItem 
 
 	for i, line := range lines {
 		if matches := checkboxRegex.FindStringSubmatch(line); len(matches) == 4 {
+			state := matches[2]
 			items = append(items, domain.CheckboxItem{
-				Line:    i,
-				Checked: matches[2] == "x",
-				Text:    matches[3],
-				RawLine: line,
+				Line:       i,
+				Checked:    state == "x",
+				InProgress: state == "/",
+				Text:       matches[3],
+				RawLine:    line,
 			})
 		}
 	}

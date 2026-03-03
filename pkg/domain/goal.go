@@ -45,8 +45,9 @@ func (g GoalID) String() string {
 
 // CheckboxItem represents a checkbox item in markdown content.
 type CheckboxItem struct {
-	Line    int
-	Checked bool
-	Text    string
-	RawLine string
+	Line       int
+	Checked    bool
+	InProgress bool
+	Text       string
+	RawLine    string
 }

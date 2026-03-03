@@ -348,6 +348,42 @@ This is a test goal.
 				Expect(goal.Tasks[0].Checked).To(BeFalse())
 				Expect(goal.Tasks[1].Checked).To(BeTrue())
 			})
+
+			It("parses checkboxes with in-progress state", func() {
+				goalContent := `---
+status: active
+page_type: goal
+---
+# Goal with In-Progress Items
+
+## Tasks
+- [ ] Pending task
+- [x] Completed task
+- [/] In-progress task
+`
+				goalPath := filepath.Join(goalsDir, "In-Progress Goal.md")
+				Expect(os.WriteFile(goalPath, []byte(goalContent), 0600)).To(Succeed())
+
+				goal, err := store.ReadGoal(ctx, vaultPath, "In-Progress Goal")
+				Expect(err).To(BeNil())
+				Expect(goal).NotTo(BeNil())
+				Expect(len(goal.Tasks)).To(Equal(3))
+
+				// First task: pending
+				Expect(goal.Tasks[0].Checked).To(BeFalse())
+				Expect(goal.Tasks[0].InProgress).To(BeFalse())
+				Expect(goal.Tasks[0].Text).To(Equal("Pending task"))
+
+				// Second task: completed
+				Expect(goal.Tasks[1].Checked).To(BeTrue())
+				Expect(goal.Tasks[1].InProgress).To(BeFalse())
+				Expect(goal.Tasks[1].Text).To(Equal("Completed task"))
+
+				// Third task: in-progress
+				Expect(goal.Tasks[2].Checked).To(BeFalse())
+				Expect(goal.Tasks[2].InProgress).To(BeTrue())
+				Expect(goal.Tasks[2].Text).To(Equal("In-progress task"))
+			})
 		})
 
 		Describe("WriteGoal and FindGoalByName", func() {

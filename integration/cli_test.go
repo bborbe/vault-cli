@@ -94,7 +94,7 @@ This is a done task.
 		})
 
 		It("shows only non-completed tasks by default", func() {
-			cmd := exec.Command(binPath, "--config", configPath, "--vault", "test", "list")
+			cmd := exec.Command(binPath, "--config", configPath, "--vault", "test", "task", "list")
 			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 			Expect(err).NotTo(HaveOccurred())
 			Eventually(session).Should(gexec.Exit(0))
@@ -103,7 +103,16 @@ This is a done task.
 		})
 
 		It("shows all tasks with --all flag", func() {
-			cmd := exec.Command(binPath, "--config", configPath, "--vault", "test", "list", "--all")
+			cmd := exec.Command(
+				binPath,
+				"--config",
+				configPath,
+				"--vault",
+				"test",
+				"task",
+				"list",
+				"--all",
+			)
 			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 			Expect(err).NotTo(HaveOccurred())
 			Eventually(session).Should(gexec.Exit(0))
@@ -134,7 +143,15 @@ This task has valid frontmatter.
 			})
 
 			It("exits 0 and reports no issues", func() {
-				cmd := exec.Command(binPath, "--config", configPath, "--vault", "test", "lint")
+				cmd := exec.Command(
+					binPath,
+					"--config",
+					configPath,
+					"--vault",
+					"test",
+					"task",
+					"lint",
+				)
 				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 				Expect(err).NotTo(HaveOccurred())
 				Eventually(session).Should(gexec.Exit(0))
@@ -159,7 +176,15 @@ priority: 2
 			})
 
 			It("exits 1 and reports INVALID_STATUS", func() {
-				cmd := exec.Command(binPath, "--config", configPath, "--vault", "test", "lint")
+				cmd := exec.Command(
+					binPath,
+					"--config",
+					configPath,
+					"--vault",
+					"test",
+					"task",
+					"lint",
+				)
 				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 				Expect(err).NotTo(HaveOccurred())
 				Eventually(session).Should(gexec.Exit(1))
@@ -184,7 +209,15 @@ priority: high
 			})
 
 			It("exits 1 and reports INVALID_PRIORITY", func() {
-				cmd := exec.Command(binPath, "--config", configPath, "--vault", "test", "lint")
+				cmd := exec.Command(
+					binPath,
+					"--config",
+					configPath,
+					"--vault",
+					"test",
+					"task",
+					"lint",
+				)
 				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 				Expect(err).NotTo(HaveOccurred())
 				Eventually(session).Should(gexec.Exit(1))
@@ -220,6 +253,7 @@ priority: 2
 					configPath,
 					"--vault",
 					"test",
+					"task",
 					"lint",
 					"--fix",
 				)
@@ -260,6 +294,7 @@ priority: high
 					configPath,
 					"--vault",
 					"test",
+					"task",
 					"lint",
 					"--fix",
 				)
@@ -305,6 +340,7 @@ This is my task.
 					configPath,
 					"--vault",
 					"test",
+					"task",
 					"complete",
 					"my-task",
 				)
@@ -336,6 +372,7 @@ This is my task.
 					configPath,
 					"--vault",
 					"test",
+					"task",
 					"complete",
 					"non-existent-task",
 				)
@@ -374,6 +411,7 @@ This is my task.
 					configPath,
 					"--vault",
 					"test",
+					"task",
 					"defer",
 					"my-task",
 					"+7d",
@@ -413,6 +451,7 @@ priority: 2
 					configPath,
 					"--vault",
 					"test",
+					"task",
 					"defer",
 					"my-task",
 					"invalid-date",

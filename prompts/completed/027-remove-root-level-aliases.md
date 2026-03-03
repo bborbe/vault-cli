@@ -1,3 +1,13 @@
+---
+status: completed
+summary: Removed root-level command aliases (complete, defer, lint, list) from vault-cli
+container: vault-cli-027-remove-root-level-aliases
+dark-factory-version: v0.13.2
+created: "2026-03-03T16:19:46Z"
+queued: "2026-03-03T16:19:46Z"
+started: "2026-03-03T16:25:06Z"
+completed: "2026-03-03T16:29:05Z"
+---
 <objective>
 Remove root-level command aliases from vault-cli. The commands `complete`, `defer`, `list`, and `lint` exist both under `task` subcommand AND at the root level. The root-level duplicates were kept for backwards compatibility but should now be removed.
 </objective>

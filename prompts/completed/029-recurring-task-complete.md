@@ -1,3 +1,13 @@
+---
+status: completed
+summary: Added recurring task support to vault-cli complete command with checkbox reset, defer_date bumping, and comprehensive test coverage
+container: vault-cli-029-recurring-task-complete
+dark-factory-version: v0.13.2
+created: "2026-03-03T16:36:18Z"
+queued: "2026-03-03T16:36:18Z"
+started: "2026-03-03T16:36:18Z"
+completed: "2026-03-03T16:39:39Z"
+---
 <objective>
 Add recurring task support to the complete command. Currently `vault-cli task complete` sets status=done for all tasks. For recurring tasks (frontmatter `recurring: daily|weekly|monthly`), it should reset checkboxes, bump defer_date, update last_completed, and keep status=in_progress.
 </objective>

@@ -6,6 +6,7 @@ package ops_test
 
 import (
 	"context"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -219,6 +220,147 @@ status: active
 		It("completes task despite daily note write error", func() {
 			// Operation should succeed even if daily note write fails
 			Expect(err).To(BeNil())
+		})
+	})
+
+	Context("recurring daily task", func() {
+		BeforeEach(func() {
+			task.Recurring = "daily"
+			task.Status = domain.TaskStatusInProgress
+			task.Content = `---
+status: in_progress
+recurring: daily
+---
+# My Task
+
+## Checklist
+- [x] Item 1
+- [x] Item 2
+`
+		})
+
+		It("returns no error", func() {
+			Expect(err).To(BeNil())
+		})
+
+		It("resets checkboxes in content", func() {
+			Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
+			Expect(writtenTask.Content).To(ContainSubstring("- [ ] Item 1"))
+			Expect(writtenTask.Content).To(ContainSubstring("- [ ] Item 2"))
+			Expect(writtenTask.Content).NotTo(ContainSubstring("- [x]"))
+		})
+
+		It("sets last_completed to today", func() {
+			Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
+			Expect(writtenTask.LastCompleted).NotTo(BeEmpty())
+		})
+
+		It("bumps defer_date to tomorrow", func() {
+			Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
+			Expect(writtenTask.DeferDate).NotTo(BeNil())
+		})
+
+		It("keeps status unchanged", func() {
+			Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
+			Expect(writtenTask.Status).To(Equal(domain.TaskStatusInProgress))
+		})
+	})
+
+	Context("recurring weekly task", func() {
+		BeforeEach(func() {
+			task.Recurring = "weekly"
+			task.Status = domain.TaskStatusInProgress
+			task.Content = `---
+status: in_progress
+recurring: weekly
+---
+# My Task
+`
+		})
+
+		It("returns no error", func() {
+			Expect(err).To(BeNil())
+		})
+
+		It("bumps defer_date by 7 days", func() {
+			Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
+			Expect(writtenTask.DeferDate).NotTo(BeNil())
+		})
+
+		It("keeps status unchanged", func() {
+			Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
+			Expect(writtenTask.Status).To(Equal(domain.TaskStatusInProgress))
+		})
+	})
+
+	Context("recurring monthly task", func() {
+		BeforeEach(func() {
+			task.Recurring = "monthly"
+			task.Status = domain.TaskStatusInProgress
+			task.Content = `---
+status: in_progress
+recurring: monthly
+---
+# My Task
+`
+		})
+
+		It("returns no error", func() {
+			Expect(err).To(BeNil())
+		})
+
+		It("bumps defer_date by 1 month", func() {
+			Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
+			Expect(writtenTask.DeferDate).NotTo(BeNil())
+		})
+
+		It("keeps status unchanged", func() {
+			Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
+			Expect(writtenTask.Status).To(Equal(domain.TaskStatusInProgress))
+		})
+	})
+
+	Context("non-recurring task still marked as done", func() {
+		BeforeEach(func() {
+			task.Recurring = ""
+			task.Status = domain.TaskStatusTodo
+		})
+
+		It("marks task as done", func() {
+			Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
+			Expect(writtenTask.Status).To(Equal(domain.TaskStatusDone))
+		})
+	})
+
+	Context("recurring task with planned_date before new defer_date", func() {
+		var oldPlannedDate time.Time
+
+		BeforeEach(func() {
+			oldPlannedDate = time.Now().AddDate(0, 0, -1) // Yesterday
+			task.Recurring = "daily"
+			task.Status = domain.TaskStatusInProgress
+			task.PlannedDate = &oldPlannedDate
+			task.Content = `---
+status: in_progress
+recurring: daily
+---
+# My Task
+`
+		})
+
+		It("clears planned_date", func() {
+			Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
+			Expect(writtenTask.PlannedDate).To(BeNil())
 		})
 	})
 })

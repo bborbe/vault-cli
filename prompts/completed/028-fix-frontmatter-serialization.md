@@ -1,3 +1,13 @@
+---
+status: completed
+summary: Added yaml:"-" tags to metadata fields in Task/Goal/Theme structs and comprehensive serialization safety tests
+container: vault-cli-028-fix-frontmatter-serialization
+dark-factory-version: v0.13.2
+created: "2026-03-03T16:33:05Z"
+queued: "2026-03-03T16:33:05Z"
+started: "2026-03-03T16:33:05Z"
+completed: "2026-03-03T16:36:15Z"
+---
 <objective>
 Fix frontmatter corruption: WriteTask/WriteGoal/WriteTheme serialize metadata fields (Name, Content, FilePath) into YAML frontmatter. These fields must be excluded from serialization.
 </objective>

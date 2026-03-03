@@ -21,10 +21,10 @@ type Goal struct {
 	Tags       []string   `yaml:"tags,omitempty"`
 
 	// Metadata
-	Name     string         // Filename without extension
-	Content  string         // Full markdown content including frontmatter
-	FilePath string         // Absolute path to file
-	Tasks    []CheckboxItem // Parsed checkbox tasks from content
+	Name     string         `yaml:"-"` // Filename without extension
+	Content  string         `yaml:"-"` // Full markdown content including frontmatter
+	FilePath string         `yaml:"-"` // Absolute path to file
+	Tasks    []CheckboxItem `yaml:"-"` // Parsed checkbox tasks from content
 }
 
 // GoalStatus represents the status of a goal.

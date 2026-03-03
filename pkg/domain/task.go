@@ -20,6 +20,9 @@ type Task struct {
 	Tags            []string   `yaml:"tags,omitempty"`
 	Phase           string     `yaml:"phase,omitempty"`
 	ClaudeSessionID string     `yaml:"claude_session_id,omitempty"`
+	Recurring       string     `yaml:"recurring,omitempty"`
+	LastCompleted   string     `yaml:"last_completed,omitempty"`
+	PlannedDate     *time.Time `yaml:"planned_date,omitempty"`
 
 	// Metadata
 	Name     string `yaml:"-"` // Filename without extension

@@ -77,6 +77,11 @@ func (c *completeOperation) Execute(
 		return errors.Wrap(ctx, err, "find task")
 	}
 
+	// Handle recurring tasks differently
+	if task.Recurring != "" {
+		return c.handleRecurringTask(ctx, task, vaultPath, vaultName, outputFormat, warnings)
+	}
+
 	// Update task status to done
 	task.Status = domain.TaskStatusDone
 
@@ -129,6 +134,105 @@ func (c *completeOperation) Execute(
 
 	fmt.Printf("✅ Task completed: %s\n", task.Name)
 	return nil
+}
+
+// RecurringMutationResult represents the result of a recurring task mutation.
+type RecurringMutationResult struct {
+	Success   bool     `json:"success"`
+	Name      string   `json:"name,omitempty"`
+	Recurring bool     `json:"recurring"`
+	NextDate  string   `json:"next_date,omitempty"`
+	Error     string   `json:"error,omitempty"`
+	Warnings  []string `json:"warnings,omitempty"`
+}
+
+// handleRecurringTask handles completion of a recurring task.
+func (c *completeOperation) handleRecurringTask(
+	ctx context.Context,
+	task *domain.Task,
+	vaultPath string,
+	vaultName string,
+	outputFormat string,
+	warnings []string,
+) error {
+	now := time.Now()
+	today := now.Format("2006-01-02")
+
+	// 1. Reset all checkboxes in content
+	task.Content = resetCheckboxes(task.Content)
+
+	// 2. Set last_completed to today
+	task.LastCompleted = today
+
+	// 3. Bump defer_date based on recurring interval
+	var newDeferDate time.Time
+	switch task.Recurring {
+	case "daily":
+		newDeferDate = now.AddDate(0, 0, 1) // tomorrow
+	case "weekly":
+		newDeferDate = now.AddDate(0, 0, 7) // +7 days
+	case "monthly":
+		newDeferDate = now.AddDate(0, 1, 0) // +1 month
+	default:
+		// Unknown recurring type, treat as daily
+		newDeferDate = now.AddDate(0, 0, 1)
+	}
+	task.DeferDate = &newDeferDate
+
+	// 4. If planned_date exists and < new defer_date, clear it
+	if task.PlannedDate != nil && task.PlannedDate.Before(newDeferDate) {
+		task.PlannedDate = nil
+	}
+
+	// 5. Status remains as-is (do NOT set to done)
+
+	// Write updated task
+	if err := c.storage.WriteTask(ctx, task); err != nil {
+		if outputFormat == "json" {
+			result := RecurringMutationResult{
+				Success:   false,
+				Recurring: true,
+				Error:     err.Error(),
+			}
+			enc := json.NewEncoder(os.Stdout)
+			enc.SetIndent("", "  ")
+			_ = enc.Encode(result)
+		}
+		return errors.Wrap(ctx, err, "write recurring task")
+	}
+
+	// Update today's daily note (mark checkbox as checked for completion)
+	if err := c.updateDailyNote(ctx, vaultPath, today, task.Name, true); err != nil {
+		warning := fmt.Sprintf("failed to update daily note: %v", err)
+		warnings = append(warnings, warning)
+		if outputFormat == "plain" {
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", warning)
+		}
+	}
+
+	nextDateStr := newDeferDate.Format("2006-01-02")
+
+	if outputFormat == "json" {
+		result := RecurringMutationResult{
+			Success:   true,
+			Name:      task.Name,
+			Recurring: true,
+			NextDate:  nextDateStr,
+			Warnings:  warnings,
+		}
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		return enc.Encode(result)
+	}
+
+	fmt.Printf("🔄 Recurring task reset: %s (next: %s)\n", task.Name, nextDateStr)
+	return nil
+}
+
+// resetCheckboxes resets all checked checkboxes in content to unchecked.
+func resetCheckboxes(content string) string {
+	// Replace all "- [x]" with "- [ ]"
+	return strings.ReplaceAll(content, "- [x]", "- [ ]")
 }
 
 // markGoalCheckbox marks the checkbox for a task in the goal file.

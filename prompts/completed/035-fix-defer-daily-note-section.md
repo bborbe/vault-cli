@@ -1,3 +1,13 @@
+---
+status: completed
+summary: Fixed defer's addToDailyNote to insert tasks into Should section instead of appending to file bottom
+container: vault-cli-035-fix-defer-daily-note-section
+dark-factory-version: v0.14.5
+created: "2026-03-03T22:44:14Z"
+queued: "2026-03-03T22:44:14Z"
+started: "2026-03-03T22:44:14Z"
+completed: "2026-03-03T22:51:00Z"
+---
 <objective>
 Fix defer's addToDailyNote to insert task into the "Should" section instead of appending to the bottom of the file. Match how the slash command /defer-task adds deferred tasks.
 </objective>

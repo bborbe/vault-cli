@@ -330,6 +330,49 @@ recurring: monthly
 		})
 	})
 
+	Context("recurring weekdays task", func() {
+		BeforeEach(func() {
+			task.Recurring = "weekdays"
+			task.Status = domain.TaskStatusInProgress
+			task.Content = `---
+status: in_progress
+recurring: weekdays
+---
+# My Task
+`
+		})
+
+		It("returns no error", func() {
+			Expect(err).To(BeNil())
+		})
+
+		It("sets defer_date to a weekday", func() {
+			Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
+			Expect(writtenTask.DeferDate).NotTo(BeNil())
+
+			// Verify defer_date is a weekday (Monday-Friday)
+			weekday := writtenTask.DeferDate.Weekday()
+			Expect(weekday).NotTo(Equal(time.Saturday))
+			Expect(weekday).NotTo(Equal(time.Sunday))
+		})
+
+		It("sets defer_date after today", func() {
+			Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
+			Expect(writtenTask.DeferDate).NotTo(BeNil())
+
+			now := time.Now()
+			Expect(writtenTask.DeferDate.After(now)).To(BeTrue())
+		})
+
+		It("keeps status unchanged", func() {
+			Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
+			Expect(writtenTask.Status).To(Equal(domain.TaskStatusInProgress))
+		})
+	})
+
 	Context("non-recurring task still marked as done", func() {
 		BeforeEach(func() {
 			task.Recurring = ""

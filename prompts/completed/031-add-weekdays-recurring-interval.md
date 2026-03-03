@@ -1,3 +1,13 @@
+---
+status: completed
+summary: Added weekdays recurring interval to complete operation with weekend-skipping logic
+container: vault-cli-031-add-weekdays-recurring-interval
+dark-factory-version: v0.14.5
+created: "2026-03-03T22:24:13Z"
+queued: "2026-03-03T22:24:13Z"
+started: "2026-03-03T22:24:13Z"
+completed: "2026-03-03T22:28:41Z"
+---
 <objective>
 Add `weekdays` recurring interval to complete operation. When a recurring task has `recurring: weekdays`, the next defer_date should skip weekends (Saturday/Sunday → next Monday).
 </objective>

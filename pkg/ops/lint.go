@@ -487,10 +487,9 @@ func (l *lintOperation) detectInvalidStatus(frontmatterYAML string) (bool, strin
 			return false, "", false
 		}
 
-		// Check if it's fixable by seeing if normalization gives a different value
-		normalizedStatus := domain.NormalizeTaskStatus(statusValue)
-		isFixable := normalizedStatus != statusValue &&
-			domain.IsValidTaskStatus(domain.TaskStatus(normalizedStatus))
+		// Check if it's fixable by seeing if normalization gives a different valid value
+		normalizedStatus, ok := domain.NormalizeTaskStatus(statusValue)
+		isFixable := ok && normalizedStatus != domain.TaskStatus(statusValue)
 		return true, statusValue, isFixable
 	}
 	return false, "", false
@@ -727,10 +726,10 @@ func (l *lintOperation) fixInvalidStatus(content string) (string, bool) {
 	matches := statusRegex.FindStringSubmatch(content)
 	if len(matches) >= 2 {
 		oldValue := matches[1]
-		newValue := domain.NormalizeTaskStatus(oldValue)
+		newValue, ok := domain.NormalizeTaskStatus(oldValue)
 
 		// Only fix if normalization gives a different valid value
-		if newValue != oldValue && domain.IsValidTaskStatus(domain.TaskStatus(newValue)) {
+		if ok && newValue != domain.TaskStatus(oldValue) {
 			newContent := statusRegex.ReplaceAllString(
 				content,
 				fmt.Sprintf("status: %s", newValue),

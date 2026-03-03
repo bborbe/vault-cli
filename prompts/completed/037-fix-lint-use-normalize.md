@@ -1,3 +1,13 @@
+---
+status: completed
+summary: Updated lint operation to use domain.NormalizeTaskStatus and domain.IsValidTaskStatus, added orphan goal detection and status/checkbox mismatch checks
+container: vault-cli-037-fix-lint-use-normalize
+dark-factory-version: v0.14.5
+created: "2026-03-03T22:55:26Z"
+queued: "2026-03-03T22:55:26Z"
+started: "2026-03-03T22:55:26Z"
+completed: "2026-03-03T23:05:14Z"
+---
 <objective>
 Update lint operation to use the new NormalizeTaskStatus and IsValidTaskStatus from domain package instead of hardcoded status lists. Also add parent goal existence validation and status/checkbox consistency check.
 </objective>

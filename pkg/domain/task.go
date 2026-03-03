@@ -48,3 +48,42 @@ type TaskID string
 func (t TaskID) String() string {
 	return string(t)
 }
+
+// IsValidTaskStatus returns true if the status is a valid canonical status value.
+func IsValidTaskStatus(status TaskStatus) bool {
+	switch status {
+	case TaskStatusTodo,
+		TaskStatusInProgress,
+		TaskStatusBacklog,
+		TaskStatusCompleted,
+		TaskStatusHold,
+		TaskStatusAborted:
+		return true
+	default:
+		return false
+	}
+}
+
+// NormalizeTaskStatus returns the canonical status value for a given status string.
+// If the status is already canonical, it returns it unchanged.
+// If the status is a known legacy/alternative value, it returns the canonical equivalent.
+// Otherwise, it returns the input unchanged.
+func NormalizeTaskStatus(status string) string {
+	// Check if already valid
+	if IsValidTaskStatus(TaskStatus(status)) {
+		return status
+	}
+
+	// Migration map for legacy status values
+	migrationMap := map[string]string{
+		"next":    string(TaskStatusTodo),
+		"current": string(TaskStatusInProgress),
+		"done":    string(TaskStatusCompleted),
+	}
+
+	if canonical, ok := migrationMap[status]; ok {
+		return canonical
+	}
+
+	return status
+}

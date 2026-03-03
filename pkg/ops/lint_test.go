@@ -1303,3 +1303,281 @@ priority: 1
 		})
 	})
 })
+
+var _ = Describe("LintOperation - Orphan Goal Detection", func() {
+	var (
+		ctx       context.Context
+		lintOp    ops.LintOperation
+		vaultPath string
+		tasksDir  string
+		goalsDir  string
+	)
+
+	BeforeEach(func() {
+		ctx = context.Background()
+		lintOp = ops.NewLintOperation()
+
+		// Create temp vault directory
+		var err error
+		vaultPath, err = os.MkdirTemp("", "vault-orphan-test-*")
+		Expect(err).To(BeNil())
+
+		tasksDir = "Tasks"
+		goalsDir = "Goals"
+
+		tasksDirPath := filepath.Join(vaultPath, tasksDir)
+		goalsDirPath := filepath.Join(vaultPath, goalsDir)
+
+		Expect(os.MkdirAll(tasksDirPath, 0755)).To(Succeed())
+		Expect(os.MkdirAll(goalsDirPath, 0755)).To(Succeed())
+	})
+
+	AfterEach(func() {
+		if vaultPath != "" {
+			_ = os.RemoveAll(vaultPath)
+		}
+	})
+
+	Context("when goal file exists", func() {
+		BeforeEach(func() {
+			// Create goal file
+			goalContent := `---
+status: in_progress
+---
+# My Goal
+`
+			goalPath := filepath.Join(vaultPath, goalsDir, "My Goal.md")
+			Expect(os.WriteFile(goalPath, []byte(goalContent), 0600)).To(Succeed())
+
+			// Create task referencing existing goal
+			taskContent := `---
+status: todo
+page_type: task
+goals: ["[[My Goal]]"]
+---
+# Task referencing existing goal
+`
+			taskPath := filepath.Join(vaultPath, tasksDir, "Task.md")
+			Expect(os.WriteFile(taskPath, []byte(taskContent), 0600)).To(Succeed())
+		})
+
+		It("reports no orphan goal issues", func() {
+			err := lintOp.Execute(ctx, vaultPath, tasksDir, false, "plain")
+			Expect(err).To(BeNil())
+		})
+	})
+
+	Context("when goal file does not exist", func() {
+		BeforeEach(func() {
+			// Create task referencing non-existent goal
+			taskContent := `---
+status: todo
+page_type: task
+goals: ["[[Missing Goal]]"]
+---
+# Task with orphan goal
+`
+			taskPath := filepath.Join(vaultPath, tasksDir, "Task.md")
+			Expect(os.WriteFile(taskPath, []byte(taskContent), 0600)).To(Succeed())
+		})
+
+		It("detects orphan goal", func() {
+			err := lintOp.Execute(ctx, vaultPath, tasksDir, false, "plain")
+			Expect(err).NotTo(BeNil())
+			Expect(err.Error()).To(ContainSubstring("found 1 lint issue"))
+		})
+
+		It("marks orphan goal as not fixable", func() {
+			err := lintOp.Execute(ctx, vaultPath, tasksDir, true, "plain")
+			Expect(err).NotTo(BeNil())
+			Expect(err.Error()).To(ContainSubstring("found 1 lint issue"))
+		})
+	})
+
+	Context("with multi-line goals format", func() {
+		BeforeEach(func() {
+			taskContent := `---
+status: todo
+page_type: task
+goals:
+  - "[[Existing Goal]]"
+  - "[[Missing Goal]]"
+---
+# Task with multi-line goals
+`
+			taskPath := filepath.Join(vaultPath, tasksDir, "Task.md")
+			Expect(os.WriteFile(taskPath, []byte(taskContent), 0600)).To(Succeed())
+
+			// Create one of the goals
+			goalContent := `---
+status: todo
+---
+# Existing Goal
+`
+			goalPath := filepath.Join(vaultPath, goalsDir, "Existing Goal.md")
+			Expect(os.WriteFile(goalPath, []byte(goalContent), 0600)).To(Succeed())
+		})
+
+		It("detects the missing goal", func() {
+			err := lintOp.Execute(ctx, vaultPath, tasksDir, false, "plain")
+			Expect(err).NotTo(BeNil())
+			Expect(err.Error()).To(ContainSubstring("found 1 lint issue"))
+		})
+	})
+})
+
+var _ = Describe("LintOperation - Status Checkbox Mismatch", func() {
+	var (
+		ctx       context.Context
+		lintOp    ops.LintOperation
+		vaultPath string
+		tasksDir  string
+	)
+
+	BeforeEach(func() {
+		ctx = context.Background()
+		lintOp = ops.NewLintOperation()
+
+		// Create temp vault directory
+		var err error
+		vaultPath, err = os.MkdirTemp("", "vault-checkbox-test-*")
+		Expect(err).To(BeNil())
+
+		tasksDir = "Tasks"
+		tasksDirPath := filepath.Join(vaultPath, tasksDir)
+		Expect(os.MkdirAll(tasksDirPath, 0755)).To(Succeed())
+	})
+
+	AfterEach(func() {
+		if vaultPath != "" {
+			_ = os.RemoveAll(vaultPath)
+		}
+	})
+
+	Context("when status is completed but checkboxes are unchecked", func() {
+		BeforeEach(func() {
+			taskContent := `---
+status: completed
+page_type: task
+---
+# Task with unchecked boxes
+
+- [x] Done item
+- [ ] Not done item
+- [ ] Another not done item
+`
+			taskPath := filepath.Join(vaultPath, tasksDir, "Task.md")
+			Expect(os.WriteFile(taskPath, []byte(taskContent), 0600)).To(Succeed())
+		})
+
+		It("detects status/checkbox mismatch", func() {
+			err := lintOp.Execute(ctx, vaultPath, tasksDir, false, "plain")
+			Expect(err).NotTo(BeNil())
+			Expect(err.Error()).To(ContainSubstring("found 1 lint issue"))
+		})
+
+		It("marks as not fixable", func() {
+			err := lintOp.Execute(ctx, vaultPath, tasksDir, true, "plain")
+			Expect(err).NotTo(BeNil())
+			Expect(err.Error()).To(ContainSubstring("found 1 lint issue"))
+		})
+	})
+
+	Context("when all checkboxes are checked but status is not completed", func() {
+		BeforeEach(func() {
+			taskContent := `---
+status: in_progress
+page_type: task
+---
+# Task with all checked boxes
+
+- [x] Done item 1
+- [x] Done item 2
+- [x] Done item 3
+`
+			taskPath := filepath.Join(vaultPath, tasksDir, "Task.md")
+			Expect(os.WriteFile(taskPath, []byte(taskContent), 0600)).To(Succeed())
+		})
+
+		It("detects status/checkbox mismatch", func() {
+			err := lintOp.Execute(ctx, vaultPath, tasksDir, false, "plain")
+			Expect(err).NotTo(BeNil())
+			Expect(err.Error()).To(ContainSubstring("found 1 lint issue"))
+		})
+
+		It("fixes by setting status to completed", func() {
+			err := lintOp.Execute(ctx, vaultPath, tasksDir, true, "plain")
+			Expect(err).To(BeNil())
+
+			// Verify file was fixed
+			taskPath := filepath.Join(vaultPath, tasksDir, "Task.md")
+			content, err := os.ReadFile(taskPath) //#nosec G304 -- test file
+			Expect(err).To(BeNil())
+			Expect(string(content)).To(ContainSubstring("status: completed"))
+			Expect(string(content)).NotTo(ContainSubstring("status: in_progress"))
+		})
+	})
+
+	Context("when task is recurring with unchecked boxes", func() {
+		BeforeEach(func() {
+			taskContent := `---
+status: in_progress
+page_type: task
+recurring: daily
+---
+# Recurring task
+
+- [x] Done today
+- [ ] Not done yet
+`
+			taskPath := filepath.Join(vaultPath, tasksDir, "Recurring.md")
+			Expect(os.WriteFile(taskPath, []byte(taskContent), 0600)).To(Succeed())
+		})
+
+		It("skips checkbox mismatch check for recurring tasks", func() {
+			err := lintOp.Execute(ctx, vaultPath, tasksDir, false, "plain")
+			Expect(err).To(BeNil())
+		})
+	})
+
+	Context("when task has no checkboxes", func() {
+		BeforeEach(func() {
+			taskContent := `---
+status: completed
+page_type: task
+---
+# Task with no checkboxes
+
+This task is done but has no checkboxes.
+`
+			taskPath := filepath.Join(vaultPath, tasksDir, "NoCheckboxes.md")
+			Expect(os.WriteFile(taskPath, []byte(taskContent), 0600)).To(Succeed())
+		})
+
+		It("does not report checkbox mismatch", func() {
+			err := lintOp.Execute(ctx, vaultPath, tasksDir, false, "plain")
+			Expect(err).To(BeNil())
+		})
+	})
+
+	Context("when status is completed and all checkboxes are checked", func() {
+		BeforeEach(func() {
+			taskContent := `---
+status: completed
+page_type: task
+---
+# Properly completed task
+
+- [x] All items
+- [x] Are checked
+`
+			taskPath := filepath.Join(vaultPath, tasksDir, "Complete.md")
+			Expect(os.WriteFile(taskPath, []byte(taskContent), 0600)).To(Succeed())
+		})
+
+		It("reports no issues", func() {
+			err := lintOp.Execute(ctx, vaultPath, tasksDir, false, "plain")
+			Expect(err).To(BeNil())
+		})
+	})
+})

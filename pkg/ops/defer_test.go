@@ -60,10 +60,10 @@ var _ = Describe("DeferOperation", func() {
 				Expect(err).To(BeNil())
 			})
 
-			It("sets status to deferred", func() {
+			It("does not change task status", func() {
 				Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
 				_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
-				Expect(writtenTask.Status).To(Equal(domain.TaskStatusHold))
+				Expect(writtenTask.Status).To(Equal(domain.TaskStatusTodo))
 			})
 
 			It("sets defer_date to 7 days from now", func() {
@@ -113,9 +113,9 @@ var _ = Describe("DeferOperation", func() {
 			})
 		})
 
-		Context("with ISO date 2025-12-31", func() {
+		Context("with ISO date 2026-12-31", func() {
 			BeforeEach(func() {
-				dateStr = "2025-12-31"
+				dateStr = "2026-12-31"
 			})
 
 			It("returns no error", func() {
@@ -126,7 +126,7 @@ var _ = Describe("DeferOperation", func() {
 				Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
 				_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
 				Expect(writtenTask.DeferDate).NotTo(BeNil())
-				expected := time.Date(2025, 12, 31, 0, 0, 0, 0, time.UTC)
+				expected := time.Date(2026, 12, 31, 0, 0, 0, 0, time.UTC)
 				actual := writtenTask.DeferDate.Truncate(24 * time.Hour)
 				Expect(actual).To(Equal(expected))
 			})
@@ -191,11 +191,11 @@ var _ = Describe("DeferOperation", func() {
 - [/] [[my-task]]
 - [ ] Other task
 `
-			targetContent := "# 2025-12-31\n"
+			targetContent := "# 2026-12-31\n"
 			mockStorage.ReadDailyNoteReturnsOnCall(0, todayContent, nil)
 			mockStorage.ReadDailyNoteReturnsOnCall(1, targetContent, nil)
 			mockStorage.WriteDailyNoteReturns(nil)
-			dateStr = "2025-12-31"
+			dateStr = "2026-12-31"
 		})
 
 		It("removes in-progress checkbox from today's daily note", func() {
@@ -217,7 +217,7 @@ var _ = Describe("DeferOperation", func() {
 ## Tasks
 - [ ] [[my-task]]
 `
-			targetContent := `# 2025-12-31
+			targetContent := `# 2026-12-31
 
 ## Must
 - [ ] [[urgent-task]]
@@ -231,7 +231,7 @@ var _ = Describe("DeferOperation", func() {
 			mockStorage.ReadDailyNoteReturnsOnCall(0, todayContent, nil)
 			mockStorage.ReadDailyNoteReturnsOnCall(1, targetContent, nil)
 			mockStorage.WriteDailyNoteReturns(nil)
-			dateStr = "2025-12-31"
+			dateStr = "2026-12-31"
 		})
 
 		It("inserts task into Should section", func() {
@@ -240,7 +240,7 @@ var _ = Describe("DeferOperation", func() {
 
 			// Second call should be to update target note
 			_, _, date, updatedContent := mockStorage.WriteDailyNoteArgsForCall(1)
-			Expect(date).To(Equal("2025-12-31"))
+			Expect(date).To(Equal("2026-12-31"))
 
 			// Task should be in Should section
 			lines := strings.Split(updatedContent, "\n")
@@ -276,7 +276,7 @@ var _ = Describe("DeferOperation", func() {
 ## Tasks
 - [ ] [[my-task]]
 `
-			targetContent := `# 2025-12-31
+			targetContent := `# 2026-12-31
 
 ## Must
 - [ ] [[urgent-task]]
@@ -288,7 +288,7 @@ var _ = Describe("DeferOperation", func() {
 			mockStorage.ReadDailyNoteReturnsOnCall(0, todayContent, nil)
 			mockStorage.ReadDailyNoteReturnsOnCall(1, targetContent, nil)
 			mockStorage.WriteDailyNoteReturns(nil)
-			dateStr = "2025-12-31"
+			dateStr = "2026-12-31"
 		})
 
 		It("inserts task after Must section", func() {
@@ -297,7 +297,7 @@ var _ = Describe("DeferOperation", func() {
 
 			// Second call should be to update target note
 			_, _, date, updatedContent := mockStorage.WriteDailyNoteArgsForCall(1)
-			Expect(date).To(Equal("2025-12-31"))
+			Expect(date).To(Equal("2026-12-31"))
 
 			// Task should be after Must section
 			lines := strings.Split(updatedContent, "\n")
@@ -333,7 +333,7 @@ var _ = Describe("DeferOperation", func() {
 ## Tasks
 - [ ] [[my-task]]
 `
-			targetContent := `# 2025-12-31
+			targetContent := `# 2026-12-31
 
 Some random content here.
 No section headings.
@@ -341,7 +341,7 @@ No section headings.
 			mockStorage.ReadDailyNoteReturnsOnCall(0, todayContent, nil)
 			mockStorage.ReadDailyNoteReturnsOnCall(1, targetContent, nil)
 			mockStorage.WriteDailyNoteReturns(nil)
-			dateStr = "2025-12-31"
+			dateStr = "2026-12-31"
 		})
 
 		It("appends task to end of file", func() {
@@ -350,7 +350,7 @@ No section headings.
 
 			// Second call should be to update target note
 			_, _, date, updatedContent := mockStorage.WriteDailyNoteArgsForCall(1)
-			Expect(date).To(Equal("2025-12-31"))
+			Expect(date).To(Equal("2026-12-31"))
 			Expect(updatedContent).To(ContainSubstring("- [ ] [[my-task]]"))
 
 			// Task should be at the end
@@ -377,7 +377,7 @@ No section headings.
 			mockStorage.ReadDailyNoteReturnsOnCall(0, todayContent, nil)
 			mockStorage.ReadDailyNoteReturnsOnCall(1, targetContent, nil)
 			mockStorage.WriteDailyNoteReturns(nil)
-			dateStr = "2025-12-31"
+			dateStr = "2026-12-31"
 		})
 
 		It("creates note with Should section", func() {
@@ -386,7 +386,7 @@ No section headings.
 
 			// Second call should be to create target note
 			_, _, date, updatedContent := mockStorage.WriteDailyNoteArgsForCall(1)
-			Expect(date).To(Equal("2025-12-31"))
+			Expect(date).To(Equal("2026-12-31"))
 			Expect(updatedContent).To(ContainSubstring("## Should"))
 			Expect(updatedContent).To(ContainSubstring("- [ ] [[my-task]]"))
 
@@ -404,7 +404,7 @@ No section headings.
 ## Tasks
 - [ ] [[other-task]]
 `
-			targetContent := `# 2025-12-31
+			targetContent := `# 2026-12-31
 
 ## Should
 - [ ] [[my-task]]
@@ -413,7 +413,7 @@ No section headings.
 			mockStorage.ReadDailyNoteReturnsOnCall(0, todayContent, nil)
 			mockStorage.ReadDailyNoteReturnsOnCall(1, targetContent, nil)
 			mockStorage.WriteDailyNoteReturns(nil)
-			dateStr = "2025-12-31"
+			dateStr = "2026-12-31"
 		})
 
 		It("does not add duplicate task", func() {
@@ -434,7 +434,7 @@ No section headings.
 ## Tasks
 - [ ] [[my-task]]
 `
-			targetContent := `# 2025-12-31
+			targetContent := `# 2026-12-31
 
 ### Should
 - [ ] [[existing-task]]
@@ -445,7 +445,7 @@ No section headings.
 			mockStorage.ReadDailyNoteReturnsOnCall(0, todayContent, nil)
 			mockStorage.ReadDailyNoteReturnsOnCall(1, targetContent, nil)
 			mockStorage.WriteDailyNoteReturns(nil)
-			dateStr = "2025-12-31"
+			dateStr = "2026-12-31"
 		})
 
 		It("inserts task into Should section", func() {
@@ -454,7 +454,7 @@ No section headings.
 
 			// Second call should be to update target note
 			_, _, date, updatedContent := mockStorage.WriteDailyNoteArgsForCall(1)
-			Expect(date).To(Equal("2025-12-31"))
+			Expect(date).To(Equal("2026-12-31"))
 
 			// Task should be in Should section
 			lines := strings.Split(updatedContent, "\n")
@@ -480,6 +480,90 @@ No section headings.
 			// Task should be after Should heading and before Could heading
 			Expect(taskIdx).To(BeNumerically(">", shouldIdx))
 			Expect(taskIdx).To(BeNumerically("<", couldIdx))
+		})
+	})
+
+	Context("planned_date handling", func() {
+		Context("when planned_date is before target date", func() {
+			BeforeEach(func() {
+				plannedDate := time.Now().AddDate(0, 0, 3) // 3 days from now (before target of +7d)
+				task.PlannedDate = &plannedDate
+				dateStr = "+7d"
+			})
+
+			It("clears planned_date", func() {
+				Expect(err).To(BeNil())
+				Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
+				_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
+				Expect(writtenTask.PlannedDate).To(BeNil())
+			})
+		})
+
+		Context("when planned_date is after target date", func() {
+			BeforeEach(func() {
+				plannedDate := time.Now().
+					AddDate(0, 0, 14)
+					// 14 days from now (after target of +7d)
+				task.PlannedDate = &plannedDate
+				dateStr = "+7d"
+			})
+
+			It("preserves planned_date", func() {
+				Expect(err).To(BeNil())
+				Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
+				_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
+				Expect(writtenTask.PlannedDate).NotTo(BeNil())
+				expected := time.Now().AddDate(0, 0, 14).Truncate(24 * time.Hour)
+				actual := writtenTask.PlannedDate.Truncate(24 * time.Hour)
+				Expect(actual).To(Equal(expected))
+			})
+		})
+
+		Context("when planned_date is nil", func() {
+			BeforeEach(func() {
+				task.PlannedDate = nil
+				dateStr = "+7d"
+			})
+
+			It("works without error", func() {
+				Expect(err).To(BeNil())
+				Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
+				_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
+				Expect(writtenTask.PlannedDate).To(BeNil())
+			})
+		})
+	})
+
+	Context("past date validation", func() {
+		Context("when deferring to yesterday", func() {
+			BeforeEach(func() {
+				yesterday := time.Now().AddDate(0, 0, -1)
+				dateStr = yesterday.Format("2006-01-02")
+			})
+
+			It("returns error", func() {
+				Expect(err).NotTo(BeNil())
+				Expect(err.Error()).To(ContainSubstring("cannot defer to past"))
+			})
+
+			It("does not write task", func() {
+				Expect(mockStorage.WriteTaskCallCount()).To(Equal(0))
+			})
+		})
+
+		Context("when deferring to today", func() {
+			BeforeEach(func() {
+				today := time.Now()
+				dateStr = today.Format("2006-01-02")
+			})
+
+			It("succeeds without error", func() {
+				Expect(err).To(BeNil())
+			})
+
+			It("writes task", func() {
+				Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
+			})
 		})
 	})
 })

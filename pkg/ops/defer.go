@@ -59,6 +59,14 @@ func (d *deferOperation) Execute(
 		return d.returnError(ctx, err, "parse date", outputFormat)
 	}
 
+	// Validate target date is not in the past
+	today := time.Now().Truncate(24 * time.Hour)
+	targetDateTruncated := targetDate.Truncate(24 * time.Hour)
+	if targetDateTruncated.Before(today) {
+		err := fmt.Errorf("cannot defer to past date: %s", targetDate.Format("2006-01-02"))
+		return d.returnError(ctx, err, "validate date", outputFormat)
+	}
+
 	// Find and update task
 	task, err := d.findAndDeferTask(ctx, vaultPath, taskName, targetDate, outputFormat)
 	if err != nil {
@@ -99,8 +107,13 @@ func (d *deferOperation) findAndDeferTask(
 	if err != nil {
 		return nil, d.returnError(ctx, err, "find task", format)
 	}
-	task.Status = domain.TaskStatusHold
 	task.DeferDate = &targetDate
+
+	// Clear planned_date if it's before the defer target date
+	if task.PlannedDate != nil && task.PlannedDate.Before(targetDate) {
+		task.PlannedDate = nil
+	}
+
 	if err := d.storage.WriteTask(ctx, task); err != nil {
 		return nil, d.returnError(ctx, err, "write task", format)
 	}

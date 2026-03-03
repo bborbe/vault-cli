@@ -104,4 +104,145 @@ var _ = Describe("WorkOnOperation", func() {
 			Expect(err).NotTo(BeNil())
 		})
 	})
+
+	Context("daily note updates", func() {
+		Context("when daily note exists with pending task", func() {
+			BeforeEach(func() {
+				dailyContent := "## Must\n- [ ] [[my-task]]\n- [ ] other task"
+				mockStorage.ReadDailyNoteReturns(dailyContent, nil)
+				mockStorage.WriteDailyNoteReturns(nil)
+			})
+
+			It("updates checkbox to in-progress", func() {
+				Expect(mockStorage.WriteDailyNoteCallCount()).To(Equal(1))
+				_, _, _, content := mockStorage.WriteDailyNoteArgsForCall(0)
+				Expect(content).To(ContainSubstring("- [/] [[my-task]]"))
+				Expect(content).NotTo(ContainSubstring("- [ ] [[my-task]]"))
+			})
+
+			It("returns no error", func() {
+				Expect(err).To(BeNil())
+			})
+		})
+
+		Context("when daily note exists with in-progress task", func() {
+			BeforeEach(func() {
+				dailyContent := "## Must\n- [/] [[my-task]]\n"
+				mockStorage.ReadDailyNoteReturns(dailyContent, nil)
+			})
+
+			It("does not modify the daily note", func() {
+				Expect(mockStorage.WriteDailyNoteCallCount()).To(Equal(0))
+			})
+
+			It("returns no error", func() {
+				Expect(err).To(BeNil())
+			})
+		})
+
+		Context("when daily note exists with completed task", func() {
+			BeforeEach(func() {
+				dailyContent := "## Must\n- [x] [[my-task]]\n"
+				mockStorage.ReadDailyNoteReturns(dailyContent, nil)
+			})
+
+			It("does not modify the daily note", func() {
+				Expect(mockStorage.WriteDailyNoteCallCount()).To(Equal(0))
+			})
+
+			It("returns no error", func() {
+				Expect(err).To(BeNil())
+			})
+		})
+
+		Context("when daily note exists without task", func() {
+			BeforeEach(func() {
+				dailyContent := "## Must\n- [ ] other task\n"
+				mockStorage.ReadDailyNoteReturns(dailyContent, nil)
+				mockStorage.WriteDailyNoteReturns(nil)
+			})
+
+			It("appends task to Must section", func() {
+				Expect(mockStorage.WriteDailyNoteCallCount()).To(Equal(1))
+				_, _, _, content := mockStorage.WriteDailyNoteArgsForCall(0)
+				Expect(content).To(ContainSubstring("## Must\n- [/] [[my-task]]"))
+			})
+
+			It("returns no error", func() {
+				Expect(err).To(BeNil())
+			})
+		})
+
+		Context("when daily note exists without Must section", func() {
+			BeforeEach(func() {
+				dailyContent := "Some content\n"
+				mockStorage.ReadDailyNoteReturns(dailyContent, nil)
+				mockStorage.WriteDailyNoteReturns(nil)
+			})
+
+			It("appends task to end of file", func() {
+				Expect(mockStorage.WriteDailyNoteCallCount()).To(Equal(1))
+				_, _, _, content := mockStorage.WriteDailyNoteArgsForCall(0)
+				Expect(content).To(ContainSubstring("- [/] [[my-task]]"))
+			})
+
+			It("returns no error", func() {
+				Expect(err).To(BeNil())
+			})
+		})
+
+		Context("when daily note does not exist", func() {
+			BeforeEach(func() {
+				mockStorage.ReadDailyNoteReturns("", nil)
+			})
+
+			It("does not write daily note", func() {
+				Expect(mockStorage.WriteDailyNoteCallCount()).To(Equal(0))
+			})
+
+			It("returns no error", func() {
+				Expect(err).To(BeNil())
+			})
+
+			It("still marks task as in_progress", func() {
+				Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
+				_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
+				Expect(writtenTask.Status).To(Equal(domain.TaskStatusInProgress))
+			})
+		})
+
+		Context("when daily note read fails", func() {
+			BeforeEach(func() {
+				mockStorage.ReadDailyNoteReturns("", ErrTest)
+			})
+
+			It("still succeeds", func() {
+				Expect(err).To(BeNil())
+			})
+
+			It("still marks task as in_progress", func() {
+				Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
+				_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
+				Expect(writtenTask.Status).To(Equal(domain.TaskStatusInProgress))
+			})
+		})
+
+		Context("when daily note write fails", func() {
+			BeforeEach(func() {
+				dailyContent := "## Must\n- [ ] [[my-task]]\n"
+				mockStorage.ReadDailyNoteReturns(dailyContent, nil)
+				mockStorage.WriteDailyNoteReturns(ErrTest)
+			})
+
+			It("still succeeds", func() {
+				Expect(err).To(BeNil())
+			})
+
+			It("still marks task as in_progress", func() {
+				Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
+				_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
+				Expect(writtenTask.Status).To(Equal(domain.TaskStatusInProgress))
+			})
+		})
+	})
 })

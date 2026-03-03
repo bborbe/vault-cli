@@ -1,3 +1,13 @@
+---
+status: completed
+summary: Added daily note update to workon operation with in-progress checkbox marking
+container: vault-cli-032-add-workon-daily-note
+dark-factory-version: v0.14.5
+created: "2026-03-03T22:28:42Z"
+queued: "2026-03-03T22:28:42Z"
+started: "2026-03-03T22:28:42Z"
+completed: "2026-03-03T22:33:33Z"
+---
 <objective>
 Add daily note update to workon operation. When starting work on a task, mark it as in-progress `[/]` in today's daily note. Matches how /work-on-task slash command behaves.
 </objective>

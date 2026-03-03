@@ -5,6 +5,7 @@
 package domain
 
 import (
+	"fmt"
 	"time"
 )
 
@@ -64,26 +65,40 @@ func IsValidTaskStatus(status TaskStatus) bool {
 	}
 }
 
-// NormalizeTaskStatus returns the canonical status value for a given status string.
-// If the status is already canonical, it returns it unchanged.
-// If the status is a known legacy/alternative value, it returns the canonical equivalent.
-// Otherwise, it returns the input unchanged.
-func NormalizeTaskStatus(status string) string {
-	// Check if already valid
-	if IsValidTaskStatus(TaskStatus(status)) {
-		return status
+// NormalizeTaskStatus converts alias status values to their canonical form.
+// Returns the canonical status and true if valid, or empty and false if unknown.
+func NormalizeTaskStatus(raw string) (TaskStatus, bool) {
+	// Check if already valid canonical status
+	status := TaskStatus(raw)
+	if IsValidTaskStatus(status) {
+		return status, true
 	}
 
-	// Migration map for legacy status values
-	migrationMap := map[string]string{
-		"next":    string(TaskStatusTodo),
-		"current": string(TaskStatusInProgress),
-		"done":    string(TaskStatusCompleted),
+	// Migration map for legacy/alias status values
+	migrationMap := map[string]TaskStatus{
+		"next":     TaskStatusTodo,
+		"current":  TaskStatusInProgress,
+		"done":     TaskStatusCompleted,
+		"deferred": TaskStatusHold,
 	}
 
-	if canonical, ok := migrationMap[status]; ok {
-		return canonical
+	if canonical, ok := migrationMap[raw]; ok {
+		return canonical, true
 	}
 
-	return status
+	return "", false
+}
+
+// UnmarshalYAML implements custom YAML unmarshaling that normalizes status values.
+func (s *TaskStatus) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var raw string
+	if err := unmarshal(&raw); err != nil {
+		return err
+	}
+	normalized, ok := NormalizeTaskStatus(raw)
+	if !ok {
+		return fmt.Errorf("invalid task status: %q", raw)
+	}
+	*s = normalized
+	return nil
 }

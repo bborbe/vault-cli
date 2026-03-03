@@ -1,3 +1,13 @@
+---
+status: completed
+summary: Fixed TaskStatus constants, added UnmarshalYAML with alias normalization support
+container: vault-cli-038-fix-task-status-model
+dark-factory-version: v0.14.5
+created: "2026-03-03T23:05:15Z"
+queued: "2026-03-03T23:05:15Z"
+started: "2026-03-03T23:05:15Z"
+completed: "2026-03-03T23:10:29Z"
+---
 <objective>
 Fix TaskStatus constants in pkg/domain/task.go. The canonical status values must match what Obsidian slash commands use. Current values `done` and `deferred` are wrong. Add missing statuses. Support aliases on read (unmarshal) but always write canonical values.
 </objective>

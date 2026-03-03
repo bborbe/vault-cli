@@ -181,4 +181,31 @@ var _ = Describe("DeferOperation", func() {
 			Expect(err).NotTo(BeNil())
 		})
 	})
+
+	Context("removeFromDailyNote with in-progress checkbox", func() {
+		BeforeEach(func() {
+			todayContent := `# 2026-03-03
+
+## Tasks
+- [/] [[my-task]]
+- [ ] Other task
+`
+			targetContent := "# 2025-12-31\n"
+			mockStorage.ReadDailyNoteReturnsOnCall(0, todayContent, nil)
+			mockStorage.ReadDailyNoteReturnsOnCall(1, targetContent, nil)
+			mockStorage.WriteDailyNoteReturns(nil)
+			dateStr = "2025-12-31"
+		})
+
+		It("removes in-progress checkbox from today's daily note", func() {
+			Expect(err).To(BeNil())
+			Expect(mockStorage.WriteDailyNoteCallCount()).To(Equal(2))
+
+			// First call should be to update today's note
+			_, _, date, updatedContent := mockStorage.WriteDailyNoteArgsForCall(0)
+			Expect(date).To(ContainSubstring("2026-03-03"))
+			Expect(updatedContent).NotTo(ContainSubstring("my-task"))
+			Expect(updatedContent).To(ContainSubstring("Other task"))
+		})
+	})
 })

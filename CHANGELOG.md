@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.10.6
+
+### Added
+- 028-fix-frontmatter-serialization
+
 ## v0.10.5
 
 ### Added

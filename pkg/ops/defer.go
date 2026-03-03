@@ -256,17 +256,79 @@ func (d *deferOperation) addToDailyNote(
 	// Create task line
 	taskLine := fmt.Sprintf("- [ ] [[%s]]", taskName)
 
-	// If content is empty, create a basic daily note structure
+	// If content is empty, create a basic daily note structure with Should section
 	if content == "" {
-		content = fmt.Sprintf("# %s\n\n## Tasks\n\n%s\n", date, taskLine)
-	} else {
-		// Append to tasks section or end of file
-		content = strings.TrimRight(content, "\n") + "\n" + taskLine + "\n"
+		content = fmt.Sprintf("# %s\n\n## Should\n\n%s\n", date, taskLine)
+		return d.storage.WriteDailyNote(ctx, vaultPath, date, content)
 	}
 
-	if err := d.storage.WriteDailyNote(ctx, vaultPath, date, content); err != nil {
-		return errors.Wrap(ctx, err, "write daily note")
+	// Check if task already exists
+	if strings.Contains(content, taskLine) {
+		return nil // Task already in daily note
 	}
 
-	return nil
+	// Insert task into appropriate section
+	updatedContent := d.insertTaskIntoSection(content, taskLine)
+
+	return d.storage.WriteDailyNote(ctx, vaultPath, date, updatedContent)
+}
+
+// insertTaskIntoSection inserts a task into the appropriate section.
+func (d *deferOperation) insertTaskIntoSection(content string, taskLine string) string {
+	lines := strings.Split(content, "\n")
+
+	// Try Should section first
+	shouldIdx := d.findSectionIndex(lines, "should")
+	if shouldIdx != -1 {
+		endIdx := d.findSectionEnd(lines, shouldIdx)
+		return d.insertTaskAtLine(lines, endIdx, taskLine)
+	}
+
+	// Try Must section
+	mustIdx := d.findSectionIndex(lines, "must")
+	if mustIdx != -1 {
+		endIdx := d.findSectionEnd(lines, mustIdx)
+		return d.insertTaskAtLine(lines, endIdx, taskLine)
+	}
+
+	// Fallback: append to end of file
+	return strings.TrimRight(content, "\n") + "\n" + taskLine + "\n"
+}
+
+// findSectionIndex finds the index of a section heading (## Section or ### Section).
+func (d *deferOperation) findSectionIndex(lines []string, sectionName string) int {
+	sectionName = strings.ToLower(sectionName)
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		lower := strings.ToLower(trimmed)
+		if strings.HasPrefix(lower, "## "+sectionName) ||
+			strings.HasPrefix(lower, "### "+sectionName) {
+			return i
+		}
+	}
+	return -1
+}
+
+// findSectionEnd finds the end of a section (before next heading or end of file).
+func (d *deferOperation) findSectionEnd(lines []string, sectionStartIdx int) int {
+	// Start looking from the line after the section heading
+	for i := sectionStartIdx + 1; i < len(lines); i++ {
+		trimmed := strings.TrimSpace(lines[i])
+		// If we hit another heading, return the index before it
+		if strings.HasPrefix(trimmed, "##") {
+			return i
+		}
+	}
+	// No next section found, return end of file
+	return len(lines)
+}
+
+// insertTaskAtLine inserts a task line at the specified index.
+func (d *deferOperation) insertTaskAtLine(lines []string, idx int, taskLine string) string {
+	// Insert the task line at the specified index
+	newLines := make([]string, 0, len(lines)+1)
+	newLines = append(newLines, lines[:idx]...)
+	newLines = append(newLines, taskLine)
+	newLines = append(newLines, lines[idx:]...)
+	return strings.Join(newLines, "\n")
 }

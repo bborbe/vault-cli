@@ -1,3 +1,13 @@
+---
+status: completed
+summary: Fixed defer operation to not change task status, added planned_date clearing and past-date validation
+container: vault-cli-036-fix-defer-no-status-change
+dark-factory-version: v0.14.5
+created: "2026-03-03T22:51:01Z"
+queued: "2026-03-03T22:51:01Z"
+started: "2026-03-03T22:51:01Z"
+completed: "2026-03-03T22:55:25Z"
+---
 <objective>
 Fix defer operation to NOT change task status. Defer should only set defer_date and update daily notes. Also add planned_date clearing and past-date validation. Align with how /defer-task slash command works.
 </objective>

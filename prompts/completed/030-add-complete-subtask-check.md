@@ -1,3 +1,13 @@
+---
+status: completed
+summary: Added subtask completion check to complete operation with plain/JSON mode support
+container: vault-cli-030-add-complete-subtask-check
+dark-factory-version: v0.14.5
+created: "2026-03-03T22:17:16Z"
+queued: "2026-03-03T22:17:16Z"
+started: "2026-03-03T22:17:16Z"
+completed: "2026-03-03T22:24:12Z"
+---
 <objective>
 Add subtask completion check to complete operation. Before marking a task complete, verify all checkboxes are done. In plain mode, warn and proceed. In JSON mode, return incomplete status.
 </objective>

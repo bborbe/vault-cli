@@ -696,7 +696,9 @@ This content itself has frontmatter delimiters.
 				}
 
 				// Verify exactly one frontmatter block (2 delimiters)
-				Expect(delimiterCount).To(Equal(2), "Should have exactly 2 '---' delimiters (one frontmatter block)")
+				Expect(
+					delimiterCount,
+				).To(Equal(2), "Should have exactly 2 '---' delimiters (one frontmatter block)")
 
 				// Verify the frontmatter contains the struct's status (in_progress), not the content's status (todo)
 				Expect(rawContent).To(ContainSubstring("status: in_progress"))

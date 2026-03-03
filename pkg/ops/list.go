@@ -168,10 +168,14 @@ func statusPriority(status domain.TaskStatus) int {
 		return 1
 	case domain.TaskStatusTodo:
 		return 2
-	case domain.TaskStatusDeferred:
+	case domain.TaskStatusHold:
 		return 3
-	case domain.TaskStatusDone:
+	case domain.TaskStatusBacklog:
 		return 4
+	case domain.TaskStatusCompleted:
+		return 5
+	case domain.TaskStatusAborted:
+		return 6
 	default:
 		return 99
 	}

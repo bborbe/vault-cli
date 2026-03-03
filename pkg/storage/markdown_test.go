@@ -150,13 +150,13 @@ This task has a string priority value that should parse as -1.
 				task, err := store.ReadTask(ctx, vaultPath, "Test Task")
 				Expect(err).To(BeNil())
 
-				task.Status = domain.TaskStatusDone
+				task.Status = domain.TaskStatusCompleted
 				Expect(store.WriteTask(ctx, task)).To(Succeed())
 
 				// Read back and verify
 				updatedTask, err := store.ReadTask(ctx, vaultPath, "Test Task")
 				Expect(err).To(BeNil())
-				Expect(updatedTask.Status).To(Equal(domain.TaskStatusDone))
+				Expect(updatedTask.Status).To(Equal(domain.TaskStatusCompleted))
 			})
 
 			It("returns error when writing to read-only directory", func() {
@@ -585,7 +585,7 @@ page_type: task
 
 		It("parses valid frontmatter correctly", func() {
 			content := `---
-status: done
+status: completed
 page_type: task
 priority: 3
 assignee: bob
@@ -604,7 +604,7 @@ Task with valid frontmatter.
 			Expect(err).To(BeNil())
 			Expect(task).NotTo(BeNil())
 			Expect(task.Name).To(Equal("Valid Frontmatter"))
-			Expect(task.Status).To(Equal(domain.TaskStatusDone))
+			Expect(task.Status).To(Equal(domain.TaskStatusCompleted))
 			Expect(task.PageType).To(Equal("task"))
 			Expect(task.Priority).To(Equal(domain.Priority(3)))
 			Expect(task.Assignee).To(Equal("bob"))

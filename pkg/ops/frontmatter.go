@@ -97,6 +97,29 @@ func (o *frontmatterSetOperation) Execute(
 	case "assignee":
 		task.Assignee = value
 	case "status":
+		// Validate status value
+		validStatuses := []domain.TaskStatus{
+			domain.TaskStatusTodo,
+			domain.TaskStatusInProgress,
+			domain.TaskStatusBacklog,
+			domain.TaskStatusCompleted,
+			domain.TaskStatusHold,
+			domain.TaskStatusAborted,
+		}
+		isValid := false
+		for _, valid := range validStatuses {
+			if value == string(valid) {
+				isValid = true
+				break
+			}
+		}
+		if !isValid {
+			return errors.Wrap(
+				ctx,
+				fmt.Errorf("invalid status value: %s", value),
+				"expected one of: todo, in_progress, backlog, completed, hold, aborted",
+			)
+		}
 		task.Status = domain.TaskStatus(value)
 	case "priority":
 		p, err := strconv.Atoi(value)

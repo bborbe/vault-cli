@@ -245,14 +245,14 @@ var _ = Describe("FrontmatterSetOperation", func() {
 	Context("setting status field", func() {
 		BeforeEach(func() {
 			key = "status"
-			value = "done"
+			value = "completed"
 		})
 
 		It("updates the status field", func() {
 			Expect(err).To(BeNil())
 			Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.Status).To(Equal(domain.TaskStatusDone))
+			Expect(writtenTask.Status).To(Equal(domain.TaskStatusCompleted))
 		})
 	})
 

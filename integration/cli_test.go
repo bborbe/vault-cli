@@ -333,7 +333,7 @@ This is my task.
 				cleanup()
 			})
 
-			It("exits 0 and updates status to done", func() {
+			It("exits 0 and updates status to completed", func() {
 				cmd := exec.Command(
 					binPath,
 					"--config",
@@ -352,7 +352,7 @@ This is my task.
 				taskPath := filepath.Join(vaultPath, "Tasks", "my-task.md")
 				content, err := os.ReadFile(taskPath) //#nosec G304 -- test file
 				Expect(err).NotTo(HaveOccurred())
-				Expect(string(content)).To(ContainSubstring("status: done"))
+				Expect(string(content)).To(ContainSubstring("status: completed"))
 			})
 		})
 

@@ -80,7 +80,7 @@ status: todo
 			It("sets status to done", func() {
 				Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
 				_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
-				Expect(writtenTask.Status).To(Equal(domain.TaskStatusDone))
+				Expect(writtenTask.Status).To(Equal(domain.TaskStatusCompleted))
 			})
 		})
 
@@ -272,7 +272,7 @@ status: todo
 			It("sets status to done", func() {
 				Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
 				_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
-				Expect(writtenTask.Status).To(Equal(domain.TaskStatusDone))
+				Expect(writtenTask.Status).To(Equal(domain.TaskStatusCompleted))
 			})
 		})
 

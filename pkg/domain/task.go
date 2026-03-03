@@ -36,8 +36,10 @@ type TaskStatus string
 const (
 	TaskStatusTodo       TaskStatus = "todo"
 	TaskStatusInProgress TaskStatus = "in_progress"
-	TaskStatusDone       TaskStatus = "done"
-	TaskStatusDeferred   TaskStatus = "deferred"
+	TaskStatusBacklog    TaskStatus = "backlog"
+	TaskStatusCompleted  TaskStatus = "completed"
+	TaskStatusHold       TaskStatus = "hold"
+	TaskStatusAborted    TaskStatus = "aborted"
 )
 
 // TaskID represents a task identifier (filename without .md extension).

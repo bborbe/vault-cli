@@ -97,8 +97,8 @@ func (c *completeOperation) Execute(
 		return err
 	}
 
-	// Update task status to done
-	task.Status = domain.TaskStatusDone
+	// Update task status to completed
+	task.Status = domain.TaskStatusCompleted
 
 	// Write updated task
 	if err := c.storage.WriteTask(ctx, task); err != nil {
@@ -231,7 +231,7 @@ func (c *completeOperation) handleRecurringTask(
 		task.PlannedDate = nil
 	}
 
-	// 5. Status remains as-is (do NOT set to done)
+	// 5. Status remains as-is (do NOT set to completed)
 
 	// Write updated task
 	if err := c.storage.WriteTask(ctx, task); err != nil {
@@ -398,14 +398,16 @@ func (c *completeOperation) updateDailyNote(
 	lines := strings.Split(content, "\n")
 	modified := false
 
-	checkboxRegex := regexp.MustCompile(`^(\s*)- \[([ x])\] (.+)$`)
+	checkboxRegex := regexp.MustCompile(`^(\s*)- \[([ x/])\] (.+)$`)
 	for i, line := range lines {
 		if matches := checkboxRegex.FindStringSubmatch(line); len(matches) == 4 { //nolint:nestif
 			taskText := matches[3]
 			if strings.Contains(strings.ToLower(taskText), strings.ToLower(taskName)) {
 				if checked {
-					lines[i] = strings.Replace(line, "- [ ]", "- [x]", 1)
+					// Replace any checkbox state with [x]
+					lines[i] = regexp.MustCompile(`- \[([ /])\]`).ReplaceAllString(line, "- [x]")
 				} else {
+					// Replace [x] with [ ]
 					lines[i] = strings.Replace(line, "- [x]", "- [ ]", 1)
 				}
 				modified = true

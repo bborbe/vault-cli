@@ -52,6 +52,16 @@ type MutationResult struct {
 	Warnings []string `json:"warnings,omitempty"`
 }
 
+// IncompleteResult represents the result when a task has incomplete subtasks.
+type IncompleteResult struct {
+	Success    bool   `json:"success"`
+	Reason     string `json:"reason"`
+	Pending    int    `json:"pending"`
+	InProgress int    `json:"inprogress"`
+	Completed  int    `json:"completed"`
+	Total      int    `json:"total"`
+}
+
 // Execute marks a task as complete and updates the associated goal.
 func (c *completeOperation) Execute(
 	ctx context.Context,
@@ -80,6 +90,11 @@ func (c *completeOperation) Execute(
 	// Handle recurring tasks differently
 	if task.Recurring != "" {
 		return c.handleRecurringTask(ctx, task, vaultPath, vaultName, outputFormat, warnings)
+	}
+
+	// Check subtask completion for non-recurring tasks
+	if shouldBlock, err := c.checkSubtaskCompletion(task, outputFormat); shouldBlock {
+		return err
 	}
 
 	// Update task status to done
@@ -134,6 +149,48 @@ func (c *completeOperation) Execute(
 
 	fmt.Printf("✅ Task completed: %s\n", task.Name)
 	return nil
+}
+
+// checkSubtaskCompletion checks if all subtasks are complete.
+// Returns (true, error) if task should not be completed (json mode with incomplete items).
+// Returns (false, nil) if task can proceed to completion.
+func (c *completeOperation) checkSubtaskCompletion(
+	task *domain.Task,
+	outputFormat string,
+) (bool, error) {
+	completed, inProgress, pending := countCheckboxStates(task.Content)
+	total := completed + inProgress + pending
+
+	// If no checkboxes or all complete, proceed normally
+	if total == 0 || (pending == 0 && inProgress == 0) {
+		return false, nil
+	}
+
+	// JSON mode: return incomplete status without completing
+	if outputFormat == "json" {
+		result := IncompleteResult{
+			Success:    false,
+			Reason:     "incomplete_items",
+			Pending:    pending,
+			InProgress: inProgress,
+			Completed:  completed,
+			Total:      total,
+		}
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		return true, enc.Encode(result)
+	}
+
+	// Plain mode: warn but continue
+	fmt.Fprintf(
+		os.Stderr,
+		"⚠️  Warning: %d/%d subtasks incomplete (%d pending, %d in-progress). Completing anyway.\n",
+		pending+inProgress,
+		total,
+		pending,
+		inProgress,
+	)
+	return false, nil
 }
 
 // RecurringMutationResult represents the result of a recurring task mutation.
@@ -236,6 +293,28 @@ func (c *completeOperation) handleRecurringTask(
 func resetCheckboxes(content string) string {
 	// Replace all "- [x]" with "- [ ]"
 	return strings.ReplaceAll(content, "- [x]", "- [ ]")
+}
+
+// countCheckboxStates counts checkbox states in content.
+func countCheckboxStates(content string) (completed, inProgress, pending int) {
+	lines := strings.Split(content, "\n")
+	checkboxRegex := regexp.MustCompile(`^(\s*)- \[([ x/])\] (.+)$`)
+
+	for _, line := range lines {
+		if matches := checkboxRegex.FindStringSubmatch(line); len(matches) == 4 {
+			state := matches[2]
+			switch state {
+			case "x":
+				completed++
+			case "/":
+				inProgress++
+			case " ":
+				pending++
+			}
+		}
+	}
+
+	return completed, inProgress, pending
 }
 
 // markGoalCheckbox marks the checkbox for a task in the goal file.

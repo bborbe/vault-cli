@@ -18,13 +18,14 @@ import (
 
 var _ = Describe("CompleteOperation", func() {
 	var (
-		ctx         context.Context
-		err         error
-		completeOp  ops.CompleteOperation
-		mockStorage *mocks.Storage
-		vaultPath   string
-		taskName    string
-		task        *domain.Task
+		ctx          context.Context
+		err          error
+		completeOp   ops.CompleteOperation
+		mockStorage  *mocks.Storage
+		vaultPath    string
+		taskName     string
+		task         *domain.Task
+		outputFormat string
 	)
 
 	BeforeEach(func() {
@@ -33,6 +34,7 @@ var _ = Describe("CompleteOperation", func() {
 		completeOp = ops.NewCompleteOperation(mockStorage)
 		vaultPath = "/path/to/vault"
 		taskName = "my-task"
+		outputFormat = "plain" // default
 
 		// Default: return a task
 		task = &domain.Task{
@@ -44,7 +46,7 @@ var _ = Describe("CompleteOperation", func() {
 	})
 
 	JustBeforeEach(func() {
-		err = completeOp.Execute(ctx, vaultPath, taskName, "test-vault", "plain")
+		err = completeOp.Execute(ctx, vaultPath, taskName, "test-vault", outputFormat)
 	})
 
 	Context("success", func() {
@@ -361,6 +363,123 @@ recurring: daily
 			Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
 			Expect(writtenTask.PlannedDate).To(BeNil())
+		})
+	})
+
+	Context("task with unchecked checkboxes in plain mode", func() {
+		BeforeEach(func() {
+			task.Content = `---
+status: todo
+---
+# My Task
+
+## Subtasks
+- [ ] Unchecked item 1
+- [x] Checked item 1
+- [/] In-progress item 1
+`
+		})
+
+		It("completes task with warning", func() {
+			Expect(err).To(BeNil())
+			Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
+			Expect(writtenTask.Status).To(Equal(domain.TaskStatusDone))
+		})
+	})
+
+	Context("task with unchecked checkboxes in json mode", func() {
+		BeforeEach(func() {
+			outputFormat = "json"
+			task.Content = `---
+status: todo
+---
+# My Task
+
+## Subtasks
+- [ ] Unchecked item 1
+- [x] Checked item 1
+- [/] In-progress item 1
+`
+		})
+
+		It("returns no error", func() {
+			Expect(err).To(BeNil())
+		})
+
+		It("does not complete task", func() {
+			Expect(mockStorage.WriteTaskCallCount()).To(Equal(0))
+		})
+	})
+
+	Context("task with all checked checkboxes", func() {
+		BeforeEach(func() {
+			task.Content = `---
+status: todo
+---
+# My Task
+
+## Subtasks
+- [x] Checked item 1
+- [x] Checked item 2
+- [x] Checked item 3
+`
+		})
+
+		It("completes task normally", func() {
+			Expect(err).To(BeNil())
+			Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
+			Expect(writtenTask.Status).To(Equal(domain.TaskStatusDone))
+		})
+	})
+
+	Context("task with no checkboxes", func() {
+		BeforeEach(func() {
+			task.Content = `---
+status: todo
+---
+# My Task
+
+Just a simple task with no subtasks.
+`
+		})
+
+		It("completes task normally", func() {
+			Expect(err).To(BeNil())
+			Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
+			Expect(writtenTask.Status).To(Equal(domain.TaskStatusDone))
+		})
+	})
+
+	Context("recurring task with unchecked checkboxes", func() {
+		BeforeEach(func() {
+			task.Recurring = "daily"
+			task.Status = domain.TaskStatusInProgress
+			task.Content = `---
+status: in_progress
+recurring: daily
+---
+# My Task
+
+## Subtasks
+- [ ] Unchecked item 1
+- [x] Checked item 1
+- [/] In-progress item 1
+`
+		})
+
+		It("resets task without blocking", func() {
+			Expect(err).To(BeNil())
+			Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
+			// Recurring tasks do not get marked as done
+			Expect(writtenTask.Status).To(Equal(domain.TaskStatusInProgress))
+			// Checkboxes should be reset
+			Expect(writtenTask.Content).To(ContainSubstring("- [ ] Unchecked item 1"))
+			Expect(writtenTask.Content).To(ContainSubstring("- [ ] Checked item 1"))
+			Expect(writtenTask.Content).NotTo(ContainSubstring("- [x]"))
 		})
 	})
 })

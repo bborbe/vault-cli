@@ -22,9 +22,9 @@ type Task struct {
 	ClaudeSessionID string     `yaml:"claude_session_id,omitempty"`
 
 	// Metadata
-	Name     string // Filename without extension
-	Content  string // Full markdown content including frontmatter
-	FilePath string // Absolute path to file
+	Name     string `yaml:"-"` // Filename without extension
+	Content  string `yaml:"-"` // Full markdown content including frontmatter
+	FilePath string `yaml:"-"` // Absolute path to file
 }
 
 // TaskStatus represents the status of a task.

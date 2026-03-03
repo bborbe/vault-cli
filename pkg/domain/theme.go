@@ -20,9 +20,9 @@ type Theme struct {
 	Tags       []string    `yaml:"tags,omitempty"`
 
 	// Metadata
-	Name     string // Filename without extension
-	Content  string // Full markdown content including frontmatter
-	FilePath string // Absolute path to file
+	Name     string `yaml:"-"` // Filename without extension
+	Content  string `yaml:"-"` // Full markdown content including frontmatter
+	FilePath string `yaml:"-"` // Absolute path to file
 }
 
 // ThemeStatus represents the status of a theme.

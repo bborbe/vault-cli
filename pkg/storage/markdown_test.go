@@ -8,6 +8,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -608,6 +609,200 @@ Task with valid frontmatter.
 			Expect(task.Priority).To(Equal(domain.Priority(3)))
 			Expect(task.Assignee).To(Equal("bob"))
 			Expect(task.Goals).To(Equal([]string{"Goal X", "Goal Y"}))
+		})
+	})
+
+	Context("Frontmatter serialization safety", func() {
+		Describe("Task metadata field exclusion", func() {
+			It("excludes Name, Content, FilePath from frontmatter on WriteTask", func() {
+				// Create a task with both frontmatter fields and metadata fields
+				task := &domain.Task{
+					Name:     "Test Metadata Exclusion",
+					FilePath: filepath.Join(tasksDir, "Test Metadata Exclusion.md"),
+					Content: `---
+status: todo
+page_type: task
+priority: 1
+assignee: alice
+---
+# Test Metadata Exclusion
+
+Task body content.
+`,
+					Status:   domain.TaskStatusTodo,
+					PageType: "task",
+					Priority: 1,
+					Assignee: "alice",
+				}
+
+				// Write the task
+				Expect(store.WriteTask(ctx, task)).To(Succeed())
+
+				// Read raw file bytes
+				rawBytes, err := os.ReadFile(task.FilePath)
+				Expect(err).To(BeNil())
+				rawContent := string(rawBytes)
+
+				// Verify frontmatter does NOT contain name, content, or filepath keys
+				Expect(rawContent).NotTo(ContainSubstring("name:"))
+				Expect(rawContent).NotTo(ContainSubstring("content:"))
+				Expect(rawContent).NotTo(ContainSubstring("filepath:"))
+
+				// Verify frontmatter contains only expected YAML fields
+				Expect(rawContent).To(ContainSubstring("status: todo"))
+				Expect(rawContent).To(ContainSubstring("page_type: task"))
+				Expect(rawContent).To(ContainSubstring("priority: 1"))
+				Expect(rawContent).To(ContainSubstring("assignee: alice"))
+
+				// Verify frontmatter structure is correct (starts with ---)
+				Expect(rawContent).To(HavePrefix("---\n"))
+			})
+
+			It("prevents content embedding corruption on WriteTask", func() {
+				// Create a task where Content contains a full markdown file with its own frontmatter
+				contentWithFrontmatter := `---
+status: todo
+page_type: task
+priority: 2
+---
+# Task with embedded frontmatter
+
+This content itself has frontmatter delimiters.
+`
+				task := &domain.Task{
+					Name:     "Embedded Frontmatter Test",
+					FilePath: filepath.Join(tasksDir, "Embedded Frontmatter Test.md"),
+					Content:  contentWithFrontmatter,
+					Status:   domain.TaskStatusInProgress,
+					PageType: "task",
+					Priority: 2,
+				}
+
+				// Write the task
+				Expect(store.WriteTask(ctx, task)).To(Succeed())
+
+				// Read raw file bytes
+				rawBytes, err := os.ReadFile(task.FilePath)
+				Expect(err).To(BeNil())
+				rawContent := string(rawBytes)
+
+				// Count frontmatter delimiters (should be exactly 2: opening and closing)
+				delimiterCount := 0
+				lines := strings.Split(rawContent, "\n")
+				for _, line := range lines {
+					if line == "---" {
+						delimiterCount++
+					}
+				}
+
+				// Verify exactly one frontmatter block (2 delimiters)
+				Expect(delimiterCount).To(Equal(2), "Should have exactly 2 '---' delimiters (one frontmatter block)")
+
+				// Verify the frontmatter contains the struct's status (in_progress), not the content's status (todo)
+				Expect(rawContent).To(ContainSubstring("status: in_progress"))
+				Expect(rawContent).NotTo(ContainSubstring("status: todo"))
+			})
+		})
+
+		Describe("Goal metadata field exclusion", func() {
+			It("excludes Name, Content, FilePath, Tasks from frontmatter on WriteGoal", func() {
+				// Create a goal with both frontmatter fields and metadata fields
+				goal := &domain.Goal{
+					Name:     "Test Goal Metadata Exclusion",
+					FilePath: filepath.Join(goalsDir, "Test Goal Metadata Exclusion.md"),
+					Content: `---
+status: active
+page_type: goal
+theme: Testing
+priority: 1
+---
+# Test Goal Metadata Exclusion
+
+Goal body content.
+
+- [ ] Task 1
+- [x] Task 2
+`,
+					Status:   domain.GoalStatusActive,
+					PageType: "goal",
+					Theme:    "Testing",
+					Priority: 1,
+					Tasks: []domain.CheckboxItem{
+						{Line: 7, Checked: false, Text: "Task 1"},
+						{Line: 8, Checked: true, Text: "Task 2"},
+					},
+				}
+
+				// Write the goal
+				Expect(store.WriteGoal(ctx, goal)).To(Succeed())
+
+				// Read raw file bytes
+				rawBytes, err := os.ReadFile(goal.FilePath)
+				Expect(err).To(BeNil())
+				rawContent := string(rawBytes)
+
+				// Verify frontmatter does NOT contain name, content, filepath, or tasks keys
+				Expect(rawContent).NotTo(ContainSubstring("name:"))
+				Expect(rawContent).NotTo(ContainSubstring("content:"))
+				Expect(rawContent).NotTo(ContainSubstring("filepath:"))
+				Expect(rawContent).NotTo(ContainSubstring("tasks:"))
+
+				// Verify frontmatter contains only expected YAML fields
+				Expect(rawContent).To(ContainSubstring("status: active"))
+				Expect(rawContent).To(ContainSubstring("page_type: goal"))
+				Expect(rawContent).To(ContainSubstring("theme: Testing"))
+				Expect(rawContent).To(ContainSubstring("priority: 1"))
+			})
+		})
+
+		Describe("Theme metadata field exclusion", func() {
+			var themesDir string
+
+			BeforeEach(func() {
+				themesDir = filepath.Join(vaultPath, "Themes")
+				Expect(os.MkdirAll(themesDir, 0755)).To(Succeed())
+			})
+
+			It("excludes Name, Content, FilePath from frontmatter on WriteTheme", func() {
+				// Create a theme with both frontmatter fields and metadata fields
+				theme := &domain.Theme{
+					Name:     "Test Theme Metadata Exclusion",
+					FilePath: filepath.Join(themesDir, "Test Theme Metadata Exclusion.md"),
+					Content: `---
+status: active
+page_type: theme
+priority: 1
+assignee: bob
+---
+# Test Theme Metadata Exclusion
+
+Theme body content.
+`,
+					Status:   domain.ThemeStatusActive,
+					PageType: "theme",
+					Priority: 1,
+					Assignee: "bob",
+				}
+
+				// Write the theme
+				Expect(store.WriteTheme(ctx, theme)).To(Succeed())
+
+				// Read raw file bytes
+				rawBytes, err := os.ReadFile(theme.FilePath)
+				Expect(err).To(BeNil())
+				rawContent := string(rawBytes)
+
+				// Verify frontmatter does NOT contain name, content, or filepath keys
+				Expect(rawContent).NotTo(ContainSubstring("name:"))
+				Expect(rawContent).NotTo(ContainSubstring("content:"))
+				Expect(rawContent).NotTo(ContainSubstring("filepath:"))
+
+				// Verify frontmatter contains only expected YAML fields
+				Expect(rawContent).To(ContainSubstring("status: active"))
+				Expect(rawContent).To(ContainSubstring("page_type: theme"))
+				Expect(rawContent).To(ContainSubstring("priority: 1"))
+				Expect(rawContent).To(ContainSubstring("assignee: bob"))
+			})
 		})
 	})
 })

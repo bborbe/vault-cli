@@ -89,12 +89,6 @@ func Run(ctx context.Context, args []string) error {
 
 	rootCmd.AddCommand(taskCmd)
 
-	// Root-level aliases for common task commands (backwards compatibility)
-	rootCmd.AddCommand(createTaskListCommand(ctx, &configLoader, &vaultName, &outputFormat))
-	rootCmd.AddCommand(createLintCommand(ctx, &configLoader, &vaultName, &outputFormat))
-	rootCmd.AddCommand(createCompleteCommand(ctx, &configLoader, &vaultName, &outputFormat))
-	rootCmd.AddCommand(createDeferCommand(ctx, &configLoader, &vaultName, &outputFormat))
-
 	rootCmd.AddCommand(createGoalCommands(ctx, &configLoader, &vaultName, &outputFormat))
 	rootCmd.AddCommand(createThemeCommands(ctx, &configLoader, &vaultName, &outputFormat))
 	rootCmd.AddCommand(createObjectiveCommands(ctx, &configLoader, &vaultName, &outputFormat))

@@ -15,6 +15,8 @@ import (
 
 	"github.com/bborbe/errors"
 	"gopkg.in/yaml.v3"
+
+	"github.com/bborbe/vault-cli/pkg/domain"
 )
 
 //counterfeiter:generate -o ../../mocks/lint-operation.go --fake-name LintOperation . LintOperation
@@ -46,10 +48,12 @@ type lintOperation struct{}
 type IssueType string
 
 const (
-	IssueTypeMissingFrontmatter IssueType = "MISSING_FRONTMATTER"
-	IssueTypeInvalidPriority    IssueType = "INVALID_PRIORITY"
-	IssueTypeDuplicateKey       IssueType = "DUPLICATE_KEY"
-	IssueTypeInvalidStatus      IssueType = "INVALID_STATUS"
+	IssueTypeMissingFrontmatter     IssueType = "MISSING_FRONTMATTER"
+	IssueTypeInvalidPriority        IssueType = "INVALID_PRIORITY"
+	IssueTypeDuplicateKey           IssueType = "DUPLICATE_KEY"
+	IssueTypeInvalidStatus          IssueType = "INVALID_STATUS"
+	IssueTypeOrphanGoal             IssueType = "ORPHAN_GOAL"
+	IssueTypeStatusCheckboxMismatch IssueType = "STATUS_CHECKBOX_MISMATCH"
 )
 
 // LintIssue represents a single lint issue found in a file.
@@ -89,7 +93,7 @@ func (l *lintOperation) Execute(
 			return nil
 		}
 
-		fileIssues, err := l.lintFile(path, fix)
+		fileIssues, err := l.lintFile(vaultPath, path, fix)
 		if err != nil {
 			return errors.Wrap(ctx, err, fmt.Sprintf("lint file %s", path))
 		}
@@ -112,7 +116,8 @@ func (l *lintOperation) ExecuteFile(
 	outputFormat string,
 ) error {
 	// Lint the single file (read-only, no fix)
-	issues, err := l.lintFile(filePath, false)
+	// Pass empty vaultPath since we don't have vault context for single file validation
+	issues, err := l.lintFile("", filePath, false)
 	if err != nil {
 		return errors.Wrap(ctx, err, fmt.Sprintf("lint file %s", filePath))
 	}
@@ -265,39 +270,69 @@ func (l *lintOperation) countUnfixedError(issues []LintIssue) error {
 }
 
 // lintFile checks a single file for lint issues and optionally fixes them.
-func (l *lintOperation) lintFile(filePath string, fix bool) ([]LintIssue, error) {
+func (l *lintOperation) lintFile(vaultPath string, filePath string, fix bool) ([]LintIssue, error) {
 	content, err := os.ReadFile(filePath) //#nosec G304 -- user-controlled vault path
 	if err != nil {
 		return nil, fmt.Errorf("read file: %w", err)
 	}
 
-	issues := make([]LintIssue, 0, 4)
-
-	// Check for frontmatter existence
+	// Handle missing frontmatter first
 	frontmatterRegex := regexp.MustCompile(`(?s)^---\n(.*?)\n---\n`)
 	matches := frontmatterRegex.FindSubmatch(content)
 	if len(matches) < 2 {
-		issue, updatedContent, shouldReturn := l.handleMissingFrontmatter(
-			filePath,
-			content,
-			fix,
-		)
-		issues = append(issues, issue)
-
-		if shouldReturn {
-			return issues, nil
-		}
-
-		// Update content and re-parse for further checks
-		content = updatedContent
-		matches = frontmatterRegex.FindSubmatch(content)
+		return l.handleMissingFrontmatterCase(filePath, content, fix)
 	}
 
-	frontmatterYAML := string(matches[1])
+	// Collect all lint issues from the frontmatter and content
+	issues := l.collectLintIssues(vaultPath, filePath, string(matches[1]), content)
 
-	// Check for duplicate keys by parsing lines manually
-	duplicateIssues := l.detectDuplicateKeys(frontmatterYAML)
-	for _, key := range duplicateIssues {
+	// Fix issues if requested
+	if fix && len(issues) > 0 {
+		issues, err = l.fixIssues(filePath, string(content), issues)
+		if err != nil {
+			return nil, fmt.Errorf("fix issues: %w", err)
+		}
+	}
+
+	return issues, nil
+}
+
+// handleMissingFrontmatterCase handles files without frontmatter
+func (l *lintOperation) handleMissingFrontmatterCase(
+	filePath string,
+	content []byte,
+	fix bool,
+) ([]LintIssue, error) {
+	issue, updatedContent, shouldReturn := l.handleMissingFrontmatter(filePath, content, fix)
+	issues := []LintIssue{issue}
+
+	if shouldReturn {
+		return issues, nil
+	}
+
+	// After fixing frontmatter, re-parse and continue with other checks
+	frontmatterRegex := regexp.MustCompile(`(?s)^---\n(.*?)\n---\n`)
+	matches := frontmatterRegex.FindSubmatch(updatedContent)
+	if len(matches) < 2 {
+		return issues, nil
+	}
+
+	// Collect additional issues from the now-valid frontmatter
+	additionalIssues := l.collectLintIssues("", filePath, string(matches[1]), updatedContent)
+	return append(issues, additionalIssues...), nil
+}
+
+// collectLintIssues runs all lint checks and returns found issues
+func (l *lintOperation) collectLintIssues(
+	vaultPath string,
+	filePath string,
+	frontmatterYAML string,
+	content []byte,
+) []LintIssue {
+	issues := make([]LintIssue, 0, 4)
+
+	// Check for duplicate keys
+	for _, key := range l.detectDuplicateKeys(frontmatterYAML) {
 		issues = append(issues, LintIssue{
 			FilePath:    filePath,
 			IssueType:   IssueTypeDuplicateKey,
@@ -307,9 +342,8 @@ func (l *lintOperation) lintFile(filePath string, fix bool) ([]LintIssue, error)
 		})
 	}
 
-	// Check for invalid priority (string instead of int)
-	priorityIssue, invalidPriorityValue := l.detectInvalidPriority(frontmatterYAML)
-	if priorityIssue {
+	// Check for invalid priority
+	if priorityIssue, invalidPriorityValue := l.detectInvalidPriority(frontmatterYAML); priorityIssue {
 		issues = append(issues, LintIssue{
 			FilePath:    filePath,
 			IssueType:   IssueTypeInvalidPriority,
@@ -320,8 +354,9 @@ func (l *lintOperation) lintFile(filePath string, fix bool) ([]LintIssue, error)
 	}
 
 	// Check for invalid status
-	statusIssue, invalidStatusValue, statusIsFixable := l.detectInvalidStatus(frontmatterYAML)
-	if statusIssue {
+	if statusIssue, invalidStatusValue, statusIsFixable := l.detectInvalidStatus(
+		frontmatterYAML,
+	); statusIssue {
 		issues = append(issues, LintIssue{
 			FilePath:  filePath,
 			IssueType: IssueTypeInvalidStatus,
@@ -334,15 +369,32 @@ func (l *lintOperation) lintFile(filePath string, fix bool) ([]LintIssue, error)
 		})
 	}
 
-	// Fix issues if requested
-	if fix && len(issues) > 0 {
-		issues, err = l.fixIssues(filePath, string(content), issues)
-		if err != nil {
-			return nil, fmt.Errorf("fix issues: %w", err)
-		}
+	// Check for orphan goals
+	for _, goalName := range l.detectOrphanGoals(vaultPath, frontmatterYAML) {
+		issues = append(issues, LintIssue{
+			FilePath:    filePath,
+			IssueType:   IssueTypeOrphanGoal,
+			Description: fmt.Sprintf("goal not found: %s", goalName),
+			Fixable:     false,
+			Fixed:       false,
+		})
 	}
 
-	return issues, nil
+	// Check for status/checkbox mismatch
+	if mismatchIssue, mismatchDesc, mismatchFixable := l.detectStatusCheckboxMismatch(
+		frontmatterYAML,
+		string(content),
+	); mismatchIssue {
+		issues = append(issues, LintIssue{
+			FilePath:    filePath,
+			IssueType:   IssueTypeStatusCheckboxMismatch,
+			Description: mismatchDesc,
+			Fixable:     mismatchFixable,
+			Fixed:       false,
+		})
+	}
+
+	return issues
 }
 
 // handleMissingFrontmatter handles the case when a file is missing frontmatter.
@@ -429,29 +481,152 @@ func (l *lintOperation) detectInvalidStatus(frontmatterYAML string) (bool, strin
 	matches := statusRegex.FindStringSubmatch(frontmatterYAML)
 	if len(matches) >= 2 {
 		statusValue := matches[1]
-		validStatuses := []string{
-			"todo",
-			"in_progress",
-			"backlog",
-			"completed",
-			"hold",
-			"aborted",
-		}
-		for _, valid := range validStatuses {
-			if statusValue == valid {
-				return false, "", false
-			}
+
+		// Use domain package to check validity
+		if domain.IsValidTaskStatus(domain.TaskStatus(statusValue)) {
+			return false, "", false
 		}
 
-		// Check if it's a fixable migration status
-		statusMigrationMap := map[string]string{
-			"next":    "todo",
-			"current": "in_progress",
-			"done":    "completed",
-		}
-		_, isFixable := statusMigrationMap[statusValue]
+		// Check if it's fixable by seeing if normalization gives a different value
+		normalizedStatus := domain.NormalizeTaskStatus(statusValue)
+		isFixable := normalizedStatus != statusValue &&
+			domain.IsValidTaskStatus(domain.TaskStatus(normalizedStatus))
 		return true, statusValue, isFixable
 	}
+	return false, "", false
+}
+
+// detectOrphanGoals detects goals that reference non-existent goal files.
+// Returns list of missing goal names.
+func (l *lintOperation) detectOrphanGoals(vaultPath string, frontmatterYAML string) []string {
+	if vaultPath == "" {
+		return nil // Skip if no vault path (single file validation)
+	}
+
+	// Extract goals field (YAML list) - try inline format first
+	goalsRegex := regexp.MustCompile(`(?m)^goals:\s*\[(.*?)\]`)
+	matches := goalsRegex.FindStringSubmatch(frontmatterYAML)
+	if len(matches) >= 2 {
+		return l.parseInlineGoalsList(vaultPath, matches[1])
+	}
+
+	// Try multi-line YAML list format
+	goalsRegex = regexp.MustCompile(`(?ms)^goals:\s*\n((?:\s*-\s*.+\n?)+)`)
+	matches = goalsRegex.FindStringSubmatch(frontmatterYAML)
+	if len(matches) >= 2 {
+		return l.parseMultilineGoalsList(vaultPath, matches[1])
+	}
+
+	return nil
+}
+
+// parseInlineGoalsList parses inline goals list format: [goal1, goal2]
+func (l *lintOperation) parseInlineGoalsList(vaultPath string, goalsList string) []string {
+	var orphanGoals []string
+	for _, item := range strings.Split(goalsList, ",") {
+		item = strings.TrimSpace(item)
+		item = strings.Trim(item, `"'`)
+		goalName := l.extractGoalName(item)
+		if goalName == "" {
+			continue
+		}
+		if !l.goalFileExists(vaultPath, goalName) {
+			orphanGoals = append(orphanGoals, goalName)
+		}
+	}
+	return orphanGoals
+}
+
+// parseMultilineGoalsList parses multi-line goals list format
+func (l *lintOperation) parseMultilineGoalsList(vaultPath string, yamlList string) []string {
+	var orphanGoals []string
+	itemRegex := regexp.MustCompile(`(?m)^\s*-\s*['"]?(.+?)['"]?\s*$`)
+	for _, line := range strings.Split(yamlList, "\n") {
+		itemMatches := itemRegex.FindStringSubmatch(line)
+		if len(itemMatches) < 2 {
+			continue
+		}
+		goalName := l.extractGoalName(itemMatches[1])
+		if goalName == "" {
+			continue
+		}
+		if !l.goalFileExists(vaultPath, goalName) {
+			orphanGoals = append(orphanGoals, goalName)
+		}
+	}
+	return orphanGoals
+}
+
+// extractGoalName strips wikilink brackets and whitespace from a goal name
+func (l *lintOperation) extractGoalName(raw string) string {
+	goalName := strings.TrimPrefix(raw, "[[")
+	goalName = strings.TrimSuffix(goalName, "]]")
+	return strings.TrimSpace(goalName)
+}
+
+// goalFileExists checks if a goal file exists in the vault
+func (l *lintOperation) goalFileExists(vaultPath string, goalName string) bool {
+	goalsDir := filepath.Join(vaultPath, "Goals")
+	goalPath := filepath.Join(goalsDir, goalName+".md")
+	//#nosec G304,G703 -- user-controlled vault path
+	_, err := os.Stat(goalPath)
+	return !os.IsNotExist(err)
+}
+
+// detectStatusCheckboxMismatch detects mismatches between status and checkbox completion.
+// Returns: (issueFound, description, isFixable)
+func (l *lintOperation) detectStatusCheckboxMismatch(
+	frontmatterYAML string,
+	content string,
+) (bool, string, bool) {
+	// Skip if task is recurring
+	if strings.Contains(frontmatterYAML, "recurring:") {
+		return false, "", false
+	}
+
+	// Extract status
+	statusRegex := regexp.MustCompile(`(?m)^status:\s*['"]?([a-z_]+)['"]?\s*$`)
+	statusMatches := statusRegex.FindStringSubmatch(frontmatterYAML)
+	if len(statusMatches) < 2 {
+		return false, "", false
+	}
+	status := statusMatches[1]
+
+	// Find all checkboxes in content
+	checkboxRegex := regexp.MustCompile(`(?m)^[\s]*[-*]\s+\[([ xX])\]`)
+	checkboxMatches := checkboxRegex.FindAllStringSubmatch(content, -1)
+
+	if len(checkboxMatches) == 0 {
+		return false, "", false // No checkboxes
+	}
+
+	// Count checked and total checkboxes
+	totalCheckboxes := len(checkboxMatches)
+	checkedCheckboxes := 0
+	for _, match := range checkboxMatches {
+		if len(match) >= 2 && (match[1] == "x" || match[1] == "X") {
+			checkedCheckboxes++
+		}
+	}
+
+	// Case 1: status=completed but not all checkboxes are checked
+	if status == "completed" && checkedCheckboxes < totalCheckboxes {
+		unchecked := totalCheckboxes - checkedCheckboxes
+		return true, fmt.Sprintf(
+			"status is completed but %d/%d checkboxes unchecked",
+			unchecked,
+			totalCheckboxes,
+		), false
+	}
+
+	// Case 2: all checkboxes checked but status is not completed
+	if checkedCheckboxes == totalCheckboxes && status != "completed" {
+		return true, fmt.Sprintf(
+			"all checkboxes checked but status is %s",
+			status,
+		), true
+	}
+
 	return false, "", false
 }
 
@@ -491,6 +666,15 @@ func (l *lintOperation) fixIssues(
 		case IssueTypeInvalidStatus:
 			// Fix invalid status by migrating to new value
 			newContent, fixed := l.fixInvalidStatus(updatedContent)
+			if fixed {
+				updatedContent = newContent
+				issues[i].Fixed = true
+				modified = true
+			}
+
+		case IssueTypeStatusCheckboxMismatch:
+			// Fix status/checkbox mismatch by setting status to completed
+			newContent, fixed := l.fixStatusCheckboxMismatch(updatedContent)
 			if fixed {
 				updatedContent = newContent
 				issues[i].Fixed = true
@@ -538,18 +722,15 @@ func (l *lintOperation) fixInvalidPriority(content string) (string, bool) {
 
 // fixInvalidStatus migrates old status values to new ones.
 func (l *lintOperation) fixInvalidStatus(content string) (string, bool) {
-	statusMigrationMap := map[string]string{
-		"next":    "todo",
-		"current": "in_progress",
-		"done":    "completed",
-	}
-
-	// Match status field with invalid value (next, current, or done)
-	statusRegex := regexp.MustCompile(`(?m)^status:\s*['"]?(next|current|done)['"]?\s*$`)
+	// Match status field with any value
+	statusRegex := regexp.MustCompile(`(?m)^status:\s*['"]?([a-z_]+)['"]?\s*$`)
 	matches := statusRegex.FindStringSubmatch(content)
 	if len(matches) >= 2 {
 		oldValue := matches[1]
-		if newValue, ok := statusMigrationMap[oldValue]; ok {
+		newValue := domain.NormalizeTaskStatus(oldValue)
+
+		// Only fix if normalization gives a different valid value
+		if newValue != oldValue && domain.IsValidTaskStatus(domain.TaskStatus(newValue)) {
 			newContent := statusRegex.ReplaceAllString(
 				content,
 				fmt.Sprintf("status: %s", newValue),
@@ -559,6 +740,62 @@ func (l *lintOperation) fixInvalidStatus(content string) (string, bool) {
 	}
 
 	return content, false
+}
+
+// fixStatusCheckboxMismatch sets status to completed when all checkboxes are checked.
+func (l *lintOperation) fixStatusCheckboxMismatch(content string) (string, bool) {
+	// Extract frontmatter
+	frontmatterRegex := regexp.MustCompile(`(?s)^---\n(.*?)\n---\n`)
+	matches := frontmatterRegex.FindSubmatch([]byte(content))
+	if len(matches) < 2 {
+		return content, false
+	}
+
+	frontmatterYAML := string(matches[1])
+
+	// Skip if recurring
+	if strings.Contains(frontmatterYAML, "recurring:") {
+		return content, false
+	}
+
+	// Extract status
+	statusRegex := regexp.MustCompile(`(?m)^status:\s*['"]?([a-z_]+)['"]?\s*$`)
+	statusMatches := statusRegex.FindStringSubmatch(frontmatterYAML)
+	if len(statusMatches) < 2 {
+		return content, false
+	}
+	status := statusMatches[1]
+
+	if status == "completed" {
+		return content, false // Already completed
+	}
+
+	// Check if all checkboxes are checked
+	checkboxRegex := regexp.MustCompile(`(?m)^[\s]*[-*]\s+\[([ xX])\]`)
+	checkboxMatches := checkboxRegex.FindAllStringSubmatch(content, -1)
+
+	if len(checkboxMatches) == 0 {
+		return content, false // No checkboxes
+	}
+
+	allChecked := true
+	for _, match := range checkboxMatches {
+		if len(match) >= 2 && match[1] != "x" && match[1] != "X" {
+			allChecked = false
+			break
+		}
+	}
+
+	if !allChecked {
+		return content, false
+	}
+
+	// All checkboxes are checked, set status to completed
+	newContent := statusRegex.ReplaceAllString(
+		content,
+		"status: completed",
+	)
+	return newContent, true
 }
 
 // fixMissingFrontmatter prepends minimal frontmatter to files without frontmatter.

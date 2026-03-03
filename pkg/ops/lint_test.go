@@ -919,9 +919,9 @@ priority: 1
 
 	Context("with old migrateable status values", func() {
 		migrateMap := map[string]string{
-			"next":    "todo",
-			"current": "in_progress",
-			"done":    "completed",
+			"next":      "todo",
+			"current":   "in_progress",
+			"completed": "completed",
 		}
 
 		for oldStatus, newStatus := range migrateMap {

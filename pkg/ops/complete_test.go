@@ -65,7 +65,7 @@ var _ = Describe("CompleteOperation", func() {
 		It("marks task as done", func() {
 			Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.Status).To(Equal(domain.TaskStatusDone))
+			Expect(writtenTask.Status).To(Equal(domain.TaskStatusCompleted))
 		})
 
 		It("calls WriteTask with updated task", func() {
@@ -382,7 +382,7 @@ recurring: weekdays
 		It("marks task as done", func() {
 			Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.Status).To(Equal(domain.TaskStatusDone))
+			Expect(writtenTask.Status).To(Equal(domain.TaskStatusCompleted))
 		})
 	})
 
@@ -427,7 +427,7 @@ status: todo
 			Expect(err).To(BeNil())
 			Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.Status).To(Equal(domain.TaskStatusDone))
+			Expect(writtenTask.Status).To(Equal(domain.TaskStatusCompleted))
 		})
 	})
 
@@ -473,7 +473,7 @@ status: todo
 			Expect(err).To(BeNil())
 			Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.Status).To(Equal(domain.TaskStatusDone))
+			Expect(writtenTask.Status).To(Equal(domain.TaskStatusCompleted))
 		})
 	})
 
@@ -492,7 +492,7 @@ Just a simple task with no subtasks.
 			Expect(err).To(BeNil())
 			Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.Status).To(Equal(domain.TaskStatusDone))
+			Expect(writtenTask.Status).To(Equal(domain.TaskStatusCompleted))
 		})
 	})
 

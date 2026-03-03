@@ -49,11 +49,11 @@ var _ = Describe("ListOperation", func() {
 			},
 			{
 				Name:   "Task C",
-				Status: domain.TaskStatusDone,
+				Status: domain.TaskStatusCompleted,
 			},
 			{
 				Name:   "Task D",
-				Status: domain.TaskStatusDeferred,
+				Status: domain.TaskStatusHold,
 			},
 		}
 		mockStorage.ListPagesReturns(tasks, nil)
@@ -143,11 +143,11 @@ var _ = Describe("ListOperation", func() {
 							},
 							{
 								Name:   "Task Done",
-								Status: domain.TaskStatus("done"),
+								Status: domain.TaskStatus("completed"),
 							},
 							{
 								Name:   "Task Deferred",
-								Status: domain.TaskStatus("deferred"),
+								Status: domain.TaskStatus("hold"),
 							},
 							{
 								Name:   "Task Backlog",

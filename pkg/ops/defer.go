@@ -99,7 +99,7 @@ func (d *deferOperation) findAndDeferTask(
 	if err != nil {
 		return nil, d.returnError(ctx, err, "find task", format)
 	}
-	task.Status = domain.TaskStatusDeferred
+	task.Status = domain.TaskStatusHold
 	task.DeferDate = &targetDate
 	if err := d.storage.WriteTask(ctx, task); err != nil {
 		return nil, d.returnError(ctx, err, "write task", format)
@@ -221,7 +221,7 @@ func (d *deferOperation) removeFromDailyNote(
 
 	lines := strings.Split(content, "\n")
 	filteredLines := make([]string, 0, len(lines))
-	checkboxRegex := regexp.MustCompile(`^(\s*)- \[([ x])\] (.+)$`)
+	checkboxRegex := regexp.MustCompile(`^(\s*)- \[([ x/])\] (.+)$`)
 
 	for _, line := range lines {
 		if matches := checkboxRegex.FindStringSubmatch(line); len(matches) == 4 {

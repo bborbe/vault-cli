@@ -1,3 +1,13 @@
+---
+status: completed
+summary: 'Aligned status constants and operations with canonical slash command behavior: removed deprecated done/deferred, added 4 missing statuses, fixed validation and checkbox patterns'
+container: vault-cli-033-code-review-post-alignment
+dark-factory-version: v0.14.5
+created: "2026-03-03T22:33:35Z"
+queued: "2026-03-03T22:33:35Z"
+started: "2026-03-03T22:33:35Z"
+completed: "2026-03-03T22:40:02Z"
+---
 <objective>
 Code review after slash command alignment changes. Verify consistency across all operations, check for dead code, ensure tests cover new behavior.
 </objective>

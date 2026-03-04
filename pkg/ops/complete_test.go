@@ -8,6 +8,8 @@ import (
 	"context"
 	"time"
 
+	libtime "github.com/bborbe/time"
+	libtimetest "github.com/bborbe/time/test"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -31,7 +33,9 @@ var _ = Describe("CompleteOperation", func() {
 	BeforeEach(func() {
 		ctx = context.Background()
 		mockStorage = &mocks.Storage{}
-		completeOp = ops.NewCompleteOperation(mockStorage)
+		currentDateTime := libtime.NewCurrentDateTime()
+		currentDateTime.SetNow(libtimetest.ParseDateTime("2026-03-03T12:00:00Z"))
+		completeOp = ops.NewCompleteOperation(mockStorage, currentDateTime)
 		vaultPath = "/path/to/vault"
 		taskName = "my-task"
 		outputFormat = "plain" // default
@@ -389,7 +393,7 @@ recurring: weekdays
 			_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
 			Expect(writtenTask.DeferDate).NotTo(BeNil())
 
-			now := time.Now()
+			now := libtimetest.ParseDateTime("2026-03-03T12:00:00Z").Time()
 			Expect(writtenTask.DeferDate.After(now)).To(BeTrue())
 		})
 
@@ -417,7 +421,10 @@ recurring: weekdays
 		var oldPlannedDate time.Time
 
 		BeforeEach(func() {
-			oldPlannedDate = time.Now().AddDate(0, 0, -1) // Yesterday
+			oldPlannedDate = libtimetest.ParseDateTime("2026-03-03T12:00:00Z").
+				Time().
+				AddDate(0, 0, -1)
+				// Yesterday
 			task.Recurring = "daily"
 			task.Status = domain.TaskStatusInProgress
 			task.PlannedDate = &oldPlannedDate

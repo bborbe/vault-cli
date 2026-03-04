@@ -1,3 +1,13 @@
+---
+status: completed
+summary: Injected libtime.CurrentDateTime to replace all time.Now() calls in pkg/ops/
+container: vault-cli-039-inject-libtime-current-datetime
+dark-factory-version: v0.14.5
+created: "2026-03-04T07:36:36Z"
+queued: "2026-03-04T07:36:36Z"
+started: "2026-03-04T07:36:36Z"
+completed: "2026-03-04T07:46:19Z"
+---
 # Inject libtime.CurrentDateTime to Replace time.Now()
 
 ## Goal

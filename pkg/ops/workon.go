@@ -11,9 +11,9 @@ import (
 	"os"
 	"regexp"
 	"strings"
-	"time"
 
 	"github.com/bborbe/errors"
+	libtime "github.com/bborbe/time"
 
 	"github.com/bborbe/vault-cli/pkg/domain"
 	"github.com/bborbe/vault-cli/pkg/storage"
@@ -34,14 +34,17 @@ type WorkOnOperation interface {
 // NewWorkOnOperation creates a new work-on operation.
 func NewWorkOnOperation(
 	storage storage.Storage,
+	currentDateTime libtime.CurrentDateTime,
 ) WorkOnOperation {
 	return &workOnOperation{
-		storage: storage,
+		storage:         storage,
+		currentDateTime: currentDateTime,
 	}
 }
 
 type workOnOperation struct {
-	storage storage.Storage
+	storage         storage.Storage
+	currentDateTime libtime.CurrentDateTime
 }
 
 // Execute marks a task as in_progress and assigns it to the given user.
@@ -89,7 +92,7 @@ func (w *workOnOperation) Execute(
 	}
 
 	// Update today's daily note
-	today := time.Now().Format("2006-01-02")
+	today := w.currentDateTime.Now().Format("2006-01-02")
 	if err := w.updateDailyNote(ctx, vaultPath, today, task.Name); err != nil {
 		warning := fmt.Sprintf("failed to update daily note: %v", err)
 		warnings = append(warnings, warning)

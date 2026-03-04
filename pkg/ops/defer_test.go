@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	libtime "github.com/bborbe/time"
+	libtimetest "github.com/bborbe/time/test"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -32,7 +34,9 @@ var _ = Describe("DeferOperation", func() {
 	BeforeEach(func() {
 		ctx = context.Background()
 		mockStorage = &mocks.Storage{}
-		deferOp = ops.NewDeferOperation(mockStorage)
+		currentDateTime := libtime.NewCurrentDateTime()
+		currentDateTime.SetNow(libtimetest.ParseDateTime("2026-03-03T12:00:00Z"))
+		deferOp = ops.NewDeferOperation(mockStorage, currentDateTime)
 		vaultPath = "/path/to/vault"
 		taskName = "my-task"
 		dateStr = "+7d"
@@ -70,7 +74,10 @@ var _ = Describe("DeferOperation", func() {
 				Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
 				_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
 				Expect(writtenTask.DeferDate).NotTo(BeNil())
-				expected := time.Now().AddDate(0, 0, 7).Truncate(24 * time.Hour)
+				expected := libtimetest.ParseDateTime("2026-03-03T12:00:00Z").
+					Time().
+					AddDate(0, 0, 7).
+					Truncate(24 * time.Hour)
 				actual := writtenTask.DeferDate.Truncate(24 * time.Hour)
 				Expect(actual).To(Equal(expected))
 			})
@@ -89,7 +96,10 @@ var _ = Describe("DeferOperation", func() {
 				Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
 				_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
 				Expect(writtenTask.DeferDate).NotTo(BeNil())
-				expected := time.Now().AddDate(0, 0, 1).Truncate(24 * time.Hour)
+				expected := libtimetest.ParseDateTime("2026-03-03T12:00:00Z").
+					Time().
+					AddDate(0, 0, 1).
+					Truncate(24 * time.Hour)
 				actual := writtenTask.DeferDate.Truncate(24 * time.Hour)
 				Expect(actual).To(Equal(expected))
 			})
@@ -109,7 +119,11 @@ var _ = Describe("DeferOperation", func() {
 				_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
 				Expect(writtenTask.DeferDate).NotTo(BeNil())
 				Expect(writtenTask.DeferDate.Weekday()).To(Equal(time.Monday))
-				Expect(writtenTask.DeferDate.After(time.Now())).To(BeTrue())
+				Expect(
+					writtenTask.DeferDate.After(
+						libtimetest.ParseDateTime("2026-03-03T12:00:00Z").Time(),
+					),
+				).To(BeTrue())
 			})
 		})
 
@@ -486,7 +500,10 @@ No section headings.
 	Context("planned_date handling", func() {
 		Context("when planned_date is before target date", func() {
 			BeforeEach(func() {
-				plannedDate := time.Now().AddDate(0, 0, 3) // 3 days from now (before target of +7d)
+				plannedDate := libtimetest.ParseDateTime("2026-03-03T12:00:00Z").
+					Time().
+					AddDate(0, 0, 3)
+					// 3 days from now (before target of +7d)
 				task.PlannedDate = &plannedDate
 				dateStr = "+7d"
 			})
@@ -501,7 +518,7 @@ No section headings.
 
 		Context("when planned_date is after target date", func() {
 			BeforeEach(func() {
-				plannedDate := time.Now().
+				plannedDate := libtimetest.ParseDateTime("2026-03-03T12:00:00Z").Time().
 					AddDate(0, 0, 14)
 					// 14 days from now (after target of +7d)
 				task.PlannedDate = &plannedDate
@@ -513,7 +530,10 @@ No section headings.
 				Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
 				_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
 				Expect(writtenTask.PlannedDate).NotTo(BeNil())
-				expected := time.Now().AddDate(0, 0, 14).Truncate(24 * time.Hour)
+				expected := libtimetest.ParseDateTime("2026-03-03T12:00:00Z").
+					Time().
+					AddDate(0, 0, 14).
+					Truncate(24 * time.Hour)
 				actual := writtenTask.PlannedDate.Truncate(24 * time.Hour)
 				Expect(actual).To(Equal(expected))
 			})
@@ -537,7 +557,9 @@ No section headings.
 	Context("past date validation", func() {
 		Context("when deferring to yesterday", func() {
 			BeforeEach(func() {
-				yesterday := time.Now().AddDate(0, 0, -1)
+				yesterday := libtimetest.ParseDateTime("2026-03-03T12:00:00Z").
+					Time().
+					AddDate(0, 0, -1)
 				dateStr = yesterday.Format("2006-01-02")
 			})
 
@@ -553,7 +575,7 @@ No section headings.
 
 		Context("when deferring to today", func() {
 			BeforeEach(func() {
-				today := time.Now()
+				today := libtimetest.ParseDateTime("2026-03-03T12:00:00Z").Time()
 				dateStr = today.Format("2006-01-02")
 			})
 

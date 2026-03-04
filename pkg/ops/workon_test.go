@@ -7,6 +7,8 @@ package ops_test
 import (
 	"context"
 
+	libtime "github.com/bborbe/time"
+	libtimetest "github.com/bborbe/time/test"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -30,7 +32,9 @@ var _ = Describe("WorkOnOperation", func() {
 	BeforeEach(func() {
 		ctx = context.Background()
 		mockStorage = &mocks.Storage{}
-		workOnOp = ops.NewWorkOnOperation(mockStorage)
+		currentDateTime := libtime.NewCurrentDateTime()
+		currentDateTime.SetNow(libtimetest.ParseDateTime("2026-03-03T12:00:00Z"))
+		workOnOp = ops.NewWorkOnOperation(mockStorage, currentDateTime)
 		vaultPath = "/path/to/vault"
 		taskName = "my-task"
 		assignee = "user@example.com"

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/bborbe/errors"
+	libtime "github.com/bborbe/time"
 
 	"github.com/bborbe/vault-cli/pkg/domain"
 	"github.com/bborbe/vault-cli/pkg/storage"
@@ -33,14 +34,17 @@ type CompleteOperation interface {
 // NewCompleteOperation creates a new complete operation.
 func NewCompleteOperation(
 	storage storage.Storage,
+	currentDateTime libtime.CurrentDateTime,
 ) CompleteOperation {
 	return &completeOperation{
-		storage: storage,
+		storage:         storage,
+		currentDateTime: currentDateTime,
 	}
 }
 
 type completeOperation struct {
-	storage storage.Storage
+	storage         storage.Storage
+	currentDateTime libtime.CurrentDateTime
 }
 
 // MutationResult represents the result of a mutation operation.
@@ -126,7 +130,7 @@ func (c *completeOperation) Execute(
 	}
 
 	// Update today's daily note
-	today := time.Now().Format("2006-01-02")
+	today := c.currentDateTime.Now().Format("2006-01-02")
 	if err := c.updateDailyNote(ctx, vaultPath, today, task.Name, true); err != nil {
 		warning := fmt.Sprintf("failed to update daily note: %v", err)
 		warnings = append(warnings, warning)
@@ -213,7 +217,7 @@ func (c *completeOperation) handleRecurringTask(
 	outputFormat string,
 	warnings []string,
 ) error {
-	now := time.Now()
+	now := c.currentDateTime.Now().Time()
 	today := now.Format("2006-01-02")
 
 	// 1. Reset all checkboxes in content

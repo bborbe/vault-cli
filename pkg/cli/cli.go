@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 
+	libtime "github.com/bborbe/time"
 	"github.com/spf13/cobra"
 
 	"github.com/bborbe/vault-cli/pkg/config"
@@ -116,12 +117,14 @@ func createCompleteCommand(
 				return fmt.Errorf("get vaults: %w", err)
 			}
 
+			currentDateTime := libtime.NewCurrentDateTime()
+
 			// If only one vault, execute directly
 			if len(vaults) == 1 {
 				vault := vaults[0]
 				storageConfig := storage.NewConfigFromVault(vault)
 				store := storage.NewStorage(storageConfig)
-				completeOp := ops.NewCompleteOperation(store)
+				completeOp := ops.NewCompleteOperation(store, currentDateTime)
 				return completeOp.Execute(ctx, vault.Path, taskName, vault.Name, *outputFormat)
 			}
 
@@ -130,7 +133,7 @@ func createCompleteCommand(
 			for _, vault := range vaults {
 				storageConfig := storage.NewConfigFromVault(vault)
 				store := storage.NewStorage(storageConfig)
-				completeOp := ops.NewCompleteOperation(store)
+				completeOp := ops.NewCompleteOperation(store, currentDateTime)
 				if err := completeOp.Execute(ctx, vault.Path, taskName, vault.Name, *outputFormat); err == nil {
 					return nil
 				}
@@ -169,12 +172,14 @@ Date formats:
 				return fmt.Errorf("get vaults: %w", err)
 			}
 
+			currentDateTime := libtime.NewCurrentDateTime()
+
 			// If only one vault, execute directly
 			if len(vaults) == 1 {
 				vault := vaults[0]
 				storageConfig := storage.NewConfigFromVault(vault)
 				store := storage.NewStorage(storageConfig)
-				deferOp := ops.NewDeferOperation(store)
+				deferOp := ops.NewDeferOperation(store, currentDateTime)
 				return deferOp.Execute(
 					ctx,
 					vault.Path,
@@ -190,7 +195,7 @@ Date formats:
 			for _, vault := range vaults {
 				storageConfig := storage.NewConfigFromVault(vault)
 				store := storage.NewStorage(storageConfig)
-				deferOp := ops.NewDeferOperation(store)
+				deferOp := ops.NewDeferOperation(store, currentDateTime)
 				if err := deferOp.Execute(ctx, vault.Path, taskName, dateStr, vault.Name, *outputFormat); err == nil {
 					return nil
 				}
@@ -273,12 +278,14 @@ func createWorkOnCommand(
 				return fmt.Errorf("get vaults: %w", err)
 			}
 
+			currentDateTime := libtime.NewCurrentDateTime()
+
 			// If only one vault, execute directly
 			if len(vaults) == 1 {
 				vault := vaults[0]
 				storageConfig := storage.NewConfigFromVault(vault)
 				store := storage.NewStorage(storageConfig)
-				workOnOp := ops.NewWorkOnOperation(store)
+				workOnOp := ops.NewWorkOnOperation(store, currentDateTime)
 				return workOnOp.Execute(
 					ctx,
 					vault.Path,
@@ -294,7 +301,7 @@ func createWorkOnCommand(
 			for _, vault := range vaults {
 				storageConfig := storage.NewConfigFromVault(vault)
 				store := storage.NewStorage(storageConfig)
-				workOnOp := ops.NewWorkOnOperation(store)
+				workOnOp := ops.NewWorkOnOperation(store, currentDateTime)
 				if err := workOnOp.Execute(ctx, vault.Path, taskName, currentUser, vault.Name, *outputFormat); err == nil {
 					return nil
 				}

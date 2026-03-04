@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/bborbe/errors"
+	libtime "github.com/bborbe/time"
 
 	"github.com/bborbe/vault-cli/pkg/domain"
 	"github.com/bborbe/vault-cli/pkg/storage"
@@ -34,14 +35,17 @@ type DeferOperation interface {
 // NewDeferOperation creates a new defer operation.
 func NewDeferOperation(
 	storage storage.Storage,
+	currentDateTime libtime.CurrentDateTime,
 ) DeferOperation {
 	return &deferOperation{
-		storage: storage,
+		storage:         storage,
+		currentDateTime: currentDateTime,
 	}
 }
 
 type deferOperation struct {
-	storage storage.Storage
+	storage         storage.Storage
+	currentDateTime libtime.CurrentDateTime
 }
 
 // Execute defers a task to a specific date.
@@ -60,7 +64,7 @@ func (d *deferOperation) Execute(
 	}
 
 	// Validate target date is not in the past
-	today := time.Now().Truncate(24 * time.Hour)
+	today := d.currentDateTime.Now().Time().Truncate(24 * time.Hour)
 	targetDateTruncated := targetDate.Truncate(24 * time.Hour)
 	if targetDateTruncated.Before(today) {
 		err := fmt.Errorf("cannot defer to past date: %s", targetDate.Format("2006-01-02"))
@@ -129,7 +133,7 @@ func (d *deferOperation) updateDailyNotes(
 	format string,
 ) []string {
 	var warnings []string
-	today := time.Now().Format("2006-01-02")
+	today := d.currentDateTime.Now().Format("2006-01-02")
 	if err := d.removeFromDailyNote(ctx, vaultPath, today, taskName); err != nil {
 		w := fmt.Sprintf("failed to update today's daily note: %v", err)
 		warnings = append(warnings, w)
@@ -170,7 +174,7 @@ func (d *deferOperation) formatResult(
 
 // parseDate parses various date formats: +Nd, weekday names, ISO dates.
 func (d *deferOperation) parseDate(dateStr string) (time.Time, error) {
-	now := time.Now()
+	now := d.currentDateTime.Now().Time()
 
 	// Handle relative dates: +1d, +7d, etc.
 	if matched, _ := regexp.MatchString(`^\+\d+d$`, dateStr); matched {

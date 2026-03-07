@@ -1,4 +1,7 @@
 
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
+LDFLAGS := -X github.com/bborbe/vault-cli/pkg/cli.version=$(VERSION)
+
 default: precommit
 
 run:
@@ -8,7 +11,7 @@ build:
 	@go build -mod=mod -o bin/vault-cli main.go
 
 install:
-	@go install -mod=mod .
+	@go install -mod=mod -ldflags "$(LDFLAGS)" .
 
 precommit: ensure format generate test check addlicense
 	@echo "ready to commit"

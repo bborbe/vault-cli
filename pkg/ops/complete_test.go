@@ -404,6 +404,110 @@ recurring: weekdays
 		})
 	})
 
+	Context("recurring 3d task", func() {
+		BeforeEach(func() {
+			task.Recurring = "3d"
+			task.Status = domain.TaskStatusInProgress
+			task.Content = `---
+status: in_progress
+recurring: 3d
+---
+# My Task
+`
+		})
+
+		It("returns no error", func() {
+			Expect(err).To(BeNil())
+		})
+
+		It("bumps defer_date by 3 days", func() {
+			Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
+			Expect(writtenTask.DeferDate).NotTo(BeNil())
+			now := libtimetest.ParseDateTime("2026-03-03T12:00:00Z").Time()
+			expected := libtime.ToDate(now.AddDate(0, 0, 3))
+			Expect(*writtenTask.DeferDate).To(Equal(expected))
+		})
+	})
+
+	Context("recurring quarterly task", func() {
+		BeforeEach(func() {
+			task.Recurring = "quarterly"
+			task.Status = domain.TaskStatusInProgress
+			task.Content = `---
+status: in_progress
+recurring: quarterly
+---
+# My Task
+`
+		})
+
+		It("returns no error", func() {
+			Expect(err).To(BeNil())
+		})
+
+		It("bumps defer_date by 3 months", func() {
+			Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
+			Expect(writtenTask.DeferDate).NotTo(BeNil())
+			now := libtimetest.ParseDateTime("2026-03-03T12:00:00Z").Time()
+			expected := libtime.ToDate(now.AddDate(0, 3, 0))
+			Expect(*writtenTask.DeferDate).To(Equal(expected))
+		})
+	})
+
+	Context("recurring 2w task", func() {
+		BeforeEach(func() {
+			task.Recurring = "2w"
+			task.Status = domain.TaskStatusInProgress
+			task.Content = `---
+status: in_progress
+recurring: 2w
+---
+# My Task
+`
+		})
+
+		It("returns no error", func() {
+			Expect(err).To(BeNil())
+		})
+
+		It("bumps defer_date by 14 days", func() {
+			Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
+			Expect(writtenTask.DeferDate).NotTo(BeNil())
+			now := libtimetest.ParseDateTime("2026-03-03T12:00:00Z").Time()
+			expected := libtime.ToDate(now.AddDate(0, 0, 14))
+			Expect(*writtenTask.DeferDate).To(Equal(expected))
+		})
+	})
+
+	Context("recurring yearly task", func() {
+		BeforeEach(func() {
+			task.Recurring = "yearly"
+			task.Status = domain.TaskStatusInProgress
+			task.Content = `---
+status: in_progress
+recurring: yearly
+---
+# My Task
+`
+		})
+
+		It("returns no error", func() {
+			Expect(err).To(BeNil())
+		})
+
+		It("bumps defer_date by 1 year", func() {
+			Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
+			Expect(writtenTask.DeferDate).NotTo(BeNil())
+			now := libtimetest.ParseDateTime("2026-03-03T12:00:00Z").Time()
+			expected := libtime.ToDate(now.AddDate(1, 0, 0))
+			Expect(*writtenTask.DeferDate).To(Equal(expected))
+		})
+	})
+
 	Context("non-recurring task still marked as done", func() {
 		BeforeEach(func() {
 			task.Recurring = ""

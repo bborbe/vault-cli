@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## v0.11.0
+
+- feat: Make date argument optional in `vault-cli task defer`, defaulting to `+1d` when omitted
+
 ## v0.10.8
 
 - go mod update

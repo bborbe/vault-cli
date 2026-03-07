@@ -384,8 +384,8 @@ recurring: weekdays
 
 			// Verify defer_date is a weekday (Monday-Friday)
 			weekday := writtenTask.DeferDate.Weekday()
-			Expect(weekday).NotTo(Equal(time.Saturday))
-			Expect(weekday).NotTo(Equal(time.Sunday))
+			Expect(weekday).NotTo(Equal(libtime.Weekday(time.Saturday)))
+			Expect(weekday).NotTo(Equal(libtime.Weekday(time.Sunday)))
 		})
 
 		It("sets defer_date after today", func() {
@@ -394,7 +394,7 @@ recurring: weekdays
 			Expect(writtenTask.DeferDate).NotTo(BeNil())
 
 			now := libtimetest.ParseDateTime("2026-03-03T12:00:00Z").Time()
-			Expect(writtenTask.DeferDate.After(now)).To(BeTrue())
+			Expect(writtenTask.DeferDate.After(libtime.ToDate(now))).To(BeTrue())
 		})
 
 		It("keeps status unchanged", func() {
@@ -427,7 +427,8 @@ recurring: weekdays
 				// Yesterday
 			task.Recurring = "daily"
 			task.Status = domain.TaskStatusInProgress
-			task.PlannedDate = &oldPlannedDate
+			pd := libtime.ToDate(oldPlannedDate)
+			task.PlannedDate = pd.Ptr()
 			task.Content = `---
 status: in_progress
 recurring: daily

@@ -78,7 +78,7 @@ var _ = Describe("DeferOperation", func() {
 					Time().
 					AddDate(0, 0, 7).
 					Truncate(24 * time.Hour)
-				actual := writtenTask.DeferDate.Truncate(24 * time.Hour)
+				actual := writtenTask.DeferDate.Time()
 				Expect(actual).To(Equal(expected))
 			})
 		})
@@ -100,7 +100,7 @@ var _ = Describe("DeferOperation", func() {
 					Time().
 					AddDate(0, 0, 1).
 					Truncate(24 * time.Hour)
-				actual := writtenTask.DeferDate.Truncate(24 * time.Hour)
+				actual := writtenTask.DeferDate.Time()
 				Expect(actual).To(Equal(expected))
 			})
 		})
@@ -118,10 +118,10 @@ var _ = Describe("DeferOperation", func() {
 				Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
 				_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
 				Expect(writtenTask.DeferDate).NotTo(BeNil())
-				Expect(writtenTask.DeferDate.Weekday()).To(Equal(time.Monday))
+				Expect(writtenTask.DeferDate.Weekday()).To(Equal(libtime.Weekday(time.Monday)))
 				Expect(
 					writtenTask.DeferDate.After(
-						libtimetest.ParseDateTime("2026-03-03T12:00:00Z").Time(),
+						libtime.ToDate(libtimetest.ParseDateTime("2026-03-03T12:00:00Z").Time()),
 					),
 				).To(BeTrue())
 			})
@@ -141,7 +141,7 @@ var _ = Describe("DeferOperation", func() {
 				_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
 				Expect(writtenTask.DeferDate).NotTo(BeNil())
 				expected := time.Date(2026, 12, 31, 0, 0, 0, 0, time.UTC)
-				actual := writtenTask.DeferDate.Truncate(24 * time.Hour)
+				actual := writtenTask.DeferDate.Time()
 				Expect(actual).To(Equal(expected))
 			})
 		})
@@ -504,7 +504,8 @@ No section headings.
 					Time().
 					AddDate(0, 0, 3)
 					// 3 days from now (before target of +7d)
-				task.PlannedDate = &plannedDate
+				pd := libtime.ToDate(plannedDate)
+				task.PlannedDate = pd.Ptr()
 				dateStr = "+7d"
 			})
 
@@ -521,7 +522,8 @@ No section headings.
 				plannedDate := libtimetest.ParseDateTime("2026-03-03T12:00:00Z").Time().
 					AddDate(0, 0, 14)
 					// 14 days from now (after target of +7d)
-				task.PlannedDate = &plannedDate
+				pd := libtime.ToDate(plannedDate)
+				task.PlannedDate = pd.Ptr()
 				dateStr = "+7d"
 			})
 
@@ -534,7 +536,7 @@ No section headings.
 					Time().
 					AddDate(0, 0, 14).
 					Truncate(24 * time.Hour)
-				actual := writtenTask.PlannedDate.Truncate(24 * time.Hour)
+				actual := writtenTask.PlannedDate.Time()
 				Expect(actual).To(Equal(expected))
 			})
 		})

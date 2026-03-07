@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/bborbe/errors"
+	libtime "github.com/bborbe/time"
 
 	"github.com/bborbe/vault-cli/pkg/domain"
 	"github.com/bborbe/vault-cli/pkg/storage"
@@ -135,7 +136,8 @@ func (o *frontmatterSetOperation) Execute(
 			if err != nil {
 				return errors.Wrap(ctx, err, "invalid date format (expected YYYY-MM-DD)")
 			}
-			task.DeferDate = &t
+			d := libtime.ToDate(t)
+			task.DeferDate = d.Ptr()
 		}
 	default:
 		return fmt.Errorf("unknown field: %s", key)

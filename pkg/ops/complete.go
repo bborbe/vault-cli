@@ -284,14 +284,8 @@ func (c *completeOperation) handleRecurringTask(
 
 // calculateNextDeferDate calculates the next defer date based on recurring interval.
 func calculateNextDeferDate(recurring string, now time.Time) libtime.Date {
-	switch recurring {
-	case "daily":
-		return libtime.ToDate(now.AddDate(0, 0, 1)) // tomorrow
-	case "weekly":
-		return libtime.ToDate(now.AddDate(0, 0, 7)) // +7 days
-	case "monthly":
-		return libtime.ToDate(now.AddDate(0, 1, 0)) // +1 month
-	case "weekdays":
+	// weekdays is a special case: check before ParseRecurringInterval
+	if recurring == "weekdays" {
 		next := now.AddDate(0, 0, 1) // tomorrow
 		switch next.Weekday() {
 		case time.Saturday:
@@ -301,7 +295,10 @@ func calculateNextDeferDate(recurring string, now time.Time) libtime.Date {
 		default:
 			return libtime.ToDate(next)
 		}
-	default:
+	}
+
+	interval, err := domain.ParseRecurringInterval(recurring)
+	if err != nil {
 		// Unknown recurring type, treat as daily
 		fmt.Fprintf(
 			os.Stderr,
@@ -310,6 +307,7 @@ func calculateNextDeferDate(recurring string, now time.Time) libtime.Date {
 		)
 		return libtime.ToDate(now.AddDate(0, 0, 1))
 	}
+	return libtime.ToDate(interval.AddTo(now))
 }
 
 // resetCheckboxes resets all checked checkboxes in content to unchecked.

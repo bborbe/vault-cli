@@ -17,6 +17,8 @@ import (
 	"github.com/bborbe/vault-cli/pkg/storage"
 )
 
+var version = "dev"
+
 // getVaults returns the vaults to operate on.
 // If vaultName is set, returns just that vault.
 // If vaultName is empty, returns all configured vaults.
@@ -46,6 +48,7 @@ func Run(ctx context.Context, args []string) error {
 		Use:          "vault-cli",
 		Short:        "Obsidian vault task management CLI",
 		Long:         "Fast CRUD operations for Obsidian markdown files (tasks, goals, themes).",
+		Version:      version,
 		SilenceUsage: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			configLoader = config.NewLoader(configPath)

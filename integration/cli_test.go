@@ -428,6 +428,38 @@ This is my task.
 			})
 		})
 
+		It("defaults to +1d when no date argument provided", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"my-task": `---
+status: todo
+priority: 2
+---
+# My Task
+This is my task.
+`,
+			})
+			defer cleanup()
+			cmd := exec.Command(
+				binPath,
+				"--config",
+				configPath,
+				"--vault",
+				"test",
+				"task",
+				"defer",
+				"my-task",
+			)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(0))
+
+			// Verify file was updated with defer_date
+			taskPath := filepath.Join(vaultPath, "Tasks", "my-task.md")
+			content, err := os.ReadFile(taskPath) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(content)).To(ContainSubstring("defer_date:"))
+		})
+
 		Context("with invalid date format", func() {
 			BeforeEach(func() {
 				vaultPath, configPath, cleanup = createTempVault(map[string]string{

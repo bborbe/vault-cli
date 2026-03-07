@@ -154,18 +154,23 @@ func createDeferCommand(
 	outputFormat *string,
 ) *cobra.Command {
 	return &cobra.Command{
-		Use:   "defer <task-name> <date>",
+		Use:   "defer <task-name> [date]",
 		Short: "Defer a task to a specific date",
 		Long: `Defer a task to a specific date.
+
+If no date is provided, defaults to +1d (tomorrow).
 
 Date formats:
   +Nd         - Relative days (e.g., +7d for 7 days from now)
   monday      - Next occurrence of weekday
   2024-12-31  - ISO date format (YYYY-MM-DD)`,
-		Args: cobra.ExactArgs(2),
+		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			taskName := args[0]
-			dateStr := args[1]
+			dateStr := "+1d"
+			if len(args) > 1 {
+				dateStr = args[1]
+			}
 
 			vaults, err := getVaults(ctx, configLoader, vaultName)
 			if err != nil {

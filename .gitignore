@@ -18,3 +18,4 @@
 gha-creds-*.json
 /.dark-factory.lock
 /prompts/log
+/specs/log

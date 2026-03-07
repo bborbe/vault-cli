@@ -9,6 +9,7 @@ import (
 	"errors"
 	"time"
 
+	libtime "github.com/bborbe/time"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -46,7 +47,7 @@ var _ = Describe("FrontmatterGetOperation", func() {
 			Assignee:        "alice",
 			Status:          domain.TaskStatusInProgress,
 			Priority:        domain.Priority(3),
-			DeferDate:       &deferDate,
+			DeferDate:       libtime.ToDate(deferDate).Ptr(),
 		}
 		mockStorage.FindTaskByNameReturns(task, nil)
 	})
@@ -290,7 +291,7 @@ var _ = Describe("FrontmatterSetOperation", func() {
 			key = "defer_date"
 			value = ""
 			deferDate := time.Date(2024, 12, 31, 0, 0, 0, 0, time.UTC)
-			task.DeferDate = &deferDate
+			task.DeferDate = libtime.ToDate(deferDate).Ptr()
 		})
 
 		It("sets defer_date to nil", func() {
@@ -378,7 +379,7 @@ var _ = Describe("FrontmatterClearOperation", func() {
 			Assignee:        "alice",
 			Status:          domain.TaskStatusInProgress,
 			Priority:        domain.Priority(3),
-			DeferDate:       &deferDate,
+			DeferDate:       libtime.ToDate(deferDate).Ptr(),
 		}
 		mockStorage.FindTaskByNameReturns(task, nil)
 		mockStorage.WriteTaskReturns(nil)

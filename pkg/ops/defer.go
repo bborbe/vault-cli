@@ -64,9 +64,8 @@ func (d *deferOperation) Execute(
 	}
 
 	// Validate target date is not in the past
-	today := d.currentDateTime.Now().Time().Truncate(24 * time.Hour)
-	targetDateTruncated := targetDate.Truncate(24 * time.Hour)
-	if targetDateTruncated.Before(today) {
+	today := libtime.ToDate(d.currentDateTime.Now().Time())
+	if targetDate.Before(today) {
 		err := fmt.Errorf("cannot defer to past date: %s", targetDate.Format("2006-01-02"))
 		return d.returnError(ctx, err, "validate date", outputFormat)
 	}
@@ -104,17 +103,17 @@ func (d *deferOperation) findAndDeferTask(
 	ctx context.Context,
 	vaultPath string,
 	taskName string,
-	targetDate time.Time,
+	targetDate libtime.Date,
 	format string,
 ) (*domain.Task, error) {
 	task, err := d.storage.FindTaskByName(ctx, vaultPath, taskName)
 	if err != nil {
 		return nil, d.returnError(ctx, err, "find task", format)
 	}
-	task.DeferDate = &targetDate
+	task.DeferDate = targetDate.Ptr()
 
 	// Clear planned_date if it's before the defer target date
-	if task.PlannedDate != nil && task.PlannedDate.Before(targetDate) {
+	if task.PlannedDate != nil && (*task.PlannedDate).Before(targetDate) {
 		task.PlannedDate = nil
 	}
 
@@ -129,7 +128,7 @@ func (d *deferOperation) updateDailyNotes(
 	ctx context.Context,
 	vaultPath string,
 	taskName string,
-	targetDate time.Time,
+	targetDate libtime.Date,
 	format string,
 ) []string {
 	var warnings []string
@@ -156,7 +155,7 @@ func (d *deferOperation) updateDailyNotes(
 func (d *deferOperation) formatResult(
 	name string,
 	vault string,
-	targetDate time.Time,
+	targetDate libtime.Date,
 	warnings []string,
 	format string,
 ) error {
@@ -173,16 +172,16 @@ func (d *deferOperation) formatResult(
 }
 
 // parseDate parses various date formats: +Nd, weekday names, ISO dates.
-func (d *deferOperation) parseDate(dateStr string) (time.Time, error) {
+func (d *deferOperation) parseDate(dateStr string) (libtime.Date, error) {
 	now := d.currentDateTime.Now().Time()
 
 	// Handle relative dates: +1d, +7d, etc.
 	if matched, _ := regexp.MatchString(`^\+\d+d$`, dateStr); matched {
 		var days int
 		if _, err := fmt.Sscanf(dateStr, "+%dd", &days); err != nil {
-			return time.Time{}, fmt.Errorf("parse relative date: %w", err)
+			return libtime.Date{}, fmt.Errorf("parse relative date: %w", err)
 		}
-		return now.AddDate(0, 0, days), nil
+		return libtime.ToDate(now.AddDate(0, 0, days)), nil
 	}
 
 	// Handle weekday names
@@ -197,15 +196,15 @@ func (d *deferOperation) parseDate(dateStr string) (time.Time, error) {
 	}
 
 	if weekday, ok := weekdayMap[strings.ToLower(dateStr)]; ok {
-		return d.nextWeekday(now, weekday), nil
+		return libtime.ToDate(d.nextWeekday(now, weekday)), nil
 	}
 
 	// Handle ISO date: 2024-12-31
 	if t, err := time.Parse("2006-01-02", dateStr); err == nil {
-		return t, nil
+		return libtime.ToDate(t), nil
 	}
 
-	return time.Time{}, fmt.Errorf(
+	return libtime.Date{}, fmt.Errorf(
 		"invalid date format: %s (use +Nd, weekday, or YYYY-MM-DD)",
 		dateStr,
 	)

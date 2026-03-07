@@ -8,7 +8,7 @@ replace (
 
 require (
 	github.com/bborbe/errors v1.5.3
-	github.com/bborbe/time v1.24.2
+	github.com/bborbe/time v1.25.0
 	github.com/golangci/golangci-lint v1.64.8
 	github.com/google/addlicense v1.2.0
 	github.com/google/osv-scanner/v2 v2.3.3

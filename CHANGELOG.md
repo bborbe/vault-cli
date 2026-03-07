@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## v0.10.8
+
+- go mod update
+
 ## v0.10.7
 
 - Add recurring task support to complete command (reset checkboxes, bump defer_date, keep in_progress)

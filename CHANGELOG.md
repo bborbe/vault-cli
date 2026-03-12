@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.18.0
+
+- feat: Enrich task list JSON output with category, recurring, defer_date, planned_date, claude_session_id, and phase fields for external tool integration
+
 ## v0.17.1
 
 - fix: Increase claude session timeout from 60s to 5m for longer-running tasks

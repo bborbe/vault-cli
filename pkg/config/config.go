@@ -30,6 +30,7 @@ type Vault struct {
 	ObjectivesDir string `yaml:"objectives_dir,omitempty" json:"objectives_dir,omitempty"`
 	VisionDir     string `yaml:"vision_dir,omitempty"     json:"vision_dir,omitempty"`
 	DailyDir      string `yaml:"daily_dir,omitempty"      json:"daily_dir,omitempty"`
+	ClaudeScript  string `yaml:"claude_script,omitempty"  json:"claude_script,omitempty"`
 }
 
 // GetTasksDir returns the tasks directory, defaulting to "Tasks" if not set.
@@ -78,6 +79,14 @@ func (v *Vault) GetDailyDir() string {
 		return v.DailyDir
 	}
 	return "Daily Notes"
+}
+
+// GetClaudeScript returns the claude script to use for sessions, defaulting to "claude" if not set.
+func (v *Vault) GetClaudeScript() string {
+	if v.ClaudeScript != "" {
+		return v.ClaudeScript
+	}
+	return "claude"
 }
 
 //counterfeiter:generate -o ../../mocks/config-loader.go --fake-name Loader . Loader

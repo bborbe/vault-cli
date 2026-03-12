@@ -86,4 +86,21 @@ var _ = Describe("ClaudeResumer", func() {
 			Expect(err.Error()).To(ContainSubstring("exec failed"))
 		})
 	})
+
+	Context("custom claude path via NewClaudeResumerForTesting", func() {
+		It("uses the given claude path as argv0", func() {
+			var capturedArgv0 string
+			customResumer := ops.NewClaudeResumerForTesting(
+				"/opt/custom-claude",
+				func(_ string) error { return nil },
+				func(argv0 string, _ []string, _ []string) error {
+					capturedArgv0 = argv0
+					return nil
+				},
+			)
+			err := customResumer.ResumeSession("session-xyz", "/vault")
+			Expect(err).To(BeNil())
+			Expect(capturedArgv0).To(Equal("/opt/custom-claude"))
+		})
+	})
 })

@@ -1,7 +1,12 @@
 ---
-status: approved
+status: completed
+summary: Added vault-cli task watch streaming command with fsnotify-based file watching, debouncing, and newline-delimited JSON output
+container: vault-cli-050-c-task-watch-command
+dark-factory-version: v0.54.0
 created: "2026-03-12T22:15:00Z"
 queued: "2026-03-12T21:27:58Z"
+started: "2026-03-12T21:35:59Z"
+completed: "2026-03-12T21:43:56Z"
 ---
 
 <summary>

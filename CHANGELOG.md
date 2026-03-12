@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.19.0
+
+- feat: Add `vault-cli task show <name>` command returning full task detail including content, metadata, and file modification time
+
 ## v0.18.0
 
 - feat: Enrich task list JSON output with category, recurring, defer_date, planned_date, claude_session_id, and phase fields for external tool integration

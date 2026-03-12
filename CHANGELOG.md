@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.20.0
+
+- feat: Add `vault-cli task watch` streaming command that emits newline-delimited JSON events on stdout when task, goal, theme, or objective files change
+
 ## v0.19.0
 
 - feat: Add `vault-cli task show <name>` command returning full task detail including content, metadata, and file modification time

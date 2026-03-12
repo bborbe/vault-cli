@@ -82,6 +82,7 @@ func Run(ctx context.Context, args []string) error {
 	taskCmd.AddCommand(createTaskSetCommand(ctx, &configLoader, &vaultName, &outputFormat))
 	taskCmd.AddCommand(createTaskClearCommand(ctx, &configLoader, &vaultName, &outputFormat))
 	taskCmd.AddCommand(createTaskShowCommand(ctx, &configLoader, &vaultName, &outputFormat))
+	taskCmd.AddCommand(createTaskWatchCommand(ctx, &configLoader, &vaultName))
 	taskCmd.AddCommand(
 		createGenericSearchCommand(
 			ctx,
@@ -1138,6 +1139,41 @@ func createTaskShowCommand(
 			}
 
 			return fmt.Errorf("task not found in any vault: %w", lastErr)
+		},
+	}
+}
+
+func createTaskWatchCommand(
+	ctx context.Context,
+	configLoader *config.Loader,
+	vaultName *string,
+) *cobra.Command {
+	return &cobra.Command{
+		Use:   "watch",
+		Short: "Watch task folders for changes (streaming JSON output)",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			vaults, err := getVaults(ctx, configLoader, vaultName)
+			if err != nil {
+				return fmt.Errorf("get vaults: %w", err)
+			}
+
+			targets := make([]ops.WatchTarget, 0, len(vaults))
+			for _, vault := range vaults {
+				targets = append(targets, ops.WatchTarget{
+					VaultPath: vault.Path,
+					VaultName: vault.Name,
+					WatchDirs: []string{
+						vault.GetTasksDir(),
+						vault.GetGoalsDir(),
+						vault.GetThemesDir(),
+						vault.GetObjectivesDir(),
+					},
+				})
+			}
+
+			watchOp := ops.NewWatchOperation()
+			return watchOp.Execute(ctx, targets)
 		},
 	}
 }

@@ -124,4 +124,20 @@ var _ = Describe("ClaudeSessionStarter", func() {
 			Expect(capturedDir).To(Equal("/my/vault"))
 		})
 	})
+
+	Context("custom claude path via NewClaudeSessionStarterWithRunner", func() {
+		It("uses the given claude path", func() {
+			var capturedArgs []string
+			customStarter := ops.NewClaudeSessionStarterWithRunner(
+				"/opt/custom-claude",
+				func(_ context.Context, args []string, _ string) ([]byte, error) {
+					capturedArgs = args
+					return []byte(`{"session_id":"sid-2"}`), nil
+				},
+			)
+			_, err := customStarter.StartSession(ctx, "prompt", "/vault")
+			Expect(err).To(BeNil())
+			Expect(capturedArgs[0]).To(Equal("/opt/custom-claude"))
+		})
+	})
 })

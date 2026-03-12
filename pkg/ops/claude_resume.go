@@ -19,10 +19,10 @@ type ClaudeResumer interface {
 	ResumeSession(sessionID string, cwd string) error
 }
 
-// NewClaudeResumer creates a ClaudeResumer using the system claude binary.
-// Returns nil if the claude binary is not found.
-func NewClaudeResumer() ClaudeResumer {
-	claudePath, err := exec.LookPath("claude")
+// NewClaudeResumer creates a ClaudeResumer using the given claude script.
+// Returns nil if the binary is not found.
+func NewClaudeResumer(claudeScript string) ClaudeResumer {
+	claudePath, err := exec.LookPath(claudeScript)
 	if err != nil {
 		return nil
 	}

@@ -83,4 +83,16 @@ var _ = Describe("Vault", func() {
 			Expect(vault.GetDailyDir()).To(Equal("Daily Notes"))
 		})
 	})
+
+	Describe("GetClaudeScript", func() {
+		It("returns custom claude script when set", func() {
+			vault := &config.Vault{ClaudeScript: "/usr/local/bin/my-claude"}
+			Expect(vault.GetClaudeScript()).To(Equal("/usr/local/bin/my-claude"))
+		})
+
+		It("returns default claude when empty", func() {
+			vault := &config.Vault{}
+			Expect(vault.GetClaudeScript()).To(Equal("claude"))
+		})
+	})
 })

@@ -301,11 +301,11 @@ func createWorkOnCommand(
 			}
 
 			currentDateTime := libtime.NewCurrentDateTime()
-			starter := ops.NewClaudeSessionStarter()
-			resumer := ops.NewClaudeResumer()
 
 			if len(vaults) == 1 {
 				vault := vaults[0]
+				starter := ops.NewClaudeSessionStarter(vault.GetClaudeScript())
+				resumer := ops.NewClaudeResumer(vault.GetClaudeScript())
 				storageConfig := storage.NewConfigFromVault(vault)
 				store := storage.NewStorage(storageConfig)
 				workOnOp := ops.NewWorkOnOperation(store, currentDateTime, starter, resumer)
@@ -322,6 +322,8 @@ func createWorkOnCommand(
 
 			var lastErr error
 			for _, vault := range vaults {
+				starter := ops.NewClaudeSessionStarter(vault.GetClaudeScript())
+				resumer := ops.NewClaudeResumer(vault.GetClaudeScript())
 				storageConfig := storage.NewConfigFromVault(vault)
 				store := storage.NewStorage(storageConfig)
 				workOnOp := ops.NewWorkOnOperation(store, currentDateTime, starter, resumer)

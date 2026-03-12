@@ -22,10 +22,10 @@ type ClaudeSessionStarter interface {
 	StartSession(ctx context.Context, prompt string, cwd string) (string, error)
 }
 
-// NewClaudeSessionStarter creates a ClaudeSessionStarter using the system claude binary.
-// Returns nil if the claude binary is not found.
-func NewClaudeSessionStarter() ClaudeSessionStarter {
-	claudePath, err := exec.LookPath("claude")
+// NewClaudeSessionStarter creates a ClaudeSessionStarter using the given claude script.
+// Returns nil if the binary is not found.
+func NewClaudeSessionStarter(claudeScript string) ClaudeSessionStarter {
+	claudePath, err := exec.LookPath(claudeScript)
 	if err != nil {
 		return nil
 	}

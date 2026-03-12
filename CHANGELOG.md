@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.17.0
+
+- feat: Add optional `claude_script` field to `Vault` config so each vault can specify a custom Claude wrapper script for sessions, defaulting to "claude"
+
 ## v0.16.0
 
 - feat: Add Claude session management to `vault-cli task work-on` — starts or resumes a Claude coding session, with `--mode` flag (auto/interactive/headless) for TTY detection

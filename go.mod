@@ -9,6 +9,7 @@ replace (
 require (
 	github.com/bborbe/errors v1.5.3
 	github.com/bborbe/time v1.25.0
+	github.com/fsnotify/fsnotify v1.9.0
 	github.com/golangci/golangci-lint v1.64.8
 	github.com/google/addlicense v1.2.0
 	github.com/google/osv-scanner/v2 v2.3.3
@@ -150,7 +151,6 @@ require (
 	github.com/fatih/structtag v1.2.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/firefart/nonamedreturns v1.0.5 // indirect
-	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/fzipp/gocyclo v0.6.0 // indirect
 	github.com/getsentry/sentry-go v0.40.0 // indirect
 	github.com/ghostiam/protogetter v0.3.9 // indirect

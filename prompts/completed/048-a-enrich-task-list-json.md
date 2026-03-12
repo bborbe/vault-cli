@@ -1,10 +1,12 @@
 ---
-status: executing
+status: completed
+summary: Added category, recurring, defer_date, planned_date, claude_session_id, and phase fields to TaskListItem struct and populated them in the JSON serialization loop, with tests verifying both populated and omitted (omitempty) cases.
 container: vault-cli-048-a-enrich-task-list-json
 dark-factory-version: v0.54.0
 created: "2026-03-12T22:00:00Z"
 queued: "2026-03-12T21:27:57Z"
 started: "2026-03-12T21:28:06Z"
+completed: "2026-03-12T21:31:56Z"
 ---
 
 <summary>

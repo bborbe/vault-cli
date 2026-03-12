@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.17.1
+
+- fix: Increase claude session timeout from 60s to 5m for longer-running tasks
+- fix: Remove hardcoded `--max-turns 1` limit, allow unlimited turns by default
+- feat: Add stderr progress message when starting Claude session
+
 ## v0.17.0
 
 - feat: Add optional `claude_script` field to `Vault` config so each vault can specify a custom Claude wrapper script for sessions, defaulting to "claude"

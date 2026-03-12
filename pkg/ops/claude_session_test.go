@@ -119,7 +119,7 @@ var _ = Describe("ClaudeSessionStarter", func() {
 			Expect(err).To(BeNil())
 			Expect(capturedArgs).To(Equal([]string{
 				"/bin/claude", "--print", "-p", "my prompt",
-				"--output-format", "json", "--max-turns", "1",
+				"--output-format", "json",
 			}))
 			Expect(capturedDir).To(Equal("/my/vault"))
 		})

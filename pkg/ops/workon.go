@@ -145,6 +145,7 @@ func (w *workOnOperation) handleClaudeSession(
 		return task.ClaudeSessionID, nil
 	}
 	prompt := fmt.Sprintf(`/work-on-task "%s"`, task.FilePath)
+	fmt.Fprintf(os.Stderr, "Starting Claude session for %s...\n", task.Name)
 	sessionID, err := w.starter.StartSession(ctx, prompt, vaultPath)
 	if err != nil {
 		return "", errors.Wrap(ctx, err, "start claude session")

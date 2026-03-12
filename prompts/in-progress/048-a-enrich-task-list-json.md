@@ -1,6 +1,10 @@
 ---
-status: created
+status: executing
+container: vault-cli-048-a-enrich-task-list-json
+dark-factory-version: v0.54.0
 created: "2026-03-12T22:00:00Z"
+queued: "2026-03-12T21:27:57Z"
+started: "2026-03-12T21:28:06Z"
 ---
 
 <summary>

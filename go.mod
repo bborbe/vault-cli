@@ -21,6 +21,7 @@ require (
 	github.com/segmentio/golines v0.13.0
 	github.com/shoenig/go-modtool v0.5.0
 	github.com/spf13/cobra v1.10.2
+	golang.org/x/term v0.40.0
 	golang.org/x/vuln v1.1.4
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -399,7 +400,6 @@ require (
 	golang.org/x/sync v0.19.0 // indirect
 	golang.org/x/sys v0.41.0 // indirect
 	golang.org/x/telemetry v0.0.0-20260209163413-e7419c687ee4 // indirect
-	golang.org/x/term v0.40.0 // indirect
 	golang.org/x/text v0.34.0 // indirect
 	golang.org/x/tools v0.42.0 // indirect
 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da // indirect

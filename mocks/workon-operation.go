@@ -9,7 +9,7 @@ import (
 )
 
 type WorkOnOperation struct {
-	ExecuteStub        func(context.Context, string, string, string, string, string) error
+	ExecuteStub        func(context.Context, string, string, string, string, string, bool) error
 	executeMutex       sync.RWMutex
 	executeArgsForCall []struct {
 		arg1 context.Context
@@ -18,6 +18,7 @@ type WorkOnOperation struct {
 		arg4 string
 		arg5 string
 		arg6 string
+		arg7 bool
 	}
 	executeReturns struct {
 		result1 error
@@ -29,7 +30,7 @@ type WorkOnOperation struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *WorkOnOperation) Execute(arg1 context.Context, arg2 string, arg3 string, arg4 string, arg5 string, arg6 string) error {
+func (fake *WorkOnOperation) Execute(arg1 context.Context, arg2 string, arg3 string, arg4 string, arg5 string, arg6 string, arg7 bool) error {
 	fake.executeMutex.Lock()
 	ret, specificReturn := fake.executeReturnsOnCall[len(fake.executeArgsForCall)]
 	fake.executeArgsForCall = append(fake.executeArgsForCall, struct {
@@ -39,13 +40,14 @@ func (fake *WorkOnOperation) Execute(arg1 context.Context, arg2 string, arg3 str
 		arg4 string
 		arg5 string
 		arg6 string
-	}{arg1, arg2, arg3, arg4, arg5, arg6})
+		arg7 bool
+	}{arg1, arg2, arg3, arg4, arg5, arg6, arg7})
 	stub := fake.ExecuteStub
 	fakeReturns := fake.executeReturns
-	fake.recordInvocation("Execute", []interface{}{arg1, arg2, arg3, arg4, arg5, arg6})
+	fake.recordInvocation("Execute", []interface{}{arg1, arg2, arg3, arg4, arg5, arg6, arg7})
 	fake.executeMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2, arg3, arg4, arg5, arg6)
+		return stub(arg1, arg2, arg3, arg4, arg5, arg6, arg7)
 	}
 	if specificReturn {
 		return ret.result1
@@ -59,17 +61,17 @@ func (fake *WorkOnOperation) ExecuteCallCount() int {
 	return len(fake.executeArgsForCall)
 }
 
-func (fake *WorkOnOperation) ExecuteCalls(stub func(context.Context, string, string, string, string, string) error) {
+func (fake *WorkOnOperation) ExecuteCalls(stub func(context.Context, string, string, string, string, string, bool) error) {
 	fake.executeMutex.Lock()
 	defer fake.executeMutex.Unlock()
 	fake.ExecuteStub = stub
 }
 
-func (fake *WorkOnOperation) ExecuteArgsForCall(i int) (context.Context, string, string, string, string, string) {
+func (fake *WorkOnOperation) ExecuteArgsForCall(i int) (context.Context, string, string, string, string, string, bool) {
 	fake.executeMutex.RLock()
 	defer fake.executeMutex.RUnlock()
 	argsForCall := fake.executeArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4, argsForCall.arg5, argsForCall.arg6
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4, argsForCall.arg5, argsForCall.arg6, argsForCall.arg7
 }
 
 func (fake *WorkOnOperation) ExecuteReturns(result1 error) {

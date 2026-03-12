@@ -49,11 +49,12 @@ type completeOperation struct {
 
 // MutationResult represents the result of a mutation operation.
 type MutationResult struct {
-	Success  bool     `json:"success"`
-	Name     string   `json:"name,omitempty"`
-	Vault    string   `json:"vault,omitempty"`
-	Error    string   `json:"error,omitempty"`
-	Warnings []string `json:"warnings,omitempty"`
+	Success   bool     `json:"success"`
+	Name      string   `json:"name,omitempty"`
+	Vault     string   `json:"vault,omitempty"`
+	Error     string   `json:"error,omitempty"`
+	Warnings  []string `json:"warnings,omitempty"`
+	SessionID string   `json:"session_id,omitempty"`
 }
 
 // IncompleteResult represents the result when a task has incomplete subtasks.

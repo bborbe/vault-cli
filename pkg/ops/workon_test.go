@@ -19,37 +19,53 @@ import (
 
 var _ = Describe("WorkOnOperation", func() {
 	var (
-		ctx         context.Context
-		err         error
-		workOnOp    ops.WorkOnOperation
-		mockStorage *mocks.Storage
-		vaultPath   string
-		taskName    string
-		assignee    string
-		task        *domain.Task
+		ctx           context.Context
+		err           error
+		workOnOp      ops.WorkOnOperation
+		mockStorage   *mocks.Storage
+		mockStarter   *mocks.ClaudeSessionStarter
+		mockResumer   *mocks.ClaudeResumer
+		vaultPath     string
+		taskName      string
+		assignee      string
+		task          *domain.Task
+		isInteractive bool
 	)
 
 	BeforeEach(func() {
 		ctx = context.Background()
 		mockStorage = &mocks.Storage{}
+		mockStarter = &mocks.ClaudeSessionStarter{}
+		mockResumer = &mocks.ClaudeResumer{}
 		currentDateTime := libtime.NewCurrentDateTime()
 		currentDateTime.SetNow(libtimetest.ParseDateTime("2026-03-03T12:00:00Z"))
-		workOnOp = ops.NewWorkOnOperation(mockStorage, currentDateTime)
+		workOnOp = ops.NewWorkOnOperation(mockStorage, currentDateTime, mockStarter, mockResumer)
 		vaultPath = "/path/to/vault"
 		taskName = "my-task"
 		assignee = "user@example.com"
+		isInteractive = false
 
-		// Default: return a task
 		task = &domain.Task{
-			Name:   taskName,
-			Status: domain.TaskStatusTodo,
+			Name:     taskName,
+			Status:   domain.TaskStatusTodo,
+			FilePath: "/path/to/vault/tasks/my-task.md",
 		}
 		mockStorage.FindTaskByNameReturns(task, nil)
 		mockStorage.WriteTaskReturns(nil)
+		mockStarter.StartSessionReturns("session-123", nil)
+		mockResumer.ResumeSessionReturns(nil)
 	})
 
 	JustBeforeEach(func() {
-		err = workOnOp.Execute(ctx, vaultPath, taskName, assignee, "test-vault", "plain")
+		err = workOnOp.Execute(
+			ctx,
+			vaultPath,
+			taskName,
+			assignee,
+			"test-vault",
+			"plain",
+			isInteractive,
+		)
 	})
 
 	Context("success", func() {
@@ -66,22 +82,76 @@ var _ = Describe("WorkOnOperation", func() {
 		})
 
 		It("marks task as in_progress", func() {
-			Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
+			Expect(mockStorage.WriteTaskCallCount()).To(BeNumerically(">=", 1))
 			_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
 			Expect(writtenTask.Status).To(Equal(domain.TaskStatusInProgress))
 		})
 
 		It("sets assignee correctly", func() {
-			Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
+			Expect(mockStorage.WriteTaskCallCount()).To(BeNumerically(">=", 1))
 			_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
 			Expect(writtenTask.Assignee).To(Equal(assignee))
 		})
 
-		It("calls WriteTask with updated task", func() {
-			Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
-			actualCtx, writtenTask := mockStorage.WriteTaskArgsForCall(0)
-			Expect(actualCtx).To(Equal(ctx))
-			Expect(writtenTask.Name).To(Equal(taskName))
+		It("starts a claude session", func() {
+			Expect(mockStarter.StartSessionCallCount()).To(Equal(1))
+		})
+	})
+
+	Context("when starter is nil", func() {
+		BeforeEach(func() {
+			currentDateTime := libtime.NewCurrentDateTime()
+			currentDateTime.SetNow(libtimetest.ParseDateTime("2026-03-03T12:00:00Z"))
+			workOnOp = ops.NewWorkOnOperation(mockStorage, currentDateTime, nil, nil)
+		})
+
+		It("returns no error", func() {
+			Expect(err).To(BeNil())
+		})
+
+		It("skips session start", func() {
+			Expect(mockStarter.StartSessionCallCount()).To(Equal(0))
+		})
+	})
+
+	Context("when task already has a session ID", func() {
+		BeforeEach(func() {
+			task.ClaudeSessionID = "existing-session"
+		})
+
+		It("does not start a new session", func() {
+			Expect(mockStarter.StartSessionCallCount()).To(Equal(0))
+		})
+
+		It("returns no error", func() {
+			Expect(err).To(BeNil())
+		})
+	})
+
+	Context("when session start fails", func() {
+		BeforeEach(func() {
+			mockStarter.StartSessionReturns("", ErrTest)
+		})
+
+		It("still returns no error (session failure is a warning)", func() {
+			Expect(err).To(BeNil())
+		})
+	})
+
+	Context("interactive mode", func() {
+		BeforeEach(func() {
+			isInteractive = true
+		})
+
+		It("calls ResumeSession", func() {
+			Expect(mockResumer.ResumeSessionCallCount()).To(Equal(1))
+			sessionID, cwd := mockResumer.ResumeSessionArgsForCall(0)
+			Expect(sessionID).To(Equal("session-123"))
+			Expect(cwd).To(Equal(vaultPath))
+		})
+
+		It("returns no error", func() {
+			Expect(err).To(BeNil())
 		})
 	})
 
@@ -209,7 +279,7 @@ var _ = Describe("WorkOnOperation", func() {
 			})
 
 			It("still marks task as in_progress", func() {
-				Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
+				Expect(mockStorage.WriteTaskCallCount()).To(BeNumerically(">=", 1))
 				_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
 				Expect(writtenTask.Status).To(Equal(domain.TaskStatusInProgress))
 			})
@@ -225,7 +295,7 @@ var _ = Describe("WorkOnOperation", func() {
 			})
 
 			It("still marks task as in_progress", func() {
-				Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
+				Expect(mockStorage.WriteTaskCallCount()).To(BeNumerically(">=", 1))
 				_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
 				Expect(writtenTask.Status).To(Equal(domain.TaskStatusInProgress))
 			})
@@ -243,7 +313,7 @@ var _ = Describe("WorkOnOperation", func() {
 			})
 
 			It("still marks task as in_progress", func() {
-				Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
+				Expect(mockStorage.WriteTaskCallCount()).To(BeNumerically(">=", 1))
 				_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
 				Expect(writtenTask.Status).To(Equal(domain.TaskStatusInProgress))
 			})

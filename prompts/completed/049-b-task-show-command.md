@@ -1,7 +1,12 @@
 ---
-status: approved
+status: completed
+summary: Added `vault-cli task show <name>` command with ShowOperation interface, TaskDetail struct, JSON/plain output, multi-vault search, and tests.
+container: vault-cli-049-b-task-show-command
+dark-factory-version: v0.54.0
 created: "2026-03-12T22:00:00Z"
 queued: "2026-03-12T21:27:57Z"
+started: "2026-03-12T21:32:00Z"
+completed: "2026-03-12T21:35:55Z"
 ---
 
 <summary>

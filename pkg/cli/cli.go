@@ -103,6 +103,7 @@ func Run(ctx context.Context, args []string) error {
 		Short: "Configuration management",
 	}
 	configCmd.AddCommand(createConfigListCommand(ctx, &configLoader, &vaultName, &outputFormat))
+	configCmd.AddCommand(createConfigCurrentUserCommand(ctx, &configLoader))
 	rootCmd.AddCommand(configCmd)
 
 	rootCmd.SetArgs(args)
@@ -1091,6 +1092,25 @@ func createConfigListCommand(
 			for _, vault := range vaults {
 				fmt.Printf("%s\t%s\n", vault.Name, vault.Path)
 			}
+			return nil
+		},
+	}
+}
+
+func createConfigCurrentUserCommand(
+	ctx context.Context,
+	configLoader *config.Loader,
+) *cobra.Command {
+	return &cobra.Command{
+		Use:   "current-user",
+		Short: "Print the current user",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			user, err := (*configLoader).GetCurrentUser(ctx)
+			if err != nil {
+				return fmt.Errorf("get current user: %w", err)
+			}
+			fmt.Println(user)
 			return nil
 		},
 	}

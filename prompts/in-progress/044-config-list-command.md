@@ -1,7 +1,11 @@
 ---
+status: executing
 spec: ["044"]
-status: created
+container: vault-cli-044-config-list-command
+dark-factory-version: v0.54.0
 created: "2026-03-12T17:00:00Z"
+queued: "2026-03-12T16:56:57Z"
+started: "2026-03-12T16:57:04Z"
 ---
 <summary>
 - Add `vault-cli config list` command that outputs all vault configurations

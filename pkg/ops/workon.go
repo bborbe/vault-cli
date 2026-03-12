@@ -28,6 +28,7 @@ type WorkOnOperation interface {
 		assignee string,
 		vaultName string,
 		outputFormat string,
+		isInteractive bool,
 	) error
 }
 
@@ -35,19 +36,25 @@ type WorkOnOperation interface {
 func NewWorkOnOperation(
 	storage storage.Storage,
 	currentDateTime libtime.CurrentDateTime,
+	starter ClaudeSessionStarter,
+	resumer ClaudeResumer,
 ) WorkOnOperation {
 	return &workOnOperation{
 		storage:         storage,
 		currentDateTime: currentDateTime,
+		starter:         starter,
+		resumer:         resumer,
 	}
 }
 
 type workOnOperation struct {
 	storage         storage.Storage
 	currentDateTime libtime.CurrentDateTime
+	starter         ClaudeSessionStarter
+	resumer         ClaudeResumer
 }
 
-// Execute marks a task as in_progress and assigns it to the given user.
+// Execute marks a task as in_progress, assigns it, and starts or resumes a Claude session.
 func (w *workOnOperation) Execute(
 	ctx context.Context,
 	vaultPath string,
@@ -55,17 +62,14 @@ func (w *workOnOperation) Execute(
 	assignee string,
 	vaultName string,
 	outputFormat string,
+	isInteractive bool,
 ) error {
 	var warnings []string
 
-	// Find and read the task
 	task, err := w.storage.FindTaskByName(ctx, vaultPath, taskName)
 	if err != nil {
 		if outputFormat == "json" {
-			result := MutationResult{
-				Success: false,
-				Error:   err.Error(),
-			}
+			result := MutationResult{Success: false, Error: err.Error()}
 			enc := json.NewEncoder(os.Stdout)
 			enc.SetIndent("", "  ")
 			_ = enc.Encode(result)
@@ -73,17 +77,12 @@ func (w *workOnOperation) Execute(
 		return errors.Wrap(ctx, err, "find task")
 	}
 
-	// Update task status to in_progress and set assignee
 	task.Status = domain.TaskStatusInProgress
 	task.Assignee = assignee
 
-	// Write updated task
 	if err := w.storage.WriteTask(ctx, task); err != nil {
 		if outputFormat == "json" {
-			result := MutationResult{
-				Success: false,
-				Error:   err.Error(),
-			}
+			result := MutationResult{Success: false, Error: err.Error()}
 			enc := json.NewEncoder(os.Stdout)
 			enc.SetIndent("", "  ")
 			_ = enc.Encode(result)
@@ -91,7 +90,6 @@ func (w *workOnOperation) Execute(
 		return errors.Wrap(ctx, err, "write task")
 	}
 
-	// Update today's daily note
 	today := w.currentDateTime.Now().Format("2006-01-02")
 	if err := w.updateDailyNote(ctx, vaultPath, today, task.Name); err != nil {
 		warning := fmt.Sprintf("failed to update daily note: %v", err)
@@ -101,12 +99,26 @@ func (w *workOnOperation) Execute(
 		}
 	}
 
+	sessionID, sessionErr := w.handleClaudeSession(ctx, task, vaultPath)
+	if sessionErr != nil {
+		warning := fmt.Sprintf("claude session: %v", sessionErr)
+		warnings = append(warnings, warning)
+		if outputFormat == "plain" {
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", warning)
+		}
+	}
+
+	if isInteractive && w.resumer != nil && sessionID != "" {
+		return w.resumer.ResumeSession(sessionID, vaultPath)
+	}
+
 	if outputFormat == "json" {
 		result := MutationResult{
-			Success:  true,
-			Name:     task.Name,
-			Vault:    vaultName,
-			Warnings: warnings,
+			Success:   true,
+			Name:      task.Name,
+			Vault:     vaultName,
+			Warnings:  warnings,
+			SessionID: sessionID,
 		}
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
@@ -114,7 +126,34 @@ func (w *workOnOperation) Execute(
 	}
 
 	fmt.Printf("✅ Now working on: %s (assigned to %s)\n", task.Name, assignee)
+	if sessionID != "" {
+		fmt.Printf("session_id: %s\n", sessionID)
+	}
 	return nil
+}
+
+// handleClaudeSession starts or returns an existing Claude session for the task.
+func (w *workOnOperation) handleClaudeSession(
+	ctx context.Context,
+	task *domain.Task,
+	vaultPath string,
+) (string, error) {
+	if w.starter == nil {
+		return task.ClaudeSessionID, nil
+	}
+	if task.ClaudeSessionID != "" {
+		return task.ClaudeSessionID, nil
+	}
+	prompt := fmt.Sprintf(`/work-on-task "%s"`, task.FilePath)
+	sessionID, err := w.starter.StartSession(ctx, prompt, vaultPath)
+	if err != nil {
+		return "", errors.Wrap(ctx, err, "start claude session")
+	}
+	task.ClaudeSessionID = sessionID
+	if err := w.storage.WriteTask(ctx, task); err != nil {
+		return sessionID, errors.Wrap(ctx, err, "save session id to task")
+	}
+	return sessionID, nil
 }
 
 // updateDailyNote updates the daily note to mark the task as in-progress.

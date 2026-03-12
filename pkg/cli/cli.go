@@ -11,6 +11,7 @@ import (
 
 	libtime "github.com/bborbe/time"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 
 	"github.com/bborbe/vault-cli/pkg/config"
 	"github.com/bborbe/vault-cli/pkg/ops"
@@ -269,21 +270,26 @@ func createUpdateCommand(
 	}
 }
 
-//nolint:dupl // Mutation commands have similar structure but different operations
 func createWorkOnCommand(
 	ctx context.Context,
 	configLoader *config.Loader,
 	vaultName *string,
 	outputFormat *string,
 ) *cobra.Command {
-	return &cobra.Command{
+	var mode string
+
+	cmd := &cobra.Command{
 		Use:   "work-on <task-name>",
 		Short: "Mark a task as in_progress and assign it to current user",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			taskName := args[0]
 
-			// Get current user from config
+			isInteractive, err := resolveSessionMode(mode)
+			if err != nil {
+				return err
+			}
+
 			currentUser, err := (*configLoader).GetCurrentUser(ctx)
 			if err != nil {
 				return fmt.Errorf("get current user: %w", err)
@@ -295,13 +301,14 @@ func createWorkOnCommand(
 			}
 
 			currentDateTime := libtime.NewCurrentDateTime()
+			starter := ops.NewClaudeSessionStarter()
+			resumer := ops.NewClaudeResumer()
 
-			// If only one vault, execute directly
 			if len(vaults) == 1 {
 				vault := vaults[0]
 				storageConfig := storage.NewConfigFromVault(vault)
 				store := storage.NewStorage(storageConfig)
-				workOnOp := ops.NewWorkOnOperation(store, currentDateTime)
+				workOnOp := ops.NewWorkOnOperation(store, currentDateTime, starter, resumer)
 				return workOnOp.Execute(
 					ctx,
 					vault.Path,
@@ -309,24 +316,44 @@ func createWorkOnCommand(
 					currentUser,
 					vault.Name,
 					*outputFormat,
+					isInteractive,
 				)
 			}
 
-			// Multiple vaults: try each until successful
 			var lastErr error
 			for _, vault := range vaults {
 				storageConfig := storage.NewConfigFromVault(vault)
 				store := storage.NewStorage(storageConfig)
-				workOnOp := ops.NewWorkOnOperation(store, currentDateTime)
-				if err := workOnOp.Execute(ctx, vault.Path, taskName, currentUser, vault.Name, *outputFormat); err == nil {
+				workOnOp := ops.NewWorkOnOperation(store, currentDateTime, starter, resumer)
+				if err := workOnOp.Execute(ctx, vault.Path, taskName, currentUser, vault.Name, *outputFormat, isInteractive); err == nil {
 					return nil
 				}
 				lastErr = err
 			}
 
-			// Not found in any vault
 			return fmt.Errorf("task not found in any vault: %w", lastErr)
 		},
+	}
+
+	cmd.Flags().StringVar(&mode, "mode", "auto", "Session mode: auto, interactive, or headless")
+	return cmd
+}
+
+// resolveSessionMode converts a mode string to an isInteractive bool.
+func resolveSessionMode(mode string) (bool, error) {
+	switch mode {
+	case "interactive":
+		return true, nil
+	case "headless":
+		return false, nil
+	case "auto":
+		fd := int(os.Stdin.Fd()) //#nosec G115 -- fd value fits in int on all supported platforms
+		return term.IsTerminal(fd), nil
+	default:
+		return false, fmt.Errorf(
+			"invalid --mode value: %s (must be auto, interactive, or headless)",
+			mode,
+		)
 	}
 }
 

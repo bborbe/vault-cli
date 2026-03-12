@@ -6,7 +6,12 @@ package ops_test
 
 import (
 	"context"
+	"encoding/json"
+	"io"
+	"os"
+	"time"
 
+	libtime "github.com/bborbe/time"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -184,6 +189,131 @@ var _ = Describe("ListOperation", func() {
 
 		It("returns error", func() {
 			Expect(err).NotTo(BeNil())
+		})
+	})
+})
+
+var _ = Describe("ListOperation JSON output", func() {
+	var ctx context.Context
+	var listOp ops.ListOperation
+	var mockStorage *mocks.Storage
+	var capturedOutput []byte
+
+	captureStdout := func(fn func()) []byte {
+		r, w, err := os.Pipe()
+		Expect(err).To(BeNil())
+		orig := os.Stdout
+		os.Stdout = w
+		fn()
+		w.Close()
+		os.Stdout = orig
+		data, err := io.ReadAll(r)
+		Expect(err).To(BeNil())
+		return data
+	}
+
+	BeforeEach(func() {
+		ctx = context.Background()
+		mockStorage = &mocks.Storage{}
+		listOp = ops.NewListOperation(mockStorage)
+	})
+
+	Context("with all enriched fields populated", func() {
+		BeforeEach(func() {
+			deferDate := libtime.ToDate(time.Date(2026, 3, 15, 0, 0, 0, 0, time.UTC))
+			plannedDate := libtime.ToDate(time.Date(2026, 3, 20, 0, 0, 0, 0, time.UTC))
+			tasks := []*domain.Task{
+				{
+					Name:            "Enriched Task",
+					Status:          domain.TaskStatusInProgress,
+					Assignee:        "alice",
+					Priority:        1,
+					PageType:        "feature",
+					Recurring:       "weekly",
+					DeferDate:       &deferDate,
+					PlannedDate:     &plannedDate,
+					ClaudeSessionID: "sess-abc123",
+					Phase:           "implementation",
+				},
+			}
+			mockStorage.ListPagesReturns(tasks, nil)
+
+			capturedOutput = captureStdout(func() {
+				err := listOp.Execute(ctx, "/vault", "my-vault", "Tasks", "", true, "", "json")
+				Expect(err).To(BeNil())
+			})
+		})
+
+		It("includes category from page_type", func() {
+			var items []ops.TaskListItem
+			Expect(json.Unmarshal(capturedOutput, &items)).To(Succeed())
+			Expect(items).To(HaveLen(1))
+			Expect(items[0].Category).To(Equal("feature"))
+		})
+
+		It("includes recurring field", func() {
+			var items []ops.TaskListItem
+			Expect(json.Unmarshal(capturedOutput, &items)).To(Succeed())
+			Expect(items[0].Recurring).To(Equal("weekly"))
+		})
+
+		It("includes defer_date formatted as YYYY-MM-DD", func() {
+			var items []ops.TaskListItem
+			Expect(json.Unmarshal(capturedOutput, &items)).To(Succeed())
+			Expect(items[0].DeferDate).To(Equal("2026-03-15"))
+		})
+
+		It("includes planned_date formatted as YYYY-MM-DD", func() {
+			var items []ops.TaskListItem
+			Expect(json.Unmarshal(capturedOutput, &items)).To(Succeed())
+			Expect(items[0].PlannedDate).To(Equal("2026-03-20"))
+		})
+
+		It("includes claude_session_id", func() {
+			var items []ops.TaskListItem
+			Expect(json.Unmarshal(capturedOutput, &items)).To(Succeed())
+			Expect(items[0].ClaudeSessionID).To(Equal("sess-abc123"))
+		})
+
+		It("includes phase", func() {
+			var items []ops.TaskListItem
+			Expect(json.Unmarshal(capturedOutput, &items)).To(Succeed())
+			Expect(items[0].Phase).To(Equal("implementation"))
+		})
+	})
+
+	Context("with optional fields empty", func() {
+		BeforeEach(func() {
+			tasks := []*domain.Task{
+				{
+					Name:   "Minimal Task",
+					Status: domain.TaskStatusTodo,
+				},
+			}
+			mockStorage.ListPagesReturns(tasks, nil)
+
+			capturedOutput = captureStdout(func() {
+				err := listOp.Execute(ctx, "/vault", "my-vault", "Tasks", "", true, "", "json")
+				Expect(err).To(BeNil())
+			})
+		})
+
+		It("omits empty optional fields from JSON", func() {
+			Expect(capturedOutput).NotTo(ContainSubstring(`"category"`))
+			Expect(capturedOutput).NotTo(ContainSubstring(`"recurring"`))
+			Expect(capturedOutput).NotTo(ContainSubstring(`"defer_date"`))
+			Expect(capturedOutput).NotTo(ContainSubstring(`"planned_date"`))
+			Expect(capturedOutput).NotTo(ContainSubstring(`"claude_session_id"`))
+			Expect(capturedOutput).NotTo(ContainSubstring(`"phase"`))
+		})
+
+		It("still includes required fields", func() {
+			var items []ops.TaskListItem
+			Expect(json.Unmarshal(capturedOutput, &items)).To(Succeed())
+			Expect(items).To(HaveLen(1))
+			Expect(items[0].Name).To(Equal("Minimal Task"))
+			Expect(items[0].Status).To(Equal("todo"))
+			Expect(items[0].Vault).To(Equal("my-vault"))
 		})
 	})
 })

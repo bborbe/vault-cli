@@ -47,11 +47,17 @@ type listOperation struct {
 
 // TaskListItem represents a task in list output.
 type TaskListItem struct {
-	Name     string `json:"name"`
-	Status   string `json:"status"`
-	Assignee string `json:"assignee,omitempty"`
-	Priority int    `json:"priority,omitempty"`
-	Vault    string `json:"vault"`
+	Name            string `json:"name"`
+	Status          string `json:"status"`
+	Assignee        string `json:"assignee,omitempty"`
+	Priority        int    `json:"priority,omitempty"`
+	Vault           string `json:"vault"`
+	Category        string `json:"category,omitempty"`
+	Recurring       string `json:"recurring,omitempty"`
+	DeferDate       string `json:"defer_date,omitempty"`
+	PlannedDate     string `json:"planned_date,omitempty"`
+	ClaudeSessionID string `json:"claude_session_id,omitempty"`
+	Phase           string `json:"phase,omitempty"`
 }
 
 // Execute lists tasks from the vault, optionally filtered by status and assignee.
@@ -93,11 +99,21 @@ func (l *listOperation) Execute(
 		items := make([]TaskListItem, len(filteredTasks))
 		for i, task := range filteredTasks {
 			items[i] = TaskListItem{
-				Name:     task.Name,
-				Status:   string(task.Status),
-				Assignee: task.Assignee,
-				Priority: int(task.Priority),
-				Vault:    vaultName,
+				Name:            task.Name,
+				Status:          string(task.Status),
+				Assignee:        task.Assignee,
+				Priority:        int(task.Priority),
+				Vault:           vaultName,
+				Category:        task.PageType,
+				Recurring:       task.Recurring,
+				ClaudeSessionID: task.ClaudeSessionID,
+				Phase:           task.Phase,
+			}
+			if task.DeferDate != nil {
+				items[i].DeferDate = task.DeferDate.Format("2006-01-02")
+			}
+			if task.PlannedDate != nil {
+				items[i].PlannedDate = task.PlannedDate.Format("2006-01-02")
 			}
 		}
 		enc := json.NewEncoder(os.Stdout)

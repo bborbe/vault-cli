@@ -81,6 +81,7 @@ func Run(ctx context.Context, args []string) error {
 	taskCmd.AddCommand(createTaskGetCommand(ctx, &configLoader, &vaultName, &outputFormat))
 	taskCmd.AddCommand(createTaskSetCommand(ctx, &configLoader, &vaultName, &outputFormat))
 	taskCmd.AddCommand(createTaskClearCommand(ctx, &configLoader, &vaultName, &outputFormat))
+	taskCmd.AddCommand(createTaskShowCommand(ctx, &configLoader, &vaultName, &outputFormat))
 	taskCmd.AddCommand(
 		createGenericSearchCommand(
 			ctx,
@@ -1093,6 +1094,49 @@ func createTaskClearCommand(
 				}
 				return PrintJSON(result)
 			}
+			return fmt.Errorf("task not found in any vault: %w", lastErr)
+		},
+	}
+}
+
+func createTaskShowCommand(
+	ctx context.Context,
+	configLoader *config.Loader,
+	vaultName *string,
+	outputFormat *string,
+) *cobra.Command {
+	return &cobra.Command{
+		Use:   "show <task-name>",
+		Short: "Show full detail for a single task",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			taskName := args[0]
+			vaults, err := getVaults(ctx, configLoader, vaultName)
+			if err != nil {
+				return fmt.Errorf("get vaults: %w", err)
+			}
+
+			// If only one vault, execute directly
+			if len(vaults) == 1 {
+				vault := vaults[0]
+				storageConfig := storage.NewConfigFromVault(vault)
+				store := storage.NewStorage(storageConfig)
+				showOp := ops.NewShowOperation(store)
+				return showOp.Execute(ctx, vault.Path, vault.Name, taskName, *outputFormat)
+			}
+
+			// Multiple vaults: try each until successful
+			var lastErr error
+			for _, vault := range vaults {
+				storageConfig := storage.NewConfigFromVault(vault)
+				store := storage.NewStorage(storageConfig)
+				showOp := ops.NewShowOperation(store)
+				if err := showOp.Execute(ctx, vault.Path, vault.Name, taskName, *outputFormat); err == nil {
+					return nil
+				}
+				lastErr = err
+			}
+
 			return fmt.Errorf("task not found in any vault: %w", lastErr)
 		},
 	}

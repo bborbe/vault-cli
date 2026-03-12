@@ -31,6 +31,7 @@ func NewClaudeSessionStarter(claudeScript string) ClaudeSessionStarter {
 	}
 	return &claudeSessionStarter{
 		claudePath: claudePath,
+		maxTurns:   -1,
 		runCmd:     defaultCommandRunner,
 	}
 }
@@ -43,6 +44,7 @@ func NewClaudeSessionStarterWithRunner(
 ) ClaudeSessionStarter {
 	return &claudeSessionStarter{
 		claudePath: claudePath,
+		maxTurns:   -1,
 		runCmd:     runCmd,
 	}
 }
@@ -58,6 +60,7 @@ func defaultCommandRunner(ctx context.Context, args []string, dir string) ([]byt
 
 type claudeSessionStarter struct {
 	claudePath string
+	maxTurns   int // -1 = no limit, >0 = limit
 	runCmd     func(ctx context.Context, args []string, dir string) ([]byte, error)
 }
 
@@ -66,7 +69,7 @@ func (c *claudeSessionStarter) StartSession(
 	prompt string,
 	cwd string,
 ) (string, error) {
-	timeoutCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
+	timeoutCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 
 	args := []string{
@@ -76,13 +79,14 @@ func (c *claudeSessionStarter) StartSession(
 		prompt,
 		"--output-format",
 		"json",
-		"--max-turns",
-		"1",
+	}
+	if c.maxTurns > 0 {
+		args = append(args, "--max-turns", fmt.Sprintf("%d", c.maxTurns))
 	}
 	output, err := c.runCmd(timeoutCtx, args, cwd)
 	if err != nil {
 		if timeoutCtx.Err() == context.DeadlineExceeded {
-			return "", fmt.Errorf("claude session start timed out after 60s")
+			return "", fmt.Errorf("claude session start timed out after 5m")
 		}
 		return "", errors.Wrap(ctx, err, "run claude")
 	}

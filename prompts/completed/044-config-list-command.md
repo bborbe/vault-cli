@@ -1,11 +1,13 @@
 ---
-status: executing
+status: completed
 spec: ["044"]
+summary: Added `vault-cli config list` command with plain and JSON output, JSON tags to Vault struct
 container: vault-cli-044-config-list-command
 dark-factory-version: v0.54.0
 created: "2026-03-12T17:00:00Z"
 queued: "2026-03-12T16:56:57Z"
 started: "2026-03-12T16:57:04Z"
+completed: "2026-03-12T17:00:22Z"
 ---
 <summary>
 - Add `vault-cli config list` command that outputs all vault configurations

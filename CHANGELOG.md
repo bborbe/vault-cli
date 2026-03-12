@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.20.1
+
+- fix: Redirect warning messages from stdout to stderr in storage layer to avoid corrupting JSON output
+
 ## v0.20.0
 
 - feat: Add `vault-cli task watch` streaming command that emits newline-delimited JSON events on stdout when task, goal, theme, or objective files change

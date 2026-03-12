@@ -186,7 +186,7 @@ func (m *markdownStorage) ListTasks(
 		task, err := m.readTaskFromPath(ctx, filePath, fileName)
 		if err != nil {
 			// Log error but continue with other tasks
-			fmt.Printf("Warning: failed to read task %s: %v\n", fileName, err)
+			fmt.Fprintf(os.Stderr, "Warning: failed to read task %s: %v\n", fileName, err)
 			continue
 		}
 
@@ -224,7 +224,7 @@ func (m *markdownStorage) ListPages(
 		task, err := m.readTaskFromPath(ctx, filePath, fileName)
 		if err != nil {
 			// Log error but continue with other tasks
-			fmt.Printf("Warning: failed to read page %s: %v\n", fileName, err)
+			fmt.Fprintf(os.Stderr, "Warning: failed to read page %s: %v\n", fileName, err)
 			continue
 		}
 

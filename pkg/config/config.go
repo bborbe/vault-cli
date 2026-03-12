@@ -22,14 +22,14 @@ type Config struct {
 
 // Vault represents a single vault configuration.
 type Vault struct {
-	Path          string `yaml:"path"`
-	Name          string `yaml:"name"`
-	TasksDir      string `yaml:"tasks_dir,omitempty"`
-	GoalsDir      string `yaml:"goals_dir,omitempty"`
-	ThemesDir     string `yaml:"themes_dir,omitempty"`
-	ObjectivesDir string `yaml:"objectives_dir,omitempty"`
-	VisionDir     string `yaml:"vision_dir,omitempty"`
-	DailyDir      string `yaml:"daily_dir,omitempty"`
+	Path          string `yaml:"path"                     json:"path"`
+	Name          string `yaml:"name"                     json:"name"`
+	TasksDir      string `yaml:"tasks_dir,omitempty"      json:"tasks_dir,omitempty"`
+	GoalsDir      string `yaml:"goals_dir,omitempty"      json:"goals_dir,omitempty"`
+	ThemesDir     string `yaml:"themes_dir,omitempty"     json:"themes_dir,omitempty"`
+	ObjectivesDir string `yaml:"objectives_dir,omitempty" json:"objectives_dir,omitempty"`
+	VisionDir     string `yaml:"vision_dir,omitempty"     json:"vision_dir,omitempty"`
+	DailyDir      string `yaml:"daily_dir,omitempty"      json:"daily_dir,omitempty"`
 }
 
 // GetTasksDir returns the tasks directory, defaulting to "Tasks" if not set.

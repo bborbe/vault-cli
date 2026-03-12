@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## v0.14.0
+
+- feat: Add `vault-cli config list` command to list configured vaults with plain and JSON output formats
+
 ## v0.13.0
 
 - feat: Add `--version` flag to `vault-cli` reporting the installed build version (git tag or "dev")

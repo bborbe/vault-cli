@@ -98,6 +98,13 @@ func Run(ctx context.Context, args []string) error {
 	rootCmd.AddCommand(createObjectiveCommands(ctx, &configLoader, &vaultName, &outputFormat))
 	rootCmd.AddCommand(createVisionCommands(ctx, &configLoader, &vaultName, &outputFormat))
 
+	configCmd := &cobra.Command{
+		Use:   "config",
+		Short: "Configuration management",
+	}
+	configCmd.AddCommand(createConfigListCommand(ctx, &configLoader, &vaultName, &outputFormat))
+	rootCmd.AddCommand(configCmd)
+
 	rootCmd.SetArgs(args)
 	return rootCmd.ExecuteContext(ctx)
 }
@@ -1057,6 +1064,34 @@ func createTaskClearCommand(
 				return PrintJSON(result)
 			}
 			return fmt.Errorf("task not found in any vault: %w", lastErr)
+		},
+	}
+}
+
+func createConfigListCommand(
+	ctx context.Context,
+	configLoader *config.Loader,
+	vaultName *string,
+	outputFormat *string,
+) *cobra.Command {
+	return &cobra.Command{
+		Use:   "list",
+		Short: "List configured vaults",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			vaults, err := getVaults(ctx, configLoader, vaultName)
+			if err != nil {
+				return fmt.Errorf("get vaults: %w", err)
+			}
+
+			if *outputFormat == OutputFormatJSON {
+				return PrintJSON(vaults)
+			}
+
+			for _, vault := range vaults {
+				fmt.Printf("%s\t%s\n", vault.Name, vault.Path)
+			}
+			return nil
 		},
 	}
 }

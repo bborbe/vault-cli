@@ -1,7 +1,12 @@
 ---
-status: approved
+status: completed
+summary: Updated pkg/cli/cli.go to construct per-domain storage instances (NewTaskStorage, NewGoalStorage, NewDailyNoteStorage, NewPageStorage, NewDecisionStorage) and pass them as narrow interfaces to all ops constructors, replacing the temporary storage.NewStorage pattern throughout all command wiring functions.
+container: vault-cli-060-update-cli-wiring
+dark-factory-version: v0.54.0
 created: "2026-03-16T11:03:00Z"
 queued: "2026-03-16T12:09:47Z"
+started: "2026-03-16T12:36:28Z"
+completed: "2026-03-16T12:44:37Z"
 ---
 
 <summary>

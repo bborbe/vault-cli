@@ -139,7 +139,7 @@ func createCompleteCommand(
 				vault := vaults[0]
 				storageConfig := storage.NewConfigFromVault(vault)
 				store := storage.NewStorage(storageConfig)
-				completeOp := ops.NewCompleteOperation(store, currentDateTime)
+				completeOp := ops.NewCompleteOperation(store, store, store, currentDateTime)
 				return completeOp.Execute(ctx, vault.Path, taskName, vault.Name, *outputFormat)
 			}
 
@@ -148,7 +148,7 @@ func createCompleteCommand(
 			for _, vault := range vaults {
 				storageConfig := storage.NewConfigFromVault(vault)
 				store := storage.NewStorage(storageConfig)
-				completeOp := ops.NewCompleteOperation(store, currentDateTime)
+				completeOp := ops.NewCompleteOperation(store, store, store, currentDateTime)
 				if err := completeOp.Execute(ctx, vault.Path, taskName, vault.Name, *outputFormat); err == nil {
 					return nil
 				}
@@ -199,7 +199,7 @@ Date formats:
 				vault := vaults[0]
 				storageConfig := storage.NewConfigFromVault(vault)
 				store := storage.NewStorage(storageConfig)
-				deferOp := ops.NewDeferOperation(store, currentDateTime)
+				deferOp := ops.NewDeferOperation(store, store, currentDateTime)
 				return deferOp.Execute(
 					ctx,
 					vault.Path,
@@ -215,7 +215,7 @@ Date formats:
 			for _, vault := range vaults {
 				storageConfig := storage.NewConfigFromVault(vault)
 				store := storage.NewStorage(storageConfig)
-				deferOp := ops.NewDeferOperation(store, currentDateTime)
+				deferOp := ops.NewDeferOperation(store, store, currentDateTime)
 				if err := deferOp.Execute(ctx, vault.Path, taskName, dateStr, vault.Name, *outputFormat); err == nil {
 					return nil
 				}
@@ -251,7 +251,7 @@ func createUpdateCommand(
 				vault := vaults[0]
 				storageConfig := storage.NewConfigFromVault(vault)
 				store := storage.NewStorage(storageConfig)
-				updateOp := ops.NewUpdateOperation(store)
+				updateOp := ops.NewUpdateOperation(store, store)
 				return updateOp.Execute(ctx, vault.Path, taskName, vault.Name, *outputFormat)
 			}
 
@@ -260,7 +260,7 @@ func createUpdateCommand(
 			for _, vault := range vaults {
 				storageConfig := storage.NewConfigFromVault(vault)
 				store := storage.NewStorage(storageConfig)
-				updateOp := ops.NewUpdateOperation(store)
+				updateOp := ops.NewUpdateOperation(store, store)
 				if err := updateOp.Execute(ctx, vault.Path, taskName, vault.Name, *outputFormat); err == nil {
 					return nil
 				}
@@ -311,7 +311,7 @@ func createWorkOnCommand(
 				resumer := ops.NewClaudeResumer(vault.GetClaudeScript())
 				storageConfig := storage.NewConfigFromVault(vault)
 				store := storage.NewStorage(storageConfig)
-				workOnOp := ops.NewWorkOnOperation(store, currentDateTime, starter, resumer)
+				workOnOp := ops.NewWorkOnOperation(store, store, currentDateTime, starter, resumer)
 				return workOnOp.Execute(
 					ctx,
 					vault.Path,
@@ -329,7 +329,7 @@ func createWorkOnCommand(
 				resumer := ops.NewClaudeResumer(vault.GetClaudeScript())
 				storageConfig := storage.NewConfigFromVault(vault)
 				store := storage.NewStorage(storageConfig)
-				workOnOp := ops.NewWorkOnOperation(store, currentDateTime, starter, resumer)
+				workOnOp := ops.NewWorkOnOperation(store, store, currentDateTime, starter, resumer)
 				if err := workOnOp.Execute(ctx, vault.Path, taskName, currentUser, vault.Name, *outputFormat, isInteractive); err == nil {
 					return nil
 				}

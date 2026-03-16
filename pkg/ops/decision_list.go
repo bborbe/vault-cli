@@ -31,12 +31,12 @@ type DecisionListOperation interface {
 }
 
 // NewDecisionListOperation creates a new decision list operation.
-func NewDecisionListOperation(storage storage.Storage) DecisionListOperation {
-	return &decisionListOperation{storage: storage}
+func NewDecisionListOperation(decisionStorage storage.DecisionStorage) DecisionListOperation {
+	return &decisionListOperation{decisionStorage: decisionStorage}
 }
 
 type decisionListOperation struct {
-	storage storage.Storage
+	decisionStorage storage.DecisionStorage
 }
 
 // DecisionListItem represents a decision in list output.
@@ -59,7 +59,7 @@ func (d *decisionListOperation) Execute(
 	showAll bool,
 	outputFormat string,
 ) error {
-	decisions, err := d.storage.ListDecisions(ctx, vaultPath)
+	decisions, err := d.decisionStorage.ListDecisions(ctx, vaultPath)
 	if err != nil {
 		return errors.Wrap(ctx, err, "list decisions")
 	}

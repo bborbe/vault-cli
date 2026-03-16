@@ -39,7 +39,13 @@ var _ = Describe("WorkOnOperation", func() {
 		mockResumer = &mocks.ClaudeResumer{}
 		currentDateTime := libtime.NewCurrentDateTime()
 		currentDateTime.SetNow(libtimetest.ParseDateTime("2026-03-03T12:00:00Z"))
-		workOnOp = ops.NewWorkOnOperation(mockStorage, currentDateTime, mockStarter, mockResumer)
+		workOnOp = ops.NewWorkOnOperation(
+			mockStorage,
+			mockStorage,
+			currentDateTime,
+			mockStarter,
+			mockResumer,
+		)
 		vaultPath = "/path/to/vault"
 		taskName = "my-task"
 		assignee = "user@example.com"
@@ -102,7 +108,7 @@ var _ = Describe("WorkOnOperation", func() {
 		BeforeEach(func() {
 			currentDateTime := libtime.NewCurrentDateTime()
 			currentDateTime.SetNow(libtimetest.ParseDateTime("2026-03-03T12:00:00Z"))
-			workOnOp = ops.NewWorkOnOperation(mockStorage, currentDateTime, nil, nil)
+			workOnOp = ops.NewWorkOnOperation(mockStorage, mockStorage, currentDateTime, nil, nil)
 		})
 
 		It("returns no error", func() {

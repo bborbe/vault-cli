@@ -31,15 +31,18 @@ type UpdateOperation interface {
 
 // NewUpdateOperation creates a new update operation.
 func NewUpdateOperation(
-	storage storage.Storage,
+	taskStorage storage.TaskStorage,
+	goalStorage storage.GoalStorage,
 ) UpdateOperation {
 	return &updateOperation{
-		storage: storage,
+		taskStorage: taskStorage,
+		goalStorage: goalStorage,
 	}
 }
 
 type updateOperation struct {
-	storage storage.Storage
+	taskStorage storage.TaskStorage
+	goalStorage storage.GoalStorage
 }
 
 // Execute syncs checkbox progress from the task content.
@@ -52,7 +55,7 @@ func (u *updateOperation) Execute(
 ) error {
 	var warnings []string
 
-	task, err := u.storage.FindTaskByName(ctx, vaultPath, taskName)
+	task, err := u.taskStorage.FindTaskByName(ctx, vaultPath, taskName)
 	if err != nil {
 		u.outputErrorJSON(outputFormat, err)
 		return errors.Wrap(ctx, err, "find task")
@@ -66,7 +69,7 @@ func (u *updateOperation) Execute(
 	completed, total := u.countCompleted(checkboxes)
 	task.Status = u.statusFromProgress(completed, total)
 
-	if err := u.storage.WriteTask(ctx, task); err != nil {
+	if err := u.taskStorage.WriteTask(ctx, task); err != nil {
 		u.outputErrorJSON(outputFormat, err)
 		return errors.Wrap(ctx, err, "write task")
 	}
@@ -209,7 +212,7 @@ func (u *updateOperation) syncGoalCheckboxes(
 	goalName string,
 	taskCheckboxes []domain.CheckboxItem,
 ) error {
-	goal, err := u.storage.FindGoalByName(ctx, vaultPath, goalName)
+	goal, err := u.goalStorage.FindGoalByName(ctx, vaultPath, goalName)
 	if err != nil {
 		return errors.Wrap(ctx, err, "find goal")
 	}
@@ -241,7 +244,7 @@ func (u *updateOperation) syncGoalCheckboxes(
 
 	// Update goal content and write
 	goal.Content = strings.Join(lines, "\n")
-	if err := u.storage.WriteGoal(ctx, goal); err != nil {
+	if err := u.goalStorage.WriteGoal(ctx, goal); err != nil {
 		return errors.Wrap(ctx, err, "write goal")
 	}
 

@@ -30,7 +30,7 @@ var _ = Describe("UpdateOperation", func() {
 	BeforeEach(func() {
 		ctx = context.Background()
 		mockStorage = &mocks.Storage{}
-		updateOp = ops.NewUpdateOperation(mockStorage)
+		updateOp = ops.NewUpdateOperation(mockStorage, mockStorage)
 		vaultPath = "/path/to/vault"
 		taskName = "my-task"
 		outputFormat = "plain" // default

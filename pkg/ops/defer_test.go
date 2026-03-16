@@ -36,7 +36,7 @@ var _ = Describe("DeferOperation", func() {
 		mockStorage = &mocks.Storage{}
 		currentDateTime := libtime.NewCurrentDateTime()
 		currentDateTime.SetNow(libtimetest.ParseDateTime("2026-03-03T12:00:00Z"))
-		deferOp = ops.NewDeferOperation(mockStorage, currentDateTime)
+		deferOp = ops.NewDeferOperation(mockStorage, mockStorage, currentDateTime)
 		vaultPath = "/path/to/vault"
 		taskName = "my-task"
 		dateStr = "+7d"

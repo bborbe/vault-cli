@@ -34,18 +34,21 @@ type DeferOperation interface {
 
 // NewDeferOperation creates a new defer operation.
 func NewDeferOperation(
-	storage storage.Storage,
+	taskStorage storage.TaskStorage,
+	dailyNoteStorage storage.DailyNoteStorage,
 	currentDateTime libtime.CurrentDateTime,
 ) DeferOperation {
 	return &deferOperation{
-		storage:         storage,
-		currentDateTime: currentDateTime,
+		taskStorage:      taskStorage,
+		dailyNoteStorage: dailyNoteStorage,
+		currentDateTime:  currentDateTime,
 	}
 }
 
 type deferOperation struct {
-	storage         storage.Storage
-	currentDateTime libtime.CurrentDateTime
+	taskStorage      storage.TaskStorage
+	dailyNoteStorage storage.DailyNoteStorage
+	currentDateTime  libtime.CurrentDateTime
 }
 
 // Execute defers a task to a specific date.
@@ -106,7 +109,7 @@ func (d *deferOperation) findAndDeferTask(
 	targetDate libtime.Date,
 	format string,
 ) (*domain.Task, error) {
-	task, err := d.storage.FindTaskByName(ctx, vaultPath, taskName)
+	task, err := d.taskStorage.FindTaskByName(ctx, vaultPath, taskName)
 	if err != nil {
 		return nil, d.returnError(ctx, err, "find task", format)
 	}
@@ -117,7 +120,7 @@ func (d *deferOperation) findAndDeferTask(
 		task.PlannedDate = nil
 	}
 
-	if err := d.storage.WriteTask(ctx, task); err != nil {
+	if err := d.taskStorage.WriteTask(ctx, task); err != nil {
 		return nil, d.returnError(ctx, err, "write task", format)
 	}
 	return task, nil
@@ -226,7 +229,7 @@ func (d *deferOperation) removeFromDailyNote(
 	date string,
 	taskName string,
 ) error {
-	content, err := d.storage.ReadDailyNote(ctx, vaultPath, date)
+	content, err := d.dailyNoteStorage.ReadDailyNote(ctx, vaultPath, date)
 	if err != nil {
 		return errors.Wrap(ctx, err, "read daily note")
 	}
@@ -250,7 +253,7 @@ func (d *deferOperation) removeFromDailyNote(
 	}
 
 	updatedContent := strings.Join(filteredLines, "\n")
-	if err := d.storage.WriteDailyNote(ctx, vaultPath, date, updatedContent); err != nil {
+	if err := d.dailyNoteStorage.WriteDailyNote(ctx, vaultPath, date, updatedContent); err != nil {
 		return errors.Wrap(ctx, err, "write daily note")
 	}
 
@@ -264,7 +267,7 @@ func (d *deferOperation) addToDailyNote(
 	date string,
 	taskName string,
 ) error {
-	content, err := d.storage.ReadDailyNote(ctx, vaultPath, date)
+	content, err := d.dailyNoteStorage.ReadDailyNote(ctx, vaultPath, date)
 	if err != nil {
 		return errors.Wrap(ctx, err, "read daily note")
 	}
@@ -275,7 +278,7 @@ func (d *deferOperation) addToDailyNote(
 	// If content is empty, create a basic daily note structure with Should section
 	if content == "" {
 		content = fmt.Sprintf("# %s\n\n## Should\n\n%s\n", date, taskLine)
-		return d.storage.WriteDailyNote(ctx, vaultPath, date, content)
+		return d.dailyNoteStorage.WriteDailyNote(ctx, vaultPath, date, content)
 	}
 
 	// Check if task already exists
@@ -286,7 +289,7 @@ func (d *deferOperation) addToDailyNote(
 	// Insert task into appropriate section
 	updatedContent := d.insertTaskIntoSection(content, taskLine)
 
-	return d.storage.WriteDailyNote(ctx, vaultPath, date, updatedContent)
+	return d.dailyNoteStorage.WriteDailyNote(ctx, vaultPath, date, updatedContent)
 }
 
 // insertTaskIntoSection inserts a task into the appropriate section.

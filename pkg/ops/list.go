@@ -34,15 +34,15 @@ type ListOperation interface {
 
 // NewListOperation creates a new list operation.
 func NewListOperation(
-	storage storage.Storage,
+	pageStorage storage.PageStorage,
 ) ListOperation {
 	return &listOperation{
-		storage: storage,
+		pageStorage: pageStorage,
 	}
 }
 
 type listOperation struct {
-	storage storage.Storage
+	pageStorage storage.PageStorage
 }
 
 // TaskListItem represents a task in list output.
@@ -72,7 +72,7 @@ func (l *listOperation) Execute(
 	outputFormat string,
 ) error {
 	// Read all tasks/pages from the specified directory
-	tasks, err := l.storage.ListPages(ctx, vaultPath, pagesDir)
+	tasks, err := l.pageStorage.ListPages(ctx, vaultPath, pagesDir)
 	if err != nil {
 		return errors.Wrap(ctx, err, "list pages")
 	}

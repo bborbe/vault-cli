@@ -33,18 +33,24 @@ type CompleteOperation interface {
 
 // NewCompleteOperation creates a new complete operation.
 func NewCompleteOperation(
-	storage storage.Storage,
+	taskStorage storage.TaskStorage,
+	goalStorage storage.GoalStorage,
+	dailyNoteStorage storage.DailyNoteStorage,
 	currentDateTime libtime.CurrentDateTime,
 ) CompleteOperation {
 	return &completeOperation{
-		storage:         storage,
-		currentDateTime: currentDateTime,
+		taskStorage:      taskStorage,
+		goalStorage:      goalStorage,
+		dailyNoteStorage: dailyNoteStorage,
+		currentDateTime:  currentDateTime,
 	}
 }
 
 type completeOperation struct {
-	storage         storage.Storage
-	currentDateTime libtime.CurrentDateTime
+	taskStorage      storage.TaskStorage
+	goalStorage      storage.GoalStorage
+	dailyNoteStorage storage.DailyNoteStorage
+	currentDateTime  libtime.CurrentDateTime
 }
 
 // MutationResult represents the result of a mutation operation.
@@ -78,7 +84,7 @@ func (c *completeOperation) Execute(
 	var warnings []string
 
 	// Find and read the task
-	task, err := c.storage.FindTaskByName(ctx, vaultPath, taskName)
+	task, err := c.taskStorage.FindTaskByName(ctx, vaultPath, taskName)
 	if err != nil {
 		if outputFormat == "json" {
 			result := MutationResult{
@@ -106,7 +112,7 @@ func (c *completeOperation) Execute(
 	task.Status = domain.TaskStatusCompleted
 
 	// Write updated task
-	if err := c.storage.WriteTask(ctx, task); err != nil {
+	if err := c.taskStorage.WriteTask(ctx, task); err != nil {
 		if outputFormat == "json" {
 			result := MutationResult{
 				Success: false,
@@ -239,7 +245,7 @@ func (c *completeOperation) handleRecurringTask(
 	// 5. Status remains as-is (do NOT set to completed)
 
 	// Write updated task
-	if err := c.storage.WriteTask(ctx, task); err != nil {
+	if err := c.taskStorage.WriteTask(ctx, task); err != nil {
 		if outputFormat == "json" {
 			result := RecurringMutationResult{
 				Success:   false,
@@ -346,7 +352,7 @@ func (c *completeOperation) markGoalCheckbox(
 	goalName string,
 	taskName string,
 ) error {
-	goal, err := c.storage.FindGoalByName(ctx, vaultPath, goalName)
+	goal, err := c.goalStorage.FindGoalByName(ctx, vaultPath, goalName)
 	if err != nil {
 		return errors.Wrap(ctx, err, "find goal")
 	}
@@ -373,7 +379,7 @@ func (c *completeOperation) markGoalCheckbox(
 	goal.Content = strings.Join(lines, "\n")
 
 	// Write updated goal
-	if err := c.storage.WriteGoal(ctx, goal); err != nil {
+	if err := c.goalStorage.WriteGoal(ctx, goal); err != nil {
 		return errors.Wrap(ctx, err, "write goal")
 	}
 
@@ -388,7 +394,7 @@ func (c *completeOperation) updateDailyNote(
 	taskName string,
 	checked bool,
 ) error {
-	content, err := c.storage.ReadDailyNote(ctx, vaultPath, date)
+	content, err := c.dailyNoteStorage.ReadDailyNote(ctx, vaultPath, date)
 	if err != nil {
 		return errors.Wrap(ctx, err, "read daily note")
 	}
@@ -425,7 +431,7 @@ func (c *completeOperation) updateDailyNote(
 
 	// Write updated daily note
 	updatedContent := strings.Join(lines, "\n")
-	if err := c.storage.WriteDailyNote(ctx, vaultPath, date, updatedContent); err != nil {
+	if err := c.dailyNoteStorage.WriteDailyNote(ctx, vaultPath, date, updatedContent); err != nil {
 		return errors.Wrap(ctx, err, "write daily note")
 	}
 

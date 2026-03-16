@@ -450,8 +450,7 @@ page_type: goal
 		var themesDir string
 
 		BeforeEach(func() {
-			// Note: ReadTheme hardcodes "Themes" directory, not config.ThemesDir
-			themesDir = filepath.Join(vaultPath, "Themes")
+			themesDir = filepath.Join(vaultPath, "21 Themes")
 			Expect(os.MkdirAll(themesDir, 0755)).To(Succeed())
 		})
 

@@ -17,9 +17,9 @@ import (
 	"github.com/bborbe/vault-cli/pkg/storage"
 )
 
-//counterfeiter:generate -o ../../mocks/show-operation.go --fake-name ShowOperation . ShowOperation
-
 // ShowOperation returns full detail for a single task.
+//
+//counterfeiter:generate -o ../../mocks/show-operation.go --fake-name ShowOperation . ShowOperation
 type ShowOperation interface {
 	Execute(
 		ctx context.Context,

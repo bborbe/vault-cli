@@ -25,7 +25,7 @@ func (t *themeStorage) ReadTheme(
 	vaultPath string,
 	themeID domain.ThemeID,
 ) (*domain.Theme, error) {
-	filePath := filepath.Join(vaultPath, "Themes", themeID.String()+".md")
+	filePath := filepath.Join(vaultPath, t.config.ThemesDir, themeID.String()+".md")
 	return t.readThemeFromPath(ctx, filePath, themeID.String())
 }
 

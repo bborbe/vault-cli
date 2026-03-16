@@ -33,9 +33,9 @@ type WatchEvent struct {
 	Path  string `json:"path"`
 }
 
-//counterfeiter:generate -o ../../mocks/watch-operation.go --fake-name WatchOperation . WatchOperation
-
 // WatchOperation watches vault directories and streams change events.
+//
+//counterfeiter:generate -o ../../mocks/watch-operation.go --fake-name WatchOperation . WatchOperation
 type WatchOperation interface {
 	Execute(ctx context.Context, vaults []WatchTarget) error
 }

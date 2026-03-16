@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.27.4
+
+- fix: ReadTheme uses configured ThemesDir instead of hardcoded "Themes" path
+- fix: Remove blank line between counterfeiter directives and interface declarations in show.go and watch.go
+
 ## v0.27.3
 
 - refactor: Extract duplicated multi-vault try-each-until-success loop into VaultDispatcher in pkg/ops and replace all 9 vault loops in CLI commands with dispatcher calls

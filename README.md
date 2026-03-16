@@ -130,6 +130,19 @@ vault-cli config list          # List configured vaults
 vault-cli config current-user  # Print the current user
 ```
 
+## Shell Completion
+
+```bash
+# Zsh
+source <(vault-cli completion zsh)
+
+# Bash
+source <(vault-cli completion bash)
+
+# Fish
+vault-cli completion fish | source
+```
+
 ## Development
 
 ```bash

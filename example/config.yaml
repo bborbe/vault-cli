@@ -1,0 +1,11 @@
+current_user: alice
+default_vault: example
+vaults:
+  example:
+    path: __VAULT_PATH__
+    name: example
+    tasks_dir: "24 Tasks"
+    goals_dir: "23 Goals"
+    objectives_dir: "22 Objectives"
+    themes_dir: "21 Themes"
+    vision_dir: "20 Vision"

@@ -1,8 +1,10 @@
 ---
+status: approved
 tags:
-  - dark-factory
-  - spec
-status: draft
+    - dark-factory
+    - spec
+approved: "2026-03-16T10:19:12Z"
+branch: dark-factory/decision-list-ack
 ---
 
 ## Summary

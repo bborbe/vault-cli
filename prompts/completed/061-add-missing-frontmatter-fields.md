@@ -1,10 +1,12 @@
 ---
-status: executing
+status: completed
+summary: Added planned_date, recurring, last_completed, page_type, goals, and tags fields to frontmatter get/set/clear operations with full test coverage, extracting helper functions to keep cognitive complexity within linter limits.
 container: vault-cli-061-add-missing-frontmatter-fields
 dark-factory-version: v0.55.1
 created: "2026-03-16T13:00:00Z"
 queued: "2026-03-16T13:34:12Z"
 started: "2026-03-16T13:34:23Z"
+completed: "2026-03-16T13:39:53Z"
 ---
 
 <summary>

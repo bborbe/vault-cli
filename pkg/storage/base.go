@@ -147,6 +147,21 @@ func (b *baseStorage) readTaskFromPath(
 	return task, nil
 }
 
+// isExcluded returns true when the given path falls under an excluded directory prefix.
+func (b *baseStorage) isExcluded(vaultPath, path string) bool {
+	rel, err := filepath.Rel(vaultPath, path)
+	if err != nil {
+		return false
+	}
+	relSlash := filepath.ToSlash(rel)
+	for _, exclude := range b.config.Excludes {
+		if strings.HasPrefix(relSlash, exclude) {
+			return true
+		}
+	}
+	return false
+}
+
 // isSymlinkOutsideVault returns true when path is a symlink resolving outside vaultPath.
 func isSymlinkOutsideVault(path, vaultPath string) bool {
 	resolved, err := filepath.EvalSymlinks(path)

@@ -22,15 +22,16 @@ type Config struct {
 
 // Vault represents a single vault configuration.
 type Vault struct {
-	Path          string `yaml:"path"                     json:"path"`
-	Name          string `yaml:"name"                     json:"name"`
-	TasksDir      string `yaml:"tasks_dir,omitempty"      json:"tasks_dir,omitempty"`
-	GoalsDir      string `yaml:"goals_dir,omitempty"      json:"goals_dir,omitempty"`
-	ThemesDir     string `yaml:"themes_dir,omitempty"     json:"themes_dir,omitempty"`
-	ObjectivesDir string `yaml:"objectives_dir,omitempty" json:"objectives_dir,omitempty"`
-	VisionDir     string `yaml:"vision_dir,omitempty"     json:"vision_dir,omitempty"`
-	DailyDir      string `yaml:"daily_dir,omitempty"      json:"daily_dir,omitempty"`
-	ClaudeScript  string `yaml:"claude_script,omitempty"  json:"claude_script,omitempty"`
+	Path          string   `yaml:"path"                     json:"path"`
+	Name          string   `yaml:"name"                     json:"name"`
+	TasksDir      string   `yaml:"tasks_dir,omitempty"      json:"tasks_dir,omitempty"`
+	GoalsDir      string   `yaml:"goals_dir,omitempty"      json:"goals_dir,omitempty"`
+	ThemesDir     string   `yaml:"themes_dir,omitempty"     json:"themes_dir,omitempty"`
+	ObjectivesDir string   `yaml:"objectives_dir,omitempty" json:"objectives_dir,omitempty"`
+	VisionDir     string   `yaml:"vision_dir,omitempty"     json:"vision_dir,omitempty"`
+	DailyDir      string   `yaml:"daily_dir,omitempty"      json:"daily_dir,omitempty"`
+	ClaudeScript  string   `yaml:"claude_script,omitempty"  json:"claude_script,omitempty"`
+	Excludes      []string `yaml:"excludes,omitempty"       json:"excludes,omitempty"`
 }
 
 // GetTasksDir returns the tasks directory, defaulting to "Tasks" if not set.
@@ -79,6 +80,11 @@ func (v *Vault) GetDailyDir() string {
 		return v.DailyDir
 	}
 	return "Daily Notes"
+}
+
+// GetExcludes returns the list of excluded directory prefixes.
+func (v *Vault) GetExcludes() []string {
+	return v.Excludes
 }
 
 // GetClaudeScript returns the claude script to use for sessions, defaulting to "claude" if not set.

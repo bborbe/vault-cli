@@ -19,6 +19,7 @@ type Config struct {
 	ObjectivesDir string
 	VisionDir     string
 	DailyDir      string
+	Excludes      []string
 }
 
 // NewConfigFromVault creates a Config from a Vault.
@@ -30,6 +31,7 @@ func NewConfigFromVault(vault *config.Vault) *Config {
 		ObjectivesDir: vault.GetObjectivesDir(),
 		VisionDir:     vault.GetVisionDir(),
 		DailyDir:      vault.GetDailyDir(),
+		Excludes:      vault.GetExcludes(),
 	}
 }
 

@@ -125,6 +125,84 @@ Some architectural decision.
 			_, err := store.ListDecisions(ctx, "/nonexistent/vault/path")
 			Expect(err).NotTo(BeNil())
 		})
+
+		It("skips files in excluded directories", func() {
+			templatesDir := filepath.Join(vaultPath, "90 Templates")
+			Expect(os.MkdirAll(templatesDir, 0755)).To(Succeed())
+
+			reviewContent := `---
+needs_review: true
+type: template
+---
+# Template Decision
+`
+			normalContent := `---
+needs_review: true
+type: architecture
+---
+# Normal Decision
+`
+			Expect(
+				os.WriteFile(
+					filepath.Join(templatesDir, "Template.md"),
+					[]byte(reviewContent),
+					0600,
+				),
+			).To(Succeed())
+			Expect(
+				os.WriteFile(filepath.Join(vaultPath, "Normal.md"), []byte(normalContent), 0600),
+			).To(Succeed())
+
+			storeWithExcludes := storage.NewStorage(&storage.Config{
+				Excludes: []string{"90 Templates"},
+			})
+			decisions, err := storeWithExcludes.ListDecisions(ctx, vaultPath)
+			Expect(err).To(BeNil())
+			Expect(decisions).To(HaveLen(1))
+			Expect(decisions[0].Name).To(Equal("Normal"))
+		})
+
+		It("returns all files when excludes list is empty", func() {
+			subDir := filepath.Join(vaultPath, "90 Templates")
+			Expect(os.MkdirAll(subDir, 0755)).To(Succeed())
+
+			reviewContent := `---
+needs_review: true
+type: template
+---
+# Template Decision
+`
+			Expect(
+				os.WriteFile(filepath.Join(subDir, "Template.md"), []byte(reviewContent), 0600),
+			).To(Succeed())
+
+			decisions, err := store.ListDecisions(ctx, vaultPath)
+			Expect(err).To(BeNil())
+			Expect(decisions).To(HaveLen(1))
+		})
+
+		It("skips entire subtree when exclude matches parent directory", func() {
+			parentDir := filepath.Join(vaultPath, "90 Templates")
+			subDir := filepath.Join(parentDir, "sub")
+			Expect(os.MkdirAll(subDir, 0755)).To(Succeed())
+
+			reviewContent := `---
+needs_review: true
+type: template
+---
+# Nested Template
+`
+			Expect(
+				os.WriteFile(filepath.Join(subDir, "Nested.md"), []byte(reviewContent), 0600),
+			).To(Succeed())
+
+			storeWithExcludes := storage.NewStorage(&storage.Config{
+				Excludes: []string{"90 Templates"},
+			})
+			decisions, err := storeWithExcludes.ListDecisions(ctx, vaultPath)
+			Expect(err).To(BeNil())
+			Expect(decisions).To(HaveLen(0))
+		})
 	})
 
 	Describe("FindDecisionByName", func() {

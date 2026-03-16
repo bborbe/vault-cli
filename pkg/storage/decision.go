@@ -57,7 +57,13 @@ func (d *decisionStorage) ListDecisions(
 		if err != nil {
 			return err
 		}
-		if de.IsDir() || !strings.HasSuffix(path, ".md") {
+		if de.IsDir() {
+			if d.isExcluded(vaultPath, path) {
+				return fs.SkipDir
+			}
+			return nil
+		}
+		if !strings.HasSuffix(path, ".md") {
 			return nil
 		}
 		if isSymlinkOutsideVault(path, vaultPath) {

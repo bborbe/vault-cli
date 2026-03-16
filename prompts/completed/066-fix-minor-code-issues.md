@@ -1,7 +1,12 @@
 ---
-status: approved
+status: completed
+summary: Fixed ReadTheme to use configured ThemesDir instead of hardcoded 'Themes', removed blank lines between counterfeiter directives and interface declarations, and updated test to match default config directory name.
+container: vault-cli-066-fix-minor-code-issues
+dark-factory-version: v0.57.3
 created: "2026-03-16T15:19:37Z"
 queued: "2026-03-16T15:19:37Z"
+started: "2026-03-16T15:40:27Z"
+completed: "2026-03-16T15:44:23Z"
 ---
 
 <summary>

@@ -100,6 +100,7 @@ func Run(ctx context.Context, args []string) error {
 	rootCmd.AddCommand(createThemeCommands(ctx, &configLoader, &vaultName, &outputFormat))
 	rootCmd.AddCommand(createObjectiveCommands(ctx, &configLoader, &vaultName, &outputFormat))
 	rootCmd.AddCommand(createVisionCommands(ctx, &configLoader, &vaultName, &outputFormat))
+	rootCmd.AddCommand(createDecisionCommands(ctx, &configLoader, &vaultName, &outputFormat))
 
 	configCmd := &cobra.Command{
 		Use:   "config",
@@ -756,6 +757,104 @@ func createVisionCommands(
 			outputFormat,
 		),
 	)
+	return cmd
+}
+
+func createDecisionCommands(
+	ctx context.Context,
+	configLoader *config.Loader,
+	vaultName *string,
+	outputFormat *string,
+) *cobra.Command {
+	decisionCmd := &cobra.Command{
+		Use:   "decision",
+		Short: "Manage decisions in the vault",
+	}
+	decisionCmd.AddCommand(createDecisionListCommand(ctx, configLoader, vaultName, outputFormat))
+	decisionCmd.AddCommand(createDecisionAckCommand(ctx, configLoader, vaultName, outputFormat))
+	return decisionCmd
+}
+
+func createDecisionListCommand(
+	ctx context.Context,
+	configLoader *config.Loader,
+	vaultName *string,
+	outputFormat *string,
+) *cobra.Command {
+	var showReviewed bool
+	var showAll bool
+
+	cmd := &cobra.Command{
+		Use:   "list",
+		Short: "List decisions pending review",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			vaults, err := getVaults(ctx, configLoader, vaultName)
+			if err != nil {
+				return fmt.Errorf("get vaults: %w", err)
+			}
+			for _, vault := range vaults {
+				storageConfig := storage.NewConfigFromVault(vault)
+				store := storage.NewStorage(storageConfig)
+				listOp := ops.NewDecisionListOperation(store)
+				if err := listOp.Execute(ctx, vault.Path, vault.Name, showReviewed, showAll, *outputFormat); err != nil {
+					fmt.Fprintf(os.Stderr, "Warning: vault %s: %v\n", vault.Name, err)
+				}
+			}
+			return nil
+		},
+	}
+
+	cmd.Flags().BoolVar(&showReviewed, "reviewed", false, "Show only reviewed decisions")
+	cmd.Flags().BoolVar(&showAll, "all", false, "Show all decisions (reviewed and unreviewed)")
+	return cmd
+}
+
+func createDecisionAckCommand(
+	ctx context.Context,
+	configLoader *config.Loader,
+	vaultName *string,
+	outputFormat *string,
+) *cobra.Command {
+	var statusOverride string
+
+	cmd := &cobra.Command{
+		Use:   "ack <decision-name>",
+		Short: "Acknowledge a decision (mark as reviewed)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			decisionName := args[0]
+			vaults, err := getVaults(ctx, configLoader, vaultName)
+			if err != nil {
+				return fmt.Errorf("get vaults: %w", err)
+			}
+
+			currentDateTime := libtime.NewCurrentDateTime()
+
+			// Multiple vaults: try each until successful
+			var lastErr error
+			for _, vault := range vaults {
+				storageConfig := storage.NewConfigFromVault(vault)
+				store := storage.NewStorage(storageConfig)
+				ackOp := ops.NewDecisionAckOperation(store, currentDateTime)
+				err := ackOp.Execute(
+					ctx,
+					vault.Path,
+					vault.Name,
+					decisionName,
+					statusOverride,
+					*outputFormat,
+				)
+				if err == nil {
+					return nil
+				}
+				lastErr = err
+			}
+			return fmt.Errorf("decision not found in any vault: %w", lastErr)
+		},
+	}
+
+	cmd.Flags().StringVar(&statusOverride, "status", "", "Override the decision's status field")
 	return cmd
 }
 

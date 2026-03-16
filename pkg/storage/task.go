@@ -33,7 +33,7 @@ func (t *taskStorage) ReadTask(
 
 // WriteTask writes a task to a markdown file.
 func (t *taskStorage) WriteTask(ctx context.Context, task *domain.Task) error {
-	content, err := t.serializeWithFrontmatter(task, task.Content)
+	content, err := t.serializeWithFrontmatter(ctx, task, task.Content)
 	if err != nil {
 		return errors.Wrap(ctx, err, "serialize frontmatter")
 	}
@@ -52,9 +52,9 @@ func (t *taskStorage) FindTaskByName(
 	name string,
 ) (*domain.Task, error) {
 	tasksDir := filepath.Join(vaultPath, t.config.TasksDir)
-	matchedPath, matchedName, err := t.findFileByName(tasksDir, name)
+	matchedPath, matchedName, err := t.findFileByName(ctx, tasksDir, name)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(ctx, err, "find task file")
 	}
 	return t.readTaskFromPath(ctx, matchedPath, matchedName)
 }

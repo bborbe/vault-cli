@@ -45,7 +45,7 @@ func (g *goalStorage) readGoalFromPath(
 		FilePath: filePath,
 	}
 
-	if err := g.parseFrontmatter(content, goal); err != nil {
+	if err := g.parseFrontmatter(ctx, content, goal); err != nil {
 		return nil, errors.Wrap(ctx, err, "parse frontmatter")
 	}
 
@@ -57,7 +57,7 @@ func (g *goalStorage) readGoalFromPath(
 
 // WriteGoal writes a goal to a markdown file.
 func (g *goalStorage) WriteGoal(ctx context.Context, goal *domain.Goal) error {
-	content, err := g.serializeWithFrontmatter(goal, goal.Content)
+	content, err := g.serializeWithFrontmatter(ctx, goal, goal.Content)
 	if err != nil {
 		return errors.Wrap(ctx, err, "serialize frontmatter")
 	}
@@ -76,9 +76,9 @@ func (g *goalStorage) FindGoalByName(
 	name string,
 ) (*domain.Goal, error) {
 	goalsDir := filepath.Join(vaultPath, g.config.GoalsDir)
-	matchedPath, matchedName, err := g.findFileByName(goalsDir, name)
+	matchedPath, matchedName, err := g.findFileByName(ctx, goalsDir, name)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(ctx, err, "find goal file")
 	}
 	return g.readGoalFromPath(ctx, matchedPath, matchedName)
 }

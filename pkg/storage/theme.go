@@ -45,7 +45,7 @@ func (t *themeStorage) readThemeFromPath(
 		FilePath: filePath,
 	}
 
-	if err := t.parseFrontmatter(content, theme); err != nil {
+	if err := t.parseFrontmatter(ctx, content, theme); err != nil {
 		return nil, errors.Wrap(ctx, err, "parse frontmatter")
 	}
 
@@ -54,7 +54,7 @@ func (t *themeStorage) readThemeFromPath(
 
 // WriteTheme writes a theme to a markdown file.
 func (t *themeStorage) WriteTheme(ctx context.Context, theme *domain.Theme) error {
-	content, err := t.serializeWithFrontmatter(theme, theme.Content)
+	content, err := t.serializeWithFrontmatter(ctx, theme, theme.Content)
 	if err != nil {
 		return errors.Wrap(ctx, err, "serialize frontmatter")
 	}

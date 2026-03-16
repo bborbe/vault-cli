@@ -1,7 +1,12 @@
 ---
-status: approved
+status: completed
+summary: Regenerated per-domain counterfeiter mocks (TaskStorage, GoalStorage, DailyNoteStorage, PageStorage, DecisionStorage) and updated all ops test files to use narrow per-domain mock types instead of monolithic Storage mock
+container: vault-cli-059-generate-mocks-update-tests
+dark-factory-version: v0.54.0
 created: "2026-03-16T11:02:00Z"
 queued: "2026-03-16T12:09:47Z"
+started: "2026-03-16T12:25:00Z"
+completed: "2026-03-16T12:36:24Z"
 ---
 
 <summary>

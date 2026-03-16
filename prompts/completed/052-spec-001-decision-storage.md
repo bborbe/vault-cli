@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: ["001"]
+summary: Added ListDecisions, FindDecisionByName, and WriteDecision to Storage interface with recursive vault scanning, symlink guard, ambiguous-match detection, and regenerated mocks
+container: vault-cli-052-spec-001-decision-storage
+dark-factory-version: v0.54.0
 created: "2026-03-16T00:00:00Z"
 queued: "2026-03-16T10:36:41Z"
+started: "2026-03-16T10:40:31Z"
+completed: "2026-03-16T10:45:26Z"
 branch: dark-factory/decision-list-ack
 ---
 

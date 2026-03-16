@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.25.3
+
+- refactor: Split monolithic `pkg/storage/markdown.go` into per-domain files (task, goal, theme, daily_note, page, decision) with narrow interfaces and a shared `baseStorage` embedded struct
+
 ## v0.25.2
 
 - fix: Resolve vaultPath through symlinks in isSymlinkOutsideVault (macOS /tmp fix)

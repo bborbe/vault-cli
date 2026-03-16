@@ -10,6 +10,21 @@ import (
 )
 
 type Storage struct {
+	FindDecisionByNameStub        func(context.Context, string, string) (*domain.Decision, error)
+	findDecisionByNameMutex       sync.RWMutex
+	findDecisionByNameArgsForCall []struct {
+		arg1 context.Context
+		arg2 string
+		arg3 string
+	}
+	findDecisionByNameReturns struct {
+		result1 *domain.Decision
+		result2 error
+	}
+	findDecisionByNameReturnsOnCall map[int]struct {
+		result1 *domain.Decision
+		result2 error
+	}
 	FindGoalByNameStub        func(context.Context, string, string) (*domain.Goal, error)
 	findGoalByNameMutex       sync.RWMutex
 	findGoalByNameArgsForCall []struct {
@@ -38,6 +53,20 @@ type Storage struct {
 	}
 	findTaskByNameReturnsOnCall map[int]struct {
 		result1 *domain.Task
+		result2 error
+	}
+	ListDecisionsStub        func(context.Context, string) ([]*domain.Decision, error)
+	listDecisionsMutex       sync.RWMutex
+	listDecisionsArgsForCall []struct {
+		arg1 context.Context
+		arg2 string
+	}
+	listDecisionsReturns struct {
+		result1 []*domain.Decision
+		result2 error
+	}
+	listDecisionsReturnsOnCall map[int]struct {
+		result1 []*domain.Decision
 		result2 error
 	}
 	ListPagesStub        func(context.Context, string, string) ([]*domain.Task, error)
@@ -143,6 +172,18 @@ type Storage struct {
 	writeDailyNoteReturnsOnCall map[int]struct {
 		result1 error
 	}
+	WriteDecisionStub        func(context.Context, *domain.Decision) error
+	writeDecisionMutex       sync.RWMutex
+	writeDecisionArgsForCall []struct {
+		arg1 context.Context
+		arg2 *domain.Decision
+	}
+	writeDecisionReturns struct {
+		result1 error
+	}
+	writeDecisionReturnsOnCall map[int]struct {
+		result1 error
+	}
 	WriteGoalStub        func(context.Context, *domain.Goal) error
 	writeGoalMutex       sync.RWMutex
 	writeGoalArgsForCall []struct {
@@ -181,6 +222,72 @@ type Storage struct {
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
+}
+
+func (fake *Storage) FindDecisionByName(arg1 context.Context, arg2 string, arg3 string) (*domain.Decision, error) {
+	fake.findDecisionByNameMutex.Lock()
+	ret, specificReturn := fake.findDecisionByNameReturnsOnCall[len(fake.findDecisionByNameArgsForCall)]
+	fake.findDecisionByNameArgsForCall = append(fake.findDecisionByNameArgsForCall, struct {
+		arg1 context.Context
+		arg2 string
+		arg3 string
+	}{arg1, arg2, arg3})
+	stub := fake.FindDecisionByNameStub
+	fakeReturns := fake.findDecisionByNameReturns
+	fake.recordInvocation("FindDecisionByName", []interface{}{arg1, arg2, arg3})
+	fake.findDecisionByNameMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *Storage) FindDecisionByNameCallCount() int {
+	fake.findDecisionByNameMutex.RLock()
+	defer fake.findDecisionByNameMutex.RUnlock()
+	return len(fake.findDecisionByNameArgsForCall)
+}
+
+func (fake *Storage) FindDecisionByNameCalls(stub func(context.Context, string, string) (*domain.Decision, error)) {
+	fake.findDecisionByNameMutex.Lock()
+	defer fake.findDecisionByNameMutex.Unlock()
+	fake.FindDecisionByNameStub = stub
+}
+
+func (fake *Storage) FindDecisionByNameArgsForCall(i int) (context.Context, string, string) {
+	fake.findDecisionByNameMutex.RLock()
+	defer fake.findDecisionByNameMutex.RUnlock()
+	argsForCall := fake.findDecisionByNameArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *Storage) FindDecisionByNameReturns(result1 *domain.Decision, result2 error) {
+	fake.findDecisionByNameMutex.Lock()
+	defer fake.findDecisionByNameMutex.Unlock()
+	fake.FindDecisionByNameStub = nil
+	fake.findDecisionByNameReturns = struct {
+		result1 *domain.Decision
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *Storage) FindDecisionByNameReturnsOnCall(i int, result1 *domain.Decision, result2 error) {
+	fake.findDecisionByNameMutex.Lock()
+	defer fake.findDecisionByNameMutex.Unlock()
+	fake.FindDecisionByNameStub = nil
+	if fake.findDecisionByNameReturnsOnCall == nil {
+		fake.findDecisionByNameReturnsOnCall = make(map[int]struct {
+			result1 *domain.Decision
+			result2 error
+		})
+	}
+	fake.findDecisionByNameReturnsOnCall[i] = struct {
+		result1 *domain.Decision
+		result2 error
+	}{result1, result2}
 }
 
 func (fake *Storage) FindGoalByName(arg1 context.Context, arg2 string, arg3 string) (*domain.Goal, error) {
@@ -311,6 +418,71 @@ func (fake *Storage) FindTaskByNameReturnsOnCall(i int, result1 *domain.Task, re
 	}
 	fake.findTaskByNameReturnsOnCall[i] = struct {
 		result1 *domain.Task
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *Storage) ListDecisions(arg1 context.Context, arg2 string) ([]*domain.Decision, error) {
+	fake.listDecisionsMutex.Lock()
+	ret, specificReturn := fake.listDecisionsReturnsOnCall[len(fake.listDecisionsArgsForCall)]
+	fake.listDecisionsArgsForCall = append(fake.listDecisionsArgsForCall, struct {
+		arg1 context.Context
+		arg2 string
+	}{arg1, arg2})
+	stub := fake.ListDecisionsStub
+	fakeReturns := fake.listDecisionsReturns
+	fake.recordInvocation("ListDecisions", []interface{}{arg1, arg2})
+	fake.listDecisionsMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *Storage) ListDecisionsCallCount() int {
+	fake.listDecisionsMutex.RLock()
+	defer fake.listDecisionsMutex.RUnlock()
+	return len(fake.listDecisionsArgsForCall)
+}
+
+func (fake *Storage) ListDecisionsCalls(stub func(context.Context, string) ([]*domain.Decision, error)) {
+	fake.listDecisionsMutex.Lock()
+	defer fake.listDecisionsMutex.Unlock()
+	fake.ListDecisionsStub = stub
+}
+
+func (fake *Storage) ListDecisionsArgsForCall(i int) (context.Context, string) {
+	fake.listDecisionsMutex.RLock()
+	defer fake.listDecisionsMutex.RUnlock()
+	argsForCall := fake.listDecisionsArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2
+}
+
+func (fake *Storage) ListDecisionsReturns(result1 []*domain.Decision, result2 error) {
+	fake.listDecisionsMutex.Lock()
+	defer fake.listDecisionsMutex.Unlock()
+	fake.ListDecisionsStub = nil
+	fake.listDecisionsReturns = struct {
+		result1 []*domain.Decision
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *Storage) ListDecisionsReturnsOnCall(i int, result1 []*domain.Decision, result2 error) {
+	fake.listDecisionsMutex.Lock()
+	defer fake.listDecisionsMutex.Unlock()
+	fake.ListDecisionsStub = nil
+	if fake.listDecisionsReturnsOnCall == nil {
+		fake.listDecisionsReturnsOnCall = make(map[int]struct {
+			result1 []*domain.Decision
+			result2 error
+		})
+	}
+	fake.listDecisionsReturnsOnCall[i] = struct {
+		result1 []*domain.Decision
 		result2 error
 	}{result1, result2}
 }
@@ -770,6 +942,68 @@ func (fake *Storage) WriteDailyNoteReturnsOnCall(i int, result1 error) {
 		})
 	}
 	fake.writeDailyNoteReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *Storage) WriteDecision(arg1 context.Context, arg2 *domain.Decision) error {
+	fake.writeDecisionMutex.Lock()
+	ret, specificReturn := fake.writeDecisionReturnsOnCall[len(fake.writeDecisionArgsForCall)]
+	fake.writeDecisionArgsForCall = append(fake.writeDecisionArgsForCall, struct {
+		arg1 context.Context
+		arg2 *domain.Decision
+	}{arg1, arg2})
+	stub := fake.WriteDecisionStub
+	fakeReturns := fake.writeDecisionReturns
+	fake.recordInvocation("WriteDecision", []interface{}{arg1, arg2})
+	fake.writeDecisionMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *Storage) WriteDecisionCallCount() int {
+	fake.writeDecisionMutex.RLock()
+	defer fake.writeDecisionMutex.RUnlock()
+	return len(fake.writeDecisionArgsForCall)
+}
+
+func (fake *Storage) WriteDecisionCalls(stub func(context.Context, *domain.Decision) error) {
+	fake.writeDecisionMutex.Lock()
+	defer fake.writeDecisionMutex.Unlock()
+	fake.WriteDecisionStub = stub
+}
+
+func (fake *Storage) WriteDecisionArgsForCall(i int) (context.Context, *domain.Decision) {
+	fake.writeDecisionMutex.RLock()
+	defer fake.writeDecisionMutex.RUnlock()
+	argsForCall := fake.writeDecisionArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2
+}
+
+func (fake *Storage) WriteDecisionReturns(result1 error) {
+	fake.writeDecisionMutex.Lock()
+	defer fake.writeDecisionMutex.Unlock()
+	fake.WriteDecisionStub = nil
+	fake.writeDecisionReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *Storage) WriteDecisionReturnsOnCall(i int, result1 error) {
+	fake.writeDecisionMutex.Lock()
+	defer fake.writeDecisionMutex.Unlock()
+	fake.WriteDecisionStub = nil
+	if fake.writeDecisionReturnsOnCall == nil {
+		fake.writeDecisionReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.writeDecisionReturnsOnCall[i] = struct {
 		result1 error
 	}{result1}
 }

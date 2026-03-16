@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 	"regexp"
 	"strings"
@@ -74,7 +75,7 @@ func (u *updateOperation) Execute(
 		return errors.Wrap(ctx, err, "write task")
 	}
 
-	warnings = u.syncGoals(ctx, vaultPath, task.Goals, checkboxes, outputFormat, warnings)
+	warnings = u.syncGoals(ctx, vaultPath, task.Goals, checkboxes, warnings)
 
 	return u.outputUpdateResult(
 		outputFormat,
@@ -139,16 +140,13 @@ func (u *updateOperation) syncGoals(
 	vaultPath string,
 	goals []string,
 	checkboxes []domain.CheckboxItem,
-	outputFormat string,
 	warnings []string,
 ) []string {
 	for _, goalName := range goals {
 		if err := u.syncGoalCheckboxes(ctx, vaultPath, goalName, checkboxes); err != nil {
 			warning := fmt.Sprintf("failed to sync goal %s: %v", goalName, err)
 			warnings = append(warnings, warning)
-			if outputFormat == "plain" {
-				fmt.Fprintf(os.Stderr, "Warning: %s\n", warning)
-			}
+			slog.Warn("update warning", "warning", warning)
 		}
 	}
 	return warnings

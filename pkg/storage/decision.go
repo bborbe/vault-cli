@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"io/fs"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -60,18 +61,13 @@ func (d *decisionStorage) ListDecisions(
 			return nil
 		}
 		if isSymlinkOutsideVault(path, vaultPath) {
-			fmt.Fprintf(os.Stderr, "Warning: skipping symlink outside vault %s\n", path)
+			slog.Debug("skipping symlink outside vault", "path", path)
 			return nil
 		}
 
 		rel, relErr := filepath.Rel(vaultPath, path)
 		if relErr != nil {
-			fmt.Fprintf(
-				os.Stderr,
-				"Warning: failed to get relative path for %s: %v\n",
-				path,
-				relErr,
-			)
+			slog.Debug("skipping file, failed to get relative path", "path", path, "error", relErr)
 			return nil
 		}
 		name := strings.TrimSuffix(rel, ".md")
@@ -82,12 +78,7 @@ func (d *decisionStorage) ListDecisions(
 			name,
 		) //#nosec G122 -- path validated against vault root above
 		if decErr != nil {
-			fmt.Fprintf(
-				os.Stderr,
-				"Warning: failed to parse decision frontmatter %s: %v\n",
-				path,
-				decErr,
-			)
+			slog.Debug("skipping non-decision file", "path", path, "error", decErr)
 			return nil
 		}
 

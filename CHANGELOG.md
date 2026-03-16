@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.27.1
+
+- refactor: Replace fmt.Fprintf(os.Stderr) calls with log/slog structured logging; add --verbose flag to control log level (default: warn, verbose: debug)
+
 ## v0.27.0
 
 - feat: Add due_date field to Task struct and frontmatter get/set/clear operations, list JSON output, and show JSON output

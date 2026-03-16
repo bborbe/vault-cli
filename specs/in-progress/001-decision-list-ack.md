@@ -1,9 +1,10 @@
 ---
-status: approved
+status: prompted
 tags:
     - dark-factory
     - spec
 approved: "2026-03-16T10:19:12Z"
+prompted: "2026-03-16T10:23:15Z"
 branch: dark-factory/decision-list-ack
 ---
 

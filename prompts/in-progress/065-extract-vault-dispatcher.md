@@ -1,7 +1,10 @@
 ---
-status: approved
+status: executing
+container: vault-cli-065-extract-vault-dispatcher
+dark-factory-version: v0.57.3
 created: "2026-03-16T15:19:37Z"
 queued: "2026-03-16T15:19:37Z"
+started: "2026-03-16T15:34:12Z"
 ---
 
 <summary>

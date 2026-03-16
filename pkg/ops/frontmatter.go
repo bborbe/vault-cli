@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/bborbe/errors"
@@ -59,6 +60,21 @@ func (o *frontmatterGetOperation) Execute(
 			return task.DeferDate.Format("2006-01-02"), nil
 		}
 		return "", nil
+	case "planned_date":
+		if task.PlannedDate != nil {
+			return task.PlannedDate.Format("2006-01-02"), nil
+		}
+		return "", nil
+	case "recurring":
+		return task.Recurring, nil
+	case "last_completed":
+		return task.LastCompleted, nil
+	case "page_type":
+		return task.PageType, nil
+	case "goals":
+		return strings.Join(task.Goals, ","), nil
+	case "tags":
+		return strings.Join(task.Tags, ","), nil
 	default:
 		return "", fmt.Errorf("unknown field: %s", key)
 	}
@@ -98,30 +114,11 @@ func (o *frontmatterSetOperation) Execute(
 	case "assignee":
 		task.Assignee = value
 	case "status":
-		// Validate status value
-		validStatuses := []domain.TaskStatus{
-			domain.TaskStatusTodo,
-			domain.TaskStatusInProgress,
-			domain.TaskStatusBacklog,
-			domain.TaskStatusCompleted,
-			domain.TaskStatusHold,
-			domain.TaskStatusAborted,
+		status, err := parseTaskStatus(ctx, value)
+		if err != nil {
+			return err
 		}
-		isValid := false
-		for _, valid := range validStatuses {
-			if value == string(valid) {
-				isValid = true
-				break
-			}
-		}
-		if !isValid {
-			return errors.Wrap(
-				ctx,
-				fmt.Errorf("invalid status value: %s", value),
-				"expected one of: todo, in_progress, backlog, completed, hold, aborted",
-			)
-		}
-		task.Status = domain.TaskStatus(value)
+		task.Status = status
 	case "priority":
 		p, err := strconv.Atoi(value)
 		if err != nil {
@@ -129,16 +126,27 @@ func (o *frontmatterSetOperation) Execute(
 		}
 		task.Priority = domain.Priority(p)
 	case "defer_date":
-		if value == "" {
-			task.DeferDate = nil
-		} else {
-			t, err := time.Parse("2006-01-02", value)
-			if err != nil {
-				return errors.Wrap(ctx, err, "invalid date format (expected YYYY-MM-DD)")
-			}
-			d := libtime.ToDate(t)
-			task.DeferDate = d.Ptr()
+		d, err := parseDatePtr(ctx, value)
+		if err != nil {
+			return err
 		}
+		task.DeferDate = d
+	case "planned_date":
+		d, err := parseDatePtr(ctx, value)
+		if err != nil {
+			return err
+		}
+		task.PlannedDate = d
+	case "recurring":
+		task.Recurring = value
+	case "last_completed":
+		task.LastCompleted = value
+	case "page_type":
+		task.PageType = value
+	case "goals":
+		task.Goals = parseStringSlice(value)
+	case "tags":
+		task.Tags = parseStringSlice(value)
 	default:
 		return fmt.Errorf("unknown field: %s", key)
 	}
@@ -148,6 +156,46 @@ func (o *frontmatterSetOperation) Execute(
 	}
 
 	return nil
+}
+
+func parseTaskStatus(ctx context.Context, value string) (domain.TaskStatus, error) {
+	validStatuses := []domain.TaskStatus{
+		domain.TaskStatusTodo,
+		domain.TaskStatusInProgress,
+		domain.TaskStatusBacklog,
+		domain.TaskStatusCompleted,
+		domain.TaskStatusHold,
+		domain.TaskStatusAborted,
+	}
+	for _, valid := range validStatuses {
+		if value == string(valid) {
+			return domain.TaskStatus(value), nil
+		}
+	}
+	return "", errors.Wrap(
+		ctx,
+		fmt.Errorf("invalid status value: %s", value),
+		"expected one of: todo, in_progress, backlog, completed, hold, aborted",
+	)
+}
+
+func parseDatePtr(ctx context.Context, value string) (*libtime.Date, error) {
+	if value == "" {
+		return nil, nil
+	}
+	t, err := time.Parse("2006-01-02", value)
+	if err != nil {
+		return nil, errors.Wrap(ctx, err, "invalid date format (expected YYYY-MM-DD)")
+	}
+	d := libtime.ToDate(t)
+	return d.Ptr(), nil
+}
+
+func parseStringSlice(value string) []string {
+	if value == "" {
+		return nil
+	}
+	return strings.Split(value, ",")
 }
 
 //counterfeiter:generate -o ../../mocks/frontmatter-clear-operation.go --fake-name FrontmatterClearOperation . FrontmatterClearOperation
@@ -189,6 +237,18 @@ func (o *frontmatterClearOperation) Execute(
 		task.Priority = 0
 	case "defer_date":
 		task.DeferDate = nil
+	case "planned_date":
+		task.PlannedDate = nil
+	case "recurring":
+		task.Recurring = ""
+	case "last_completed":
+		task.LastCompleted = ""
+	case "page_type":
+		task.PageType = ""
+	case "goals":
+		task.Goals = nil
+	case "tags":
+		task.Tags = nil
 	default:
 		return fmt.Errorf("unknown field: %s", key)
 	}

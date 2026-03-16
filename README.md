@@ -29,6 +29,9 @@ vaults:
     tasks_dir: "24 Tasks"
     goals_dir: "23 Goals"
     daily_dir: "60 Periodic Notes/Daily"
+    excludes:
+      - "90 Templates"
+      - ".obsidian"
   brogrammers:
     name: brogrammers
     path: ~/Documents/Obsidian/Brogrammers

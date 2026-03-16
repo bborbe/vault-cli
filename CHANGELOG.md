@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.28.0
+
+- feat: Add `excludes` config field to vault to skip directories during vault-wide operations (e.g. `decision list`)
+
 ## v0.27.4
 
 - fix: ReadTheme uses configured ThemesDir instead of hardcoded "Themes" path

@@ -9,3 +9,6 @@ vaults:
     objectives_dir: "22 Objectives"
     themes_dir: "21 Themes"
     vision_dir: "20 Vision"
+    excludes:
+      - "90 Templates"
+      - ".obsidian"

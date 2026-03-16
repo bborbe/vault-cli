@@ -4,11 +4,11 @@
 [![CI](https://github.com/bborbe/vault-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/bborbe/vault-cli/actions/workflows/ci.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/bborbe/vault-cli)](https://goreportcard.com/report/github.com/bborbe/vault-cli)
 
-Go CLI tool for managing Obsidian vault tasks, goals, and themes.
+Go CLI tool for managing Obsidian vault tasks, goals, themes, objectives, visions, and decisions.
 
 ## Overview
 
-Fast CRUD operations for Obsidian markdown files (tasks, goals, themes) without spawning full Claude Code sessions. Reduces TaskOrchestrator operation latency from 2-5 seconds to <100ms.
+Fast CRUD operations for Obsidian markdown files (tasks, goals, themes, objectives, visions, decisions) without spawning full Claude Code sessions.
 
 ## Installation
 
@@ -38,23 +38,96 @@ vaults:
 
 ## Usage
 
+### Global Flags
+
 ```bash
-# Complete a task
-vault-cli complete "Build vault-cli Go Tool"
+--vault <name>       # Use a specific vault (default vault if omitted)
+--output plain|json  # Output format (default: plain)
+--config <path>      # Custom config file path
+```
 
-# Complete a task in a specific vault
-vault-cli --vault brogrammers complete "Some Task"
+### task
 
-# Defer a task
-vault-cli defer "Migrate TaskOrchestrator" +7d
-vault-cli defer "Migrate TaskOrchestrator" monday
-vault-cli defer "Migrate TaskOrchestrator" 2026-03-01
+```bash
+vault-cli task list                                # List active tasks (todo + in_progress)
+vault-cli task list --status deferred              # Filter by status
+vault-cli task list --all                          # Show all tasks
+vault-cli task list --assignee alice               # Filter by assignee
 
-# Update task progress from checkboxes
-vault-cli update "Build vault-cli Go Tool"
+vault-cli task show "Build vault-cli Go Tool"      # Show full task detail
+vault-cli task complete "Build vault-cli Go Tool"  # Mark task as complete
+vault-cli task defer "Migrate TaskOrchestrator" +7d     # Defer by relative days
+vault-cli task defer "Migrate TaskOrchestrator" monday  # Defer to next weekday
+vault-cli task defer "Migrate TaskOrchestrator" 2026-03-01  # Defer to ISO date
+vault-cli task update "Build vault-cli Go Tool"    # Update progress from checkboxes
+vault-cli task work-on "Build vault-cli Go Tool"   # Mark in_progress and assign to current user
 
-# Use custom config file
-vault-cli --config /path/to/config.yaml complete "Some Task"
+vault-cli task get "Build vault-cli Go Tool" status         # Get a frontmatter field
+vault-cli task set "Build vault-cli Go Tool" status done    # Set a frontmatter field
+vault-cli task clear "Build vault-cli Go Tool" assignee     # Clear a frontmatter field
+
+vault-cli task lint                                # Detect frontmatter issues
+vault-cli task lint --fix                          # Auto-fix frontmatter issues
+vault-cli task validate "Build vault-cli Go Tool"  # Validate a single task
+
+vault-cli task watch                               # Stream file-change events as JSON
+vault-cli task search "improve CLI performance"    # Semantic search in tasks
+```
+
+### goal
+
+```bash
+vault-cli goal list                        # List goals
+vault-cli goal lint                        # Detect frontmatter issues
+vault-cli goal search "team productivity"  # Semantic search in goals
+```
+
+### theme
+
+```bash
+vault-cli theme list                       # List themes
+vault-cli theme lint                       # Detect frontmatter issues
+vault-cli theme search "engineering culture"  # Semantic search in themes
+```
+
+### objective
+
+```bash
+vault-cli objective list                   # List objectives
+vault-cli objective lint                   # Detect frontmatter issues
+vault-cli objective search "Q2 goals"      # Semantic search in objectives
+```
+
+### vision
+
+```bash
+vault-cli vision list                      # List vision items
+vault-cli vision lint                      # Detect frontmatter issues
+vault-cli vision search "long-term growth" # Semantic search in vision
+```
+
+### decision
+
+```bash
+vault-cli decision list                    # List decisions pending review
+vault-cli decision list --reviewed         # Show only reviewed decisions
+vault-cli decision list --all              # Show all decisions
+vault-cli decision ack "Use PostgreSQL"    # Acknowledge (mark as reviewed)
+vault-cli decision ack "Use PostgreSQL" --status accepted  # Ack with status override
+```
+
+### search
+
+```bash
+vault-cli search "improve performance"          # Search entire vault semantically
+vault-cli search "improve performance" --top-k 10  # Return more results
+```
+
+### config
+
+```bash
+vault-cli config list          # List configured vaults
+vault-cli config current-user  # Print the current user
 ```
 
 ## Development

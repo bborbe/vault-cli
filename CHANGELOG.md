@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.25.1
+
+- docs: Rewrite README Usage section to document all commands (task, goal, theme, objective, vision, decision, search, config)
+
 ## v0.25.0
 
 - feat: Add `vault-cli decision list` and `vault-cli decision ack` CLI commands wired into the multi-vault pattern

@@ -40,6 +40,7 @@ var _ = Describe("FrontmatterGetOperation", func() {
 
 		// Default: return a task with some fields set
 		deferDate := time.Date(2024, 12, 31, 0, 0, 0, 0, time.UTC)
+		plannedDate := time.Date(2025, 3, 15, 0, 0, 0, 0, time.UTC)
 		task = &domain.Task{
 			Name:            taskName,
 			Phase:           "implementation",
@@ -48,6 +49,12 @@ var _ = Describe("FrontmatterGetOperation", func() {
 			Status:          domain.TaskStatusInProgress,
 			Priority:        domain.Priority(3),
 			DeferDate:       libtime.ToDate(deferDate).Ptr(),
+			PlannedDate:     libtime.ToDate(plannedDate).Ptr(),
+			Recurring:       "weekly",
+			LastCompleted:   "2025-03-10",
+			PageType:        "task",
+			Goals:           []string{"goal-1", "goal-2"},
+			Tags:            []string{"urgent", "backend"},
 		}
 		mockTaskStorage.FindTaskByNameReturns(task, nil)
 	})
@@ -138,6 +145,108 @@ var _ = Describe("FrontmatterGetOperation", func() {
 		BeforeEach(func() {
 			key = "defer_date"
 			task.DeferDate = nil
+		})
+
+		It("returns empty string with no error", func() {
+			Expect(err).To(BeNil())
+			Expect(result).To(Equal(""))
+		})
+	})
+
+	Context("getting planned_date field", func() {
+		BeforeEach(func() {
+			key = "planned_date"
+		})
+
+		It("returns the planned_date value in YYYY-MM-DD format", func() {
+			Expect(err).To(BeNil())
+			Expect(result).To(Equal("2025-03-15"))
+		})
+	})
+
+	Context("getting planned_date when nil", func() {
+		BeforeEach(func() {
+			key = "planned_date"
+			task.PlannedDate = nil
+		})
+
+		It("returns empty string with no error", func() {
+			Expect(err).To(BeNil())
+			Expect(result).To(Equal(""))
+		})
+	})
+
+	Context("getting recurring field", func() {
+		BeforeEach(func() {
+			key = "recurring"
+		})
+
+		It("returns the recurring value", func() {
+			Expect(err).To(BeNil())
+			Expect(result).To(Equal("weekly"))
+		})
+	})
+
+	Context("getting last_completed field", func() {
+		BeforeEach(func() {
+			key = "last_completed"
+		})
+
+		It("returns the last_completed value", func() {
+			Expect(err).To(BeNil())
+			Expect(result).To(Equal("2025-03-10"))
+		})
+	})
+
+	Context("getting page_type field", func() {
+		BeforeEach(func() {
+			key = "page_type"
+		})
+
+		It("returns the page_type value", func() {
+			Expect(err).To(BeNil())
+			Expect(result).To(Equal("task"))
+		})
+	})
+
+	Context("getting goals field", func() {
+		BeforeEach(func() {
+			key = "goals"
+		})
+
+		It("returns the goals as comma-separated string", func() {
+			Expect(err).To(BeNil())
+			Expect(result).To(Equal("goal-1,goal-2"))
+		})
+	})
+
+	Context("getting goals when empty", func() {
+		BeforeEach(func() {
+			key = "goals"
+			task.Goals = nil
+		})
+
+		It("returns empty string with no error", func() {
+			Expect(err).To(BeNil())
+			Expect(result).To(Equal(""))
+		})
+	})
+
+	Context("getting tags field", func() {
+		BeforeEach(func() {
+			key = "tags"
+		})
+
+		It("returns the tags as comma-separated string", func() {
+			Expect(err).To(BeNil())
+			Expect(result).To(Equal("urgent,backend"))
+		})
+	})
+
+	Context("getting tags when empty", func() {
+		BeforeEach(func() {
+			key = "tags"
+			task.Tags = nil
 		})
 
 		It("returns empty string with no error", func() {
@@ -313,6 +422,148 @@ var _ = Describe("FrontmatterSetOperation", func() {
 		})
 	})
 
+	Context("setting planned_date field", func() {
+		BeforeEach(func() {
+			key = "planned_date"
+			value = "2025-06-15"
+		})
+
+		It("updates the planned_date field", func() {
+			Expect(err).To(BeNil())
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
+			Expect(writtenTask.PlannedDate).NotTo(BeNil())
+			Expect(writtenTask.PlannedDate.Format("2006-01-02")).To(Equal("2025-06-15"))
+		})
+	})
+
+	Context("clearing planned_date with empty string", func() {
+		BeforeEach(func() {
+			key = "planned_date"
+			value = ""
+			plannedDate := time.Date(2025, 3, 15, 0, 0, 0, 0, time.UTC)
+			task.PlannedDate = libtime.ToDate(plannedDate).Ptr()
+		})
+
+		It("sets planned_date to nil", func() {
+			Expect(err).To(BeNil())
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
+			Expect(writtenTask.PlannedDate).To(BeNil())
+		})
+	})
+
+	Context("invalid planned_date format", func() {
+		BeforeEach(func() {
+			key = "planned_date"
+			value = "2025-13-45"
+		})
+
+		It("returns an error", func() {
+			Expect(err).To(MatchError(ContainSubstring("invalid date format")))
+		})
+	})
+
+	Context("setting recurring field", func() {
+		BeforeEach(func() {
+			key = "recurring"
+			value = "monthly"
+		})
+
+		It("updates the recurring field", func() {
+			Expect(err).To(BeNil())
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
+			Expect(writtenTask.Recurring).To(Equal("monthly"))
+		})
+	})
+
+	Context("setting last_completed field", func() {
+		BeforeEach(func() {
+			key = "last_completed"
+			value = "2025-03-15"
+		})
+
+		It("updates the last_completed field", func() {
+			Expect(err).To(BeNil())
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
+			Expect(writtenTask.LastCompleted).To(Equal("2025-03-15"))
+		})
+	})
+
+	Context("setting page_type field", func() {
+		BeforeEach(func() {
+			key = "page_type"
+			value = "task"
+		})
+
+		It("updates the page_type field", func() {
+			Expect(err).To(BeNil())
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
+			Expect(writtenTask.PageType).To(Equal("task"))
+		})
+	})
+
+	Context("setting goals field", func() {
+		BeforeEach(func() {
+			key = "goals"
+			value = "goal-a,goal-b"
+		})
+
+		It("updates the goals field", func() {
+			Expect(err).To(BeNil())
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
+			Expect(writtenTask.Goals).To(Equal([]string{"goal-a", "goal-b"}))
+		})
+	})
+
+	Context("clearing goals with empty string", func() {
+		BeforeEach(func() {
+			key = "goals"
+			value = ""
+			task.Goals = []string{"old"}
+		})
+
+		It("sets goals to nil", func() {
+			Expect(err).To(BeNil())
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
+			Expect(writtenTask.Goals).To(BeNil())
+		})
+	})
+
+	Context("setting tags field", func() {
+		BeforeEach(func() {
+			key = "tags"
+			value = "tag-a,tag-b"
+		})
+
+		It("updates the tags field", func() {
+			Expect(err).To(BeNil())
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
+			Expect(writtenTask.Tags).To(Equal([]string{"tag-a", "tag-b"}))
+		})
+	})
+
+	Context("clearing tags with empty string", func() {
+		BeforeEach(func() {
+			key = "tags"
+			value = ""
+			task.Tags = []string{"old"}
+		})
+
+		It("sets tags to nil", func() {
+			Expect(err).To(BeNil())
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
+			Expect(writtenTask.Tags).To(BeNil())
+		})
+	})
+
 	Context("unknown key", func() {
 		BeforeEach(func() {
 			key = "unknown_key"
@@ -372,6 +623,7 @@ var _ = Describe("FrontmatterClearOperation", func() {
 
 		// Default: return a task with fields set
 		deferDate := time.Date(2024, 12, 31, 0, 0, 0, 0, time.UTC)
+		plannedDate := time.Date(2025, 3, 15, 0, 0, 0, 0, time.UTC)
 		task = &domain.Task{
 			Name:            taskName,
 			Phase:           "implementation",
@@ -380,6 +632,12 @@ var _ = Describe("FrontmatterClearOperation", func() {
 			Status:          domain.TaskStatusInProgress,
 			Priority:        domain.Priority(3),
 			DeferDate:       libtime.ToDate(deferDate).Ptr(),
+			PlannedDate:     libtime.ToDate(plannedDate).Ptr(),
+			Recurring:       "weekly",
+			LastCompleted:   "2025-03-10",
+			PageType:        "task",
+			Goals:           []string{"goal-1", "goal-2"},
+			Tags:            []string{"urgent", "backend"},
 		}
 		mockTaskStorage.FindTaskByNameReturns(task, nil)
 		mockTaskStorage.WriteTaskReturns(nil)
@@ -464,6 +722,84 @@ var _ = Describe("FrontmatterClearOperation", func() {
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
 			Expect(writtenTask.DeferDate).To(BeNil())
+		})
+	})
+
+	Context("clearing planned_date field", func() {
+		BeforeEach(func() {
+			key = "planned_date"
+		})
+
+		It("clears the planned_date field", func() {
+			Expect(err).To(BeNil())
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
+			Expect(writtenTask.PlannedDate).To(BeNil())
+		})
+	})
+
+	Context("clearing recurring field", func() {
+		BeforeEach(func() {
+			key = "recurring"
+		})
+
+		It("clears the recurring field", func() {
+			Expect(err).To(BeNil())
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
+			Expect(writtenTask.Recurring).To(Equal(""))
+		})
+	})
+
+	Context("clearing last_completed field", func() {
+		BeforeEach(func() {
+			key = "last_completed"
+		})
+
+		It("clears the last_completed field", func() {
+			Expect(err).To(BeNil())
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
+			Expect(writtenTask.LastCompleted).To(Equal(""))
+		})
+	})
+
+	Context("clearing page_type field", func() {
+		BeforeEach(func() {
+			key = "page_type"
+		})
+
+		It("clears the page_type field", func() {
+			Expect(err).To(BeNil())
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
+			Expect(writtenTask.PageType).To(Equal(""))
+		})
+	})
+
+	Context("clearing goals field", func() {
+		BeforeEach(func() {
+			key = "goals"
+		})
+
+		It("clears the goals field", func() {
+			Expect(err).To(BeNil())
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
+			Expect(writtenTask.Goals).To(BeNil())
+		})
+	})
+
+	Context("clearing tags field", func() {
+		BeforeEach(func() {
+			key = "tags"
+		})
+
+		It("clears the tags field", func() {
+			Expect(err).To(BeNil())
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
+			Expect(writtenTask.Tags).To(BeNil())
 		})
 	})
 

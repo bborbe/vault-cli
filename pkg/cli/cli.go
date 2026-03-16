@@ -145,9 +145,8 @@ func createCompleteCommand(
 
 			currentDateTime := libtime.NewCurrentDateTime()
 
-			// If only one vault, execute directly
-			if len(vaults) == 1 {
-				vault := vaults[0]
+			dispatcher := ops.NewVaultDispatcher()
+			return dispatcher.FirstSuccess(ctx, vaults, func(vault *config.Vault) error {
 				storageConfig := storage.NewConfigFromVault(vault)
 				taskStore := storage.NewTaskStorage(storageConfig)
 				goalStore := storage.NewGoalStorage(storageConfig)
@@ -159,29 +158,7 @@ func createCompleteCommand(
 					currentDateTime,
 				)
 				return completeOp.Execute(ctx, vault.Path, taskName, vault.Name, *outputFormat)
-			}
-
-			// Multiple vaults: try each until successful
-			var lastErr error
-			for _, vault := range vaults {
-				storageConfig := storage.NewConfigFromVault(vault)
-				taskStore := storage.NewTaskStorage(storageConfig)
-				goalStore := storage.NewGoalStorage(storageConfig)
-				dailyStore := storage.NewDailyNoteStorage(storageConfig)
-				completeOp := ops.NewCompleteOperation(
-					taskStore,
-					goalStore,
-					dailyStore,
-					currentDateTime,
-				)
-				if err := completeOp.Execute(ctx, vault.Path, taskName, vault.Name, *outputFormat); err == nil {
-					return nil
-				}
-				lastErr = err
-			}
-
-			// Not found in any vault
-			return errors.Wrap(ctx, lastErr, "task not found in any vault")
+			})
 		},
 	}
 }
@@ -219,9 +196,8 @@ Date formats:
 
 			currentDateTime := libtime.NewCurrentDateTime()
 
-			// If only one vault, execute directly
-			if len(vaults) == 1 {
-				vault := vaults[0]
+			dispatcher := ops.NewVaultDispatcher()
+			return dispatcher.FirstSuccess(ctx, vaults, func(vault *config.Vault) error {
 				storageConfig := storage.NewConfigFromVault(vault)
 				taskStore := storage.NewTaskStorage(storageConfig)
 				dailyStore := storage.NewDailyNoteStorage(storageConfig)
@@ -234,23 +210,7 @@ Date formats:
 					vault.Name,
 					*outputFormat,
 				)
-			}
-
-			// Multiple vaults: try each until successful
-			var lastErr error
-			for _, vault := range vaults {
-				storageConfig := storage.NewConfigFromVault(vault)
-				taskStore := storage.NewTaskStorage(storageConfig)
-				dailyStore := storage.NewDailyNoteStorage(storageConfig)
-				deferOp := ops.NewDeferOperation(taskStore, dailyStore, currentDateTime)
-				if err := deferOp.Execute(ctx, vault.Path, taskName, dateStr, vault.Name, *outputFormat); err == nil {
-					return nil
-				}
-				lastErr = err
-			}
-
-			// Not found in any vault
-			return errors.Wrap(ctx, lastErr, "task not found in any vault")
+			})
 		},
 	}
 }
@@ -273,31 +233,14 @@ func createUpdateCommand(
 				return errors.Wrap(ctx, err, "get vaults")
 			}
 
-			// If only one vault, execute directly
-			if len(vaults) == 1 {
-				vault := vaults[0]
+			dispatcher := ops.NewVaultDispatcher()
+			return dispatcher.FirstSuccess(ctx, vaults, func(vault *config.Vault) error {
 				storageConfig := storage.NewConfigFromVault(vault)
 				taskStore := storage.NewTaskStorage(storageConfig)
 				goalStore := storage.NewGoalStorage(storageConfig)
 				updateOp := ops.NewUpdateOperation(taskStore, goalStore)
 				return updateOp.Execute(ctx, vault.Path, taskName, vault.Name, *outputFormat)
-			}
-
-			// Multiple vaults: try each until successful
-			var lastErr error
-			for _, vault := range vaults {
-				storageConfig := storage.NewConfigFromVault(vault)
-				taskStore := storage.NewTaskStorage(storageConfig)
-				goalStore := storage.NewGoalStorage(storageConfig)
-				updateOp := ops.NewUpdateOperation(taskStore, goalStore)
-				if err := updateOp.Execute(ctx, vault.Path, taskName, vault.Name, *outputFormat); err == nil {
-					return nil
-				}
-				lastErr = err
-			}
-
-			// Not found in any vault
-			return errors.Wrap(ctx, lastErr, "task not found in any vault")
+			})
 		},
 	}
 }
@@ -334,8 +277,8 @@ func createWorkOnCommand(
 
 			currentDateTime := libtime.NewCurrentDateTime()
 
-			var lastErr error
-			for _, vault := range vaults {
+			dispatcher := ops.NewVaultDispatcher()
+			return dispatcher.FirstSuccess(ctx, vaults, func(vault *config.Vault) error {
 				starter := ops.NewClaudeSessionStarter(vault.GetClaudeScript())
 				resumer := ops.NewClaudeResumer(vault.GetClaudeScript())
 				storageConfig := storage.NewConfigFromVault(vault)
@@ -348,7 +291,7 @@ func createWorkOnCommand(
 					starter,
 					resumer,
 				)
-				err := workOnOp.Execute(
+				return workOnOp.Execute(
 					ctx,
 					vault.Path,
 					taskName,
@@ -357,13 +300,7 @@ func createWorkOnCommand(
 					*outputFormat,
 					isInteractive,
 				)
-				if err == nil {
-					return nil
-				}
-				lastErr = err
-			}
-
-			return errors.Wrap(ctx, lastErr, "task not found in any vault")
+			})
 		},
 	}
 
@@ -858,13 +795,12 @@ func createDecisionAckCommand(
 
 			currentDateTime := libtime.NewCurrentDateTime()
 
-			// Multiple vaults: try each until successful
-			var lastErr error
-			for _, vault := range vaults {
+			dispatcher := ops.NewVaultDispatcher()
+			return dispatcher.FirstSuccess(ctx, vaults, func(vault *config.Vault) error {
 				storageConfig := storage.NewConfigFromVault(vault)
 				decisionStore := storage.NewDecisionStorage(storageConfig)
 				ackOp := ops.NewDecisionAckOperation(decisionStore, currentDateTime)
-				err := ackOp.Execute(
+				return ackOp.Execute(
 					ctx,
 					vault.Path,
 					vault.Name,
@@ -872,12 +808,7 @@ func createDecisionAckCommand(
 					statusOverride,
 					*outputFormat,
 				)
-				if err == nil {
-					return nil
-				}
-				lastErr = err
-			}
-			return errors.Wrap(ctx, lastErr, "decision not found in any vault")
+			})
 		},
 	}
 
@@ -989,24 +920,15 @@ func createTaskGetCommand(
 				return errors.Wrap(ctx, err, "get vaults")
 			}
 
-			// If only one vault, execute directly
-			if len(vaults) == 1 {
-				vault := vaults[0]
+			dispatcher := ops.NewVaultDispatcher()
+			err = dispatcher.FirstSuccess(ctx, vaults, func(vault *config.Vault) error {
 				storageConfig := storage.NewConfigFromVault(vault)
 				taskStore := storage.NewTaskStorage(storageConfig)
 				getOp := ops.NewFrontmatterGetOperation(taskStore)
 				value, err := getOp.Execute(ctx, vault.Path, taskName, key)
 				if err != nil {
-					if *outputFormat == OutputFormatJSON {
-						result := map[string]any{
-							"success": false,
-							"error":   err.Error(),
-						}
-						return PrintJSON(result)
-					}
 					return err
 				}
-
 				if *outputFormat == OutputFormatJSON {
 					result := map[string]any{
 						"key":   key,
@@ -1015,42 +937,20 @@ func createTaskGetCommand(
 					}
 					return PrintJSON(result)
 				}
-
 				fmt.Println(value)
 				return nil
-			}
-
-			// Multiple vaults: try each until successful
-			var lastErr error
-			for _, vault := range vaults {
-				storageConfig := storage.NewConfigFromVault(vault)
-				taskStore := storage.NewTaskStorage(storageConfig)
-				getOp := ops.NewFrontmatterGetOperation(taskStore)
-				value, err := getOp.Execute(ctx, vault.Path, taskName, key)
-				if err == nil {
-					if *outputFormat == OutputFormatJSON {
-						result := map[string]any{
-							"key":   key,
-							"value": value,
-							"name":  taskName,
-						}
-						return PrintJSON(result)
+			})
+			if err != nil {
+				if *outputFormat == OutputFormatJSON {
+					result := map[string]any{
+						"success": false,
+						"error":   err.Error(),
 					}
-					fmt.Println(value)
-					return nil
+					return PrintJSON(result)
 				}
-				lastErr = err
+				return err
 			}
-
-			// Not found in any vault
-			if *outputFormat == OutputFormatJSON {
-				result := map[string]any{
-					"success": false,
-					"error":   lastErr.Error(),
-				}
-				return PrintJSON(result)
-			}
-			return errors.Wrap(ctx, lastErr, "task not found in any vault")
+			return nil
 		},
 	}
 }
@@ -1076,23 +976,14 @@ func createTaskSetCommand(
 				return errors.Wrap(ctx, err, "get vaults")
 			}
 
-			// If only one vault, execute directly
-			if len(vaults) == 1 {
-				vault := vaults[0]
+			dispatcher := ops.NewVaultDispatcher()
+			err = dispatcher.FirstSuccess(ctx, vaults, func(vault *config.Vault) error {
 				storageConfig := storage.NewConfigFromVault(vault)
 				taskStore := storage.NewTaskStorage(storageConfig)
 				setOp := ops.NewFrontmatterSetOperation(taskStore)
 				if err := setOp.Execute(ctx, vault.Path, taskName, key, value); err != nil {
-					if *outputFormat == OutputFormatJSON {
-						result := map[string]any{
-							"success": false,
-							"error":   err.Error(),
-						}
-						return PrintJSON(result)
-					}
 					return err
 				}
-
 				if *outputFormat == OutputFormatJSON {
 					result := map[string]any{
 						"success": true,
@@ -1102,42 +993,20 @@ func createTaskSetCommand(
 					}
 					return PrintJSON(result)
 				}
-
 				fmt.Printf("✅ Set %s=%s on: %s\n", key, value, taskName)
 				return nil
-			}
-
-			// Multiple vaults: try each until successful
-			var lastErr error
-			for _, vault := range vaults {
-				storageConfig := storage.NewConfigFromVault(vault)
-				taskStore := storage.NewTaskStorage(storageConfig)
-				setOp := ops.NewFrontmatterSetOperation(taskStore)
-				if err := setOp.Execute(ctx, vault.Path, taskName, key, value); err == nil {
-					if *outputFormat == OutputFormatJSON {
-						result := map[string]any{
-							"success": true,
-							"key":     key,
-							"value":   value,
-							"name":    taskName,
-						}
-						return PrintJSON(result)
+			})
+			if err != nil {
+				if *outputFormat == OutputFormatJSON {
+					result := map[string]any{
+						"success": false,
+						"error":   err.Error(),
 					}
-					fmt.Printf("✅ Set %s=%s on: %s\n", key, value, taskName)
-					return nil
+					return PrintJSON(result)
 				}
-				lastErr = err
+				return err
 			}
-
-			// Not found in any vault
-			if *outputFormat == OutputFormatJSON {
-				result := map[string]any{
-					"success": false,
-					"error":   lastErr.Error(),
-				}
-				return PrintJSON(result)
-			}
-			return errors.Wrap(ctx, lastErr, "task not found in any vault")
+			return nil
 		},
 	}
 }
@@ -1162,23 +1031,14 @@ func createTaskClearCommand(
 				return errors.Wrap(ctx, err, "get vaults")
 			}
 
-			// If only one vault, execute directly
-			if len(vaults) == 1 {
-				vault := vaults[0]
+			dispatcher := ops.NewVaultDispatcher()
+			err = dispatcher.FirstSuccess(ctx, vaults, func(vault *config.Vault) error {
 				storageConfig := storage.NewConfigFromVault(vault)
 				taskStore := storage.NewTaskStorage(storageConfig)
 				clearOp := ops.NewFrontmatterClearOperation(taskStore)
 				if err := clearOp.Execute(ctx, vault.Path, taskName, key); err != nil {
-					if *outputFormat == OutputFormatJSON {
-						result := map[string]any{
-							"success": false,
-							"error":   err.Error(),
-						}
-						return PrintJSON(result)
-					}
 					return err
 				}
-
 				if *outputFormat == OutputFormatJSON {
 					result := map[string]any{
 						"success": true,
@@ -1187,41 +1047,20 @@ func createTaskClearCommand(
 					}
 					return PrintJSON(result)
 				}
-
 				fmt.Printf("✅ Cleared %s on: %s\n", key, taskName)
 				return nil
-			}
-
-			// Multiple vaults: try each until successful
-			var lastErr error
-			for _, vault := range vaults {
-				storageConfig := storage.NewConfigFromVault(vault)
-				taskStore := storage.NewTaskStorage(storageConfig)
-				clearOp := ops.NewFrontmatterClearOperation(taskStore)
-				if err := clearOp.Execute(ctx, vault.Path, taskName, key); err == nil {
-					if *outputFormat == OutputFormatJSON {
-						result := map[string]any{
-							"success": true,
-							"key":     key,
-							"name":    taskName,
-						}
-						return PrintJSON(result)
+			})
+			if err != nil {
+				if *outputFormat == OutputFormatJSON {
+					result := map[string]any{
+						"success": false,
+						"error":   err.Error(),
 					}
-					fmt.Printf("✅ Cleared %s on: %s\n", key, taskName)
-					return nil
+					return PrintJSON(result)
 				}
-				lastErr = err
+				return err
 			}
-
-			// Not found in any vault
-			if *outputFormat == OutputFormatJSON {
-				result := map[string]any{
-					"success": false,
-					"error":   lastErr.Error(),
-				}
-				return PrintJSON(result)
-			}
-			return errors.Wrap(ctx, lastErr, "task not found in any vault")
+			return nil
 		},
 	}
 }
@@ -1243,28 +1082,13 @@ func createTaskShowCommand(
 				return errors.Wrap(ctx, err, "get vaults")
 			}
 
-			// If only one vault, execute directly
-			if len(vaults) == 1 {
-				vault := vaults[0]
+			dispatcher := ops.NewVaultDispatcher()
+			return dispatcher.FirstSuccess(ctx, vaults, func(vault *config.Vault) error {
 				storageConfig := storage.NewConfigFromVault(vault)
 				taskStore := storage.NewTaskStorage(storageConfig)
 				showOp := ops.NewShowOperation(taskStore)
 				return showOp.Execute(ctx, vault.Path, vault.Name, taskName, *outputFormat)
-			}
-
-			// Multiple vaults: try each until successful
-			var lastErr error
-			for _, vault := range vaults {
-				storageConfig := storage.NewConfigFromVault(vault)
-				taskStore := storage.NewTaskStorage(storageConfig)
-				showOp := ops.NewShowOperation(taskStore)
-				if err := showOp.Execute(ctx, vault.Path, vault.Name, taskName, *outputFormat); err == nil {
-					return nil
-				}
-				lastErr = err
-			}
-
-			return errors.Wrap(ctx, lastErr, "task not found in any vault")
+			})
 		},
 	}
 }

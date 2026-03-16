@@ -16,7 +16,11 @@ import (
 
 // VaultDispatcher tries a callback against each vault until one succeeds.
 type VaultDispatcher interface {
-	FirstSuccess(ctx context.Context, vaults []*config.Vault, fn func(vault *config.Vault) error) error
+	FirstSuccess(
+		ctx context.Context,
+		vaults []*config.Vault,
+		fn func(vault *config.Vault) error,
+	) error
 }
 
 // NewVaultDispatcher creates a new VaultDispatcher.

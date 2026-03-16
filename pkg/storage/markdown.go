@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -77,6 +78,11 @@ type Storage interface {
 
 	// Generic page operations
 	ListPages(ctx context.Context, vaultPath string, pagesDir string) ([]*domain.Task, error)
+
+	// Decision operations
+	ListDecisions(ctx context.Context, vaultPath string) ([]*domain.Decision, error)
+	FindDecisionByName(ctx context.Context, vaultPath string, name string) (*domain.Decision, error)
+	WriteDecision(ctx context.Context, decision *domain.Decision) error
 }
 
 // NewStorage creates a new markdown storage instance with custom configuration.
@@ -377,6 +383,175 @@ func (m *markdownStorage) WriteDailyNote(
 	filePath := filepath.Join(dailyNotesDir, date+".md")
 	if err := os.WriteFile(filePath, []byte(content), 0600); err != nil {
 		return errors.Wrap(ctx, err, fmt.Sprintf("write daily note %s", filePath))
+	}
+
+	return nil
+}
+
+// readDecisionFromPath reads a decision file and returns a populated Decision.
+func (m *markdownStorage) readDecisionFromPath(
+	ctx context.Context,
+	filePath string,
+	name string,
+) (*domain.Decision, error) {
+	content, err := os.ReadFile(filePath) //#nosec G304 -- user-controlled vault path
+	if err != nil {
+		return nil, errors.Wrap(ctx, err, fmt.Sprintf("read file %s", filePath))
+	}
+
+	decision := &domain.Decision{
+		Name:     name,
+		Content:  string(content),
+		FilePath: filePath,
+	}
+
+	if err := m.parseFrontmatter(content, decision); err != nil {
+		return nil, errors.Wrap(ctx, err, "parse frontmatter")
+	}
+
+	return decision, nil
+}
+
+// isSymlinkOutsideVault returns true when path is a symlink resolving outside vaultPath.
+func isSymlinkOutsideVault(path, vaultPath string) bool {
+	resolved, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		return false
+	}
+	absVault, err := filepath.Abs(vaultPath)
+	if err != nil {
+		return false
+	}
+	absResolved, err := filepath.Abs(resolved)
+	if err != nil {
+		return false
+	}
+	return !strings.HasPrefix(absResolved, absVault)
+}
+
+// ListDecisions scans the entire vault recursively and returns all decisions with needs_review: true.
+func (m *markdownStorage) ListDecisions(
+	ctx context.Context,
+	vaultPath string,
+) ([]*domain.Decision, error) {
+	decisions := make([]*domain.Decision, 0)
+
+	err := filepath.WalkDir(vaultPath, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() || !strings.HasSuffix(path, ".md") {
+			return nil
+		}
+		if isSymlinkOutsideVault(path, vaultPath) {
+			fmt.Fprintf(os.Stderr, "Warning: skipping symlink outside vault %s\n", path)
+			return nil
+		}
+
+		rel, relErr := filepath.Rel(vaultPath, path)
+		if relErr != nil {
+			fmt.Fprintf(
+				os.Stderr,
+				"Warning: failed to get relative path for %s: %v\n",
+				path,
+				relErr,
+			)
+			return nil
+		}
+		name := strings.TrimSuffix(rel, ".md")
+
+		decision, decErr := m.readDecisionFromPath(
+			ctx,
+			path,
+			name,
+		) //#nosec G122 -- path validated against vault root above
+		if decErr != nil {
+			fmt.Fprintf(
+				os.Stderr,
+				"Warning: failed to parse decision frontmatter %s: %v\n",
+				path,
+				decErr,
+			)
+			return nil
+		}
+
+		if decision.NeedsReview {
+			decisions = append(decisions, decision)
+		}
+		return nil
+	})
+
+	if err != nil {
+		return nil, errors.Wrap(ctx, err, fmt.Sprintf("walk vault %s", vaultPath))
+	}
+
+	return decisions, nil
+}
+
+// FindDecisionByName searches for a decision by exact or unambiguous partial name match.
+func (m *markdownStorage) FindDecisionByName(
+	ctx context.Context,
+	vaultPath string,
+	name string,
+) (*domain.Decision, error) {
+	// Path traversal guard
+	for _, part := range strings.Split(filepath.ToSlash(name), "/") {
+		if part == ".." {
+			return nil, fmt.Errorf("invalid decision name: %s", name)
+		}
+	}
+
+	decisions, err := m.ListDecisions(ctx, vaultPath)
+	if err != nil {
+		return nil, err
+	}
+
+	normalizedName := filepath.ToSlash(name)
+
+	// Exact match first
+	for _, d := range decisions {
+		if filepath.ToSlash(d.Name) == normalizedName {
+			return d, nil
+		}
+	}
+
+	// Partial match
+	var matches []*domain.Decision
+	lowerName := strings.ToLower(name)
+	for _, d := range decisions {
+		if strings.Contains(strings.ToLower(d.Name), lowerName) {
+			matches = append(matches, d)
+		}
+	}
+
+	switch len(matches) {
+	case 0:
+		return nil, fmt.Errorf("decision not found: %s", name)
+	case 1:
+		return matches[0], nil
+	default:
+		names := make([]string, len(matches))
+		for i, d := range matches {
+			names[i] = d.Name
+		}
+		return nil, fmt.Errorf(
+			"ambiguous match: %q matches %d decisions: %s",
+			name,
+			len(matches),
+			strings.Join(names, ", "),
+		)
+	}
+}
+
+// WriteDecision writes a decision to its markdown file, preserving the body content.
+func (m *markdownStorage) WriteDecision(ctx context.Context, decision *domain.Decision) error {
+	content, err := m.serializeWithFrontmatter(decision, decision.Content)
+	if err != nil {
+		return errors.Wrap(ctx, err, "serialize frontmatter")
+	}
+
+	if err := os.WriteFile(decision.FilePath, []byte(content), 0600); err != nil {
+		return errors.Wrap(ctx, err, fmt.Sprintf("write file %s", decision.FilePath))
 	}
 
 	return nil

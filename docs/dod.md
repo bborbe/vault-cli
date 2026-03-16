@@ -1,5 +1,7 @@
 # Definition of Done
 
+After completing your implementation, review your own changes against each criterion below. These are quality checks you perform by inspecting your work — not commands to run (linting and tests already ran via `validationCommand`). Report any unmet criterion as a blocker.
+
 ## Code Quality
 
 - Exported types, functions, and interfaces have doc comments
@@ -13,8 +15,8 @@
 - New code has good test coverage (target >= 80%)
 - Changes to existing code have tests covering at least the changed behavior
 - Tests use Ginkgo v2 / Gomega with Counterfeiter mocks
-- `make precommit` passes (lint + format + generate + test + checks)
 
 ## Documentation
 
+- README.md is updated if the change affects usage, configuration, or setup
 - CHANGELOG.md has an entry under `## Unreleased`

@@ -1,11 +1,12 @@
 ---
-status: verifying
+status: completed
 tags:
     - dark-factory
     - spec
 approved: "2026-03-16T10:19:12Z"
 prompted: "2026-03-16T10:23:15Z"
 verifying: "2026-03-16T11:01:23Z"
+completed: "2026-03-16T13:47:05Z"
 branch: dark-factory/decision-list-ack
 ---
 

@@ -25,6 +25,7 @@ type Task struct {
 	Recurring       string        `yaml:"recurring,omitempty"`
 	LastCompleted   string        `yaml:"last_completed,omitempty"`
 	PlannedDate     *libtime.Date `yaml:"planned_date,omitempty"`
+	DueDate         *libtime.Date `yaml:"due_date,omitempty"`
 
 	// Metadata
 	Name     string `yaml:"-"` // Filename without extension

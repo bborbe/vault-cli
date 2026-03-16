@@ -224,6 +224,7 @@ var _ = Describe("ListOperation JSON output", func() {
 		BeforeEach(func() {
 			deferDate := libtime.ToDate(time.Date(2026, 3, 15, 0, 0, 0, 0, time.UTC))
 			plannedDate := libtime.ToDate(time.Date(2026, 3, 20, 0, 0, 0, 0, time.UTC))
+			dueDate := libtime.ToDate(time.Date(2026, 3, 25, 0, 0, 0, 0, time.UTC))
 			tasks := []*domain.Task{
 				{
 					Name:            "Enriched Task",
@@ -234,6 +235,7 @@ var _ = Describe("ListOperation JSON output", func() {
 					Recurring:       "weekly",
 					DeferDate:       &deferDate,
 					PlannedDate:     &plannedDate,
+					DueDate:         &dueDate,
 					ClaudeSessionID: "sess-abc123",
 					Phase:           "implementation",
 				},
@@ -271,6 +273,12 @@ var _ = Describe("ListOperation JSON output", func() {
 			Expect(items[0].PlannedDate).To(Equal("2026-03-20"))
 		})
 
+		It("includes due_date formatted as YYYY-MM-DD", func() {
+			var items []ops.TaskListItem
+			Expect(json.Unmarshal(capturedOutput, &items)).To(Succeed())
+			Expect(items[0].DueDate).To(Equal("2026-03-25"))
+		})
+
 		It("includes claude_session_id", func() {
 			var items []ops.TaskListItem
 			Expect(json.Unmarshal(capturedOutput, &items)).To(Succeed())
@@ -305,6 +313,7 @@ var _ = Describe("ListOperation JSON output", func() {
 			Expect(capturedOutput).NotTo(ContainSubstring(`"recurring"`))
 			Expect(capturedOutput).NotTo(ContainSubstring(`"defer_date"`))
 			Expect(capturedOutput).NotTo(ContainSubstring(`"planned_date"`))
+			Expect(capturedOutput).NotTo(ContainSubstring(`"due_date"`))
 			Expect(capturedOutput).NotTo(ContainSubstring(`"claude_session_id"`))
 			Expect(capturedOutput).NotTo(ContainSubstring(`"phase"`))
 		})

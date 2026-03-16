@@ -65,6 +65,11 @@ func (o *frontmatterGetOperation) Execute(
 			return task.PlannedDate.Format("2006-01-02"), nil
 		}
 		return "", nil
+	case "due_date":
+		if task.DueDate != nil {
+			return task.DueDate.Format("2006-01-02"), nil
+		}
+		return "", nil
 	case "recurring":
 		return task.Recurring, nil
 	case "last_completed":
@@ -137,6 +142,12 @@ func (o *frontmatterSetOperation) Execute(
 			return err
 		}
 		task.PlannedDate = d
+	case "due_date":
+		d, err := parseDatePtr(ctx, value)
+		if err != nil {
+			return err
+		}
+		task.DueDate = d
 	case "recurring":
 		task.Recurring = value
 	case "last_completed":
@@ -239,6 +250,8 @@ func (o *frontmatterClearOperation) Execute(
 		task.DeferDate = nil
 	case "planned_date":
 		task.PlannedDate = nil
+	case "due_date":
+		task.DueDate = nil
 	case "recurring":
 		task.Recurring = ""
 	case "last_completed":

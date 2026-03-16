@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.25.2
+
+- fix: Resolve vaultPath through symlinks in isSymlinkOutsideVault (macOS /tmp fix)
+- add: Dark-factory prompts for splitting monolithic Storage interface into per-domain structs
+
 ## v0.25.1
 
 - docs: Rewrite README Usage section to document all commands (task, goal, theme, objective, vision, decision, search, config)

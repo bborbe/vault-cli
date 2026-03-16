@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.27.0
+
+- feat: Add due_date field to Task struct and frontmatter get/set/clear operations, list JSON output, and show JSON output
+
 ## v0.26.0
 
 - feat: Add planned_date, recurring, last_completed, page_type, goals, and tags fields to frontmatter get/set/clear operations

@@ -41,6 +41,7 @@ var _ = Describe("FrontmatterGetOperation", func() {
 		// Default: return a task with some fields set
 		deferDate := time.Date(2024, 12, 31, 0, 0, 0, 0, time.UTC)
 		plannedDate := time.Date(2025, 3, 15, 0, 0, 0, 0, time.UTC)
+		dueDate := time.Date(2025, 6, 30, 0, 0, 0, 0, time.UTC)
 		task = &domain.Task{
 			Name:            taskName,
 			Phase:           "implementation",
@@ -50,6 +51,7 @@ var _ = Describe("FrontmatterGetOperation", func() {
 			Priority:        domain.Priority(3),
 			DeferDate:       libtime.ToDate(deferDate).Ptr(),
 			PlannedDate:     libtime.ToDate(plannedDate).Ptr(),
+			DueDate:         libtime.ToDate(dueDate).Ptr(),
 			Recurring:       "weekly",
 			LastCompleted:   "2025-03-10",
 			PageType:        "task",
@@ -168,6 +170,29 @@ var _ = Describe("FrontmatterGetOperation", func() {
 		BeforeEach(func() {
 			key = "planned_date"
 			task.PlannedDate = nil
+		})
+
+		It("returns empty string with no error", func() {
+			Expect(err).To(BeNil())
+			Expect(result).To(Equal(""))
+		})
+	})
+
+	Context("getting due_date field", func() {
+		BeforeEach(func() {
+			key = "due_date"
+		})
+
+		It("returns the due_date value in YYYY-MM-DD format", func() {
+			Expect(err).To(BeNil())
+			Expect(result).To(Equal("2025-06-30"))
+		})
+	})
+
+	Context("getting due_date when nil", func() {
+		BeforeEach(func() {
+			key = "due_date"
+			task.DueDate = nil
 		})
 
 		It("returns empty string with no error", func() {
@@ -464,6 +489,48 @@ var _ = Describe("FrontmatterSetOperation", func() {
 		})
 	})
 
+	Context("setting due_date field", func() {
+		BeforeEach(func() {
+			key = "due_date"
+			value = "2025-06-15"
+		})
+
+		It("updates the due_date field", func() {
+			Expect(err).To(BeNil())
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
+			Expect(writtenTask.DueDate).NotTo(BeNil())
+			Expect(writtenTask.DueDate.Format("2006-01-02")).To(Equal("2025-06-15"))
+		})
+	})
+
+	Context("clearing due_date with empty string", func() {
+		BeforeEach(func() {
+			key = "due_date"
+			value = ""
+			dueDate := time.Date(2025, 6, 30, 0, 0, 0, 0, time.UTC)
+			task.DueDate = libtime.ToDate(dueDate).Ptr()
+		})
+
+		It("sets due_date to nil", func() {
+			Expect(err).To(BeNil())
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
+			Expect(writtenTask.DueDate).To(BeNil())
+		})
+	})
+
+	Context("invalid due_date format", func() {
+		BeforeEach(func() {
+			key = "due_date"
+			value = "2025-13-45"
+		})
+
+		It("returns an error", func() {
+			Expect(err).To(MatchError(ContainSubstring("invalid date format")))
+		})
+	})
+
 	Context("setting recurring field", func() {
 		BeforeEach(func() {
 			key = "recurring"
@@ -624,6 +691,7 @@ var _ = Describe("FrontmatterClearOperation", func() {
 		// Default: return a task with fields set
 		deferDate := time.Date(2024, 12, 31, 0, 0, 0, 0, time.UTC)
 		plannedDate := time.Date(2025, 3, 15, 0, 0, 0, 0, time.UTC)
+		dueDate := time.Date(2025, 6, 30, 0, 0, 0, 0, time.UTC)
 		task = &domain.Task{
 			Name:            taskName,
 			Phase:           "implementation",
@@ -633,6 +701,7 @@ var _ = Describe("FrontmatterClearOperation", func() {
 			Priority:        domain.Priority(3),
 			DeferDate:       libtime.ToDate(deferDate).Ptr(),
 			PlannedDate:     libtime.ToDate(plannedDate).Ptr(),
+			DueDate:         libtime.ToDate(dueDate).Ptr(),
 			Recurring:       "weekly",
 			LastCompleted:   "2025-03-10",
 			PageType:        "task",
@@ -735,6 +804,19 @@ var _ = Describe("FrontmatterClearOperation", func() {
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
 			Expect(writtenTask.PlannedDate).To(BeNil())
+		})
+	})
+
+	Context("clearing due_date field", func() {
+		BeforeEach(func() {
+			key = "due_date"
+		})
+
+		It("clears the due_date field", func() {
+			Expect(err).To(BeNil())
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
+			Expect(writtenTask.DueDate).To(BeNil())
 		})
 	})
 

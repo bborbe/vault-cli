@@ -42,6 +42,7 @@ var _ = Describe("ShowOperation", func() {
 
 		deferDate := time.Date(2025, 6, 15, 0, 0, 0, 0, time.UTC)
 		plannedDate := time.Date(2025, 7, 1, 0, 0, 0, 0, time.UTC)
+		dueDate := time.Date(2025, 8, 1, 0, 0, 0, 0, time.UTC)
 		task = &domain.Task{
 			Name:            taskName,
 			Status:          domain.TaskStatusInProgress,
@@ -54,6 +55,7 @@ var _ = Describe("ShowOperation", func() {
 			Goals:           []string{"goal-1", "goal-2"},
 			DeferDate:       libtime.ToDate(deferDate).Ptr(),
 			PlannedDate:     libtime.ToDate(plannedDate).Ptr(),
+			DueDate:         libtime.ToDate(dueDate).Ptr(),
 			Content:         "---\nstatus: in_progress\n---\nDo the thing with care.\n",
 			FilePath:        "/tmp/nonexistent-test-file.md",
 		}
@@ -96,6 +98,7 @@ var _ = Describe("ShowOperation", func() {
 			task.Goals = nil
 			task.DeferDate = nil
 			task.PlannedDate = nil
+			task.DueDate = nil
 		})
 
 		It("succeeds without error", func() {

@@ -56,6 +56,7 @@ type TaskListItem struct {
 	Recurring       string `json:"recurring,omitempty"`
 	DeferDate       string `json:"defer_date,omitempty"`
 	PlannedDate     string `json:"planned_date,omitempty"`
+	DueDate         string `json:"due_date,omitempty"`
 	ClaudeSessionID string `json:"claude_session_id,omitempty"`
 	Phase           string `json:"phase,omitempty"`
 }
@@ -114,6 +115,9 @@ func (l *listOperation) Execute(
 			}
 			if task.PlannedDate != nil {
 				items[i].PlannedDate = task.PlannedDate.Format("2006-01-02")
+			}
+			if task.DueDate != nil {
+				items[i].DueDate = task.DueDate.Format("2006-01-02")
 			}
 		}
 		enc := json.NewEncoder(os.Stdout)

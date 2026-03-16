@@ -52,6 +52,7 @@ type TaskDetail struct {
 	Recurring       string   `json:"recurring,omitempty"`
 	DeferDate       string   `json:"defer_date,omitempty"`
 	PlannedDate     string   `json:"planned_date,omitempty"`
+	DueDate         string   `json:"due_date,omitempty"`
 	ClaudeSessionID string   `json:"claude_session_id,omitempty"`
 	Goals           []string `json:"goals,omitempty"`
 	Description     string   `json:"description,omitempty"`
@@ -100,6 +101,10 @@ func (o *showOperation) Execute(
 
 	if task.PlannedDate != nil {
 		detail.PlannedDate = task.PlannedDate.Format("2006-01-02")
+	}
+
+	if task.DueDate != nil {
+		detail.DueDate = task.DueDate.Format("2006-01-02")
 	}
 
 	// Extract description from body content

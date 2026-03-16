@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.25.0
+
+- feat: Add `vault-cli decision list` and `vault-cli decision ack` CLI commands wired into the multi-vault pattern
+
 ## v0.24.0
 
 - feat: Add `DecisionAckOperation` that marks a decision as reviewed with today's date and optionally overrides its status field

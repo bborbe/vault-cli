@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: ["001"]
+summary: Wired vault-cli decision list and decision ack commands into pkg/cli/cli.go using the multi-vault pattern
+container: vault-cli-055-spec-001-decision-cli
+dark-factory-version: v0.54.0
 created: "2026-03-16T00:00:00Z"
 queued: "2026-03-16T10:36:41Z"
+started: "2026-03-16T10:53:19Z"
+completed: "2026-03-16T10:57:17Z"
 branch: dark-factory/decision-list-ack
 ---
 

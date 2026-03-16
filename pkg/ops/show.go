@@ -31,14 +31,14 @@ type ShowOperation interface {
 }
 
 // NewShowOperation creates a new show operation.
-func NewShowOperation(storage storage.Storage) ShowOperation {
+func NewShowOperation(taskStorage storage.TaskStorage) ShowOperation {
 	return &showOperation{
-		storage: storage,
+		taskStorage: taskStorage,
 	}
 }
 
 type showOperation struct {
-	storage storage.Storage
+	taskStorage storage.TaskStorage
 }
 
 // TaskDetail contains full task information for JSON output.
@@ -74,7 +74,7 @@ func (o *showOperation) Execute(
 	taskName string,
 	outputFormat string,
 ) error {
-	task, err := o.storage.FindTaskByName(ctx, vaultPath, taskName)
+	task, err := o.taskStorage.FindTaskByName(ctx, vaultPath, taskName)
 	if err != nil {
 		return errors.Wrap(ctx, err, "find task")
 	}

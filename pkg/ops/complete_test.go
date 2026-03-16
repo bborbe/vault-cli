@@ -35,7 +35,12 @@ var _ = Describe("CompleteOperation", func() {
 		mockStorage = &mocks.Storage{}
 		currentDateTime := libtime.NewCurrentDateTime()
 		currentDateTime.SetNow(libtimetest.ParseDateTime("2026-03-03T12:00:00Z"))
-		completeOp = ops.NewCompleteOperation(mockStorage, currentDateTime)
+		completeOp = ops.NewCompleteOperation(
+			mockStorage,
+			mockStorage,
+			mockStorage,
+			currentDateTime,
+		)
 		vaultPath = "/path/to/vault"
 		taskName = "my-task"
 		outputFormat = "plain" // default

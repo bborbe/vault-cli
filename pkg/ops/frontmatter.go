@@ -23,14 +23,14 @@ type FrontmatterGetOperation interface {
 }
 
 // NewFrontmatterGetOperation creates a new frontmatter get operation.
-func NewFrontmatterGetOperation(storage storage.Storage) FrontmatterGetOperation {
+func NewFrontmatterGetOperation(taskStorage storage.TaskStorage) FrontmatterGetOperation {
 	return &frontmatterGetOperation{
-		storage: storage,
+		taskStorage: taskStorage,
 	}
 }
 
 type frontmatterGetOperation struct {
-	storage storage.Storage
+	taskStorage storage.TaskStorage
 }
 
 // Execute retrieves the value of a frontmatter field from a task.
@@ -38,7 +38,7 @@ func (o *frontmatterGetOperation) Execute(
 	ctx context.Context,
 	vaultPath, taskName, key string,
 ) (string, error) {
-	task, err := o.storage.FindTaskByName(ctx, vaultPath, taskName)
+	task, err := o.taskStorage.FindTaskByName(ctx, vaultPath, taskName)
 	if err != nil {
 		return "", errors.Wrap(ctx, err, "find task")
 	}
@@ -70,14 +70,14 @@ type FrontmatterSetOperation interface {
 }
 
 // NewFrontmatterSetOperation creates a new frontmatter set operation.
-func NewFrontmatterSetOperation(storage storage.Storage) FrontmatterSetOperation {
+func NewFrontmatterSetOperation(taskStorage storage.TaskStorage) FrontmatterSetOperation {
 	return &frontmatterSetOperation{
-		storage: storage,
+		taskStorage: taskStorage,
 	}
 }
 
 type frontmatterSetOperation struct {
-	storage storage.Storage
+	taskStorage storage.TaskStorage
 }
 
 // Execute sets the value of a frontmatter field on a task.
@@ -85,7 +85,7 @@ func (o *frontmatterSetOperation) Execute(
 	ctx context.Context,
 	vaultPath, taskName, key, value string,
 ) error {
-	task, err := o.storage.FindTaskByName(ctx, vaultPath, taskName)
+	task, err := o.taskStorage.FindTaskByName(ctx, vaultPath, taskName)
 	if err != nil {
 		return errors.Wrap(ctx, err, "find task")
 	}
@@ -143,7 +143,7 @@ func (o *frontmatterSetOperation) Execute(
 		return fmt.Errorf("unknown field: %s", key)
 	}
 
-	if err := o.storage.WriteTask(ctx, task); err != nil {
+	if err := o.taskStorage.WriteTask(ctx, task); err != nil {
 		return errors.Wrap(ctx, err, "write task")
 	}
 
@@ -156,14 +156,14 @@ type FrontmatterClearOperation interface {
 }
 
 // NewFrontmatterClearOperation creates a new frontmatter clear operation.
-func NewFrontmatterClearOperation(storage storage.Storage) FrontmatterClearOperation {
+func NewFrontmatterClearOperation(taskStorage storage.TaskStorage) FrontmatterClearOperation {
 	return &frontmatterClearOperation{
-		storage: storage,
+		taskStorage: taskStorage,
 	}
 }
 
 type frontmatterClearOperation struct {
-	storage storage.Storage
+	taskStorage storage.TaskStorage
 }
 
 // Execute clears (zeros) the value of a frontmatter field on a task.
@@ -171,7 +171,7 @@ func (o *frontmatterClearOperation) Execute(
 	ctx context.Context,
 	vaultPath, taskName, key string,
 ) error {
-	task, err := o.storage.FindTaskByName(ctx, vaultPath, taskName)
+	task, err := o.taskStorage.FindTaskByName(ctx, vaultPath, taskName)
 	if err != nil {
 		return errors.Wrap(ctx, err, "find task")
 	}
@@ -193,7 +193,7 @@ func (o *frontmatterClearOperation) Execute(
 		return fmt.Errorf("unknown field: %s", key)
 	}
 
-	if err := o.storage.WriteTask(ctx, task); err != nil {
+	if err := o.taskStorage.WriteTask(ctx, task); err != nil {
 		return errors.Wrap(ctx, err, "write task")
 	}
 

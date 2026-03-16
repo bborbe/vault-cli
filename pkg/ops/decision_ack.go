@@ -30,17 +30,17 @@ type DecisionAckOperation interface {
 
 // NewDecisionAckOperation creates a new decision ack operation.
 func NewDecisionAckOperation(
-	storage storage.Storage,
+	decisionStorage storage.DecisionStorage,
 	currentDateTime libtime.CurrentDateTime,
 ) DecisionAckOperation {
 	return &decisionAckOperation{
-		storage:         storage,
+		decisionStorage: decisionStorage,
 		currentDateTime: currentDateTime,
 	}
 }
 
 type decisionAckOperation struct {
-	storage         storage.Storage
+	decisionStorage storage.DecisionStorage
 	currentDateTime libtime.CurrentDateTime
 }
 
@@ -53,7 +53,7 @@ func (d *decisionAckOperation) Execute(
 	statusOverride string,
 	outputFormat string,
 ) error {
-	decision, err := d.storage.FindDecisionByName(ctx, vaultPath, decisionName)
+	decision, err := d.decisionStorage.FindDecisionByName(ctx, vaultPath, decisionName)
 	if err != nil {
 		return errors.Wrap(ctx, err, "find decision")
 	}
@@ -65,7 +65,7 @@ func (d *decisionAckOperation) Execute(
 		decision.Status = statusOverride
 	}
 
-	if err := d.storage.WriteDecision(ctx, decision); err != nil {
+	if err := d.decisionStorage.WriteDecision(ctx, decision); err != nil {
 		return errors.Wrap(ctx, err, "write decision")
 	}
 

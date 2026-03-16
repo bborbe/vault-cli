@@ -34,24 +34,27 @@ type WorkOnOperation interface {
 
 // NewWorkOnOperation creates a new work-on operation.
 func NewWorkOnOperation(
-	storage storage.Storage,
+	taskStorage storage.TaskStorage,
+	dailyNoteStorage storage.DailyNoteStorage,
 	currentDateTime libtime.CurrentDateTime,
 	starter ClaudeSessionStarter,
 	resumer ClaudeResumer,
 ) WorkOnOperation {
 	return &workOnOperation{
-		storage:         storage,
-		currentDateTime: currentDateTime,
-		starter:         starter,
-		resumer:         resumer,
+		taskStorage:      taskStorage,
+		dailyNoteStorage: dailyNoteStorage,
+		currentDateTime:  currentDateTime,
+		starter:          starter,
+		resumer:          resumer,
 	}
 }
 
 type workOnOperation struct {
-	storage         storage.Storage
-	currentDateTime libtime.CurrentDateTime
-	starter         ClaudeSessionStarter
-	resumer         ClaudeResumer
+	taskStorage      storage.TaskStorage
+	dailyNoteStorage storage.DailyNoteStorage
+	currentDateTime  libtime.CurrentDateTime
+	starter          ClaudeSessionStarter
+	resumer          ClaudeResumer
 }
 
 // Execute marks a task as in_progress, assigns it, and starts or resumes a Claude session.
@@ -66,7 +69,7 @@ func (w *workOnOperation) Execute(
 ) error {
 	var warnings []string
 
-	task, err := w.storage.FindTaskByName(ctx, vaultPath, taskName)
+	task, err := w.taskStorage.FindTaskByName(ctx, vaultPath, taskName)
 	if err != nil {
 		if outputFormat == "json" {
 			result := MutationResult{Success: false, Error: err.Error()}
@@ -80,7 +83,7 @@ func (w *workOnOperation) Execute(
 	task.Status = domain.TaskStatusInProgress
 	task.Assignee = assignee
 
-	if err := w.storage.WriteTask(ctx, task); err != nil {
+	if err := w.taskStorage.WriteTask(ctx, task); err != nil {
 		if outputFormat == "json" {
 			result := MutationResult{Success: false, Error: err.Error()}
 			enc := json.NewEncoder(os.Stdout)
@@ -151,7 +154,7 @@ func (w *workOnOperation) handleClaudeSession(
 		return "", errors.Wrap(ctx, err, "start claude session")
 	}
 	task.ClaudeSessionID = sessionID
-	if err := w.storage.WriteTask(ctx, task); err != nil {
+	if err := w.taskStorage.WriteTask(ctx, task); err != nil {
 		return sessionID, errors.Wrap(ctx, err, "save session id to task")
 	}
 	return sessionID, nil
@@ -164,7 +167,7 @@ func (w *workOnOperation) updateDailyNote(
 	date string,
 	taskName string,
 ) error {
-	content, err := w.storage.ReadDailyNote(ctx, vaultPath, date)
+	content, err := w.dailyNoteStorage.ReadDailyNote(ctx, vaultPath, date)
 	if err != nil {
 		return errors.Wrap(ctx, err, "read daily note")
 	}
@@ -187,7 +190,7 @@ func (w *workOnOperation) updateDailyNote(
 
 	// Write updated daily note
 	updatedContent := strings.Join(lines, "\n")
-	if err := w.storage.WriteDailyNote(ctx, vaultPath, date, updatedContent); err != nil {
+	if err := w.dailyNoteStorage.WriteDailyNote(ctx, vaultPath, date, updatedContent); err != nil {
 		return errors.Wrap(ctx, err, "write daily note")
 	}
 

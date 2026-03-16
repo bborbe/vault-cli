@@ -17,20 +17,22 @@ import (
 
 var _ = Describe("UpdateOperation", func() {
 	var (
-		ctx          context.Context
-		err          error
-		updateOp     ops.UpdateOperation
-		mockStorage  *mocks.Storage
-		vaultPath    string
-		taskName     string
-		task         *domain.Task
-		outputFormat string
+		ctx             context.Context
+		err             error
+		updateOp        ops.UpdateOperation
+		mockTaskStorage *mocks.TaskStorage
+		mockGoalStorage *mocks.GoalStorage
+		vaultPath       string
+		taskName        string
+		task            *domain.Task
+		outputFormat    string
 	)
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		mockStorage = &mocks.Storage{}
-		updateOp = ops.NewUpdateOperation(mockStorage, mockStorage)
+		mockTaskStorage = &mocks.TaskStorage{}
+		mockGoalStorage = &mocks.GoalStorage{}
+		updateOp = ops.NewUpdateOperation(mockTaskStorage, mockGoalStorage)
 		vaultPath = "/path/to/vault"
 		taskName = "my-task"
 		outputFormat = "plain" // default
@@ -50,8 +52,8 @@ status: todo
 - [ ] Third item
 `,
 		}
-		mockStorage.FindTaskByNameReturns(task, nil)
-		mockStorage.WriteTaskReturns(nil)
+		mockTaskStorage.FindTaskByNameReturns(task, nil)
+		mockTaskStorage.WriteTaskReturns(nil)
 	})
 
 	JustBeforeEach(func() {
@@ -78,8 +80,8 @@ status: todo
 			})
 
 			It("sets status to done", func() {
-				Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
-				_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
+				Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+				_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
 				Expect(writtenTask.Status).To(Equal(domain.TaskStatusCompleted))
 			})
 		})
@@ -103,8 +105,8 @@ status: in_progress
 			})
 
 			It("sets status to todo", func() {
-				Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
-				_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
+				Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+				_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
 				Expect(writtenTask.Status).To(Equal(domain.TaskStatusTodo))
 			})
 		})
@@ -128,8 +130,8 @@ status: todo
 			})
 
 			It("sets status to in_progress", func() {
-				Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
-				_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
+				Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+				_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
 				Expect(writtenTask.Status).To(Equal(domain.TaskStatusInProgress))
 			})
 		})
@@ -151,13 +153,15 @@ Just some text without checkboxes.
 			})
 
 			It("does not call WriteTask", func() {
-				Expect(mockStorage.WriteTaskCallCount()).To(Equal(0))
+				Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(0))
 			})
 		})
 
 		It("calls FindTaskByName", func() {
-			Expect(mockStorage.FindTaskByNameCallCount()).To(Equal(1))
-			actualCtx, actualVaultPath, actualTaskName := mockStorage.FindTaskByNameArgsForCall(0)
+			Expect(mockTaskStorage.FindTaskByNameCallCount()).To(Equal(1))
+			actualCtx, actualVaultPath, actualTaskName := mockTaskStorage.FindTaskByNameArgsForCall(
+				0,
+			)
 			Expect(actualCtx).To(Equal(ctx))
 			Expect(actualVaultPath).To(Equal(vaultPath))
 			Expect(actualTaskName).To(Equal(taskName))
@@ -166,7 +170,7 @@ Just some text without checkboxes.
 
 	Context("task not found", func() {
 		BeforeEach(func() {
-			mockStorage.FindTaskByNameReturns(nil, ErrTest)
+			mockTaskStorage.FindTaskByNameReturns(nil, ErrTest)
 		})
 
 		It("returns error", func() {
@@ -174,13 +178,13 @@ Just some text without checkboxes.
 		})
 
 		It("does not call WriteTask", func() {
-			Expect(mockStorage.WriteTaskCallCount()).To(Equal(0))
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(0))
 		})
 	})
 
 	Context("write error", func() {
 		BeforeEach(func() {
-			mockStorage.WriteTaskReturns(ErrTest)
+			mockTaskStorage.WriteTaskReturns(ErrTest)
 		})
 
 		It("returns error", func() {
@@ -215,19 +219,19 @@ status: active
 - [ ] Second item
 `,
 			}
-			mockStorage.FindGoalByNameReturns(goal, nil)
-			mockStorage.WriteGoalReturns(nil)
+			mockGoalStorage.FindGoalByNameReturns(goal, nil)
+			mockGoalStorage.WriteGoalReturns(nil)
 		})
 
 		It("attempts to sync goal checkboxes", func() {
 			Expect(err).To(BeNil())
-			Expect(mockStorage.FindGoalByNameCallCount() > 0).To(BeTrue())
+			Expect(mockGoalStorage.FindGoalByNameCallCount() > 0).To(BeTrue())
 		})
 
 		It("updates goal checkboxes to match task", func() {
 			Expect(err).To(BeNil())
-			if mockStorage.WriteGoalCallCount() > 0 {
-				_, updatedGoal := mockStorage.WriteGoalArgsForCall(0)
+			if mockGoalStorage.WriteGoalCallCount() > 0 {
+				_, updatedGoal := mockGoalStorage.WriteGoalArgsForCall(0)
 				// Should have updated first item to checked
 				Expect(updatedGoal.Content).To(ContainSubstring("- [x] First item"))
 			}
@@ -237,7 +241,7 @@ status: active
 	Context("task with goal not found", func() {
 		BeforeEach(func() {
 			task.Goals = []string{"Missing Goal"}
-			mockStorage.FindGoalByNameReturns(nil, ErrTest)
+			mockGoalStorage.FindGoalByNameReturns(nil, ErrTest)
 		})
 
 		It("completes task despite goal error", func() {
@@ -270,8 +274,8 @@ status: todo
 			})
 
 			It("sets status to done", func() {
-				Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
-				_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
+				Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+				_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
 				Expect(writtenTask.Status).To(Equal(domain.TaskStatusCompleted))
 			})
 		})
@@ -295,8 +299,8 @@ status: in_progress
 			})
 
 			It("sets status to todo", func() {
-				Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
-				_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
+				Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+				_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
 				Expect(writtenTask.Status).To(Equal(domain.TaskStatusTodo))
 			})
 		})
@@ -318,13 +322,13 @@ Just some text without checkboxes.
 			})
 
 			It("does not call WriteTask", func() {
-				Expect(mockStorage.WriteTaskCallCount()).To(Equal(0))
+				Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(0))
 			})
 		})
 
 		Context("WriteTask returns error", func() {
 			BeforeEach(func() {
-				mockStorage.WriteTaskReturns(ErrTest)
+				mockTaskStorage.WriteTaskReturns(ErrTest)
 			})
 
 			It("returns error", func() {
@@ -334,7 +338,7 @@ Just some text without checkboxes.
 
 		Context("FindTaskByName returns error", func() {
 			BeforeEach(func() {
-				mockStorage.FindTaskByNameReturns(nil, ErrTest)
+				mockTaskStorage.FindTaskByNameReturns(nil, ErrTest)
 			})
 
 			It("returns error", func() {

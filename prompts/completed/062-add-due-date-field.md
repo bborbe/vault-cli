@@ -1,10 +1,12 @@
 ---
-status: executing
+status: completed
+summary: Added due_date field to Task struct, frontmatter get/set/clear operations, list JSON output, show JSON output, and all corresponding tests mirroring the planned_date implementation.
 container: vault-cli-062-add-due-date-field
 dark-factory-version: v0.57.3
 created: "2026-03-16T12:55:00Z"
 queued: "2026-03-16T14:17:04Z"
 started: "2026-03-16T14:17:17Z"
+completed: "2026-03-16T14:24:52Z"
 ---
 
 <summary>

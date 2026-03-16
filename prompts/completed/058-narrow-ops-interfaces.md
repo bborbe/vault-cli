@@ -1,7 +1,12 @@
 ---
-status: approved
+status: completed
+summary: Updated all ops constructors and structs to accept narrow per-domain storage interfaces instead of monolithic Storage, with temporary multi-arg wiring in cli.go and test files.
+container: vault-cli-058-narrow-ops-interfaces
+dark-factory-version: v0.54.0
 created: "2026-03-16T11:01:00Z"
 queued: "2026-03-16T12:09:47Z"
+started: "2026-03-16T12:16:21Z"
+completed: "2026-03-16T12:24:56Z"
 ---
 
 <summary>

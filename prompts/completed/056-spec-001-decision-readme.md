@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: ["001"]
+summary: Rewrote README Usage section to comprehensively document all commands across task, goal, theme, objective, vision, decision, search, and config groups.
+container: vault-cli-056-spec-001-decision-readme
+dark-factory-version: v0.54.0
 created: "2026-03-16T00:00:00Z"
 queued: "2026-03-16T10:36:41Z"
+started: "2026-03-16T10:57:21Z"
+completed: "2026-03-16T11:01:23Z"
 branch: dark-factory/decision-list-ack
 ---
 

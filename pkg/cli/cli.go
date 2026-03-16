@@ -138,8 +138,15 @@ func createCompleteCommand(
 			if len(vaults) == 1 {
 				vault := vaults[0]
 				storageConfig := storage.NewConfigFromVault(vault)
-				store := storage.NewStorage(storageConfig)
-				completeOp := ops.NewCompleteOperation(store, store, store, currentDateTime)
+				taskStore := storage.NewTaskStorage(storageConfig)
+				goalStore := storage.NewGoalStorage(storageConfig)
+				dailyStore := storage.NewDailyNoteStorage(storageConfig)
+				completeOp := ops.NewCompleteOperation(
+					taskStore,
+					goalStore,
+					dailyStore,
+					currentDateTime,
+				)
 				return completeOp.Execute(ctx, vault.Path, taskName, vault.Name, *outputFormat)
 			}
 
@@ -147,8 +154,15 @@ func createCompleteCommand(
 			var lastErr error
 			for _, vault := range vaults {
 				storageConfig := storage.NewConfigFromVault(vault)
-				store := storage.NewStorage(storageConfig)
-				completeOp := ops.NewCompleteOperation(store, store, store, currentDateTime)
+				taskStore := storage.NewTaskStorage(storageConfig)
+				goalStore := storage.NewGoalStorage(storageConfig)
+				dailyStore := storage.NewDailyNoteStorage(storageConfig)
+				completeOp := ops.NewCompleteOperation(
+					taskStore,
+					goalStore,
+					dailyStore,
+					currentDateTime,
+				)
 				if err := completeOp.Execute(ctx, vault.Path, taskName, vault.Name, *outputFormat); err == nil {
 					return nil
 				}
@@ -198,8 +212,9 @@ Date formats:
 			if len(vaults) == 1 {
 				vault := vaults[0]
 				storageConfig := storage.NewConfigFromVault(vault)
-				store := storage.NewStorage(storageConfig)
-				deferOp := ops.NewDeferOperation(store, store, currentDateTime)
+				taskStore := storage.NewTaskStorage(storageConfig)
+				dailyStore := storage.NewDailyNoteStorage(storageConfig)
+				deferOp := ops.NewDeferOperation(taskStore, dailyStore, currentDateTime)
 				return deferOp.Execute(
 					ctx,
 					vault.Path,
@@ -214,8 +229,9 @@ Date formats:
 			var lastErr error
 			for _, vault := range vaults {
 				storageConfig := storage.NewConfigFromVault(vault)
-				store := storage.NewStorage(storageConfig)
-				deferOp := ops.NewDeferOperation(store, store, currentDateTime)
+				taskStore := storage.NewTaskStorage(storageConfig)
+				dailyStore := storage.NewDailyNoteStorage(storageConfig)
+				deferOp := ops.NewDeferOperation(taskStore, dailyStore, currentDateTime)
 				if err := deferOp.Execute(ctx, vault.Path, taskName, dateStr, vault.Name, *outputFormat); err == nil {
 					return nil
 				}
@@ -250,8 +266,9 @@ func createUpdateCommand(
 			if len(vaults) == 1 {
 				vault := vaults[0]
 				storageConfig := storage.NewConfigFromVault(vault)
-				store := storage.NewStorage(storageConfig)
-				updateOp := ops.NewUpdateOperation(store, store)
+				taskStore := storage.NewTaskStorage(storageConfig)
+				goalStore := storage.NewGoalStorage(storageConfig)
+				updateOp := ops.NewUpdateOperation(taskStore, goalStore)
 				return updateOp.Execute(ctx, vault.Path, taskName, vault.Name, *outputFormat)
 			}
 
@@ -259,8 +276,9 @@ func createUpdateCommand(
 			var lastErr error
 			for _, vault := range vaults {
 				storageConfig := storage.NewConfigFromVault(vault)
-				store := storage.NewStorage(storageConfig)
-				updateOp := ops.NewUpdateOperation(store, store)
+				taskStore := storage.NewTaskStorage(storageConfig)
+				goalStore := storage.NewGoalStorage(storageConfig)
+				updateOp := ops.NewUpdateOperation(taskStore, goalStore)
 				if err := updateOp.Execute(ctx, vault.Path, taskName, vault.Name, *outputFormat); err == nil {
 					return nil
 				}
@@ -305,14 +323,21 @@ func createWorkOnCommand(
 
 			currentDateTime := libtime.NewCurrentDateTime()
 
-			if len(vaults) == 1 {
-				vault := vaults[0]
+			var lastErr error
+			for _, vault := range vaults {
 				starter := ops.NewClaudeSessionStarter(vault.GetClaudeScript())
 				resumer := ops.NewClaudeResumer(vault.GetClaudeScript())
 				storageConfig := storage.NewConfigFromVault(vault)
-				store := storage.NewStorage(storageConfig)
-				workOnOp := ops.NewWorkOnOperation(store, store, currentDateTime, starter, resumer)
-				return workOnOp.Execute(
+				taskStore := storage.NewTaskStorage(storageConfig)
+				dailyStore := storage.NewDailyNoteStorage(storageConfig)
+				workOnOp := ops.NewWorkOnOperation(
+					taskStore,
+					dailyStore,
+					currentDateTime,
+					starter,
+					resumer,
+				)
+				err := workOnOp.Execute(
 					ctx,
 					vault.Path,
 					taskName,
@@ -321,16 +346,7 @@ func createWorkOnCommand(
 					*outputFormat,
 					isInteractive,
 				)
-			}
-
-			var lastErr error
-			for _, vault := range vaults {
-				starter := ops.NewClaudeSessionStarter(vault.GetClaudeScript())
-				resumer := ops.NewClaudeResumer(vault.GetClaudeScript())
-				storageConfig := storage.NewConfigFromVault(vault)
-				store := storage.NewStorage(storageConfig)
-				workOnOp := ops.NewWorkOnOperation(store, store, currentDateTime, starter, resumer)
-				if err := workOnOp.Execute(ctx, vault.Path, taskName, currentUser, vault.Name, *outputFormat, isInteractive); err == nil {
+				if err == nil {
 					return nil
 				}
 				lastErr = err
@@ -393,8 +409,8 @@ Use --assignee to filter by assignee.`,
 				}
 
 				storageConfig := storage.NewConfigFromVault(vault)
-				store := storage.NewStorage(storageConfig)
-				listOp := ops.NewListOperation(store)
+				pageStore := storage.NewPageStorage(storageConfig)
+				listOp := ops.NewListOperation(pageStore)
 
 				if err := listOp.Execute(ctx, vault.Path, vault.Name, storageConfig.TasksDir, statusFilter, showAll, assigneeFlag, *outputFormat); err != nil {
 					return err
@@ -454,9 +470,9 @@ func createValidateCommand(
 			// Search for the task across vaults
 			for _, vault := range vaults {
 				storageConfig := storage.NewConfigFromVault(vault)
-				store := storage.NewStorage(storageConfig)
+				taskStore := storage.NewTaskStorage(storageConfig)
 
-				task, err := store.FindTaskByName(ctx, vault.Path, taskName)
+				task, err := taskStore.FindTaskByName(ctx, vault.Path, taskName)
 				if err == nil {
 					foundInVault = vault
 					taskFilePath = task.FilePath
@@ -554,8 +570,8 @@ func createGenericListCommand(
 				}
 
 				storageConfig := storage.NewConfigFromVault(vault)
-				store := storage.NewStorage(storageConfig)
-				listOp := ops.NewListOperation(store)
+				pageStore := storage.NewPageStorage(storageConfig)
+				listOp := ops.NewListOperation(pageStore)
 
 				if err := listOp.Execute(ctx, vault.Path, vault.Name, getDirFunc(storageConfig), statusFilter, showAll, assigneeFlag, *outputFormat); err != nil {
 					return err
@@ -795,8 +811,8 @@ func createDecisionListCommand(
 			}
 			for _, vault := range vaults {
 				storageConfig := storage.NewConfigFromVault(vault)
-				store := storage.NewStorage(storageConfig)
-				listOp := ops.NewDecisionListOperation(store)
+				decisionStore := storage.NewDecisionStorage(storageConfig)
+				listOp := ops.NewDecisionListOperation(decisionStore)
 				if err := listOp.Execute(ctx, vault.Path, vault.Name, showReviewed, showAll, *outputFormat); err != nil {
 					fmt.Fprintf(os.Stderr, "Warning: vault %s: %v\n", vault.Name, err)
 				}
@@ -835,8 +851,8 @@ func createDecisionAckCommand(
 			var lastErr error
 			for _, vault := range vaults {
 				storageConfig := storage.NewConfigFromVault(vault)
-				store := storage.NewStorage(storageConfig)
-				ackOp := ops.NewDecisionAckOperation(store, currentDateTime)
+				decisionStore := storage.NewDecisionStorage(storageConfig)
+				ackOp := ops.NewDecisionAckOperation(decisionStore, currentDateTime)
 				err := ackOp.Execute(
 					ctx,
 					vault.Path,
@@ -966,8 +982,8 @@ func createTaskGetCommand(
 			if len(vaults) == 1 {
 				vault := vaults[0]
 				storageConfig := storage.NewConfigFromVault(vault)
-				store := storage.NewStorage(storageConfig)
-				getOp := ops.NewFrontmatterGetOperation(store)
+				taskStore := storage.NewTaskStorage(storageConfig)
+				getOp := ops.NewFrontmatterGetOperation(taskStore)
 				value, err := getOp.Execute(ctx, vault.Path, taskName, key)
 				if err != nil {
 					if *outputFormat == OutputFormatJSON {
@@ -997,8 +1013,8 @@ func createTaskGetCommand(
 			var lastErr error
 			for _, vault := range vaults {
 				storageConfig := storage.NewConfigFromVault(vault)
-				store := storage.NewStorage(storageConfig)
-				getOp := ops.NewFrontmatterGetOperation(store)
+				taskStore := storage.NewTaskStorage(storageConfig)
+				getOp := ops.NewFrontmatterGetOperation(taskStore)
 				value, err := getOp.Execute(ctx, vault.Path, taskName, key)
 				if err == nil {
 					if *outputFormat == OutputFormatJSON {
@@ -1053,8 +1069,8 @@ func createTaskSetCommand(
 			if len(vaults) == 1 {
 				vault := vaults[0]
 				storageConfig := storage.NewConfigFromVault(vault)
-				store := storage.NewStorage(storageConfig)
-				setOp := ops.NewFrontmatterSetOperation(store)
+				taskStore := storage.NewTaskStorage(storageConfig)
+				setOp := ops.NewFrontmatterSetOperation(taskStore)
 				if err := setOp.Execute(ctx, vault.Path, taskName, key, value); err != nil {
 					if *outputFormat == OutputFormatJSON {
 						result := map[string]any{
@@ -1084,8 +1100,8 @@ func createTaskSetCommand(
 			var lastErr error
 			for _, vault := range vaults {
 				storageConfig := storage.NewConfigFromVault(vault)
-				store := storage.NewStorage(storageConfig)
-				setOp := ops.NewFrontmatterSetOperation(store)
+				taskStore := storage.NewTaskStorage(storageConfig)
+				setOp := ops.NewFrontmatterSetOperation(taskStore)
 				if err := setOp.Execute(ctx, vault.Path, taskName, key, value); err == nil {
 					if *outputFormat == OutputFormatJSON {
 						result := map[string]any{
@@ -1139,8 +1155,8 @@ func createTaskClearCommand(
 			if len(vaults) == 1 {
 				vault := vaults[0]
 				storageConfig := storage.NewConfigFromVault(vault)
-				store := storage.NewStorage(storageConfig)
-				clearOp := ops.NewFrontmatterClearOperation(store)
+				taskStore := storage.NewTaskStorage(storageConfig)
+				clearOp := ops.NewFrontmatterClearOperation(taskStore)
 				if err := clearOp.Execute(ctx, vault.Path, taskName, key); err != nil {
 					if *outputFormat == OutputFormatJSON {
 						result := map[string]any{
@@ -1169,8 +1185,8 @@ func createTaskClearCommand(
 			var lastErr error
 			for _, vault := range vaults {
 				storageConfig := storage.NewConfigFromVault(vault)
-				store := storage.NewStorage(storageConfig)
-				clearOp := ops.NewFrontmatterClearOperation(store)
+				taskStore := storage.NewTaskStorage(storageConfig)
+				clearOp := ops.NewFrontmatterClearOperation(taskStore)
 				if err := clearOp.Execute(ctx, vault.Path, taskName, key); err == nil {
 					if *outputFormat == OutputFormatJSON {
 						result := map[string]any{
@@ -1220,8 +1236,8 @@ func createTaskShowCommand(
 			if len(vaults) == 1 {
 				vault := vaults[0]
 				storageConfig := storage.NewConfigFromVault(vault)
-				store := storage.NewStorage(storageConfig)
-				showOp := ops.NewShowOperation(store)
+				taskStore := storage.NewTaskStorage(storageConfig)
+				showOp := ops.NewShowOperation(taskStore)
 				return showOp.Execute(ctx, vault.Path, vault.Name, taskName, *outputFormat)
 			}
 
@@ -1229,8 +1245,8 @@ func createTaskShowCommand(
 			var lastErr error
 			for _, vault := range vaults {
 				storageConfig := storage.NewConfigFromVault(vault)
-				store := storage.NewStorage(storageConfig)
-				showOp := ops.NewShowOperation(store)
+				taskStore := storage.NewTaskStorage(storageConfig)
+				showOp := ops.NewShowOperation(taskStore)
 				if err := showOp.Execute(ctx, vault.Path, vault.Name, taskName, *outputFormat); err == nil {
 					return nil
 				}

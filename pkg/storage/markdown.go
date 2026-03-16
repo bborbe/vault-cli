@@ -418,7 +418,11 @@ func isSymlinkOutsideVault(path, vaultPath string) bool {
 	if err != nil {
 		return false
 	}
-	absVault, err := filepath.Abs(vaultPath)
+	resolvedVault, err := filepath.EvalSymlinks(vaultPath)
+	if err != nil {
+		return false
+	}
+	absVault, err := filepath.Abs(resolvedVault)
 	if err != nil {
 		return false
 	}

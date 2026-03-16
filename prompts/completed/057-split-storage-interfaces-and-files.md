@@ -1,10 +1,12 @@
 ---
-status: executing
+status: completed
+summary: Split monolithic pkg/storage/markdown.go into per-domain files (base, task, goal, theme, daily_note, page, decision) with narrow interfaces, a composed Storage interface preserving backward compatibility, and a shared baseStorage embedded struct.
 container: vault-cli-057-split-storage-interfaces-and-files
 dark-factory-version: v0.54.0
 created: "2026-03-16T11:00:00Z"
 queued: "2026-03-16T12:09:47Z"
 started: "2026-03-16T12:09:49Z"
+completed: "2026-03-16T12:16:17Z"
 ---
 
 <summary>

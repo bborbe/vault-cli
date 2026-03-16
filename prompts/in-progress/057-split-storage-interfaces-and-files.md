@@ -1,6 +1,10 @@
 ---
-status: created
+status: executing
+container: vault-cli-057-split-storage-interfaces-and-files
+dark-factory-version: v0.54.0
 created: "2026-03-16T11:00:00Z"
+queued: "2026-03-16T12:09:47Z"
+started: "2026-03-16T12:09:49Z"
 ---
 
 <summary>

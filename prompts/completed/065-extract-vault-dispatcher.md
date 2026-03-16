@@ -1,10 +1,12 @@
 ---
-status: executing
+status: completed
+summary: Extracted duplicated multi-vault dispatch loop into VaultDispatcher in pkg/ops, replaced 9 vault loops in cli.go with dispatcher calls, added tests with Ginkgo/Gomega, and generated counterfeiter mock.
 container: vault-cli-065-extract-vault-dispatcher
 dark-factory-version: v0.57.3
 created: "2026-03-16T15:19:37Z"
 queued: "2026-03-16T15:19:37Z"
 started: "2026-03-16T15:34:12Z"
+completed: "2026-03-16T15:40:23Z"
 ---
 
 <summary>

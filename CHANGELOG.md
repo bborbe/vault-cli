@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.24.0
+
+- feat: Add `DecisionAckOperation` that marks a decision as reviewed with today's date and optionally overrides its status field
+
 ## v0.23.0
 
 - feat: Add `DecisionListOperation` with filter modes (unreviewed/reviewed/all), plain and JSON output, alphabetical sorting, and counterfeiter mock

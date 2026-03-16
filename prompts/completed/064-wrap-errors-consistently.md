@@ -1,7 +1,12 @@
 ---
-status: approved
+status: completed
+summary: Added ctx parameter to storage base helpers and replaced all fmt.Errorf with errors.Wrap/errors.Errorf throughout storage and CLI layers for consistent error wrapping.
+container: vault-cli-064-wrap-errors-consistently
+dark-factory-version: v0.57.3
 created: "2026-03-16T15:19:37Z"
 queued: "2026-03-16T15:19:37Z"
+started: "2026-03-16T15:27:13Z"
+completed: "2026-03-16T15:34:08Z"
 ---
 
 <summary>

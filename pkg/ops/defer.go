@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 	"regexp"
 	"strings"
@@ -80,7 +81,7 @@ func (d *deferOperation) Execute(
 	}
 
 	// Update daily notes
-	warnings := d.updateDailyNotes(ctx, vaultPath, task.Name, targetDate, outputFormat)
+	warnings := d.updateDailyNotes(ctx, vaultPath, task.Name, targetDate)
 
 	// Return result
 	return d.formatResult(task.Name, vaultName, targetDate, warnings, outputFormat)
@@ -132,24 +133,19 @@ func (d *deferOperation) updateDailyNotes(
 	vaultPath string,
 	taskName string,
 	targetDate libtime.Date,
-	format string,
 ) []string {
 	var warnings []string
 	today := d.currentDateTime.Now().Format("2006-01-02")
 	if err := d.removeFromDailyNote(ctx, vaultPath, today, taskName); err != nil {
 		w := fmt.Sprintf("failed to update today's daily note: %v", err)
 		warnings = append(warnings, w)
-		if format == "plain" {
-			fmt.Fprintf(os.Stderr, "Warning: %s\n", w)
-		}
+		slog.Warn("defer warning", "warning", w)
 	}
 	targetDateStr := targetDate.Format("2006-01-02")
 	if err := d.addToDailyNote(ctx, vaultPath, targetDateStr, taskName); err != nil {
 		w := fmt.Sprintf("failed to update target daily note: %v", err)
 		warnings = append(warnings, w)
-		if format == "plain" {
-			fmt.Fprintf(os.Stderr, "Warning: %s\n", w)
-		}
+		slog.Warn("defer warning", "warning", w)
 	}
 	return warnings
 }

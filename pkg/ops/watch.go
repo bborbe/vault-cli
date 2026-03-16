@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -72,7 +73,7 @@ func (w *watchOperation) Execute(ctx context.Context, vaults []WatchTarget) erro
 			if !ok {
 				return nil
 			}
-			fmt.Fprintf(os.Stderr, "watch error: %v\n", watchErr)
+			slog.Warn("watch error", "error", watchErr)
 		case e, ok := <-watcher.Events:
 			if !ok {
 				return nil
@@ -89,11 +90,11 @@ func buildDirMap(watcher *fsnotify.Watcher, vaults []WatchTarget) map[string]vau
 		for _, dir := range target.WatchDirs {
 			absDir := filepath.Join(target.VaultPath, dir)
 			if _, err := os.Stat(absDir); err != nil {
-				fmt.Fprintf(os.Stderr, "watch: skipping missing directory: %s\n", absDir)
+				slog.Debug("watch skipping missing directory", "dir", absDir)
 				continue
 			}
 			if err := watcher.Add(absDir); err != nil {
-				fmt.Fprintf(os.Stderr, "watch: failed to watch %s: %v\n", absDir, err)
+				slog.Warn("watch failed", "dir", absDir, "error", err)
 				continue
 			}
 			dirToVault[absDir] = vaultInfo{

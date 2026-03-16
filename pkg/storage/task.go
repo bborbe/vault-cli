@@ -7,6 +7,7 @@ package storage
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -85,7 +86,7 @@ func (t *taskStorage) ListTasks(
 		task, err := t.readTaskFromPath(ctx, filePath, fileName)
 		if err != nil {
 			// Log error but continue with other tasks
-			fmt.Fprintf(os.Stderr, "Warning: failed to read task %s: %v\n", fileName, err)
+			slog.Debug("skipping unreadable task", "file", fileName, "error", err)
 			continue
 		}
 

@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 	"regexp"
 	"strings"
@@ -97,18 +98,14 @@ func (w *workOnOperation) Execute(
 	if err := w.updateDailyNote(ctx, vaultPath, today, task.Name); err != nil {
 		warning := fmt.Sprintf("failed to update daily note: %v", err)
 		warnings = append(warnings, warning)
-		if outputFormat == "plain" {
-			fmt.Fprintf(os.Stderr, "Warning: %s\n", warning)
-		}
+		slog.Warn("workon warning", "warning", warning)
 	}
 
 	sessionID, sessionErr := w.handleClaudeSession(ctx, task, vaultPath)
 	if sessionErr != nil {
 		warning := fmt.Sprintf("claude session: %v", sessionErr)
 		warnings = append(warnings, warning)
-		if outputFormat == "plain" {
-			fmt.Fprintf(os.Stderr, "Warning: %s\n", warning)
-		}
+		slog.Warn("workon warning", "warning", warning)
 	}
 
 	if isInteractive && w.resumer != nil && sessionID != "" {
@@ -148,7 +145,7 @@ func (w *workOnOperation) handleClaudeSession(
 		return task.ClaudeSessionID, nil
 	}
 	prompt := fmt.Sprintf(`/work-on-task "%s"`, task.FilePath)
-	fmt.Fprintf(os.Stderr, "Starting Claude session for %s...\n", task.Name)
+	slog.Info("starting claude session", "task", task.Name)
 	sessionID, err := w.starter.StartSession(ctx, prompt, vaultPath)
 	if err != nil {
 		return "", errors.Wrap(ctx, err, "start claude session")

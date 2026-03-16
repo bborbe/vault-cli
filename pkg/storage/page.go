@@ -7,6 +7,7 @@ package storage
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -48,7 +49,7 @@ func (p *pageStorage) ListPages(
 		task, err := p.readTaskFromPath(ctx, filePath, fileName)
 		if err != nil {
 			// Log error but continue with other tasks
-			fmt.Fprintf(os.Stderr, "Warning: failed to read page %s: %v\n", fileName, err)
+			slog.Debug("skipping unreadable page", "file", fileName, "error", err)
 			continue
 		}
 

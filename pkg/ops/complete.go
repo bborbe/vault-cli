@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 	"regexp"
 	"strings"
@@ -130,9 +131,7 @@ func (c *completeOperation) Execute(
 		if err := c.markGoalCheckbox(ctx, vaultPath, goalName, task.Name); err != nil {
 			warning := fmt.Sprintf("failed to update goal %s: %v", goalName, err)
 			warnings = append(warnings, warning)
-			if outputFormat == "plain" {
-				fmt.Fprintf(os.Stderr, "Warning: %s\n", warning)
-			}
+			slog.Warn("complete warning", "warning", warning)
 		}
 	}
 
@@ -141,9 +140,7 @@ func (c *completeOperation) Execute(
 	if err := c.updateDailyNote(ctx, vaultPath, today, task.Name, true); err != nil {
 		warning := fmt.Sprintf("failed to update daily note: %v", err)
 		warnings = append(warnings, warning)
-		if outputFormat == "plain" {
-			fmt.Fprintf(os.Stderr, "Warning: %s\n", warning)
-		}
+		slog.Warn("complete warning", "warning", warning)
 	}
 
 	if outputFormat == "json" {
@@ -193,13 +190,11 @@ func (c *completeOperation) checkSubtaskCompletion(
 	}
 
 	// Plain mode: warn but continue
-	fmt.Fprintf(
-		os.Stderr,
-		"⚠️  Warning: %d/%d subtasks incomplete (%d pending, %d in-progress). Completing anyway.\n",
-		pending+inProgress,
-		total,
-		pending,
-		inProgress,
+	slog.Warn("subtasks incomplete, completing anyway",
+		"incomplete", pending+inProgress,
+		"total", total,
+		"pending", pending,
+		"in_progress", inProgress,
 	)
 	return false, nil
 }
@@ -264,9 +259,7 @@ func (c *completeOperation) handleRecurringTask(
 	if err := c.updateDailyNote(ctx, vaultPath, today, task.Name, true); err != nil {
 		warning := fmt.Sprintf("failed to update daily note: %v", err)
 		warnings = append(warnings, warning)
-		if outputFormat == "plain" {
-			fmt.Fprintf(os.Stderr, "Warning: %s\n", warning)
-		}
+		slog.Warn("complete warning", "warning", warning)
 	}
 
 	nextDateStr := newDeferDate.Format("2006-01-02")
@@ -307,11 +300,7 @@ func calculateNextDeferDate(recurring string, now time.Time) libtime.Date {
 	interval, err := domain.ParseRecurringInterval(recurring)
 	if err != nil {
 		// Unknown recurring type, treat as daily
-		fmt.Fprintf(
-			os.Stderr,
-			"Warning: unknown recurring interval %q, treating as daily\n",
-			recurring,
-		)
+		slog.Warn("unknown recurring interval, treating as daily", "interval", recurring)
 		return libtime.ToDate(now.AddDate(0, 0, 1))
 	}
 	return libtime.ToDate(interval.AddTo(now))

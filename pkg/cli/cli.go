@@ -7,6 +7,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 
 	libtime "github.com/bborbe/time"
@@ -44,6 +45,7 @@ func Run(ctx context.Context, args []string) error {
 	var vaultName string
 	var configPath string
 	var outputFormat string
+	var verbose bool
 
 	rootCmd := &cobra.Command{
 		Use:          "vault-cli",
@@ -52,6 +54,13 @@ func Run(ctx context.Context, args []string) error {
 		Version:      version,
 		SilenceUsage: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			level := slog.LevelWarn
+			if verbose {
+				level = slog.LevelDebug
+			}
+			slog.SetDefault(
+				slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: level})),
+			)
 			configLoader = config.NewLoader(configPath)
 			return nil
 		},
@@ -62,6 +71,7 @@ func Run(ctx context.Context, args []string) error {
 	rootCmd.PersistentFlags().StringVar(&configPath, "config", "", "Config file path")
 	rootCmd.PersistentFlags().
 		StringVar(&outputFormat, "output", OutputFormatPlain, "Output format: plain or json")
+	rootCmd.PersistentFlags().BoolVar(&verbose, "verbose", false, "Enable verbose logging")
 
 	// Add root-level search command
 	rootCmd.AddCommand(createSearchCommand(ctx, &configLoader, &vaultName, &outputFormat))
@@ -814,7 +824,7 @@ func createDecisionListCommand(
 				decisionStore := storage.NewDecisionStorage(storageConfig)
 				listOp := ops.NewDecisionListOperation(decisionStore)
 				if err := listOp.Execute(ctx, vault.Path, vault.Name, showReviewed, showAll, *outputFormat); err != nil {
-					fmt.Fprintf(os.Stderr, "Warning: vault %s: %v\n", vault.Name, err)
+					slog.Warn("vault error", "vault", vault.Name, "error", err)
 				}
 			}
 			return nil

@@ -1,7 +1,8 @@
 ---
-status: created
+status: approved
 spec: ["001"]
 created: "2026-03-16T00:00:00Z"
+queued: "2026-03-16T10:36:41Z"
 branch: dark-factory/decision-list-ack
 ---
 

@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.21.0
+
+- feat: Add `Decision` domain struct with YAML frontmatter fields (`needs_review`, `reviewed`, `reviewed_date`, `status`, `type`, `page_type`) and `DecisionID` type
+
 ## v0.20.1
 
 - fix: Redirect warning messages from stdout to stderr in storage layer to avoid corrupting JSON output

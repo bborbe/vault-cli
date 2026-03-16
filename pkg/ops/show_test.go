@@ -20,21 +20,21 @@ import (
 
 var _ = Describe("ShowOperation", func() {
 	var (
-		ctx          context.Context
-		err          error
-		showOp       ops.ShowOperation
-		mockStorage  *mocks.Storage
-		vaultPath    string
-		vaultName    string
-		taskName     string
-		outputFormat string
-		task         *domain.Task
+		ctx             context.Context
+		err             error
+		showOp          ops.ShowOperation
+		mockTaskStorage *mocks.TaskStorage
+		vaultPath       string
+		vaultName       string
+		taskName        string
+		outputFormat    string
+		task            *domain.Task
 	)
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		mockStorage = &mocks.Storage{}
-		showOp = ops.NewShowOperation(mockStorage)
+		mockTaskStorage = &mocks.TaskStorage{}
+		showOp = ops.NewShowOperation(mockTaskStorage)
 		vaultPath = "/path/to/vault"
 		vaultName = "my-vault"
 		taskName = "my-task"
@@ -57,7 +57,7 @@ var _ = Describe("ShowOperation", func() {
 			Content:         "---\nstatus: in_progress\n---\nDo the thing with care.\n",
 			FilePath:        "/tmp/nonexistent-test-file.md",
 		}
-		mockStorage.FindTaskByNameReturns(task, nil)
+		mockTaskStorage.FindTaskByNameReturns(task, nil)
 	})
 
 	JustBeforeEach(func() {
@@ -105,7 +105,7 @@ var _ = Describe("ShowOperation", func() {
 
 	Context("task not found", func() {
 		BeforeEach(func() {
-			mockStorage.FindTaskByNameReturns(nil, errors.New("task not found"))
+			mockTaskStorage.FindTaskByNameReturns(nil, errors.New("task not found"))
 		})
 
 		It("returns an error", func() {

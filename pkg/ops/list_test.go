@@ -24,7 +24,7 @@ var _ = Describe("ListOperation", func() {
 	var ctx context.Context
 	var err error
 	var listOp ops.ListOperation
-	var mockStorage *mocks.Storage
+	var mockPageStorage *mocks.PageStorage
 	var vaultPath string
 	var pagesDir string
 	var statusFilter string
@@ -34,8 +34,8 @@ var _ = Describe("ListOperation", func() {
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		mockStorage = &mocks.Storage{}
-		listOp = ops.NewListOperation(mockStorage)
+		mockPageStorage = &mocks.PageStorage{}
+		listOp = ops.NewListOperation(mockPageStorage)
 		vaultPath = "/path/to/vault"
 		pagesDir = "Tasks"
 		statusFilter = ""
@@ -61,7 +61,7 @@ var _ = Describe("ListOperation", func() {
 				Status: domain.TaskStatusHold,
 			},
 		}
-		mockStorage.ListPagesReturns(tasks, nil)
+		mockPageStorage.ListPagesReturns(tasks, nil)
 	})
 
 	JustBeforeEach(func() {
@@ -84,8 +84,10 @@ var _ = Describe("ListOperation", func() {
 			})
 
 			It("calls ListPages", func() {
-				Expect(mockStorage.ListPagesCallCount()).To(Equal(1))
-				actualCtx, actualVaultPath, actualPagesDir := mockStorage.ListPagesArgsForCall(0)
+				Expect(mockPageStorage.ListPagesCallCount()).To(Equal(1))
+				actualCtx, actualVaultPath, actualPagesDir := mockPageStorage.ListPagesArgsForCall(
+					0,
+				)
 				Expect(actualCtx).To(Equal(ctx))
 				Expect(actualVaultPath).To(Equal(vaultPath))
 				Expect(actualPagesDir).To(Equal(pagesDir))
@@ -102,7 +104,7 @@ var _ = Describe("ListOperation", func() {
 			})
 
 			It("calls ListPages", func() {
-				Expect(mockStorage.ListPagesCallCount()).To(Equal(1))
+				Expect(mockPageStorage.ListPagesCallCount()).To(Equal(1))
 			})
 		})
 
@@ -116,7 +118,7 @@ var _ = Describe("ListOperation", func() {
 			})
 
 			It("calls ListPages", func() {
-				Expect(mockStorage.ListPagesCallCount()).To(Equal(1))
+				Expect(mockPageStorage.ListPagesCallCount()).To(Equal(1))
 			})
 		})
 
@@ -130,7 +132,7 @@ var _ = Describe("ListOperation", func() {
 			})
 
 			It("calls ListPages", func() {
-				Expect(mockStorage.ListPagesCallCount()).To(Equal(1))
+				Expect(mockPageStorage.ListPagesCallCount()).To(Equal(1))
 			})
 
 			Context(
@@ -171,7 +173,7 @@ var _ = Describe("ListOperation", func() {
 								Status: domain.TaskStatus("aborted"),
 							},
 						}
-						mockStorage.ListPagesReturns(tasks, nil)
+						mockPageStorage.ListPagesReturns(tasks, nil)
 					})
 
 					It("returns no error and processes all task statuses", func() {
@@ -184,7 +186,7 @@ var _ = Describe("ListOperation", func() {
 
 	Context("storage error", func() {
 		BeforeEach(func() {
-			mockStorage.ListPagesReturns(nil, ErrTest)
+			mockPageStorage.ListPagesReturns(nil, ErrTest)
 		})
 
 		It("returns error", func() {
@@ -196,7 +198,7 @@ var _ = Describe("ListOperation", func() {
 var _ = Describe("ListOperation JSON output", func() {
 	var ctx context.Context
 	var listOp ops.ListOperation
-	var mockStorage *mocks.Storage
+	var mockPageStorage *mocks.PageStorage
 	var capturedOutput []byte
 
 	captureStdout := func(fn func()) []byte {
@@ -214,8 +216,8 @@ var _ = Describe("ListOperation JSON output", func() {
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		mockStorage = &mocks.Storage{}
-		listOp = ops.NewListOperation(mockStorage)
+		mockPageStorage = &mocks.PageStorage{}
+		listOp = ops.NewListOperation(mockPageStorage)
 	})
 
 	Context("with all enriched fields populated", func() {
@@ -236,7 +238,7 @@ var _ = Describe("ListOperation JSON output", func() {
 					Phase:           "implementation",
 				},
 			}
-			mockStorage.ListPagesReturns(tasks, nil)
+			mockPageStorage.ListPagesReturns(tasks, nil)
 
 			capturedOutput = captureStdout(func() {
 				err := listOp.Execute(ctx, "/vault", "my-vault", "Tasks", "", true, "", "json")
@@ -290,7 +292,7 @@ var _ = Describe("ListOperation JSON output", func() {
 					Status: domain.TaskStatusTodo,
 				},
 			}
-			mockStorage.ListPagesReturns(tasks, nil)
+			mockPageStorage.ListPagesReturns(tasks, nil)
 
 			capturedOutput = captureStdout(func() {
 				err := listOp.Execute(ctx, "/vault", "my-vault", "Tasks", "", true, "", "json")

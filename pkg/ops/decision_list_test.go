@@ -22,7 +22,7 @@ var _ = Describe("DecisionListOperation", func() {
 	var ctx context.Context
 	var err error
 	var decisionListOp ops.DecisionListOperation
-	var mockStorage *mocks.Storage
+	var mockDecisionStorage *mocks.DecisionStorage
 	var vaultPath string
 	var vaultName string
 	var showReviewed bool
@@ -45,8 +45,8 @@ var _ = Describe("DecisionListOperation", func() {
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		mockStorage = &mocks.Storage{}
-		decisionListOp = ops.NewDecisionListOperation(mockStorage)
+		mockDecisionStorage = &mocks.DecisionStorage{}
+		decisionListOp = ops.NewDecisionListOperation(mockDecisionStorage)
 		vaultPath = "/path/to/vault"
 		vaultName = "test-vault"
 		showReviewed = false
@@ -69,7 +69,7 @@ var _ = Describe("DecisionListOperation", func() {
 				Reviewed: false,
 			},
 		}
-		mockStorage.ListDecisionsReturns(decisions, nil)
+		mockDecisionStorage.ListDecisionsReturns(decisions, nil)
 	})
 
 	JustBeforeEach(func() {
@@ -89,8 +89,8 @@ var _ = Describe("DecisionListOperation", func() {
 		})
 
 		It("calls ListDecisions with correct args", func() {
-			Expect(mockStorage.ListDecisionsCallCount()).To(Equal(1))
-			actualCtx, actualVaultPath := mockStorage.ListDecisionsArgsForCall(0)
+			Expect(mockDecisionStorage.ListDecisionsCallCount()).To(Equal(1))
+			actualCtx, actualVaultPath := mockDecisionStorage.ListDecisionsArgsForCall(0)
 			Expect(actualCtx).To(Equal(ctx))
 			Expect(actualVaultPath).To(Equal(vaultPath))
 		})
@@ -118,7 +118,7 @@ var _ = Describe("DecisionListOperation", func() {
 
 	Context("empty vault", func() {
 		BeforeEach(func() {
-			mockStorage.ListDecisionsReturns([]*domain.Decision{}, nil)
+			mockDecisionStorage.ListDecisionsReturns([]*domain.Decision{}, nil)
 		})
 
 		It("returns no error", func() {
@@ -128,7 +128,7 @@ var _ = Describe("DecisionListOperation", func() {
 
 	Context("storage error", func() {
 		BeforeEach(func() {
-			mockStorage.ListDecisionsReturns(nil, ErrTest)
+			mockDecisionStorage.ListDecisionsReturns(nil, ErrTest)
 		})
 
 		It("returns error", func() {
@@ -144,7 +144,7 @@ var _ = Describe("DecisionListOperation", func() {
 		})
 
 		JustBeforeEach(func() {
-			mockStorage.ListDecisionsReturns(decisions, nil)
+			mockDecisionStorage.ListDecisionsReturns(decisions, nil)
 			output = captureStdout(func() {
 				err = decisionListOp.Execute(ctx, vaultPath, vaultName, false, false, "plain")
 			})
@@ -161,7 +161,7 @@ var _ = Describe("DecisionListOperation", func() {
 		})
 
 		It("uses reviewed status label for reviewed decisions", func() {
-			mockStorage.ListDecisionsReturns(decisions, nil)
+			mockDecisionStorage.ListDecisionsReturns(decisions, nil)
 			reviewedOutput := captureStdout(func() {
 				err = decisionListOp.Execute(ctx, vaultPath, vaultName, true, false, "plain")
 			})
@@ -174,7 +174,7 @@ var _ = Describe("DecisionListOperation", func() {
 		var output []byte
 
 		JustBeforeEach(func() {
-			mockStorage.ListDecisionsReturns(decisions, nil)
+			mockDecisionStorage.ListDecisionsReturns(decisions, nil)
 			output = captureStdout(func() {
 				err = decisionListOp.Execute(ctx, vaultPath, vaultName, false, true, "json")
 			})
@@ -203,7 +203,7 @@ var _ = Describe("DecisionListOperation", func() {
 		var output []byte
 
 		JustBeforeEach(func() {
-			mockStorage.ListDecisionsReturns([]*domain.Decision{}, nil)
+			mockDecisionStorage.ListDecisionsReturns([]*domain.Decision{}, nil)
 			output = captureStdout(func() {
 				err = decisionListOp.Execute(ctx, vaultPath, vaultName, false, true, "json")
 			})
@@ -230,7 +230,7 @@ var _ = Describe("DecisionListOperation", func() {
 				{Name: "decisions/apple", Reviewed: false},
 				{Name: "decisions/mango", Reviewed: false},
 			}
-			mockStorage.ListDecisionsReturns(unsorted, nil)
+			mockDecisionStorage.ListDecisionsReturns(unsorted, nil)
 		})
 
 		JustBeforeEach(func() {

@@ -20,21 +20,21 @@ import (
 
 var _ = Describe("FrontmatterGetOperation", func() {
 	var (
-		ctx         context.Context
-		err         error
-		result      string
-		getOp       ops.FrontmatterGetOperation
-		mockStorage *mocks.Storage
-		vaultPath   string
-		taskName    string
-		key         string
-		task        *domain.Task
+		ctx             context.Context
+		err             error
+		result          string
+		getOp           ops.FrontmatterGetOperation
+		mockTaskStorage *mocks.TaskStorage
+		vaultPath       string
+		taskName        string
+		key             string
+		task            *domain.Task
 	)
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		mockStorage = &mocks.Storage{}
-		getOp = ops.NewFrontmatterGetOperation(mockStorage)
+		mockTaskStorage = &mocks.TaskStorage{}
+		getOp = ops.NewFrontmatterGetOperation(mockTaskStorage)
 		vaultPath = "/path/to/vault"
 		taskName = "my-task"
 
@@ -49,7 +49,7 @@ var _ = Describe("FrontmatterGetOperation", func() {
 			Priority:        domain.Priority(3),
 			DeferDate:       libtime.ToDate(deferDate).Ptr(),
 		}
-		mockStorage.FindTaskByNameReturns(task, nil)
+		mockTaskStorage.FindTaskByNameReturns(task, nil)
 	})
 
 	JustBeforeEach(func() {
@@ -160,7 +160,7 @@ var _ = Describe("FrontmatterGetOperation", func() {
 	Context("task not found", func() {
 		BeforeEach(func() {
 			key = "phase"
-			mockStorage.FindTaskByNameReturns(nil, errors.New("task not found"))
+			mockTaskStorage.FindTaskByNameReturns(nil, errors.New("task not found"))
 		})
 
 		It("returns an error", func() {
@@ -171,21 +171,21 @@ var _ = Describe("FrontmatterGetOperation", func() {
 
 var _ = Describe("FrontmatterSetOperation", func() {
 	var (
-		ctx         context.Context
-		err         error
-		setOp       ops.FrontmatterSetOperation
-		mockStorage *mocks.Storage
-		vaultPath   string
-		taskName    string
-		key         string
-		value       string
-		task        *domain.Task
+		ctx             context.Context
+		err             error
+		setOp           ops.FrontmatterSetOperation
+		mockTaskStorage *mocks.TaskStorage
+		vaultPath       string
+		taskName        string
+		key             string
+		value           string
+		task            *domain.Task
 	)
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		mockStorage = &mocks.Storage{}
-		setOp = ops.NewFrontmatterSetOperation(mockStorage)
+		mockTaskStorage = &mocks.TaskStorage{}
+		setOp = ops.NewFrontmatterSetOperation(mockTaskStorage)
 		vaultPath = "/path/to/vault"
 		taskName = "my-task"
 
@@ -193,8 +193,8 @@ var _ = Describe("FrontmatterSetOperation", func() {
 		task = &domain.Task{
 			Name: taskName,
 		}
-		mockStorage.FindTaskByNameReturns(task, nil)
-		mockStorage.WriteTaskReturns(nil)
+		mockTaskStorage.FindTaskByNameReturns(task, nil)
+		mockTaskStorage.WriteTaskReturns(nil)
 	})
 
 	JustBeforeEach(func() {
@@ -209,8 +209,8 @@ var _ = Describe("FrontmatterSetOperation", func() {
 
 		It("updates the phase field", func() {
 			Expect(err).To(BeNil())
-			Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
-			_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
 			Expect(writtenTask.Phase).To(Equal("planning"))
 		})
 	})
@@ -223,8 +223,8 @@ var _ = Describe("FrontmatterSetOperation", func() {
 
 		It("updates the claude_session_id field", func() {
 			Expect(err).To(BeNil())
-			Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
-			_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
 			Expect(writtenTask.ClaudeSessionID).To(Equal("session-456"))
 		})
 	})
@@ -237,8 +237,8 @@ var _ = Describe("FrontmatterSetOperation", func() {
 
 		It("updates the assignee field", func() {
 			Expect(err).To(BeNil())
-			Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
-			_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
 			Expect(writtenTask.Assignee).To(Equal("bob"))
 		})
 	})
@@ -251,8 +251,8 @@ var _ = Describe("FrontmatterSetOperation", func() {
 
 		It("updates the status field", func() {
 			Expect(err).To(BeNil())
-			Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
-			_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
 			Expect(writtenTask.Status).To(Equal(domain.TaskStatusCompleted))
 		})
 	})
@@ -265,8 +265,8 @@ var _ = Describe("FrontmatterSetOperation", func() {
 
 		It("updates the priority field", func() {
 			Expect(err).To(BeNil())
-			Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
-			_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
 			Expect(writtenTask.Priority).To(Equal(domain.Priority(1)))
 		})
 	})
@@ -279,8 +279,8 @@ var _ = Describe("FrontmatterSetOperation", func() {
 
 		It("updates the defer_date field", func() {
 			Expect(err).To(BeNil())
-			Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
-			_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
 			Expect(writtenTask.DeferDate).NotTo(BeNil())
 			Expect(writtenTask.DeferDate.Format("2006-01-02")).To(Equal("2025-06-15"))
 		})
@@ -296,8 +296,8 @@ var _ = Describe("FrontmatterSetOperation", func() {
 
 		It("sets defer_date to nil", func() {
 			Expect(err).To(BeNil())
-			Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
-			_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
 			Expect(writtenTask.DeferDate).To(BeNil())
 		})
 	})
@@ -321,7 +321,7 @@ var _ = Describe("FrontmatterSetOperation", func() {
 
 		It("returns an error", func() {
 			Expect(err).To(MatchError(ContainSubstring("unknown field: unknown_key")))
-			Expect(mockStorage.WriteTaskCallCount()).To(Equal(0))
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(0))
 		})
 	})
 
@@ -329,12 +329,12 @@ var _ = Describe("FrontmatterSetOperation", func() {
 		BeforeEach(func() {
 			key = "phase"
 			value = "planning"
-			mockStorage.FindTaskByNameReturns(nil, errors.New("task not found"))
+			mockTaskStorage.FindTaskByNameReturns(nil, errors.New("task not found"))
 		})
 
 		It("returns an error", func() {
 			Expect(err).To(MatchError(ContainSubstring("find task")))
-			Expect(mockStorage.WriteTaskCallCount()).To(Equal(0))
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(0))
 		})
 	})
 
@@ -342,7 +342,7 @@ var _ = Describe("FrontmatterSetOperation", func() {
 		BeforeEach(func() {
 			key = "phase"
 			value = "planning"
-			mockStorage.WriteTaskReturns(errors.New("write failed"))
+			mockTaskStorage.WriteTaskReturns(errors.New("write failed"))
 		})
 
 		It("returns an error", func() {
@@ -353,20 +353,20 @@ var _ = Describe("FrontmatterSetOperation", func() {
 
 var _ = Describe("FrontmatterClearOperation", func() {
 	var (
-		ctx         context.Context
-		err         error
-		clearOp     ops.FrontmatterClearOperation
-		mockStorage *mocks.Storage
-		vaultPath   string
-		taskName    string
-		key         string
-		task        *domain.Task
+		ctx             context.Context
+		err             error
+		clearOp         ops.FrontmatterClearOperation
+		mockTaskStorage *mocks.TaskStorage
+		vaultPath       string
+		taskName        string
+		key             string
+		task            *domain.Task
 	)
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		mockStorage = &mocks.Storage{}
-		clearOp = ops.NewFrontmatterClearOperation(mockStorage)
+		mockTaskStorage = &mocks.TaskStorage{}
+		clearOp = ops.NewFrontmatterClearOperation(mockTaskStorage)
 		vaultPath = "/path/to/vault"
 		taskName = "my-task"
 
@@ -381,8 +381,8 @@ var _ = Describe("FrontmatterClearOperation", func() {
 			Priority:        domain.Priority(3),
 			DeferDate:       libtime.ToDate(deferDate).Ptr(),
 		}
-		mockStorage.FindTaskByNameReturns(task, nil)
-		mockStorage.WriteTaskReturns(nil)
+		mockTaskStorage.FindTaskByNameReturns(task, nil)
+		mockTaskStorage.WriteTaskReturns(nil)
 	})
 
 	JustBeforeEach(func() {
@@ -396,8 +396,8 @@ var _ = Describe("FrontmatterClearOperation", func() {
 
 		It("clears the phase field", func() {
 			Expect(err).To(BeNil())
-			Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
-			_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
 			Expect(writtenTask.Phase).To(Equal(""))
 		})
 	})
@@ -409,8 +409,8 @@ var _ = Describe("FrontmatterClearOperation", func() {
 
 		It("clears the claude_session_id field", func() {
 			Expect(err).To(BeNil())
-			Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
-			_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
 			Expect(writtenTask.ClaudeSessionID).To(Equal(""))
 		})
 	})
@@ -422,8 +422,8 @@ var _ = Describe("FrontmatterClearOperation", func() {
 
 		It("clears the assignee field", func() {
 			Expect(err).To(BeNil())
-			Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
-			_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
 			Expect(writtenTask.Assignee).To(Equal(""))
 		})
 	})
@@ -435,8 +435,8 @@ var _ = Describe("FrontmatterClearOperation", func() {
 
 		It("clears the status field", func() {
 			Expect(err).To(BeNil())
-			Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
-			_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
 			Expect(writtenTask.Status).To(Equal(domain.TaskStatus("")))
 		})
 	})
@@ -448,8 +448,8 @@ var _ = Describe("FrontmatterClearOperation", func() {
 
 		It("clears the priority field", func() {
 			Expect(err).To(BeNil())
-			Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
-			_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
 			Expect(writtenTask.Priority).To(Equal(domain.Priority(0)))
 		})
 	})
@@ -461,8 +461,8 @@ var _ = Describe("FrontmatterClearOperation", func() {
 
 		It("clears the defer_date field", func() {
 			Expect(err).To(BeNil())
-			Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
-			_, writtenTask := mockStorage.WriteTaskArgsForCall(0)
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
 			Expect(writtenTask.DeferDate).To(BeNil())
 		})
 	})
@@ -474,26 +474,26 @@ var _ = Describe("FrontmatterClearOperation", func() {
 
 		It("returns an error", func() {
 			Expect(err).To(MatchError(ContainSubstring("unknown field: unknown_key")))
-			Expect(mockStorage.WriteTaskCallCount()).To(Equal(0))
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(0))
 		})
 	})
 
 	Context("task not found", func() {
 		BeforeEach(func() {
 			key = "phase"
-			mockStorage.FindTaskByNameReturns(nil, errors.New("task not found"))
+			mockTaskStorage.FindTaskByNameReturns(nil, errors.New("task not found"))
 		})
 
 		It("returns an error", func() {
 			Expect(err).To(MatchError(ContainSubstring("find task")))
-			Expect(mockStorage.WriteTaskCallCount()).To(Equal(0))
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(0))
 		})
 	})
 
 	Context("write error", func() {
 		BeforeEach(func() {
 			key = "phase"
-			mockStorage.WriteTaskReturns(errors.New("write failed"))
+			mockTaskStorage.WriteTaskReturns(errors.New("write failed"))
 		})
 
 		It("returns an error", func() {

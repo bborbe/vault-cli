@@ -22,17 +22,17 @@ import (
 
 var _ = Describe("DecisionAckOperation", func() {
 	var (
-		ctx             context.Context
-		err             error
-		decisionAckOp   ops.DecisionAckOperation
-		mockStorage     *mocks.Storage
-		currentDateTime libtime.CurrentDateTime
-		vaultPath       string
-		vaultName       string
-		decisionName    string
-		statusOverride  string
-		outputFormat    string
-		decision        *domain.Decision
+		ctx                 context.Context
+		err                 error
+		decisionAckOp       ops.DecisionAckOperation
+		mockDecisionStorage *mocks.DecisionStorage
+		currentDateTime     libtime.CurrentDateTime
+		vaultPath           string
+		vaultName           string
+		decisionName        string
+		statusOverride      string
+		outputFormat        string
+		decision            *domain.Decision
 	)
 
 	captureStdout := func(fn func()) []byte {
@@ -50,10 +50,10 @@ var _ = Describe("DecisionAckOperation", func() {
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		mockStorage = &mocks.Storage{}
+		mockDecisionStorage = &mocks.DecisionStorage{}
 		currentDateTime = libtime.NewCurrentDateTime()
 		currentDateTime.SetNow(libtimetest.ParseDateTime("2026-03-16T12:00:00Z"))
-		decisionAckOp = ops.NewDecisionAckOperation(mockStorage, currentDateTime)
+		decisionAckOp = ops.NewDecisionAckOperation(mockDecisionStorage, currentDateTime)
 		vaultPath = "/path/to/vault"
 		vaultName = "test-vault"
 		decisionName = "decisions/my-decision"
@@ -66,8 +66,8 @@ var _ = Describe("DecisionAckOperation", func() {
 			Reviewed:    false,
 			Status:      "pending",
 		}
-		mockStorage.FindDecisionByNameReturns(decision, nil)
-		mockStorage.WriteDecisionReturns(nil)
+		mockDecisionStorage.FindDecisionByNameReturns(decision, nil)
+		mockDecisionStorage.WriteDecisionReturns(nil)
 	})
 
 	JustBeforeEach(func() {
@@ -87,24 +87,26 @@ var _ = Describe("DecisionAckOperation", func() {
 		})
 
 		It("calls FindDecisionByName with correct args", func() {
-			Expect(mockStorage.FindDecisionByNameCallCount()).To(Equal(1))
-			actualCtx, actualVaultPath, actualName := mockStorage.FindDecisionByNameArgsForCall(0)
+			Expect(mockDecisionStorage.FindDecisionByNameCallCount()).To(Equal(1))
+			actualCtx, actualVaultPath, actualName := mockDecisionStorage.FindDecisionByNameArgsForCall(
+				0,
+			)
 			Expect(actualCtx).To(Equal(ctx))
 			Expect(actualVaultPath).To(Equal(vaultPath))
 			Expect(actualName).To(Equal(decisionName))
 		})
 
 		It("sets Reviewed=true and ReviewedDate=today", func() {
-			Expect(mockStorage.WriteDecisionCallCount()).To(Equal(1))
-			_, written := mockStorage.WriteDecisionArgsForCall(0)
+			Expect(mockDecisionStorage.WriteDecisionCallCount()).To(Equal(1))
+			_, written := mockDecisionStorage.WriteDecisionArgsForCall(0)
 			Expect(written.Reviewed).To(BeTrue())
 			Expect(written.ReviewedDate).To(Equal("2026-03-16"))
 		})
 
 		It("prints plain output", func() {
 			var output []byte
-			mockStorage.FindDecisionByNameReturns(decision, nil)
-			mockStorage.WriteDecisionReturns(nil)
+			mockDecisionStorage.FindDecisionByNameReturns(decision, nil)
+			mockDecisionStorage.WriteDecisionReturns(nil)
 			output = captureStdout(func() {
 				innerErr := decisionAckOp.Execute(
 					ctx,
@@ -130,8 +132,8 @@ var _ = Describe("DecisionAckOperation", func() {
 		})
 
 		It("sets decision.Status to override value", func() {
-			Expect(mockStorage.WriteDecisionCallCount()).To(Equal(1))
-			_, written := mockStorage.WriteDecisionArgsForCall(0)
+			Expect(mockDecisionStorage.WriteDecisionCallCount()).To(Equal(1))
+			_, written := mockDecisionStorage.WriteDecisionArgsForCall(0)
 			Expect(written.Status).To(Equal("approved"))
 		})
 	})
@@ -147,8 +149,8 @@ var _ = Describe("DecisionAckOperation", func() {
 
 		It("outputs valid JSON MutationResult", func() {
 			var output []byte
-			mockStorage.FindDecisionByNameReturns(decision, nil)
-			mockStorage.WriteDecisionReturns(nil)
+			mockDecisionStorage.FindDecisionByNameReturns(decision, nil)
+			mockDecisionStorage.WriteDecisionReturns(nil)
 			output = captureStdout(func() {
 				innerErr := decisionAckOp.Execute(
 					ctx,
@@ -170,7 +172,7 @@ var _ = Describe("DecisionAckOperation", func() {
 
 	Context("FindDecisionByName error", func() {
 		BeforeEach(func() {
-			mockStorage.FindDecisionByNameReturns(nil, ErrTest)
+			mockDecisionStorage.FindDecisionByNameReturns(nil, ErrTest)
 		})
 
 		It("propagates the error", func() {
@@ -179,13 +181,13 @@ var _ = Describe("DecisionAckOperation", func() {
 		})
 
 		It("does not call WriteDecision", func() {
-			Expect(mockStorage.WriteDecisionCallCount()).To(Equal(0))
+			Expect(mockDecisionStorage.WriteDecisionCallCount()).To(Equal(0))
 		})
 	})
 
 	Context("WriteDecision error", func() {
 		BeforeEach(func() {
-			mockStorage.WriteDecisionReturns(ErrTest)
+			mockDecisionStorage.WriteDecisionReturns(ErrTest)
 		})
 
 		It("propagates the error", func() {

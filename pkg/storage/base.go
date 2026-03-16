@@ -28,21 +28,26 @@ type baseStorage struct {
 	config *Config
 }
 
-func (b *baseStorage) parseFrontmatter(content []byte, target interface{}) error {
+func (b *baseStorage) parseFrontmatter(
+	ctx context.Context,
+	content []byte,
+	target interface{},
+) error {
 	matches := frontmatterRegex.FindSubmatch(content)
 	if len(matches) < 2 {
-		return fmt.Errorf("no frontmatter found")
+		return errors.Errorf(ctx, "no frontmatter found")
 	}
 
 	frontmatter := matches[1]
 	if err := yaml.Unmarshal(frontmatter, target); err != nil {
-		return fmt.Errorf("unmarshal yaml: %w", err)
+		return errors.Wrap(ctx, err, "unmarshal yaml")
 	}
 
 	return nil
 }
 
 func (b *baseStorage) serializeWithFrontmatter(
+	ctx context.Context,
 	frontmatter interface{},
 	originalContent string,
 ) (string, error) {
@@ -54,7 +59,7 @@ func (b *baseStorage) serializeWithFrontmatter(
 
 	yamlBytes, err := yaml.Marshal(frontmatter)
 	if err != nil {
-		return "", fmt.Errorf("marshal yaml: %w", err)
+		return "", errors.Wrap(ctx, err, "marshal yaml")
 	}
 
 	var buf bytes.Buffer
@@ -66,7 +71,11 @@ func (b *baseStorage) serializeWithFrontmatter(
 	return buf.String(), nil
 }
 
-func (b *baseStorage) findFileByName(dir string, name string) (string, string, error) {
+func (b *baseStorage) findFileByName(
+	ctx context.Context,
+	dir string,
+	name string,
+) (string, string, error) {
 	exactPath := filepath.Join(dir, name+".md")
 	if _, err := os.Stat(exactPath); err == nil {
 		return exactPath, name, nil
@@ -74,7 +83,7 @@ func (b *baseStorage) findFileByName(dir string, name string) (string, string, e
 
 	entries, err := os.ReadDir(dir)
 	if err != nil {
-		return "", "", fmt.Errorf("read directory %s: %w", dir, err)
+		return "", "", errors.Wrap(ctx, err, fmt.Sprintf("read directory %s", dir))
 	}
 
 	for _, entry := range entries {
@@ -92,7 +101,7 @@ func (b *baseStorage) findFileByName(dir string, name string) (string, string, e
 		}
 	}
 
-	return "", "", fmt.Errorf("file not found: %s", name)
+	return "", "", errors.Errorf(ctx, "file not found: %s", name)
 }
 
 func (b *baseStorage) parseCheckboxes(content string) []domain.CheckboxItem {
@@ -131,7 +140,7 @@ func (b *baseStorage) readTaskFromPath(
 		FilePath: filePath,
 	}
 
-	if err := b.parseFrontmatter(content, task); err != nil {
+	if err := b.parseFrontmatter(ctx, content, task); err != nil {
 		return nil, errors.Wrap(ctx, err, "parse frontmatter")
 	}
 

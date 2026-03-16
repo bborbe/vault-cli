@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"os"
 
+	"github.com/bborbe/errors"
 	libtime "github.com/bborbe/time"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
@@ -139,7 +140,7 @@ func createCompleteCommand(
 			taskName := args[0]
 			vaults, err := getVaults(ctx, configLoader, vaultName)
 			if err != nil {
-				return fmt.Errorf("get vaults: %w", err)
+				return errors.Wrap(ctx, err, "get vaults")
 			}
 
 			currentDateTime := libtime.NewCurrentDateTime()
@@ -180,7 +181,7 @@ func createCompleteCommand(
 			}
 
 			// Not found in any vault
-			return fmt.Errorf("task not found in any vault: %w", lastErr)
+			return errors.Wrap(ctx, lastErr, "task not found in any vault")
 		},
 	}
 }
@@ -213,7 +214,7 @@ Date formats:
 
 			vaults, err := getVaults(ctx, configLoader, vaultName)
 			if err != nil {
-				return fmt.Errorf("get vaults: %w", err)
+				return errors.Wrap(ctx, err, "get vaults")
 			}
 
 			currentDateTime := libtime.NewCurrentDateTime()
@@ -249,7 +250,7 @@ Date formats:
 			}
 
 			// Not found in any vault
-			return fmt.Errorf("task not found in any vault: %w", lastErr)
+			return errors.Wrap(ctx, lastErr, "task not found in any vault")
 		},
 	}
 }
@@ -269,7 +270,7 @@ func createUpdateCommand(
 			taskName := args[0]
 			vaults, err := getVaults(ctx, configLoader, vaultName)
 			if err != nil {
-				return fmt.Errorf("get vaults: %w", err)
+				return errors.Wrap(ctx, err, "get vaults")
 			}
 
 			// If only one vault, execute directly
@@ -296,7 +297,7 @@ func createUpdateCommand(
 			}
 
 			// Not found in any vault
-			return fmt.Errorf("task not found in any vault: %w", lastErr)
+			return errors.Wrap(ctx, lastErr, "task not found in any vault")
 		},
 	}
 }
@@ -323,12 +324,12 @@ func createWorkOnCommand(
 
 			currentUser, err := (*configLoader).GetCurrentUser(ctx)
 			if err != nil {
-				return fmt.Errorf("get current user: %w", err)
+				return errors.Wrap(ctx, err, "get current user")
 			}
 
 			vaults, err := getVaults(ctx, configLoader, vaultName)
 			if err != nil {
-				return fmt.Errorf("get vaults: %w", err)
+				return errors.Wrap(ctx, err, "get vaults")
 			}
 
 			currentDateTime := libtime.NewCurrentDateTime()
@@ -362,7 +363,7 @@ func createWorkOnCommand(
 				lastErr = err
 			}
 
-			return fmt.Errorf("task not found in any vault: %w", lastErr)
+			return errors.Wrap(ctx, lastErr, "task not found in any vault")
 		},
 	}
 
@@ -410,7 +411,7 @@ Use --assignee to filter by assignee.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			vaults, err := getVaults(ctx, configLoader, vaultName)
 			if err != nil {
-				return fmt.Errorf("get vaults: %w", err)
+				return errors.Wrap(ctx, err, "get vaults")
 			}
 
 			for _, vault := range vaults {
@@ -470,7 +471,7 @@ func createValidateCommand(
 			taskName := args[0]
 			vaults, err := getVaults(ctx, configLoader, vaultName)
 			if err != nil {
-				return fmt.Errorf("get vaults: %w", err)
+				return errors.Wrap(ctx, err, "get vaults")
 			}
 
 			// Track if task was found in any vault
@@ -499,7 +500,7 @@ func createValidateCommand(
 					}
 					return PrintJSON(result)
 				}
-				return fmt.Errorf("task not found: %s", taskName)
+				return errors.Errorf(ctx, "task not found: %s", taskName)
 			}
 
 			// Validate the task file
@@ -527,7 +528,7 @@ func createGenericLintCommand(
 		RunE: func(cmd *cobra.Command, args []string) error {
 			vaults, err := getVaults(ctx, configLoader, vaultName)
 			if err != nil {
-				return fmt.Errorf("get vaults: %w", err)
+				return errors.Wrap(ctx, err, "get vaults")
 			}
 
 			for _, vault := range vaults {
@@ -571,7 +572,7 @@ func createGenericListCommand(
 		RunE: func(cmd *cobra.Command, args []string) error {
 			vaults, err := getVaults(ctx, configLoader, vaultName)
 			if err != nil {
-				return fmt.Errorf("get vaults: %w", err)
+				return errors.Wrap(ctx, err, "get vaults")
 			}
 
 			for _, vault := range vaults {
@@ -817,7 +818,7 @@ func createDecisionListCommand(
 		RunE: func(cmd *cobra.Command, args []string) error {
 			vaults, err := getVaults(ctx, configLoader, vaultName)
 			if err != nil {
-				return fmt.Errorf("get vaults: %w", err)
+				return errors.Wrap(ctx, err, "get vaults")
 			}
 			for _, vault := range vaults {
 				storageConfig := storage.NewConfigFromVault(vault)
@@ -852,7 +853,7 @@ func createDecisionAckCommand(
 			decisionName := args[0]
 			vaults, err := getVaults(ctx, configLoader, vaultName)
 			if err != nil {
-				return fmt.Errorf("get vaults: %w", err)
+				return errors.Wrap(ctx, err, "get vaults")
 			}
 
 			currentDateTime := libtime.NewCurrentDateTime()
@@ -876,7 +877,7 @@ func createDecisionAckCommand(
 				}
 				lastErr = err
 			}
-			return fmt.Errorf("decision not found in any vault: %w", lastErr)
+			return errors.Wrap(ctx, lastErr, "decision not found in any vault")
 		},
 	}
 
@@ -900,7 +901,7 @@ func createSearchCommand(
 			query := args[0]
 			vaults, err := getVaults(ctx, configLoader, vaultName)
 			if err != nil {
-				return fmt.Errorf("get vaults: %w", err)
+				return errors.Wrap(ctx, err, "get vaults")
 			}
 
 			for _, vault := range vaults {
@@ -942,7 +943,7 @@ func createGenericSearchCommand(
 			query := args[0]
 			vaults, err := getVaults(ctx, configLoader, vaultName)
 			if err != nil {
-				return fmt.Errorf("get vaults: %w", err)
+				return errors.Wrap(ctx, err, "get vaults")
 			}
 
 			for _, vault := range vaults {
@@ -985,7 +986,7 @@ func createTaskGetCommand(
 
 			vaults, err := getVaults(ctx, configLoader, vaultName)
 			if err != nil {
-				return fmt.Errorf("get vaults: %w", err)
+				return errors.Wrap(ctx, err, "get vaults")
 			}
 
 			// If only one vault, execute directly
@@ -1049,7 +1050,7 @@ func createTaskGetCommand(
 				}
 				return PrintJSON(result)
 			}
-			return fmt.Errorf("task not found in any vault: %w", lastErr)
+			return errors.Wrap(ctx, lastErr, "task not found in any vault")
 		},
 	}
 }
@@ -1072,7 +1073,7 @@ func createTaskSetCommand(
 
 			vaults, err := getVaults(ctx, configLoader, vaultName)
 			if err != nil {
-				return fmt.Errorf("get vaults: %w", err)
+				return errors.Wrap(ctx, err, "get vaults")
 			}
 
 			// If only one vault, execute directly
@@ -1136,7 +1137,7 @@ func createTaskSetCommand(
 				}
 				return PrintJSON(result)
 			}
-			return fmt.Errorf("task not found in any vault: %w", lastErr)
+			return errors.Wrap(ctx, lastErr, "task not found in any vault")
 		},
 	}
 }
@@ -1158,7 +1159,7 @@ func createTaskClearCommand(
 
 			vaults, err := getVaults(ctx, configLoader, vaultName)
 			if err != nil {
-				return fmt.Errorf("get vaults: %w", err)
+				return errors.Wrap(ctx, err, "get vaults")
 			}
 
 			// If only one vault, execute directly
@@ -1220,7 +1221,7 @@ func createTaskClearCommand(
 				}
 				return PrintJSON(result)
 			}
-			return fmt.Errorf("task not found in any vault: %w", lastErr)
+			return errors.Wrap(ctx, lastErr, "task not found in any vault")
 		},
 	}
 }
@@ -1239,7 +1240,7 @@ func createTaskShowCommand(
 			taskName := args[0]
 			vaults, err := getVaults(ctx, configLoader, vaultName)
 			if err != nil {
-				return fmt.Errorf("get vaults: %w", err)
+				return errors.Wrap(ctx, err, "get vaults")
 			}
 
 			// If only one vault, execute directly
@@ -1263,7 +1264,7 @@ func createTaskShowCommand(
 				lastErr = err
 			}
 
-			return fmt.Errorf("task not found in any vault: %w", lastErr)
+			return errors.Wrap(ctx, lastErr, "task not found in any vault")
 		},
 	}
 }
@@ -1280,7 +1281,7 @@ func createTaskWatchCommand(
 		RunE: func(cmd *cobra.Command, args []string) error {
 			vaults, err := getVaults(ctx, configLoader, vaultName)
 			if err != nil {
-				return fmt.Errorf("get vaults: %w", err)
+				return errors.Wrap(ctx, err, "get vaults")
 			}
 
 			targets := make([]ops.WatchTarget, 0, len(vaults))
@@ -1316,7 +1317,7 @@ func createConfigListCommand(
 		RunE: func(cmd *cobra.Command, args []string) error {
 			vaults, err := getVaults(ctx, configLoader, vaultName)
 			if err != nil {
-				return fmt.Errorf("get vaults: %w", err)
+				return errors.Wrap(ctx, err, "get vaults")
 			}
 
 			if *outputFormat == OutputFormatJSON {
@@ -1342,7 +1343,7 @@ func createConfigCurrentUserCommand(
 		RunE: func(cmd *cobra.Command, args []string) error {
 			user, err := (*configLoader).GetCurrentUser(ctx)
 			if err != nil {
-				return fmt.Errorf("get current user: %w", err)
+				return errors.Wrap(ctx, err, "get current user")
 			}
 			fmt.Println(user)
 			return nil

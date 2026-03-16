@@ -39,7 +39,7 @@ func (d *decisionStorage) readDecisionFromPath(
 		FilePath: filePath,
 	}
 
-	if err := d.parseFrontmatter(content, decision); err != nil {
+	if err := d.parseFrontmatter(ctx, content, decision); err != nil {
 		return nil, errors.Wrap(ctx, err, "parse frontmatter")
 	}
 
@@ -104,13 +104,13 @@ func (d *decisionStorage) FindDecisionByName(
 	// Path traversal guard
 	for _, part := range strings.Split(filepath.ToSlash(name), "/") {
 		if part == ".." {
-			return nil, fmt.Errorf("invalid decision name: %s", name)
+			return nil, errors.Errorf(ctx, "invalid decision name: %s", name)
 		}
 	}
 
 	decisions, err := d.ListDecisions(ctx, vaultPath)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(ctx, err, "list decisions")
 	}
 
 	normalizedName := filepath.ToSlash(name)
@@ -133,7 +133,7 @@ func (d *decisionStorage) FindDecisionByName(
 
 	switch len(matches) {
 	case 0:
-		return nil, fmt.Errorf("decision not found: %s", name)
+		return nil, errors.Errorf(ctx, "decision not found: %s", name)
 	case 1:
 		return matches[0], nil
 	default:
@@ -141,7 +141,8 @@ func (d *decisionStorage) FindDecisionByName(
 		for i, dec := range matches {
 			names[i] = dec.Name
 		}
-		return nil, fmt.Errorf(
+		return nil, errors.Errorf(
+			ctx,
 			"ambiguous match: %q matches %d decisions: %s",
 			name,
 			len(matches),
@@ -152,7 +153,7 @@ func (d *decisionStorage) FindDecisionByName(
 
 // WriteDecision writes a decision to its markdown file, preserving the body content.
 func (d *decisionStorage) WriteDecision(ctx context.Context, decision *domain.Decision) error {
-	content, err := d.serializeWithFrontmatter(decision, decision.Content)
+	content, err := d.serializeWithFrontmatter(ctx, decision, decision.Content)
 	if err != nil {
 		return errors.Wrap(ctx, err, "serialize frontmatter")
 	}

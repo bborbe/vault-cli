@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.32.0
+
+- feat: Add --goal flag to task list command for filtering tasks by goal name (exact, case-sensitive match against goals frontmatter list)
+
 ## v0.31.0
 
 - feat: Wire get/set/clear/show subcommands into goal, theme, objective, and vision CLI command groups using VaultDispatcher pattern

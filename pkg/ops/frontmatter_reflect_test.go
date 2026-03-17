@@ -239,3 +239,120 @@ var _ = Describe("clearField", func() {
 		})
 	})
 })
+
+var _ = Describe("isListField", func() {
+	Context("[]string field", func() {
+		It("returns true", func() {
+			entity := &reflectTestEntity{Tags: []string{"a"}}
+			_, val, _ := fieldByYAMLTag(entity, "tags")
+			Expect(isListField(val)).To(BeTrue())
+		})
+	})
+
+	Context("string field", func() {
+		It("returns false", func() {
+			entity := &reflectTestEntity{Status: "active"}
+			_, val, _ := fieldByYAMLTag(entity, "status")
+			Expect(isListField(val)).To(BeFalse())
+		})
+	})
+
+	Context("*time.Time field", func() {
+		It("returns false", func() {
+			entity := &reflectTestEntity{}
+			_, val, _ := fieldByYAMLTag(entity, "due_date")
+			Expect(isListField(val)).To(BeFalse())
+		})
+	})
+})
+
+var _ = Describe("appendToList", func() {
+	var entity *reflectTestEntity
+
+	BeforeEach(func() {
+		entity = &reflectTestEntity{}
+	})
+
+	Context("appending to empty list", func() {
+		It("results in a list with one element", func() {
+			_, val, _ := fieldByYAMLTag(entity, "tags")
+			err := appendToList(val, "foo")
+			Expect(err).To(BeNil())
+			Expect(entity.Tags).To(Equal([]string{"foo"}))
+		})
+	})
+
+	Context("appending to non-empty list", func() {
+		It("results in list with N+1 elements", func() {
+			entity.Tags = []string{"a", "b"}
+			_, val, _ := fieldByYAMLTag(entity, "tags")
+			err := appendToList(val, "c")
+			Expect(err).To(BeNil())
+			Expect(entity.Tags).To(Equal([]string{"a", "b", "c"}))
+		})
+	})
+
+	Context("appending duplicate value", func() {
+		It("returns error containing 'already exists'", func() {
+			entity.Tags = []string{"a", "b"}
+			_, val, _ := fieldByYAMLTag(entity, "tags")
+			err := appendToList(val, "a")
+			Expect(err).To(MatchError(ContainSubstring("already exists")))
+			Expect(entity.Tags).To(Equal([]string{"a", "b"}))
+		})
+	})
+
+	Context("calling on non-slice field", func() {
+		It("returns error containing 'not a list field'", func() {
+			_, val, _ := fieldByYAMLTag(entity, "status")
+			err := appendToList(val, "foo")
+			Expect(err).To(MatchError(ContainSubstring("not a list field")))
+		})
+	})
+})
+
+var _ = Describe("removeFromList", func() {
+	var entity *reflectTestEntity
+
+	BeforeEach(func() {
+		entity = &reflectTestEntity{}
+	})
+
+	Context("removing existing value", func() {
+		It("results in list without the value", func() {
+			entity.Tags = []string{"a", "b", "c"}
+			_, val, _ := fieldByYAMLTag(entity, "tags")
+			err := removeFromList(val, "b")
+			Expect(err).To(BeNil())
+			Expect(entity.Tags).To(Equal([]string{"a", "c"}))
+		})
+	})
+
+	Context("removing non-existent value", func() {
+		It("returns error containing 'not found'", func() {
+			entity.Tags = []string{"a", "b"}
+			_, val, _ := fieldByYAMLTag(entity, "tags")
+			err := removeFromList(val, "x")
+			Expect(err).To(MatchError(ContainSubstring("not found")))
+			Expect(entity.Tags).To(Equal([]string{"a", "b"}))
+		})
+	})
+
+	Context("removing last element", func() {
+		It("results in an empty (not nil) slice", func() {
+			entity.Tags = []string{"only"}
+			_, val, _ := fieldByYAMLTag(entity, "tags")
+			err := removeFromList(val, "only")
+			Expect(err).To(BeNil())
+			Expect(entity.Tags).To(HaveLen(0))
+		})
+	})
+
+	Context("calling on non-slice field", func() {
+		It("returns error containing 'not a list field'", func() {
+			_, val, _ := fieldByYAMLTag(entity, "status")
+			err := removeFromList(val, "foo")
+			Expect(err).To(MatchError(ContainSubstring("not a list field")))
+		})
+	})
+})

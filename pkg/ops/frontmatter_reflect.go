@@ -122,6 +122,47 @@ func clearField(fieldVal reflect.Value, fieldType reflect.Type) {
 	fieldVal.Set(reflect.Zero(fieldType))
 }
 
+// isListField returns true if the struct field is a slice type.
+func isListField(fieldVal reflect.Value) bool {
+	return fieldVal.Kind() == reflect.Slice
+}
+
+// appendToList appends value to a []string slice field.
+// Returns an error if the value already exists in the list.
+func appendToList(fieldVal reflect.Value, value string) error {
+	if fieldVal.Kind() != reflect.Slice {
+		return fmt.Errorf("field is not a list field")
+	}
+	for i := 0; i < fieldVal.Len(); i++ {
+		if fieldVal.Index(i).String() == value {
+			return fmt.Errorf("value %q already exists in list", value)
+		}
+	}
+	newSlice := reflect.Append(fieldVal, reflect.ValueOf(value))
+	fieldVal.Set(newSlice)
+	return nil
+}
+
+// removeFromList removes value from a []string slice field.
+// Returns an error if the value is not found in the list.
+func removeFromList(fieldVal reflect.Value, value string) error {
+	if fieldVal.Kind() != reflect.Slice {
+		return fmt.Errorf("field is not a list field")
+	}
+	for i := 0; i < fieldVal.Len(); i++ {
+		if fieldVal.Index(i).String() == value {
+			// Remove element at index i by appending the two slices around it
+			newSlice := reflect.AppendSlice(
+				fieldVal.Slice(0, i),
+				fieldVal.Slice(i+1, fieldVal.Len()),
+			)
+			fieldVal.Set(newSlice)
+			return nil
+		}
+	}
+	return fmt.Errorf("value %q not found in list", value)
+}
+
 // isReadOnlyTag returns true if the yaml tag marks the field as metadata (yaml:"-").
 func isReadOnlyTag(field reflect.StructField) bool {
 	return field.Tag.Get("yaml") == "-"

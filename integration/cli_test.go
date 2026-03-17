@@ -66,6 +66,84 @@ var _ = Describe("vault-cli integration tests", func() {
 		})
 	})
 
+	Describe("command registration", func() {
+		DescribeTable("exits 0 for --help",
+			func(args ...string) {
+				helpArgs := append(args, "--help")
+				cmd := exec.Command(binPath, helpArgs...)
+				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+				Expect(err).NotTo(HaveOccurred())
+				Eventually(session).Should(gexec.Exit(0))
+			},
+			// Task subcommands
+			Entry("task list", "task", "list"),
+			Entry("task show", "task", "show"),
+			Entry("task complete", "task", "complete"),
+			Entry("task defer", "task", "defer"),
+			Entry("task update", "task", "update"),
+			Entry("task work-on", "task", "work-on"),
+			Entry("task get", "task", "get"),
+			Entry("task set", "task", "set"),
+			Entry("task clear", "task", "clear"),
+			Entry("task lint", "task", "lint"),
+			Entry("task validate", "task", "validate"),
+			Entry("task search", "task", "search"),
+			Entry("task watch", "task", "watch"),
+			Entry("task add", "task", "add"),
+			Entry("task remove", "task", "remove"),
+			// Goal subcommands
+			Entry("goal list", "goal", "list"),
+			Entry("goal lint", "goal", "lint"),
+			Entry("goal search", "goal", "search"),
+			Entry("goal show", "goal", "show"),
+			Entry("goal get", "goal", "get"),
+			Entry("goal set", "goal", "set"),
+			Entry("goal clear", "goal", "clear"),
+			Entry("goal complete", "goal", "complete"),
+			Entry("goal add", "goal", "add"),
+			Entry("goal remove", "goal", "remove"),
+			// Theme subcommands
+			Entry("theme list", "theme", "list"),
+			Entry("theme lint", "theme", "lint"),
+			Entry("theme search", "theme", "search"),
+			Entry("theme show", "theme", "show"),
+			Entry("theme get", "theme", "get"),
+			Entry("theme set", "theme", "set"),
+			Entry("theme clear", "theme", "clear"),
+			Entry("theme add", "theme", "add"),
+			Entry("theme remove", "theme", "remove"),
+			// Objective subcommands
+			Entry("objective list", "objective", "list"),
+			Entry("objective lint", "objective", "lint"),
+			Entry("objective search", "objective", "search"),
+			Entry("objective show", "objective", "show"),
+			Entry("objective get", "objective", "get"),
+			Entry("objective set", "objective", "set"),
+			Entry("objective clear", "objective", "clear"),
+			Entry("objective complete", "objective", "complete"),
+			Entry("objective add", "objective", "add"),
+			Entry("objective remove", "objective", "remove"),
+			// Vision subcommands
+			Entry("vision list", "vision", "list"),
+			Entry("vision lint", "vision", "lint"),
+			Entry("vision search", "vision", "search"),
+			Entry("vision show", "vision", "show"),
+			Entry("vision get", "vision", "get"),
+			Entry("vision set", "vision", "set"),
+			Entry("vision clear", "vision", "clear"),
+			Entry("vision add", "vision", "add"),
+			Entry("vision remove", "vision", "remove"),
+			// Decision subcommands
+			Entry("decision list", "decision", "list"),
+			Entry("decision ack", "decision", "ack"),
+			// Root-level commands
+			Entry("search", "search"),
+			// Config subcommands
+			Entry("config list", "config", "list"),
+			Entry("config current-user", "config", "current-user"),
+		)
+	})
+
 	Describe("vault-cli list", func() {
 		var configPath string
 		var cleanup func()

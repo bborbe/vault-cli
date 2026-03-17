@@ -1,11 +1,13 @@
 ---
-status: executing
+status: completed
 spec: ["002"]
+summary: Implemented reflection-based generic frontmatter get/set/clear/show operations for goal, theme, objective, and vision entities with counterfeiter mocks and ≥80% test coverage
 container: vault-cli-069-spec-002-generic-ops
 dark-factory-version: v0.57.5
 created: "2026-03-17T10:00:00Z"
 queued: "2026-03-17T10:30:14Z"
 started: "2026-03-17T10:38:42Z"
+completed: "2026-03-17T10:49:02Z"
 branch: dark-factory/generic-frontmatter-ops
 ---
 

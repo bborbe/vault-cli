@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.40.0
+
+- feat: add 6 plugin agents — task-manager-agent, task-auditor, goal-manager-agent, goal-auditor, theme-auditor, objective-auditor
+
 ## v0.39.0
 
 - feat: add 8 plugin commands — verify-task, task-status, audit-task, verify-goal, audit-goal, verify-theme, audit-theme, audit-objective

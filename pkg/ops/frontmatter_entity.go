@@ -298,6 +298,251 @@ func NewVisionClearOperation(visionStorage storage.VisionStorage) EntityClearOpe
 	}
 }
 
+// EntityListAddOperation appends a value to a list frontmatter field on an entity.
+//
+//counterfeiter:generate -o ../../mocks/entity-list-add-operation.go --fake-name EntityListAddOperation . EntityListAddOperation
+type EntityListAddOperation interface {
+	Execute(ctx context.Context, vaultPath, entityName, field, value string) error
+}
+
+// EntityListRemoveOperation removes a value from a list frontmatter field on an entity.
+//
+//counterfeiter:generate -o ../../mocks/entity-list-remove-operation.go --fake-name EntityListRemoveOperation . EntityListRemoveOperation
+type EntityListRemoveOperation interface {
+	Execute(ctx context.Context, vaultPath, entityName, field, value string) error
+}
+
+// entityListOperation is a shared implementation for both add and remove list operations.
+type entityListOperation struct {
+	findFn     func(ctx context.Context, vaultPath, name string) (any, error)
+	writeFn    func(ctx context.Context, entity any) error
+	listFn     func(fieldVal reflect.Value, value string) error
+	opLabel    string
+	entityType string
+}
+
+// Execute applies the list operation (add or remove) to the named field on the entity.
+func (o *entityListOperation) Execute(
+	ctx context.Context,
+	vaultPath, entityName, field, value string,
+) error {
+	entity, err := o.findFn(ctx, vaultPath, entityName)
+	if err != nil {
+		return errors.Wrap(ctx, err, fmt.Sprintf("find %s", o.entityType))
+	}
+	sf, fieldVal, found := fieldByYAMLTag(entity, field)
+	if !found {
+		return fmt.Errorf("unknown field %q for %s", field, o.entityType)
+	}
+	if isReadOnlyTag(sf) {
+		return fmt.Errorf("field %q is read-only", field)
+	}
+	if !isListField(fieldVal) {
+		return fmt.Errorf("field %q is not a list field", field)
+	}
+	if err := o.listFn(fieldVal, value); err != nil {
+		return errors.Wrap(ctx, err, fmt.Sprintf("%s field %q", o.opLabel, field))
+	}
+	if err := o.writeFn(ctx, entity); err != nil {
+		return errors.Wrap(ctx, err, fmt.Sprintf("write %s", o.entityType))
+	}
+	return nil
+}
+
+// NewGoalListAddOperation creates an EntityListAddOperation for goals.
+func NewGoalListAddOperation(goalStorage storage.GoalStorage) EntityListAddOperation {
+	return &entityListOperation{
+		findFn: func(ctx context.Context, vaultPath, name string) (any, error) {
+			return goalStorage.FindGoalByName(ctx, vaultPath, name)
+		},
+		writeFn: func(ctx context.Context, entity any) error {
+			goal, ok := entity.(*domain.Goal)
+			if !ok {
+				return fmt.Errorf("unexpected entity type for goal")
+			}
+			return goalStorage.WriteGoal(ctx, goal)
+		},
+		listFn:     appendToList,
+		opLabel:    "append to",
+		entityType: "goal",
+	}
+}
+
+// NewThemeListAddOperation creates an EntityListAddOperation for themes.
+func NewThemeListAddOperation(themeStorage storage.ThemeStorage) EntityListAddOperation {
+	return &entityListOperation{
+		findFn: func(ctx context.Context, vaultPath, name string) (any, error) {
+			return themeStorage.FindThemeByName(ctx, vaultPath, name)
+		},
+		writeFn: func(ctx context.Context, entity any) error {
+			theme, ok := entity.(*domain.Theme)
+			if !ok {
+				return fmt.Errorf("unexpected entity type for theme")
+			}
+			return themeStorage.WriteTheme(ctx, theme)
+		},
+		listFn:     appendToList,
+		opLabel:    "append to",
+		entityType: "theme",
+	}
+}
+
+// NewObjectiveListAddOperation creates an EntityListAddOperation for objectives.
+func NewObjectiveListAddOperation(
+	objectiveStorage storage.ObjectiveStorage,
+) EntityListAddOperation {
+	return &entityListOperation{
+		findFn: func(ctx context.Context, vaultPath, name string) (any, error) {
+			return objectiveStorage.FindObjectiveByName(ctx, vaultPath, name)
+		},
+		writeFn: func(ctx context.Context, entity any) error {
+			objective, ok := entity.(*domain.Objective)
+			if !ok {
+				return fmt.Errorf("unexpected entity type for objective")
+			}
+			return objectiveStorage.WriteObjective(ctx, objective)
+		},
+		listFn:     appendToList,
+		opLabel:    "append to",
+		entityType: "objective",
+	}
+}
+
+// NewVisionListAddOperation creates an EntityListAddOperation for visions.
+func NewVisionListAddOperation(visionStorage storage.VisionStorage) EntityListAddOperation {
+	return &entityListOperation{
+		findFn: func(ctx context.Context, vaultPath, name string) (any, error) {
+			return visionStorage.FindVisionByName(ctx, vaultPath, name)
+		},
+		writeFn: func(ctx context.Context, entity any) error {
+			vision, ok := entity.(*domain.Vision)
+			if !ok {
+				return fmt.Errorf("unexpected entity type for vision")
+			}
+			return visionStorage.WriteVision(ctx, vision)
+		},
+		listFn:     appendToList,
+		opLabel:    "append to",
+		entityType: "vision",
+	}
+}
+
+// NewTaskListAddOperation creates an EntityListAddOperation for tasks.
+func NewTaskListAddOperation(taskStorage storage.TaskStorage) EntityListAddOperation {
+	return &entityListOperation{
+		findFn: func(ctx context.Context, vaultPath, name string) (any, error) {
+			return taskStorage.FindTaskByName(ctx, vaultPath, name)
+		},
+		writeFn: func(ctx context.Context, entity any) error {
+			task, ok := entity.(*domain.Task)
+			if !ok {
+				return fmt.Errorf("unexpected entity type for task")
+			}
+			return taskStorage.WriteTask(ctx, task)
+		},
+		listFn:     appendToList,
+		opLabel:    "append to",
+		entityType: "task",
+	}
+}
+
+// NewGoalListRemoveOperation creates an EntityListRemoveOperation for goals.
+func NewGoalListRemoveOperation(goalStorage storage.GoalStorage) EntityListRemoveOperation {
+	return &entityListOperation{
+		findFn: func(ctx context.Context, vaultPath, name string) (any, error) {
+			return goalStorage.FindGoalByName(ctx, vaultPath, name)
+		},
+		writeFn: func(ctx context.Context, entity any) error {
+			goal, ok := entity.(*domain.Goal)
+			if !ok {
+				return fmt.Errorf("unexpected entity type for goal")
+			}
+			return goalStorage.WriteGoal(ctx, goal)
+		},
+		listFn:     removeFromList,
+		opLabel:    "remove from",
+		entityType: "goal",
+	}
+}
+
+// NewThemeListRemoveOperation creates an EntityListRemoveOperation for themes.
+func NewThemeListRemoveOperation(themeStorage storage.ThemeStorage) EntityListRemoveOperation {
+	return &entityListOperation{
+		findFn: func(ctx context.Context, vaultPath, name string) (any, error) {
+			return themeStorage.FindThemeByName(ctx, vaultPath, name)
+		},
+		writeFn: func(ctx context.Context, entity any) error {
+			theme, ok := entity.(*domain.Theme)
+			if !ok {
+				return fmt.Errorf("unexpected entity type for theme")
+			}
+			return themeStorage.WriteTheme(ctx, theme)
+		},
+		listFn:     removeFromList,
+		opLabel:    "remove from",
+		entityType: "theme",
+	}
+}
+
+// NewObjectiveListRemoveOperation creates an EntityListRemoveOperation for objectives.
+func NewObjectiveListRemoveOperation(
+	objectiveStorage storage.ObjectiveStorage,
+) EntityListRemoveOperation {
+	return &entityListOperation{
+		findFn: func(ctx context.Context, vaultPath, name string) (any, error) {
+			return objectiveStorage.FindObjectiveByName(ctx, vaultPath, name)
+		},
+		writeFn: func(ctx context.Context, entity any) error {
+			objective, ok := entity.(*domain.Objective)
+			if !ok {
+				return fmt.Errorf("unexpected entity type for objective")
+			}
+			return objectiveStorage.WriteObjective(ctx, objective)
+		},
+		listFn:     removeFromList,
+		opLabel:    "remove from",
+		entityType: "objective",
+	}
+}
+
+// NewVisionListRemoveOperation creates an EntityListRemoveOperation for visions.
+func NewVisionListRemoveOperation(visionStorage storage.VisionStorage) EntityListRemoveOperation {
+	return &entityListOperation{
+		findFn: func(ctx context.Context, vaultPath, name string) (any, error) {
+			return visionStorage.FindVisionByName(ctx, vaultPath, name)
+		},
+		writeFn: func(ctx context.Context, entity any) error {
+			vision, ok := entity.(*domain.Vision)
+			if !ok {
+				return fmt.Errorf("unexpected entity type for vision")
+			}
+			return visionStorage.WriteVision(ctx, vision)
+		},
+		listFn:     removeFromList,
+		opLabel:    "remove from",
+		entityType: "vision",
+	}
+}
+
+// NewTaskListRemoveOperation creates an EntityListRemoveOperation for tasks.
+func NewTaskListRemoveOperation(taskStorage storage.TaskStorage) EntityListRemoveOperation {
+	return &entityListOperation{
+		findFn: func(ctx context.Context, vaultPath, name string) (any, error) {
+			return taskStorage.FindTaskByName(ctx, vaultPath, name)
+		},
+		writeFn: func(ctx context.Context, entity any) error {
+			task, ok := entity.(*domain.Task)
+			if !ok {
+				return fmt.Errorf("unexpected entity type for task")
+			}
+			return taskStorage.WriteTask(ctx, task)
+		},
+		listFn:     removeFromList,
+		opLabel:    "remove from",
+		entityType: "task",
+	}
+}
+
 // EntityShowOperation returns full detail for a single entity.
 //
 //counterfeiter:generate -o ../../mocks/entity-show-operation.go --fake-name EntityShowOperation . EntityShowOperation

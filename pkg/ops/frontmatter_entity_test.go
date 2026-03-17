@@ -353,6 +353,444 @@ var _ = Describe("NewGoalClearOperation", func() {
 	})
 })
 
+var _ = Describe("NewGoalListAddOperation", func() {
+	var (
+		ctx             context.Context
+		err             error
+		addOp           ops.EntityListAddOperation
+		mockGoalStorage *mocks.GoalStorage
+		vaultPath       string
+		goalName        string
+		field           string
+		value           string
+		goal            *domain.Goal
+	)
+
+	BeforeEach(func() {
+		ctx = context.Background()
+		mockGoalStorage = &mocks.GoalStorage{}
+		addOp = ops.NewGoalListAddOperation(mockGoalStorage)
+		vaultPath = "/path/to/vault"
+		goalName = "my-goal"
+
+		goal = &domain.Goal{
+			Name:   goalName,
+			Status: domain.GoalStatusActive,
+			Tags:   []string{"existing"},
+		}
+		mockGoalStorage.FindGoalByNameReturns(goal, nil)
+		mockGoalStorage.WriteGoalReturns(nil)
+	})
+
+	JustBeforeEach(func() {
+		err = addOp.Execute(ctx, vaultPath, goalName, field, value)
+	})
+
+	Context("successfully adding value to tags field", func() {
+		BeforeEach(func() {
+			field = "tags"
+			value = "new-tag"
+		})
+
+		It("calls FindGoalByName and WriteGoal with updated tags", func() {
+			Expect(err).To(BeNil())
+			Expect(mockGoalStorage.FindGoalByNameCallCount()).To(Equal(1))
+			Expect(mockGoalStorage.WriteGoalCallCount()).To(Equal(1))
+			_, writtenGoal := mockGoalStorage.WriteGoalArgsForCall(0)
+			Expect(writtenGoal.Tags).To(ContainElement("new-tag"))
+			Expect(writtenGoal.Tags).To(ContainElement("existing"))
+		})
+	})
+
+	Context("value already in list", func() {
+		BeforeEach(func() {
+			field = "tags"
+			value = "existing"
+		})
+
+		It("returns error containing 'already exists' and does not call WriteGoal", func() {
+			Expect(err).To(MatchError(ContainSubstring("already exists")))
+			Expect(mockGoalStorage.WriteGoalCallCount()).To(Equal(0))
+		})
+	})
+
+	Context("field is scalar (not a list)", func() {
+		BeforeEach(func() {
+			field = "status"
+			value = "active"
+		})
+
+		It("returns error containing 'not a list field' and does not call WriteGoal", func() {
+			Expect(err).To(MatchError(ContainSubstring("not a list field")))
+			Expect(mockGoalStorage.WriteGoalCallCount()).To(Equal(0))
+		})
+	})
+
+	Context("unknown field", func() {
+		BeforeEach(func() {
+			field = "nonexistent"
+			value = "val"
+		})
+
+		It("returns error containing 'unknown field' and does not call WriteGoal", func() {
+			Expect(err).To(MatchError(ContainSubstring("unknown field")))
+			Expect(mockGoalStorage.WriteGoalCallCount()).To(Equal(0))
+		})
+	})
+
+	Context("FindGoalByName fails", func() {
+		BeforeEach(func() {
+			field = "tags"
+			value = "new-tag"
+			mockGoalStorage.FindGoalByNameReturns(nil, errors.New("not found"))
+		})
+
+		It("returns an error", func() {
+			Expect(err).To(MatchError(ContainSubstring("find goal")))
+		})
+	})
+
+	Context("WriteGoal fails", func() {
+		BeforeEach(func() {
+			field = "tags"
+			value = "new-tag"
+			mockGoalStorage.WriteGoalReturns(errors.New("write failed"))
+		})
+
+		It("returns an error", func() {
+			Expect(err).To(MatchError(ContainSubstring("write goal")))
+		})
+	})
+})
+
+var _ = Describe("NewGoalListRemoveOperation", func() {
+	var (
+		ctx             context.Context
+		err             error
+		removeOp        ops.EntityListRemoveOperation
+		mockGoalStorage *mocks.GoalStorage
+		vaultPath       string
+		goalName        string
+		field           string
+		value           string
+		goal            *domain.Goal
+	)
+
+	BeforeEach(func() {
+		ctx = context.Background()
+		mockGoalStorage = &mocks.GoalStorage{}
+		removeOp = ops.NewGoalListRemoveOperation(mockGoalStorage)
+		vaultPath = "/path/to/vault"
+		goalName = "my-goal"
+
+		goal = &domain.Goal{
+			Name:   goalName,
+			Status: domain.GoalStatusActive,
+			Tags:   []string{"existing", "other"},
+		}
+		mockGoalStorage.FindGoalByNameReturns(goal, nil)
+		mockGoalStorage.WriteGoalReturns(nil)
+	})
+
+	JustBeforeEach(func() {
+		err = removeOp.Execute(ctx, vaultPath, goalName, field, value)
+	})
+
+	Context("successfully removing value from tags field", func() {
+		BeforeEach(func() {
+			field = "tags"
+			value = "existing"
+		})
+
+		It("calls WriteGoal with updated tags", func() {
+			Expect(err).To(BeNil())
+			Expect(mockGoalStorage.WriteGoalCallCount()).To(Equal(1))
+			_, writtenGoal := mockGoalStorage.WriteGoalArgsForCall(0)
+			Expect(writtenGoal.Tags).NotTo(ContainElement("existing"))
+			Expect(writtenGoal.Tags).To(ContainElement("other"))
+		})
+	})
+
+	Context("value not in list", func() {
+		BeforeEach(func() {
+			field = "tags"
+			value = "absent"
+		})
+
+		It("returns error containing 'not found' and does not call WriteGoal", func() {
+			Expect(err).To(MatchError(ContainSubstring("not found")))
+			Expect(mockGoalStorage.WriteGoalCallCount()).To(Equal(0))
+		})
+	})
+
+	Context("field is scalar (not a list)", func() {
+		BeforeEach(func() {
+			field = "status"
+			value = "active"
+		})
+
+		It("returns error containing 'not a list field' and does not call WriteGoal", func() {
+			Expect(err).To(MatchError(ContainSubstring("not a list field")))
+			Expect(mockGoalStorage.WriteGoalCallCount()).To(Equal(0))
+		})
+	})
+
+	Context("unknown field", func() {
+		BeforeEach(func() {
+			field = "nonexistent"
+			value = "val"
+		})
+
+		It("returns error containing 'unknown field' and does not call WriteGoal", func() {
+			Expect(err).To(MatchError(ContainSubstring("unknown field")))
+			Expect(mockGoalStorage.WriteGoalCallCount()).To(Equal(0))
+		})
+	})
+
+	Context("FindGoalByName fails", func() {
+		BeforeEach(func() {
+			field = "tags"
+			value = "existing"
+			mockGoalStorage.FindGoalByNameReturns(nil, errors.New("not found"))
+		})
+
+		It("returns an error", func() {
+			Expect(err).To(MatchError(ContainSubstring("find goal")))
+		})
+	})
+
+	Context("WriteGoal fails", func() {
+		BeforeEach(func() {
+			field = "tags"
+			value = "existing"
+			mockGoalStorage.WriteGoalReturns(errors.New("write failed"))
+		})
+
+		It("returns an error", func() {
+			Expect(err).To(MatchError(ContainSubstring("write goal")))
+		})
+	})
+})
+
+var _ = Describe("NewTaskListAddOperation", func() {
+	var (
+		ctx             context.Context
+		err             error
+		addOp           ops.EntityListAddOperation
+		mockTaskStorage *mocks.TaskStorage
+		vaultPath       string
+		taskName        string
+		field           string
+		value           string
+		task            *domain.Task
+	)
+
+	BeforeEach(func() {
+		ctx = context.Background()
+		mockTaskStorage = &mocks.TaskStorage{}
+		addOp = ops.NewTaskListAddOperation(mockTaskStorage)
+		vaultPath = "/path/to/vault"
+		taskName = "my-task"
+
+		task = &domain.Task{
+			Name:   taskName,
+			Status: domain.TaskStatusTodo,
+			Goals:  []string{"existing-goal"},
+		}
+		mockTaskStorage.FindTaskByNameReturns(task, nil)
+		mockTaskStorage.WriteTaskReturns(nil)
+	})
+
+	JustBeforeEach(func() {
+		err = addOp.Execute(ctx, vaultPath, taskName, field, value)
+	})
+
+	Context("successfully adding value to goals field", func() {
+		BeforeEach(func() {
+			field = "goals"
+			value = "new-goal"
+		})
+
+		It("calls FindTaskByName and WriteTask with updated goals", func() {
+			Expect(err).To(BeNil())
+			Expect(mockTaskStorage.FindTaskByNameCallCount()).To(Equal(1))
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
+			Expect(writtenTask.Goals).To(ContainElement("new-goal"))
+			Expect(writtenTask.Goals).To(ContainElement("existing-goal"))
+		})
+	})
+
+	Context("value already in list", func() {
+		BeforeEach(func() {
+			field = "goals"
+			value = "existing-goal"
+		})
+
+		It("returns error containing 'already exists' and does not call WriteTask", func() {
+			Expect(err).To(MatchError(ContainSubstring("already exists")))
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(0))
+		})
+	})
+
+	Context("field is scalar (not a list)", func() {
+		BeforeEach(func() {
+			field = "status"
+			value = "todo"
+		})
+
+		It("returns error containing 'not a list field' and does not call WriteTask", func() {
+			Expect(err).To(MatchError(ContainSubstring("not a list field")))
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(0))
+		})
+	})
+
+	Context("unknown field", func() {
+		BeforeEach(func() {
+			field = "nonexistent"
+			value = "val"
+		})
+
+		It("returns error containing 'unknown field' and does not call WriteTask", func() {
+			Expect(err).To(MatchError(ContainSubstring("unknown field")))
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(0))
+		})
+	})
+
+	Context("FindTaskByName fails", func() {
+		BeforeEach(func() {
+			field = "goals"
+			value = "new-goal"
+			mockTaskStorage.FindTaskByNameReturns(nil, errors.New("not found"))
+		})
+
+		It("returns an error", func() {
+			Expect(err).To(MatchError(ContainSubstring("find task")))
+		})
+	})
+
+	Context("WriteTask fails", func() {
+		BeforeEach(func() {
+			field = "goals"
+			value = "new-goal"
+			mockTaskStorage.WriteTaskReturns(errors.New("write failed"))
+		})
+
+		It("returns an error", func() {
+			Expect(err).To(MatchError(ContainSubstring("write task")))
+		})
+	})
+})
+
+var _ = Describe("NewTaskListRemoveOperation", func() {
+	var (
+		ctx             context.Context
+		err             error
+		removeOp        ops.EntityListRemoveOperation
+		mockTaskStorage *mocks.TaskStorage
+		vaultPath       string
+		taskName        string
+		field           string
+		value           string
+		task            *domain.Task
+	)
+
+	BeforeEach(func() {
+		ctx = context.Background()
+		mockTaskStorage = &mocks.TaskStorage{}
+		removeOp = ops.NewTaskListRemoveOperation(mockTaskStorage)
+		vaultPath = "/path/to/vault"
+		taskName = "my-task"
+
+		task = &domain.Task{
+			Name:   taskName,
+			Status: domain.TaskStatusTodo,
+			Goals:  []string{"goal-a", "goal-b"},
+		}
+		mockTaskStorage.FindTaskByNameReturns(task, nil)
+		mockTaskStorage.WriteTaskReturns(nil)
+	})
+
+	JustBeforeEach(func() {
+		err = removeOp.Execute(ctx, vaultPath, taskName, field, value)
+	})
+
+	Context("successfully removing value from goals field", func() {
+		BeforeEach(func() {
+			field = "goals"
+			value = "goal-a"
+		})
+
+		It("calls WriteTask with updated goals", func() {
+			Expect(err).To(BeNil())
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
+			Expect(writtenTask.Goals).NotTo(ContainElement("goal-a"))
+			Expect(writtenTask.Goals).To(ContainElement("goal-b"))
+		})
+	})
+
+	Context("value not in list", func() {
+		BeforeEach(func() {
+			field = "goals"
+			value = "absent"
+		})
+
+		It("returns error containing 'not found' and does not call WriteTask", func() {
+			Expect(err).To(MatchError(ContainSubstring("not found")))
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(0))
+		})
+	})
+
+	Context("field is scalar (not a list)", func() {
+		BeforeEach(func() {
+			field = "status"
+			value = "todo"
+		})
+
+		It("returns error containing 'not a list field' and does not call WriteTask", func() {
+			Expect(err).To(MatchError(ContainSubstring("not a list field")))
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(0))
+		})
+	})
+
+	Context("unknown field", func() {
+		BeforeEach(func() {
+			field = "nonexistent"
+			value = "val"
+		})
+
+		It("returns error containing 'unknown field' and does not call WriteTask", func() {
+			Expect(err).To(MatchError(ContainSubstring("unknown field")))
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(0))
+		})
+	})
+
+	Context("FindTaskByName fails", func() {
+		BeforeEach(func() {
+			field = "goals"
+			value = "goal-a"
+			mockTaskStorage.FindTaskByNameReturns(nil, errors.New("not found"))
+		})
+
+		It("returns an error", func() {
+			Expect(err).To(MatchError(ContainSubstring("find task")))
+		})
+	})
+
+	Context("WriteTask fails", func() {
+		BeforeEach(func() {
+			field = "goals"
+			value = "goal-a"
+			mockTaskStorage.WriteTaskReturns(errors.New("write failed"))
+		})
+
+		It("returns an error", func() {
+			Expect(err).To(MatchError(ContainSubstring("write task")))
+		})
+	})
+})
+
 var _ = Describe("NewGoalShowOperation", func() {
 	var (
 		ctx             context.Context

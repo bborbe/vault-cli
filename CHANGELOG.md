@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.38.1
+
+- docs: add Claude Code Plugin section to README with install instructions and command table
+
 ## v0.38.0
 
 - feat: add Claude Code plugin commands/ directory with complete-task and defer-task

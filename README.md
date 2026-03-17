@@ -133,6 +133,20 @@ vault-cli config list          # List configured vaults
 vault-cli config current-user  # Print the current user
 ```
 
+## Claude Code Plugin
+
+vault-cli includes a Claude Code plugin for task management commands.
+
+```bash
+claude plugin marketplace add bborbe/vault-cli
+claude plugin install vault-cli
+```
+
+| Command | Description |
+|---------|-------------|
+| `/vault-cli:complete-task` | Mark task as complete (normal or recurring) |
+| `/vault-cli:defer-task` | Defer task to specific date |
+
 ## Shell Completion
 
 ```bash

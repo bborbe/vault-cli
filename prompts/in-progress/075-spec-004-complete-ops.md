@@ -1,7 +1,8 @@
 ---
-status: created
+status: approved
 spec: ["004"]
 created: "2026-03-17T00:00:00Z"
+queued: "2026-03-17T10:44:30Z"
 branch: dark-factory/entity-complete-commands
 ---
 

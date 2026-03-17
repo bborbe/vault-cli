@@ -552,6 +552,198 @@ func createGenericListCommand(
 	return cmd
 }
 
+//nolint:dupl // Entity commands have similar structure but operate on different types
+func createEntityGetCommand(
+	ctx context.Context,
+	configLoader *config.Loader,
+	vaultName *string,
+	outputFormat *string,
+	entityType string,
+	newGetOp func(cfg *storage.Config) ops.EntityGetOperation,
+) *cobra.Command {
+	return &cobra.Command{
+		Use:   "get <name> <key>",
+		Short: fmt.Sprintf("Get a frontmatter field value from a %s", entityType),
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			entityName := args[0]
+			key := args[1]
+
+			vaults, err := getVaults(ctx, configLoader, vaultName)
+			if err != nil {
+				return errors.Wrap(ctx, err, "get vaults")
+			}
+
+			dispatcher := ops.NewVaultDispatcher()
+			err = dispatcher.FirstSuccess(ctx, vaults, func(vault *config.Vault) error {
+				storageConfig := storage.NewConfigFromVault(vault)
+				getOp := newGetOp(storageConfig)
+				value, err := getOp.Execute(ctx, vault.Path, entityName, key)
+				if err != nil {
+					return err
+				}
+				if *outputFormat == OutputFormatJSON {
+					return PrintJSON(map[string]any{
+						"key":   key,
+						"value": value,
+						"name":  entityName,
+					})
+				}
+				fmt.Println(value)
+				return nil
+			})
+			if err != nil {
+				if *outputFormat == OutputFormatJSON {
+					return PrintJSON(map[string]any{
+						"success": false,
+						"error":   err.Error(),
+					})
+				}
+				return err
+			}
+			return nil
+		},
+	}
+}
+
+//nolint:dupl // Entity commands have similar structure but operate on different types
+func createEntitySetCommand(
+	ctx context.Context,
+	configLoader *config.Loader,
+	vaultName *string,
+	outputFormat *string,
+	entityType string,
+	newSetOp func(cfg *storage.Config) ops.EntitySetOperation,
+) *cobra.Command {
+	return &cobra.Command{
+		Use:   "set <name> <key> <value>",
+		Short: fmt.Sprintf("Set a frontmatter field value on a %s", entityType),
+		Args:  cobra.ExactArgs(3),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			entityName := args[0]
+			key := args[1]
+			value := args[2]
+
+			vaults, err := getVaults(ctx, configLoader, vaultName)
+			if err != nil {
+				return errors.Wrap(ctx, err, "get vaults")
+			}
+
+			dispatcher := ops.NewVaultDispatcher()
+			err = dispatcher.FirstSuccess(ctx, vaults, func(vault *config.Vault) error {
+				storageConfig := storage.NewConfigFromVault(vault)
+				setOp := newSetOp(storageConfig)
+				if err := setOp.Execute(ctx, vault.Path, entityName, key, value); err != nil {
+					return err
+				}
+				if *outputFormat == OutputFormatJSON {
+					return PrintJSON(map[string]any{
+						"success": true,
+						"key":     key,
+						"value":   value,
+						"name":    entityName,
+					})
+				}
+				fmt.Printf("✅ Set %s=%s on: %s\n", key, value, entityName)
+				return nil
+			})
+			if err != nil {
+				if *outputFormat == OutputFormatJSON {
+					return PrintJSON(map[string]any{
+						"success": false,
+						"error":   err.Error(),
+					})
+				}
+				return err
+			}
+			return nil
+		},
+	}
+}
+
+//nolint:dupl // Entity commands have similar structure but operate on different types
+func createEntityClearCommand(
+	ctx context.Context,
+	configLoader *config.Loader,
+	vaultName *string,
+	outputFormat *string,
+	entityType string,
+	newClearOp func(cfg *storage.Config) ops.EntityClearOperation,
+) *cobra.Command {
+	return &cobra.Command{
+		Use:   "clear <name> <key>",
+		Short: fmt.Sprintf("Clear a frontmatter field value on a %s", entityType),
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			entityName := args[0]
+			key := args[1]
+
+			vaults, err := getVaults(ctx, configLoader, vaultName)
+			if err != nil {
+				return errors.Wrap(ctx, err, "get vaults")
+			}
+
+			dispatcher := ops.NewVaultDispatcher()
+			err = dispatcher.FirstSuccess(ctx, vaults, func(vault *config.Vault) error {
+				storageConfig := storage.NewConfigFromVault(vault)
+				clearOp := newClearOp(storageConfig)
+				if err := clearOp.Execute(ctx, vault.Path, entityName, key); err != nil {
+					return err
+				}
+				if *outputFormat == OutputFormatJSON {
+					return PrintJSON(map[string]any{
+						"success": true,
+						"key":     key,
+						"name":    entityName,
+					})
+				}
+				fmt.Printf("✅ Cleared %s on: %s\n", key, entityName)
+				return nil
+			})
+			if err != nil {
+				if *outputFormat == OutputFormatJSON {
+					return PrintJSON(map[string]any{
+						"success": false,
+						"error":   err.Error(),
+					})
+				}
+				return err
+			}
+			return nil
+		},
+	}
+}
+
+func createEntityShowCommand(
+	ctx context.Context,
+	configLoader *config.Loader,
+	vaultName *string,
+	outputFormat *string,
+	entityType string,
+	newShowOp func(cfg *storage.Config) ops.EntityShowOperation,
+) *cobra.Command {
+	return &cobra.Command{
+		Use:   "show <name>",
+		Short: fmt.Sprintf("Show full detail for a single %s", entityType),
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			entityName := args[0]
+			vaults, err := getVaults(ctx, configLoader, vaultName)
+			if err != nil {
+				return errors.Wrap(ctx, err, "get vaults")
+			}
+
+			dispatcher := ops.NewVaultDispatcher()
+			return dispatcher.FirstSuccess(ctx, vaults, func(vault *config.Vault) error {
+				storageConfig := storage.NewConfigFromVault(vault)
+				showOp := newShowOp(storageConfig)
+				return showOp.Execute(ctx, vault.Path, vault.Name, entityName, *outputFormat)
+			})
+		},
+	}
+}
+
+//nolint:dupl // Command groups are structurally similar but manage distinct entity types
 func createGoalCommands(
 	ctx context.Context,
 	configLoader *config.Loader,
@@ -592,9 +784,30 @@ func createGoalCommands(
 			outputFormat,
 		),
 	)
+	cmd.AddCommand(createEntityGetCommand(ctx, configLoader, vaultName, outputFormat, "goal",
+		func(cfg *storage.Config) ops.EntityGetOperation {
+			return ops.NewGoalGetOperation(storage.NewGoalStorage(cfg))
+		},
+	))
+	cmd.AddCommand(createEntitySetCommand(ctx, configLoader, vaultName, outputFormat, "goal",
+		func(cfg *storage.Config) ops.EntitySetOperation {
+			return ops.NewGoalSetOperation(storage.NewGoalStorage(cfg))
+		},
+	))
+	cmd.AddCommand(createEntityClearCommand(ctx, configLoader, vaultName, outputFormat, "goal",
+		func(cfg *storage.Config) ops.EntityClearOperation {
+			return ops.NewGoalClearOperation(storage.NewGoalStorage(cfg))
+		},
+	))
+	cmd.AddCommand(createEntityShowCommand(ctx, configLoader, vaultName, outputFormat, "goal",
+		func(cfg *storage.Config) ops.EntityShowOperation {
+			return ops.NewGoalShowOperation(storage.NewGoalStorage(cfg))
+		},
+	))
 	return cmd
 }
 
+//nolint:dupl // Command groups are structurally similar but manage distinct entity types
 func createThemeCommands(
 	ctx context.Context,
 	configLoader *config.Loader,
@@ -635,9 +848,30 @@ func createThemeCommands(
 			outputFormat,
 		),
 	)
+	cmd.AddCommand(createEntityGetCommand(ctx, configLoader, vaultName, outputFormat, "theme",
+		func(cfg *storage.Config) ops.EntityGetOperation {
+			return ops.NewThemeGetOperation(storage.NewThemeStorage(cfg))
+		},
+	))
+	cmd.AddCommand(createEntitySetCommand(ctx, configLoader, vaultName, outputFormat, "theme",
+		func(cfg *storage.Config) ops.EntitySetOperation {
+			return ops.NewThemeSetOperation(storage.NewThemeStorage(cfg))
+		},
+	))
+	cmd.AddCommand(createEntityClearCommand(ctx, configLoader, vaultName, outputFormat, "theme",
+		func(cfg *storage.Config) ops.EntityClearOperation {
+			return ops.NewThemeClearOperation(storage.NewThemeStorage(cfg))
+		},
+	))
+	cmd.AddCommand(createEntityShowCommand(ctx, configLoader, vaultName, outputFormat, "theme",
+		func(cfg *storage.Config) ops.EntityShowOperation {
+			return ops.NewThemeShowOperation(storage.NewThemeStorage(cfg))
+		},
+	))
 	return cmd
 }
 
+//nolint:dupl // Command groups are structurally similar but manage distinct entity types
 func createObjectiveCommands(
 	ctx context.Context,
 	configLoader *config.Loader,
@@ -678,9 +912,30 @@ func createObjectiveCommands(
 			outputFormat,
 		),
 	)
+	cmd.AddCommand(createEntityGetCommand(ctx, configLoader, vaultName, outputFormat, "objective",
+		func(cfg *storage.Config) ops.EntityGetOperation {
+			return ops.NewObjectiveGetOperation(storage.NewObjectiveStorage(cfg))
+		},
+	))
+	cmd.AddCommand(createEntitySetCommand(ctx, configLoader, vaultName, outputFormat, "objective",
+		func(cfg *storage.Config) ops.EntitySetOperation {
+			return ops.NewObjectiveSetOperation(storage.NewObjectiveStorage(cfg))
+		},
+	))
+	cmd.AddCommand(createEntityClearCommand(ctx, configLoader, vaultName, outputFormat, "objective",
+		func(cfg *storage.Config) ops.EntityClearOperation {
+			return ops.NewObjectiveClearOperation(storage.NewObjectiveStorage(cfg))
+		},
+	))
+	cmd.AddCommand(createEntityShowCommand(ctx, configLoader, vaultName, outputFormat, "objective",
+		func(cfg *storage.Config) ops.EntityShowOperation {
+			return ops.NewObjectiveShowOperation(storage.NewObjectiveStorage(cfg))
+		},
+	))
 	return cmd
 }
 
+//nolint:dupl // Command groups are structurally similar but manage distinct entity types
 func createVisionCommands(
 	ctx context.Context,
 	configLoader *config.Loader,
@@ -721,6 +976,26 @@ func createVisionCommands(
 			outputFormat,
 		),
 	)
+	cmd.AddCommand(createEntityGetCommand(ctx, configLoader, vaultName, outputFormat, "vision",
+		func(cfg *storage.Config) ops.EntityGetOperation {
+			return ops.NewVisionGetOperation(storage.NewVisionStorage(cfg))
+		},
+	))
+	cmd.AddCommand(createEntitySetCommand(ctx, configLoader, vaultName, outputFormat, "vision",
+		func(cfg *storage.Config) ops.EntitySetOperation {
+			return ops.NewVisionSetOperation(storage.NewVisionStorage(cfg))
+		},
+	))
+	cmd.AddCommand(createEntityClearCommand(ctx, configLoader, vaultName, outputFormat, "vision",
+		func(cfg *storage.Config) ops.EntityClearOperation {
+			return ops.NewVisionClearOperation(storage.NewVisionStorage(cfg))
+		},
+	))
+	cmd.AddCommand(createEntityShowCommand(ctx, configLoader, vaultName, outputFormat, "vision",
+		func(cfg *storage.Config) ops.EntityShowOperation {
+			return ops.NewVisionShowOperation(storage.NewVisionStorage(cfg))
+		},
+	))
 	return cmd
 }
 

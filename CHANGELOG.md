@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.31.0
+
+- feat: Wire get/set/clear/show subcommands into goal, theme, objective, and vision CLI command groups using VaultDispatcher pattern
+
 ## v0.30.0
 
 - feat: Add reflection-based generic frontmatter get/set/clear/show operations for goal, theme, objective, and vision entities (EntityGetOperation, EntitySetOperation, EntityClearOperation, EntityShowOperation)

@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.37.0
+
+- feat: add `goal complete` command with open-task validation and --force flag
+- feat: add `objective complete` command
+
 ## v0.36.0
 
 - feat: Add GoalCompleteOperation with open-task blocking check and --force bypass, and ObjectiveCompleteOperation, both with JSON output and counterfeiter mocks

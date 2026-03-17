@@ -1,7 +1,8 @@
 ---
-status: prompted
+status: verifying
 approved: "2026-03-17T10:33:48Z"
 prompted: "2026-03-17T10:40:08Z"
+verifying: "2026-03-17T11:33:29Z"
 branch: dark-factory/entity-complete-commands
 ---
 

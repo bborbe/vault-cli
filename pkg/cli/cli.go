@@ -938,6 +938,51 @@ func createGoalCommands(
 			return ops.NewGoalListRemoveOperation(storage.NewGoalStorage(cfg))
 		},
 	))
+	cmd.AddCommand(createGoalCompleteCommand(ctx, configLoader, vaultName, outputFormat))
+	return cmd
+}
+
+func createGoalCompleteCommand(
+	ctx context.Context,
+	configLoader *config.Loader,
+	vaultName *string,
+	outputFormat *string,
+) *cobra.Command {
+	var force bool
+
+	cmd := &cobra.Command{
+		Use:   "complete <goal-name>",
+		Short: "Mark a goal as complete",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			goalName := args[0]
+			vaults, err := getVaults(ctx, configLoader, vaultName)
+			if err != nil {
+				return errors.Wrap(ctx, err, "get vaults")
+			}
+
+			currentDateTime := libtime.NewCurrentDateTime()
+
+			dispatcher := ops.NewVaultDispatcher()
+			return dispatcher.FirstSuccess(ctx, vaults, func(vault *config.Vault) error {
+				storageConfig := storage.NewConfigFromVault(vault)
+				goalStore := storage.NewGoalStorage(storageConfig)
+				taskStore := storage.NewTaskStorage(storageConfig)
+				completeOp := ops.NewGoalCompleteOperation(goalStore, taskStore, currentDateTime)
+				return completeOp.Execute(
+					ctx,
+					vault.Path,
+					goalName,
+					vault.Name,
+					*outputFormat,
+					force,
+				)
+			})
+		},
+	}
+
+	cmd.Flags().
+		BoolVar(&force, "force", false, "Complete even if open tasks are linked to this goal")
 	return cmd
 }
 
@@ -1092,7 +1137,38 @@ func createObjectiveCommands(
 			},
 		),
 	)
+	cmd.AddCommand(createObjectiveCompleteCommand(ctx, configLoader, vaultName, outputFormat))
 	return cmd
+}
+
+func createObjectiveCompleteCommand(
+	ctx context.Context,
+	configLoader *config.Loader,
+	vaultName *string,
+	outputFormat *string,
+) *cobra.Command {
+	return &cobra.Command{
+		Use:   "complete <objective-name>",
+		Short: "Mark an objective as complete",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			objectiveName := args[0]
+			vaults, err := getVaults(ctx, configLoader, vaultName)
+			if err != nil {
+				return errors.Wrap(ctx, err, "get vaults")
+			}
+
+			currentDateTime := libtime.NewCurrentDateTime()
+
+			dispatcher := ops.NewVaultDispatcher()
+			return dispatcher.FirstSuccess(ctx, vaults, func(vault *config.Vault) error {
+				storageConfig := storage.NewConfigFromVault(vault)
+				objectiveStore := storage.NewObjectiveStorage(storageConfig)
+				completeOp := ops.NewObjectiveCompleteOperation(objectiveStore, currentDateTime)
+				return completeOp.Execute(ctx, vault.Path, objectiveName, vault.Name, *outputFormat)
+			})
+		},
+	}
 }
 
 //nolint:dupl // Command groups are structurally similar but manage distinct entity types

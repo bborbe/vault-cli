@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: ["004"]
+summary: Wired goal complete and objective complete subcommands into createGoalCommands and createObjectiveCommands in pkg/cli/cli.go
+container: vault-cli-076-spec-004-cli-wiring
+dark-factory-version: v0.57.5
 created: "2026-03-17T00:00:00Z"
 queued: "2026-03-17T10:44:30Z"
+started: "2026-03-17T11:29:20Z"
+completed: "2026-03-17T11:33:29Z"
 branch: dark-factory/entity-complete-commands
 ---
 

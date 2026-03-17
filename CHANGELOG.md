@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.38.0
+
+- feat: add Claude Code plugin commands/ directory with complete-task and defer-task
+
 ## v0.37.2
 
 - fix: strip Obsidian wiki-link brackets `[[...]]` from name in `findFileByName` so goal lookups with bracket-wrapped names resolve correctly

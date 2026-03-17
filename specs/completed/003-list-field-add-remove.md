@@ -1,8 +1,9 @@
 ---
-status: verifying
+status: completed
 approved: "2026-03-17T10:33:47Z"
 prompted: "2026-03-17T10:36:45Z"
 verifying: "2026-03-17T11:16:34Z"
+completed: "2026-03-17T14:00:47Z"
 branch: dark-factory/list-field-add-remove
 ---
 

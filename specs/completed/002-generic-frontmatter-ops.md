@@ -1,8 +1,9 @@
 ---
-status: verifying
+status: completed
 approved: "2026-03-17T09:49:47Z"
 prompted: "2026-03-17T09:56:39Z"
 verifying: "2026-03-17T10:55:16Z"
+completed: "2026-03-17T14:00:46Z"
 branch: dark-factory/generic-frontmatter-ops
 ---
 

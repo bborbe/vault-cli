@@ -1,6 +1,7 @@
 ---
-status: approved
+status: prompted
 approved: "2026-03-17T10:33:48Z"
+prompted: "2026-03-17T10:40:08Z"
 branch: dark-factory/entity-complete-commands
 ---
 

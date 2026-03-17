@@ -15,6 +15,7 @@ After completing your implementation, review your own changes against each crite
 - New code has good test coverage (target >= 80%)
 - Changes to existing code have tests covering at least the changed behavior
 - Tests use Ginkgo v2 / Gomega with Counterfeiter mocks
+- New CLI commands/subcommands have an entry in the integration test command registration table (`integration/cli_test.go`)
 
 ## Documentation
 

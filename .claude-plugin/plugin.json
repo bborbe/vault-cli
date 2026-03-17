@@ -1,0 +1,11 @@
+{
+  "name": "vault-cli",
+  "description": "Task management commands for Obsidian vaults using vault-cli",
+  "version": "0.38.0",
+  "author": {
+    "name": "Benjamin Borbe"
+  },
+  "homepage": "https://github.com/bborbe/vault-cli",
+  "repository": "https://github.com/bborbe/vault-cli",
+  "license": "BSD-2-Clause"
+}

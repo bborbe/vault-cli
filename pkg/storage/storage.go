@@ -51,6 +51,7 @@ func DefaultConfig() *Config {
 type TaskStorage interface {
 	WriteTask(ctx context.Context, task *domain.Task) error
 	FindTaskByName(ctx context.Context, vaultPath string, name string) (*domain.Task, error)
+	ListTasks(ctx context.Context, vaultPath string) ([]*domain.Task, error)
 }
 
 //counterfeiter:generate -o ../../mocks/goal-storage.go --fake-name GoalStorage . GoalStorage

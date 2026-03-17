@@ -6,6 +6,8 @@ package domain
 
 import (
 	"time"
+
+	libtime "github.com/bborbe/time"
 )
 
 // Objective represents an objective in the Obsidian vault with YAML frontmatter.
@@ -18,6 +20,7 @@ type Objective struct {
 	StartDate  *time.Time      `yaml:"start_date,omitempty"`
 	TargetDate *time.Time      `yaml:"target_date,omitempty"`
 	Tags       []string        `yaml:"tags,omitempty"`
+	Completed  *libtime.Date   `yaml:"completed,omitempty"`
 
 	// Metadata
 	Name     string `yaml:"-"` // Filename without extension

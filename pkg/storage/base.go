@@ -76,6 +76,9 @@ func (b *baseStorage) findFileByName(
 	dir string,
 	name string,
 ) (string, string, error) {
+	name = strings.TrimPrefix(name, "[[")
+	name = strings.TrimSuffix(name, "]]")
+
 	exactPath := filepath.Join(dir, name+".md")
 	if _, err := os.Stat(exactPath); err == nil {
 		return exactPath, name, nil

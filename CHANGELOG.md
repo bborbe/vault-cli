@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.37.2
+
+- fix: strip Obsidian wiki-link brackets `[[...]]` from name in `findFileByName` so goal lookups with bracket-wrapped names resolve correctly
+
 ## v0.37.1
 
 - test: add integration test verifying all CLI commands and subcommands are registered via `--help` exit-0 checks

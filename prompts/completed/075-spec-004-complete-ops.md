@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: ["004"]
+summary: Created GoalCompleteOperation and ObjectiveCompleteOperation with Ginkgo/Gomega test suites and counterfeiter mocks
+container: vault-cli-075-spec-004-complete-ops
+dark-factory-version: v0.57.5
 created: "2026-03-17T00:00:00Z"
 queued: "2026-03-17T10:44:30Z"
+started: "2026-03-17T11:19:59Z"
+completed: "2026-03-17T11:29:17Z"
 branch: dark-factory/entity-complete-commands
 ---
 

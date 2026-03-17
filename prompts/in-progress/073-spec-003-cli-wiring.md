@@ -1,7 +1,8 @@
 ---
-status: created
+status: approved
 spec: ["003"]
 created: "2026-03-17T10:34:50Z"
+queued: "2026-03-17T10:44:29Z"
 branch: dark-factory/list-field-add-remove
 ---
 

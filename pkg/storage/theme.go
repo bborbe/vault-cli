@@ -52,6 +52,20 @@ func (t *themeStorage) readThemeFromPath(
 	return theme, nil
 }
 
+// FindThemeByName searches for a theme by name in the vault.
+func (t *themeStorage) FindThemeByName(
+	ctx context.Context,
+	vaultPath string,
+	name string,
+) (*domain.Theme, error) {
+	themesDir := filepath.Join(vaultPath, t.config.ThemesDir)
+	matchedPath, matchedName, err := t.findFileByName(ctx, themesDir, name)
+	if err != nil {
+		return nil, errors.Wrap(ctx, err, "find theme file")
+	}
+	return t.readThemeFromPath(ctx, matchedPath, matchedName)
+}
+
 // WriteTheme writes a theme to a markdown file.
 func (t *themeStorage) WriteTheme(ctx context.Context, theme *domain.Theme) error {
 	content, err := t.serializeWithFrontmatter(ctx, theme, theme.Content)

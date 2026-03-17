@@ -40,6 +40,21 @@ type Storage struct {
 		result1 *domain.Goal
 		result2 error
 	}
+	FindObjectiveByNameStub        func(context.Context, string, string) (*domain.Objective, error)
+	findObjectiveByNameMutex       sync.RWMutex
+	findObjectiveByNameArgsForCall []struct {
+		arg1 context.Context
+		arg2 string
+		arg3 string
+	}
+	findObjectiveByNameReturns struct {
+		result1 *domain.Objective
+		result2 error
+	}
+	findObjectiveByNameReturnsOnCall map[int]struct {
+		result1 *domain.Objective
+		result2 error
+	}
 	FindTaskByNameStub        func(context.Context, string, string) (*domain.Task, error)
 	findTaskByNameMutex       sync.RWMutex
 	findTaskByNameArgsForCall []struct {
@@ -53,6 +68,36 @@ type Storage struct {
 	}
 	findTaskByNameReturnsOnCall map[int]struct {
 		result1 *domain.Task
+		result2 error
+	}
+	FindThemeByNameStub        func(context.Context, string, string) (*domain.Theme, error)
+	findThemeByNameMutex       sync.RWMutex
+	findThemeByNameArgsForCall []struct {
+		arg1 context.Context
+		arg2 string
+		arg3 string
+	}
+	findThemeByNameReturns struct {
+		result1 *domain.Theme
+		result2 error
+	}
+	findThemeByNameReturnsOnCall map[int]struct {
+		result1 *domain.Theme
+		result2 error
+	}
+	FindVisionByNameStub        func(context.Context, string, string) (*domain.Vision, error)
+	findVisionByNameMutex       sync.RWMutex
+	findVisionByNameArgsForCall []struct {
+		arg1 context.Context
+		arg2 string
+		arg3 string
+	}
+	findVisionByNameReturns struct {
+		result1 *domain.Vision
+		result2 error
+	}
+	findVisionByNameReturnsOnCall map[int]struct {
+		result1 *domain.Vision
 		result2 error
 	}
 	ListDecisionsStub        func(context.Context, string) ([]*domain.Decision, error)
@@ -128,6 +173,21 @@ type Storage struct {
 		result1 *domain.Goal
 		result2 error
 	}
+	ReadObjectiveStub        func(context.Context, string, domain.ObjectiveID) (*domain.Objective, error)
+	readObjectiveMutex       sync.RWMutex
+	readObjectiveArgsForCall []struct {
+		arg1 context.Context
+		arg2 string
+		arg3 domain.ObjectiveID
+	}
+	readObjectiveReturns struct {
+		result1 *domain.Objective
+		result2 error
+	}
+	readObjectiveReturnsOnCall map[int]struct {
+		result1 *domain.Objective
+		result2 error
+	}
 	ReadTaskStub        func(context.Context, string, domain.TaskID) (*domain.Task, error)
 	readTaskMutex       sync.RWMutex
 	readTaskArgsForCall []struct {
@@ -156,6 +216,21 @@ type Storage struct {
 	}
 	readThemeReturnsOnCall map[int]struct {
 		result1 *domain.Theme
+		result2 error
+	}
+	ReadVisionStub        func(context.Context, string, domain.VisionID) (*domain.Vision, error)
+	readVisionMutex       sync.RWMutex
+	readVisionArgsForCall []struct {
+		arg1 context.Context
+		arg2 string
+		arg3 domain.VisionID
+	}
+	readVisionReturns struct {
+		result1 *domain.Vision
+		result2 error
+	}
+	readVisionReturnsOnCall map[int]struct {
+		result1 *domain.Vision
 		result2 error
 	}
 	WriteDailyNoteStub        func(context.Context, string, string, string) error
@@ -196,6 +271,18 @@ type Storage struct {
 	writeGoalReturnsOnCall map[int]struct {
 		result1 error
 	}
+	WriteObjectiveStub        func(context.Context, *domain.Objective) error
+	writeObjectiveMutex       sync.RWMutex
+	writeObjectiveArgsForCall []struct {
+		arg1 context.Context
+		arg2 *domain.Objective
+	}
+	writeObjectiveReturns struct {
+		result1 error
+	}
+	writeObjectiveReturnsOnCall map[int]struct {
+		result1 error
+	}
 	WriteTaskStub        func(context.Context, *domain.Task) error
 	writeTaskMutex       sync.RWMutex
 	writeTaskArgsForCall []struct {
@@ -218,6 +305,18 @@ type Storage struct {
 		result1 error
 	}
 	writeThemeReturnsOnCall map[int]struct {
+		result1 error
+	}
+	WriteVisionStub        func(context.Context, *domain.Vision) error
+	writeVisionMutex       sync.RWMutex
+	writeVisionArgsForCall []struct {
+		arg1 context.Context
+		arg2 *domain.Vision
+	}
+	writeVisionReturns struct {
+		result1 error
+	}
+	writeVisionReturnsOnCall map[int]struct {
 		result1 error
 	}
 	invocations      map[string][][]interface{}
@@ -356,6 +455,72 @@ func (fake *Storage) FindGoalByNameReturnsOnCall(i int, result1 *domain.Goal, re
 	}{result1, result2}
 }
 
+func (fake *Storage) FindObjectiveByName(arg1 context.Context, arg2 string, arg3 string) (*domain.Objective, error) {
+	fake.findObjectiveByNameMutex.Lock()
+	ret, specificReturn := fake.findObjectiveByNameReturnsOnCall[len(fake.findObjectiveByNameArgsForCall)]
+	fake.findObjectiveByNameArgsForCall = append(fake.findObjectiveByNameArgsForCall, struct {
+		arg1 context.Context
+		arg2 string
+		arg3 string
+	}{arg1, arg2, arg3})
+	stub := fake.FindObjectiveByNameStub
+	fakeReturns := fake.findObjectiveByNameReturns
+	fake.recordInvocation("FindObjectiveByName", []interface{}{arg1, arg2, arg3})
+	fake.findObjectiveByNameMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *Storage) FindObjectiveByNameCallCount() int {
+	fake.findObjectiveByNameMutex.RLock()
+	defer fake.findObjectiveByNameMutex.RUnlock()
+	return len(fake.findObjectiveByNameArgsForCall)
+}
+
+func (fake *Storage) FindObjectiveByNameCalls(stub func(context.Context, string, string) (*domain.Objective, error)) {
+	fake.findObjectiveByNameMutex.Lock()
+	defer fake.findObjectiveByNameMutex.Unlock()
+	fake.FindObjectiveByNameStub = stub
+}
+
+func (fake *Storage) FindObjectiveByNameArgsForCall(i int) (context.Context, string, string) {
+	fake.findObjectiveByNameMutex.RLock()
+	defer fake.findObjectiveByNameMutex.RUnlock()
+	argsForCall := fake.findObjectiveByNameArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *Storage) FindObjectiveByNameReturns(result1 *domain.Objective, result2 error) {
+	fake.findObjectiveByNameMutex.Lock()
+	defer fake.findObjectiveByNameMutex.Unlock()
+	fake.FindObjectiveByNameStub = nil
+	fake.findObjectiveByNameReturns = struct {
+		result1 *domain.Objective
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *Storage) FindObjectiveByNameReturnsOnCall(i int, result1 *domain.Objective, result2 error) {
+	fake.findObjectiveByNameMutex.Lock()
+	defer fake.findObjectiveByNameMutex.Unlock()
+	fake.FindObjectiveByNameStub = nil
+	if fake.findObjectiveByNameReturnsOnCall == nil {
+		fake.findObjectiveByNameReturnsOnCall = make(map[int]struct {
+			result1 *domain.Objective
+			result2 error
+		})
+	}
+	fake.findObjectiveByNameReturnsOnCall[i] = struct {
+		result1 *domain.Objective
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *Storage) FindTaskByName(arg1 context.Context, arg2 string, arg3 string) (*domain.Task, error) {
 	fake.findTaskByNameMutex.Lock()
 	ret, specificReturn := fake.findTaskByNameReturnsOnCall[len(fake.findTaskByNameArgsForCall)]
@@ -418,6 +583,138 @@ func (fake *Storage) FindTaskByNameReturnsOnCall(i int, result1 *domain.Task, re
 	}
 	fake.findTaskByNameReturnsOnCall[i] = struct {
 		result1 *domain.Task
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *Storage) FindThemeByName(arg1 context.Context, arg2 string, arg3 string) (*domain.Theme, error) {
+	fake.findThemeByNameMutex.Lock()
+	ret, specificReturn := fake.findThemeByNameReturnsOnCall[len(fake.findThemeByNameArgsForCall)]
+	fake.findThemeByNameArgsForCall = append(fake.findThemeByNameArgsForCall, struct {
+		arg1 context.Context
+		arg2 string
+		arg3 string
+	}{arg1, arg2, arg3})
+	stub := fake.FindThemeByNameStub
+	fakeReturns := fake.findThemeByNameReturns
+	fake.recordInvocation("FindThemeByName", []interface{}{arg1, arg2, arg3})
+	fake.findThemeByNameMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *Storage) FindThemeByNameCallCount() int {
+	fake.findThemeByNameMutex.RLock()
+	defer fake.findThemeByNameMutex.RUnlock()
+	return len(fake.findThemeByNameArgsForCall)
+}
+
+func (fake *Storage) FindThemeByNameCalls(stub func(context.Context, string, string) (*domain.Theme, error)) {
+	fake.findThemeByNameMutex.Lock()
+	defer fake.findThemeByNameMutex.Unlock()
+	fake.FindThemeByNameStub = stub
+}
+
+func (fake *Storage) FindThemeByNameArgsForCall(i int) (context.Context, string, string) {
+	fake.findThemeByNameMutex.RLock()
+	defer fake.findThemeByNameMutex.RUnlock()
+	argsForCall := fake.findThemeByNameArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *Storage) FindThemeByNameReturns(result1 *domain.Theme, result2 error) {
+	fake.findThemeByNameMutex.Lock()
+	defer fake.findThemeByNameMutex.Unlock()
+	fake.FindThemeByNameStub = nil
+	fake.findThemeByNameReturns = struct {
+		result1 *domain.Theme
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *Storage) FindThemeByNameReturnsOnCall(i int, result1 *domain.Theme, result2 error) {
+	fake.findThemeByNameMutex.Lock()
+	defer fake.findThemeByNameMutex.Unlock()
+	fake.FindThemeByNameStub = nil
+	if fake.findThemeByNameReturnsOnCall == nil {
+		fake.findThemeByNameReturnsOnCall = make(map[int]struct {
+			result1 *domain.Theme
+			result2 error
+		})
+	}
+	fake.findThemeByNameReturnsOnCall[i] = struct {
+		result1 *domain.Theme
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *Storage) FindVisionByName(arg1 context.Context, arg2 string, arg3 string) (*domain.Vision, error) {
+	fake.findVisionByNameMutex.Lock()
+	ret, specificReturn := fake.findVisionByNameReturnsOnCall[len(fake.findVisionByNameArgsForCall)]
+	fake.findVisionByNameArgsForCall = append(fake.findVisionByNameArgsForCall, struct {
+		arg1 context.Context
+		arg2 string
+		arg3 string
+	}{arg1, arg2, arg3})
+	stub := fake.FindVisionByNameStub
+	fakeReturns := fake.findVisionByNameReturns
+	fake.recordInvocation("FindVisionByName", []interface{}{arg1, arg2, arg3})
+	fake.findVisionByNameMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *Storage) FindVisionByNameCallCount() int {
+	fake.findVisionByNameMutex.RLock()
+	defer fake.findVisionByNameMutex.RUnlock()
+	return len(fake.findVisionByNameArgsForCall)
+}
+
+func (fake *Storage) FindVisionByNameCalls(stub func(context.Context, string, string) (*domain.Vision, error)) {
+	fake.findVisionByNameMutex.Lock()
+	defer fake.findVisionByNameMutex.Unlock()
+	fake.FindVisionByNameStub = stub
+}
+
+func (fake *Storage) FindVisionByNameArgsForCall(i int) (context.Context, string, string) {
+	fake.findVisionByNameMutex.RLock()
+	defer fake.findVisionByNameMutex.RUnlock()
+	argsForCall := fake.findVisionByNameArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *Storage) FindVisionByNameReturns(result1 *domain.Vision, result2 error) {
+	fake.findVisionByNameMutex.Lock()
+	defer fake.findVisionByNameMutex.Unlock()
+	fake.FindVisionByNameStub = nil
+	fake.findVisionByNameReturns = struct {
+		result1 *domain.Vision
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *Storage) FindVisionByNameReturnsOnCall(i int, result1 *domain.Vision, result2 error) {
+	fake.findVisionByNameMutex.Lock()
+	defer fake.findVisionByNameMutex.Unlock()
+	fake.FindVisionByNameStub = nil
+	if fake.findVisionByNameReturnsOnCall == nil {
+		fake.findVisionByNameReturnsOnCall = make(map[int]struct {
+			result1 *domain.Vision
+			result2 error
+		})
+	}
+	fake.findVisionByNameReturnsOnCall[i] = struct {
+		result1 *domain.Vision
 		result2 error
 	}{result1, result2}
 }
@@ -750,6 +1047,72 @@ func (fake *Storage) ReadGoalReturnsOnCall(i int, result1 *domain.Goal, result2 
 	}{result1, result2}
 }
 
+func (fake *Storage) ReadObjective(arg1 context.Context, arg2 string, arg3 domain.ObjectiveID) (*domain.Objective, error) {
+	fake.readObjectiveMutex.Lock()
+	ret, specificReturn := fake.readObjectiveReturnsOnCall[len(fake.readObjectiveArgsForCall)]
+	fake.readObjectiveArgsForCall = append(fake.readObjectiveArgsForCall, struct {
+		arg1 context.Context
+		arg2 string
+		arg3 domain.ObjectiveID
+	}{arg1, arg2, arg3})
+	stub := fake.ReadObjectiveStub
+	fakeReturns := fake.readObjectiveReturns
+	fake.recordInvocation("ReadObjective", []interface{}{arg1, arg2, arg3})
+	fake.readObjectiveMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *Storage) ReadObjectiveCallCount() int {
+	fake.readObjectiveMutex.RLock()
+	defer fake.readObjectiveMutex.RUnlock()
+	return len(fake.readObjectiveArgsForCall)
+}
+
+func (fake *Storage) ReadObjectiveCalls(stub func(context.Context, string, domain.ObjectiveID) (*domain.Objective, error)) {
+	fake.readObjectiveMutex.Lock()
+	defer fake.readObjectiveMutex.Unlock()
+	fake.ReadObjectiveStub = stub
+}
+
+func (fake *Storage) ReadObjectiveArgsForCall(i int) (context.Context, string, domain.ObjectiveID) {
+	fake.readObjectiveMutex.RLock()
+	defer fake.readObjectiveMutex.RUnlock()
+	argsForCall := fake.readObjectiveArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *Storage) ReadObjectiveReturns(result1 *domain.Objective, result2 error) {
+	fake.readObjectiveMutex.Lock()
+	defer fake.readObjectiveMutex.Unlock()
+	fake.ReadObjectiveStub = nil
+	fake.readObjectiveReturns = struct {
+		result1 *domain.Objective
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *Storage) ReadObjectiveReturnsOnCall(i int, result1 *domain.Objective, result2 error) {
+	fake.readObjectiveMutex.Lock()
+	defer fake.readObjectiveMutex.Unlock()
+	fake.ReadObjectiveStub = nil
+	if fake.readObjectiveReturnsOnCall == nil {
+		fake.readObjectiveReturnsOnCall = make(map[int]struct {
+			result1 *domain.Objective
+			result2 error
+		})
+	}
+	fake.readObjectiveReturnsOnCall[i] = struct {
+		result1 *domain.Objective
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *Storage) ReadTask(arg1 context.Context, arg2 string, arg3 domain.TaskID) (*domain.Task, error) {
 	fake.readTaskMutex.Lock()
 	ret, specificReturn := fake.readTaskReturnsOnCall[len(fake.readTaskArgsForCall)]
@@ -878,6 +1241,72 @@ func (fake *Storage) ReadThemeReturnsOnCall(i int, result1 *domain.Theme, result
 	}
 	fake.readThemeReturnsOnCall[i] = struct {
 		result1 *domain.Theme
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *Storage) ReadVision(arg1 context.Context, arg2 string, arg3 domain.VisionID) (*domain.Vision, error) {
+	fake.readVisionMutex.Lock()
+	ret, specificReturn := fake.readVisionReturnsOnCall[len(fake.readVisionArgsForCall)]
+	fake.readVisionArgsForCall = append(fake.readVisionArgsForCall, struct {
+		arg1 context.Context
+		arg2 string
+		arg3 domain.VisionID
+	}{arg1, arg2, arg3})
+	stub := fake.ReadVisionStub
+	fakeReturns := fake.readVisionReturns
+	fake.recordInvocation("ReadVision", []interface{}{arg1, arg2, arg3})
+	fake.readVisionMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *Storage) ReadVisionCallCount() int {
+	fake.readVisionMutex.RLock()
+	defer fake.readVisionMutex.RUnlock()
+	return len(fake.readVisionArgsForCall)
+}
+
+func (fake *Storage) ReadVisionCalls(stub func(context.Context, string, domain.VisionID) (*domain.Vision, error)) {
+	fake.readVisionMutex.Lock()
+	defer fake.readVisionMutex.Unlock()
+	fake.ReadVisionStub = stub
+}
+
+func (fake *Storage) ReadVisionArgsForCall(i int) (context.Context, string, domain.VisionID) {
+	fake.readVisionMutex.RLock()
+	defer fake.readVisionMutex.RUnlock()
+	argsForCall := fake.readVisionArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *Storage) ReadVisionReturns(result1 *domain.Vision, result2 error) {
+	fake.readVisionMutex.Lock()
+	defer fake.readVisionMutex.Unlock()
+	fake.ReadVisionStub = nil
+	fake.readVisionReturns = struct {
+		result1 *domain.Vision
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *Storage) ReadVisionReturnsOnCall(i int, result1 *domain.Vision, result2 error) {
+	fake.readVisionMutex.Lock()
+	defer fake.readVisionMutex.Unlock()
+	fake.ReadVisionStub = nil
+	if fake.readVisionReturnsOnCall == nil {
+		fake.readVisionReturnsOnCall = make(map[int]struct {
+			result1 *domain.Vision
+			result2 error
+		})
+	}
+	fake.readVisionReturnsOnCall[i] = struct {
+		result1 *domain.Vision
 		result2 error
 	}{result1, result2}
 }
@@ -1070,6 +1499,68 @@ func (fake *Storage) WriteGoalReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
+func (fake *Storage) WriteObjective(arg1 context.Context, arg2 *domain.Objective) error {
+	fake.writeObjectiveMutex.Lock()
+	ret, specificReturn := fake.writeObjectiveReturnsOnCall[len(fake.writeObjectiveArgsForCall)]
+	fake.writeObjectiveArgsForCall = append(fake.writeObjectiveArgsForCall, struct {
+		arg1 context.Context
+		arg2 *domain.Objective
+	}{arg1, arg2})
+	stub := fake.WriteObjectiveStub
+	fakeReturns := fake.writeObjectiveReturns
+	fake.recordInvocation("WriteObjective", []interface{}{arg1, arg2})
+	fake.writeObjectiveMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *Storage) WriteObjectiveCallCount() int {
+	fake.writeObjectiveMutex.RLock()
+	defer fake.writeObjectiveMutex.RUnlock()
+	return len(fake.writeObjectiveArgsForCall)
+}
+
+func (fake *Storage) WriteObjectiveCalls(stub func(context.Context, *domain.Objective) error) {
+	fake.writeObjectiveMutex.Lock()
+	defer fake.writeObjectiveMutex.Unlock()
+	fake.WriteObjectiveStub = stub
+}
+
+func (fake *Storage) WriteObjectiveArgsForCall(i int) (context.Context, *domain.Objective) {
+	fake.writeObjectiveMutex.RLock()
+	defer fake.writeObjectiveMutex.RUnlock()
+	argsForCall := fake.writeObjectiveArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2
+}
+
+func (fake *Storage) WriteObjectiveReturns(result1 error) {
+	fake.writeObjectiveMutex.Lock()
+	defer fake.writeObjectiveMutex.Unlock()
+	fake.WriteObjectiveStub = nil
+	fake.writeObjectiveReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *Storage) WriteObjectiveReturnsOnCall(i int, result1 error) {
+	fake.writeObjectiveMutex.Lock()
+	defer fake.writeObjectiveMutex.Unlock()
+	fake.WriteObjectiveStub = nil
+	if fake.writeObjectiveReturnsOnCall == nil {
+		fake.writeObjectiveReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.writeObjectiveReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
+}
+
 func (fake *Storage) WriteTask(arg1 context.Context, arg2 *domain.Task) error {
 	fake.writeTaskMutex.Lock()
 	ret, specificReturn := fake.writeTaskReturnsOnCall[len(fake.writeTaskArgsForCall)]
@@ -1190,6 +1681,68 @@ func (fake *Storage) WriteThemeReturnsOnCall(i int, result1 error) {
 		})
 	}
 	fake.writeThemeReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *Storage) WriteVision(arg1 context.Context, arg2 *domain.Vision) error {
+	fake.writeVisionMutex.Lock()
+	ret, specificReturn := fake.writeVisionReturnsOnCall[len(fake.writeVisionArgsForCall)]
+	fake.writeVisionArgsForCall = append(fake.writeVisionArgsForCall, struct {
+		arg1 context.Context
+		arg2 *domain.Vision
+	}{arg1, arg2})
+	stub := fake.WriteVisionStub
+	fakeReturns := fake.writeVisionReturns
+	fake.recordInvocation("WriteVision", []interface{}{arg1, arg2})
+	fake.writeVisionMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *Storage) WriteVisionCallCount() int {
+	fake.writeVisionMutex.RLock()
+	defer fake.writeVisionMutex.RUnlock()
+	return len(fake.writeVisionArgsForCall)
+}
+
+func (fake *Storage) WriteVisionCalls(stub func(context.Context, *domain.Vision) error) {
+	fake.writeVisionMutex.Lock()
+	defer fake.writeVisionMutex.Unlock()
+	fake.WriteVisionStub = stub
+}
+
+func (fake *Storage) WriteVisionArgsForCall(i int) (context.Context, *domain.Vision) {
+	fake.writeVisionMutex.RLock()
+	defer fake.writeVisionMutex.RUnlock()
+	argsForCall := fake.writeVisionArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2
+}
+
+func (fake *Storage) WriteVisionReturns(result1 error) {
+	fake.writeVisionMutex.Lock()
+	defer fake.writeVisionMutex.Unlock()
+	fake.WriteVisionStub = nil
+	fake.writeVisionReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *Storage) WriteVisionReturnsOnCall(i int, result1 error) {
+	fake.writeVisionMutex.Lock()
+	defer fake.writeVisionMutex.Unlock()
+	fake.WriteVisionStub = nil
+	if fake.writeVisionReturnsOnCall == nil {
+		fake.writeVisionReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.writeVisionReturnsOnCall[i] = struct {
 		result1 error
 	}{result1}
 }

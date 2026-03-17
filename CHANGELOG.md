@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.29.0
+
+- feat: Add Objective and Vision domain structs with storage layer (ReadObjective, WriteObjective, FindObjectiveByName, ReadVision, WriteVision, FindVisionByName)
+- feat: Add ThemeStorage narrow interface with FindThemeByName; add ObjectiveStorage and VisionStorage narrow interfaces with counterfeiter mocks
+- feat: Embed ThemeStorage, ObjectiveStorage, VisionStorage in Storage composite interface with NewThemeStorage, NewObjectiveStorage, NewVisionStorage constructors
+
 ## v0.28.0
 
 - feat: Add `excludes` config field to vault to skip directories during vault-wide operations (e.g. `decision list`)

@@ -1,5 +1,7 @@
 ---
-status: draft
+status: approved
+approved: "2026-03-17T10:33:48Z"
+branch: dark-factory/entity-complete-commands
 ---
 
 ## Summary

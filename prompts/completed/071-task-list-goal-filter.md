@@ -1,7 +1,12 @@
 ---
-status: approved
+status: completed
+summary: Added --goal flag to task list command with exact case-sensitive filtering against tasks' goals frontmatter list, composing with existing --status and --assignee filters
+container: vault-cli-071-task-list-goal-filter
+dark-factory-version: v0.57.5
 created: "2026-03-17T10:00:00Z"
 queued: "2026-03-17T10:44:29Z"
+started: "2026-03-17T10:55:19Z"
+completed: "2026-03-17T11:00:48Z"
 ---
 
 <summary>

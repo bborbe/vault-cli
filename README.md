@@ -146,6 +146,14 @@ claude plugin install vault-cli
 |---------|-------------|
 | `/vault-cli:complete-task` | Mark task as complete (normal or recurring) |
 | `/vault-cli:defer-task` | Defer task to specific date |
+| `/vault-cli:task-status` | Show task progress and next step |
+| `/vault-cli:verify-task` | Quick task validation (status, goals, DoD) |
+| `/vault-cli:audit-task` | Full task audit against Task Writing Guide |
+| `/vault-cli:verify-goal` | Quick goal validation (status, subtasks) |
+| `/vault-cli:audit-goal` | Full goal audit against Goal Writing Guide |
+| `/vault-cli:verify-theme` | Quick theme validation (structure, sections) |
+| `/vault-cli:audit-theme` | Full theme audit against Theme Writing Guide |
+| `/vault-cli:audit-objective` | Full objective audit against Objective Writing Guide |
 
 ## Shell Completion
 

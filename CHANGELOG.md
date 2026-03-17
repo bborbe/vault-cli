@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.39.0
+
+- feat: add 8 plugin commands — verify-task, task-status, audit-task, verify-goal, audit-goal, verify-theme, audit-theme, audit-objective
+
 ## v0.38.1
 
 - docs: add Claude Code Plugin section to README with install instructions and command table

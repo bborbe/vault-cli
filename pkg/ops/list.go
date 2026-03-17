@@ -28,6 +28,7 @@ type ListOperation interface {
 		statusFilter string,
 		showAll bool,
 		assigneeFilter string,
+		goalFilter string,
 		outputFormat string,
 	) error
 }
@@ -61,7 +62,7 @@ type TaskListItem struct {
 	Phase           string `json:"phase,omitempty"`
 }
 
-// Execute lists tasks from the vault, optionally filtered by status and assignee.
+// Execute lists tasks from the vault, optionally filtered by status, assignee, and goal.
 func (l *listOperation) Execute(
 	ctx context.Context,
 	vaultPath string,
@@ -70,6 +71,7 @@ func (l *listOperation) Execute(
 	statusFilter string,
 	showAll bool,
 	assigneeFilter string,
+	goalFilter string,
 	outputFormat string,
 ) error {
 	// Read all tasks/pages from the specified directory
@@ -78,8 +80,8 @@ func (l *listOperation) Execute(
 		return errors.Wrap(ctx, err, "list pages")
 	}
 
-	// Filter tasks by status and assignee
-	filteredTasks := filterTasks(tasks, statusFilter, showAll, assigneeFilter)
+	// Filter tasks by status, assignee, and goal
+	filteredTasks := filterTasks(tasks, statusFilter, showAll, assigneeFilter, goalFilter)
 
 	// Sort tasks: in_progress first, then todo, then alphabetically within each group
 	sort.Slice(filteredTasks, func(i, j int) bool {
@@ -133,16 +135,17 @@ func (l *listOperation) Execute(
 	return nil
 }
 
-// filterTasks filters tasks by status and assignee.
+// filterTasks filters tasks by status, assignee, and goal.
 func filterTasks(
 	tasks []*domain.Task,
 	statusFilter string,
 	showAll bool,
 	assigneeFilter string,
+	goalFilter string,
 ) []*domain.Task {
 	filteredTasks := make([]*domain.Task, 0, len(tasks))
 	for _, task := range tasks {
-		if !shouldIncludeTask(task, statusFilter, showAll, assigneeFilter) {
+		if !shouldIncludeTask(task, statusFilter, showAll, assigneeFilter, goalFilter) {
 			continue
 		}
 		filteredTasks = append(filteredTasks, task)
@@ -156,9 +159,15 @@ func shouldIncludeTask(
 	statusFilter string,
 	showAll bool,
 	assigneeFilter string,
+	goalFilter string,
 ) bool {
 	// Filter by assignee if specified
 	if assigneeFilter != "" && task.Assignee != assigneeFilter {
+		return false
+	}
+
+	// Filter by goal if specified (exact, case-sensitive match)
+	if goalFilter != "" && !taskHasGoal(task.Goals, goalFilter) {
 		return false
 	}
 
@@ -169,6 +178,16 @@ func shouldIncludeTask(
 
 	// Apply status filter
 	return matchesStatusFilter(task.Status, statusFilter)
+}
+
+// taskHasGoal returns true if the goals list contains the given goal name.
+func taskHasGoal(goals []string, goal string) bool {
+	for _, g := range goals {
+		if g == goal {
+			return true
+		}
+	}
+	return false
 }
 
 // matchesStatusFilter checks if task status matches the filter.

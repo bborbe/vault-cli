@@ -335,15 +335,17 @@ func createTaskListCommand(
 	var statusFilter string
 	var showAll bool
 	var assigneeFlag string
+	var goalFilter string
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List tasks from the vault",
-		Long: `List tasks from the vault, optionally filtered by status and assignee.
+		Long: `List tasks from the vault, optionally filtered by status, assignee, and goal.
 
 By default, shows only tasks with status "todo" or "in_progress".
 Use --status to filter by specific status, or --all to show all tasks.
-Use --assignee to filter by assignee.`,
+Use --assignee to filter by assignee.
+Use --goal to filter by goal name.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			vaults, err := getVaults(ctx, configLoader, vaultName)
@@ -360,7 +362,7 @@ Use --assignee to filter by assignee.`,
 				pageStore := storage.NewPageStorage(storageConfig)
 				listOp := ops.NewListOperation(pageStore)
 
-				if err := listOp.Execute(ctx, vault.Path, vault.Name, storageConfig.TasksDir, statusFilter, showAll, assigneeFlag, *outputFormat); err != nil {
+				if err := listOp.Execute(ctx, vault.Path, vault.Name, storageConfig.TasksDir, statusFilter, showAll, assigneeFlag, goalFilter, *outputFormat); err != nil {
 					return err
 				}
 			}
@@ -374,6 +376,7 @@ Use --assignee to filter by assignee.`,
 	cmd.Flags().BoolVar(&showAll, "all", false,
 		"Show all tasks regardless of status")
 	cmd.Flags().StringVar(&assigneeFlag, "assignee", "", "Filter by assignee")
+	cmd.Flags().StringVar(&goalFilter, "goal", "", "Filter by goal name (exact match)")
 
 	return cmd
 }
@@ -521,7 +524,7 @@ func createGenericListCommand(
 				pageStore := storage.NewPageStorage(storageConfig)
 				listOp := ops.NewListOperation(pageStore)
 
-				if err := listOp.Execute(ctx, vault.Path, vault.Name, getDirFunc(storageConfig), statusFilter, showAll, assigneeFlag, *outputFormat); err != nil {
+				if err := listOp.Execute(ctx, vault.Path, vault.Name, getDirFunc(storageConfig), statusFilter, showAll, assigneeFlag, "", *outputFormat); err != nil {
 					return err
 				}
 			}

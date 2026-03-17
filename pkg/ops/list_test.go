@@ -30,6 +30,7 @@ var _ = Describe("ListOperation", func() {
 	var statusFilter string
 	var showAll bool
 	var assigneeFilter string
+	var goalFilter string
 	var tasks []*domain.Task
 
 	BeforeEach(func() {
@@ -41,6 +42,7 @@ var _ = Describe("ListOperation", func() {
 		statusFilter = ""
 		showAll = false
 		assigneeFilter = ""
+		goalFilter = ""
 
 		// Default: return some test tasks
 		tasks = []*domain.Task{
@@ -73,6 +75,7 @@ var _ = Describe("ListOperation", func() {
 			statusFilter,
 			showAll,
 			assigneeFilter,
+			goalFilter,
 			"plain",
 		)
 	})
@@ -193,6 +196,98 @@ var _ = Describe("ListOperation", func() {
 			Expect(err).NotTo(BeNil())
 		})
 	})
+
+	Context("with --goal filter", func() {
+		BeforeEach(func() {
+			goalFilter = "Return to Live Trading"
+			tasks = []*domain.Task{
+				{
+					Name:   "Task With Goal",
+					Status: domain.TaskStatusTodo,
+					Goals:  []string{"Return to Live Trading"},
+				},
+				{
+					Name:   "Task Without Goal",
+					Status: domain.TaskStatusTodo,
+					Goals:  []string{"Other Goal"},
+				},
+				{
+					Name:   "Task No Goals",
+					Status: domain.TaskStatusTodo,
+				},
+			}
+			mockPageStorage.ListPagesReturns(tasks, nil)
+		})
+
+		It("returns no error", func() {
+			Expect(err).To(BeNil())
+		})
+	})
+
+	Context("with --goal filter and no matching tasks", func() {
+		BeforeEach(func() {
+			goalFilter = "Nonexistent Goal"
+			tasks = []*domain.Task{
+				{
+					Name:   "Task A",
+					Status: domain.TaskStatusTodo,
+					Goals:  []string{"Some Goal"},
+				},
+			}
+			mockPageStorage.ListPagesReturns(tasks, nil)
+		})
+
+		It("returns no error", func() {
+			Expect(err).To(BeNil())
+		})
+	})
+
+	Context("with --goal and --status filters combined", func() {
+		BeforeEach(func() {
+			goalFilter = "My Goal"
+			statusFilter = "in_progress"
+			tasks = []*domain.Task{
+				{
+					Name:   "Matching Both",
+					Status: domain.TaskStatusInProgress,
+					Goals:  []string{"My Goal"},
+				},
+				{
+					Name:   "Goal Match Status Mismatch",
+					Status: domain.TaskStatusTodo,
+					Goals:  []string{"My Goal"},
+				},
+				{
+					Name:   "Status Match Goal Mismatch",
+					Status: domain.TaskStatusInProgress,
+					Goals:  []string{"Other Goal"},
+				},
+			}
+			mockPageStorage.ListPagesReturns(tasks, nil)
+		})
+
+		It("returns no error", func() {
+			Expect(err).To(BeNil())
+		})
+	})
+
+	Context("with --goal filter case sensitivity", func() {
+		BeforeEach(func() {
+			goalFilter = "my goal"
+			tasks = []*domain.Task{
+				{
+					Name:   "Task With Different Case",
+					Status: domain.TaskStatusTodo,
+					Goals:  []string{"My Goal"},
+				},
+			}
+			mockPageStorage.ListPagesReturns(tasks, nil)
+		})
+
+		It("returns no error (case-sensitive means no match)", func() {
+			Expect(err).To(BeNil())
+		})
+	})
 })
 
 var _ = Describe("ListOperation JSON output", func() {
@@ -243,7 +338,7 @@ var _ = Describe("ListOperation JSON output", func() {
 			mockPageStorage.ListPagesReturns(tasks, nil)
 
 			capturedOutput = captureStdout(func() {
-				err := listOp.Execute(ctx, "/vault", "my-vault", "Tasks", "", true, "", "json")
+				err := listOp.Execute(ctx, "/vault", "my-vault", "Tasks", "", true, "", "", "json")
 				Expect(err).To(BeNil())
 			})
 		})
@@ -303,7 +398,7 @@ var _ = Describe("ListOperation JSON output", func() {
 			mockPageStorage.ListPagesReturns(tasks, nil)
 
 			capturedOutput = captureStdout(func() {
-				err := listOp.Execute(ctx, "/vault", "my-vault", "Tasks", "", true, "", "json")
+				err := listOp.Execute(ctx, "/vault", "my-vault", "Tasks", "", true, "", "", "json")
 				Expect(err).To(BeNil())
 			})
 		})
@@ -325,6 +420,46 @@ var _ = Describe("ListOperation JSON output", func() {
 			Expect(items[0].Name).To(Equal("Minimal Task"))
 			Expect(items[0].Status).To(Equal("todo"))
 			Expect(items[0].Vault).To(Equal("my-vault"))
+		})
+	})
+
+	Context("with --goal filter", func() {
+		BeforeEach(func() {
+			tasks := []*domain.Task{
+				{
+					Name:   "Matching Task",
+					Status: domain.TaskStatusTodo,
+					Goals:  []string{"Target Goal", "Other Goal"},
+				},
+				{
+					Name:   "Non-matching Task",
+					Status: domain.TaskStatusTodo,
+					Goals:  []string{"Different Goal"},
+				},
+			}
+			mockPageStorage.ListPagesReturns(tasks, nil)
+
+			capturedOutput = captureStdout(func() {
+				err := listOp.Execute(
+					ctx,
+					"/vault",
+					"my-vault",
+					"Tasks",
+					"",
+					true,
+					"",
+					"Target Goal",
+					"json",
+				)
+				Expect(err).To(BeNil())
+			})
+		})
+
+		It("returns only tasks matching the goal", func() {
+			var items []ops.TaskListItem
+			Expect(json.Unmarshal(capturedOutput, &items)).To(Succeed())
+			Expect(items).To(HaveLen(1))
+			Expect(items[0].Name).To(Equal("Matching Task"))
 		})
 	})
 })

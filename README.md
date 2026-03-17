@@ -138,8 +138,13 @@ vault-cli config current-user  # Print the current user
 vault-cli includes a Claude Code plugin for task management commands.
 
 ```bash
+# Install
 claude plugin marketplace add bborbe/vault-cli
 claude plugin install vault-cli
+
+# Update
+claude plugin marketplace update vault-cli
+claude plugin update vault-cli@vault-cli
 ```
 
 | Command | Description |

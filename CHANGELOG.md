@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.35.0
+
+- feat: Add Completed date field to Goal and Objective domain structs; add ListTasks to TaskStorage interface and regenerate mock
+
 ## v0.34.0
 
 - feat: Wire add/remove subcommands into task, goal, theme, objective, and vision CLI command groups using EntityListAddOperation and EntityListRemoveOperation with VaultDispatcher pattern

@@ -25,6 +25,20 @@ type TaskStorage struct {
 		result1 *domain.Task
 		result2 error
 	}
+	ListTasksStub        func(context.Context, string) ([]*domain.Task, error)
+	listTasksMutex       sync.RWMutex
+	listTasksArgsForCall []struct {
+		arg1 context.Context
+		arg2 string
+	}
+	listTasksReturns struct {
+		result1 []*domain.Task
+		result2 error
+	}
+	listTasksReturnsOnCall map[int]struct {
+		result1 []*domain.Task
+		result2 error
+	}
 	WriteTaskStub        func(context.Context, *domain.Task) error
 	writeTaskMutex       sync.RWMutex
 	writeTaskArgsForCall []struct {
@@ -103,6 +117,71 @@ func (fake *TaskStorage) FindTaskByNameReturnsOnCall(i int, result1 *domain.Task
 	}
 	fake.findTaskByNameReturnsOnCall[i] = struct {
 		result1 *domain.Task
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *TaskStorage) ListTasks(arg1 context.Context, arg2 string) ([]*domain.Task, error) {
+	fake.listTasksMutex.Lock()
+	ret, specificReturn := fake.listTasksReturnsOnCall[len(fake.listTasksArgsForCall)]
+	fake.listTasksArgsForCall = append(fake.listTasksArgsForCall, struct {
+		arg1 context.Context
+		arg2 string
+	}{arg1, arg2})
+	stub := fake.ListTasksStub
+	fakeReturns := fake.listTasksReturns
+	fake.recordInvocation("ListTasks", []interface{}{arg1, arg2})
+	fake.listTasksMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *TaskStorage) ListTasksCallCount() int {
+	fake.listTasksMutex.RLock()
+	defer fake.listTasksMutex.RUnlock()
+	return len(fake.listTasksArgsForCall)
+}
+
+func (fake *TaskStorage) ListTasksCalls(stub func(context.Context, string) ([]*domain.Task, error)) {
+	fake.listTasksMutex.Lock()
+	defer fake.listTasksMutex.Unlock()
+	fake.ListTasksStub = stub
+}
+
+func (fake *TaskStorage) ListTasksArgsForCall(i int) (context.Context, string) {
+	fake.listTasksMutex.RLock()
+	defer fake.listTasksMutex.RUnlock()
+	argsForCall := fake.listTasksArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2
+}
+
+func (fake *TaskStorage) ListTasksReturns(result1 []*domain.Task, result2 error) {
+	fake.listTasksMutex.Lock()
+	defer fake.listTasksMutex.Unlock()
+	fake.ListTasksStub = nil
+	fake.listTasksReturns = struct {
+		result1 []*domain.Task
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *TaskStorage) ListTasksReturnsOnCall(i int, result1 []*domain.Task, result2 error) {
+	fake.listTasksMutex.Lock()
+	defer fake.listTasksMutex.Unlock()
+	fake.ListTasksStub = nil
+	if fake.listTasksReturnsOnCall == nil {
+		fake.listTasksReturnsOnCall = make(map[int]struct {
+			result1 []*domain.Task
+			result2 error
+		})
+	}
+	fake.listTasksReturnsOnCall[i] = struct {
+		result1 []*domain.Task
 		result2 error
 	}{result1, result2}
 }

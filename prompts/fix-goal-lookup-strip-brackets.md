@@ -21,7 +21,7 @@ Read `CLAUDE.md` for project conventions.
 Files to read before making changes (read ALL of these first):
 
 - `pkg/storage/base.go` — `findFileByName` function (~line 74). Receives `name`, does exact path check then case-insensitive substring match against directory entries. Currently does not strip `[[`/`]]` brackets.
-- `pkg/storage/base_test.go` — does NOT exist yet. Create this file for bracket-stripping tests. Follow patterns from `pkg/storage/objective_test.go` (Ginkgo Describe/It blocks, `storage_test` package).
+- `pkg/storage/goal_test.go` — does NOT exist yet. Create this file for bracket-stripping tests. Follow patterns from `pkg/storage/objective_test.go` (Ginkgo Describe/It blocks, `storage_test` package, tests go through public `Storage` interface).
 - `pkg/ops/complete.go` — `markGoalCheckbox` calls `FindGoalByName` with values from `task.Goals` which may contain `[[...]]` brackets from YAML frontmatter.
 </context>
 
@@ -46,11 +46,11 @@ name = strings.TrimSuffix(name, "]]")
 
 ## 2. Add test cases for bracket handling
 
-Create `pkg/storage/base_test.go` (package `storage_test`, follow patterns from `objective_test.go`). Add cases verifying:
+Create `pkg/storage/goal_test.go` (package `storage_test`, follow patterns from `objective_test.go`). Test through the public `FindGoalByName` method since `findFileByName` is unexported. Add cases verifying:
 
-1. `findFileByName` with `[[Goal Name]]` resolves to `Goal Name.md`
-2. `findFileByName` with `Goal Name` still resolves to `Goal Name.md` (no regression)
-3. `findFileByName` with `[[Nonexistent]]` returns file-not-found error
+1. `FindGoalByName` with `[[Goal Name]]` resolves to `Goal Name.md`
+2. `FindGoalByName` with `Goal Name` still resolves to `Goal Name.md` (no regression)
+3. `FindGoalByName` with `[[Nonexistent]]` returns error
 
 </requirements>
 

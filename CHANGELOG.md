@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.37.1
+
+- test: add integration test verifying all CLI commands and subcommands are registered via `--help` exit-0 checks
+
 ## v0.37.0
 
 - feat: add `goal complete` command with open-task validation and --force flag

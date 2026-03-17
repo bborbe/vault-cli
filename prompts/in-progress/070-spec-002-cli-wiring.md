@@ -1,7 +1,8 @@
 ---
-status: created
+status: approved
 spec: ["002"]
 created: "2026-03-17T10:00:00Z"
+queued: "2026-03-17T10:30:14Z"
 branch: dark-factory/generic-frontmatter-ops
 ---
 

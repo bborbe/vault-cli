@@ -59,6 +59,28 @@ type GoalStorage interface {
 	FindGoalByName(ctx context.Context, vaultPath string, name string) (*domain.Goal, error)
 }
 
+//counterfeiter:generate -o ../../mocks/theme-storage.go --fake-name ThemeStorage . ThemeStorage
+type ThemeStorage interface {
+	WriteTheme(ctx context.Context, theme *domain.Theme) error
+	FindThemeByName(ctx context.Context, vaultPath string, name string) (*domain.Theme, error)
+}
+
+//counterfeiter:generate -o ../../mocks/objective-storage.go --fake-name ObjectiveStorage . ObjectiveStorage
+type ObjectiveStorage interface {
+	WriteObjective(ctx context.Context, objective *domain.Objective) error
+	FindObjectiveByName(
+		ctx context.Context,
+		vaultPath string,
+		name string,
+	) (*domain.Objective, error)
+}
+
+//counterfeiter:generate -o ../../mocks/vision-storage.go --fake-name VisionStorage . VisionStorage
+type VisionStorage interface {
+	WriteVision(ctx context.Context, vision *domain.Vision) error
+	FindVisionByName(ctx context.Context, vaultPath string, name string) (*domain.Vision, error)
+}
+
 //counterfeiter:generate -o ../../mocks/daily-note-storage.go --fake-name DailyNoteStorage . DailyNoteStorage
 type DailyNoteStorage interface {
 	ReadDailyNote(ctx context.Context, vaultPath string, date string) (string, error)
@@ -81,6 +103,9 @@ type DecisionStorage interface {
 type Storage interface {
 	TaskStorage
 	GoalStorage
+	ThemeStorage
+	ObjectiveStorage
+	VisionStorage
 	DailyNoteStorage
 	PageStorage
 	DecisionStorage
@@ -90,7 +115,16 @@ type Storage interface {
 	ListTasks(ctx context.Context, vaultPath string) ([]*domain.Task, error)
 	ReadGoal(ctx context.Context, vaultPath string, goalID domain.GoalID) (*domain.Goal, error)
 	ReadTheme(ctx context.Context, vaultPath string, themeID domain.ThemeID) (*domain.Theme, error)
-	WriteTheme(ctx context.Context, theme *domain.Theme) error
+	ReadObjective(
+		ctx context.Context,
+		vaultPath string,
+		objectiveID domain.ObjectiveID,
+	) (*domain.Objective, error)
+	ReadVision(
+		ctx context.Context,
+		vaultPath string,
+		visionID domain.VisionID,
+	) (*domain.Vision, error)
 }
 
 // NewStorage creates a new markdown storage instance with custom configuration.
@@ -106,6 +140,8 @@ func NewStorage(storageConfig *Config) Storage {
 		pageStorage:      &pageStorage{baseStorage: base},
 		decisionStorage:  &decisionStorage{baseStorage: base},
 		themeStorage:     &themeStorage{baseStorage: base},
+		objectiveStorage: &objectiveStorage{baseStorage: base},
+		visionStorage:    &visionStorage{baseStorage: base},
 	}
 }
 
@@ -116,6 +152,8 @@ type markdownStorage struct {
 	*pageStorage
 	*decisionStorage
 	*themeStorage
+	*objectiveStorage
+	*visionStorage
 }
 
 // NewTaskStorage creates a storage for task operations only.
@@ -132,6 +170,30 @@ func NewGoalStorage(storageConfig *Config) GoalStorage {
 		storageConfig = DefaultConfig()
 	}
 	return &goalStorage{baseStorage: &baseStorage{config: storageConfig}}
+}
+
+// NewThemeStorage creates a storage for theme operations only.
+func NewThemeStorage(storageConfig *Config) ThemeStorage {
+	if storageConfig == nil {
+		storageConfig = DefaultConfig()
+	}
+	return &themeStorage{baseStorage: &baseStorage{config: storageConfig}}
+}
+
+// NewObjectiveStorage creates a storage for objective operations only.
+func NewObjectiveStorage(storageConfig *Config) ObjectiveStorage {
+	if storageConfig == nil {
+		storageConfig = DefaultConfig()
+	}
+	return &objectiveStorage{baseStorage: &baseStorage{config: storageConfig}}
+}
+
+// NewVisionStorage creates a storage for vision operations only.
+func NewVisionStorage(storageConfig *Config) VisionStorage {
+	if storageConfig == nil {
+		storageConfig = DefaultConfig()
+	}
+	return &visionStorage{baseStorage: &baseStorage{config: storageConfig}}
 }
 
 // NewDailyNoteStorage creates a storage for daily note operations only.

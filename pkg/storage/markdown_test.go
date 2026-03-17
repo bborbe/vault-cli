@@ -454,6 +454,46 @@ page_type: goal
 			Expect(os.MkdirAll(themesDir, 0755)).To(Succeed())
 		})
 
+		Describe("FindThemeByName", func() {
+			It("finds theme by exact name", func() {
+				themePath := filepath.Join(themesDir, "Test Theme.md")
+				themeContent := `---
+status: active
+page_type: theme
+priority: 1
+---
+# Test Theme
+`
+				Expect(os.WriteFile(themePath, []byte(themeContent), 0600)).To(Succeed())
+
+				theme, err := store.FindThemeByName(ctx, vaultPath, "Test Theme")
+				Expect(err).To(BeNil())
+				Expect(theme).NotTo(BeNil())
+				Expect(theme.Name).To(Equal("Test Theme"))
+				Expect(theme.Status).To(Equal(domain.ThemeStatusActive))
+			})
+
+			It("finds theme by partial name", func() {
+				themePath := filepath.Join(themesDir, "Unique Theme Name.md")
+				themeContent := `---
+status: active
+page_type: theme
+---
+# Unique Theme Name
+`
+				Expect(os.WriteFile(themePath, []byte(themeContent), 0600)).To(Succeed())
+
+				theme, err := store.FindThemeByName(ctx, vaultPath, "unique")
+				Expect(err).To(BeNil())
+				Expect(theme.Name).To(Equal("Unique Theme Name"))
+			})
+
+			It("returns error when theme not found", func() {
+				_, err := store.FindThemeByName(ctx, vaultPath, "Nonexistent Theme")
+				Expect(err).NotTo(BeNil())
+			})
+		})
+
 		Describe("WriteTheme and ReadTheme", func() {
 			It("round-trips theme correctly", func() {
 				themePath := filepath.Join(themesDir, "Health & Fitness.md")

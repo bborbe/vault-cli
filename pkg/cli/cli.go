@@ -77,35 +77,7 @@ func Run(ctx context.Context, args []string) error {
 	// Add root-level search command
 	rootCmd.AddCommand(createSearchCommand(ctx, &configLoader, &vaultName, &outputFormat))
 
-	taskCmd := &cobra.Command{
-		Use:   "task",
-		Short: "Manage tasks in the vault",
-	}
-
-	taskCmd.AddCommand(createTaskListCommand(ctx, &configLoader, &vaultName, &outputFormat))
-	taskCmd.AddCommand(createLintCommand(ctx, &configLoader, &vaultName, &outputFormat))
-	taskCmd.AddCommand(createValidateCommand(ctx, &configLoader, &vaultName, &outputFormat))
-	taskCmd.AddCommand(createCompleteCommand(ctx, &configLoader, &vaultName, &outputFormat))
-	taskCmd.AddCommand(createDeferCommand(ctx, &configLoader, &vaultName, &outputFormat))
-	taskCmd.AddCommand(createUpdateCommand(ctx, &configLoader, &vaultName, &outputFormat))
-	taskCmd.AddCommand(createWorkOnCommand(ctx, &configLoader, &vaultName, &outputFormat))
-	taskCmd.AddCommand(createTaskGetCommand(ctx, &configLoader, &vaultName, &outputFormat))
-	taskCmd.AddCommand(createTaskSetCommand(ctx, &configLoader, &vaultName, &outputFormat))
-	taskCmd.AddCommand(createTaskClearCommand(ctx, &configLoader, &vaultName, &outputFormat))
-	taskCmd.AddCommand(createTaskShowCommand(ctx, &configLoader, &vaultName, &outputFormat))
-	taskCmd.AddCommand(createTaskWatchCommand(ctx, &configLoader, &vaultName))
-	taskCmd.AddCommand(
-		createGenericSearchCommand(
-			ctx,
-			&configLoader,
-			&vaultName,
-			"tasks",
-			func(c *storage.Config) string { return c.TasksDir },
-			&outputFormat,
-		),
-	)
-
-	rootCmd.AddCommand(taskCmd)
+	rootCmd.AddCommand(createTaskCommands(ctx, &configLoader, &vaultName, &outputFormat))
 
 	rootCmd.AddCommand(createGoalCommands(ctx, &configLoader, &vaultName, &outputFormat))
 	rootCmd.AddCommand(createThemeCommands(ctx, &configLoader, &vaultName, &outputFormat))
@@ -746,6 +718,155 @@ func createEntityShowCommand(
 	}
 }
 
+//nolint:dupl // Entity list commands have similar structure but operate on different types
+func createEntityListAddCommand(
+	ctx context.Context,
+	configLoader *config.Loader,
+	vaultName *string,
+	outputFormat *string,
+	entityType string,
+	newAddOp func(cfg *storage.Config) ops.EntityListAddOperation,
+) *cobra.Command {
+	return &cobra.Command{
+		Use:   "add <name> <field> <value>",
+		Short: fmt.Sprintf("Add a value to a list field on a %s", entityType),
+		Args:  cobra.ExactArgs(3),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			entityName := args[0]
+			field := args[1]
+			value := args[2]
+
+			vaults, err := getVaults(ctx, configLoader, vaultName)
+			if err != nil {
+				return errors.Wrap(ctx, err, "get vaults")
+			}
+
+			dispatcher := ops.NewVaultDispatcher()
+			err = dispatcher.FirstSuccess(ctx, vaults, func(vault *config.Vault) error {
+				storageConfig := storage.NewConfigFromVault(vault)
+				addOp := newAddOp(storageConfig)
+				return addOp.Execute(ctx, vault.Path, entityName, field, value)
+			})
+			if err != nil {
+				if *outputFormat == OutputFormatJSON {
+					return PrintJSON(map[string]any{
+						"success": false,
+						"error":   err.Error(),
+					})
+				}
+				return err
+			}
+			if *outputFormat == OutputFormatJSON {
+				return PrintJSON(map[string]any{
+					"success": true,
+					"field":   field,
+					"value":   value,
+					"name":    entityName,
+				})
+			}
+			fmt.Printf("✅ Added %s to %s on: %s\n", value, field, entityName)
+			return nil
+		},
+	}
+}
+
+//nolint:dupl // Entity list commands have similar structure but operate on different types
+func createEntityListRemoveCommand(
+	ctx context.Context,
+	configLoader *config.Loader,
+	vaultName *string,
+	outputFormat *string,
+	entityType string,
+	newRemoveOp func(cfg *storage.Config) ops.EntityListRemoveOperation,
+) *cobra.Command {
+	return &cobra.Command{
+		Use:   "remove <name> <field> <value>",
+		Short: fmt.Sprintf("Remove a value from a list field on a %s", entityType),
+		Args:  cobra.ExactArgs(3),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			entityName := args[0]
+			field := args[1]
+			value := args[2]
+
+			vaults, err := getVaults(ctx, configLoader, vaultName)
+			if err != nil {
+				return errors.Wrap(ctx, err, "get vaults")
+			}
+
+			dispatcher := ops.NewVaultDispatcher()
+			err = dispatcher.FirstSuccess(ctx, vaults, func(vault *config.Vault) error {
+				storageConfig := storage.NewConfigFromVault(vault)
+				removeOp := newRemoveOp(storageConfig)
+				return removeOp.Execute(ctx, vault.Path, entityName, field, value)
+			})
+			if err != nil {
+				if *outputFormat == OutputFormatJSON {
+					return PrintJSON(map[string]any{
+						"success": false,
+						"error":   err.Error(),
+					})
+				}
+				return err
+			}
+			if *outputFormat == OutputFormatJSON {
+				return PrintJSON(map[string]any{
+					"success": true,
+					"field":   field,
+					"value":   value,
+					"name":    entityName,
+				})
+			}
+			fmt.Printf("✅ Removed %s from %s on: %s\n", value, field, entityName)
+			return nil
+		},
+	}
+}
+
+func createTaskCommands(
+	ctx context.Context,
+	configLoader *config.Loader,
+	vaultName *string,
+	outputFormat *string,
+) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "task",
+		Short: "Manage tasks in the vault",
+	}
+	cmd.AddCommand(createTaskListCommand(ctx, configLoader, vaultName, outputFormat))
+	cmd.AddCommand(createLintCommand(ctx, configLoader, vaultName, outputFormat))
+	cmd.AddCommand(createValidateCommand(ctx, configLoader, vaultName, outputFormat))
+	cmd.AddCommand(createCompleteCommand(ctx, configLoader, vaultName, outputFormat))
+	cmd.AddCommand(createDeferCommand(ctx, configLoader, vaultName, outputFormat))
+	cmd.AddCommand(createUpdateCommand(ctx, configLoader, vaultName, outputFormat))
+	cmd.AddCommand(createWorkOnCommand(ctx, configLoader, vaultName, outputFormat))
+	cmd.AddCommand(createTaskGetCommand(ctx, configLoader, vaultName, outputFormat))
+	cmd.AddCommand(createTaskSetCommand(ctx, configLoader, vaultName, outputFormat))
+	cmd.AddCommand(createTaskClearCommand(ctx, configLoader, vaultName, outputFormat))
+	cmd.AddCommand(createTaskShowCommand(ctx, configLoader, vaultName, outputFormat))
+	cmd.AddCommand(createEntityListAddCommand(ctx, configLoader, vaultName, outputFormat, "task",
+		func(cfg *storage.Config) ops.EntityListAddOperation {
+			return ops.NewTaskListAddOperation(storage.NewTaskStorage(cfg))
+		},
+	))
+	cmd.AddCommand(createEntityListRemoveCommand(ctx, configLoader, vaultName, outputFormat, "task",
+		func(cfg *storage.Config) ops.EntityListRemoveOperation {
+			return ops.NewTaskListRemoveOperation(storage.NewTaskStorage(cfg))
+		},
+	))
+	cmd.AddCommand(createTaskWatchCommand(ctx, configLoader, vaultName))
+	cmd.AddCommand(
+		createGenericSearchCommand(
+			ctx,
+			configLoader,
+			vaultName,
+			"tasks",
+			func(c *storage.Config) string { return c.TasksDir },
+			outputFormat,
+		),
+	)
+	return cmd
+}
+
 //nolint:dupl // Command groups are structurally similar but manage distinct entity types
 func createGoalCommands(
 	ctx context.Context,
@@ -805,6 +926,16 @@ func createGoalCommands(
 	cmd.AddCommand(createEntityShowCommand(ctx, configLoader, vaultName, outputFormat, "goal",
 		func(cfg *storage.Config) ops.EntityShowOperation {
 			return ops.NewGoalShowOperation(storage.NewGoalStorage(cfg))
+		},
+	))
+	cmd.AddCommand(createEntityListAddCommand(ctx, configLoader, vaultName, outputFormat, "goal",
+		func(cfg *storage.Config) ops.EntityListAddOperation {
+			return ops.NewGoalListAddOperation(storage.NewGoalStorage(cfg))
+		},
+	))
+	cmd.AddCommand(createEntityListRemoveCommand(ctx, configLoader, vaultName, outputFormat, "goal",
+		func(cfg *storage.Config) ops.EntityListRemoveOperation {
+			return ops.NewGoalListRemoveOperation(storage.NewGoalStorage(cfg))
 		},
 	))
 	return cmd
@@ -871,6 +1002,18 @@ func createThemeCommands(
 			return ops.NewThemeShowOperation(storage.NewThemeStorage(cfg))
 		},
 	))
+	cmd.AddCommand(createEntityListAddCommand(ctx, configLoader, vaultName, outputFormat, "theme",
+		func(cfg *storage.Config) ops.EntityListAddOperation {
+			return ops.NewThemeListAddOperation(storage.NewThemeStorage(cfg))
+		},
+	))
+	cmd.AddCommand(
+		createEntityListRemoveCommand(ctx, configLoader, vaultName, outputFormat, "theme",
+			func(cfg *storage.Config) ops.EntityListRemoveOperation {
+				return ops.NewThemeListRemoveOperation(storage.NewThemeStorage(cfg))
+			},
+		),
+	)
 	return cmd
 }
 
@@ -935,6 +1078,20 @@ func createObjectiveCommands(
 			return ops.NewObjectiveShowOperation(storage.NewObjectiveStorage(cfg))
 		},
 	))
+	cmd.AddCommand(
+		createEntityListAddCommand(ctx, configLoader, vaultName, outputFormat, "objective",
+			func(cfg *storage.Config) ops.EntityListAddOperation {
+				return ops.NewObjectiveListAddOperation(storage.NewObjectiveStorage(cfg))
+			},
+		),
+	)
+	cmd.AddCommand(
+		createEntityListRemoveCommand(ctx, configLoader, vaultName, outputFormat, "objective",
+			func(cfg *storage.Config) ops.EntityListRemoveOperation {
+				return ops.NewObjectiveListRemoveOperation(storage.NewObjectiveStorage(cfg))
+			},
+		),
+	)
 	return cmd
 }
 
@@ -999,6 +1156,18 @@ func createVisionCommands(
 			return ops.NewVisionShowOperation(storage.NewVisionStorage(cfg))
 		},
 	))
+	cmd.AddCommand(createEntityListAddCommand(ctx, configLoader, vaultName, outputFormat, "vision",
+		func(cfg *storage.Config) ops.EntityListAddOperation {
+			return ops.NewVisionListAddOperation(storage.NewVisionStorage(cfg))
+		},
+	))
+	cmd.AddCommand(
+		createEntityListRemoveCommand(ctx, configLoader, vaultName, outputFormat, "vision",
+			func(cfg *storage.Config) ops.EntityListRemoveOperation {
+				return ops.NewVisionListRemoveOperation(storage.NewVisionStorage(cfg))
+			},
+		),
+	)
 	return cmd
 }
 

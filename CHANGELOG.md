@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.40.2
+
+- update go.yaml.in/yaml/v3 from v3.0.2 to v3.0.4
+- cleanup go.mod exclude directives
+
 ## v0.40.1
 
 - remove k8s.io/kube-openapi replace directive

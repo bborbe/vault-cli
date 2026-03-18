@@ -1,10 +1,11 @@
 ---
-status: executing
+status: failed
 container: vault-cli-084-add-multi-status-filter-to-task-list
 dark-factory-version: v0.57.5
 created: "2026-03-18T20:10:59Z"
 queued: "2026-03-18T20:20:48Z"
 started: "2026-03-18T20:20:50Z"
+completed: "2026-03-18T20:26:39Z"
 ---
 
 <summary>

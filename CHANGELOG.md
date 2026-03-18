@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- feat: change --status flag on task list (and generic list commands) from single string to string slice, supporting repeated flags and comma-separated values (e.g. --status=in_progress --status=completed)
+
 ## v0.44.0
 
 - feat: record completed_date on non-recurring task completion; expose completed_date in task list and task show JSON output

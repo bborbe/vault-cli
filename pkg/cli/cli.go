@@ -305,7 +305,7 @@ func createTaskListCommand(
 	vaultName *string,
 	outputFormat *string,
 ) *cobra.Command {
-	var statusFilter string
+	var statusFilters []string
 	var showAll bool
 	var assigneeFlag string
 	var goalFilter string
@@ -335,7 +335,7 @@ Use --goal to filter by goal name.`,
 				pageStore := storage.NewPageStorage(storageConfig)
 				listOp := ops.NewListOperation(pageStore)
 
-				if err := listOp.Execute(ctx, vault.Path, vault.Name, storageConfig.TasksDir, statusFilter, showAll, assigneeFlag, goalFilter, *outputFormat); err != nil {
+				if err := listOp.Execute(ctx, vault.Path, vault.Name, storageConfig.TasksDir, statusFilters, showAll, assigneeFlag, goalFilter, *outputFormat); err != nil {
 					return err
 				}
 			}
@@ -344,8 +344,8 @@ Use --goal to filter by goal name.`,
 		},
 	}
 
-	cmd.Flags().StringVar(&statusFilter, "status", "",
-		"Filter by status (e.g. todo, in_progress, completed, done, deferred)")
+	cmd.Flags().StringSliceVar(&statusFilters, "status", nil,
+		"Filter by status (e.g. --status=in_progress --status=completed). Cobra StringSliceVar natively supports both repeated flags and comma-separated values.")
 	cmd.Flags().BoolVar(&showAll, "all", false,
 		"Show all tasks regardless of status")
 	cmd.Flags().StringVar(&assigneeFlag, "assignee", "", "Filter by assignee")
@@ -474,7 +474,7 @@ func createGenericListCommand(
 	getDirFunc func(*storage.Config) string,
 	outputFormat *string,
 ) *cobra.Command {
-	var statusFilter string
+	var statusFilters []string
 	var showAll bool
 	var assigneeFlag string
 
@@ -497,7 +497,7 @@ func createGenericListCommand(
 				pageStore := storage.NewPageStorage(storageConfig)
 				listOp := ops.NewListOperation(pageStore)
 
-				if err := listOp.Execute(ctx, vault.Path, vault.Name, getDirFunc(storageConfig), statusFilter, showAll, assigneeFlag, "", *outputFormat); err != nil {
+				if err := listOp.Execute(ctx, vault.Path, vault.Name, getDirFunc(storageConfig), statusFilters, showAll, assigneeFlag, "", *outputFormat); err != nil {
 					return err
 				}
 			}
@@ -506,11 +506,11 @@ func createGenericListCommand(
 		},
 	}
 
-	cmd.Flags().StringVar(
-		&statusFilter,
+	cmd.Flags().StringSliceVar(
+		&statusFilters,
 		"status",
-		"",
-		"Filter by status (e.g. todo, in_progress, completed, done, deferred)",
+		nil,
+		"Filter by status (e.g. --status=in_progress --status=completed). Cobra StringSliceVar natively supports both repeated flags and comma-separated values.",
 	)
 	cmd.Flags().BoolVar(
 		&showAll,

@@ -45,6 +45,11 @@ func (o *objectiveStorage) readObjectiveFromPath(
 		FilePath: filePath,
 	}
 
+	if info, err := os.Stat(filePath); err == nil {
+		t := info.ModTime().UTC()
+		objective.ModifiedDate = &t
+	}
+
 	if err := o.parseFrontmatter(ctx, content, objective); err != nil {
 		return nil, errors.Wrap(ctx, err, "parse frontmatter")
 	}

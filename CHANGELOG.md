@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.43.0
+
+- feat: add ModifiedDate field to all domain types (Task, Goal, Objective, Theme, Vision) populated from file mtime; expose modified_date in task list JSON output
+
 ## v0.42.0
 
 - feat: make ListTasks, FindTaskByName, and ReadTask discover tasks recursively in subdirectories

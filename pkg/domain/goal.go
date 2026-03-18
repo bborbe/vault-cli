@@ -24,10 +24,11 @@ type Goal struct {
 	Completed  *libtime.Date `yaml:"completed,omitempty"`
 
 	// Metadata
-	Name     string         `yaml:"-"` // Filename without extension
-	Content  string         `yaml:"-"` // Full markdown content including frontmatter
-	FilePath string         `yaml:"-"` // Absolute path to file
-	Tasks    []CheckboxItem `yaml:"-"` // Parsed checkbox tasks from content
+	Name         string         `yaml:"-"` // Filename without extension
+	Content      string         `yaml:"-"` // Full markdown content including frontmatter
+	FilePath     string         `yaml:"-"` // Absolute path to file
+	Tasks        []CheckboxItem `yaml:"-"` // Parsed checkbox tasks from content
+	ModifiedDate *time.Time     `yaml:"-"` // File modification time, populated by storage layer
 }
 
 // GoalStatus represents the status of a goal.

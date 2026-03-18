@@ -155,6 +155,11 @@ func (b *baseStorage) readTaskFromPath(
 		FilePath: filePath,
 	}
 
+	if info, err := os.Stat(filePath); err == nil {
+		t := info.ModTime().UTC()
+		task.ModifiedDate = &t
+	}
+
 	if err := b.parseFrontmatter(ctx, content, task); err != nil {
 		return nil, errors.Wrap(ctx, err, "parse frontmatter")
 	}

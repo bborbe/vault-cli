@@ -23,9 +23,10 @@ type Objective struct {
 	Completed  *libtime.Date   `yaml:"completed,omitempty"`
 
 	// Metadata
-	Name     string `yaml:"-"` // Filename without extension
-	Content  string `yaml:"-"` // Full markdown content including frontmatter
-	FilePath string `yaml:"-"` // Absolute path to file
+	Name         string     `yaml:"-"` // Filename without extension
+	Content      string     `yaml:"-"` // Full markdown content including frontmatter
+	FilePath     string     `yaml:"-"` // Absolute path to file
+	ModifiedDate *time.Time `yaml:"-"` // File modification time, populated by storage layer
 }
 
 // ObjectiveStatus represents the status of an objective.

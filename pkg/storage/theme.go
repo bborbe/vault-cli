@@ -45,6 +45,11 @@ func (t *themeStorage) readThemeFromPath(
 		FilePath: filePath,
 	}
 
+	if info, err := os.Stat(filePath); err == nil {
+		mt := info.ModTime().UTC()
+		theme.ModifiedDate = &mt
+	}
+
 	if err := t.parseFrontmatter(ctx, content, theme); err != nil {
 		return nil, errors.Wrap(ctx, err, "parse frontmatter")
 	}

@@ -4,6 +4,8 @@
 
 package domain
 
+import "time"
+
 // Vision represents a vision in the Obsidian vault with YAML frontmatter.
 type Vision struct {
 	// Frontmatter fields
@@ -14,9 +16,10 @@ type Vision struct {
 	Tags     []string     `yaml:"tags,omitempty"`
 
 	// Metadata
-	Name     string `yaml:"-"` // Filename without extension
-	Content  string `yaml:"-"` // Full markdown content including frontmatter
-	FilePath string `yaml:"-"` // Absolute path to file
+	Name         string     `yaml:"-"` // Filename without extension
+	Content      string     `yaml:"-"` // Full markdown content including frontmatter
+	FilePath     string     `yaml:"-"` // Absolute path to file
+	ModifiedDate *time.Time `yaml:"-"` // File modification time, populated by storage layer
 }
 
 // VisionStatus represents the status of a vision.

@@ -6,6 +6,7 @@ package domain
 
 import (
 	"fmt"
+	"time"
 )
 
 // Task represents a task in the Obsidian vault with YAML frontmatter.
@@ -26,9 +27,10 @@ type Task struct {
 	DueDate         *DateOrDateTime `yaml:"due_date,omitempty"`
 
 	// Metadata
-	Name     string `yaml:"-"` // Filename without extension
-	Content  string `yaml:"-"` // Full markdown content including frontmatter
-	FilePath string `yaml:"-"` // Absolute path to file
+	Name         string     `yaml:"-"` // Filename without extension
+	Content      string     `yaml:"-"` // Full markdown content including frontmatter
+	FilePath     string     `yaml:"-"` // Absolute path to file
+	ModifiedDate *time.Time `yaml:"-"` // File modification time, populated by storage layer
 }
 
 // TaskStatus represents the status of a task.

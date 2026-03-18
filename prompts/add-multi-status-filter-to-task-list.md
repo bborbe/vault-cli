@@ -36,7 +36,7 @@ Read mocks/list-operation.go — counterfeiter-generated mock with `Execute` sig
      to:
      ```go
      cmd.Flags().StringSliceVar(&statusFilters, "status", nil,
-         "Filter by status (e.g. --status=in_progress --status=completed)")
+         "Filter by status (e.g. --status=in_progress --status=completed). Cobra StringSliceVar natively supports both repeated flags and comma-separated values.")
      ```
    - In the `RunE` closure, change the `listOp.Execute(...)` call to pass `statusFilters` instead of `statusFilter`
 
@@ -100,50 +100,46 @@ Read mocks/list-operation.go — counterfeiter-generated mock with `Execute` sig
    - Where tests set `statusFilter = "In_Progress"`, change to `statusFilters = []string{"In_Progress"}`
    - Where tests set `statusFilter = "in_progress"` in the combined goal+status test, change to `statusFilters = []string{"in_progress"}`
 
-9. In `pkg/ops/list_test.go`, add a new test context for multi-status filtering. Place it alongside the existing single-status filter tests. The test must set up tasks with mixed statuses and assert that only the requested statuses are returned:
+9. In `pkg/ops/list_test.go`, add a new test context for multi-status filtering inside the "ListOperation JSON output" describe block. Follow the existing pattern: set up tasks in `BeforeEach`, capture stdout, unmarshal JSON in each `It`. Example:
    ```go
    Context("with multiple --status filters", func() {
        BeforeEach(func() {
-           statusFilters = []string{"in_progress", "completed"}
-           // tasks fixture must contain at least one task for each status:
-           // in_progress, completed, and at least one excluded status (e.g. todo or hold)
-       })
-
-       It("returns no error", func() {
-           Expect(err).To(BeNil())
-       })
-
-       It("includes tasks with in_progress status", func() {
-           names := make([]string, len(result))
-           for i, item := range result {
-               names[i] = item.Status
+           tasks := []*domain.Task{
+               {Name: "IP Task", Status: domain.TaskStatusInProgress},
+               {Name: "Done Task", Status: domain.TaskStatusCompleted},
+               {Name: "Todo Task", Status: domain.TaskStatusTodo},
+               {Name: "Hold Task", Status: domain.TaskStatusHold},
            }
-           Expect(names).To(ContainElement("in_progress"))
+           mockPageStorage.ListPagesReturns(tasks, nil)
+
+           capturedOutput = captureStdout(func() {
+               err := listOp.Execute(ctx, "/vault", "my-vault", "Tasks", []string{"in_progress", "completed"}, false, "", "", "json")
+               Expect(err).To(BeNil())
+           })
        })
 
-       It("includes tasks with completed status", func() {
-           names := make([]string, len(result))
-           for i, item := range result {
-               names[i] = item.Status
-           }
-           Expect(names).To(ContainElement("completed"))
+       It("includes tasks matching requested statuses", func() {
+           var items []ops.TaskListItem
+           Expect(json.Unmarshal(capturedOutput, &items)).To(Succeed())
+           Expect(items).To(HaveLen(2))
        })
 
-       It("excludes tasks with todo status", func() {
-           for _, item := range result {
+       It("excludes tasks not matching requested statuses", func() {
+           var items []ops.TaskListItem
+           Expect(json.Unmarshal(capturedOutput, &items)).To(Succeed())
+           for _, item := range items {
                Expect(item.Status).NotTo(Equal("todo"))
+               Expect(item.Status).NotTo(Equal("hold"))
            }
        })
    })
    ```
-   Note: adapt variable names (`result`, `item`) to match the existing test helpers in the file (check how the existing JSON output tests access the decoded response).
 
-10. In `pkg/ops/list_test.go`, in the "ListOperation JSON output" describe block, update all direct `listOp.Execute(...)` calls that pass `""` as the statusFilter (5th positional argument) to pass `nil` or `[]string(nil)` instead. These calls look like:
+10. In `pkg/ops/list_test.go`, update ALL 7 direct `listOp.Execute(...)` calls that pass `""` as the 5th argument (statusFilter) to pass `nil` instead. There are 6 one-line calls (lines ~340, 400, 483, 520, 545, 569) and 1 multi-line call (line ~442). Change `""` to `nil` for the 5th argument in each:
     ```go
+    // Before:
     err := listOp.Execute(ctx, "/vault", "my-vault", "Tasks", "", true, "", "", "json")
-    ```
-    Change to:
-    ```go
+    // After:
     err := listOp.Execute(ctx, "/vault", "my-vault", "Tasks", nil, true, "", "", "json")
     ```
 </requirements>

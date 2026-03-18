@@ -2,10 +2,6 @@ module github.com/bborbe/vault-cli
 
 go 1.26.1
 
-replace (
-	k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20250701173324-9bd5c66d9911
-)
-
 require (
 	github.com/bborbe/errors v1.5.3
 	github.com/bborbe/time v1.25.0
@@ -435,53 +431,4 @@ exclude (
 	go.yaml.in/yaml/v3 v3.0.4
 	golang.org/x/tools v0.38.0
 	golang.org/x/tools v0.39.0
-	k8s.io/api v0.34.0
-	k8s.io/api v0.34.1
-	k8s.io/api v0.34.2
-	k8s.io/api v0.34.3
-	k8s.io/api v0.34.4
-	k8s.io/api v0.34.5
-	k8s.io/api v0.35.0
-	k8s.io/api v0.35.1
-	k8s.io/api v0.35.2
-	k8s.io/apiextensions-apiserver v0.34.0
-	k8s.io/apiextensions-apiserver v0.34.1
-	k8s.io/apiextensions-apiserver v0.34.2
-	k8s.io/apiextensions-apiserver v0.34.3
-	k8s.io/apiextensions-apiserver v0.34.4
-	k8s.io/apiextensions-apiserver v0.34.5
-	k8s.io/apiextensions-apiserver v0.35.0
-	k8s.io/apiextensions-apiserver v0.35.1
-	k8s.io/apiextensions-apiserver v0.35.2
-	k8s.io/apimachinery v0.34.0
-	k8s.io/apimachinery v0.34.1
-	k8s.io/apimachinery v0.34.2
-	k8s.io/apimachinery v0.34.3
-	k8s.io/apimachinery v0.34.4
-	k8s.io/apimachinery v0.34.5
-	k8s.io/apimachinery v0.35.0
-	k8s.io/apimachinery v0.35.1
-	k8s.io/apimachinery v0.35.2
-	k8s.io/client-go v0.34.0
-	k8s.io/client-go v0.34.1
-	k8s.io/client-go v0.34.2
-	k8s.io/client-go v0.34.3
-	k8s.io/client-go v0.34.4
-	k8s.io/client-go v0.34.5
-	k8s.io/client-go v0.35.0
-	k8s.io/client-go v0.35.1
-	k8s.io/client-go v0.35.2
-	k8s.io/code-generator v0.34.0
-	k8s.io/code-generator v0.34.1
-	k8s.io/code-generator v0.34.2
-	k8s.io/code-generator v0.34.3
-	k8s.io/code-generator v0.34.4
-	k8s.io/code-generator v0.34.5
-	k8s.io/code-generator v0.35.0
-	k8s.io/code-generator v0.35.1
-	k8s.io/code-generator v0.35.2
-	sigs.k8s.io/structured-merge-diff/v6 v6.0.0
-	sigs.k8s.io/structured-merge-diff/v6 v6.1.0
-	sigs.k8s.io/structured-merge-diff/v6 v6.2.0
-	sigs.k8s.io/structured-merge-diff/v6 v6.3.0
 )

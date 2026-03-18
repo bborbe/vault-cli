@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.40.1
+
+- remove k8s.io/kube-openapi replace directive
+- clean up k8s exclude blocks from go.mod
+
 ## v0.40.0
 
 - feat: add 6 plugin agents — task-manager-agent, task-auditor, goal-manager-agent, goal-auditor, theme-auditor, objective-auditor

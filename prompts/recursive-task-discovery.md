@@ -1,10 +1,11 @@
 ---
 status: created
+created: "2026-03-18T14:42:54Z"
 ---
 
 <summary>
 - Task discovery (list, find, read) now searches the configured tasks directory and all its subdirectories recursively
-- Tasks in subdirectories are found by ListTasks, FindTaskByName, and ReadTask
+- Tasks in subdirectories are discovered by listing, searching by name, and reading by ID
 - ReadTask resolves task IDs that may exist in any subdirectory, not just the root tasks dir
 - Lint already walks subdirectories — this aligns list/find/read behavior with lint
 - Existing flat-directory layouts continue to work unchanged
@@ -27,7 +28,7 @@ Key files:
 Current behavior:
 - `ListTasks` uses `os.ReadDir` and skips directories (line 76: `if entry.IsDir() { continue }`)
 - `FindTaskByName` delegates to `findFileByName` which also uses flat `os.ReadDir`
-- `ReadTask` constructs path as `filepath.Join(vaultPath, tasksDir, taskID+".md")` — only checks root dir
+- `ReadTask` constructs path as `filepath.Join(vaultPath, t.config.TasksDir, taskID.String()+".md")` — only checks root dir
 - `WriteTask` writes to `task.FilePath` — already works with any path, no change needed
 </context>
 
@@ -42,7 +43,8 @@ Current behavior:
 2. In `pkg/storage/base.go`, rewrite `findFileByName` to search recursively:
    - First try exact match at root: `filepath.Join(dir, name+".md")` (preserve fast path)
    - If not found, use `filepath.WalkDir` to search all subdirectories
-   - Match logic stays the same: exact filename match first, then case-insensitive contains
+   - Preserve both match strategies: (1) exact filename match via `os.Stat` on `filepath.Join(dir, name+".md")` fast path, (2) case-insensitive `strings.Contains` fallback during recursive walk
+   - During the walk, check exact filename match first (`fileName == name`), then fall back to case-insensitive contains
    - Return the first match found (WalkDir visits in lexical order, which is deterministic)
 
 3. In `pkg/storage/task.go`, update `ReadTask` to find the task file recursively:

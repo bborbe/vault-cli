@@ -25,7 +25,7 @@ type ListOperation interface {
 		vaultPath string,
 		vaultName string,
 		pagesDir string,
-		statusFilter string,
+		statusFilters []string,
 		showAll bool,
 		assigneeFilter string,
 		goalFilter string,
@@ -70,7 +70,7 @@ func (l *listOperation) Execute(
 	vaultPath string,
 	vaultName string,
 	pagesDir string,
-	statusFilter string,
+	statusFilters []string,
 	showAll bool,
 	assigneeFilter string,
 	goalFilter string,
@@ -83,7 +83,7 @@ func (l *listOperation) Execute(
 	}
 
 	// Filter tasks by status, assignee, and goal
-	filteredTasks := filterTasks(tasks, statusFilter, showAll, assigneeFilter, goalFilter)
+	filteredTasks := filterTasks(tasks, statusFilters, showAll, assigneeFilter, goalFilter)
 
 	// Sort tasks: in_progress first, then todo, then alphabetically within each group
 	sort.Slice(filteredTasks, func(i, j int) bool {
@@ -138,14 +138,14 @@ func (l *listOperation) Execute(
 // filterTasks filters tasks by status, assignee, and goal.
 func filterTasks(
 	tasks []*domain.Task,
-	statusFilter string,
+	statusFilters []string,
 	showAll bool,
 	assigneeFilter string,
 	goalFilter string,
 ) []*domain.Task {
 	filteredTasks := make([]*domain.Task, 0, len(tasks))
 	for _, task := range tasks {
-		if !shouldIncludeTask(task, statusFilter, showAll, assigneeFilter, goalFilter) {
+		if !shouldIncludeTask(task, statusFilters, showAll, assigneeFilter, goalFilter) {
 			continue
 		}
 		filteredTasks = append(filteredTasks, task)
@@ -156,7 +156,7 @@ func filterTasks(
 // shouldIncludeTask determines if a task should be included based on filters.
 func shouldIncludeTask(
 	task *domain.Task,
-	statusFilter string,
+	statusFilters []string,
 	showAll bool,
 	assigneeFilter string,
 	goalFilter string,
@@ -177,7 +177,7 @@ func shouldIncludeTask(
 	}
 
 	// Apply status filter
-	return matchesStatusFilter(task.Status, statusFilter)
+	return matchesStatusFilter(task.Status, statusFilters)
 }
 
 // taskHasGoal returns true if the goals list contains the given goal name.
@@ -190,11 +190,15 @@ func taskHasGoal(goals []string, goal string) bool {
 	return false
 }
 
-// matchesStatusFilter checks if task status matches the filter.
-func matchesStatusFilter(status domain.TaskStatus, filter string) bool {
-	if filter != "" {
-		// When status filter is set, match case-insensitively
-		return strings.EqualFold(string(status), filter)
+// matchesStatusFilter checks if task status matches any of the filters.
+func matchesStatusFilter(status domain.TaskStatus, filters []string) bool {
+	if len(filters) > 0 {
+		for _, f := range filters {
+			if strings.EqualFold(string(status), f) {
+				return true
+			}
+		}
+		return false
 	}
 	// Default: show only todo and in_progress
 	return status == domain.TaskStatusTodo || status == domain.TaskStatusInProgress

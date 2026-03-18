@@ -26,7 +26,7 @@ var _ = Describe("ListOperation", func() {
 	var mockPageStorage *mocks.PageStorage
 	var vaultPath string
 	var pagesDir string
-	var statusFilter string
+	var statusFilters []string
 	var showAll bool
 	var assigneeFilter string
 	var goalFilter string
@@ -38,7 +38,7 @@ var _ = Describe("ListOperation", func() {
 		listOp = ops.NewListOperation(mockPageStorage)
 		vaultPath = "/path/to/vault"
 		pagesDir = "Tasks"
-		statusFilter = ""
+		statusFilters = nil
 		showAll = false
 		assigneeFilter = ""
 		goalFilter = ""
@@ -71,7 +71,7 @@ var _ = Describe("ListOperation", func() {
 			vaultPath,
 			"test-vault",
 			pagesDir,
-			statusFilter,
+			statusFilters,
 			showAll,
 			assigneeFilter,
 			goalFilter,
@@ -98,7 +98,7 @@ var _ = Describe("ListOperation", func() {
 
 		Context("with --status filter", func() {
 			BeforeEach(func() {
-				statusFilter = "in_progress"
+				statusFilters = []string{"in_progress"}
 			})
 
 			It("returns no error", func() {
@@ -112,7 +112,7 @@ var _ = Describe("ListOperation", func() {
 
 		Context("with --status filter (case-insensitive)", func() {
 			BeforeEach(func() {
-				statusFilter = "In_Progress"
+				statusFilters = []string{"In_Progress"}
 			})
 
 			It("returns no error", func() {
@@ -244,7 +244,7 @@ var _ = Describe("ListOperation", func() {
 	Context("with --goal and --status filters combined", func() {
 		BeforeEach(func() {
 			goalFilter = "My Goal"
-			statusFilter = "in_progress"
+			statusFilters = []string{"in_progress"}
 			tasks = []*domain.Task{
 				{
 					Name:   "Matching Both",
@@ -337,7 +337,7 @@ var _ = Describe("ListOperation JSON output", func() {
 			mockPageStorage.ListPagesReturns(tasks, nil)
 
 			capturedOutput = captureStdout(func() {
-				err := listOp.Execute(ctx, "/vault", "my-vault", "Tasks", "", true, "", "", "json")
+				err := listOp.Execute(ctx, "/vault", "my-vault", "Tasks", nil, true, "", "", "json")
 				Expect(err).To(BeNil())
 			})
 		})
@@ -397,7 +397,7 @@ var _ = Describe("ListOperation JSON output", func() {
 			mockPageStorage.ListPagesReturns(tasks, nil)
 
 			capturedOutput = captureStdout(func() {
-				err := listOp.Execute(ctx, "/vault", "my-vault", "Tasks", "", true, "", "", "json")
+				err := listOp.Execute(ctx, "/vault", "my-vault", "Tasks", nil, true, "", "", "json")
 				Expect(err).To(BeNil())
 			})
 		})
@@ -444,7 +444,7 @@ var _ = Describe("ListOperation JSON output", func() {
 					"/vault",
 					"my-vault",
 					"Tasks",
-					"",
+					nil,
 					true,
 					"",
 					"Target Goal",
@@ -480,7 +480,7 @@ var _ = Describe("ListOperation JSON output", func() {
 			mockPageStorage.ListPagesReturns(tasks, nil)
 
 			capturedOutput = captureStdout(func() {
-				err := listOp.Execute(ctx, "/vault", "my-vault", "Tasks", "", true, "", "", "json")
+				err := listOp.Execute(ctx, "/vault", "my-vault", "Tasks", nil, true, "", "", "json")
 				Expect(err).To(BeNil())
 			})
 		})
@@ -517,7 +517,7 @@ var _ = Describe("ListOperation JSON output", func() {
 			mockPageStorage.ListPagesReturns(tasks, nil)
 
 			capturedOutput = captureStdout(func() {
-				err := listOp.Execute(ctx, "/vault", "my-vault", "Tasks", "", true, "", "", "json")
+				err := listOp.Execute(ctx, "/vault", "my-vault", "Tasks", nil, true, "", "", "json")
 				Expect(err).To(BeNil())
 			})
 		})
@@ -542,7 +542,7 @@ var _ = Describe("ListOperation JSON output", func() {
 			mockPageStorage.ListPagesReturns(tasks, nil)
 
 			capturedOutput = captureStdout(func() {
-				err := listOp.Execute(ctx, "/vault", "my-vault", "Tasks", "", true, "", "", "json")
+				err := listOp.Execute(ctx, "/vault", "my-vault", "Tasks", nil, true, "", "", "json")
 				Expect(err).To(BeNil())
 			})
 		})
@@ -566,7 +566,7 @@ var _ = Describe("ListOperation JSON output", func() {
 			mockPageStorage.ListPagesReturns(tasks, nil)
 
 			capturedOutput = captureStdout(func() {
-				err := listOp.Execute(ctx, "/vault", "my-vault", "Tasks", "", true, "", "", "json")
+				err := listOp.Execute(ctx, "/vault", "my-vault", "Tasks", nil, true, "", "", "json")
 				Expect(err).To(BeNil())
 			})
 		})
@@ -577,6 +577,48 @@ var _ = Describe("ListOperation JSON output", func() {
 			Expect(items[0].DeferDate).To(BeEmpty())
 			Expect(items[0].PlannedDate).To(BeEmpty())
 			Expect(items[0].DueDate).To(BeEmpty())
+		})
+	})
+
+	Context("with multiple --status filters", func() {
+		BeforeEach(func() {
+			tasks := []*domain.Task{
+				{Name: "IP Task", Status: domain.TaskStatusInProgress},
+				{Name: "Done Task", Status: domain.TaskStatusCompleted},
+				{Name: "Todo Task", Status: domain.TaskStatusTodo},
+				{Name: "Hold Task", Status: domain.TaskStatusHold},
+			}
+			mockPageStorage.ListPagesReturns(tasks, nil)
+
+			capturedOutput = captureStdout(func() {
+				err := listOp.Execute(
+					ctx,
+					"/vault",
+					"my-vault",
+					"Tasks",
+					[]string{"in_progress", "completed"},
+					false,
+					"",
+					"",
+					"json",
+				)
+				Expect(err).To(BeNil())
+			})
+		})
+
+		It("includes tasks matching requested statuses", func() {
+			var items []ops.TaskListItem
+			Expect(json.Unmarshal(capturedOutput, &items)).To(Succeed())
+			Expect(items).To(HaveLen(2))
+		})
+
+		It("excludes tasks not matching requested statuses", func() {
+			var items []ops.TaskListItem
+			Expect(json.Unmarshal(capturedOutput, &items)).To(Succeed())
+			for _, item := range items {
+				Expect(item.Status).NotTo(Equal("todo"))
+				Expect(item.Status).NotTo(Equal("hold"))
+			}
 		})
 	})
 })

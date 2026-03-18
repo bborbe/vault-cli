@@ -61,6 +61,7 @@ type TaskListItem struct {
 	ClaudeSessionID string `json:"claude_session_id,omitempty"`
 	Phase           string `json:"phase,omitempty"`
 	ModifiedDate    string `json:"modified_date,omitempty"`
+	CompletedDate   string `json:"completed_date,omitempty"`
 }
 
 // Execute lists tasks from the vault, optionally filtered by status, assignee, and goal.
@@ -119,6 +120,7 @@ func (l *listOperation) Execute(
 			if task.ModifiedDate != nil {
 				items[i].ModifiedDate = task.ModifiedDate.UTC().Format("2006-01-02T15:04:05Z")
 			}
+			items[i].CompletedDate = task.CompletedDate
 		}
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")

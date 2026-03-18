@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.44.0
+
+- feat: record completed_date on non-recurring task completion; expose completed_date in task list and task show JSON output
+
 ## v0.43.0
 
 - feat: add ModifiedDate field to all domain types (Task, Goal, Objective, Theme, Vision) populated from file mtime; expose modified_date in task list JSON output

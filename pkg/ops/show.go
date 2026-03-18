@@ -58,6 +58,7 @@ type TaskDetail struct {
 	Description     string   `json:"description,omitempty"`
 	Content         string   `json:"content"`
 	ModifiedDate    string   `json:"modified_date,omitempty"`
+	CompletedDate   string   `json:"completed_date,omitempty"`
 	FilePath        string   `json:"file_path"`
 	Vault           string   `json:"vault"`
 }
@@ -98,6 +99,7 @@ func (o *showOperation) Execute(
 	detail.DeferDate = formatDateOrDateTime(task.DeferDate)
 	detail.PlannedDate = formatDateOrDateTime(task.PlannedDate)
 	detail.DueDate = formatDateOrDateTime(task.DueDate)
+	detail.CompletedDate = task.CompletedDate
 
 	// Extract description from body content
 	if matches := showFrontmatterRegex.FindStringSubmatch(task.Content); len(matches) >= 2 {

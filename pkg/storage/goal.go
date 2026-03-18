@@ -45,6 +45,11 @@ func (g *goalStorage) readGoalFromPath(
 		FilePath: filePath,
 	}
 
+	if info, err := os.Stat(filePath); err == nil {
+		t := info.ModTime().UTC()
+		goal.ModifiedDate = &t
+	}
+
 	if err := g.parseFrontmatter(ctx, content, goal); err != nil {
 		return nil, errors.Wrap(ctx, err, "parse frontmatter")
 	}

@@ -504,6 +504,32 @@ var _ = Describe("ListOperation JSON output", func() {
 		})
 	})
 
+	Context("with modified_date populated", func() {
+		BeforeEach(func() {
+			modTime := time.Date(2026, 3, 18, 12, 0, 0, 0, time.UTC)
+			tasks := []*domain.Task{
+				{
+					Name:         "Modified Task",
+					Status:       domain.TaskStatusTodo,
+					ModifiedDate: &modTime,
+				},
+			}
+			mockPageStorage.ListPagesReturns(tasks, nil)
+
+			capturedOutput = captureStdout(func() {
+				err := listOp.Execute(ctx, "/vault", "my-vault", "Tasks", "", true, "", "", "json")
+				Expect(err).To(BeNil())
+			})
+		})
+
+		It("includes non-empty modified_date in JSON output", func() {
+			var items []ops.TaskListItem
+			Expect(json.Unmarshal(capturedOutput, &items)).To(Succeed())
+			Expect(items).To(HaveLen(1))
+			Expect(items[0].ModifiedDate).To(Equal("2026-03-18T12:00:00Z"))
+		})
+	})
+
 	Context("with nil date fields", func() {
 		BeforeEach(func() {
 			tasks := []*domain.Task{

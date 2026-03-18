@@ -60,6 +60,7 @@ type TaskListItem struct {
 	DueDate         string `json:"due_date,omitempty"`
 	ClaudeSessionID string `json:"claude_session_id,omitempty"`
 	Phase           string `json:"phase,omitempty"`
+	ModifiedDate    string `json:"modified_date,omitempty"`
 }
 
 // Execute lists tasks from the vault, optionally filtered by status, assignee, and goal.
@@ -115,6 +116,9 @@ func (l *listOperation) Execute(
 			items[i].DeferDate = formatDateOrDateTime(task.DeferDate)
 			items[i].PlannedDate = formatDateOrDateTime(task.PlannedDate)
 			items[i].DueDate = formatDateOrDateTime(task.DueDate)
+			if task.ModifiedDate != nil {
+				items[i].ModifiedDate = task.ModifiedDate.UTC().Format("2006-01-02T15:04:05Z")
+			}
 		}
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")

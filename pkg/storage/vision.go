@@ -45,6 +45,11 @@ func (v *visionStorage) readVisionFromPath(
 		FilePath: filePath,
 	}
 
+	if info, err := os.Stat(filePath); err == nil {
+		t := info.ModTime().UTC()
+		vision.ModifiedDate = &t
+	}
+
 	if err := v.parseFrontmatter(ctx, content, vision); err != nil {
 		return nil, errors.Wrap(ctx, err, "parse frontmatter")
 	}

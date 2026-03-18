@@ -9,7 +9,6 @@ import (
 	"errors"
 	"time"
 
-	libtime "github.com/bborbe/time"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -53,9 +52,9 @@ var _ = Describe("ShowOperation", func() {
 			Recurring:       "weekly",
 			ClaudeSessionID: "session-abc",
 			Goals:           []string{"goal-1", "goal-2"},
-			DeferDate:       libtime.ToDate(deferDate).Ptr(),
-			PlannedDate:     libtime.ToDate(plannedDate).Ptr(),
-			DueDate:         libtime.ToDate(dueDate).Ptr(),
+			DeferDate:       func() *domain.DateOrDateTime { d := domain.DateOrDateTime(deferDate); return &d }(),
+			PlannedDate:     func() *domain.DateOrDateTime { d := domain.DateOrDateTime(plannedDate); return &d }(),
+			DueDate:         func() *domain.DateOrDateTime { d := domain.DateOrDateTime(dueDate); return &d }(),
 			Content:         "---\nstatus: in_progress\n---\nDo the thing with care.\n",
 			FilePath:        "/tmp/nonexistent-test-file.md",
 		}

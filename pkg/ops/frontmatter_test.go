@@ -9,7 +9,6 @@ import (
 	"errors"
 	"time"
 
-	libtime "github.com/bborbe/time"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -49,9 +48,9 @@ var _ = Describe("FrontmatterGetOperation", func() {
 			Assignee:        "alice",
 			Status:          domain.TaskStatusInProgress,
 			Priority:        domain.Priority(3),
-			DeferDate:       libtime.ToDate(deferDate).Ptr(),
-			PlannedDate:     libtime.ToDate(plannedDate).Ptr(),
-			DueDate:         libtime.ToDate(dueDate).Ptr(),
+			DeferDate:       func() *domain.DateOrDateTime { d := domain.DateOrDateTime(deferDate); return &d }(),
+			PlannedDate:     func() *domain.DateOrDateTime { d := domain.DateOrDateTime(plannedDate); return &d }(),
+			DueDate:         func() *domain.DateOrDateTime { d := domain.DateOrDateTime(dueDate); return &d }(),
 			Recurring:       "weekly",
 			LastCompleted:   "2025-03-10",
 			PageType:        "task",
@@ -425,7 +424,7 @@ var _ = Describe("FrontmatterSetOperation", func() {
 			key = "defer_date"
 			value = ""
 			deferDate := time.Date(2024, 12, 31, 0, 0, 0, 0, time.UTC)
-			task.DeferDate = libtime.ToDate(deferDate).Ptr()
+			task.DeferDate = func() *domain.DateOrDateTime { d := domain.DateOrDateTime(deferDate); return &d }()
 		})
 
 		It("sets defer_date to nil", func() {
@@ -467,7 +466,7 @@ var _ = Describe("FrontmatterSetOperation", func() {
 			key = "planned_date"
 			value = ""
 			plannedDate := time.Date(2025, 3, 15, 0, 0, 0, 0, time.UTC)
-			task.PlannedDate = libtime.ToDate(plannedDate).Ptr()
+			task.PlannedDate = func() *domain.DateOrDateTime { d := domain.DateOrDateTime(plannedDate); return &d }()
 		})
 
 		It("sets planned_date to nil", func() {
@@ -509,7 +508,7 @@ var _ = Describe("FrontmatterSetOperation", func() {
 			key = "due_date"
 			value = ""
 			dueDate := time.Date(2025, 6, 30, 0, 0, 0, 0, time.UTC)
-			task.DueDate = libtime.ToDate(dueDate).Ptr()
+			task.DueDate = func() *domain.DateOrDateTime { d := domain.DateOrDateTime(dueDate); return &d }()
 		})
 
 		It("sets due_date to nil", func() {
@@ -699,9 +698,9 @@ var _ = Describe("FrontmatterClearOperation", func() {
 			Assignee:        "alice",
 			Status:          domain.TaskStatusInProgress,
 			Priority:        domain.Priority(3),
-			DeferDate:       libtime.ToDate(deferDate).Ptr(),
-			PlannedDate:     libtime.ToDate(plannedDate).Ptr(),
-			DueDate:         libtime.ToDate(dueDate).Ptr(),
+			DeferDate:       func() *domain.DateOrDateTime { d := domain.DateOrDateTime(deferDate); return &d }(),
+			PlannedDate:     func() *domain.DateOrDateTime { d := domain.DateOrDateTime(plannedDate); return &d }(),
+			DueDate:         func() *domain.DateOrDateTime { d := domain.DateOrDateTime(dueDate); return &d }(),
 			Recurring:       "weekly",
 			LastCompleted:   "2025-03-10",
 			PageType:        "task",

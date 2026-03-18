@@ -52,7 +52,7 @@ type deferOperation struct {
 	currentDateTime  libtime.CurrentDateTime
 }
 
-// Execute defers a task to a specific date.
+// Execute defers a task to a specific date or datetime.
 func (d *deferOperation) Execute(
 	ctx context.Context,
 	vaultPath string,
@@ -61,21 +61,40 @@ func (d *deferOperation) Execute(
 	vaultName string,
 	outputFormat string,
 ) error {
-	// Parse and validate date
+	// Parse initial target date
 	targetDate, err := d.parseDate(dateStr)
 	if err != nil {
 		return d.returnError(ctx, err, "parse date", outputFormat)
 	}
 
-	// Validate target date is not in the past
-	today := libtime.ToDate(d.currentDateTime.Now().Time())
-	if targetDate.Before(today) {
-		err := fmt.Errorf("cannot defer to past date: %s", targetDate.Format("2006-01-02"))
+	// Find task early so we can adjust +Nd for time preservation
+	task, err := d.taskStorage.FindTaskByName(ctx, vaultPath, taskName)
+	if err != nil {
+		return d.returnError(ctx, err, "find task", outputFormat)
+	}
+
+	// For +Nd: if existing DeferDate has a time component, preserve it
+	if matched, _ := regexp.MatchString(`^\+\d+d$`, dateStr); matched && task.DeferDate != nil {
+		existingT := task.DeferDate.Time()
+		existingUTC := existingT.UTC()
+		if existingUTC.Hour() != 0 || existingUTC.Minute() != 0 || existingUTC.Second() != 0 ||
+			existingUTC.Nanosecond() != 0 {
+			var days int
+			if _, err := fmt.Sscanf(dateStr, "+%dd", &days); err == nil {
+				targetDate = domain.DateOrDateTime(existingT.AddDate(0, 0, days))
+			}
+		}
+	}
+
+	// Validate target is not in the past (date-only: compare at day level; datetime: compare at full precision)
+	now := d.currentDateTime.Now().Time()
+	if d.isInPast(targetDate, now) {
+		err := fmt.Errorf("cannot defer to past date: %s", targetDate.Time().Format("2006-01-02"))
 		return d.returnError(ctx, err, "validate date", outputFormat)
 	}
 
 	// Find and update task
-	task, err := d.findAndDeferTask(ctx, vaultPath, taskName, targetDate, outputFormat)
+	task, err = d.findAndDeferTask(ctx, task, targetDate, outputFormat)
 	if err != nil {
 		return err
 	}
@@ -85,6 +104,21 @@ func (d *deferOperation) Execute(
 
 	// Return result
 	return d.formatResult(task.Name, vaultName, targetDate, warnings, outputFormat)
+}
+
+// isInPast reports whether targetDate is in the past relative to now.
+// For date-only values (midnight UTC), comparison is at day granularity.
+// For datetime values, comparison is at full precision.
+func (d *deferOperation) isInPast(targetDate domain.DateOrDateTime, now time.Time) bool {
+	targetT := targetDate.Time()
+	targetUTC := targetT.UTC()
+	if targetUTC.Hour() == 0 && targetUTC.Minute() == 0 && targetUTC.Second() == 0 &&
+		targetUTC.Nanosecond() == 0 {
+		// Date-only: compare at date level so "today" is never in the past
+		todayMidnight := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+		return targetT.Before(todayMidnight)
+	}
+	return targetT.Before(now)
 }
 
 // returnError formats and returns an error based on output format.
@@ -102,22 +136,17 @@ func (d *deferOperation) returnError(
 	return errors.Wrap(ctx, err, msg)
 }
 
-// findAndDeferTask finds and updates task defer status.
+// findAndDeferTask updates task defer status and writes it.
 func (d *deferOperation) findAndDeferTask(
 	ctx context.Context,
-	vaultPath string,
-	taskName string,
-	targetDate libtime.Date,
+	task *domain.Task,
+	targetDate domain.DateOrDateTime,
 	format string,
 ) (*domain.Task, error) {
-	task, err := d.taskStorage.FindTaskByName(ctx, vaultPath, taskName)
-	if err != nil {
-		return nil, d.returnError(ctx, err, "find task", format)
-	}
 	task.DeferDate = targetDate.Ptr()
 
 	// Clear planned_date if it's before the defer target date
-	if task.PlannedDate != nil && (*task.PlannedDate).Before(targetDate) {
+	if task.PlannedDate != nil && task.PlannedDate.Before(targetDate.Time()) {
 		task.PlannedDate = nil
 	}
 
@@ -132,7 +161,7 @@ func (d *deferOperation) updateDailyNotes(
 	ctx context.Context,
 	vaultPath string,
 	taskName string,
-	targetDate libtime.Date,
+	targetDate domain.DateOrDateTime,
 ) []string {
 	var warnings []string
 	today := d.currentDateTime.Now().Format("2006-01-02")
@@ -141,7 +170,7 @@ func (d *deferOperation) updateDailyNotes(
 		warnings = append(warnings, w)
 		slog.Warn("defer warning", "warning", w)
 	}
-	targetDateStr := targetDate.Format("2006-01-02")
+	targetDateStr := targetDate.Time().Format("2006-01-02")
 	if err := d.addToDailyNote(ctx, vaultPath, targetDateStr, taskName); err != nil {
 		w := fmt.Sprintf("failed to update target daily note: %v", err)
 		warnings = append(warnings, w)
@@ -154,11 +183,11 @@ func (d *deferOperation) updateDailyNotes(
 func (d *deferOperation) formatResult(
 	name string,
 	vault string,
-	targetDate libtime.Date,
+	targetDate domain.DateOrDateTime,
 	warnings []string,
 	format string,
 ) error {
-	dateStr := targetDate.Format("2006-01-02")
+	dateStr := targetDate.Time().Format("2006-01-02")
 	if format == "json" {
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
@@ -170,17 +199,18 @@ func (d *deferOperation) formatResult(
 	return nil
 }
 
-// parseDate parses various date formats: +Nd, weekday names, ISO dates.
-func (d *deferOperation) parseDate(dateStr string) (libtime.Date, error) {
+// parseDate parses various date formats: +Nd, weekday names, ISO dates, RFC3339 datetimes.
+func (d *deferOperation) parseDate(dateStr string) (domain.DateOrDateTime, error) {
 	now := d.currentDateTime.Now().Time()
 
 	// Handle relative dates: +1d, +7d, etc.
 	if matched, _ := regexp.MatchString(`^\+\d+d$`, dateStr); matched {
 		var days int
 		if _, err := fmt.Sscanf(dateStr, "+%dd", &days); err != nil {
-			return libtime.Date{}, fmt.Errorf("parse relative date: %w", err)
+			return domain.DateOrDateTime{}, fmt.Errorf("parse relative date: %w", err)
 		}
-		return libtime.ToDate(now.AddDate(0, 0, days)), nil
+		t := libtime.ToDate(now.AddDate(0, 0, days)).Time()
+		return domain.DateOrDateTime(t), nil
 	}
 
 	// Handle weekday names
@@ -195,16 +225,22 @@ func (d *deferOperation) parseDate(dateStr string) (libtime.Date, error) {
 	}
 
 	if weekday, ok := weekdayMap[strings.ToLower(dateStr)]; ok {
-		return libtime.ToDate(d.nextWeekday(now, weekday)), nil
+		t := libtime.ToDate(d.nextWeekday(now, weekday)).Time()
+		return domain.DateOrDateTime(t), nil
 	}
 
 	// Handle ISO date: 2024-12-31
 	if t, err := time.Parse("2006-01-02", dateStr); err == nil {
-		return libtime.ToDate(t), nil
+		return domain.DateOrDateTime(t), nil
 	}
 
-	return libtime.Date{}, fmt.Errorf(
-		"invalid date format: %s (use +Nd, weekday, or YYYY-MM-DD)",
+	// Handle RFC3339 datetime: 2026-03-19T16:00:00+01:00
+	if t, err := time.Parse(time.RFC3339, dateStr); err == nil {
+		return domain.DateOrDateTime(t), nil
+	}
+
+	return domain.DateOrDateTime{}, fmt.Errorf(
+		"invalid date format: %s (use +Nd, weekday, YYYY-MM-DD, or RFC3339)",
 		dateStr,
 	)
 }

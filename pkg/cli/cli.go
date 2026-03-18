@@ -150,9 +150,10 @@ func createDeferCommand(
 If no date is provided, defaults to +1d (tomorrow).
 
 Date formats:
-  +Nd         - Relative days (e.g., +7d for 7 days from now)
-  monday      - Next occurrence of weekday
-  2024-12-31  - ISO date format (YYYY-MM-DD)`,
+  +Nd                        - Relative days (e.g., +7d for 7 days from now)
+  monday                     - Next occurrence of weekday
+  2024-12-31                 - ISO date format (YYYY-MM-DD)
+  2026-03-19T16:00:00+01:00  - Full datetime with timezone`,
 		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			taskName := args[0]

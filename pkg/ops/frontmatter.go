@@ -57,17 +57,17 @@ func (o *frontmatterGetOperation) Execute(
 		return strconv.Itoa(int(task.Priority)), nil
 	case "defer_date":
 		if task.DeferDate != nil {
-			return task.DeferDate.Format("2006-01-02"), nil
+			return formatDateOrDateTime(task.DeferDate), nil
 		}
 		return "", nil
 	case "planned_date":
 		if task.PlannedDate != nil {
-			return task.PlannedDate.Format("2006-01-02"), nil
+			return formatDateOrDateTime(task.PlannedDate), nil
 		}
 		return "", nil
 	case "due_date":
 		if task.DueDate != nil {
-			return task.DueDate.Format("2006-01-02"), nil
+			return formatDateOrDateTime(task.DueDate), nil
 		}
 		return "", nil
 	case "recurring":
@@ -190,16 +190,26 @@ func parseTaskStatus(ctx context.Context, value string) (domain.TaskStatus, erro
 	)
 }
 
-func parseDatePtr(ctx context.Context, value string) (*libtime.Date, error) {
+func parseDatePtr(ctx context.Context, value string) (*domain.DateOrDateTime, error) {
 	if value == "" {
 		return nil, nil
 	}
-	t, err := time.Parse("2006-01-02", value)
+	t, err := libtime.ParseTime(ctx, value)
 	if err != nil {
-		return nil, errors.Wrap(ctx, err, "invalid date format (expected YYYY-MM-DD)")
+		return nil, errors.Wrap(ctx, err, "invalid date format (expected YYYY-MM-DD or RFC3339)")
 	}
-	d := libtime.ToDate(t)
+	d := domain.DateOrDateTime(*t)
 	return d.Ptr(), nil
+}
+
+// formatDateOrDateTime serializes a DateOrDateTime to YYYY-MM-DD for date-only values
+// (midnight UTC) and RFC3339 for values with a time component.
+func formatDateOrDateTime(d *domain.DateOrDateTime) string {
+	t := d.Time().UTC()
+	if t.Hour() == 0 && t.Minute() == 0 && t.Second() == 0 && t.Nanosecond() == 0 {
+		return d.Time().Format(time.DateOnly)
+	}
+	return d.Time().Format(time.RFC3339)
 }
 
 func parseStringSlice(value string) []string {

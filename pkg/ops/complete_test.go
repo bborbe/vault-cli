@@ -394,9 +394,9 @@ recurring: weekdays
 			Expect(writtenTask.DeferDate).NotTo(BeNil())
 
 			// Verify defer_date is a weekday (Monday-Friday)
-			weekday := writtenTask.DeferDate.Weekday()
-			Expect(weekday).NotTo(Equal(libtime.Weekday(time.Saturday)))
-			Expect(weekday).NotTo(Equal(libtime.Weekday(time.Sunday)))
+			weekday := writtenTask.DeferDate.Time().Weekday()
+			Expect(weekday).NotTo(Equal(time.Saturday))
+			Expect(weekday).NotTo(Equal(time.Sunday))
 		})
 
 		It("sets defer_date after today", func() {
@@ -405,7 +405,7 @@ recurring: weekdays
 			Expect(writtenTask.DeferDate).NotTo(BeNil())
 
 			now := libtimetest.ParseDateTime("2026-03-03T12:00:00Z").Time()
-			Expect(writtenTask.DeferDate.After(libtime.ToDate(now))).To(BeTrue())
+			Expect(writtenTask.DeferDate.Time().After(now)).To(BeTrue())
 		})
 
 		It("keeps status unchanged", func() {
@@ -436,8 +436,8 @@ recurring: 3d
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
 			Expect(writtenTask.DeferDate).NotTo(BeNil())
 			now := libtimetest.ParseDateTime("2026-03-03T12:00:00Z").Time()
-			expected := libtime.ToDate(now.AddDate(0, 0, 3))
-			Expect(*writtenTask.DeferDate).To(Equal(expected))
+			expected := libtime.ToDate(now.AddDate(0, 0, 3)).Time()
+			Expect(writtenTask.DeferDate.Time()).To(Equal(expected))
 		})
 	})
 
@@ -462,8 +462,8 @@ recurring: quarterly
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
 			Expect(writtenTask.DeferDate).NotTo(BeNil())
 			now := libtimetest.ParseDateTime("2026-03-03T12:00:00Z").Time()
-			expected := libtime.ToDate(now.AddDate(0, 3, 0))
-			Expect(*writtenTask.DeferDate).To(Equal(expected))
+			expected := libtime.ToDate(now.AddDate(0, 3, 0)).Time()
+			Expect(writtenTask.DeferDate.Time()).To(Equal(expected))
 		})
 	})
 
@@ -488,8 +488,8 @@ recurring: 2w
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
 			Expect(writtenTask.DeferDate).NotTo(BeNil())
 			now := libtimetest.ParseDateTime("2026-03-03T12:00:00Z").Time()
-			expected := libtime.ToDate(now.AddDate(0, 0, 14))
-			Expect(*writtenTask.DeferDate).To(Equal(expected))
+			expected := libtime.ToDate(now.AddDate(0, 0, 14)).Time()
+			Expect(writtenTask.DeferDate.Time()).To(Equal(expected))
 		})
 	})
 
@@ -514,8 +514,8 @@ recurring: yearly
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
 			Expect(writtenTask.DeferDate).NotTo(BeNil())
 			now := libtimetest.ParseDateTime("2026-03-03T12:00:00Z").Time()
-			expected := libtime.ToDate(now.AddDate(1, 0, 0))
-			Expect(*writtenTask.DeferDate).To(Equal(expected))
+			expected := libtime.ToDate(now.AddDate(1, 0, 0)).Time()
+			Expect(writtenTask.DeferDate.Time()).To(Equal(expected))
 		})
 	})
 
@@ -542,8 +542,8 @@ recurring: yearly
 				// Yesterday
 			task.Recurring = "daily"
 			task.Status = domain.TaskStatusInProgress
-			pd := libtime.ToDate(oldPlannedDate)
-			task.PlannedDate = pd.Ptr()
+			dd := domain.DateOrDateTime(libtime.ToDate(oldPlannedDate).Time())
+			task.PlannedDate = dd.Ptr()
 			task.Content = `---
 status: in_progress
 recurring: daily

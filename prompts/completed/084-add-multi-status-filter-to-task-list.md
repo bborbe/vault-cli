@@ -1,11 +1,12 @@
 ---
-status: failed
+status: completed
+summary: Changed --status flag on task list from single string to string slice, supporting repeated flags and comma-separated values with backward compatibility preserved.
 container: vault-cli-084-add-multi-status-filter-to-task-list
 dark-factory-version: v0.57.5
 created: "2026-03-18T20:10:59Z"
 queued: "2026-03-18T20:20:48Z"
-started: "2026-03-18T20:20:50Z"
-completed: "2026-03-18T20:26:39Z"
+started: "2026-03-18T20:50:56Z"
+completed: "2026-03-18T20:54:14Z"
 ---
 
 <summary>

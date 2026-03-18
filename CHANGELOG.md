@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.42.0
+
+- feat: make ListTasks, FindTaskByName, and ReadTask discover tasks recursively in subdirectories
+
 ## v0.41.1
 
 - fix: preserve time component in list and show JSON output for defer_date, planned_date, due_date — date-only values output as YYYY-MM-DD, datetime values output as RFC3339

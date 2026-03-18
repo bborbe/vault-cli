@@ -84,24 +84,36 @@ func (b *baseStorage) findFileByName(
 		return exactPath, name, nil
 	}
 
-	entries, err := os.ReadDir(dir)
+	nameLower := strings.ToLower(name)
+	var matchedPath, matchedName string
+	err := filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		if !strings.HasSuffix(d.Name(), ".md") {
+			return nil
+		}
+		fileName := strings.TrimSuffix(d.Name(), ".md")
+		if fileName == name {
+			matchedPath = path
+			matchedName = fileName
+			return filepath.SkipAll
+		}
+		if strings.Contains(strings.ToLower(fileName), nameLower) {
+			matchedPath = path
+			matchedName = fileName
+		}
+		return nil
+	})
 	if err != nil {
-		return "", "", errors.Wrap(ctx, err, fmt.Sprintf("read directory %s", dir))
+		return "", "", errors.Wrap(ctx, err, fmt.Sprintf("walk directory %s", dir))
 	}
 
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-		if !strings.HasSuffix(entry.Name(), ".md") {
-			continue
-		}
-
-		fileName := strings.TrimSuffix(entry.Name(), ".md")
-		if strings.Contains(strings.ToLower(fileName), strings.ToLower(name)) {
-			filePath := filepath.Join(dir, entry.Name())
-			return filePath, fileName, nil
-		}
+	if matchedPath != "" {
+		return matchedPath, matchedName, nil
 	}
 
 	return "", "", errors.Errorf(ctx, "file not found: %s", name)

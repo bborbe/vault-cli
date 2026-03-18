@@ -100,18 +100,43 @@ Read mocks/list-operation.go — counterfeiter-generated mock with `Execute` sig
    - Where tests set `statusFilter = "In_Progress"`, change to `statusFilters = []string{"In_Progress"}`
    - Where tests set `statusFilter = "in_progress"` in the combined goal+status test, change to `statusFilters = []string{"in_progress"}`
 
-9. In `pkg/ops/list_test.go`, add a new test context for multi-status filtering:
+9. In `pkg/ops/list_test.go`, add a new test context for multi-status filtering. Place it alongside the existing single-status filter tests. The test must set up tasks with mixed statuses and assert that only the requested statuses are returned:
    ```go
    Context("with multiple --status filters", func() {
        BeforeEach(func() {
            statusFilters = []string{"in_progress", "completed"}
+           // tasks fixture must contain at least one task for each status:
+           // in_progress, completed, and at least one excluded status (e.g. todo or hold)
        })
 
        It("returns no error", func() {
            Expect(err).To(BeNil())
        })
+
+       It("includes tasks with in_progress status", func() {
+           names := make([]string, len(result))
+           for i, item := range result {
+               names[i] = item.Status
+           }
+           Expect(names).To(ContainElement("in_progress"))
+       })
+
+       It("includes tasks with completed status", func() {
+           names := make([]string, len(result))
+           for i, item := range result {
+               names[i] = item.Status
+           }
+           Expect(names).To(ContainElement("completed"))
+       })
+
+       It("excludes tasks with todo status", func() {
+           for _, item := range result {
+               Expect(item.Status).NotTo(Equal("todo"))
+           }
+       })
    })
    ```
+   Note: adapt variable names (`result`, `item`) to match the existing test helpers in the file (check how the existing JSON output tests access the decoded response).
 
 10. In `pkg/ops/list_test.go`, in the "ListOperation JSON output" describe block, update all direct `listOp.Execute(...)` calls that pass `""` as the statusFilter (5th positional argument) to pass `nil` or `[]string(nil)` instead. These calls look like:
     ```go

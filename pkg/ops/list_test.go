@@ -11,7 +11,6 @@ import (
 	"os"
 	"time"
 
-	libtime "github.com/bborbe/time"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -317,9 +316,9 @@ var _ = Describe("ListOperation JSON output", func() {
 
 	Context("with all enriched fields populated", func() {
 		BeforeEach(func() {
-			deferDate := libtime.ToDate(time.Date(2026, 3, 15, 0, 0, 0, 0, time.UTC))
-			plannedDate := libtime.ToDate(time.Date(2026, 3, 20, 0, 0, 0, 0, time.UTC))
-			dueDate := libtime.ToDate(time.Date(2026, 3, 25, 0, 0, 0, 0, time.UTC))
+			deferDate := domain.DateOrDateTime(time.Date(2026, 3, 15, 0, 0, 0, 0, time.UTC))
+			plannedDate := domain.DateOrDateTime(time.Date(2026, 3, 20, 0, 0, 0, 0, time.UTC))
+			dueDate := domain.DateOrDateTime(time.Date(2026, 3, 25, 0, 0, 0, 0, time.UTC))
 			tasks := []*domain.Task{
 				{
 					Name:            "Enriched Task",

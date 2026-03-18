@@ -233,7 +233,7 @@ func (c *completeOperation) handleRecurringTask(
 	task.DeferDate = newDeferDate.Ptr()
 
 	// 4. If planned_date exists and < new defer_date, clear it
-	if task.PlannedDate != nil && (*task.PlannedDate).Before(newDeferDate) {
+	if task.PlannedDate != nil && task.PlannedDate.Before(newDeferDate.Time()) {
 		task.PlannedDate = nil
 	}
 
@@ -262,7 +262,7 @@ func (c *completeOperation) handleRecurringTask(
 		slog.Warn("complete warning", "warning", warning)
 	}
 
-	nextDateStr := newDeferDate.Format("2006-01-02")
+	nextDateStr := newDeferDate.Time().Format("2006-01-02")
 
 	if outputFormat == "json" {
 		result := RecurringMutationResult{
@@ -283,17 +283,21 @@ func (c *completeOperation) handleRecurringTask(
 }
 
 // calculateNextDeferDate calculates the next defer date based on recurring interval.
-func calculateNextDeferDate(recurring string, now time.Time) libtime.Date {
+func calculateNextDeferDate(recurring string, now time.Time) domain.DateOrDateTime {
 	// weekdays is a special case: check before ParseRecurringInterval
 	if recurring == "weekdays" {
 		next := now.AddDate(0, 0, 1) // tomorrow
 		switch next.Weekday() {
 		case time.Saturday:
-			return libtime.ToDate(now.AddDate(0, 0, 3)) // Saturday → Monday
+			return domain.DateOrDateTime(
+				libtime.ToDate(now.AddDate(0, 0, 3)).Time(),
+			) // Saturday → Monday
 		case time.Sunday:
-			return libtime.ToDate(now.AddDate(0, 0, 2)) // Sunday → Monday
+			return domain.DateOrDateTime(
+				libtime.ToDate(now.AddDate(0, 0, 2)).Time(),
+			) // Sunday → Monday
 		default:
-			return libtime.ToDate(next)
+			return domain.DateOrDateTime(libtime.ToDate(next).Time())
 		}
 	}
 
@@ -301,9 +305,9 @@ func calculateNextDeferDate(recurring string, now time.Time) libtime.Date {
 	if err != nil {
 		// Unknown recurring type, treat as daily
 		slog.Warn("unknown recurring interval, treating as daily", "interval", recurring)
-		return libtime.ToDate(now.AddDate(0, 0, 1))
+		return domain.DateOrDateTime(libtime.ToDate(now.AddDate(0, 0, 1)).Time())
 	}
-	return libtime.ToDate(interval.AddTo(now))
+	return domain.DateOrDateTime(libtime.ToDate(interval.AddTo(now)).Time())
 }
 
 // resetCheckboxes resets all checked checkboxes in content to unchecked.

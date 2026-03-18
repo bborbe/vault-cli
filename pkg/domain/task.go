@@ -6,26 +6,24 @@ package domain
 
 import (
 	"fmt"
-
-	libtime "github.com/bborbe/time"
 )
 
 // Task represents a task in the Obsidian vault with YAML frontmatter.
 type Task struct {
 	// Frontmatter fields
-	Status          TaskStatus    `yaml:"status"`
-	PageType        string        `yaml:"page_type"`
-	Goals           []string      `yaml:"goals,omitempty"`
-	Priority        Priority      `yaml:"priority,omitempty"`
-	Assignee        string        `yaml:"assignee,omitempty"`
-	DeferDate       *libtime.Date `yaml:"defer_date,omitempty"`
-	Tags            []string      `yaml:"tags,omitempty"`
-	Phase           string        `yaml:"phase,omitempty"`
-	ClaudeSessionID string        `yaml:"claude_session_id,omitempty"`
-	Recurring       string        `yaml:"recurring,omitempty"`
-	LastCompleted   string        `yaml:"last_completed,omitempty"`
-	PlannedDate     *libtime.Date `yaml:"planned_date,omitempty"`
-	DueDate         *libtime.Date `yaml:"due_date,omitempty"`
+	Status          TaskStatus      `yaml:"status"`
+	PageType        string          `yaml:"page_type"`
+	Goals           []string        `yaml:"goals,omitempty"`
+	Priority        Priority        `yaml:"priority,omitempty"`
+	Assignee        string          `yaml:"assignee,omitempty"`
+	DeferDate       *DateOrDateTime `yaml:"defer_date,omitempty"`
+	Tags            []string        `yaml:"tags,omitempty"`
+	Phase           string          `yaml:"phase,omitempty"`
+	ClaudeSessionID string          `yaml:"claude_session_id,omitempty"`
+	Recurring       string          `yaml:"recurring,omitempty"`
+	LastCompleted   string          `yaml:"last_completed,omitempty"`
+	PlannedDate     *DateOrDateTime `yaml:"planned_date,omitempty"`
+	DueDate         *DateOrDateTime `yaml:"due_date,omitempty"`
 
 	// Metadata
 	Name     string `yaml:"-"` // Filename without extension

@@ -28,7 +28,15 @@ func (t *taskStorage) ReadTask(
 	taskID domain.TaskID,
 ) (*domain.Task, error) {
 	filePath := filepath.Join(vaultPath, t.config.TasksDir, taskID.String()+".md")
-	return t.readTaskFromPath(ctx, filePath, taskID.String())
+	if _, err := os.Stat(filePath); err == nil {
+		return t.readTaskFromPath(ctx, filePath, taskID.String())
+	}
+	tasksDir := filepath.Join(vaultPath, t.config.TasksDir)
+	matchedPath, matchedName, err := t.findFileByName(ctx, tasksDir, taskID.String())
+	if err != nil {
+		return nil, errors.Wrap(ctx, err, fmt.Sprintf("find task %s", taskID))
+	}
+	return t.readTaskFromPath(ctx, matchedPath, matchedName)
 }
 
 // WriteTask writes a task to a markdown file.
@@ -59,38 +67,36 @@ func (t *taskStorage) FindTaskByName(
 	return t.readTaskFromPath(ctx, matchedPath, matchedName)
 }
 
-// ListTasks returns all tasks from the vault.
+// ListTasks returns all tasks from the vault, including subdirectories.
 func (t *taskStorage) ListTasks(
 	ctx context.Context,
 	vaultPath string,
 ) ([]*domain.Task, error) {
 	tasksDir := filepath.Join(vaultPath, t.config.TasksDir)
 
-	entries, err := os.ReadDir(tasksDir)
-	if err != nil {
-		return nil, errors.Wrap(ctx, err, fmt.Sprintf("read tasks directory %s", tasksDir))
-	}
-
-	tasks := make([]*domain.Task, 0, len(entries))
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-		if !strings.HasSuffix(entry.Name(), ".md") {
-			continue
-		}
-
-		fileName := strings.TrimSuffix(entry.Name(), ".md")
-		filePath := filepath.Join(tasksDir, entry.Name())
-
-		task, err := t.readTaskFromPath(ctx, filePath, fileName)
+	var tasks []*domain.Task
+	err := filepath.WalkDir(tasksDir, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
-			// Log error but continue with other tasks
-			slog.Debug("skipping unreadable task", "file", fileName, "error", err)
-			continue
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		if !strings.HasSuffix(d.Name(), ".md") {
+			return nil
 		}
 
+		fileName := strings.TrimSuffix(d.Name(), ".md")
+		task, err := t.readTaskFromPath(ctx, path, fileName)
+		if err != nil {
+			slog.Debug("skipping unreadable task", "file", fileName, "error", err)
+			return nil
+		}
 		tasks = append(tasks, task)
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Wrap(ctx, err, fmt.Sprintf("walk tasks directory %s", tasksDir))
 	}
 
 	return tasks, nil

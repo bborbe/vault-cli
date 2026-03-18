@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.45.0
 
 - feat: change --status flag on task list (and generic list commands) from single string to string slice, supporting repeated flags and comma-separated values (e.g. --status=in_progress --status=completed)
 

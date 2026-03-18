@@ -95,17 +95,9 @@ func (o *showOperation) Execute(
 		Vault:           vaultName,
 	}
 
-	if task.DeferDate != nil {
-		detail.DeferDate = task.DeferDate.Format("2006-01-02")
-	}
-
-	if task.PlannedDate != nil {
-		detail.PlannedDate = task.PlannedDate.Format("2006-01-02")
-	}
-
-	if task.DueDate != nil {
-		detail.DueDate = task.DueDate.Format("2006-01-02")
-	}
+	detail.DeferDate = formatDateOrDateTime(task.DeferDate)
+	detail.PlannedDate = formatDateOrDateTime(task.PlannedDate)
+	detail.DueDate = formatDateOrDateTime(task.DueDate)
 
 	// Extract description from body content
 	if matches := showFrontmatterRegex.FindStringSubmatch(task.Content); len(matches) >= 2 {

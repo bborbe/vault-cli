@@ -203,8 +203,11 @@ func parseDatePtr(ctx context.Context, value string) (*domain.DateOrDateTime, er
 }
 
 // formatDateOrDateTime serializes a DateOrDateTime to YYYY-MM-DD for date-only values
-// (midnight UTC) and RFC3339 for values with a time component.
+// (midnight UTC) and RFC3339 for values with a time component. Returns empty string for nil.
 func formatDateOrDateTime(d *domain.DateOrDateTime) string {
+	if d == nil {
+		return ""
+	}
 	t := d.Time().UTC()
 	if t.Hour() == 0 && t.Minute() == 0 && t.Second() == 0 && t.Nanosecond() == 0 {
 		return d.Time().Format(time.DateOnly)

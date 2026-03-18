@@ -461,4 +461,71 @@ var _ = Describe("ListOperation JSON output", func() {
 			Expect(items[0].Name).To(Equal("Matching Task"))
 		})
 	})
+
+	Context("with datetime date fields (non-zero time component)", func() {
+		BeforeEach(func() {
+			loc := time.FixedZone("CET", 3600)
+			deferDate := domain.DateOrDateTime(time.Date(2026, 3, 18, 16, 0, 0, 0, loc))
+			plannedDate := domain.DateOrDateTime(time.Date(2026, 3, 20, 9, 30, 0, 0, time.UTC))
+			dueDate := domain.DateOrDateTime(time.Date(2026, 3, 25, 0, 0, 0, 0, time.UTC))
+			tasks := []*domain.Task{
+				{
+					Name:        "Datetime Task",
+					Status:      domain.TaskStatusTodo,
+					DeferDate:   &deferDate,
+					PlannedDate: &plannedDate,
+					DueDate:     &dueDate,
+				},
+			}
+			mockPageStorage.ListPagesReturns(tasks, nil)
+
+			capturedOutput = captureStdout(func() {
+				err := listOp.Execute(ctx, "/vault", "my-vault", "Tasks", "", true, "", "", "json")
+				Expect(err).To(BeNil())
+			})
+		})
+
+		It("formats defer_date with time component as RFC3339", func() {
+			var items []ops.TaskListItem
+			Expect(json.Unmarshal(capturedOutput, &items)).To(Succeed())
+			Expect(items[0].DeferDate).To(Equal("2026-03-18T16:00:00+01:00"))
+		})
+
+		It("formats planned_date with time component as RFC3339", func() {
+			var items []ops.TaskListItem
+			Expect(json.Unmarshal(capturedOutput, &items)).To(Succeed())
+			Expect(items[0].PlannedDate).To(Equal("2026-03-20T09:30:00Z"))
+		})
+
+		It("formats due_date at midnight UTC as YYYY-MM-DD", func() {
+			var items []ops.TaskListItem
+			Expect(json.Unmarshal(capturedOutput, &items)).To(Succeed())
+			Expect(items[0].DueDate).To(Equal("2026-03-25"))
+		})
+	})
+
+	Context("with nil date fields", func() {
+		BeforeEach(func() {
+			tasks := []*domain.Task{
+				{
+					Name:   "No Dates Task",
+					Status: domain.TaskStatusTodo,
+				},
+			}
+			mockPageStorage.ListPagesReturns(tasks, nil)
+
+			capturedOutput = captureStdout(func() {
+				err := listOp.Execute(ctx, "/vault", "my-vault", "Tasks", "", true, "", "", "json")
+				Expect(err).To(BeNil())
+			})
+		})
+
+		It("omits nil date fields from JSON output", func() {
+			var items []ops.TaskListItem
+			Expect(json.Unmarshal(capturedOutput, &items)).To(Succeed())
+			Expect(items[0].DeferDate).To(BeEmpty())
+			Expect(items[0].PlannedDate).To(BeEmpty())
+			Expect(items[0].DueDate).To(BeEmpty())
+		})
+	})
 })

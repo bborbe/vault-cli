@@ -112,15 +112,9 @@ func (l *listOperation) Execute(
 				ClaudeSessionID: task.ClaudeSessionID,
 				Phase:           task.Phase,
 			}
-			if task.DeferDate != nil {
-				items[i].DeferDate = task.DeferDate.Format("2006-01-02")
-			}
-			if task.PlannedDate != nil {
-				items[i].PlannedDate = task.PlannedDate.Format("2006-01-02")
-			}
-			if task.DueDate != nil {
-				items[i].DueDate = task.DueDate.Format("2006-01-02")
-			}
+			items[i].DeferDate = formatDateOrDateTime(task.DeferDate)
+			items[i].PlannedDate = formatDateOrDateTime(task.PlannedDate)
+			items[i].DueDate = formatDateOrDateTime(task.DueDate)
 		}
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")

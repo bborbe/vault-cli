@@ -23,6 +23,7 @@ type Task struct {
 	ClaudeSessionID string          `yaml:"claude_session_id,omitempty"`
 	Recurring       string          `yaml:"recurring,omitempty"`
 	LastCompleted   string          `yaml:"last_completed,omitempty"`
+	CompletedDate   string          `yaml:"completed_date,omitempty"`
 	PlannedDate     *DateOrDateTime `yaml:"planned_date,omitempty"`
 	DueDate         *DateOrDateTime `yaml:"due_date,omitempty"`
 

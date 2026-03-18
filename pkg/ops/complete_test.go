@@ -532,6 +532,39 @@ recurring: yearly
 		})
 	})
 
+	Context("non-recurring task sets completed_date", func() {
+		BeforeEach(func() {
+			task.Recurring = ""
+			task.Status = domain.TaskStatusTodo
+		})
+
+		It("sets completed_date to a non-empty ISO 8601 datetime", func() {
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
+			Expect(writtenTask.CompletedDate).NotTo(BeEmpty())
+			Expect(writtenTask.CompletedDate).To(Equal("2026-03-03T12:00:00Z"))
+		})
+	})
+
+	Context("recurring task does not set completed_date", func() {
+		BeforeEach(func() {
+			task.Recurring = "daily"
+			task.Status = domain.TaskStatusInProgress
+			task.Content = `---
+status: in_progress
+recurring: daily
+---
+# My Task
+`
+		})
+
+		It("does not set completed_date", func() {
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
+			Expect(writtenTask.CompletedDate).To(BeEmpty())
+		})
+	})
+
 	Context("recurring task with planned_date before new defer_date", func() {
 		var oldPlannedDate time.Time
 

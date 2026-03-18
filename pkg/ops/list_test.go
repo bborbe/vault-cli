@@ -530,6 +530,31 @@ var _ = Describe("ListOperation JSON output", func() {
 		})
 	})
 
+	Context("with completed_date populated", func() {
+		BeforeEach(func() {
+			tasks := []*domain.Task{
+				{
+					Name:          "Completed Task",
+					Status:        domain.TaskStatusCompleted,
+					CompletedDate: "2026-03-03T12:00:00Z",
+				},
+			}
+			mockPageStorage.ListPagesReturns(tasks, nil)
+
+			capturedOutput = captureStdout(func() {
+				err := listOp.Execute(ctx, "/vault", "my-vault", "Tasks", "", true, "", "", "json")
+				Expect(err).To(BeNil())
+			})
+		})
+
+		It("includes completed_date in JSON output", func() {
+			var items []ops.TaskListItem
+			Expect(json.Unmarshal(capturedOutput, &items)).To(Succeed())
+			Expect(items).To(HaveLen(1))
+			Expect(items[0].CompletedDate).To(Equal("2026-03-03T12:00:00Z"))
+		})
+	})
+
 	Context("with nil date fields", func() {
 		BeforeEach(func() {
 			tasks := []*domain.Task{

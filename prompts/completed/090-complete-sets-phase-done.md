@@ -1,10 +1,12 @@
 ---
-status: executing
+status: completed
+summary: Set task.Phase to domain.TaskPhaseDone.Ptr() on non-recurring task completion and added test asserting both status and phase are correct after complete
 container: vault-cli-090-complete-sets-phase-done
 dark-factory-version: v0.57.5
 created: "2026-03-19T19:40:27Z"
 queued: "2026-03-19T19:40:27Z"
 started: "2026-03-19T19:40:34Z"
+completed: "2026-03-19T19:45:51Z"
 ---
 
 <summary>

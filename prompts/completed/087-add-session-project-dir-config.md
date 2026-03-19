@@ -1,10 +1,12 @@
 ---
-status: executing
+status: completed
+summary: Added optional session_project_dir vault config field with tilde expansion, GetSessionProjectDir getter, sessionDir parameter to WorkOnOperation.Execute, updated mock, CLI wiring, and tests
 container: vault-cli-087-add-session-project-dir-config
 dark-factory-version: v0.57.5
 created: "2026-03-19T10:39:35Z"
 queued: "2026-03-19T10:51:00Z"
 started: "2026-03-19T10:51:03Z"
+completed: "2026-03-19T10:57:53Z"
 ---
 
 <summary>

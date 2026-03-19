@@ -54,6 +54,7 @@ const (
 	IssueTypeInvalidStatus          IssueType = "INVALID_STATUS"
 	IssueTypeOrphanGoal             IssueType = "ORPHAN_GOAL"
 	IssueTypeStatusCheckboxMismatch IssueType = "STATUS_CHECKBOX_MISMATCH"
+	IssueTypeStatusPhaseMismatch    IssueType = "STATUS_PHASE_MISMATCH"
 )
 
 // LintIssue represents a single lint issue found in a file.
@@ -369,6 +370,17 @@ func (l *lintOperation) collectLintIssues(
 		})
 	}
 
+	// Check for status/phase mismatch
+	if mismatchIssue, mismatchDesc := l.detectStatusPhaseMismatch(frontmatterYAML); mismatchIssue {
+		issues = append(issues, LintIssue{
+			FilePath:    filePath,
+			IssueType:   IssueTypeStatusPhaseMismatch,
+			Description: mismatchDesc,
+			Fixable:     false,
+			Fixed:       false,
+		})
+	}
+
 	// Check for orphan goals
 	for _, goalName := range l.detectOrphanGoals(vaultPath, frontmatterYAML) {
 		issues = append(issues, LintIssue{
@@ -627,6 +639,61 @@ func (l *lintOperation) detectStatusCheckboxMismatch(
 	}
 
 	return false, "", false
+}
+
+// detectStatusPhaseMismatch detects mismatches between status and phase fields.
+// Returns: (issueFound, description)
+func (l *lintOperation) detectStatusPhaseMismatch(frontmatterYAML string) (bool, string) {
+	// Parse phase
+	phaseRegex := regexp.MustCompile(`(?m)^phase:\s*['"]?([a-z_]+)['"]?\s*$`)
+	phaseMatches := phaseRegex.FindStringSubmatch(frontmatterYAML)
+	if len(phaseMatches) < 2 {
+		return false, "" // No phase key — no validation
+	}
+	phase := domain.TaskPhase(phaseMatches[1])
+
+	// Parse status
+	statusRegex := regexp.MustCompile(`(?m)^status:\s*['"]?([a-z_]+)['"]?\s*$`)
+	statusMatches := statusRegex.FindStringSubmatch(frontmatterYAML)
+	if len(statusMatches) < 2 {
+		return false, ""
+	}
+	status := domain.TaskStatus(statusMatches[1])
+
+	// Rule 1: completed/aborted status requires phase=done
+	if (status == domain.TaskStatusCompleted || status == domain.TaskStatusAborted) &&
+		phase != domain.TaskPhaseDone {
+		return true, fmt.Sprintf(
+			"status is %s but phase is %s (expected done or no phase)",
+			status,
+			phase,
+		)
+	}
+
+	// Rule 2: phase=done requires completed status
+	if phase == domain.TaskPhaseDone && status != domain.TaskStatusCompleted {
+		return true, fmt.Sprintf("phase is done but status is %s (expected completed)", status)
+	}
+
+	// Rule 3: backlog/hold status incompatible with active phases
+	activePhases := []domain.TaskPhase{
+		domain.TaskPhaseInProgress,
+		domain.TaskPhaseAIReview,
+		domain.TaskPhaseHumanReview,
+	}
+	if status == domain.TaskStatusBacklog || status == domain.TaskStatusHold {
+		for _, active := range activePhases {
+			if phase == active {
+				return true, fmt.Sprintf(
+					"status is %s but phase is %s (active phase incompatible with inactive status)",
+					status,
+					phase,
+				)
+			}
+		}
+	}
+
+	return false, ""
 }
 
 // fixIssues fixes fixable issues in the file.

@@ -167,7 +167,7 @@ func shouldIncludeTask(
 	goalFilter string,
 ) bool {
 	// Filter by assignee if specified
-	if assigneeFilter != "" && task.Assignee != assigneeFilter {
+	if assigneeFilter != "" && !strings.EqualFold(task.Assignee, assigneeFilter) {
 		return false
 	}
 

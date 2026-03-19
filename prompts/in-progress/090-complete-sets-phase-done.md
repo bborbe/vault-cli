@@ -1,14 +1,18 @@
 ---
-status: created
+status: executing
+container: vault-cli-090-complete-sets-phase-done
+dark-factory-version: v0.57.5
+created: "2026-03-19T19:40:27Z"
+queued: "2026-03-19T19:40:27Z"
+started: "2026-03-19T19:40:34Z"
 ---
 
 <summary>
-- `vault-cli task complete` currently sets `status: completed` but leaves `phase` unchanged
-- Tasks end up with e.g. `phase: human_review` and `status: completed` — inconsistent state
-- Fix: after setting `status`, also set `phase: done` for non-recurring tasks
-- Recurring task path must stay unchanged (it clears phase with `task.Phase = nil`)
-- Add test asserting both `status: completed` and `phase: done` are set after completion
-- Verify with `make test`
+- Completing a task leaves its phase stuck in whatever state it was in (e.g. review)
+- After the fix, completing a non-recurring task also transitions phase to done
+- Recurring tasks continue to clear phase on completion (no change)
+- Test added to verify both status and phase are set correctly after completion
+- All existing tests must still pass
 </summary>
 
 <objective>

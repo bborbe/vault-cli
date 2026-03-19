@@ -48,7 +48,7 @@ var _ = Describe("ShowOperation", func() {
 		task = &domain.Task{
 			Name:            taskName,
 			Status:          domain.TaskStatusInProgress,
-			Phase:           "implementation",
+			Phase:           domain.TaskPhaseInProgress.Ptr(),
 			Assignee:        "alice",
 			Priority:        domain.Priority(2),
 			PageType:        "task",
@@ -91,7 +91,7 @@ var _ = Describe("ShowOperation", func() {
 	Context("json output with optional fields omitted", func() {
 		BeforeEach(func() {
 			outputFormat = "json"
-			task.Phase = ""
+			task.Phase = nil
 			task.Assignee = ""
 			task.Priority = 0
 			task.PageType = ""

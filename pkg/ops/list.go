@@ -112,7 +112,12 @@ func (l *listOperation) Execute(
 				Category:        task.PageType,
 				Recurring:       task.Recurring,
 				ClaudeSessionID: task.ClaudeSessionID,
-				Phase:           task.Phase,
+				Phase: func() string {
+					if task.Phase != nil {
+						return task.Phase.String()
+					}
+					return ""
+				}(),
 			}
 			items[i].DeferDate = formatDateOrDateTime(task.DeferDate)
 			items[i].PlannedDate = formatDateOrDateTime(task.PlannedDate)

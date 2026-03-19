@@ -679,6 +679,47 @@ Just a simple task with no subtasks.
 		})
 	})
 
+	Context("recurring task with phase set clears phase", func() {
+		BeforeEach(func() {
+			task.Recurring = "weekly"
+			task.Status = domain.TaskStatusInProgress
+			task.Phase = domain.TaskPhasePlanning.Ptr()
+			task.Content = `---
+status: in_progress
+recurring: weekly
+phase: planning
+---
+# My Task
+`
+		})
+
+		It("clears phase after complete", func() {
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
+			Expect(writtenTask.Phase).To(BeNil())
+		})
+	})
+
+	Context("recurring task with nil phase keeps phase nil", func() {
+		BeforeEach(func() {
+			task.Recurring = "daily"
+			task.Status = domain.TaskStatusInProgress
+			task.Phase = nil
+			task.Content = `---
+status: in_progress
+recurring: daily
+---
+# My Task
+`
+		})
+
+		It("phase remains nil after complete", func() {
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
+			Expect(writtenTask.Phase).To(BeNil())
+		})
+	})
+
 	Context("recurring task with unchecked checkboxes", func() {
 		BeforeEach(func() {
 			task.Recurring = "daily"

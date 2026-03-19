@@ -82,9 +82,14 @@ func (o *showOperation) Execute(
 	}
 
 	detail := TaskDetail{
-		Name:            task.Name,
-		Status:          string(task.Status),
-		Phase:           task.Phase,
+		Name:   task.Name,
+		Status: string(task.Status),
+		Phase: func() string {
+			if task.Phase != nil {
+				return task.Phase.String()
+			}
+			return ""
+		}(),
 		Assignee:        task.Assignee,
 		Priority:        int(task.Priority),
 		Category:        task.PageType,

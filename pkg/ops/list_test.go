@@ -331,7 +331,7 @@ var _ = Describe("ListOperation JSON output", func() {
 					PlannedDate:     &plannedDate,
 					DueDate:         &dueDate,
 					ClaudeSessionID: "sess-abc123",
-					Phase:           "implementation",
+					Phase:           domain.TaskPhaseInProgress.Ptr(),
 				},
 			}
 			mockPageStorage.ListPagesReturns(tasks, nil)
@@ -382,7 +382,7 @@ var _ = Describe("ListOperation JSON output", func() {
 		It("includes phase", func() {
 			var items []ops.TaskListItem
 			Expect(json.Unmarshal(capturedOutput, &items)).To(Succeed())
-			Expect(items[0].Phase).To(Equal("implementation"))
+			Expect(items[0].Phase).To(Equal("in_progress"))
 		})
 	})
 

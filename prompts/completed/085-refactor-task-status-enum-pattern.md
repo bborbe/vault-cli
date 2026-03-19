@@ -1,10 +1,12 @@
 ---
-status: executing
+status: completed
+summary: Refactored TaskStatus to canonical Go enum pattern with String(), Validate(), Ptr() methods, AvailableTaskStatuses collection, and simplified IsValidTaskStatus and parseTaskStatus to use collection lookup.
 container: vault-cli-085-refactor-task-status-enum-pattern
 dark-factory-version: v0.57.5
 created: "2026-03-19T10:17:42Z"
 queued: "2026-03-19T10:32:07Z"
 started: "2026-03-19T10:32:16Z"
+completed: "2026-03-19T10:36:52Z"
 ---
 
 <summary>

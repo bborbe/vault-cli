@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.48.0
+
+- feat: add STATUS_PHASE_MISMATCH lint check to detect inconsistent combinations of task status and phase fields (e.g. status=completed with phase=in_progress)
+
 ## v0.47.0
 
 - feat: add optional session_project_dir vault config field so work-on can start Claude sessions in a directory different from the vault path

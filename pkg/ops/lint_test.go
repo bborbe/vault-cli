@@ -1581,3 +1581,109 @@ page_type: task
 		})
 	})
 })
+
+var _ = Describe("LintOperation - Status Phase Mismatch", func() {
+	var (
+		ctx       context.Context
+		lintOp    ops.LintOperation
+		vaultPath string
+		tasksDir  string
+	)
+
+	BeforeEach(func() {
+		ctx = context.Background()
+		lintOp = ops.NewLintOperation()
+
+		var err error
+		vaultPath, err = os.MkdirTemp("", "vault-phase-test-*")
+		Expect(err).To(BeNil())
+
+		tasksDir = "Tasks"
+		tasksDirPath := filepath.Join(vaultPath, tasksDir)
+		Expect(os.MkdirAll(tasksDirPath, 0755)).To(Succeed())
+	})
+
+	AfterEach(func() {
+		if vaultPath != "" {
+			_ = os.RemoveAll(vaultPath)
+		}
+	})
+
+	writeTask := func(vaultPath, tasksDir, status, phase string) {
+		var content string
+		if phase == "" {
+			content = "---\nstatus: " + status + "\npage_type: task\n---\n# Task\n"
+		} else {
+			content = "---\nstatus: " + status + "\nphase: " + phase + "\npage_type: task\n---\n# Task\n"
+		}
+		taskPath := filepath.Join(vaultPath, tasksDir, "Task.md")
+		Expect(os.WriteFile(taskPath, []byte(content), 0600)).To(Succeed())
+	}
+
+	Context("STATUS_PHASE_MISMATCH — should trigger", func() {
+		DescribeTable("rule 1: completed/aborted with non-done phase",
+			func(status, phase string) {
+				writeTask(vaultPath, tasksDir, status, phase)
+				err := lintOp.Execute(ctx, vaultPath, tasksDir, false, "plain")
+				Expect(err).NotTo(BeNil())
+				Expect(err.Error()).To(ContainSubstring("found 1 lint issue"))
+			},
+			Entry("completed + in_progress", "completed", "in_progress"),
+			Entry("completed + todo", "completed", "todo"),
+			Entry("aborted + planning", "aborted", "planning"),
+			Entry("aborted + human_review", "aborted", "human_review"),
+		)
+
+		DescribeTable("rule 2: phase=done with non-completed status",
+			func(status, phase string) {
+				writeTask(vaultPath, tasksDir, status, phase)
+				err := lintOp.Execute(ctx, vaultPath, tasksDir, false, "plain")
+				Expect(err).NotTo(BeNil())
+				Expect(err.Error()).To(ContainSubstring("found 1 lint issue"))
+			},
+			Entry("todo + done", "todo", "done"),
+			Entry("in_progress + done", "in_progress", "done"),
+			Entry("backlog + done", "backlog", "done"),
+		)
+
+		DescribeTable("rule 3: backlog/hold with active phase",
+			func(status, phase string) {
+				writeTask(vaultPath, tasksDir, status, phase)
+				err := lintOp.Execute(ctx, vaultPath, tasksDir, false, "plain")
+				Expect(err).NotTo(BeNil())
+				Expect(err.Error()).To(ContainSubstring("found 1 lint issue"))
+			},
+			Entry("backlog + in_progress", "backlog", "in_progress"),
+			Entry("backlog + ai_review", "backlog", "ai_review"),
+			Entry("hold + human_review", "hold", "human_review"),
+			Entry("hold + in_progress", "hold", "in_progress"),
+		)
+
+		It("is non-fixable", func() {
+			writeTask(vaultPath, tasksDir, "completed", "in_progress")
+			err := lintOp.Execute(ctx, vaultPath, tasksDir, true, "plain")
+			Expect(err).NotTo(BeNil())
+			Expect(err.Error()).To(ContainSubstring("found 1 lint issue"))
+		})
+	})
+
+	Context("STATUS_PHASE_MISMATCH — should NOT trigger", func() {
+		DescribeTable("valid combinations",
+			func(status, phase string) {
+				writeTask(vaultPath, tasksDir, status, phase)
+				err := lintOp.Execute(ctx, vaultPath, tasksDir, false, "plain")
+				Expect(err).To(BeNil())
+			},
+			Entry("completed + done", "completed", "done"),
+			Entry("completed + no phase", "completed", ""),
+			Entry("aborted + no phase", "aborted", ""),
+			Entry("todo + todo", "todo", "todo"),
+			Entry("in_progress + in_progress", "in_progress", "in_progress"),
+			Entry("in_progress + ai_review", "in_progress", "ai_review"),
+			Entry("hold + todo", "hold", "todo"),
+			Entry("hold + planning", "hold", "planning"),
+			Entry("backlog + todo", "backlog", "todo"),
+			Entry("backlog + no phase", "backlog", ""),
+		)
+	})
+})

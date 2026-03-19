@@ -226,6 +226,9 @@ func (c *completeOperation) handleRecurringTask(
 	// 1. Reset all checkboxes in content
 	task.Content = resetCheckboxes(task.Content)
 
+	// Clear phase so next cycle starts fresh
+	task.Phase = nil
+
 	// 2. Set last_completed to today
 	task.LastCompleted = today
 

@@ -23,7 +23,7 @@ type Task struct {
 	Assignee        string          `yaml:"assignee,omitempty"`
 	DeferDate       *DateOrDateTime `yaml:"defer_date,omitempty"`
 	Tags            []string        `yaml:"tags,omitempty"`
-	Phase           string          `yaml:"phase,omitempty"`
+	Phase           *TaskPhase      `yaml:"phase,omitempty"`
 	ClaudeSessionID string          `yaml:"claude_session_id,omitempty"`
 	Recurring       string          `yaml:"recurring,omitempty"`
 	LastCompleted   string          `yaml:"last_completed,omitempty"`

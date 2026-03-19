@@ -46,7 +46,10 @@ func (o *frontmatterGetOperation) Execute(
 
 	switch key {
 	case "phase":
-		return task.Phase, nil
+		if task.Phase != nil {
+			return task.Phase.String(), nil
+		}
+		return "", nil
 	case "claude_session_id":
 		return task.ClaudeSessionID, nil
 	case "assignee":
@@ -113,17 +116,17 @@ func (o *frontmatterSetOperation) Execute(
 
 	switch key {
 	case "phase":
-		task.Phase = value
+		if err := applyPhaseField(ctx, task, value); err != nil {
+			return err
+		}
 	case "claude_session_id":
 		task.ClaudeSessionID = value
 	case "assignee":
 		task.Assignee = value
 	case "status":
-		status, err := parseTaskStatus(ctx, value)
-		if err != nil {
+		if err := applyStatusField(ctx, task, value); err != nil {
 			return err
 		}
-		task.Status = status
 	case "priority":
 		p, err := strconv.Atoi(value)
 		if err != nil {
@@ -166,6 +169,24 @@ func (o *frontmatterSetOperation) Execute(
 		return errors.Wrap(ctx, err, "write task")
 	}
 
+	return nil
+}
+
+func applyPhaseField(ctx context.Context, task *domain.Task, value string) error {
+	phase := domain.TaskPhase(value)
+	if err := phase.Validate(ctx); err != nil {
+		return err
+	}
+	task.Phase = phase.Ptr()
+	return nil
+}
+
+func applyStatusField(ctx context.Context, task *domain.Task, value string) error {
+	status, err := parseTaskStatus(ctx, value)
+	if err != nil {
+		return err
+	}
+	task.Status = status
 	return nil
 }
 
@@ -241,7 +262,7 @@ func (o *frontmatterClearOperation) Execute(
 
 	switch key {
 	case "phase":
-		task.Phase = ""
+		task.Phase = nil
 	case "claude_session_id":
 		task.ClaudeSessionID = ""
 	case "assignee":

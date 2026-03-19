@@ -43,7 +43,7 @@ var _ = Describe("FrontmatterGetOperation", func() {
 		dueDate := time.Date(2025, 6, 30, 0, 0, 0, 0, time.UTC)
 		task = &domain.Task{
 			Name:            taskName,
-			Phase:           "implementation",
+			Phase:           domain.TaskPhase("in_progress").Ptr(),
 			ClaudeSessionID: "session-123",
 			Assignee:        "alice",
 			Status:          domain.TaskStatusInProgress,
@@ -71,7 +71,7 @@ var _ = Describe("FrontmatterGetOperation", func() {
 
 		It("returns the phase value", func() {
 			Expect(err).To(BeNil())
-			Expect(result).To(Equal("implementation"))
+			Expect(result).To(Equal("in_progress"))
 		})
 	})
 
@@ -133,7 +133,7 @@ var _ = Describe("FrontmatterGetOperation", func() {
 	Context("getting empty field", func() {
 		BeforeEach(func() {
 			key = "phase"
-			task.Phase = ""
+			task.Phase = nil
 		})
 
 		It("returns empty string with no error", func() {
@@ -344,7 +344,24 @@ var _ = Describe("FrontmatterSetOperation", func() {
 			Expect(err).To(BeNil())
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.Phase).To(Equal("planning"))
+			Expect(writtenTask.Phase).NotTo(BeNil())
+			Expect(*writtenTask.Phase).To(Equal(domain.TaskPhasePlanning))
+		})
+	})
+
+	Context("setting invalid phase field", func() {
+		BeforeEach(func() {
+			key = "phase"
+			value = "invalid_phase_value"
+		})
+
+		It("returns an error", func() {
+			Expect(err).NotTo(BeNil())
+			Expect(err.Error()).To(ContainSubstring("unknown task phase"))
+		})
+
+		It("does not write the task", func() {
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(0))
 		})
 	})
 
@@ -693,7 +710,7 @@ var _ = Describe("FrontmatterClearOperation", func() {
 		dueDate := time.Date(2025, 6, 30, 0, 0, 0, 0, time.UTC)
 		task = &domain.Task{
 			Name:            taskName,
-			Phase:           "implementation",
+			Phase:           domain.TaskPhaseInProgress.Ptr(),
 			ClaudeSessionID: "session-123",
 			Assignee:        "alice",
 			Status:          domain.TaskStatusInProgress,
@@ -724,7 +741,7 @@ var _ = Describe("FrontmatterClearOperation", func() {
 			Expect(err).To(BeNil())
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.Phase).To(Equal(""))
+			Expect(writtenTask.Phase).To(BeNil())
 		})
 	})
 

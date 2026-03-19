@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.48.1
+
+- fix: make --assignee filter case-insensitive using strings.EqualFold so localclaw, LocalClaw, and LOCALCLAW all match the same assignee
+
 ## v0.48.0
 
 - feat: add STATUS_PHASE_MISMATCH lint check to detect inconsistent combinations of task status and phase fields (e.g. status=completed with phase=in_progress)

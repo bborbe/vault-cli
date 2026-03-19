@@ -241,6 +241,70 @@ var _ = Describe("ListOperation", func() {
 		})
 	})
 
+	Context("with --assignee filter (case-insensitive)", func() {
+		BeforeEach(func() {
+			assigneeFilter = "localclaw"
+			tasks = []*domain.Task{
+				{
+					Name:     "Task With Matching Assignee",
+					Status:   domain.TaskStatusTodo,
+					Assignee: "LocalClaw",
+				},
+				{
+					Name:     "Task With Different Assignee",
+					Status:   domain.TaskStatusTodo,
+					Assignee: "alice",
+				},
+				{
+					Name:     "Task Without Assignee",
+					Status:   domain.TaskStatusTodo,
+					Assignee: "",
+				},
+			}
+			mockPageStorage.ListPagesReturns(tasks, nil)
+		})
+
+		It("returns no error", func() {
+			Expect(err).To(BeNil())
+		})
+	})
+
+	Context("with --assignee filter matching lowercase stored value", func() {
+		BeforeEach(func() {
+			assigneeFilter = "LocalClaw"
+			tasks = []*domain.Task{
+				{
+					Name:     "Task With Lowercase Assignee",
+					Status:   domain.TaskStatusTodo,
+					Assignee: "localclaw",
+				},
+			}
+			mockPageStorage.ListPagesReturns(tasks, nil)
+		})
+
+		It("returns no error", func() {
+			Expect(err).To(BeNil())
+		})
+	})
+
+	Context("with --assignee filter not matching different name", func() {
+		BeforeEach(func() {
+			assigneeFilter = "bob"
+			tasks = []*domain.Task{
+				{
+					Name:     "Task With Alice",
+					Status:   domain.TaskStatusTodo,
+					Assignee: "alice",
+				},
+			}
+			mockPageStorage.ListPagesReturns(tasks, nil)
+		})
+
+		It("returns no error", func() {
+			Expect(err).To(BeNil())
+		})
+	})
+
 	Context("with --goal and --status filters combined", func() {
 		BeforeEach(func() {
 			goalFilter = "My Goal"

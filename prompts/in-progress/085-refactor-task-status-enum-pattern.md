@@ -1,6 +1,10 @@
 ---
-status: created
+status: executing
+container: vault-cli-085-refactor-task-status-enum-pattern
+dark-factory-version: v0.57.5
 created: "2026-03-19T10:17:42Z"
+queued: "2026-03-19T10:32:07Z"
+started: "2026-03-19T10:32:16Z"
 ---
 
 <summary>

@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.48.2
+
+- fix: set phase to done when completing a non-recurring task so status and phase remain consistent
+
 ## v0.48.1
 
 - fix: make --assignee filter case-insensitive using strings.EqualFold so localclaw, LocalClaw, and LOCALCLAW all match the same assignee

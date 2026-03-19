@@ -546,6 +546,22 @@ recurring: yearly
 		})
 	})
 
+	Context("non-recurring task sets phase to done", func() {
+		BeforeEach(func() {
+			task.Recurring = ""
+			task.Status = domain.TaskStatusInProgress
+			task.Phase = domain.TaskPhaseHumanReview.Ptr()
+		})
+
+		It("sets phase to done", func() {
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
+			Expect(writtenTask.Status).To(Equal(domain.TaskStatusCompleted))
+			Expect(writtenTask.Phase).NotTo(BeNil())
+			Expect(*writtenTask.Phase).To(Equal(domain.TaskPhaseDone))
+		})
+	})
+
 	Context("recurring task does not set completed_date", func() {
 		BeforeEach(func() {
 			task.Recurring = "daily"

@@ -111,6 +111,7 @@ func (c *completeOperation) Execute(
 
 	// Update task status to completed
 	task.Status = domain.TaskStatusCompleted
+	task.Phase = domain.TaskPhaseDone.Ptr()
 	task.CompletedDate = c.currentDateTime.Now().Time().UTC().Format("2006-01-02T15:04:05Z")
 
 	// Write updated task

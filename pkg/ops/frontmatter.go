@@ -170,24 +170,15 @@ func (o *frontmatterSetOperation) Execute(
 }
 
 func parseTaskStatus(ctx context.Context, value string) (domain.TaskStatus, error) {
-	validStatuses := []domain.TaskStatus{
-		domain.TaskStatusTodo,
-		domain.TaskStatusInProgress,
-		domain.TaskStatusBacklog,
-		domain.TaskStatusCompleted,
-		domain.TaskStatusHold,
-		domain.TaskStatusAborted,
+	status := domain.TaskStatus(value)
+	if !domain.AvailableTaskStatuses.Contains(status) {
+		return "", errors.Wrap(
+			ctx,
+			fmt.Errorf("invalid status value: %s", value),
+			"expected one of: todo, in_progress, backlog, completed, hold, aborted",
+		)
 	}
-	for _, valid := range validStatuses {
-		if value == string(valid) {
-			return domain.TaskStatus(value), nil
-		}
-	}
-	return "", errors.Wrap(
-		ctx,
-		fmt.Errorf("invalid status value: %s", value),
-		"expected one of: todo, in_progress, backlog, completed, hold, aborted",
-	)
+	return status, nil
 }
 
 func parseDatePtr(ctx context.Context, value string) (*domain.DateOrDateTime, error) {

@@ -30,6 +30,7 @@ type WorkOnOperation interface {
 		vaultName string,
 		outputFormat string,
 		isInteractive bool,
+		sessionDir string,
 	) error
 }
 
@@ -67,6 +68,7 @@ func (w *workOnOperation) Execute(
 	vaultName string,
 	outputFormat string,
 	isInteractive bool,
+	sessionDir string,
 ) error {
 	var warnings []string
 
@@ -101,7 +103,7 @@ func (w *workOnOperation) Execute(
 		slog.Warn("workon warning", "warning", warning)
 	}
 
-	sessionID, sessionErr := w.handleClaudeSession(ctx, task, vaultPath)
+	sessionID, sessionErr := w.handleClaudeSession(ctx, task, sessionDir)
 	if sessionErr != nil {
 		warning := fmt.Sprintf("claude session: %v", sessionErr)
 		warnings = append(warnings, warning)
@@ -109,7 +111,7 @@ func (w *workOnOperation) Execute(
 	}
 
 	if isInteractive && w.resumer != nil && sessionID != "" {
-		return w.resumer.ResumeSession(sessionID, vaultPath)
+		return w.resumer.ResumeSession(sessionID, sessionDir)
 	}
 
 	if outputFormat == "json" {

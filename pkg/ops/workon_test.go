@@ -73,6 +73,7 @@ var _ = Describe("WorkOnOperation", func() {
 			"test-vault",
 			"plain",
 			isInteractive,
+			vaultPath,
 		)
 	})
 

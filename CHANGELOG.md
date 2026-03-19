@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.47.0
+
+- feat: add optional session_project_dir vault config field so work-on can start Claude sessions in a directory different from the vault path
+
 ## v0.46.0
 
 - feat: introduce strongly-typed TaskPhase enum with six values (todo, planning, in_progress, ai_review, human_review, done); replace free-form Phase string field with *TaskPhase, validate on set, and clear phase when completing a recurring task

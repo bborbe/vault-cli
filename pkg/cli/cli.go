@@ -264,6 +264,10 @@ func createWorkOnCommand(
 					starter,
 					resumer,
 				)
+				sessionDir := vault.Path
+				if dir := vault.GetSessionProjectDir(); dir != "" {
+					sessionDir = dir
+				}
 				return workOnOp.Execute(
 					ctx,
 					vault.Path,
@@ -272,6 +276,7 @@ func createWorkOnCommand(
 					vault.Name,
 					*outputFormat,
 					isInteractive,
+					sessionDir,
 				)
 			})
 		},

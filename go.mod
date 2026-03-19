@@ -3,8 +3,10 @@ module github.com/bborbe/vault-cli
 go 1.26.1
 
 require (
+	github.com/bborbe/collection v1.20.3
 	github.com/bborbe/errors v1.5.3
 	github.com/bborbe/time v1.25.0
+	github.com/bborbe/validation v1.4.4
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/golangci/golangci-lint v1.64.8
 	github.com/google/addlicense v1.2.0
@@ -73,11 +75,9 @@ require (
 	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/aymerick/douceur v0.2.0 // indirect
-	github.com/bborbe/collection v1.20.3 // indirect
 	github.com/bborbe/math v1.3.1 // indirect
 	github.com/bborbe/parse v1.10.3 // indirect
 	github.com/bborbe/run v1.9.1 // indirect
-	github.com/bborbe/validation v1.4.4 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bkielbasa/cyclop v1.2.3 // indirect
 	github.com/blizzy78/varnamelen v0.8.0 // indirect

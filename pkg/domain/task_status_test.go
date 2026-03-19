@@ -5,6 +5,8 @@
 package domain_test
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"gopkg.in/yaml.v3"
@@ -13,6 +15,47 @@ import (
 )
 
 var _ = Describe("TaskStatus", func() {
+	Describe("String", func() {
+		It("returns string value for todo", func() {
+			Expect(domain.TaskStatusTodo.String()).To(Equal("todo"))
+		})
+		It("returns string value for in_progress", func() {
+			Expect(domain.TaskStatusInProgress.String()).To(Equal("in_progress"))
+		})
+		It("returns string value for completed", func() {
+			Expect(domain.TaskStatusCompleted.String()).To(Equal("completed"))
+		})
+	})
+
+	Describe("Validate", func() {
+		ctx := context.Background()
+
+		It("returns nil for todo", func() {
+			Expect(domain.TaskStatusTodo.Validate(ctx)).To(BeNil())
+		})
+		It("returns nil for in_progress", func() {
+			Expect(domain.TaskStatusInProgress.Validate(ctx)).To(BeNil())
+		})
+		It("returns nil for completed", func() {
+			Expect(domain.TaskStatusCompleted.Validate(ctx)).To(BeNil())
+		})
+		It("returns nil for backlog", func() {
+			Expect(domain.TaskStatusBacklog.Validate(ctx)).To(BeNil())
+		})
+		It("returns nil for hold", func() {
+			Expect(domain.TaskStatusHold.Validate(ctx)).To(BeNil())
+		})
+		It("returns nil for aborted", func() {
+			Expect(domain.TaskStatusAborted.Validate(ctx)).To(BeNil())
+		})
+		It("returns error for invalid status", func() {
+			Expect(domain.TaskStatus("invalid").Validate(ctx)).NotTo(BeNil())
+		})
+		It("returns error for empty status", func() {
+			Expect(domain.TaskStatus("").Validate(ctx)).NotTo(BeNil())
+		})
+	})
+
 	Describe("NormalizeTaskStatus", func() {
 		Context("canonical values", func() {
 			It("returns todo unchanged", func() {

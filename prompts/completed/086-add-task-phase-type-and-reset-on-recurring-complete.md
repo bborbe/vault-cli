@@ -1,7 +1,12 @@
 ---
-status: approved
+status: completed
+summary: Introduced strongly-typed TaskPhase enum with six values, replaced Phase string field with *TaskPhase, added validation on set, cleared phase on recurring task completion, and updated all tests accordingly.
+container: vault-cli-086-add-task-phase-type-and-reset-on-recurring-complete
+dark-factory-version: v0.57.5
 created: "2026-03-19T10:17:42Z"
 queued: "2026-03-19T10:32:10Z"
+started: "2026-03-19T10:36:56Z"
+completed: "2026-03-19T10:46:44Z"
 ---
 
 <summary>

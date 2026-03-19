@@ -95,4 +95,16 @@ var _ = Describe("Vault", func() {
 			Expect(vault.GetClaudeScript()).To(Equal("claude"))
 		})
 	})
+
+	Describe("GetSessionProjectDir", func() {
+		It("returns custom session project dir when set", func() {
+			vault := &config.Vault{SessionProjectDir: "/custom/project/dir"}
+			Expect(vault.GetSessionProjectDir()).To(Equal("/custom/project/dir"))
+		})
+
+		It("returns empty string when not set", func() {
+			vault := &config.Vault{}
+			Expect(vault.GetSessionProjectDir()).To(Equal(""))
+		})
+	})
 })

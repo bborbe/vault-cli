@@ -22,16 +22,17 @@ type Config struct {
 
 // Vault represents a single vault configuration.
 type Vault struct {
-	Path          string   `yaml:"path"                     json:"path"`
-	Name          string   `yaml:"name"                     json:"name"`
-	TasksDir      string   `yaml:"tasks_dir,omitempty"      json:"tasks_dir,omitempty"`
-	GoalsDir      string   `yaml:"goals_dir,omitempty"      json:"goals_dir,omitempty"`
-	ThemesDir     string   `yaml:"themes_dir,omitempty"     json:"themes_dir,omitempty"`
-	ObjectivesDir string   `yaml:"objectives_dir,omitempty" json:"objectives_dir,omitempty"`
-	VisionDir     string   `yaml:"vision_dir,omitempty"     json:"vision_dir,omitempty"`
-	DailyDir      string   `yaml:"daily_dir,omitempty"      json:"daily_dir,omitempty"`
-	ClaudeScript  string   `yaml:"claude_script,omitempty"  json:"claude_script,omitempty"`
-	Excludes      []string `yaml:"excludes,omitempty"       json:"excludes,omitempty"`
+	Path              string   `yaml:"path"                          json:"path"`
+	Name              string   `yaml:"name"                          json:"name"`
+	TasksDir          string   `yaml:"tasks_dir,omitempty"           json:"tasks_dir,omitempty"`
+	GoalsDir          string   `yaml:"goals_dir,omitempty"           json:"goals_dir,omitempty"`
+	ThemesDir         string   `yaml:"themes_dir,omitempty"          json:"themes_dir,omitempty"`
+	ObjectivesDir     string   `yaml:"objectives_dir,omitempty"      json:"objectives_dir,omitempty"`
+	VisionDir         string   `yaml:"vision_dir,omitempty"          json:"vision_dir,omitempty"`
+	DailyDir          string   `yaml:"daily_dir,omitempty"           json:"daily_dir,omitempty"`
+	ClaudeScript      string   `yaml:"claude_script,omitempty"       json:"claude_script,omitempty"`
+	SessionProjectDir string   `yaml:"session_project_dir,omitempty" json:"session_project_dir,omitempty"`
+	Excludes          []string `yaml:"excludes,omitempty"            json:"excludes,omitempty"`
 }
 
 // GetTasksDir returns the tasks directory, defaulting to "Tasks" if not set.
@@ -85,6 +86,11 @@ func (v *Vault) GetDailyDir() string {
 // GetExcludes returns the list of excluded directory prefixes.
 func (v *Vault) GetExcludes() []string {
 	return v.Excludes
+}
+
+// GetSessionProjectDir returns the session project directory override, or empty string if not set.
+func (v *Vault) GetSessionProjectDir() string {
+	return v.SessionProjectDir
 }
 
 // GetClaudeScript returns the claude script to use for sessions, defaulting to "claude" if not set.
@@ -174,6 +180,14 @@ func (c *configLoader) GetVault(ctx context.Context, vaultName string) (*Vault, 
 		vault.Path = filepath.Join(homeDir, vault.Path[1:])
 	}
 
+	if len(vault.SessionProjectDir) > 0 && vault.SessionProjectDir[0] == '~' {
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			return nil, fmt.Errorf("get home directory: %w", err)
+		}
+		vault.SessionProjectDir = filepath.Join(homeDir, vault.SessionProjectDir[1:])
+	}
+
 	return &vault, nil
 }
 
@@ -194,6 +208,13 @@ func (c *configLoader) GetAllVaults(ctx context.Context) ([]*Vault, error) {
 				return nil, fmt.Errorf("get home directory: %w", err)
 			}
 			v.Path = filepath.Join(homeDir, v.Path[1:])
+		}
+		if len(v.SessionProjectDir) > 0 && v.SessionProjectDir[0] == '~' {
+			homeDir, err := os.UserHomeDir()
+			if err != nil {
+				return nil, fmt.Errorf("get home directory: %w", err)
+			}
+			v.SessionProjectDir = filepath.Join(homeDir, v.SessionProjectDir[1:])
 		}
 		vaults = append(vaults, &v)
 	}

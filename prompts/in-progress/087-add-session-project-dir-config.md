@@ -1,6 +1,10 @@
 ---
-status: created
+status: executing
+container: vault-cli-087-add-session-project-dir-config
+dark-factory-version: v0.57.5
 created: "2026-03-19T10:39:35Z"
+queued: "2026-03-19T10:51:00Z"
+started: "2026-03-19T10:51:03Z"
 ---
 
 <summary>

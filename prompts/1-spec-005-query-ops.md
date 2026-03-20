@@ -2,18 +2,13 @@
 status: created
 spec: ["005"]
 created: "2026-03-20T00:00:00Z"
-branch: dark-factory/ops-no-stdout
 ---
 
 <summary>
 - Five read-only operations stop writing to stdout and return structured results instead
-- ListOperation returns []TaskListItem instead of printing
-- ShowOperation returns TaskDetail instead of printing
-- SearchOperation returns []string instead of printing
-- DecisionListOperation returns []DecisionListItem instead of printing
-- EntityShowOperation returns EntityShowResult instead of printing
-- outputFormat parameter is removed from all five operation interfaces
-- CLI layer receives results and formats them for plain or JSON output
+- Each operation returns its result data rather than printing it directly
+- The output format parameter is removed from all five operation interfaces
+- The CLI layer receives results and formats them for plain or JSON output
 - All mocks are regenerated to match the new interfaces
 - All existing tests pass with assertions updated from stdout capture to direct result checks
 </summary>

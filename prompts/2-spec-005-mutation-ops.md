@@ -2,17 +2,14 @@
 status: created
 spec: ["005"]
 created: "2026-03-20T00:00:00Z"
-branch: dark-factory/ops-no-stdout
 ---
 
 <summary>
 - Seven mutation operations stop writing to stdout and return structured results instead
-- CompleteOperation, DeferOperation, WorkOnOperation, UpdateOperation all return (MutationResult, error)
-- DecisionAckOperation, GoalCompleteOperation, ObjectiveCompleteOperation return (MutationResult, error)
-- outputFormat parameter is removed from all seven operation interfaces
-- MutationResult is extended with optional fields to absorb IncompleteResult (subtask blocking case)
-- IncompleteResult type is removed and its fields are folded into MutationResult
-- CLI layer receives MutationResult and formats plain or JSON output
+- All seven operations return a structured result with success/error/warning fields
+- The output format parameter is removed from all seven operation interfaces
+- Subtask-blocking and recurring-task result types are consolidated into one result type
+- The CLI layer receives results and formats plain or JSON output
 - All mocks are regenerated to match the new interfaces
 - All existing tests pass with assertions updated from stdout capture to direct result checks
 </summary>
@@ -68,6 +65,7 @@ type MutationResult struct {
 ```
 
 Remove the `IncompleteResult` type entirely — its fields are now part of `MutationResult`.
+Remove the `RecurringMutationResult` type — `handleRecurringTask` should return `MutationResult` instead. The `NextDate` field from `RecurringMutationResult` can be encoded in the `Message` field.
 
 ### 2. `pkg/ops/complete.go` — CompleteOperation
 
@@ -219,9 +217,12 @@ type ObjectiveCompleteOperation interface {
 }
 ```
 
+Remove the `ObjectiveCompleteResult` type — use `MutationResult` instead.
+
 In `objectiveCompleteOperation.Execute`:
 - Remove `outputFormat string` parameter throughout
 - Remove `outputObjectiveCompleteError` helper function
+- Replace all `ObjectiveCompleteResult` usage with `MutationResult`
 - On success: return `(MutationResult{Success: true, Name: objective.Name, Vault: vaultName}, nil)`
 - Plain-text equivalent in CLI: `"✅ Objective completed: %s\n"`
 - Remove ALL `json.NewEncoder(os.Stdout)`, `fmt.Printf` output calls

@@ -6,10 +6,8 @@ package ops
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log/slog"
-	"os"
 	"regexp"
 	"strings"
 
@@ -28,10 +26,9 @@ type WorkOnOperation interface {
 		taskName string,
 		assignee string,
 		vaultName string,
-		outputFormat string,
 		isInteractive bool,
 		sessionDir string,
-	) error
+	) (MutationResult, error)
 }
 
 // NewWorkOnOperation creates a new work-on operation.
@@ -66,34 +63,35 @@ func (w *workOnOperation) Execute(
 	taskName string,
 	assignee string,
 	vaultName string,
-	outputFormat string,
 	isInteractive bool,
 	sessionDir string,
-) error {
+) (MutationResult, error) {
 	var warnings []string
 
 	task, err := w.taskStorage.FindTaskByName(ctx, vaultPath, taskName)
 	if err != nil {
-		if outputFormat == "json" {
-			result := MutationResult{Success: false, Error: err.Error()}
-			enc := json.NewEncoder(os.Stdout)
-			enc.SetIndent("", "  ")
-			_ = enc.Encode(result)
-		}
-		return errors.Wrap(ctx, err, "find task")
+		return MutationResult{
+				Success: false,
+				Error:   err.Error(),
+			}, errors.Wrap(
+				ctx,
+				err,
+				"find task",
+			)
 	}
 
 	task.Status = domain.TaskStatusInProgress
 	task.Assignee = assignee
 
 	if err := w.taskStorage.WriteTask(ctx, task); err != nil {
-		if outputFormat == "json" {
-			result := MutationResult{Success: false, Error: err.Error()}
-			enc := json.NewEncoder(os.Stdout)
-			enc.SetIndent("", "  ")
-			_ = enc.Encode(result)
-		}
-		return errors.Wrap(ctx, err, "write task")
+		return MutationResult{
+				Success: false,
+				Error:   err.Error(),
+			}, errors.Wrap(
+				ctx,
+				err,
+				"write task",
+			)
 	}
 
 	today := w.currentDateTime.Now().Format("2006-01-02")
@@ -111,27 +109,22 @@ func (w *workOnOperation) Execute(
 	}
 
 	if isInteractive && w.resumer != nil && sessionID != "" {
-		return w.resumer.ResumeSession(sessionID, sessionDir)
-	}
-
-	if outputFormat == "json" {
-		result := MutationResult{
+		return MutationResult{
 			Success:   true,
 			Name:      task.Name,
 			Vault:     vaultName,
 			Warnings:  warnings,
 			SessionID: sessionID,
-		}
-		enc := json.NewEncoder(os.Stdout)
-		enc.SetIndent("", "  ")
-		return enc.Encode(result)
+		}, w.resumer.ResumeSession(sessionID, sessionDir)
 	}
 
-	fmt.Printf("✅ Now working on: %s (assigned to %s)\n", task.Name, assignee)
-	if sessionID != "" {
-		fmt.Printf("session_id: %s\n", sessionID)
-	}
-	return nil
+	return MutationResult{
+		Success:   true,
+		Name:      task.Name,
+		Vault:     vaultName,
+		Warnings:  warnings,
+		SessionID: sessionID,
+	}, nil
 }
 
 // handleClaudeSession starts or returns an existing Claude session for the task.

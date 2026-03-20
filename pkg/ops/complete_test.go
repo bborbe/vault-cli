@@ -22,6 +22,7 @@ var _ = Describe("CompleteOperation", func() {
 	var (
 		ctx                  context.Context
 		err                  error
+		result               ops.MutationResult
 		completeOp           ops.CompleteOperation
 		mockTaskStorage      *mocks.TaskStorage
 		mockGoalStorage      *mocks.GoalStorage
@@ -29,7 +30,6 @@ var _ = Describe("CompleteOperation", func() {
 		vaultPath            string
 		taskName             string
 		task                 *domain.Task
-		outputFormat         string
 	)
 
 	BeforeEach(func() {
@@ -47,7 +47,6 @@ var _ = Describe("CompleteOperation", func() {
 		)
 		vaultPath = "/path/to/vault"
 		taskName = "my-task"
-		outputFormat = "plain" // default
 
 		// Default: return a task
 		task = &domain.Task{
@@ -59,7 +58,7 @@ var _ = Describe("CompleteOperation", func() {
 	})
 
 	JustBeforeEach(func() {
-		err = completeOp.Execute(ctx, vaultPath, taskName, "test-vault", outputFormat)
+		result, err = completeOp.Execute(ctx, vaultPath, taskName, "test-vault")
 	})
 
 	Context("success", func() {
@@ -608,7 +607,7 @@ recurring: daily
 		})
 	})
 
-	Context("task with unchecked checkboxes in plain mode", func() {
+	Context("task with unchecked checkboxes", func() {
 		BeforeEach(func() {
 			task.Content = `---
 status: todo
@@ -622,35 +621,17 @@ status: todo
 `
 		})
 
-		It("completes task with warning", func() {
-			Expect(err).To(BeNil())
-			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
-			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.Status).To(Equal(domain.TaskStatusCompleted))
-		})
-	})
-
-	Context("task with unchecked checkboxes in json mode", func() {
-		BeforeEach(func() {
-			outputFormat = "json"
-			task.Content = `---
-status: todo
----
-# My Task
-
-## Subtasks
-- [ ] Unchecked item 1
-- [x] Checked item 1
-- [/] In-progress item 1
-`
-		})
-
-		It("returns no error", func() {
-			Expect(err).To(BeNil())
+		It("returns error", func() {
+			Expect(err).NotTo(BeNil())
 		})
 
 		It("does not complete task", func() {
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(0))
+		})
+
+		It("result has incomplete reason", func() {
+			Expect(result.Reason).To(Equal("incomplete_items"))
+			Expect(result.Success).To(BeFalse())
 		})
 	})
 

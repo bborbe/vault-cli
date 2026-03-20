@@ -6,9 +6,6 @@ package ops_test
 
 import (
 	"context"
-	"encoding/json"
-	"io"
-	"os"
 
 	libtime "github.com/bborbe/time"
 	libtimetest "github.com/bborbe/time/test"
@@ -24,6 +21,7 @@ var _ = Describe("DecisionAckOperation", func() {
 	var (
 		ctx                 context.Context
 		err                 error
+		result              ops.MutationResult
 		decisionAckOp       ops.DecisionAckOperation
 		mockDecisionStorage *mocks.DecisionStorage
 		currentDateTime     libtime.CurrentDateTime
@@ -31,22 +29,8 @@ var _ = Describe("DecisionAckOperation", func() {
 		vaultName           string
 		decisionName        string
 		statusOverride      string
-		outputFormat        string
 		decision            *domain.Decision
 	)
-
-	captureStdout := func(fn func()) []byte {
-		r, w, pipeErr := os.Pipe()
-		Expect(pipeErr).To(BeNil())
-		orig := os.Stdout
-		os.Stdout = w
-		fn()
-		w.Close()
-		os.Stdout = orig
-		data, readErr := io.ReadAll(r)
-		Expect(readErr).To(BeNil())
-		return data
-	}
 
 	BeforeEach(func() {
 		ctx = context.Background()
@@ -58,7 +42,6 @@ var _ = Describe("DecisionAckOperation", func() {
 		vaultName = "test-vault"
 		decisionName = "decisions/my-decision"
 		statusOverride = ""
-		outputFormat = "plain"
 
 		decision = &domain.Decision{
 			Name:        decisionName,
@@ -71,13 +54,12 @@ var _ = Describe("DecisionAckOperation", func() {
 	})
 
 	JustBeforeEach(func() {
-		err = decisionAckOp.Execute(
+		result, err = decisionAckOp.Execute(
 			ctx,
 			vaultPath,
 			vaultName,
 			decisionName,
 			statusOverride,
-			outputFormat,
 		)
 	})
 
@@ -103,22 +85,10 @@ var _ = Describe("DecisionAckOperation", func() {
 			Expect(written.ReviewedDate).To(Equal("2026-03-16"))
 		})
 
-		It("prints plain output", func() {
-			var output []byte
-			mockDecisionStorage.FindDecisionByNameReturns(decision, nil)
-			mockDecisionStorage.WriteDecisionReturns(nil)
-			output = captureStdout(func() {
-				innerErr := decisionAckOp.Execute(
-					ctx,
-					vaultPath,
-					vaultName,
-					decisionName,
-					statusOverride,
-					"plain",
-				)
-				Expect(innerErr).To(BeNil())
-			})
-			Expect(string(output)).To(ContainSubstring("Acknowledged: " + decisionName))
+		It("returns result with correct name and vault", func() {
+			Expect(result.Success).To(BeTrue())
+			Expect(result.Name).To(Equal(decisionName))
+			Expect(result.Vault).To(Equal(vaultName))
 		})
 	})
 
@@ -139,31 +109,11 @@ var _ = Describe("DecisionAckOperation", func() {
 	})
 
 	Context("JSON output format", func() {
-		BeforeEach(func() {
-			outputFormat = "json"
-		})
-
 		It("returns no error", func() {
 			Expect(err).To(BeNil())
 		})
 
-		It("outputs valid JSON MutationResult", func() {
-			var output []byte
-			mockDecisionStorage.FindDecisionByNameReturns(decision, nil)
-			mockDecisionStorage.WriteDecisionReturns(nil)
-			output = captureStdout(func() {
-				innerErr := decisionAckOp.Execute(
-					ctx,
-					vaultPath,
-					vaultName,
-					decisionName,
-					statusOverride,
-					"json",
-				)
-				Expect(innerErr).To(BeNil())
-			})
-			var result ops.MutationResult
-			Expect(json.Unmarshal(output, &result)).To(Succeed())
+		It("returns result with success true", func() {
 			Expect(result.Success).To(BeTrue())
 			Expect(result.Name).To(Equal(decisionName))
 			Expect(result.Vault).To(Equal(vaultName))

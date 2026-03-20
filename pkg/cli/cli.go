@@ -130,7 +130,25 @@ func createCompleteCommand(
 					dailyStore,
 					currentDateTime,
 				)
-				return completeOp.Execute(ctx, vault.Path, taskName, vault.Name, *outputFormat)
+				result, err := completeOp.Execute(ctx, vault.Path, taskName, vault.Name)
+				if err != nil {
+					if *outputFormat == OutputFormatJSON {
+						_ = PrintJSON(result)
+					}
+					return err
+				}
+				if *outputFormat == OutputFormatJSON {
+					return PrintJSON(result)
+				}
+				if result.Reason != "" {
+					fmt.Printf("⚠️  Cannot complete: %s\n", result.Reason)
+				} else {
+					fmt.Printf("✅ Task completed: %s\n", result.Name)
+				}
+				for _, w := range result.Warnings {
+					fmt.Printf("⚠️  %s\n", w)
+				}
+				return nil
 			})
 		},
 	}
@@ -176,14 +194,27 @@ Date formats:
 				taskStore := storage.NewTaskStorage(storageConfig)
 				dailyStore := storage.NewDailyNoteStorage(storageConfig)
 				deferOp := ops.NewDeferOperation(taskStore, dailyStore, currentDateTime)
-				return deferOp.Execute(
+				result, err := deferOp.Execute(
 					ctx,
 					vault.Path,
 					taskName,
 					dateStr,
 					vault.Name,
-					*outputFormat,
 				)
+				if err != nil {
+					if *outputFormat == OutputFormatJSON {
+						_ = PrintJSON(result)
+					}
+					return err
+				}
+				if *outputFormat == OutputFormatJSON {
+					return PrintJSON(result)
+				}
+				fmt.Printf("📅 Task deferred to %s: %s\n", result.Message, result.Name)
+				for _, w := range result.Warnings {
+					fmt.Printf("⚠️  %s\n", w)
+				}
+				return nil
 			})
 		},
 	}
@@ -213,7 +244,24 @@ func createUpdateCommand(
 				taskStore := storage.NewTaskStorage(storageConfig)
 				goalStore := storage.NewGoalStorage(storageConfig)
 				updateOp := ops.NewUpdateOperation(taskStore, goalStore)
-				return updateOp.Execute(ctx, vault.Path, taskName, vault.Name, *outputFormat)
+				result, err := updateOp.Execute(ctx, vault.Path, taskName, vault.Name)
+				if err != nil {
+					if *outputFormat == OutputFormatJSON {
+						_ = PrintJSON(result)
+					}
+					return err
+				}
+				if *outputFormat == OutputFormatJSON {
+					return PrintJSON(result)
+				}
+				if len(result.Warnings) > 0 {
+					for _, w := range result.Warnings {
+						fmt.Printf("⚠️  %s\n", w)
+					}
+				} else {
+					fmt.Printf("✅ Updated %s\n", result.Message)
+				}
+				return nil
 			})
 		},
 	}
@@ -269,22 +317,45 @@ func createWorkOnCommand(
 				if dir := vault.GetSessionProjectDir(); dir != "" {
 					sessionDir = dir
 				}
-				return workOnOp.Execute(
+				result, err := workOnOp.Execute(
 					ctx,
 					vault.Path,
 					taskName,
 					currentUser,
 					vault.Name,
-					*outputFormat,
 					isInteractive,
 					sessionDir,
 				)
+				return formatWorkOnResult(result, err, currentUser, *outputFormat)
 			})
 		},
 	}
 
 	cmd.Flags().StringVar(&mode, "mode", "auto", "Session mode: auto, interactive, or headless")
 	return cmd
+}
+
+// formatWorkOnResult formats and outputs the result of a work-on operation.
+func formatWorkOnResult(
+	result ops.MutationResult,
+	err error,
+	currentUser string,
+	outputFormat string,
+) error {
+	if err != nil {
+		if outputFormat == OutputFormatJSON {
+			_ = PrintJSON(result)
+		}
+		return err
+	}
+	if outputFormat == OutputFormatJSON {
+		return PrintJSON(result)
+	}
+	fmt.Printf("✅ Now working on: %s (assigned to %s)\n", result.Name, currentUser)
+	if result.SessionID != "" {
+		fmt.Printf("session_id: %s\n", result.SessionID)
+	}
+	return nil
 }
 
 // resolveSessionMode converts a mode string to an isInteractive bool.
@@ -1031,14 +1102,24 @@ func createGoalCompleteCommand(
 				goalStore := storage.NewGoalStorage(storageConfig)
 				taskStore := storage.NewTaskStorage(storageConfig)
 				completeOp := ops.NewGoalCompleteOperation(goalStore, taskStore, currentDateTime)
-				return completeOp.Execute(
+				result, err := completeOp.Execute(
 					ctx,
 					vault.Path,
 					goalName,
 					vault.Name,
-					*outputFormat,
 					force,
 				)
+				if err != nil {
+					if *outputFormat == OutputFormatJSON {
+						_ = PrintJSON(result)
+					}
+					return err
+				}
+				if *outputFormat == OutputFormatJSON {
+					return PrintJSON(result)
+				}
+				fmt.Printf("✅ Goal completed: %s\n", result.Name)
+				return nil
 			})
 		},
 	}
@@ -1227,7 +1308,18 @@ func createObjectiveCompleteCommand(
 				storageConfig := storage.NewConfigFromVault(vault)
 				objectiveStore := storage.NewObjectiveStorage(storageConfig)
 				completeOp := ops.NewObjectiveCompleteOperation(objectiveStore, currentDateTime)
-				return completeOp.Execute(ctx, vault.Path, objectiveName, vault.Name, *outputFormat)
+				result, err := completeOp.Execute(ctx, vault.Path, objectiveName, vault.Name)
+				if err != nil {
+					if *outputFormat == OutputFormatJSON {
+						_ = PrintJSON(result)
+					}
+					return err
+				}
+				if *outputFormat == OutputFormatJSON {
+					return PrintJSON(result)
+				}
+				fmt.Printf("✅ Objective completed: %s\n", result.Name)
+				return nil
 			})
 		},
 	}
@@ -1402,14 +1494,24 @@ func createDecisionAckCommand(
 				storageConfig := storage.NewConfigFromVault(vault)
 				decisionStore := storage.NewDecisionStorage(storageConfig)
 				ackOp := ops.NewDecisionAckOperation(decisionStore, currentDateTime)
-				return ackOp.Execute(
+				result, err := ackOp.Execute(
 					ctx,
 					vault.Path,
 					vault.Name,
 					decisionName,
 					statusOverride,
-					*outputFormat,
 				)
+				if err != nil {
+					if *outputFormat == OutputFormatJSON {
+						_ = PrintJSON(result)
+					}
+					return err
+				}
+				if *outputFormat == OutputFormatJSON {
+					return PrintJSON(result)
+				}
+				fmt.Printf("Acknowledged: %s\n", result.Name)
+				return nil
 			})
 		},
 	}

@@ -6,10 +6,8 @@ package ops
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log/slog"
-	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -28,8 +26,7 @@ type CompleteOperation interface {
 		vaultPath string,
 		taskName string,
 		vaultName string,
-		outputFormat string,
-	) error
+	) (MutationResult, error)
 }
 
 // NewCompleteOperation creates a new complete operation.
@@ -62,16 +59,13 @@ type MutationResult struct {
 	Error     string   `json:"error,omitempty"`
 	Warnings  []string `json:"warnings,omitempty"`
 	SessionID string   `json:"session_id,omitempty"`
-}
-
-// IncompleteResult represents the result when a task has incomplete subtasks.
-type IncompleteResult struct {
-	Success    bool   `json:"success"`
-	Reason     string `json:"reason"`
-	Pending    int    `json:"pending"`
-	InProgress int    `json:"inprogress"`
-	Completed  int    `json:"completed"`
-	Total      int    `json:"total"`
+	Message   string   `json:"message,omitempty"`
+	// Subtask blocking fields (used when a task cannot be completed due to incomplete subtasks)
+	Reason     string `json:"reason,omitempty"`
+	Pending    int    `json:"pending,omitempty"`
+	InProgress int    `json:"inprogress,omitempty"`
+	Completed  int    `json:"completed,omitempty"`
+	Total      int    `json:"total,omitempty"`
 }
 
 // Execute marks a task as complete and updates the associated goal.
@@ -80,33 +74,30 @@ func (c *completeOperation) Execute(
 	vaultPath string,
 	taskName string,
 	vaultName string,
-	outputFormat string,
-) error {
+) (MutationResult, error) {
 	var warnings []string
 
 	// Find and read the task
 	task, err := c.taskStorage.FindTaskByName(ctx, vaultPath, taskName)
 	if err != nil {
-		if outputFormat == "json" {
-			result := MutationResult{
+		return MutationResult{
 				Success: false,
 				Error:   err.Error(),
-			}
-			enc := json.NewEncoder(os.Stdout)
-			enc.SetIndent("", "  ")
-			_ = enc.Encode(result)
-		}
-		return errors.Wrap(ctx, err, "find task")
+			}, errors.Wrap(
+				ctx,
+				err,
+				"find task",
+			)
 	}
 
 	// Handle recurring tasks differently
 	if task.Recurring != "" {
-		return c.handleRecurringTask(ctx, task, vaultPath, vaultName, outputFormat, warnings)
+		return c.handleRecurringTask(ctx, task, vaultPath, vaultName, warnings)
 	}
 
 	// Check subtask completion for non-recurring tasks
-	if shouldBlock, err := c.checkSubtaskCompletion(task, outputFormat); shouldBlock {
-		return err
+	if result, shouldBlock, blockErr := c.checkSubtaskCompletion(ctx, task); shouldBlock {
+		return result, blockErr
 	}
 
 	// Update task status to completed
@@ -116,16 +107,14 @@ func (c *completeOperation) Execute(
 
 	// Write updated task
 	if err := c.taskStorage.WriteTask(ctx, task); err != nil {
-		if outputFormat == "json" {
-			result := MutationResult{
+		return MutationResult{
 				Success: false,
 				Error:   err.Error(),
-			}
-			enc := json.NewEncoder(os.Stdout)
-			enc.SetIndent("", "  ")
-			_ = enc.Encode(result)
-		}
-		return errors.Wrap(ctx, err, "write task")
+			}, errors.Wrap(
+				ctx,
+				err,
+				"write task",
+			)
 	}
 
 	// Update associated goals
@@ -145,71 +134,33 @@ func (c *completeOperation) Execute(
 		slog.Warn("complete warning", "warning", warning)
 	}
 
-	if outputFormat == "json" {
-		result := MutationResult{
-			Success:  true,
-			Name:     task.Name,
-			Vault:    vaultName,
-			Warnings: warnings,
-		}
-		enc := json.NewEncoder(os.Stdout)
-		enc.SetIndent("", "  ")
-		return enc.Encode(result)
-	}
-
-	fmt.Printf("✅ Task completed: %s\n", task.Name)
-	return nil
+	return MutationResult{Success: true, Name: task.Name, Vault: vaultName, Warnings: warnings}, nil
 }
 
 // checkSubtaskCompletion checks if all subtasks are complete.
-// Returns (true, error) if task should not be completed (json mode with incomplete items).
-// Returns (false, nil) if task can proceed to completion.
+// Returns (result, true, error) if task should not be completed (incomplete items).
+// Returns (MutationResult{}, false, nil) if task can proceed to completion.
 func (c *completeOperation) checkSubtaskCompletion(
+	ctx context.Context,
 	task *domain.Task,
-	outputFormat string,
-) (bool, error) {
+) (MutationResult, bool, error) {
 	completed, inProgress, pending := countCheckboxStates(task.Content)
 	total := completed + inProgress + pending
 
 	// If no checkboxes or all complete, proceed normally
 	if total == 0 || (pending == 0 && inProgress == 0) {
-		return false, nil
+		return MutationResult{}, false, nil
 	}
 
-	// JSON mode: return incomplete status without completing
-	if outputFormat == "json" {
-		result := IncompleteResult{
-			Success:    false,
-			Reason:     "incomplete_items",
-			Pending:    pending,
-			InProgress: inProgress,
-			Completed:  completed,
-			Total:      total,
-		}
-		enc := json.NewEncoder(os.Stdout)
-		enc.SetIndent("", "  ")
-		return true, enc.Encode(result)
+	result := MutationResult{
+		Success:    false,
+		Reason:     "incomplete_items",
+		Pending:    pending,
+		InProgress: inProgress,
+		Completed:  completed,
+		Total:      total,
 	}
-
-	// Plain mode: warn but continue
-	slog.Warn("subtasks incomplete, completing anyway",
-		"incomplete", pending+inProgress,
-		"total", total,
-		"pending", pending,
-		"in_progress", inProgress,
-	)
-	return false, nil
-}
-
-// RecurringMutationResult represents the result of a recurring task mutation.
-type RecurringMutationResult struct {
-	Success   bool     `json:"success"`
-	Name      string   `json:"name,omitempty"`
-	Vault     string   `json:"vault,omitempty"`
-	Recurring bool     `json:"recurring"`
-	NextDate  string   `json:"next_date,omitempty"`
-	Error     string   `json:"error,omitempty"`
-	Warnings  []string `json:"warnings,omitempty"`
+	return result, true, errors.Errorf(ctx, "incomplete subtasks: %d pending", pending)
 }
 
 // handleRecurringTask handles completion of a recurring task.
@@ -218,9 +169,8 @@ func (c *completeOperation) handleRecurringTask(
 	task *domain.Task,
 	vaultPath string,
 	vaultName string,
-	outputFormat string,
 	warnings []string,
-) error {
+) (MutationResult, error) {
 	now := c.currentDateTime.Now().Time()
 	today := now.Format("2006-01-02")
 
@@ -246,18 +196,15 @@ func (c *completeOperation) handleRecurringTask(
 
 	// Write updated task
 	if err := c.taskStorage.WriteTask(ctx, task); err != nil {
-		if outputFormat == "json" {
-			result := RecurringMutationResult{
-				Success:   false,
-				Vault:     vaultName,
-				Recurring: true,
-				Error:     err.Error(),
-			}
-			enc := json.NewEncoder(os.Stdout)
-			enc.SetIndent("", "  ")
-			_ = enc.Encode(result)
-		}
-		return errors.Wrap(ctx, err, "write recurring task")
+		return MutationResult{
+				Success: false,
+				Vault:   vaultName,
+				Error:   err.Error(),
+			}, errors.Wrap(
+				ctx,
+				err,
+				"write recurring task",
+			)
 	}
 
 	// Update today's daily note (mark checkbox as checked for completion)
@@ -269,22 +216,13 @@ func (c *completeOperation) handleRecurringTask(
 
 	nextDateStr := newDeferDate.Time().Format("2006-01-02")
 
-	if outputFormat == "json" {
-		result := RecurringMutationResult{
-			Success:   true,
-			Name:      task.Name,
-			Vault:     vaultName,
-			Recurring: true,
-			NextDate:  nextDateStr,
-			Warnings:  warnings,
-		}
-		enc := json.NewEncoder(os.Stdout)
-		enc.SetIndent("", "  ")
-		return enc.Encode(result)
-	}
-
-	fmt.Printf("🔄 Recurring task reset: %s (next: %s)\n", task.Name, nextDateStr)
-	return nil
+	return MutationResult{
+		Success:  true,
+		Name:     task.Name,
+		Vault:    vaultName,
+		Warnings: warnings,
+		Message:  nextDateStr,
+	}, nil
 }
 
 // calculateNextDeferDate calculates the next defer date based on recurring interval.
@@ -370,7 +308,11 @@ func (c *completeOperation) markGoalCheckbox(
 	}
 
 	if !modified {
-		return fmt.Errorf("checkbox not found for task %s in goal %s", taskName, goalName)
+		return fmt.Errorf(
+			"checkbox not found for task %s in goal %s",
+			taskName,
+			goalName,
+		) //nolint:goerr113
 	}
 
 	// Update goal content

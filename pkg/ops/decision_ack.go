@@ -6,9 +6,6 @@ package ops
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
-	"os"
 
 	"github.com/bborbe/errors"
 	libtime "github.com/bborbe/time"
@@ -24,8 +21,7 @@ type DecisionAckOperation interface {
 		vaultName string,
 		decisionName string,
 		statusOverride string,
-		outputFormat string,
-	) error
+	) (MutationResult, error)
 }
 
 // NewDecisionAckOperation creates a new decision ack operation.
@@ -51,11 +47,17 @@ func (d *decisionAckOperation) Execute(
 	vaultName string,
 	decisionName string,
 	statusOverride string,
-	outputFormat string,
-) error {
+) (MutationResult, error) {
 	decision, err := d.decisionStorage.FindDecisionByName(ctx, vaultPath, decisionName)
 	if err != nil {
-		return errors.Wrap(ctx, err, "find decision")
+		return MutationResult{
+				Success: false,
+				Error:   err.Error(),
+			}, errors.Wrap(
+				ctx,
+				err,
+				"find decision",
+			)
 	}
 
 	decision.Reviewed = true
@@ -66,20 +68,19 @@ func (d *decisionAckOperation) Execute(
 	}
 
 	if err := d.decisionStorage.WriteDecision(ctx, decision); err != nil {
-		return errors.Wrap(ctx, err, "write decision")
+		return MutationResult{
+				Success: false,
+				Error:   err.Error(),
+			}, errors.Wrap(
+				ctx,
+				err,
+				"write decision",
+			)
 	}
 
-	if outputFormat == "json" {
-		result := MutationResult{
-			Success: true,
-			Name:    decision.Name,
-			Vault:   vaultName,
-		}
-		enc := json.NewEncoder(os.Stdout)
-		enc.SetIndent("", "  ")
-		return enc.Encode(result)
-	}
-
-	fmt.Printf("Acknowledged: %s\n", decision.Name)
-	return nil
+	return MutationResult{
+		Success: true,
+		Name:    decision.Name,
+		Vault:   vaultName,
+	}, nil
 }

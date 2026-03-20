@@ -6,10 +6,8 @@ package ops
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log/slog"
-	"os"
 	"regexp"
 	"strings"
 
@@ -26,8 +24,7 @@ type UpdateOperation interface {
 		vaultPath string,
 		taskName string,
 		vaultName string,
-		outputFormat string,
-	) error
+	) (MutationResult, error)
 }
 
 // NewUpdateOperation creates a new update operation.
@@ -52,67 +49,62 @@ func (u *updateOperation) Execute(
 	vaultPath string,
 	taskName string,
 	vaultName string,
-	outputFormat string,
-) error {
+) (MutationResult, error) {
 	var warnings []string
 
 	task, err := u.taskStorage.FindTaskByName(ctx, vaultPath, taskName)
 	if err != nil {
-		u.outputErrorJSON(outputFormat, err)
-		return errors.Wrap(ctx, err, "find task")
+		return MutationResult{
+				Success: false,
+				Error:   err.Error(),
+			}, errors.Wrap(
+				ctx,
+				err,
+				"find task",
+			)
 	}
 
 	checkboxes := u.parseCheckboxes(task.Content)
 	if len(checkboxes) == 0 {
-		return u.handleNoCheckboxes(task.Name, vaultName, outputFormat)
+		warning := "No checkboxes found in task"
+		return MutationResult{
+			Success:  true,
+			Name:     taskName,
+			Vault:    vaultName,
+			Warnings: []string{warning},
+		}, nil
 	}
 
 	completed, total := u.countCompleted(checkboxes)
 	task.Status = u.statusFromProgress(completed, total)
 
 	if err := u.taskStorage.WriteTask(ctx, task); err != nil {
-		u.outputErrorJSON(outputFormat, err)
-		return errors.Wrap(ctx, err, "write task")
+		return MutationResult{
+				Success: false,
+				Error:   err.Error(),
+			}, errors.Wrap(
+				ctx,
+				err,
+				"write task",
+			)
 	}
 
 	warnings = u.syncGoals(ctx, vaultPath, task.Goals, checkboxes, warnings)
 
-	return u.outputUpdateResult(
-		outputFormat,
-		task.Name,
+	message := fmt.Sprintf(
+		"%s/%s: %d/%d checkboxes complete",
+		taskName,
 		vaultName,
 		completed,
 		total,
-		task.Status,
-		warnings,
 	)
-}
-
-func (u *updateOperation) outputErrorJSON(outputFormat string, err error) {
-	if outputFormat != "json" {
-		return
-	}
-	result := MutationResult{Success: false, Error: err.Error()}
-	enc := json.NewEncoder(os.Stdout)
-	enc.SetIndent("", "  ")
-	_ = enc.Encode(result)
-}
-
-func (u *updateOperation) handleNoCheckboxes(taskName, vaultName, outputFormat string) error {
-	warning := "No checkboxes found in task"
-	if outputFormat == "plain" {
-		fmt.Printf("%s: %s\n", warning, taskName)
-		return nil
-	}
-	result := MutationResult{
+	return MutationResult{
 		Success:  true,
 		Name:     taskName,
 		Vault:    vaultName,
-		Warnings: []string{warning},
-	}
-	enc := json.NewEncoder(os.Stdout)
-	enc.SetIndent("", "  ")
-	return enc.Encode(result)
+		Warnings: warnings,
+		Message:  message,
+	}, nil
 }
 
 func (u *updateOperation) countCompleted(checkboxes []domain.CheckboxItem) (int, int) {
@@ -150,36 +142,6 @@ func (u *updateOperation) syncGoals(
 		}
 	}
 	return warnings
-}
-
-func (u *updateOperation) outputUpdateResult(
-	outputFormat string,
-	taskName string,
-	vaultName string,
-	completed int,
-	total int,
-	status domain.TaskStatus,
-	warnings []string,
-) error {
-	if outputFormat == "json" {
-		result := MutationResult{
-			Success:  true,
-			Name:     taskName,
-			Vault:    vaultName,
-			Warnings: warnings,
-		}
-		enc := json.NewEncoder(os.Stdout)
-		enc.SetIndent("", "  ")
-		return enc.Encode(result)
-	}
-	fmt.Printf(
-		"✅ Task updated: %s (%d/%d completed, status: %s)\n",
-		taskName,
-		completed,
-		total,
-		status,
-	)
-	return nil
 }
 
 // parseCheckboxes extracts checkbox items from markdown content.

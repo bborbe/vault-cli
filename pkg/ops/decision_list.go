@@ -6,9 +6,6 @@ package ops
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
-	"os"
 	"sort"
 	"strings"
 
@@ -26,8 +23,7 @@ type DecisionListOperation interface {
 		vaultName string,
 		showReviewed bool,
 		showAll bool,
-		outputFormat string,
-	) error
+	) ([]DecisionListItem, error)
 }
 
 // NewDecisionListOperation creates a new decision list operation.
@@ -57,11 +53,10 @@ func (d *decisionListOperation) Execute(
 	vaultName string,
 	showReviewed bool,
 	showAll bool,
-	outputFormat string,
-) error {
+) ([]DecisionListItem, error) {
 	decisions, err := d.decisionStorage.ListDecisions(ctx, vaultPath)
 	if err != nil {
-		return errors.Wrap(ctx, err, "list decisions")
+		return nil, errors.Wrap(ctx, err, "list decisions")
 	}
 
 	filtered := filterDecisions(decisions, showReviewed, showAll)
@@ -70,33 +65,19 @@ func (d *decisionListOperation) Execute(
 		return strings.ToLower(filtered[i].Name) < strings.ToLower(filtered[j].Name)
 	})
 
-	if outputFormat == "json" {
-		items := make([]DecisionListItem, 0, len(filtered))
-		for _, dec := range filtered {
-			items = append(items, DecisionListItem{
-				Name:         dec.Name,
-				Reviewed:     dec.Reviewed,
-				ReviewedDate: dec.ReviewedDate,
-				Status:       dec.Status,
-				Type:         dec.Type,
-				PageType:     dec.PageType,
-				Vault:        vaultName,
-			})
-		}
-		enc := json.NewEncoder(os.Stdout)
-		enc.SetIndent("", "  ")
-		return enc.Encode(items)
-	}
-
+	items := make([]DecisionListItem, 0, len(filtered))
 	for _, dec := range filtered {
-		reviewStatus := "unreviewed"
-		if dec.Reviewed {
-			reviewStatus = "reviewed"
-		}
-		fmt.Printf("[%s] %s\n", reviewStatus, dec.Name)
+		items = append(items, DecisionListItem{
+			Name:         dec.Name,
+			Reviewed:     dec.Reviewed,
+			ReviewedDate: dec.ReviewedDate,
+			Status:       dec.Status,
+			Type:         dec.Type,
+			PageType:     dec.PageType,
+			Vault:        vaultName,
+		})
 	}
-
-	return nil
+	return items, nil
 }
 
 func filterDecisions(

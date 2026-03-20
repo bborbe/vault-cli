@@ -795,12 +795,12 @@ var _ = Describe("NewGoalShowOperation", func() {
 	var (
 		ctx             context.Context
 		err             error
+		result          ops.EntityShowResult
 		showOp          ops.EntityShowOperation
 		mockGoalStorage *mocks.GoalStorage
 		vaultPath       string
 		vaultName       string
 		goalName        string
-		outputFormat    string
 		goal            *domain.Goal
 	)
 
@@ -811,7 +811,6 @@ var _ = Describe("NewGoalShowOperation", func() {
 		vaultPath = "/path/to/vault"
 		vaultName = "my-vault"
 		goalName = "my-goal"
-		outputFormat = "plain"
 
 		goal = &domain.Goal{
 			Name:     goalName,
@@ -826,26 +825,28 @@ var _ = Describe("NewGoalShowOperation", func() {
 	})
 
 	JustBeforeEach(func() {
-		err = showOp.Execute(ctx, vaultPath, vaultName, goalName, outputFormat)
+		result, err = showOp.Execute(ctx, vaultPath, vaultName, goalName)
 	})
 
-	Context("plain output", func() {
-		BeforeEach(func() {
-			outputFormat = "plain"
-		})
-
+	Context("success", func() {
 		It("succeeds without error", func() {
 			Expect(err).To(BeNil())
 		})
-	})
 
-	Context("json output", func() {
-		BeforeEach(func() {
-			outputFormat = "json"
+		It("returns the goal name", func() {
+			Expect(result.Name).To(Equal(goalName))
 		})
 
-		It("succeeds without error", func() {
-			Expect(err).To(BeNil())
+		It("returns the vault name", func() {
+			Expect(result.Vault).To(Equal(vaultName))
+		})
+
+		It("returns fields", func() {
+			Expect(result.Fields).NotTo(BeEmpty())
+		})
+
+		It("returns field order", func() {
+			Expect(result.FieldOrder).NotTo(BeEmpty())
 		})
 	})
 

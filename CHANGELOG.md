@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.48.4
+
+- refactor: extract output formatting from five query operations (list, show, search, decision-list, entity-show) so they return structured results and never write to stdout; CLI layer owns all formatting
+
 ## v0.48.3
 
 - upgrade golangci-lint from v1 to v2

@@ -305,7 +305,8 @@ func (l *lintOperation) handleMissingFrontmatterCase(
 	fix bool,
 ) ([]LintIssue, error) {
 	issue, updatedContent, shouldReturn := l.handleMissingFrontmatter(filePath, content, fix)
-	issues := []LintIssue{issue}
+	issues := make([]LintIssue, 0, 2) //nolint:mnd
+	issues = append(issues, issue)
 
 	if shouldReturn {
 		return issues, nil

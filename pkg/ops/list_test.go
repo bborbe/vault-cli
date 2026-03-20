@@ -6,9 +6,6 @@ package ops_test
 
 import (
 	"context"
-	"encoding/json"
-	"io"
-	"os"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -66,7 +63,7 @@ var _ = Describe("ListOperation", func() {
 	})
 
 	JustBeforeEach(func() {
-		err = listOp.Execute(
+		_, err = listOp.Execute(
 			ctx,
 			vaultPath,
 			"test-vault",
@@ -75,7 +72,6 @@ var _ = Describe("ListOperation", func() {
 			showAll,
 			assigneeFilter,
 			goalFilter,
-			"plain",
 		)
 	})
 
@@ -357,20 +353,8 @@ var _ = Describe("ListOperation JSON output", func() {
 	var ctx context.Context
 	var listOp ops.ListOperation
 	var mockPageStorage *mocks.PageStorage
-	var capturedOutput []byte
-
-	captureStdout := func(fn func()) []byte {
-		r, w, err := os.Pipe()
-		Expect(err).To(BeNil())
-		orig := os.Stdout
-		os.Stdout = w
-		fn()
-		w.Close()
-		os.Stdout = orig
-		data, err := io.ReadAll(r)
-		Expect(err).To(BeNil())
-		return data
-	}
+	var items []ops.TaskListItem
+	var execErr error
 
 	BeforeEach(func() {
 		ctx = context.Background()
@@ -399,53 +383,46 @@ var _ = Describe("ListOperation JSON output", func() {
 				},
 			}
 			mockPageStorage.ListPagesReturns(tasks, nil)
+			items, execErr = listOp.Execute(ctx, "/vault", "my-vault", "Tasks", nil, true, "", "")
+		})
 
-			capturedOutput = captureStdout(func() {
-				err := listOp.Execute(ctx, "/vault", "my-vault", "Tasks", nil, true, "", "", "json")
-				Expect(err).To(BeNil())
-			})
+		It("succeeds", func() {
+			Expect(execErr).To(BeNil())
+			Expect(items).To(HaveLen(1))
 		})
 
 		It("includes category from page_type", func() {
-			var items []ops.TaskListItem
-			Expect(json.Unmarshal(capturedOutput, &items)).To(Succeed())
-			Expect(items).To(HaveLen(1))
+			Expect(execErr).To(BeNil())
 			Expect(items[0].Category).To(Equal("feature"))
 		})
 
 		It("includes recurring field", func() {
-			var items []ops.TaskListItem
-			Expect(json.Unmarshal(capturedOutput, &items)).To(Succeed())
+			Expect(execErr).To(BeNil())
 			Expect(items[0].Recurring).To(Equal("weekly"))
 		})
 
 		It("includes defer_date formatted as YYYY-MM-DD", func() {
-			var items []ops.TaskListItem
-			Expect(json.Unmarshal(capturedOutput, &items)).To(Succeed())
+			Expect(execErr).To(BeNil())
 			Expect(items[0].DeferDate).To(Equal("2026-03-15"))
 		})
 
 		It("includes planned_date formatted as YYYY-MM-DD", func() {
-			var items []ops.TaskListItem
-			Expect(json.Unmarshal(capturedOutput, &items)).To(Succeed())
+			Expect(execErr).To(BeNil())
 			Expect(items[0].PlannedDate).To(Equal("2026-03-20"))
 		})
 
 		It("includes due_date formatted as YYYY-MM-DD", func() {
-			var items []ops.TaskListItem
-			Expect(json.Unmarshal(capturedOutput, &items)).To(Succeed())
+			Expect(execErr).To(BeNil())
 			Expect(items[0].DueDate).To(Equal("2026-03-25"))
 		})
 
 		It("includes claude_session_id", func() {
-			var items []ops.TaskListItem
-			Expect(json.Unmarshal(capturedOutput, &items)).To(Succeed())
+			Expect(execErr).To(BeNil())
 			Expect(items[0].ClaudeSessionID).To(Equal("sess-abc123"))
 		})
 
 		It("includes phase", func() {
-			var items []ops.TaskListItem
-			Expect(json.Unmarshal(capturedOutput, &items)).To(Succeed())
+			Expect(execErr).To(BeNil())
 			Expect(items[0].Phase).To(Equal("in_progress"))
 		})
 	})
@@ -459,26 +436,23 @@ var _ = Describe("ListOperation JSON output", func() {
 				},
 			}
 			mockPageStorage.ListPagesReturns(tasks, nil)
-
-			capturedOutput = captureStdout(func() {
-				err := listOp.Execute(ctx, "/vault", "my-vault", "Tasks", nil, true, "", "", "json")
-				Expect(err).To(BeNil())
-			})
+			items, execErr = listOp.Execute(ctx, "/vault", "my-vault", "Tasks", nil, true, "", "")
 		})
 
-		It("omits empty optional fields from JSON", func() {
-			Expect(capturedOutput).NotTo(ContainSubstring(`"category"`))
-			Expect(capturedOutput).NotTo(ContainSubstring(`"recurring"`))
-			Expect(capturedOutput).NotTo(ContainSubstring(`"defer_date"`))
-			Expect(capturedOutput).NotTo(ContainSubstring(`"planned_date"`))
-			Expect(capturedOutput).NotTo(ContainSubstring(`"due_date"`))
-			Expect(capturedOutput).NotTo(ContainSubstring(`"claude_session_id"`))
-			Expect(capturedOutput).NotTo(ContainSubstring(`"phase"`))
+		It("omits empty optional fields", func() {
+			Expect(execErr).To(BeNil())
+			Expect(items).To(HaveLen(1))
+			Expect(items[0].Category).To(BeEmpty())
+			Expect(items[0].Recurring).To(BeEmpty())
+			Expect(items[0].DeferDate).To(BeEmpty())
+			Expect(items[0].PlannedDate).To(BeEmpty())
+			Expect(items[0].DueDate).To(BeEmpty())
+			Expect(items[0].ClaudeSessionID).To(BeEmpty())
+			Expect(items[0].Phase).To(BeEmpty())
 		})
 
 		It("still includes required fields", func() {
-			var items []ops.TaskListItem
-			Expect(json.Unmarshal(capturedOutput, &items)).To(Succeed())
+			Expect(execErr).To(BeNil())
 			Expect(items).To(HaveLen(1))
 			Expect(items[0].Name).To(Equal("Minimal Task"))
 			Expect(items[0].Status).To(Equal("todo"))
@@ -501,26 +475,20 @@ var _ = Describe("ListOperation JSON output", func() {
 				},
 			}
 			mockPageStorage.ListPagesReturns(tasks, nil)
-
-			capturedOutput = captureStdout(func() {
-				err := listOp.Execute(
-					ctx,
-					"/vault",
-					"my-vault",
-					"Tasks",
-					nil,
-					true,
-					"",
-					"Target Goal",
-					"json",
-				)
-				Expect(err).To(BeNil())
-			})
+			items, execErr = listOp.Execute(
+				ctx,
+				"/vault",
+				"my-vault",
+				"Tasks",
+				nil,
+				true,
+				"",
+				"Target Goal",
+			)
 		})
 
 		It("returns only tasks matching the goal", func() {
-			var items []ops.TaskListItem
-			Expect(json.Unmarshal(capturedOutput, &items)).To(Succeed())
+			Expect(execErr).To(BeNil())
 			Expect(items).To(HaveLen(1))
 			Expect(items[0].Name).To(Equal("Matching Task"))
 		})
@@ -542,28 +510,21 @@ var _ = Describe("ListOperation JSON output", func() {
 				},
 			}
 			mockPageStorage.ListPagesReturns(tasks, nil)
-
-			capturedOutput = captureStdout(func() {
-				err := listOp.Execute(ctx, "/vault", "my-vault", "Tasks", nil, true, "", "", "json")
-				Expect(err).To(BeNil())
-			})
+			items, execErr = listOp.Execute(ctx, "/vault", "my-vault", "Tasks", nil, true, "", "")
 		})
 
 		It("formats defer_date with time component as RFC3339", func() {
-			var items []ops.TaskListItem
-			Expect(json.Unmarshal(capturedOutput, &items)).To(Succeed())
+			Expect(execErr).To(BeNil())
 			Expect(items[0].DeferDate).To(Equal("2026-03-18T16:00:00+01:00"))
 		})
 
 		It("formats planned_date with time component as RFC3339", func() {
-			var items []ops.TaskListItem
-			Expect(json.Unmarshal(capturedOutput, &items)).To(Succeed())
+			Expect(execErr).To(BeNil())
 			Expect(items[0].PlannedDate).To(Equal("2026-03-20T09:30:00Z"))
 		})
 
 		It("formats due_date at midnight UTC as YYYY-MM-DD", func() {
-			var items []ops.TaskListItem
-			Expect(json.Unmarshal(capturedOutput, &items)).To(Succeed())
+			Expect(execErr).To(BeNil())
 			Expect(items[0].DueDate).To(Equal("2026-03-25"))
 		})
 	})
@@ -579,16 +540,11 @@ var _ = Describe("ListOperation JSON output", func() {
 				},
 			}
 			mockPageStorage.ListPagesReturns(tasks, nil)
-
-			capturedOutput = captureStdout(func() {
-				err := listOp.Execute(ctx, "/vault", "my-vault", "Tasks", nil, true, "", "", "json")
-				Expect(err).To(BeNil())
-			})
+			items, execErr = listOp.Execute(ctx, "/vault", "my-vault", "Tasks", nil, true, "", "")
 		})
 
-		It("includes non-empty modified_date in JSON output", func() {
-			var items []ops.TaskListItem
-			Expect(json.Unmarshal(capturedOutput, &items)).To(Succeed())
+		It("includes non-empty modified_date in result", func() {
+			Expect(execErr).To(BeNil())
 			Expect(items).To(HaveLen(1))
 			Expect(items[0].ModifiedDate).To(Equal("2026-03-18T12:00:00Z"))
 		})
@@ -604,16 +560,11 @@ var _ = Describe("ListOperation JSON output", func() {
 				},
 			}
 			mockPageStorage.ListPagesReturns(tasks, nil)
-
-			capturedOutput = captureStdout(func() {
-				err := listOp.Execute(ctx, "/vault", "my-vault", "Tasks", nil, true, "", "", "json")
-				Expect(err).To(BeNil())
-			})
+			items, execErr = listOp.Execute(ctx, "/vault", "my-vault", "Tasks", nil, true, "", "")
 		})
 
-		It("includes completed_date in JSON output", func() {
-			var items []ops.TaskListItem
-			Expect(json.Unmarshal(capturedOutput, &items)).To(Succeed())
+		It("includes completed_date in result", func() {
+			Expect(execErr).To(BeNil())
 			Expect(items).To(HaveLen(1))
 			Expect(items[0].CompletedDate).To(Equal("2026-03-03T12:00:00Z"))
 		})
@@ -628,16 +579,11 @@ var _ = Describe("ListOperation JSON output", func() {
 				},
 			}
 			mockPageStorage.ListPagesReturns(tasks, nil)
-
-			capturedOutput = captureStdout(func() {
-				err := listOp.Execute(ctx, "/vault", "my-vault", "Tasks", nil, true, "", "", "json")
-				Expect(err).To(BeNil())
-			})
+			items, execErr = listOp.Execute(ctx, "/vault", "my-vault", "Tasks", nil, true, "", "")
 		})
 
-		It("omits nil date fields from JSON output", func() {
-			var items []ops.TaskListItem
-			Expect(json.Unmarshal(capturedOutput, &items)).To(Succeed())
+		It("omits nil date fields from result", func() {
+			Expect(execErr).To(BeNil())
 			Expect(items[0].DeferDate).To(BeEmpty())
 			Expect(items[0].PlannedDate).To(BeEmpty())
 			Expect(items[0].DueDate).To(BeEmpty())
@@ -653,32 +599,25 @@ var _ = Describe("ListOperation JSON output", func() {
 				{Name: "Hold Task", Status: domain.TaskStatusHold},
 			}
 			mockPageStorage.ListPagesReturns(tasks, nil)
-
-			capturedOutput = captureStdout(func() {
-				err := listOp.Execute(
-					ctx,
-					"/vault",
-					"my-vault",
-					"Tasks",
-					[]string{"in_progress", "completed"},
-					false,
-					"",
-					"",
-					"json",
-				)
-				Expect(err).To(BeNil())
-			})
+			items, execErr = listOp.Execute(
+				ctx,
+				"/vault",
+				"my-vault",
+				"Tasks",
+				[]string{"in_progress", "completed"},
+				false,
+				"",
+				"",
+			)
 		})
 
 		It("includes tasks matching requested statuses", func() {
-			var items []ops.TaskListItem
-			Expect(json.Unmarshal(capturedOutput, &items)).To(Succeed())
+			Expect(execErr).To(BeNil())
 			Expect(items).To(HaveLen(2))
 		})
 
 		It("excludes tasks not matching requested statuses", func() {
-			var items []ops.TaskListItem
-			Expect(json.Unmarshal(capturedOutput, &items)).To(Succeed())
+			Expect(execErr).To(BeNil())
 			for _, item := range items {
 				Expect(item.Status).NotTo(Equal("todo"))
 				Expect(item.Status).NotTo(Equal("hold"))

@@ -6,7 +6,6 @@ package ops
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
@@ -543,11 +542,21 @@ func NewTaskListRemoveOperation(taskStorage storage.TaskStorage) EntityListRemov
 	}
 }
 
+// EntityShowResult is the structured result from EntityShowOperation.
+type EntityShowResult struct {
+	Name       string            `json:"name"`
+	FilePath   string            `json:"file_path"`
+	Vault      string            `json:"vault"`
+	Fields     map[string]string `json:"fields"`
+	FieldOrder []string          `json:"field_order,omitempty"`
+	Content    string            `json:"content"`
+}
+
 // EntityShowOperation returns full detail for a single entity.
 //
 //counterfeiter:generate -o ../../mocks/entity-show-operation.go --fake-name EntityShowOperation . EntityShowOperation
 type EntityShowOperation interface {
-	Execute(ctx context.Context, vaultPath, vaultName, entityName, outputFormat string) error
+	Execute(ctx context.Context, vaultPath, vaultName, entityName string) (EntityShowResult, error)
 }
 
 type entityShowOperation struct {
@@ -555,14 +564,14 @@ type entityShowOperation struct {
 	entityType string
 }
 
-// Execute finds an entity by name and outputs its full detail.
+// Execute finds an entity by name and returns its full detail.
 func (o *entityShowOperation) Execute(
 	ctx context.Context,
-	vaultPath, vaultName, entityName, outputFormat string,
-) error {
+	vaultPath, vaultName, entityName string,
+) (EntityShowResult, error) {
 	entity, err := o.findFn(ctx, vaultPath, entityName)
 	if err != nil {
-		return errors.Wrap(ctx, err, fmt.Sprintf("find %s", o.entityType))
+		return EntityShowResult{}, errors.Wrap(ctx, err, fmt.Sprintf("find %s", o.entityType))
 	}
 
 	v := reflect.ValueOf(entity).Elem()
@@ -588,29 +597,14 @@ func (o *entityShowOperation) Execute(
 	filePathVal := v.FieldByName("FilePath").String()
 	contentVal := v.FieldByName("Content").String()
 
-	if outputFormat == "json" {
-		result := map[string]any{
-			"name":      nameVal,
-			"file_path": filePathVal,
-			"vault":     vaultName,
-			"fields":    fields,
-			"content":   contentVal,
-		}
-		data, marshalErr := json.Marshal(result)
-		if marshalErr != nil {
-			return errors.Wrap(ctx, marshalErr, "marshal json")
-		}
-		fmt.Println(string(data))
-		return nil
-	}
-
-	fmt.Printf("%s: %s\n", o.entityType, nameVal)
-	for _, name := range fieldOrder {
-		if fields[name] != "" {
-			fmt.Printf("%s: %s\n", name, fields[name])
-		}
-	}
-	return nil
+	return EntityShowResult{
+		Name:       nameVal,
+		FilePath:   filePathVal,
+		Vault:      vaultName,
+		Fields:     fields,
+		FieldOrder: fieldOrder,
+		Content:    contentVal,
+	}, nil
 }
 
 // NewGoalShowOperation creates an EntityShowOperation for goals.

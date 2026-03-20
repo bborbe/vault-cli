@@ -6,9 +6,6 @@ package ops_test
 
 import (
 	"context"
-	"encoding/json"
-	"io"
-	"os"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -21,27 +18,14 @@ import (
 var _ = Describe("DecisionListOperation", func() {
 	var ctx context.Context
 	var err error
+	var items []ops.DecisionListItem
 	var decisionListOp ops.DecisionListOperation
 	var mockDecisionStorage *mocks.DecisionStorage
 	var vaultPath string
 	var vaultName string
 	var showReviewed bool
 	var showAll bool
-	var outputFormat string
 	var decisions []*domain.Decision
-
-	captureStdout := func(fn func()) []byte {
-		r, w, pipeErr := os.Pipe()
-		Expect(pipeErr).To(BeNil())
-		orig := os.Stdout
-		os.Stdout = w
-		fn()
-		w.Close()
-		os.Stdout = orig
-		data, readErr := io.ReadAll(r)
-		Expect(readErr).To(BeNil())
-		return data
-	}
 
 	BeforeEach(func() {
 		ctx = context.Background()
@@ -51,7 +35,6 @@ var _ = Describe("DecisionListOperation", func() {
 		vaultName = "test-vault"
 		showReviewed = false
 		showAll = false
-		outputFormat = "plain"
 
 		decisions = []*domain.Decision{
 			{
@@ -73,13 +56,12 @@ var _ = Describe("DecisionListOperation", func() {
 	})
 
 	JustBeforeEach(func() {
-		err = decisionListOp.Execute(
+		items, err = decisionListOp.Execute(
 			ctx,
 			vaultPath,
 			vaultName,
 			showReviewed,
 			showAll,
-			outputFormat,
 		)
 	})
 
@@ -94,6 +76,13 @@ var _ = Describe("DecisionListOperation", func() {
 			Expect(actualCtx).To(Equal(ctx))
 			Expect(actualVaultPath).To(Equal(vaultPath))
 		})
+
+		It("returns only unreviewed decisions", func() {
+			Expect(items).To(HaveLen(2))
+			for _, item := range items {
+				Expect(item.Reviewed).To(BeFalse())
+			}
+		})
 	})
 
 	Context("with showReviewed=true", func() {
@@ -103,6 +92,12 @@ var _ = Describe("DecisionListOperation", func() {
 
 		It("returns no error", func() {
 			Expect(err).To(BeNil())
+		})
+
+		It("returns only reviewed decisions", func() {
+			Expect(items).To(HaveLen(1))
+			Expect(items[0].Name).To(Equal("decisions/beta"))
+			Expect(items[0].Reviewed).To(BeTrue())
 		})
 	})
 
@@ -114,6 +109,10 @@ var _ = Describe("DecisionListOperation", func() {
 		It("returns no error", func() {
 			Expect(err).To(BeNil())
 		})
+
+		It("returns all decisions", func() {
+			Expect(items).To(HaveLen(3))
+		})
 	})
 
 	Context("empty vault", func() {
@@ -123,6 +122,11 @@ var _ = Describe("DecisionListOperation", func() {
 
 		It("returns no error", func() {
 			Expect(err).To(BeNil())
+		})
+
+		It("returns empty slice not nil", func() {
+			Expect(items).NotTo(BeNil())
+			Expect(items).To(HaveLen(0))
 		})
 	})
 
@@ -136,94 +140,20 @@ var _ = Describe("DecisionListOperation", func() {
 		})
 	})
 
-	Context("plain output format", func() {
-		var output []byte
-
+	Context("result includes vault name", func() {
 		BeforeEach(func() {
-			outputFormat = "plain"
+			showAll = true
 		})
 
-		JustBeforeEach(func() {
-			mockDecisionStorage.ListDecisionsReturns(decisions, nil)
-			output = captureStdout(func() {
-				err = decisionListOp.Execute(ctx, vaultPath, vaultName, false, false, "plain")
-			})
-		})
-
-		It("returns no error", func() {
+		It("sets vault name on all items", func() {
 			Expect(err).To(BeNil())
-		})
-
-		It("outputs only unreviewed decisions", func() {
-			Expect(string(output)).To(ContainSubstring("[unreviewed] decisions/alpha\n"))
-			Expect(string(output)).To(ContainSubstring("[unreviewed] decisions/gamma\n"))
-			Expect(string(output)).NotTo(ContainSubstring("decisions/beta"))
-		})
-
-		It("uses reviewed status label for reviewed decisions", func() {
-			mockDecisionStorage.ListDecisionsReturns(decisions, nil)
-			reviewedOutput := captureStdout(func() {
-				err = decisionListOp.Execute(ctx, vaultPath, vaultName, true, false, "plain")
-			})
-			Expect(err).To(BeNil())
-			Expect(string(reviewedOutput)).To(ContainSubstring("[reviewed] decisions/beta\n"))
-		})
-	})
-
-	Context("JSON output format", func() {
-		var output []byte
-
-		JustBeforeEach(func() {
-			mockDecisionStorage.ListDecisionsReturns(decisions, nil)
-			output = captureStdout(func() {
-				err = decisionListOp.Execute(ctx, vaultPath, vaultName, false, true, "json")
-			})
-		})
-
-		It("returns no error", func() {
-			Expect(err).To(BeNil())
-		})
-
-		It("produces valid JSON array", func() {
-			var items []ops.DecisionListItem
-			Expect(json.Unmarshal(output, &items)).To(Succeed())
-			Expect(items).To(HaveLen(3))
-		})
-
-		It("includes vault name", func() {
-			var items []ops.DecisionListItem
-			Expect(json.Unmarshal(output, &items)).To(Succeed())
 			for _, item := range items {
 				Expect(item.Vault).To(Equal(vaultName))
 			}
 		})
 	})
 
-	Context("JSON output with empty vault", func() {
-		var output []byte
-
-		JustBeforeEach(func() {
-			mockDecisionStorage.ListDecisionsReturns([]*domain.Decision{}, nil)
-			output = captureStdout(func() {
-				err = decisionListOp.Execute(ctx, vaultPath, vaultName, false, true, "json")
-			})
-		})
-
-		It("returns no error", func() {
-			Expect(err).To(BeNil())
-		})
-
-		It("produces empty JSON array not null", func() {
-			var items []ops.DecisionListItem
-			Expect(json.Unmarshal(output, &items)).To(Succeed())
-			Expect(items).NotTo(BeNil())
-			Expect(items).To(HaveLen(0))
-		})
-	})
-
 	Context("sorting", func() {
-		var output []byte
-
 		BeforeEach(func() {
 			unsorted := []*domain.Decision{
 				{Name: "decisions/zebra", Reviewed: false},
@@ -231,30 +161,15 @@ var _ = Describe("DecisionListOperation", func() {
 				{Name: "decisions/mango", Reviewed: false},
 			}
 			mockDecisionStorage.ListDecisionsReturns(unsorted, nil)
-		})
-
-		JustBeforeEach(func() {
-			output = captureStdout(func() {
-				err = decisionListOp.Execute(ctx, vaultPath, vaultName, false, true, "plain")
-			})
+			showAll = true
 		})
 
 		It("sorts decisions alphabetically by name", func() {
 			Expect(err).To(BeNil())
-			appleIdx := indexOfStr(string(output), "decisions/apple")
-			mangoIdx := indexOfStr(string(output), "decisions/mango")
-			zebraIdx := indexOfStr(string(output), "decisions/zebra")
-			Expect(appleIdx).To(BeNumerically("<", mangoIdx))
-			Expect(mangoIdx).To(BeNumerically("<", zebraIdx))
+			Expect(items).To(HaveLen(3))
+			Expect(items[0].Name).To(Equal("decisions/apple"))
+			Expect(items[1].Name).To(Equal("decisions/mango"))
+			Expect(items[2].Name).To(Equal("decisions/zebra"))
 		})
 	})
 })
-
-func indexOfStr(s, substr string) int {
-	for i := range s {
-		if i+len(substr) <= len(s) && s[i:i+len(substr)] == substr {
-			return i
-		}
-	}
-	return -1
-}

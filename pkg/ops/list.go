@@ -6,9 +6,6 @@ package ops
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
-	"os"
 	"sort"
 	"strings"
 
@@ -29,8 +26,7 @@ type ListOperation interface {
 		showAll bool,
 		assigneeFilter string,
 		goalFilter string,
-		outputFormat string,
-	) error
+	) ([]TaskListItem, error)
 }
 
 // NewListOperation creates a new list operation.
@@ -74,12 +70,11 @@ func (l *listOperation) Execute(
 	showAll bool,
 	assigneeFilter string,
 	goalFilter string,
-	outputFormat string,
-) error {
+) ([]TaskListItem, error) {
 	// Read all tasks/pages from the specified directory
 	tasks, err := l.pageStorage.ListPages(ctx, vaultPath, pagesDir)
 	if err != nil {
-		return errors.Wrap(ctx, err, "list pages")
+		return nil, errors.Wrap(ctx, err, "list pages")
 	}
 
 	// Filter tasks by status, assignee, and goal
@@ -99,45 +94,33 @@ func (l *listOperation) Execute(
 		return strings.ToLower(taskI.Name) < strings.ToLower(taskJ.Name)
 	})
 
-	// Output tasks based on format
-	if outputFormat == "json" {
-		items := make([]TaskListItem, len(filteredTasks))
-		for i, task := range filteredTasks {
-			items[i] = TaskListItem{
-				Name:            task.Name,
-				Status:          string(task.Status),
-				Assignee:        task.Assignee,
-				Priority:        int(task.Priority),
-				Vault:           vaultName,
-				Category:        task.PageType,
-				Recurring:       task.Recurring,
-				ClaudeSessionID: task.ClaudeSessionID,
-				Phase: func() string {
-					if task.Phase != nil {
-						return task.Phase.String()
-					}
-					return ""
-				}(),
-			}
-			items[i].DeferDate = formatDateOrDateTime(task.DeferDate)
-			items[i].PlannedDate = formatDateOrDateTime(task.PlannedDate)
-			items[i].DueDate = formatDateOrDateTime(task.DueDate)
-			if task.ModifiedDate != nil {
-				items[i].ModifiedDate = task.ModifiedDate.UTC().Format("2006-01-02T15:04:05Z")
-			}
-			items[i].CompletedDate = task.CompletedDate
+	items := make([]TaskListItem, len(filteredTasks))
+	for i, task := range filteredTasks {
+		items[i] = TaskListItem{
+			Name:            task.Name,
+			Status:          string(task.Status),
+			Assignee:        task.Assignee,
+			Priority:        int(task.Priority),
+			Vault:           vaultName,
+			Category:        task.PageType,
+			Recurring:       task.Recurring,
+			ClaudeSessionID: task.ClaudeSessionID,
+			Phase: func() string {
+				if task.Phase != nil {
+					return task.Phase.String()
+				}
+				return ""
+			}(),
 		}
-		enc := json.NewEncoder(os.Stdout)
-		enc.SetIndent("", "  ")
-		return enc.Encode(items)
+		items[i].DeferDate = formatDateOrDateTime(task.DeferDate)
+		items[i].PlannedDate = formatDateOrDateTime(task.PlannedDate)
+		items[i].DueDate = formatDateOrDateTime(task.DueDate)
+		if task.ModifiedDate != nil {
+			items[i].ModifiedDate = task.ModifiedDate.UTC().Format("2006-01-02T15:04:05Z")
+		}
+		items[i].CompletedDate = task.CompletedDate
 	}
-
-	// Plain output
-	for _, task := range filteredTasks {
-		fmt.Printf("[%s] %s\n", task.Status, task.Name)
-	}
-
-	return nil
+	return items, nil
 }
 
 // filterTasks filters tasks by status, assignee, and goal.

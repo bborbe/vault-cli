@@ -6,10 +6,7 @@ package ops_test
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"io"
-	"os"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -24,12 +21,12 @@ var _ = Describe("ShowOperation", func() {
 	var (
 		ctx             context.Context
 		err             error
+		detail          ops.TaskDetail
 		showOp          ops.ShowOperation
 		mockTaskStorage *mocks.TaskStorage
 		vaultPath       string
 		vaultName       string
 		taskName        string
-		outputFormat    string
 		task            *domain.Task
 	)
 
@@ -40,7 +37,6 @@ var _ = Describe("ShowOperation", func() {
 		vaultPath = "/path/to/vault"
 		vaultName = "my-vault"
 		taskName = "my-task"
-		outputFormat = "plain"
 
 		deferDate := time.Date(2025, 6, 15, 0, 0, 0, 0, time.UTC)
 		plannedDate := time.Date(2025, 7, 1, 0, 0, 0, 0, time.UTC)
@@ -65,32 +61,21 @@ var _ = Describe("ShowOperation", func() {
 	})
 
 	JustBeforeEach(func() {
-		err = showOp.Execute(ctx, vaultPath, vaultName, taskName, outputFormat)
+		detail, err = showOp.Execute(ctx, vaultPath, vaultName, taskName)
 	})
 
-	Context("plain output", func() {
-		BeforeEach(func() {
-			outputFormat = "plain"
-		})
-
+	Context("with all fields populated", func() {
 		It("succeeds without error", func() {
 			Expect(err).To(BeNil())
 		})
-	})
 
-	Context("json output with all fields", func() {
-		BeforeEach(func() {
-			outputFormat = "json"
-		})
-
-		It("succeeds without error", func() {
-			Expect(err).To(BeNil())
+		It("returns task detail with correct name", func() {
+			Expect(detail.Name).To(Equal(taskName))
 		})
 	})
 
-	Context("json output with optional fields omitted", func() {
+	Context("with optional fields omitted", func() {
 		BeforeEach(func() {
-			outputFormat = "json"
 			task.Phase = nil
 			task.Assignee = ""
 			task.Priority = 0
@@ -119,26 +104,12 @@ var _ = Describe("ShowOperation", func() {
 	})
 })
 
-var _ = Describe("ShowOperation JSON completed_date", func() {
+var _ = Describe("ShowOperation completed_date", func() {
 	var (
 		ctx             context.Context
 		showOp          ops.ShowOperation
 		mockTaskStorage *mocks.TaskStorage
-		capturedOutput  []byte
 	)
-
-	captureStdout := func(fn func()) []byte {
-		r, w, pipeErr := os.Pipe()
-		Expect(pipeErr).To(BeNil())
-		orig := os.Stdout
-		os.Stdout = w
-		fn()
-		w.Close()
-		os.Stdout = orig
-		data, readErr := io.ReadAll(r)
-		Expect(readErr).To(BeNil())
-		return data
-	}
 
 	BeforeEach(func() {
 		ctx = context.Background()
@@ -156,16 +127,11 @@ var _ = Describe("ShowOperation JSON completed_date", func() {
 				FilePath:      "/tmp/nonexistent-show-test.md",
 			}
 			mockTaskStorage.FindTaskByNameReturns(task, nil)
-
-			capturedOutput = captureStdout(func() {
-				execErr := showOp.Execute(ctx, "/vault", "my-vault", "done-task", "json")
-				Expect(execErr).To(BeNil())
-			})
 		})
 
-		It("includes completed_date in JSON output", func() {
-			var detail ops.TaskDetail
-			Expect(json.Unmarshal(capturedOutput, &detail)).To(Succeed())
+		It("includes completed_date in result", func() {
+			detail, err := showOp.Execute(ctx, "/vault", "my-vault", "done-task")
+			Expect(err).To(BeNil())
 			Expect(detail.CompletedDate).To(Equal("2026-03-03T12:00:00Z"))
 		})
 	})
@@ -179,15 +145,12 @@ var _ = Describe("ShowOperation JSON completed_date", func() {
 				FilePath: "/tmp/nonexistent-show-test2.md",
 			}
 			mockTaskStorage.FindTaskByNameReturns(task, nil)
-
-			capturedOutput = captureStdout(func() {
-				execErr := showOp.Execute(ctx, "/vault", "my-vault", "todo-task", "json")
-				Expect(execErr).To(BeNil())
-			})
 		})
 
-		It("omits completed_date from JSON output", func() {
-			Expect(capturedOutput).NotTo(ContainSubstring(`"completed_date"`))
+		It("omits completed_date from result", func() {
+			detail, err := showOp.Execute(ctx, "/vault", "my-vault", "todo-task")
+			Expect(err).To(BeNil())
+			Expect(detail.CompletedDate).To(BeEmpty())
 		})
 	})
 })

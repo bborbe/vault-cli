@@ -6,8 +6,6 @@ package ops
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"os"
 	"regexp"
 	"strings"
@@ -26,8 +24,7 @@ type ShowOperation interface {
 		vaultPath string,
 		vaultName string,
 		taskName string,
-		outputFormat string,
-	) error
+	) (TaskDetail, error)
 }
 
 // NewShowOperation creates a new show operation.
@@ -68,17 +65,16 @@ var (
 	markdownStripRegex   = regexp.MustCompile(`[#*_\[\]` + "`" + `]`)
 )
 
-// Execute finds a task by name and outputs its full detail.
+// Execute finds a task by name and returns its full detail.
 func (o *showOperation) Execute(
 	ctx context.Context,
 	vaultPath string,
 	vaultName string,
 	taskName string,
-	outputFormat string,
-) error {
+) (TaskDetail, error) {
 	task, err := o.taskStorage.FindTaskByName(ctx, vaultPath, taskName)
 	if err != nil {
-		return errors.Wrap(ctx, err, "find task")
+		return TaskDetail{}, errors.Wrap(ctx, err, "find task")
 	}
 
 	detail := TaskDetail{
@@ -122,26 +118,5 @@ func (o *showOperation) Execute(
 		detail.ModifiedDate = info.ModTime().UTC().Format("2006-01-02T15:04:05Z")
 	}
 
-	if outputFormat == "json" {
-		data, err := json.Marshal(detail)
-		if err != nil {
-			return errors.Wrap(ctx, err, "marshal json")
-		}
-		fmt.Println(string(data))
-		return nil
-	}
-
-	fmt.Printf("Task: %s\n", detail.Name)
-	fmt.Printf("Status: %s\n", detail.Status)
-	if detail.Assignee != "" {
-		fmt.Printf("Assignee: %s\n", detail.Assignee)
-	}
-	if detail.Priority != 0 {
-		fmt.Printf("Priority: %d\n", detail.Priority)
-	}
-	if detail.Phase != "" {
-		fmt.Printf("Phase: %s\n", detail.Phase)
-	}
-
-	return nil
+	return detail, nil
 }

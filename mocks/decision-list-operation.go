@@ -9,7 +9,7 @@ import (
 )
 
 type DecisionListOperation struct {
-	ExecuteStub        func(context.Context, string, string, bool, bool, string) error
+	ExecuteStub        func(context.Context, string, string, bool, bool) ([]ops.DecisionListItem, error)
 	executeMutex       sync.RWMutex
 	executeArgsForCall []struct {
 		arg1 context.Context
@@ -17,19 +17,20 @@ type DecisionListOperation struct {
 		arg3 string
 		arg4 bool
 		arg5 bool
-		arg6 string
 	}
 	executeReturns struct {
-		result1 error
+		result1 []ops.DecisionListItem
+		result2 error
 	}
 	executeReturnsOnCall map[int]struct {
-		result1 error
+		result1 []ops.DecisionListItem
+		result2 error
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *DecisionListOperation) Execute(arg1 context.Context, arg2 string, arg3 string, arg4 bool, arg5 bool, arg6 string) error {
+func (fake *DecisionListOperation) Execute(arg1 context.Context, arg2 string, arg3 string, arg4 bool, arg5 bool) ([]ops.DecisionListItem, error) {
 	fake.executeMutex.Lock()
 	ret, specificReturn := fake.executeReturnsOnCall[len(fake.executeArgsForCall)]
 	fake.executeArgsForCall = append(fake.executeArgsForCall, struct {
@@ -38,19 +39,18 @@ func (fake *DecisionListOperation) Execute(arg1 context.Context, arg2 string, ar
 		arg3 string
 		arg4 bool
 		arg5 bool
-		arg6 string
-	}{arg1, arg2, arg3, arg4, arg5, arg6})
+	}{arg1, arg2, arg3, arg4, arg5})
 	stub := fake.ExecuteStub
 	fakeReturns := fake.executeReturns
-	fake.recordInvocation("Execute", []interface{}{arg1, arg2, arg3, arg4, arg5, arg6})
+	fake.recordInvocation("Execute", []interface{}{arg1, arg2, arg3, arg4, arg5})
 	fake.executeMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2, arg3, arg4, arg5, arg6)
+		return stub(arg1, arg2, arg3, arg4, arg5)
 	}
 	if specificReturn {
-		return ret.result1
+		return ret.result1, ret.result2
 	}
-	return fakeReturns.result1
+	return fakeReturns.result1, fakeReturns.result2
 }
 
 func (fake *DecisionListOperation) ExecuteCallCount() int {
@@ -59,40 +59,43 @@ func (fake *DecisionListOperation) ExecuteCallCount() int {
 	return len(fake.executeArgsForCall)
 }
 
-func (fake *DecisionListOperation) ExecuteCalls(stub func(context.Context, string, string, bool, bool, string) error) {
+func (fake *DecisionListOperation) ExecuteCalls(stub func(context.Context, string, string, bool, bool) ([]ops.DecisionListItem, error)) {
 	fake.executeMutex.Lock()
 	defer fake.executeMutex.Unlock()
 	fake.ExecuteStub = stub
 }
 
-func (fake *DecisionListOperation) ExecuteArgsForCall(i int) (context.Context, string, string, bool, bool, string) {
+func (fake *DecisionListOperation) ExecuteArgsForCall(i int) (context.Context, string, string, bool, bool) {
 	fake.executeMutex.RLock()
 	defer fake.executeMutex.RUnlock()
 	argsForCall := fake.executeArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4, argsForCall.arg5, argsForCall.arg6
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4, argsForCall.arg5
 }
 
-func (fake *DecisionListOperation) ExecuteReturns(result1 error) {
+func (fake *DecisionListOperation) ExecuteReturns(result1 []ops.DecisionListItem, result2 error) {
 	fake.executeMutex.Lock()
 	defer fake.executeMutex.Unlock()
 	fake.ExecuteStub = nil
 	fake.executeReturns = struct {
-		result1 error
-	}{result1}
+		result1 []ops.DecisionListItem
+		result2 error
+	}{result1, result2}
 }
 
-func (fake *DecisionListOperation) ExecuteReturnsOnCall(i int, result1 error) {
+func (fake *DecisionListOperation) ExecuteReturnsOnCall(i int, result1 []ops.DecisionListItem, result2 error) {
 	fake.executeMutex.Lock()
 	defer fake.executeMutex.Unlock()
 	fake.ExecuteStub = nil
 	if fake.executeReturnsOnCall == nil {
 		fake.executeReturnsOnCall = make(map[int]struct {
-			result1 error
+			result1 []ops.DecisionListItem
+			result2 error
 		})
 	}
 	fake.executeReturnsOnCall[i] = struct {
-		result1 error
-	}{result1}
+		result1 []ops.DecisionListItem
+		result2 error
+	}{result1, result2}
 }
 
 func (fake *DecisionListOperation) Invocations() map[string][][]interface{} {

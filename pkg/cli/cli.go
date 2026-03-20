@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strings"
 
 	"github.com/bborbe/errors"
 	libtime "github.com/bborbe/time"
@@ -331,6 +332,7 @@ Use --goal to filter by goal name.`,
 				return errors.Wrap(ctx, err, "get vaults")
 			}
 
+			var allItems []ops.TaskListItem
 			for _, vault := range vaults {
 				if len(vaults) > 1 && *outputFormat == OutputFormatPlain {
 					fmt.Printf("=== %s ===\n", vault.Name)
@@ -340,11 +342,31 @@ Use --goal to filter by goal name.`,
 				pageStore := storage.NewPageStorage(storageConfig)
 				listOp := ops.NewListOperation(pageStore)
 
-				if err := listOp.Execute(ctx, vault.Path, vault.Name, storageConfig.TasksDir, statusFilters, showAll, assigneeFlag, goalFilter, *outputFormat); err != nil {
+				items, err := listOp.Execute(
+					ctx,
+					vault.Path,
+					vault.Name,
+					storageConfig.TasksDir,
+					statusFilters,
+					showAll,
+					assigneeFlag,
+					goalFilter,
+				)
+				if err != nil {
 					return err
+				}
+				if *outputFormat == OutputFormatJSON {
+					allItems = append(allItems, items...)
+				} else {
+					for _, item := range items {
+						fmt.Printf("[%s] %s\n", item.Status, item.Name)
+					}
 				}
 			}
 
+			if *outputFormat == OutputFormatJSON {
+				return PrintJSON(allItems)
+			}
 			return nil
 		},
 	}
@@ -493,6 +515,7 @@ func createGenericListCommand(
 				return errors.Wrap(ctx, err, "get vaults")
 			}
 
+			var allItems []ops.TaskListItem
 			for _, vault := range vaults {
 				if len(vaults) > 1 && *outputFormat == OutputFormatPlain {
 					fmt.Printf("=== %s ===\n", vault.Name)
@@ -502,11 +525,31 @@ func createGenericListCommand(
 				pageStore := storage.NewPageStorage(storageConfig)
 				listOp := ops.NewListOperation(pageStore)
 
-				if err := listOp.Execute(ctx, vault.Path, vault.Name, getDirFunc(storageConfig), statusFilters, showAll, assigneeFlag, "", *outputFormat); err != nil {
+				items, err := listOp.Execute(
+					ctx,
+					vault.Path,
+					vault.Name,
+					getDirFunc(storageConfig),
+					statusFilters,
+					showAll,
+					assigneeFlag,
+					"",
+				)
+				if err != nil {
 					return err
+				}
+				if *outputFormat == OutputFormatJSON {
+					allItems = append(allItems, items...)
+				} else {
+					for _, item := range items {
+						fmt.Printf("[%s] %s\n", item.Status, item.Name)
+					}
 				}
 			}
 
+			if *outputFormat == OutputFormatJSON {
+				return PrintJSON(allItems)
+			}
 			return nil
 		},
 	}
@@ -718,7 +761,20 @@ func createEntityShowCommand(
 			return dispatcher.FirstSuccess(ctx, vaults, func(vault *config.Vault) error {
 				storageConfig := storage.NewConfigFromVault(vault)
 				showOp := newShowOp(storageConfig)
-				return showOp.Execute(ctx, vault.Path, vault.Name, entityName, *outputFormat)
+				result, err := showOp.Execute(ctx, vault.Path, vault.Name, entityName)
+				if err != nil {
+					return err
+				}
+				if *outputFormat == OutputFormatJSON {
+					return PrintJSON(result)
+				}
+				fmt.Printf("%s: %s\n", entityType, result.Name)
+				for _, name := range result.FieldOrder {
+					if result.Fields[name] != "" {
+						fmt.Printf("%s: %s\n", name, result.Fields[name])
+					}
+				}
+				return nil
 			})
 		},
 	}
@@ -1286,13 +1342,30 @@ func createDecisionListCommand(
 			if err != nil {
 				return errors.Wrap(ctx, err, "get vaults")
 			}
+			var allItems []ops.DecisionListItem
 			for _, vault := range vaults {
 				storageConfig := storage.NewConfigFromVault(vault)
 				decisionStore := storage.NewDecisionStorage(storageConfig)
 				listOp := ops.NewDecisionListOperation(decisionStore)
-				if err := listOp.Execute(ctx, vault.Path, vault.Name, showReviewed, showAll, *outputFormat); err != nil {
+				items, err := listOp.Execute(ctx, vault.Path, vault.Name, showReviewed, showAll)
+				if err != nil {
 					slog.Warn("vault error", "vault", vault.Name, "error", err)
+					continue
 				}
+				if *outputFormat == OutputFormatJSON {
+					allItems = append(allItems, items...)
+				} else {
+					for _, item := range items {
+						reviewStatus := "unreviewed"
+						if item.Reviewed {
+							reviewStatus = "reviewed"
+						}
+						fmt.Printf("[%s] %s\n", reviewStatus, item.Name)
+					}
+				}
+			}
+			if *outputFormat == OutputFormatJSON {
+				return PrintJSON(allItems)
 			}
 			return nil
 		},
@@ -1370,9 +1443,14 @@ func createSearchCommand(
 				}
 
 				searchOp := ops.NewSearchOperation()
-				if err := searchOp.Execute(ctx, vault.Path, "", query, topK, *outputFormat); err != nil {
+				results, err := searchOp.Execute(ctx, vault.Path, "", query, topK)
+				if err != nil {
 					return err
 				}
+				if *outputFormat == OutputFormatJSON {
+					return PrintJSON(results)
+				}
+				fmt.Println(strings.Join(results, "\n"))
 			}
 
 			return nil
@@ -1415,9 +1493,14 @@ func createGenericSearchCommand(
 				scopeDir := getDirFunc(storageConfig)
 
 				searchOp := ops.NewSearchOperation()
-				if err := searchOp.Execute(ctx, vault.Path, scopeDir, query, topK, *outputFormat); err != nil {
+				results, err := searchOp.Execute(ctx, vault.Path, scopeDir, query, topK)
+				if err != nil {
 					return err
 				}
+				if *outputFormat == OutputFormatJSON {
+					return PrintJSON(results)
+				}
+				fmt.Println(strings.Join(results, "\n"))
 			}
 
 			return nil
@@ -1616,7 +1699,25 @@ func createTaskShowCommand(
 				storageConfig := storage.NewConfigFromVault(vault)
 				taskStore := storage.NewTaskStorage(storageConfig)
 				showOp := ops.NewShowOperation(taskStore)
-				return showOp.Execute(ctx, vault.Path, vault.Name, taskName, *outputFormat)
+				detail, err := showOp.Execute(ctx, vault.Path, vault.Name, taskName)
+				if err != nil {
+					return errors.Wrap(ctx, err, "show task")
+				}
+				if *outputFormat == OutputFormatJSON {
+					return PrintJSON(detail)
+				}
+				fmt.Printf("Task: %s\n", detail.Name)
+				fmt.Printf("Status: %s\n", detail.Status)
+				if detail.Assignee != "" {
+					fmt.Printf("Assignee: %s\n", detail.Assignee)
+				}
+				if detail.Priority != 0 {
+					fmt.Printf("Priority: %d\n", detail.Priority)
+				}
+				if detail.Phase != "" {
+					fmt.Printf("Phase: %s\n", detail.Phase)
+				}
+				return nil
 			})
 		},
 	}

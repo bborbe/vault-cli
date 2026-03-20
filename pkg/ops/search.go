@@ -6,7 +6,6 @@ package ops
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -25,8 +24,7 @@ type SearchOperation interface {
 		scopeDir string,
 		query string,
 		topK int,
-		outputFormat string,
-	) error
+	) ([]string, error)
 }
 
 // NewSearchOperation creates a new search operation.
@@ -43,8 +41,7 @@ func (s *searchOperation) Execute(
 	scopeDir string,
 	query string,
 	topK int,
-	outputFormat string,
-) error {
+) ([]string, error) {
 	// Determine the content path
 	contentPath := vaultPath
 	if scopeDir != "" {
@@ -53,7 +50,7 @@ func (s *searchOperation) Execute(
 
 	// Check if semantic-search-mcp is available
 	if _, err := exec.LookPath("semantic-search-mcp"); err != nil {
-		return errors.Wrap(ctx, err, "semantic-search-mcp not found on PATH")
+		return nil, errors.Wrap(ctx, err, "semantic-search-mcp not found on PATH")
 	}
 
 	// Build command
@@ -68,34 +65,17 @@ func (s *searchOperation) Execute(
 	// Capture output
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return errors.Wrap(
+		return nil, errors.Wrap(
 			ctx,
 			err,
 			fmt.Sprintf("semantic-search-mcp failed\nOutput: %s", string(output)),
 		)
 	}
 
-	// Process results based on output format
 	result := strings.TrimSpace(string(output))
 	if result == "" {
-		if outputFormat == "json" {
-			// Empty result array
-			enc := json.NewEncoder(os.Stdout)
-			enc.SetIndent("", "  ")
-			return enc.Encode([]string{})
-		}
-		return nil
+		return []string{}, nil
 	}
 
-	if outputFormat == "json" {
-		// Convert line-separated results to JSON array
-		lines := strings.Split(result, "\n")
-		enc := json.NewEncoder(os.Stdout)
-		enc.SetIndent("", "  ")
-		return enc.Encode(lines)
-	}
-
-	// Plain output
-	fmt.Println(result)
-	return nil
+	return strings.Split(result, "\n"), nil
 }

@@ -7,6 +7,7 @@ After completing your implementation, review your own changes against each crite
 - Exported types, functions, and interfaces have doc comments
 - Error handling uses `github.com/bborbe/errors` with context wrapping
 - No debug output (print statements, fmt.Printf) — use structured logging
+- No `os.Stdout` or `fmt.Print*` in `pkg/ops/` — operations return structured results, CLI layer formats output
 - Factory functions are pure composition — no conditionals, no I/O, no `context.Background()`
 - Follow Interface → Constructor → Struct → Method pattern
 

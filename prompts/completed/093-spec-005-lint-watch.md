@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: ["005"]
+summary: Refactored LintOperation and WatchOperation to return structured results instead of writing to stdout; CLI layer now owns all output formatting and exit behavior; subprocess-based exit tests replaced with direct result assertions; mocks regenerated.
+container: vault-cli-093-spec-005-lint-watch
+dark-factory-version: v0.59.5-dirty
 created: "2026-03-20T00:00:00Z"
 queued: "2026-03-20T19:42:30Z"
+started: "2026-03-20T20:13:49Z"
+completed: "2026-03-20T20:31:40Z"
 ---
 
 <summary>

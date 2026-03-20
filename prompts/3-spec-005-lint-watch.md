@@ -2,7 +2,6 @@
 status: created
 spec: ["005"]
 created: "2026-03-20T00:00:00Z"
-branch: dark-factory/ops-no-stdout
 ---
 
 <summary>
@@ -10,12 +9,11 @@ branch: dark-factory/ops-no-stdout
 - outputFormat parameter removed from LintOperation.Execute and LintOperation.ExecuteFile
 - os.Exit(1) calls removed from lint internals — CLI returns an error to produce non-zero exit
 - WatchOperation accepts a handler callback instead of writing events to os.Stdout directly
-- ValidateIssueResult type defined to represent ExecuteFile output structure for CLI use
+- A structured result type supports CLI formatting for single-file validation
 - CLI formats lint output (plain and JSON) and handles exit behavior
-- CLI passes a JSON-encoding handler to WatchOperation
+- CLI passes a handler callback to the watch operation for event streaming
 - Subprocess-based exit tests replaced with direct result assertion tests
-- All mocks regenerated
-- All existing tests pass with updated assertions
+- All mocks regenerated and all existing tests pass with updated assertions
 </summary>
 
 <objective>

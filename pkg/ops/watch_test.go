@@ -39,7 +39,10 @@ func captureWatchEvents(
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		_ = watchOp.Execute(cancelCtx, targets)
+		_ = watchOp.Execute(cancelCtx, targets, func(event ops.WatchEvent) error {
+			enc := json.NewEncoder(os.Stdout)
+			return enc.Encode(event)
+		})
 	}()
 
 	// Give the watcher time to start.

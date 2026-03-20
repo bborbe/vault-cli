@@ -6,9 +6,11 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/bborbe/errors"
@@ -516,7 +518,11 @@ func createValidateCommand(
 
 			// Validate the task file
 			lintOp := ops.NewLintOperation()
-			return lintOp.ExecuteFile(ctx, taskFilePath, taskName, foundInVault.Name, *outputFormat)
+			issues, err := lintOp.ExecuteFile(ctx, taskFilePath, taskName, foundInVault.Name)
+			if err != nil {
+				return err
+			}
+			return printValidateResult(ctx, taskName, foundInVault.Name, issues, *outputFormat)
 		},
 	}
 }
@@ -549,7 +555,12 @@ func createGenericLintCommand(
 
 				storageConfig := storage.NewConfigFromVault(vault)
 				lintOp := ops.NewLintOperation()
-				if err := lintOp.Execute(ctx, vault.Path, getDirFunc(storageConfig), fix, *outputFormat); err != nil {
+				issues, err := lintOp.Execute(ctx, vault.Path, getDirFunc(storageConfig), fix)
+				if err != nil {
+					return err
+				}
+
+				if err := printLintIssues(ctx, vault.Path, issues, fix, *outputFormat); err != nil {
 					return err
 				}
 			}
@@ -561,6 +572,120 @@ func createGenericLintCommand(
 	cmd.Flags().BoolVar(&fix, "fix", false, "Automatically fix fixable issues")
 
 	return cmd
+}
+
+func lintIssueTypeName(issue ops.LintIssue, fix bool) string {
+	if issue.Fixed {
+		return "FIXED"
+	}
+	if issue.Fixable && !fix {
+		return "WARN"
+	}
+	return "ERROR"
+}
+
+func printLintIssues(
+	ctx context.Context,
+	vaultPath string,
+	issues []ops.LintIssue,
+	fix bool,
+	outputFormat string,
+) error {
+	if outputFormat == OutputFormatJSON {
+		return printLintIssuesJSON(vaultPath, issues, fix)
+	}
+	return printLintIssuesPlain(ctx, vaultPath, issues, fix)
+}
+
+func printLintIssuesJSON(vaultPath string, issues []ops.LintIssue, fix bool) error {
+	jsonIssues := make([]ops.LintIssueJSON, len(issues))
+	for i, issue := range issues {
+		relPath, _ := filepath.Rel(vaultPath, issue.FilePath)
+		jsonIssues[i] = ops.LintIssueJSON{
+			File:        relPath,
+			Type:        lintIssueTypeName(issue, fix),
+			Description: issue.Description,
+			Fixed:       issue.Fixed,
+		}
+	}
+	return PrintJSON(jsonIssues)
+}
+
+func printLintIssuesPlain(
+	ctx context.Context,
+	vaultPath string,
+	issues []ops.LintIssue,
+	fix bool,
+) error {
+	for _, issue := range issues {
+		relPath, _ := filepath.Rel(vaultPath, issue.FilePath)
+		fmt.Printf(
+			"%-5s %s: %s %s\n",
+			lintIssueTypeName(issue, fix),
+			relPath,
+			issue.IssueType,
+			issue.Description,
+		)
+	}
+	if len(issues) == 0 {
+		fmt.Println("No lint issues found")
+	}
+	for _, issue := range issues {
+		if !issue.Fixed {
+			return errors.Errorf(ctx, "lint issues found")
+		}
+	}
+	return nil
+}
+
+func printValidateResult(
+	ctx context.Context,
+	taskName string,
+	vaultName string,
+	issues []ops.LintIssue,
+	outputFormat string,
+) error {
+	if outputFormat == OutputFormatJSON {
+		return printValidateResultJSON(taskName, vaultName, issues)
+	}
+	return printValidateResultPlain(ctx, taskName, issues)
+}
+
+func printValidateResultJSON(taskName string, vaultName string, issues []ops.LintIssue) error {
+	result := ops.ValidateResult{Name: taskName, Vault: vaultName}
+	for _, issue := range issues {
+		issueTypeStr := "WARN"
+		if !issue.Fixable {
+			issueTypeStr = "ERROR"
+		}
+		result.Issues = append(result.Issues, ops.ValidateIssueJSON{
+			Type:        issueTypeStr,
+			IssueType:   string(issue.IssueType),
+			Description: issue.Description,
+		})
+	}
+	return PrintJSON(result)
+}
+
+func printValidateResultPlain(ctx context.Context, taskName string, issues []ops.LintIssue) error {
+	if len(issues) == 0 {
+		fmt.Printf("✅ %s: no lint issues found\n", taskName)
+		return nil
+	}
+	for _, issue := range issues {
+		issueTypeStr := "WARN"
+		if !issue.Fixable {
+			issueTypeStr = "ERROR"
+		}
+		fmt.Printf(
+			"%-5s %s: %s %s\n",
+			issueTypeStr,
+			taskName+".md",
+			string(issue.IssueType),
+			issue.Description,
+		)
+	}
+	return errors.Errorf(ctx, "lint issues found in %s", taskName)
 }
 
 // createGenericListCommand creates a list command for any page type.
@@ -1855,7 +1980,10 @@ func createTaskWatchCommand(
 			}
 
 			watchOp := ops.NewWatchOperation()
-			return watchOp.Execute(ctx, targets)
+			return watchOp.Execute(ctx, targets, func(event ops.WatchEvent) error {
+				enc := json.NewEncoder(os.Stdout)
+				return enc.Encode(event)
+			})
 		},
 	}
 }

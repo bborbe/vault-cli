@@ -9,11 +9,12 @@ import (
 )
 
 type WatchOperation struct {
-	ExecuteStub        func(context.Context, []ops.WatchTarget) error
+	ExecuteStub        func(context.Context, []ops.WatchTarget, func(ops.WatchEvent) error) error
 	executeMutex       sync.RWMutex
 	executeArgsForCall []struct {
 		arg1 context.Context
 		arg2 []ops.WatchTarget
+		arg3 func(ops.WatchEvent) error
 	}
 	executeReturns struct {
 		result1 error
@@ -25,7 +26,7 @@ type WatchOperation struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *WatchOperation) Execute(arg1 context.Context, arg2 []ops.WatchTarget) error {
+func (fake *WatchOperation) Execute(arg1 context.Context, arg2 []ops.WatchTarget, arg3 func(ops.WatchEvent) error) error {
 	var arg2Copy []ops.WatchTarget
 	if arg2 != nil {
 		arg2Copy = make([]ops.WatchTarget, len(arg2))
@@ -36,13 +37,14 @@ func (fake *WatchOperation) Execute(arg1 context.Context, arg2 []ops.WatchTarget
 	fake.executeArgsForCall = append(fake.executeArgsForCall, struct {
 		arg1 context.Context
 		arg2 []ops.WatchTarget
-	}{arg1, arg2Copy})
+		arg3 func(ops.WatchEvent) error
+	}{arg1, arg2Copy, arg3})
 	stub := fake.ExecuteStub
 	fakeReturns := fake.executeReturns
-	fake.recordInvocation("Execute", []interface{}{arg1, arg2Copy})
+	fake.recordInvocation("Execute", []interface{}{arg1, arg2Copy, arg3})
 	fake.executeMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2)
+		return stub(arg1, arg2, arg3)
 	}
 	if specificReturn {
 		return ret.result1
@@ -56,17 +58,17 @@ func (fake *WatchOperation) ExecuteCallCount() int {
 	return len(fake.executeArgsForCall)
 }
 
-func (fake *WatchOperation) ExecuteCalls(stub func(context.Context, []ops.WatchTarget) error) {
+func (fake *WatchOperation) ExecuteCalls(stub func(context.Context, []ops.WatchTarget, func(ops.WatchEvent) error) error) {
 	fake.executeMutex.Lock()
 	defer fake.executeMutex.Unlock()
 	fake.ExecuteStub = stub
 }
 
-func (fake *WatchOperation) ExecuteArgsForCall(i int) (context.Context, []ops.WatchTarget) {
+func (fake *WatchOperation) ExecuteArgsForCall(i int) (context.Context, []ops.WatchTarget, func(ops.WatchEvent) error) {
 	fake.executeMutex.RLock()
 	defer fake.executeMutex.RUnlock()
 	argsForCall := fake.executeArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
 func (fake *WatchOperation) ExecuteReturns(result1 error) {

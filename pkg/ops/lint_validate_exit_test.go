@@ -7,260 +7,87 @@ package ops_test
 import (
 	"context"
 	"os"
-	"os/exec"
 	"testing"
+
+	. "github.com/onsi/gomega"
 
 	"github.com/bborbe/vault-cli/pkg/ops"
 )
 
-// TestValidateOutputWithIssuesPlain tests outputValidatePlain with issues using subprocess
-func TestValidateOutputWithIssuesPlain(t *testing.T) {
-	if os.Getenv("TEST_VALIDATE_PLAIN_EXIT") == "1" {
-		// This code runs in the subprocess and will call os.Exit(1)
-		ctx := context.Background()
-		lintOp := ops.NewLintOperation()
+func TestValidateExecuteFileWithInvalidStatus(t *testing.T) {
+	g := NewWithT(t)
+	ctx := context.Background()
+	lintOp := ops.NewLintOperation()
 
-		f, err := os.CreateTemp("", "task-*.md")
-		if err != nil {
-			t.Fatal(err)
-		}
-		tmpFile := f.Name()
-		defer func() { _ = os.Remove(tmpFile) }()
+	f, err := os.CreateTemp("", "task-*.md")
+	g.Expect(err).NotTo(HaveOccurred())
+	defer func() { _ = os.Remove(f.Name()) }()
 
-		content := `---
-status: invalid_status
-priority: 1
----
-# Task with Invalid Status
-`
-		if _, err := f.WriteString(content); err != nil {
-			t.Fatal(err)
-		}
-		if err := f.Close(); err != nil {
-			t.Fatal(err)
-		}
+	content := "---\nstatus: invalid_status\npriority: 1\n---\n# Task\n"
+	_, err = f.WriteString(content)
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(f.Close()).To(Succeed())
 
-		// This will call os.Exit(1) through outputValidatePlain
-		_ = lintOp.ExecuteFile(ctx, tmpFile, "Test Task", "test", "plain")
-		return
-	}
-
-	// Run the test in a subprocess
-	//#nosec G204,G702 -- test binary path from os.Args, subprocess for exit testing
-	cmd := exec.Command(
-		os.Args[0],
-		"-test.run=TestValidateOutputWithIssuesPlain",
-	)
-	cmd.Env = append(os.Environ(), "TEST_VALIDATE_PLAIN_EXIT=1")
-	err := cmd.Run()
-
-	// We expect exit status 1
-	if exitError, ok := err.(*exec.ExitError); ok {
-		if exitError.ExitCode() == 1 {
-			// Success - the function called os.Exit(1) as expected
-			return
-		}
-	}
-
-	t.Fatalf("expected exit status 1, got: %v", err)
+	issues, err := lintOp.ExecuteFile(ctx, f.Name(), "Test Task", "test")
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(issues).NotTo(BeEmpty())
+	g.Expect(issues[0].IssueType).To(Equal(ops.IssueTypeInvalidStatus))
 }
 
-// TestValidateOutputWithIssuesJSON tests outputValidateJSON with issues using subprocess
-func TestValidateOutputWithIssuesJSON(t *testing.T) {
-	if os.Getenv("TEST_VALIDATE_JSON_EXIT") == "1" {
-		// This code runs in the subprocess and will call os.Exit(1)
-		ctx := context.Background()
-		lintOp := ops.NewLintOperation()
+func TestValidateExecuteFileWithNoIssues(t *testing.T) {
+	g := NewWithT(t)
+	ctx := context.Background()
+	lintOp := ops.NewLintOperation()
 
-		f, err := os.CreateTemp("", "task-*.md")
-		if err != nil {
-			t.Fatal(err)
-		}
-		tmpFile := f.Name()
-		defer func() { _ = os.Remove(tmpFile) }()
+	f, err := os.CreateTemp("", "task-*.md")
+	g.Expect(err).NotTo(HaveOccurred())
+	defer func() { _ = os.Remove(f.Name()) }()
 
-		content := `---
-status: invalid_status
-priority: 1
----
-# Task with Invalid Status
-`
-		if _, err := f.WriteString(content); err != nil {
-			t.Fatal(err)
-		}
-		if err := f.Close(); err != nil {
-			t.Fatal(err)
-		}
+	content := "---\nstatus: todo\npriority: 1\n---\n# Task\n"
+	_, err = f.WriteString(content)
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(f.Close()).To(Succeed())
 
-		// This will call os.Exit(1) through outputValidateJSON
-		_ = lintOp.ExecuteFile(ctx, tmpFile, "Test Task", "test", "json")
-		return
-	}
-
-	// Run the test in a subprocess
-	//#nosec G204,G702 -- test binary path from os.Args, subprocess for exit testing
-	cmd := exec.Command(
-		os.Args[0],
-		"-test.run=TestValidateOutputWithIssuesJSON",
-	)
-	cmd.Env = append(os.Environ(), "TEST_VALIDATE_JSON_EXIT=1")
-	err := cmd.Run()
-
-	// We expect exit status 1
-	if exitError, ok := err.(*exec.ExitError); ok {
-		if exitError.ExitCode() == 1 {
-			// Success - the function called os.Exit(1) as expected
-			return
-		}
-	}
-
-	t.Fatalf("expected exit status 1, got: %v", err)
+	issues, err := lintOp.ExecuteFile(ctx, f.Name(), "Test Task", "test")
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(issues).To(BeEmpty())
 }
 
-// TestValidateOutputWithIssuesFixable tests outputValidatePlain with fixable issues
-func TestValidateOutputWithIssuesFixable(t *testing.T) {
-	if os.Getenv("TEST_VALIDATE_FIXABLE_EXIT") == "1" {
-		// This code runs in the subprocess and will call os.Exit(1)
-		ctx := context.Background()
-		lintOp := ops.NewLintOperation()
+func TestValidateExecuteFileWithMissingFrontmatter(t *testing.T) {
+	g := NewWithT(t)
+	ctx := context.Background()
+	lintOp := ops.NewLintOperation()
 
-		f, err := os.CreateTemp("", "task-*.md")
-		if err != nil {
-			t.Fatal(err)
-		}
-		tmpFile := f.Name()
-		defer func() { _ = os.Remove(tmpFile) }()
+	f, err := os.CreateTemp("", "task-*.md")
+	g.Expect(err).NotTo(HaveOccurred())
+	defer func() { _ = os.Remove(f.Name()) }()
 
-		content := `---
-status: next
-priority: high
-assignee: alice
-assignee: bob
----
-# Task with Fixable Issues
-`
-		if _, err := f.WriteString(content); err != nil {
-			t.Fatal(err)
-		}
-		if err := f.Close(); err != nil {
-			t.Fatal(err)
-		}
+	content := "# Task Without Frontmatter\n\nThis task is missing frontmatter.\n"
+	_, err = f.WriteString(content)
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(f.Close()).To(Succeed())
 
-		// This will call os.Exit(1) through outputValidatePlain (multiple fixable issues)
-		_ = lintOp.ExecuteFile(ctx, tmpFile, "Test Task", "test", "plain")
-		return
-	}
-
-	// Run the test in a subprocess
-	//#nosec G204,G702 -- test binary path from os.Args, subprocess for exit testing
-	cmd := exec.Command(
-		os.Args[0],
-		"-test.run=TestValidateOutputWithIssuesFixable",
-	)
-	cmd.Env = append(os.Environ(), "TEST_VALIDATE_FIXABLE_EXIT=1")
-	err := cmd.Run()
-
-	// We expect exit status 1
-	if exitError, ok := err.(*exec.ExitError); ok {
-		if exitError.ExitCode() == 1 {
-			// Success - the function called os.Exit(1) as expected
-			return
-		}
-	}
-
-	t.Fatalf("expected exit status 1, got: %v", err)
+	issues, err := lintOp.ExecuteFile(ctx, f.Name(), "Missing Frontmatter", "test")
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(issues).NotTo(BeEmpty())
+	g.Expect(issues[0].IssueType).To(Equal(ops.IssueTypeMissingFrontmatter))
 }
 
-// TestValidateOutputJSONWithMultipleIssues tests outputValidateJSON with multiple issue types
-func TestValidateOutputJSONWithMultipleIssues(t *testing.T) {
-	if os.Getenv("TEST_VALIDATE_JSON_MULTI_EXIT") == "1" {
-		ctx := context.Background()
-		lintOp := ops.NewLintOperation()
+func TestValidateExecuteFileWithFixableIssues(t *testing.T) {
+	g := NewWithT(t)
+	ctx := context.Background()
+	lintOp := ops.NewLintOperation()
 
-		f, err := os.CreateTemp("", "task-*.md")
-		if err != nil {
-			t.Fatal(err)
-		}
-		tmpFile := f.Name()
-		defer func() { _ = os.Remove(tmpFile) }()
+	f, err := os.CreateTemp("", "task-*.md")
+	g.Expect(err).NotTo(HaveOccurred())
+	defer func() { _ = os.Remove(f.Name()) }()
 
-		content := `---
-status: invalid_status
-priority: high
-assignee: alice
-assignee: bob
----
-# Task with Multiple Issues
-`
-		if _, err := f.WriteString(content); err != nil {
-			t.Fatal(err)
-		}
-		if err := f.Close(); err != nil {
-			t.Fatal(err)
-		}
+	content := "---\nstatus: next\npriority: high\nassignee: alice\nassignee: bob\n---\n# Task\n"
+	_, err = f.WriteString(content)
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(f.Close()).To(Succeed())
 
-		_ = lintOp.ExecuteFile(ctx, tmpFile, "Multi Issue Task", "test", "json")
-		return
-	}
-
-	//#nosec G204,G702 -- test binary path from os.Args, subprocess for exit testing
-	cmd := exec.Command(
-		os.Args[0],
-		"-test.run=TestValidateOutputJSONWithMultipleIssues",
-	)
-	cmd.Env = append(os.Environ(), "TEST_VALIDATE_JSON_MULTI_EXIT=1")
-	err := cmd.Run()
-
-	if exitError, ok := err.(*exec.ExitError); ok {
-		if exitError.ExitCode() == 1 {
-			return
-		}
-	}
-
-	t.Fatalf("expected exit status 1, got: %v", err)
-}
-
-// TestValidateOutputPlainWithMissingFrontmatter tests missing frontmatter detection
-func TestValidateOutputPlainWithMissingFrontmatter(t *testing.T) {
-	if os.Getenv("TEST_VALIDATE_PLAIN_MISSING_EXIT") == "1" {
-		ctx := context.Background()
-		lintOp := ops.NewLintOperation()
-
-		f, err := os.CreateTemp("", "task-*.md")
-		if err != nil {
-			t.Fatal(err)
-		}
-		tmpFile := f.Name()
-		defer func() { _ = os.Remove(tmpFile) }()
-
-		content := `# Task Without Frontmatter
-
-This task is missing frontmatter entirely.
-`
-		if _, err := f.WriteString(content); err != nil {
-			t.Fatal(err)
-		}
-		if err := f.Close(); err != nil {
-			t.Fatal(err)
-		}
-
-		_ = lintOp.ExecuteFile(ctx, tmpFile, "Missing Frontmatter", "test", "plain")
-		return
-	}
-
-	//#nosec G204,G702 -- test binary path from os.Args, subprocess for exit testing
-	cmd := exec.Command(
-		os.Args[0],
-		"-test.run=TestValidateOutputPlainWithMissingFrontmatter",
-	)
-	cmd.Env = append(os.Environ(), "TEST_VALIDATE_PLAIN_MISSING_EXIT=1")
-	err := cmd.Run()
-
-	if exitError, ok := err.(*exec.ExitError); ok {
-		if exitError.ExitCode() == 1 {
-			return
-		}
-	}
-
-	t.Fatalf("expected exit status 1, got: %v", err)
+	issues, err := lintOp.ExecuteFile(ctx, f.Name(), "Test Task", "test")
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(issues).NotTo(BeEmpty())
 }

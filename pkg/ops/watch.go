@@ -6,7 +6,6 @@ package ops
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"os"
@@ -37,7 +36,7 @@ type WatchEvent struct {
 //
 //counterfeiter:generate -o ../../mocks/watch-operation.go --fake-name WatchOperation . WatchOperation
 type WatchOperation interface {
-	Execute(ctx context.Context, vaults []WatchTarget) error
+	Execute(ctx context.Context, vaults []WatchTarget, handler func(WatchEvent) error) error
 }
 
 // NewWatchOperation creates a new WatchOperation.
@@ -53,8 +52,12 @@ type vaultInfo struct {
 	vaultName string
 }
 
-// Execute watches all vault directories and emits newline-delimited JSON events to stdout.
-func (w *watchOperation) Execute(ctx context.Context, vaults []WatchTarget) error {
+// Execute watches all vault directories and calls handler for each debounced event.
+func (w *watchOperation) Execute(
+	ctx context.Context,
+	vaults []WatchTarget,
+	handler func(WatchEvent) error,
+) error {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return fmt.Errorf("create watcher: %w", err)
@@ -62,7 +65,6 @@ func (w *watchOperation) Execute(ctx context.Context, vaults []WatchTarget) erro
 	defer watcher.Close()
 
 	dirToVault := buildDirMap(watcher, vaults)
-	enc := json.NewEncoder(os.Stdout)
 	debouncer := newDebouncer(100 * time.Millisecond)
 
 	for {
@@ -78,7 +80,7 @@ func (w *watchOperation) Execute(ctx context.Context, vaults []WatchTarget) erro
 			if !ok {
 				return nil
 			}
-			handleEvent(e, dirToVault, enc, debouncer)
+			handleEvent(e, dirToVault, handler, debouncer)
 		}
 	}
 }
@@ -110,7 +112,7 @@ func buildDirMap(watcher *fsnotify.Watcher, vaults []WatchTarget) map[string]vau
 func handleEvent(
 	e fsnotify.Event,
 	dirToVault map[string]vaultInfo,
-	enc *json.Encoder,
+	handler func(WatchEvent) error,
 	debouncer *debouncer,
 ) {
 	eventType := mapFsnotifyOp(e.Op)
@@ -136,7 +138,7 @@ func handleEvent(
 		Path:  relPath,
 	}
 	debouncer.schedule(info.vaultName+":"+relPath, func() {
-		_ = enc.Encode(ev)
+		_ = handler(ev)
 	})
 }
 

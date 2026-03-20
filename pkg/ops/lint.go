@@ -6,7 +6,6 @@ package ops
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -26,15 +25,13 @@ type LintOperation interface {
 		vaultPath string,
 		tasksDir string,
 		fix bool,
-		outputFormat string,
-	) error
+	) ([]LintIssue, error)
 	ExecuteFile(
 		ctx context.Context,
 		filePath string,
 		taskName string,
 		vaultName string,
-		outputFormat string,
-	) error
+	) ([]LintIssue, error)
 }
 
 // NewLintOperation creates a new lint operation.
@@ -80,8 +77,7 @@ func (l *lintOperation) Execute(
 	vaultPath string,
 	tasksDir string,
 	fix bool,
-	outputFormat string,
-) error {
+) ([]LintIssue, error) {
 	tasksDirPath := filepath.Join(vaultPath, tasksDir)
 
 	// Walk through all .md files in the tasks directory
@@ -102,172 +98,38 @@ func (l *lintOperation) Execute(
 		return nil
 	})
 	if err != nil {
-		return errors.Wrap(ctx, err, "walk tasks directory")
+		return nil, errors.Wrap(ctx, err, "walk tasks directory")
 	}
 
-	return l.outputIssues(vaultPath, issues, fix, outputFormat)
+	return issues, nil
 }
 
-// ExecuteFile lints a single file and returns error if issues found.
+// ExecuteFile lints a single file and returns any lint issues found.
 func (l *lintOperation) ExecuteFile(
 	ctx context.Context,
 	filePath string,
 	taskName string,
 	vaultName string,
-	outputFormat string,
-) error {
-	// Lint the single file (read-only, no fix)
-	// Pass empty vaultPath since we don't have vault context for single file validation
+) ([]LintIssue, error) {
 	issues, err := l.lintFile("", filePath, false)
 	if err != nil {
-		return errors.Wrap(ctx, err, fmt.Sprintf("lint file %s", filePath))
+		return nil, errors.Wrap(ctx, err, fmt.Sprintf("lint file %s", filePath))
 	}
-
-	// Output results
-	if outputFormat == "json" {
-		return l.outputValidateJSON(taskName, vaultName, issues)
-	}
-	return l.outputValidatePlain(taskName, issues)
+	return issues, nil
 }
 
-// outputValidateJSON outputs validation results in JSON format.
-func (l *lintOperation) outputValidateJSON(
-	taskName string,
-	vaultName string,
-	issues []LintIssue,
-) error {
-	type ValidateIssue struct {
-		Type        string `json:"type"`
-		IssueType   string `json:"issue_type"`
-		Description string `json:"description"`
-	}
-
-	result := map[string]interface{}{
-		"name":  taskName,
-		"vault": vaultName,
-	}
-
-	jsonIssues := make([]ValidateIssue, len(issues))
-	for i, issue := range issues {
-		issueTypeStr := "WARN"
-		if !issue.Fixable {
-			issueTypeStr = "ERROR"
-		}
-		jsonIssues[i] = ValidateIssue{
-			Type:        issueTypeStr,
-			IssueType:   string(issue.IssueType),
-			Description: issue.Description,
-		}
-	}
-	result["issues"] = jsonIssues
-
-	enc := json.NewEncoder(os.Stdout)
-	enc.SetIndent("", "  ")
-	if err := enc.Encode(result); err != nil {
-		return fmt.Errorf("encode json: %w", err)
-	}
-
-	if len(issues) > 0 {
-		os.Exit(1)
-	}
-	return nil
+// ValidateIssueJSON is the per-issue structure used in validate JSON output.
+type ValidateIssueJSON struct {
+	Type        string `json:"type"`
+	IssueType   string `json:"issue_type"`
+	Description string `json:"description"`
 }
 
-// outputValidatePlain outputs validation results in plain text format.
-func (l *lintOperation) outputValidatePlain(taskName string, issues []LintIssue) error {
-	if len(issues) == 0 {
-		fmt.Printf("✅ %s: no lint issues found\n", taskName)
-		return nil
-	}
-
-	for _, issue := range issues {
-		issueTypeStr := "WARN"
-		if !issue.Fixable {
-			issueTypeStr = "ERROR"
-		}
-		fmt.Printf(
-			"%-5s %s: %s %s\n",
-			issueTypeStr,
-			taskName+".md",
-			string(issue.IssueType),
-			issue.Description,
-		)
-	}
-
-	os.Exit(1)
-	return nil
-}
-
-// outputIssues prints lint issues in the requested format and returns an error if any unfixed issues exist.
-func (l *lintOperation) outputIssues(
-	vaultPath string,
-	issues []LintIssue,
-	fix bool,
-	outputFormat string,
-) error {
-	if outputFormat == "json" {
-		return l.outputIssuesJSON(vaultPath, issues, fix)
-	}
-	return l.outputIssuesPlain(vaultPath, issues, fix)
-}
-
-func (l *lintOperation) outputIssuesJSON(vaultPath string, issues []LintIssue, fix bool) error {
-	jsonIssues := make([]LintIssueJSON, len(issues))
-	for i, issue := range issues {
-		relPath, _ := filepath.Rel(vaultPath, issue.FilePath)
-		jsonIssues[i] = LintIssueJSON{
-			File:        relPath,
-			Type:        l.issueTypeName(issue, fix),
-			Description: issue.Description,
-			Fixed:       issue.Fixed,
-		}
-	}
-	enc := json.NewEncoder(os.Stdout)
-	enc.SetIndent("", "  ")
-	if err := enc.Encode(jsonIssues); err != nil {
-		return fmt.Errorf("encode json: %w", err)
-	}
-	return l.countUnfixedError(issues)
-}
-
-func (l *lintOperation) outputIssuesPlain(vaultPath string, issues []LintIssue, fix bool) error {
-	for _, issue := range issues {
-		relPath, _ := filepath.Rel(vaultPath, issue.FilePath)
-		fmt.Printf(
-			"%-5s %s: %s %s\n",
-			l.issueTypeName(issue, fix),
-			relPath,
-			issue.IssueType,
-			issue.Description,
-		)
-	}
-	if len(issues) == 0 {
-		fmt.Println("No lint issues found")
-	}
-	return l.countUnfixedError(issues)
-}
-
-func (l *lintOperation) issueTypeName(issue LintIssue, fix bool) string {
-	if issue.Fixed {
-		return "FIXED"
-	}
-	if issue.Fixable && !fix {
-		return "WARN"
-	}
-	return "ERROR"
-}
-
-func (l *lintOperation) countUnfixedError(issues []LintIssue) error {
-	unfixed := 0
-	for _, issue := range issues {
-		if !issue.Fixed {
-			unfixed++
-		}
-	}
-	if unfixed > 0 {
-		return fmt.Errorf("found %d lint issue(s)", unfixed)
-	}
-	return nil
+// ValidateResult is the structured result from ExecuteFile used in CLI JSON output.
+type ValidateResult struct {
+	Name   string              `json:"name"`
+	Vault  string              `json:"vault"`
+	Issues []ValidateIssueJSON `json:"issues"`
 }
 
 // lintFile checks a single file for lint issues and optionally fixes them.

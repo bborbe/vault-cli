@@ -9,27 +9,28 @@ import (
 )
 
 type GoalCompleteOperation struct {
-	ExecuteStub        func(context.Context, string, string, string, string, bool) error
+	ExecuteStub        func(context.Context, string, string, string, bool) (ops.MutationResult, error)
 	executeMutex       sync.RWMutex
 	executeArgsForCall []struct {
 		arg1 context.Context
 		arg2 string
 		arg3 string
 		arg4 string
-		arg5 string
-		arg6 bool
+		arg5 bool
 	}
 	executeReturns struct {
-		result1 error
+		result1 ops.MutationResult
+		result2 error
 	}
 	executeReturnsOnCall map[int]struct {
-		result1 error
+		result1 ops.MutationResult
+		result2 error
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *GoalCompleteOperation) Execute(arg1 context.Context, arg2 string, arg3 string, arg4 string, arg5 string, arg6 bool) error {
+func (fake *GoalCompleteOperation) Execute(arg1 context.Context, arg2 string, arg3 string, arg4 string, arg5 bool) (ops.MutationResult, error) {
 	fake.executeMutex.Lock()
 	ret, specificReturn := fake.executeReturnsOnCall[len(fake.executeArgsForCall)]
 	fake.executeArgsForCall = append(fake.executeArgsForCall, struct {
@@ -37,20 +38,19 @@ func (fake *GoalCompleteOperation) Execute(arg1 context.Context, arg2 string, ar
 		arg2 string
 		arg3 string
 		arg4 string
-		arg5 string
-		arg6 bool
-	}{arg1, arg2, arg3, arg4, arg5, arg6})
+		arg5 bool
+	}{arg1, arg2, arg3, arg4, arg5})
 	stub := fake.ExecuteStub
 	fakeReturns := fake.executeReturns
-	fake.recordInvocation("Execute", []interface{}{arg1, arg2, arg3, arg4, arg5, arg6})
+	fake.recordInvocation("Execute", []interface{}{arg1, arg2, arg3, arg4, arg5})
 	fake.executeMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2, arg3, arg4, arg5, arg6)
+		return stub(arg1, arg2, arg3, arg4, arg5)
 	}
 	if specificReturn {
-		return ret.result1
+		return ret.result1, ret.result2
 	}
-	return fakeReturns.result1
+	return fakeReturns.result1, fakeReturns.result2
 }
 
 func (fake *GoalCompleteOperation) ExecuteCallCount() int {
@@ -59,40 +59,43 @@ func (fake *GoalCompleteOperation) ExecuteCallCount() int {
 	return len(fake.executeArgsForCall)
 }
 
-func (fake *GoalCompleteOperation) ExecuteCalls(stub func(context.Context, string, string, string, string, bool) error) {
+func (fake *GoalCompleteOperation) ExecuteCalls(stub func(context.Context, string, string, string, bool) (ops.MutationResult, error)) {
 	fake.executeMutex.Lock()
 	defer fake.executeMutex.Unlock()
 	fake.ExecuteStub = stub
 }
 
-func (fake *GoalCompleteOperation) ExecuteArgsForCall(i int) (context.Context, string, string, string, string, bool) {
+func (fake *GoalCompleteOperation) ExecuteArgsForCall(i int) (context.Context, string, string, string, bool) {
 	fake.executeMutex.RLock()
 	defer fake.executeMutex.RUnlock()
 	argsForCall := fake.executeArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4, argsForCall.arg5, argsForCall.arg6
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4, argsForCall.arg5
 }
 
-func (fake *GoalCompleteOperation) ExecuteReturns(result1 error) {
+func (fake *GoalCompleteOperation) ExecuteReturns(result1 ops.MutationResult, result2 error) {
 	fake.executeMutex.Lock()
 	defer fake.executeMutex.Unlock()
 	fake.ExecuteStub = nil
 	fake.executeReturns = struct {
-		result1 error
-	}{result1}
+		result1 ops.MutationResult
+		result2 error
+	}{result1, result2}
 }
 
-func (fake *GoalCompleteOperation) ExecuteReturnsOnCall(i int, result1 error) {
+func (fake *GoalCompleteOperation) ExecuteReturnsOnCall(i int, result1 ops.MutationResult, result2 error) {
 	fake.executeMutex.Lock()
 	defer fake.executeMutex.Unlock()
 	fake.ExecuteStub = nil
 	if fake.executeReturnsOnCall == nil {
 		fake.executeReturnsOnCall = make(map[int]struct {
-			result1 error
+			result1 ops.MutationResult
+			result2 error
 		})
 	}
 	fake.executeReturnsOnCall[i] = struct {
-		result1 error
-	}{result1}
+		result1 ops.MutationResult
+		result2 error
+	}{result1, result2}
 }
 
 func (fake *GoalCompleteOperation) Invocations() map[string][][]interface{} {

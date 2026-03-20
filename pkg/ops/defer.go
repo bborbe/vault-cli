@@ -6,10 +6,8 @@ package ops
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log/slog"
-	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -29,8 +27,7 @@ type DeferOperation interface {
 		taskName string,
 		dateStr string,
 		vaultName string,
-		outputFormat string,
-	) error
+	) (MutationResult, error)
 }
 
 // NewDeferOperation creates a new defer operation.
@@ -59,18 +56,31 @@ func (d *deferOperation) Execute(
 	taskName string,
 	dateStr string,
 	vaultName string,
-	outputFormat string,
-) error {
+) (MutationResult, error) {
 	// Parse initial target date
 	targetDate, err := d.parseDate(dateStr)
 	if err != nil {
-		return d.returnError(ctx, err, "parse date", outputFormat)
+		return MutationResult{
+				Success: false,
+				Error:   err.Error(),
+			}, errors.Wrap(
+				ctx,
+				err,
+				"parse date",
+			)
 	}
 
 	// Find task early so we can adjust +Nd for time preservation
 	task, err := d.taskStorage.FindTaskByName(ctx, vaultPath, taskName)
 	if err != nil {
-		return d.returnError(ctx, err, "find task", outputFormat)
+		return MutationResult{
+				Success: false,
+				Error:   err.Error(),
+			}, errors.Wrap(
+				ctx,
+				err,
+				"find task",
+			)
 	}
 
 	// For +Nd: if existing DeferDate has a time component, preserve it
@@ -89,21 +99,38 @@ func (d *deferOperation) Execute(
 	// Validate target is not in the past (date-only: compare at day level; datetime: compare at full precision)
 	now := d.currentDateTime.Now().Time()
 	if d.isInPast(targetDate, now) {
-		err := fmt.Errorf("cannot defer to past date: %s", targetDate.Time().Format("2006-01-02"))
-		return d.returnError(ctx, err, "validate date", outputFormat)
+		baseErr := fmt.Errorf(
+			"cannot defer to past date: %s",
+			targetDate.Time().Format("2006-01-02"),
+		) //nolint:goerr113
+		return MutationResult{
+				Success: false,
+				Error:   baseErr.Error(),
+			}, errors.Wrap(
+				ctx,
+				baseErr,
+				"validate date",
+			)
 	}
 
 	// Find and update task
-	task, err = d.findAndDeferTask(ctx, task, targetDate, outputFormat)
+	task, err = d.findAndDeferTask(ctx, task, targetDate)
 	if err != nil {
-		return err
+		return MutationResult{Success: false, Error: err.Error()}, err
 	}
 
 	// Update daily notes
 	warnings := d.updateDailyNotes(ctx, vaultPath, task.Name, targetDate)
 
-	// Return result
-	return d.formatResult(task.Name, vaultName, targetDate, warnings, outputFormat)
+	// Return result with formatted date in Message field
+	formattedDate := targetDate.Time().Format("2006-01-02")
+	return MutationResult{
+		Success:  true,
+		Name:     task.Name,
+		Vault:    vaultName,
+		Warnings: warnings,
+		Message:  formattedDate,
+	}, nil
 }
 
 // isInPast reports whether targetDate is in the past relative to now.
@@ -121,27 +148,11 @@ func (d *deferOperation) isInPast(targetDate domain.DateOrDateTime, now time.Tim
 	return targetT.Before(now)
 }
 
-// returnError formats and returns an error based on output format.
-func (d *deferOperation) returnError(
-	ctx context.Context,
-	err error,
-	msg string,
-	format string,
-) error {
-	if format == "json" {
-		enc := json.NewEncoder(os.Stdout)
-		enc.SetIndent("", "  ")
-		_ = enc.Encode(MutationResult{Success: false, Error: err.Error()})
-	}
-	return errors.Wrap(ctx, err, msg)
-}
-
 // findAndDeferTask updates task defer status and writes it.
 func (d *deferOperation) findAndDeferTask(
 	ctx context.Context,
 	task *domain.Task,
 	targetDate domain.DateOrDateTime,
-	format string,
 ) (*domain.Task, error) {
 	task.DeferDate = targetDate.Ptr()
 
@@ -151,7 +162,7 @@ func (d *deferOperation) findAndDeferTask(
 	}
 
 	if err := d.taskStorage.WriteTask(ctx, task); err != nil {
-		return nil, d.returnError(ctx, err, "write task", format)
+		return nil, errors.Wrap(ctx, err, "write task")
 	}
 	return task, nil
 }
@@ -177,26 +188,6 @@ func (d *deferOperation) updateDailyNotes(
 		slog.Warn("defer warning", "warning", w)
 	}
 	return warnings
-}
-
-// formatResult formats output based on format type.
-func (d *deferOperation) formatResult(
-	name string,
-	vault string,
-	targetDate domain.DateOrDateTime,
-	warnings []string,
-	format string,
-) error {
-	dateStr := targetDate.Time().Format("2006-01-02")
-	if format == "json" {
-		enc := json.NewEncoder(os.Stdout)
-		enc.SetIndent("", "  ")
-		return enc.Encode(
-			MutationResult{Success: true, Name: name, Vault: vault, Warnings: warnings},
-		)
-	}
-	fmt.Printf("📅 Task deferred to %s: %s\n", dateStr, name)
-	return nil
 }
 
 // parseDate parses various date formats: +Nd, weekday names, ISO dates, RFC3339 datetimes.

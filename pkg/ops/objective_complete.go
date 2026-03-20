@@ -6,9 +6,7 @@ package ops
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"os"
 
 	"github.com/bborbe/errors"
 	libtime "github.com/bborbe/time"
@@ -24,8 +22,7 @@ type ObjectiveCompleteOperation interface {
 		vaultPath string,
 		objectiveName string,
 		vaultName string,
-		outputFormat string,
-	) error
+	) (MutationResult, error)
 }
 
 // NewObjectiveCompleteOperation creates a new objective complete operation.
@@ -44,66 +41,43 @@ type objectiveCompleteOperation struct {
 	currentDateTime  libtime.CurrentDateTime
 }
 
-// ObjectiveCompleteResult represents the JSON result of an objective complete operation.
-type ObjectiveCompleteResult struct {
-	Success   bool   `json:"success"`
-	Name      string `json:"name,omitempty"`
-	Status    string `json:"status,omitempty"`
-	Completed string `json:"completed,omitempty"`
-	Vault     string `json:"vault,omitempty"`
-	Error     string `json:"error,omitempty"`
-}
-
-func outputObjectiveCompleteError(outputFormat string, msg string) {
-	if outputFormat == "json" {
-		result := ObjectiveCompleteResult{Success: false, Error: msg}
-		enc := json.NewEncoder(os.Stdout)
-		enc.SetIndent("", "  ")
-		_ = enc.Encode(result)
-	}
-}
-
 // Execute marks an objective as completed.
 func (o *objectiveCompleteOperation) Execute(
 	ctx context.Context,
 	vaultPath string,
 	objectiveName string,
 	vaultName string,
-	outputFormat string,
-) error {
+) (MutationResult, error) {
 	objective, err := o.objectiveStorage.FindObjectiveByName(ctx, vaultPath, objectiveName)
 	if err != nil {
-		outputObjectiveCompleteError(outputFormat, err.Error())
-		return errors.Wrap(ctx, err, "find objective")
+		return MutationResult{
+				Success: false,
+				Error:   err.Error(),
+			}, errors.Wrap(
+				ctx,
+				err,
+				"find objective",
+			)
 	}
 
 	if objective.Status == domain.ObjectiveStatusCompleted {
-		outputObjectiveCompleteError(outputFormat,
-			fmt.Sprintf("objective %q is already completed", objectiveName))
-		return fmt.Errorf("objective %q is already completed", objectiveName) //nolint:goerr113
+		msg := fmt.Sprintf("objective %q is already completed", objectiveName)
+		return MutationResult{Success: false, Error: msg}, fmt.Errorf("%s", msg) //nolint:goerr113
 	}
 
 	objective.Status = domain.ObjectiveStatusCompleted
 	objective.Completed = libtime.ToDate(o.currentDateTime.Now().Time()).Ptr()
 
 	if err := o.objectiveStorage.WriteObjective(ctx, objective); err != nil {
-		outputObjectiveCompleteError(outputFormat, err.Error())
-		return errors.Wrap(ctx, err, "write objective")
+		return MutationResult{
+				Success: false,
+				Error:   err.Error(),
+			}, errors.Wrap(
+				ctx,
+				err,
+				"write objective",
+			)
 	}
 
-	if outputFormat == "json" {
-		result := ObjectiveCompleteResult{
-			Success:   true,
-			Name:      objective.Name,
-			Status:    string(objective.Status),
-			Completed: objective.Completed.Format("2006-01-02"),
-			Vault:     vaultName,
-		}
-		enc := json.NewEncoder(os.Stdout)
-		enc.SetIndent("", "  ")
-		return enc.Encode(result)
-	}
-
-	fmt.Printf("✅ Objective completed: %s\n", objective.Name)
-	return nil
+	return MutationResult{Success: true, Name: objective.Name, Vault: vaultName}, nil
 }

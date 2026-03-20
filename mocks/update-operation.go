@@ -9,26 +9,27 @@ import (
 )
 
 type UpdateOperation struct {
-	ExecuteStub        func(context.Context, string, string, string, string) error
+	ExecuteStub        func(context.Context, string, string, string) (ops.MutationResult, error)
 	executeMutex       sync.RWMutex
 	executeArgsForCall []struct {
 		arg1 context.Context
 		arg2 string
 		arg3 string
 		arg4 string
-		arg5 string
 	}
 	executeReturns struct {
-		result1 error
+		result1 ops.MutationResult
+		result2 error
 	}
 	executeReturnsOnCall map[int]struct {
-		result1 error
+		result1 ops.MutationResult
+		result2 error
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *UpdateOperation) Execute(arg1 context.Context, arg2 string, arg3 string, arg4 string, arg5 string) error {
+func (fake *UpdateOperation) Execute(arg1 context.Context, arg2 string, arg3 string, arg4 string) (ops.MutationResult, error) {
 	fake.executeMutex.Lock()
 	ret, specificReturn := fake.executeReturnsOnCall[len(fake.executeArgsForCall)]
 	fake.executeArgsForCall = append(fake.executeArgsForCall, struct {
@@ -36,19 +37,18 @@ func (fake *UpdateOperation) Execute(arg1 context.Context, arg2 string, arg3 str
 		arg2 string
 		arg3 string
 		arg4 string
-		arg5 string
-	}{arg1, arg2, arg3, arg4, arg5})
+	}{arg1, arg2, arg3, arg4})
 	stub := fake.ExecuteStub
 	fakeReturns := fake.executeReturns
-	fake.recordInvocation("Execute", []interface{}{arg1, arg2, arg3, arg4, arg5})
+	fake.recordInvocation("Execute", []interface{}{arg1, arg2, arg3, arg4})
 	fake.executeMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2, arg3, arg4, arg5)
+		return stub(arg1, arg2, arg3, arg4)
 	}
 	if specificReturn {
-		return ret.result1
+		return ret.result1, ret.result2
 	}
-	return fakeReturns.result1
+	return fakeReturns.result1, fakeReturns.result2
 }
 
 func (fake *UpdateOperation) ExecuteCallCount() int {
@@ -57,40 +57,43 @@ func (fake *UpdateOperation) ExecuteCallCount() int {
 	return len(fake.executeArgsForCall)
 }
 
-func (fake *UpdateOperation) ExecuteCalls(stub func(context.Context, string, string, string, string) error) {
+func (fake *UpdateOperation) ExecuteCalls(stub func(context.Context, string, string, string) (ops.MutationResult, error)) {
 	fake.executeMutex.Lock()
 	defer fake.executeMutex.Unlock()
 	fake.ExecuteStub = stub
 }
 
-func (fake *UpdateOperation) ExecuteArgsForCall(i int) (context.Context, string, string, string, string) {
+func (fake *UpdateOperation) ExecuteArgsForCall(i int) (context.Context, string, string, string) {
 	fake.executeMutex.RLock()
 	defer fake.executeMutex.RUnlock()
 	argsForCall := fake.executeArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4, argsForCall.arg5
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4
 }
 
-func (fake *UpdateOperation) ExecuteReturns(result1 error) {
+func (fake *UpdateOperation) ExecuteReturns(result1 ops.MutationResult, result2 error) {
 	fake.executeMutex.Lock()
 	defer fake.executeMutex.Unlock()
 	fake.ExecuteStub = nil
 	fake.executeReturns = struct {
-		result1 error
-	}{result1}
+		result1 ops.MutationResult
+		result2 error
+	}{result1, result2}
 }
 
-func (fake *UpdateOperation) ExecuteReturnsOnCall(i int, result1 error) {
+func (fake *UpdateOperation) ExecuteReturnsOnCall(i int, result1 ops.MutationResult, result2 error) {
 	fake.executeMutex.Lock()
 	defer fake.executeMutex.Unlock()
 	fake.ExecuteStub = nil
 	if fake.executeReturnsOnCall == nil {
 		fake.executeReturnsOnCall = make(map[int]struct {
-			result1 error
+			result1 ops.MutationResult
+			result2 error
 		})
 	}
 	fake.executeReturnsOnCall[i] = struct {
-		result1 error
-	}{result1}
+		result1 ops.MutationResult
+		result2 error
+	}{result1, result2}
 }
 
 func (fake *UpdateOperation) Invocations() map[string][][]interface{} {

@@ -5,10 +5,7 @@
 package ops_test
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
-	"os"
 
 	libtime "github.com/bborbe/time"
 	libtimetest "github.com/bborbe/time/test"
@@ -24,6 +21,7 @@ var _ = Describe("GoalCompleteOperation", func() {
 	var (
 		ctx             context.Context
 		err             error
+		result          ops.MutationResult
 		op              ops.GoalCompleteOperation
 		mockGoalStorage *mocks.GoalStorage
 		mockTaskStorage *mocks.TaskStorage
@@ -31,7 +29,6 @@ var _ = Describe("GoalCompleteOperation", func() {
 		vaultPath       string
 		goalName        string
 		vaultName       string
-		outputFormat    string
 		force           bool
 		goal            *domain.Goal
 	)
@@ -46,7 +43,6 @@ var _ = Describe("GoalCompleteOperation", func() {
 		vaultPath = "/path/to/vault"
 		goalName = "my-goal"
 		vaultName = "test-vault"
-		outputFormat = "plain"
 		force = false
 
 		goal = &domain.Goal{
@@ -59,7 +55,7 @@ var _ = Describe("GoalCompleteOperation", func() {
 	})
 
 	JustBeforeEach(func() {
-		err = op.Execute(ctx, vaultPath, goalName, vaultName, outputFormat, force)
+		result, err = op.Execute(ctx, vaultPath, goalName, vaultName, force)
 	})
 
 	Context("goal not found", func() {
@@ -196,7 +192,7 @@ var _ = Describe("GoalCompleteOperation", func() {
 		})
 	})
 
-	Context("success plain mode", func() {
+	Context("success", func() {
 		It("returns no error", func() {
 			Expect(err).To(BeNil())
 		})
@@ -207,42 +203,11 @@ var _ = Describe("GoalCompleteOperation", func() {
 			Expect(writtenGoal.Status).To(Equal(domain.GoalStatusCompleted))
 			Expect(writtenGoal.Completed).NotTo(BeNil())
 		})
-	})
 
-	Context("success JSON mode", func() {
-		var (
-			pipeReader *os.File
-			pipeWriter *os.File
-			origStdout *os.File
-			output     string
-		)
-
-		BeforeEach(func() {
-			outputFormat = "json"
-			pipeReader, pipeWriter, _ = os.Pipe()
-			origStdout = os.Stdout
-			os.Stdout = pipeWriter
-		})
-
-		JustBeforeEach(func() {
-			pipeWriter.Close()
-			os.Stdout = origStdout
-			var buf bytes.Buffer
-			_, _ = buf.ReadFrom(pipeReader)
-			output = buf.String()
-		})
-
-		It("returns no error", func() {
-			Expect(err).To(BeNil())
-		})
-
-		It("outputs valid JSON with success true", func() {
-			var result ops.GoalCompleteResult
-			Expect(json.Unmarshal([]byte(output), &result)).To(Succeed())
+		It("returns result with success true", func() {
 			Expect(result.Success).To(BeTrue())
-			Expect(result.Status).To(Equal("completed"))
-			Expect(result.Completed).To(Equal("2026-03-17"))
 			Expect(result.Name).To(Equal(goalName))
+			Expect(result.Vault).To(Equal(vaultName))
 		})
 	})
 

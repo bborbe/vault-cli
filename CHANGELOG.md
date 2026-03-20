@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.48.3
+
+- upgrade golangci-lint from v1 to v2
+- standardize Makefile: add mocks mkdir, reorder lint, use go mod tidy -e
+- update .golangci.yml to v2 format
+- setup dark-factory config
+
 ## v0.48.2
 
 - fix: set phase to done when completing a non-recurring task so status and phase remain consistent

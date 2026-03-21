@@ -18,6 +18,11 @@ After completing your implementation, review your own changes against each crite
 - Tests use Ginkgo v2 / Gomega with Counterfeiter mocks
 - New CLI commands/subcommands have an entry in the integration test command registration table (`integration/cli_test.go`)
 
+## Install
+
+- `go install github.com/bborbe/vault-cli@latest` works
+- No `exclude` or `replace` directives in go.mod (break remote install)
+
 ## Documentation
 
 - README.md is updated if the change affects usage, configuration, or setup

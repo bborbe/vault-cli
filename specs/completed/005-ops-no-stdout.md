@@ -1,8 +1,9 @@
 ---
-status: verifying
+status: completed
 approved: "2026-03-20T19:29:12Z"
 prompted: "2026-03-20T19:35:26Z"
 verifying: "2026-03-20T20:31:40Z"
+completed: "2026-03-21T12:42:48Z"
 branch: dark-factory/ops-no-stdout
 ---
 

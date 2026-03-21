@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.48.7
+
+- Update bborbe/* dependencies (collection, errors, time, validation, run, math, parse)
+- Update security scanner gosec v2.25.0
+- Update golang.org/x/* stdlib dependencies
+- Update osv-scanner v2.3.4 and related scanning tools
+- Update charmbracelet UI and other indirect dependencies
+
 ## v0.48.6
 
 - refactor: extract output formatting from LintOperation and WatchOperation so neither writes to stdout; CLI layer formats lint issues and handles exit behavior; watch CLI passes a handler callback for streaming JSON events

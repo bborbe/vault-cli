@@ -1,8 +1,9 @@
 ---
-status: verifying
+status: completed
 approved: "2026-03-25T09:09:56Z"
 prompted: "2026-03-25T09:13:12Z"
 verifying: "2026-03-25T09:40:37Z"
+completed: "2026-03-25T09:43:57Z"
 branch: dark-factory/goal-defer-date
 ---
 

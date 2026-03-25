@@ -10,7 +10,6 @@ import (
 	"log/slog"
 	"regexp"
 	"strings"
-	"time"
 
 	"github.com/bborbe/errors"
 	libtime "github.com/bborbe/time"
@@ -58,7 +57,8 @@ func (d *deferOperation) Execute(
 	vaultName string,
 ) (MutationResult, error) {
 	// Parse initial target date
-	targetDate, err := d.parseDate(dateStr)
+	now := d.currentDateTime.Now().Time()
+	targetDate, err := parseDeferDate(dateStr, now)
 	if err != nil {
 		return MutationResult{
 				Success: false,
@@ -97,8 +97,7 @@ func (d *deferOperation) Execute(
 	}
 
 	// Validate target is not in the past (date-only: compare at day level; datetime: compare at full precision)
-	now := d.currentDateTime.Now().Time()
-	if d.isInPast(targetDate, now) {
+	if isDeferDateInPast(targetDate, now) {
 		baseErr := fmt.Errorf(
 			"cannot defer to past date: %s",
 			targetDate.Time().Format("2006-01-02"),
@@ -131,21 +130,6 @@ func (d *deferOperation) Execute(
 		Warnings: warnings,
 		Message:  formattedDate,
 	}, nil
-}
-
-// isInPast reports whether targetDate is in the past relative to now.
-// For date-only values (midnight UTC), comparison is at day granularity.
-// For datetime values, comparison is at full precision.
-func (d *deferOperation) isInPast(targetDate domain.DateOrDateTime, now time.Time) bool {
-	targetT := targetDate.Time()
-	targetUTC := targetT.UTC()
-	if targetUTC.Hour() == 0 && targetUTC.Minute() == 0 && targetUTC.Second() == 0 &&
-		targetUTC.Nanosecond() == 0 {
-		// Date-only: compare at date level so "today" is never in the past
-		todayMidnight := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
-		return targetT.Before(todayMidnight)
-	}
-	return targetT.Before(now)
 }
 
 // findAndDeferTask updates task defer status and writes it.
@@ -188,61 +172,6 @@ func (d *deferOperation) updateDailyNotes(
 		slog.Warn("defer warning", "warning", w)
 	}
 	return warnings
-}
-
-// parseDate parses various date formats: +Nd, weekday names, ISO dates, RFC3339 datetimes.
-func (d *deferOperation) parseDate(dateStr string) (domain.DateOrDateTime, error) {
-	now := d.currentDateTime.Now().Time()
-
-	// Handle relative dates: +1d, +7d, etc.
-	if matched, _ := regexp.MatchString(`^\+\d+d$`, dateStr); matched {
-		var days int
-		if _, err := fmt.Sscanf(dateStr, "+%dd", &days); err != nil {
-			return domain.DateOrDateTime{}, fmt.Errorf("parse relative date: %w", err)
-		}
-		t := libtime.ToDate(now.AddDate(0, 0, days)).Time()
-		return domain.DateOrDateTime(t), nil
-	}
-
-	// Handle weekday names
-	weekdayMap := map[string]time.Weekday{
-		"monday":    time.Monday,
-		"tuesday":   time.Tuesday,
-		"wednesday": time.Wednesday,
-		"thursday":  time.Thursday,
-		"friday":    time.Friday,
-		"saturday":  time.Saturday,
-		"sunday":    time.Sunday,
-	}
-
-	if weekday, ok := weekdayMap[strings.ToLower(dateStr)]; ok {
-		t := libtime.ToDate(d.nextWeekday(now, weekday)).Time()
-		return domain.DateOrDateTime(t), nil
-	}
-
-	// Handle ISO date: 2024-12-31
-	if t, err := time.Parse("2006-01-02", dateStr); err == nil {
-		return domain.DateOrDateTime(t), nil
-	}
-
-	// Handle RFC3339 datetime: 2026-03-19T16:00:00+01:00
-	if t, err := time.Parse(time.RFC3339, dateStr); err == nil {
-		return domain.DateOrDateTime(t), nil
-	}
-
-	return domain.DateOrDateTime{}, fmt.Errorf(
-		"invalid date format: %s (use +Nd, weekday, YYYY-MM-DD, or RFC3339)",
-		dateStr,
-	)
-}
-
-// nextWeekday returns the next occurrence of the specified weekday.
-func (d *deferOperation) nextWeekday(from time.Time, targetWeekday time.Weekday) time.Time {
-	daysUntil := (int(targetWeekday) - int(from.Weekday()) + 7) % 7
-	if daysUntil == 0 {
-		daysUntil = 7 // Next week's occurrence
-	}
-	return from.AddDate(0, 0, daysUntil)
 }
 
 // removeFromDailyNote removes a task from a daily note.

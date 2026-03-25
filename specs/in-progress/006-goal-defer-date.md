@@ -1,6 +1,8 @@
 ---
-status: draft
-created: "2026-03-25T10:00:00Z"
+status: prompted
+approved: "2026-03-25T09:09:56Z"
+prompted: "2026-03-25T09:13:12Z"
+branch: dark-factory/goal-defer-date
 ---
 
 ## Summary

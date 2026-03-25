@@ -91,6 +91,32 @@ var _ = Describe("NewGoalGetOperation", func() {
 		})
 	})
 
+	Context("getting defer_date field when set", func() {
+		BeforeEach(func() {
+			key = "defer_date"
+			t := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
+			dd := domain.DateOrDateTime(t)
+			goal.DeferDate = &dd
+		})
+
+		It("returns the defer_date value", func() {
+			Expect(err).To(BeNil())
+			Expect(result).To(Equal("2026-04-01"))
+		})
+	})
+
+	Context("getting defer_date field when unset", func() {
+		BeforeEach(func() {
+			key = "defer_date"
+			goal.DeferDate = nil
+		})
+
+		It("returns empty string with no error", func() {
+			Expect(err).To(BeNil())
+			Expect(result).To(Equal(""))
+		})
+	})
+
 	Context("unknown key", func() {
 		BeforeEach(func() {
 			key = "xyz"
@@ -172,6 +198,21 @@ var _ = Describe("NewGoalSetOperation", func() {
 			_, writtenGoal := mockGoalStorage.WriteGoalArgsForCall(0)
 			Expect(writtenGoal.StartDate).NotTo(BeNil())
 			Expect(writtenGoal.StartDate.Format("2006-01-02")).To(Equal("2025-06-15"))
+		})
+	})
+
+	Context("setting defer_date field", func() {
+		BeforeEach(func() {
+			key = "defer_date"
+			value = "2026-04-01"
+		})
+
+		It("sets defer_date and calls WriteGoal", func() {
+			Expect(err).To(BeNil())
+			Expect(mockGoalStorage.WriteGoalCallCount()).To(Equal(1))
+			_, writtenGoal := mockGoalStorage.WriteGoalArgsForCall(0)
+			Expect(writtenGoal.DeferDate).NotTo(BeNil())
+			Expect(writtenGoal.DeferDate.Format("2006-01-02")).To(Equal("2026-04-01"))
 		})
 	})
 
@@ -325,6 +366,22 @@ var _ = Describe("NewGoalClearOperation", func() {
 			Expect(mockGoalStorage.WriteGoalCallCount()).To(Equal(1))
 			_, writtenGoal := mockGoalStorage.WriteGoalArgsForCall(0)
 			Expect(writtenGoal.StartDate).To(BeNil())
+		})
+	})
+
+	Context("clearing defer_date field", func() {
+		BeforeEach(func() {
+			key = "defer_date"
+			t := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
+			dd := domain.DateOrDateTime(t)
+			goal.DeferDate = &dd
+		})
+
+		It("sets defer_date to nil", func() {
+			Expect(err).To(BeNil())
+			Expect(mockGoalStorage.WriteGoalCallCount()).To(Equal(1))
+			_, writtenGoal := mockGoalStorage.WriteGoalArgsForCall(0)
+			Expect(writtenGoal.DeferDate).To(BeNil())
 		})
 	})
 

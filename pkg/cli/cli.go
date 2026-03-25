@@ -1197,6 +1197,7 @@ func createGoalCommands(
 		},
 	))
 	cmd.AddCommand(createGoalCompleteCommand(ctx, configLoader, vaultName, outputFormat))
+	cmd.AddCommand(createGoalDeferCommand(ctx, configLoader, vaultName, outputFormat))
 	return cmd
 }
 
@@ -1252,6 +1253,67 @@ func createGoalCompleteCommand(
 	cmd.Flags().
 		BoolVar(&force, "force", false, "Complete even if open tasks are linked to this goal")
 	return cmd
+}
+
+func createGoalDeferCommand(
+	ctx context.Context,
+	configLoader *config.Loader,
+	vaultName *string,
+	outputFormat *string,
+) *cobra.Command {
+	return &cobra.Command{
+		Use:   "defer <goal-name> [date]",
+		Short: "Defer a goal to a specific date",
+		Long: `Defer a goal to a specific date.
+
+If no date is provided, defaults to +1d (tomorrow).
+
+Date formats:
+  +Nd                        - Relative days (e.g., +7d for 7 days from now)
+  monday                     - Next occurrence of weekday
+  2024-12-31                 - ISO date format (YYYY-MM-DD)
+  2026-03-19T16:00:00+01:00  - Full datetime with timezone`,
+		Args: cobra.RangeArgs(1, 2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			goalName := args[0]
+			dateStr := "+1d"
+			if len(args) > 1 {
+				dateStr = args[1]
+			}
+
+			vaults, err := getVaults(ctx, configLoader, vaultName)
+			if err != nil {
+				return errors.Wrap(ctx, err, "get vaults")
+			}
+
+			currentDateTime := libtime.NewCurrentDateTime()
+
+			dispatcher := ops.NewVaultDispatcher()
+			return dispatcher.FirstSuccess(ctx, vaults, func(vault *config.Vault) error {
+				storageConfig := storage.NewConfigFromVault(vault)
+				goalStore := storage.NewGoalStorage(storageConfig)
+				deferOp := ops.NewGoalDeferOperation(goalStore, currentDateTime)
+				result, err := deferOp.Execute(
+					ctx,
+					vault.Path,
+					goalName,
+					dateStr,
+					vault.Name,
+				)
+				if err != nil {
+					if *outputFormat == OutputFormatJSON {
+						_ = PrintJSON(result)
+					}
+					return err
+				}
+				if *outputFormat == OutputFormatJSON {
+					return PrintJSON(result)
+				}
+				fmt.Printf("📅 Goal deferred to %s: %s\n", result.Message, result.Name)
+				return nil
+			})
+		},
+	}
 }
 
 //nolint:dupl // Command groups are structurally similar but manage distinct entity types

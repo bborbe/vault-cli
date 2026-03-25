@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.50.0
+
+- feat: add `GoalDeferOperation` and `vault-cli goal defer` command to set `defer_date` on goals using shared date-parsing helpers (relative days, weekday names, ISO dates, RFC3339); extract `parseDeferDate`, `isDeferDateInPast`, and `nextWeekday` as package-level helpers shared between task and goal defer operations
+
 ## v0.49.0
 
 - feat: add `defer_date` field to `domain.Goal` struct so generic set/get/clear operations support `goal set/get/clear defer_date`; extend `frontmatter_reflect` to handle `*DateOrDateTime` pointer type

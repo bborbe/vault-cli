@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: ["006"]
+summary: Created GoalDeferOperation with shared date-parsing helpers extracted from deferOperation, wired vault-cli goal defer CLI command, generated mock, and wrote tests with ≥80% coverage.
+container: vault-cli-095-spec-006-goal-defer-operation
+dark-factory-version: v0.67.3-dirty
 created: "2026-03-25T09:30:00Z"
 queued: "2026-03-25T09:29:41Z"
+started: "2026-03-25T09:35:09Z"
+completed: "2026-03-25T09:40:37Z"
 ---
 
 <summary>

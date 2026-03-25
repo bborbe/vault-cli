@@ -13,15 +13,16 @@ import (
 // Goal represents a goal in the Obsidian vault with YAML frontmatter.
 type Goal struct {
 	// Frontmatter fields
-	Status     GoalStatus    `yaml:"status"`
-	PageType   string        `yaml:"page_type"`
-	Theme      string        `yaml:"theme,omitempty"`
-	Priority   Priority      `yaml:"priority,omitempty"`
-	Assignee   string        `yaml:"assignee,omitempty"`
-	StartDate  *time.Time    `yaml:"start_date,omitempty"`
-	TargetDate *time.Time    `yaml:"target_date,omitempty"`
-	Tags       []string      `yaml:"tags,omitempty"`
-	Completed  *libtime.Date `yaml:"completed,omitempty"`
+	Status     GoalStatus      `yaml:"status"`
+	PageType   string          `yaml:"page_type"`
+	Theme      string          `yaml:"theme,omitempty"`
+	Priority   Priority        `yaml:"priority,omitempty"`
+	Assignee   string          `yaml:"assignee,omitempty"`
+	StartDate  *time.Time      `yaml:"start_date,omitempty"`
+	TargetDate *time.Time      `yaml:"target_date,omitempty"`
+	Tags       []string        `yaml:"tags,omitempty"`
+	Completed  *libtime.Date   `yaml:"completed,omitempty"`
+	DeferDate  *DateOrDateTime `yaml:"defer_date,omitempty"`
 
 	// Metadata
 	Name         string         `yaml:"-"` // Filename without extension

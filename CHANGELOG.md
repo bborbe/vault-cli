@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.49.0
+
+- feat: add `defer_date` field to `domain.Goal` struct so generic set/get/clear operations support `goal set/get/clear defer_date`; extend `frontmatter_reflect` to handle `*DateOrDateTime` pointer type
+
 ## v0.48.7
 
 - Update bborbe/* dependencies (collection, errors, time, validation, run, math, parse)

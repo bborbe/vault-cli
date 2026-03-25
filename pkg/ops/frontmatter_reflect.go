@@ -13,6 +13,9 @@ import (
 	"time"
 
 	"github.com/bborbe/errors"
+	libtime "github.com/bborbe/time"
+
+	"github.com/bborbe/vault-cli/pkg/domain"
 )
 
 // fieldByYAMLTag finds a struct field by its yaml tag name.
@@ -59,6 +62,10 @@ func getFieldAsString(fieldVal reflect.Value) (string, error) {
 		// Handle *time.Time
 		if t, ok := fieldVal.Interface().(*time.Time); ok {
 			return t.Format("2006-01-02"), nil
+		}
+		// Handle *domain.DateOrDateTime
+		if d, ok := fieldVal.Interface().(*domain.DateOrDateTime); ok {
+			return formatDateOrDateTimeReflect(d), nil
 		}
 		return "", fmt.Errorf("unsupported pointer type: %s", fieldVal.Type())
 	default:
@@ -109,6 +116,16 @@ func setFieldFromString(
 				return errors.Wrap(ctx, err, "invalid date format (expected YYYY-MM-DD)")
 			}
 			fieldVal.Set(reflect.ValueOf(&t))
+			return nil
+		}
+		// Handle *domain.DateOrDateTime
+		if fieldType == reflect.TypeOf((*domain.DateOrDateTime)(nil)) {
+			t, err := libtime.ParseTime(ctx, value)
+			if err != nil {
+				return errors.Wrap(ctx, err, "invalid date format (expected YYYY-MM-DD or RFC3339)")
+			}
+			d := domain.DateOrDateTime(*t)
+			fieldVal.Set(reflect.ValueOf(d.Ptr()))
 			return nil
 		}
 		return fmt.Errorf("unsupported pointer type: %s", fieldType)
@@ -166,4 +183,17 @@ func removeFromList(fieldVal reflect.Value, value string) error {
 // isReadOnlyTag returns true if the yaml tag marks the field as metadata (yaml:"-").
 func isReadOnlyTag(field reflect.StructField) bool {
 	return field.Tag.Get("yaml") == "-"
+}
+
+// formatDateOrDateTimeReflect serializes a *DateOrDateTime to YYYY-MM-DD for date-only
+// values and RFC3339 for values with a time component.
+func formatDateOrDateTimeReflect(d *domain.DateOrDateTime) string {
+	if d == nil {
+		return ""
+	}
+	t := d.Time().UTC()
+	if t.Hour() == 0 && t.Minute() == 0 && t.Second() == 0 && t.Nanosecond() == 0 {
+		return t.Format(time.DateOnly)
+	}
+	return t.Format(time.RFC3339)
 }

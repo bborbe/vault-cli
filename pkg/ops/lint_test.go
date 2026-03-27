@@ -50,6 +50,7 @@ status: todo
 page_type: task
 priority: 1
 assignee: bborbe
+task_identifier: test-uuid-valid
 ---
 # Valid Task
 
@@ -106,6 +107,7 @@ status: todo
 page_type: task
 priority: high
 assignee: bborbe
+task_identifier: test-uuid-priority
 ---
 # Task With String Priority
 
@@ -173,6 +175,7 @@ page_type: task
 priority: 1
 assignee: bborbe
 assignee: alice
+task_identifier: test-uuid-duplicate
 ---
 # Task With Duplicate Key
 
@@ -220,6 +223,7 @@ status: invalid_status
 page_type: task
 priority: 1
 assignee: bborbe
+task_identifier: test-uuid-status
 ---
 # Task With Invalid Status
 
@@ -250,6 +254,7 @@ status: next
 page_type: task
 priority: 1
 assignee: bborbe
+task_identifier: test-uuid-next
 ---
 # Task With Next Status
 
@@ -285,6 +290,7 @@ status: current
 page_type: task
 priority: 1
 assignee: bborbe
+task_identifier: test-uuid-current
 ---
 # Task With Current Status
 
@@ -320,6 +326,7 @@ status: done
 page_type: task
 priority: 1
 assignee: bborbe
+task_identifier: test-uuid-done
 ---
 # Task With Done Status
 
@@ -355,6 +362,7 @@ status: foo
 page_type: task
 priority: 1
 assignee: bborbe
+task_identifier: test-uuid-foo
 ---
 # Task With Foo Status
 
@@ -392,6 +400,7 @@ page_type: task
 priority: high
 assignee: bborbe
 assignee: alice
+task_identifier: test-uuid-multi
 ---
 # Task With Multiple Issues
 
@@ -428,6 +437,7 @@ This task has multiple issues.
 status: todo
 page_type: task
 priority: high
+task_identifier: test-uuid-file1
 ---
 # Task 1
 `
@@ -440,6 +450,7 @@ status: todo
 page_type: task
 assignee: bborbe
 assignee: alice
+task_identifier: test-uuid-file2
 ---
 # Task 2
 `
@@ -733,6 +744,7 @@ priority: 1
 			invalidPriorityContent := `---
 status: todo
 priority: high
+task_identifier: test-uuid-fixable
 ---
 # Task With Fixable Issue
 `
@@ -757,6 +769,7 @@ priority: high
 			invalidStatusContent := `---
 status: invalid_status
 priority: 1
+task_identifier: test-uuid-nonfixable
 ---
 # Task With Non-Fixable Issue
 `
@@ -784,6 +797,7 @@ status: invalid_status
 priority: high
 assignee: bob
 assignee: alice
+task_identifier: test-uuid-mixed
 ---
 # Task With Mixed Issues
 `
@@ -817,6 +831,7 @@ assignee: alice
 			validContent := `---
 status: todo
 priority: 1
+task_identifier: test-uuid-valid-multi
 ---
 # Valid
 `
@@ -827,6 +842,7 @@ priority: 1
 			issueContent := `---
 status: todo
 priority: high
+task_identifier: test-uuid-issue
 ---
 # Has Issue
 `
@@ -876,6 +892,7 @@ priority: 1
 			migrateContent := `---
 status: next
 priority: 1
+task_identifier: test-uuid-migrate
 ---
 # Migrateable Status
 `
@@ -966,6 +983,7 @@ priority: 1
 			content := `---
 status: todo
 priority: "high"
+task_identifier: test-uuid-quoted
 ---
 # Task with Quoted Priority
 `
@@ -1167,6 +1185,7 @@ priority: 1
 			content := `---
 status: todo
 priority: high
+task_identifier: test-uuid-json-enc
 ---
 # Task
 `
@@ -1385,6 +1404,7 @@ goals: ["[[My Goal]]"]
 status: todo
 page_type: task
 goals: ["[[Missing Goal]]"]
+task_identifier: test-uuid-orphan
 ---
 # Task with orphan goal
 `
@@ -1413,6 +1433,7 @@ page_type: task
 goals:
   - "[[Existing Goal]]"
   - "[[Missing Goal]]"
+task_identifier: test-uuid-multigoal
 ---
 # Task with multi-line goals
 `
@@ -1470,6 +1491,7 @@ var _ = Describe("LintOperation - Status Checkbox Mismatch", func() {
 			taskContent := `---
 status: completed
 page_type: task
+task_identifier: test-uuid-unchecked
 ---
 # Task with unchecked boxes
 
@@ -1499,6 +1521,7 @@ page_type: task
 			taskContent := `---
 status: in_progress
 page_type: task
+task_identifier: test-uuid-allchecked
 ---
 # Task with all checked boxes
 
@@ -1623,9 +1646,9 @@ var _ = Describe("LintOperation - Status Phase Mismatch", func() {
 	writeTask := func(vaultPath, tasksDir, status, phase string) {
 		var content string
 		if phase == "" {
-			content = "---\nstatus: " + status + "\npage_type: task\n---\n# Task\n"
+			content = "---\nstatus: " + status + "\npage_type: task\ntask_identifier: test-uuid-phase\n---\n# Task\n"
 		} else {
-			content = "---\nstatus: " + status + "\nphase: " + phase + "\npage_type: task\n---\n# Task\n"
+			content = "---\nstatus: " + status + "\nphase: " + phase + "\npage_type: task\ntask_identifier: test-uuid-phase\n---\n# Task\n"
 		}
 		taskPath := filepath.Join(vaultPath, tasksDir, "Task.md")
 		Expect(os.WriteFile(taskPath, []byte(content), 0600)).To(Succeed())
@@ -1696,5 +1719,76 @@ var _ = Describe("LintOperation - Status Phase Mismatch", func() {
 			Entry("backlog + todo", "backlog", "todo"),
 			Entry("backlog + no phase", "backlog", ""),
 		)
+	})
+})
+
+var _ = Describe("LintOperation - Missing Task Identifier", func() {
+	var (
+		ctx       context.Context
+		lintOp    ops.LintOperation
+		vaultPath string
+		tasksDir  string
+	)
+
+	BeforeEach(func() {
+		ctx = context.Background()
+		lintOp = ops.NewLintOperation()
+
+		var err error
+		vaultPath, err = os.MkdirTemp("", "vault-taskid-test-*")
+		Expect(err).To(BeNil())
+
+		tasksDir = "Tasks"
+		tasksDirPath := filepath.Join(vaultPath, tasksDir)
+		Expect(os.MkdirAll(tasksDirPath, 0755)).To(Succeed())
+	})
+
+	AfterEach(func() {
+		if vaultPath != "" {
+			_ = os.RemoveAll(vaultPath)
+		}
+	})
+
+	Context("MISSING_TASK_IDENTIFIER", func() {
+		It("detects missing task_identifier", func() {
+			content := "---\nstatus: todo\npage_type: task\n---\n# Task Without Identifier\n"
+			taskPath := filepath.Join(vaultPath, tasksDir, "Task.md")
+			Expect(os.WriteFile(taskPath, []byte(content), 0600)).To(Succeed())
+
+			issues, err := lintOp.Execute(ctx, vaultPath, tasksDir, false)
+			Expect(err).To(BeNil())
+			found := false
+			for _, i := range issues {
+				if i.IssueType == ops.IssueTypeMissingTaskIdentifier {
+					found = true
+					Expect(i.Fixable).To(BeFalse())
+				}
+			}
+			Expect(found).To(BeTrue(), "expected MISSING_TASK_IDENTIFIER issue")
+		})
+
+		It("does not report MISSING_TASK_IDENTIFIER when task_identifier is present", func() {
+			content := "---\nstatus: todo\npage_type: task\ntask_identifier: some-uuid\n---\n# Task With Identifier\n"
+			taskPath := filepath.Join(vaultPath, tasksDir, "Task.md")
+			Expect(os.WriteFile(taskPath, []byte(content), 0600)).To(Succeed())
+
+			issues, err := lintOp.Execute(ctx, vaultPath, tasksDir, false)
+			Expect(err).To(BeNil())
+			for _, i := range issues {
+				Expect(i.IssueType).NotTo(Equal(ops.IssueTypeMissingTaskIdentifier))
+			}
+		})
+
+		It("does not report MISSING_TASK_IDENTIFIER for files with missing frontmatter", func() {
+			content := "# Task Without Frontmatter\n\nThis task has no frontmatter at all.\n"
+			taskPath := filepath.Join(vaultPath, tasksDir, "NoFrontmatter.md")
+			Expect(os.WriteFile(taskPath, []byte(content), 0600)).To(Succeed())
+
+			issues, err := lintOp.Execute(ctx, vaultPath, tasksDir, false)
+			Expect(err).To(BeNil())
+			for _, i := range issues {
+				Expect(i.IssueType).NotTo(Equal(ops.IssueTypeMissingTaskIdentifier))
+			}
+		})
 	})
 })

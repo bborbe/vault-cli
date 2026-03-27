@@ -209,6 +209,7 @@ This is a done task.
 					"valid-task": `---
 status: todo
 priority: 2
+task_identifier: test-uuid-valid
 ---
 # Valid Task
 This task has valid frontmatter.
@@ -314,6 +315,7 @@ priority: high
 					"next-status-task": `---
 status: next
 priority: 2
+task_identifier: test-uuid-next
 ---
 # Task with next status
 `,
@@ -355,6 +357,7 @@ priority: 2
 					"high-priority-task": `---
 status: todo
 priority: high
+task_identifier: test-uuid-high
 ---
 # Task with string priority
 `,

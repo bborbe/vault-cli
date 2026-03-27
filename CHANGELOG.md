@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.51.0
+
+- feat: add `task_identifier` field to `domain.Task` with UUIDv4 auto-generation in `WriteTask`, lint check `MISSING_TASK_IDENTIFIER` for tasks without a stable identity, and promote `github.com/google/uuid` to a direct dependency
+- feat: add `EnsureAllTaskIdentifiersOperation` in `pkg/ops/` to backfill `task_identifier` on all tasks in a vault that are missing one, collecting modified file paths and skipping write errors non-fatally
+
 ## v0.50.0
 
 - feat: add `GoalDeferOperation` and `vault-cli goal defer` command to set `defer_date` on goals using shared date-parsing helpers (relative days, weekday names, ISO dates, RFC3339); extract `parseDeferDate`, `isDeferDateInPast`, and `nextWeekday` as package-level helpers shared between task and goal defer operations

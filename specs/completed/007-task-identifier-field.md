@@ -1,7 +1,9 @@
 ---
-status: prompted
+status: completed
 approved: "2026-03-27T18:29:12Z"
 prompted: "2026-03-27T18:33:51Z"
+verifying: "2026-03-27T21:20:45Z"
+completed: "2026-03-27T21:21:15Z"
 branch: dark-factory/task-identifier-field
 ---
 

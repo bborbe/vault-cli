@@ -52,6 +52,7 @@ const (
 	IssueTypeOrphanGoal             IssueType = "ORPHAN_GOAL"
 	IssueTypeStatusCheckboxMismatch IssueType = "STATUS_CHECKBOX_MISMATCH"
 	IssueTypeStatusPhaseMismatch    IssueType = "STATUS_PHASE_MISMATCH"
+	IssueTypeMissingTaskIdentifier  IssueType = "MISSING_TASK_IDENTIFIER"
 )
 
 // LintIssue represents a single lint issue found in a file.
@@ -268,6 +269,9 @@ func (l *lintOperation) collectLintIssues(
 			Fixed:       false,
 		})
 	}
+
+	// Check for missing task_identifier
+	issues = append(issues, l.missingTaskIdentifierIssues(filePath, frontmatterYAML)...)
 
 	return issues
 }
@@ -557,6 +561,31 @@ func (l *lintOperation) detectStatusPhaseMismatch(frontmatterYAML string) (bool,
 	}
 
 	return false, ""
+}
+
+// missingTaskIdentifierIssues returns a lint issue if task_identifier is absent or empty.
+func (l *lintOperation) missingTaskIdentifierIssues(filePath, frontmatterYAML string) []LintIssue {
+	if !l.detectMissingTaskIdentifier(frontmatterYAML) {
+		return nil
+	}
+	return []LintIssue{{
+		FilePath:    filePath,
+		IssueType:   IssueTypeMissingTaskIdentifier,
+		Description: "task_identifier is missing; run backfill to assign one",
+		Fixable:     false,
+		Fixed:       false,
+	}}
+}
+
+// detectMissingTaskIdentifier returns true if task_identifier is absent or empty.
+func (l *lintOperation) detectMissingTaskIdentifier(frontmatterYAML string) bool {
+	var fm struct {
+		TaskIdentifier string `yaml:"task_identifier"`
+	}
+	if err := yaml.Unmarshal([]byte(frontmatterYAML), &fm); err != nil {
+		return false // Cannot parse; other checks will surface the error
+	}
+	return fm.TaskIdentifier == ""
 }
 
 // fixIssues fixes fixable issues in the file.

@@ -43,7 +43,7 @@ func TestValidateExecuteFileWithNoIssues(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 	defer func() { _ = os.Remove(f.Name()) }()
 
-	content := "---\nstatus: todo\npriority: 1\n---\n# Task\n"
+	content := "---\nstatus: todo\npriority: 1\ntask_identifier: test-uuid\n---\n# Task\n"
 	_, err = f.WriteString(content)
 	g.Expect(err).NotTo(HaveOccurred())
 	g.Expect(f.Close()).To(Succeed())

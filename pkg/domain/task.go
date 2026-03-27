@@ -30,6 +30,7 @@ type Task struct {
 	CompletedDate   string          `yaml:"completed_date,omitempty"`
 	PlannedDate     *DateOrDateTime `yaml:"planned_date,omitempty"`
 	DueDate         *DateOrDateTime `yaml:"due_date,omitempty"`
+	TaskIdentifier  string          `yaml:"task_identifier,omitempty"`
 
 	// Metadata
 	Name         string     `yaml:"-"` // Filename without extension

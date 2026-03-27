@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/bborbe/errors"
+	"github.com/google/uuid"
 
 	"github.com/bborbe/vault-cli/pkg/domain"
 )
@@ -41,6 +42,10 @@ func (t *taskStorage) ReadTask(
 
 // WriteTask writes a task to a markdown file.
 func (t *taskStorage) WriteTask(ctx context.Context, task *domain.Task) error {
+	if task.TaskIdentifier == "" {
+		task.TaskIdentifier = uuid.New().String()
+	}
+
 	content, err := t.serializeWithFrontmatter(ctx, task, task.Content)
 	if err != nil {
 		return errors.Wrap(ctx, err, "serialize frontmatter")

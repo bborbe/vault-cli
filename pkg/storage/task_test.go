@@ -159,3 +159,70 @@ This is a test task.
 		})
 	})
 })
+
+var _ = Describe("WriteTask UUID generation", func() {
+	var (
+		ctx      context.Context
+		store    storage.Storage
+		vaultDir string
+		tasksDir string
+		taskPath string
+		task     *domain.Task
+	)
+
+	BeforeEach(func() {
+		ctx = context.Background()
+		store = storage.NewStorage(nil)
+
+		var err error
+		vaultDir, err = os.MkdirTemp("", "vault-uuid-test-*")
+		Expect(err).To(BeNil())
+
+		tasksDir = filepath.Join(vaultDir, "Tasks")
+		Expect(os.MkdirAll(tasksDir, 0755)).To(Succeed())
+
+		taskPath = filepath.Join(tasksDir, "My Task.md")
+		task = &domain.Task{
+			Name:     "My Task",
+			FilePath: taskPath,
+			Status:   domain.TaskStatusTodo,
+			Content:  "---\nstatus: todo\npage_type: task\n---\n# My Task\n",
+		}
+	})
+
+	AfterEach(func() {
+		if vaultDir != "" {
+			_ = os.RemoveAll(vaultDir)
+		}
+	})
+
+	It("generates a UUID when TaskIdentifier is empty", func() {
+		Expect(store.WriteTask(ctx, task)).To(Succeed())
+		content, err := os.ReadFile(taskPath) //#nosec G304 -- test file
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(content)).To(ContainSubstring("task_identifier:"))
+	})
+
+	It("preserves an existing TaskIdentifier", func() {
+		task.TaskIdentifier = "my-stable-uuid"
+		Expect(store.WriteTask(ctx, task)).To(Succeed())
+		content, err := os.ReadFile(taskPath) //#nosec G304 -- test file
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(content)).To(ContainSubstring("task_identifier: my-stable-uuid"))
+	})
+
+	It("round-trips TaskIdentifier through read", func() {
+		task.TaskIdentifier = "round-trip-uuid"
+		Expect(store.WriteTask(ctx, task)).To(Succeed())
+		read, err := store.ReadTask(ctx, vaultDir, domain.TaskID("My Task"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(read.TaskIdentifier).To(Equal("round-trip-uuid"))
+	})
+
+	It("auto-generated UUID is non-empty and matches UUID pattern", func() {
+		Expect(store.WriteTask(ctx, task)).To(Succeed())
+		content, err := os.ReadFile(taskPath) //#nosec G304 -- test file
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(content)).To(MatchRegexp(`task_identifier: \S+`))
+	})
+})

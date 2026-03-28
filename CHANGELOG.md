@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.51.2
+
+- Add GoDoc comments to TaskStatus and TaskPhase constants
+- Fix go.mod dependencies
+
 ## v0.51.1
 
 - Update dependencies (errors, time, validation, golangci-lint, osv-scanner, docker, moby, containerd, opentelemetry, etc.)

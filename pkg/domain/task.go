@@ -43,12 +43,18 @@ type Task struct {
 type TaskStatus string
 
 const (
-	TaskStatusTodo       TaskStatus = "todo"
+	// TaskStatusTodo means the task is queued for action but not yet started.
+	TaskStatusTodo TaskStatus = "todo"
+	// TaskStatusInProgress means someone is actively working on the task.
 	TaskStatusInProgress TaskStatus = "in_progress"
-	TaskStatusBacklog    TaskStatus = "backlog"
-	TaskStatusCompleted  TaskStatus = "completed"
-	TaskStatusHold       TaskStatus = "hold"
-	TaskStatusAborted    TaskStatus = "aborted"
+	// TaskStatusBacklog means the task is potential future work, not yet scheduled.
+	TaskStatusBacklog TaskStatus = "backlog"
+	// TaskStatusCompleted means the task is finished.
+	TaskStatusCompleted TaskStatus = "completed"
+	// TaskStatusHold means the task is blocked or paused.
+	TaskStatusHold TaskStatus = "hold"
+	// TaskStatusAborted means the task was cancelled and will not be completed.
+	TaskStatusAborted TaskStatus = "aborted"
 )
 
 // AvailableTaskStatuses lists all valid canonical task status values.

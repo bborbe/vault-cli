@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.51.1
+
+- Update dependencies (errors, time, validation, golangci-lint, osv-scanner, docker, moby, containerd, opentelemetry, etc.)
+- Add .osv-scanner.toml config
+- Regenerate mocks
+
 ## v0.51.0
 
 - feat: add `task_identifier` field to `domain.Task` with UUIDv4 auto-generation in `WriteTask`, lint check `MISSING_TASK_IDENTIFIER` for tasks without a stable identity, and promote `github.com/google/uuid` to a direct dependency

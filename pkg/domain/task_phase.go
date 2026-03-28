@@ -16,12 +16,18 @@ import (
 type TaskPhase string
 
 const (
-	TaskPhaseTodo        TaskPhase = "todo"
-	TaskPhasePlanning    TaskPhase = "planning"
-	TaskPhaseInProgress  TaskPhase = "in_progress"
-	TaskPhaseAIReview    TaskPhase = "ai_review"
+	// TaskPhaseTodo means the task is ready to start but needs planning.
+	TaskPhaseTodo TaskPhase = "todo"
+	// TaskPhasePlanning means the approach is being designed.
+	TaskPhasePlanning TaskPhase = "planning"
+	// TaskPhaseInProgress means active implementation is underway.
+	TaskPhaseInProgress TaskPhase = "in_progress"
+	// TaskPhaseAIReview means automated checks are running.
+	TaskPhaseAIReview TaskPhase = "ai_review"
+	// TaskPhaseHumanReview means manual review is required.
 	TaskPhaseHumanReview TaskPhase = "human_review"
-	TaskPhaseDone        TaskPhase = "done"
+	// TaskPhaseDone means the task is ready to close.
+	TaskPhaseDone TaskPhase = "done"
 )
 
 // AvailableTaskPhases lists all valid canonical task phase values.

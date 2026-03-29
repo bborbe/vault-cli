@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.52.0
+
+- feat: add path-suffix matching to `FindDecisionByName` so users can disambiguate decisions with identical short names by passing a path-containing identifier (e.g. "40 Trading/Weekly/2026-W12 - Review")
+
 ## v0.51.2
 
 - Add GoDoc comments to TaskStatus and TaskPhase constants

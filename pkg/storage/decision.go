@@ -101,6 +101,23 @@ func (d *decisionStorage) ListDecisions(
 	return decisions, nil
 }
 
+// findByPathMatch searches decisions using path prefix/suffix matching (case-insensitive).
+// Returns the single matching decision, or nil if zero or multiple match.
+func findByPathMatch(decisions []*domain.Decision, normalizedName string) *domain.Decision {
+	lowerNorm := strings.ToLower(normalizedName)
+	var matches []*domain.Decision
+	for _, dec := range decisions {
+		lowerDec := strings.ToLower(filepath.ToSlash(dec.Name))
+		if strings.HasSuffix(lowerDec, lowerNorm) || strings.HasPrefix(lowerDec, lowerNorm) {
+			matches = append(matches, dec)
+		}
+	}
+	if len(matches) == 1 {
+		return matches[0]
+	}
+	return nil
+}
+
 // FindDecisionByName searches for a decision by exact or unambiguous partial name match.
 func (d *decisionStorage) FindDecisionByName(
 	ctx context.Context,
@@ -126,6 +143,14 @@ func (d *decisionStorage) FindDecisionByName(
 		if filepath.ToSlash(dec.Name) == normalizedName {
 			return dec, nil
 		}
+	}
+
+	// Path-suffix/prefix match: when identifier contains '/', try matching against the decision path.
+	if strings.Contains(normalizedName, "/") {
+		if dec := findByPathMatch(decisions, normalizedName); dec != nil {
+			return dec, nil
+		}
+		// Zero or multiple path matches — fall through to substring match
 	}
 
 	// Partial match

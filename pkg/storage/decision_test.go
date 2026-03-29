@@ -259,6 +259,69 @@ type: data
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(ContainSubstring("invalid decision name"))
 		})
+
+		Context("with ambiguous names in different paths", func() {
+			BeforeEach(func() {
+				tradingDir := filepath.Join(vaultPath, "40 Trading", "Weekly")
+				periodicDir := filepath.Join(vaultPath, "60 Periodic Notes", "Weekly")
+				Expect(os.MkdirAll(tradingDir, 0755)).To(Succeed())
+				Expect(os.MkdirAll(periodicDir, 0755)).To(Succeed())
+
+				content1 := "---\nneeds_review: true\ntype: architecture\n---\n# Review\n"
+				content2 := "---\nneeds_review: true\ntype: data\n---\n# Review\n"
+
+				Expect(os.WriteFile(
+					filepath.Join(tradingDir, "2026-W12 - Review.md"),
+					[]byte(content1), 0600,
+				)).To(Succeed())
+				Expect(os.WriteFile(
+					filepath.Join(periodicDir, "2026-W12.md"),
+					[]byte(content2), 0600,
+				)).To(Succeed())
+			})
+
+			It("returns ambiguous error for short name matching multiple decisions", func() {
+				_, err := store.FindDecisionByName(ctx, vaultPath, "2026-W12")
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("ambiguous match"))
+			})
+
+			It("resolves with full path", func() {
+				d, err := store.FindDecisionByName(
+					ctx,
+					vaultPath,
+					"40 Trading/Weekly/2026-W12 - Review",
+				)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(d.Name).To(Equal("40 Trading/Weekly/2026-W12 - Review"))
+			})
+
+			It("resolves with partial path suffix", func() {
+				d, err := store.FindDecisionByName(
+					ctx,
+					vaultPath,
+					"Trading/Weekly/2026-W12 - Review",
+				)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(d.Name).To(Equal("40 Trading/Weekly/2026-W12 - Review"))
+			})
+
+			It("resolves with partial path prefix", func() {
+				d, err := store.FindDecisionByName(ctx, vaultPath, "40 Trading/Weekly/2026-W12")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(d.Name).To(Equal("40 Trading/Weekly/2026-W12 - Review"))
+			})
+
+			It("resolves the other decision with its path", func() {
+				d, err := store.FindDecisionByName(
+					ctx,
+					vaultPath,
+					"60 Periodic Notes/Weekly/2026-W12",
+				)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(d.Name).To(Equal("60 Periodic Notes/Weekly/2026-W12"))
+			})
+		})
 	})
 
 	Describe("WriteDecision", func() {

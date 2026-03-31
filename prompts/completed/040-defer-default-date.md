@@ -26,7 +26,7 @@ Read CLAUDE.md for project conventions.
 Read `pkg/cli/cli.go` — the `createDeferCommand` function (line ~150) defines the cobra command with `cobra.ExactArgs(2)`.
 Read `pkg/ops/defer.go` for the `Execute` method signature.
 Read `integration/cli_test.go` — the `vault-cli defer` describe block (line ~386) for the existing test pattern.
-Read `~/Documents/workspaces/coding-guidelines/go-testing-guide.md` for test patterns.
+Read `~/Documents/workspaces/coding/docs/go-testing-guide.md` for test patterns.
 </context>
 
 <requirements>

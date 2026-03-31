@@ -14,7 +14,7 @@ Fix defer's addToDailyNote to insert task into the "Should" section instead of a
 
 <context>
 Read CLAUDE.md for project conventions.
-Read ~/Documents/workspaces/coding-guidelines/go-testing-guide.md for testing patterns.
+Read ~/Documents/workspaces/coding/docs/go-testing-guide.md for testing patterns.
 Read pkg/ops/defer.go — addToDailyNote method.
 Read pkg/ops/defer_test.go — tests to update.
 </context>

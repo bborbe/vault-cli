@@ -31,7 +31,7 @@ Read `pkg/ops/defer_test.go` — tests for DeferDate and PlannedDate assertions.
 Read `pkg/ops/complete_test.go` — tests for recurring completion DeferDate and PlannedDate.
 Read `pkg/ops/frontmatter_test.go` — tests for frontmatter get/set/clear of DeferDate.
 Read `~/Documents/workspaces/time/time_date.go` for the `Date` type API. Key methods: `ToDate(time.Time) Date`, `.Time() time.Time`, `.Ptr() *Date`, `.Weekday() libtime.Weekday`, `.Format()`, `.Before(HasTime)`, `.After(HasTime)`, `.Truncate(HasDuration)`. Note: `Before`/`After` take `HasTime` interface — `time.Time` does NOT implement `HasTime`, so wrap with `libtime.ToDate()` for comparisons against raw `time.Time` values.
-Read `~/Documents/workspaces/coding-guidelines/go-testing-guide.md` for test patterns.
+Read `~/Documents/workspaces/coding/docs/go-testing-guide.md` for test patterns.
 </context>
 
 <requirements>

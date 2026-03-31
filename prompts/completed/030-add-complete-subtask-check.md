@@ -14,7 +14,7 @@ Add subtask completion check to complete operation. Before marking a task comple
 
 <context>
 Read CLAUDE.md for project conventions.
-Read ~/Documents/workspaces/coding-guidelines/go-testing-guide.md for testing patterns.
+Read ~/Documents/workspaces/coding/docs/go-testing-guide.md for testing patterns.
 Read pkg/ops/complete.go — the file to modify.
 Read pkg/ops/complete_test.go — tests to update.
 Read pkg/ops/update.go — has parseCheckboxes method to reference.

@@ -14,7 +14,7 @@ Add `weekdays` recurring interval to complete operation. When a recurring task h
 
 <context>
 Read CLAUDE.md for project conventions.
-Read ~/Documents/workspaces/coding-guidelines/go-testing-guide.md for testing patterns.
+Read ~/Documents/workspaces/coding/docs/go-testing-guide.md for testing patterns.
 Read pkg/ops/complete.go — handleRecurringTask method, the switch on task.Recurring.
 Read pkg/ops/complete_test.go — existing recurring task tests.
 </context>

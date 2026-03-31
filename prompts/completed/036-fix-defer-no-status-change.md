@@ -14,7 +14,7 @@ Fix defer operation to NOT change task status. Defer should only set defer_date 
 
 <context>
 Read CLAUDE.md for project conventions.
-Read ~/Documents/workspaces/coding-guidelines/go-testing-guide.md for testing patterns.
+Read ~/Documents/workspaces/coding/docs/go-testing-guide.md for testing patterns.
 Read pkg/ops/defer.go — the file to modify.
 Read pkg/ops/defer_test.go — tests to update.
 Read pkg/domain/task.go — Task struct with DeferDate and PlannedDate fields.

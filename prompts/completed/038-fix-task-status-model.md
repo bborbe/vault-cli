@@ -14,7 +14,7 @@ Fix TaskStatus constants in pkg/domain/task.go. The canonical status values must
 
 <context>
 Read CLAUDE.md for project conventions.
-Read ~/Documents/workspaces/coding-guidelines/go-testing-guide.md for testing patterns.
+Read ~/Documents/workspaces/coding/docs/go-testing-guide.md for testing patterns.
 Read pkg/domain/task.go — the file to modify.
 Read pkg/ops/complete.go, pkg/ops/defer.go, pkg/ops/update.go, pkg/ops/list.go — consumers of TaskStatus.
 Read pkg/ops/lint.go — already validates against the correct canonical values.

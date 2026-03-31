@@ -59,7 +59,7 @@ Currently the storage layer hardcodes: "Tasks", "Goals", "Daily Notes" — these
 
 <implementation>
 - Follow existing patterns in pkg/config/config.go and pkg/storage/markdown.go
-- Read go-architecture-patterns.md in ~/Documents/workspaces/coding-guidelines/ for struct/interface patterns
+- Read go-architecture-patterns.md in ~/Documents/workspaces/coding/docs/ for struct/interface patterns
 - Keep Storage interface unchanged if possible — thread VaultConfig via constructor or a new StorageConfig
 - Don't break existing unit tests; update them if signatures change
 </implementation>

@@ -14,7 +14,7 @@ Add daily note update to workon operation. When starting work on a task, mark it
 
 <context>
 Read CLAUDE.md for project conventions.
-Read ~/Documents/workspaces/coding-guidelines/go-testing-guide.md for testing patterns.
+Read ~/Documents/workspaces/coding/docs/go-testing-guide.md for testing patterns.
 Read pkg/ops/workon.go — the file to modify.
 Read pkg/ops/workon_test.go — tests to update.
 Read pkg/ops/complete.go — updateDailyNote method for reference on daily note manipulation.

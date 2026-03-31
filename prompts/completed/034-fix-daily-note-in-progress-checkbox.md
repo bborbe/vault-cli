@@ -14,7 +14,7 @@ Fix daily note checkbox regex to handle `[/]` (in-progress) state in addition to
 
 <context>
 Read CLAUDE.md for project conventions.
-Read ~/Documents/workspaces/coding-guidelines/go-testing-guide.md for testing patterns.
+Read ~/Documents/workspaces/coding/docs/go-testing-guide.md for testing patterns.
 Read pkg/ops/complete.go — updateDailyNote method uses checkboxRegex.
 Read pkg/ops/defer.go — removeFromDailyNote method uses checkboxRegex.
 Read pkg/storage/markdown.go — global checkboxRegex and parseCheckboxes.

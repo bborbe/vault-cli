@@ -14,7 +14,7 @@ Code review after slash command alignment changes. Verify consistency across all
 
 <context>
 Read CLAUDE.md for project conventions.
-Read ~/Documents/workspaces/coding-guidelines/go-testing-guide.md for testing patterns.
+Read ~/Documents/workspaces/coding/docs/go-testing-guide.md for testing patterns.
 Read ALL files in pkg/ops/ — review complete, defer, update, workon, list, lint, frontmatter.
 Read ALL files in pkg/domain/ — verify model consistency.
 Read ALL test files in pkg/ops/ — verify coverage.

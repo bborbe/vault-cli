@@ -14,7 +14,7 @@ Update lint operation to use the new NormalizeTaskStatus and IsValidTaskStatus f
 
 <context>
 Read CLAUDE.md for project conventions.
-Read ~/Documents/workspaces/coding-guidelines/go-testing-guide.md for testing patterns.
+Read ~/Documents/workspaces/coding/docs/go-testing-guide.md for testing patterns.
 Read pkg/ops/lint.go — the file to modify.
 Read pkg/ops/lint_validate_exit_test.go — existing lint tests.
 Read pkg/domain/task.go — NormalizeTaskStatus, IsValidTaskStatus (added by earlier prompt).

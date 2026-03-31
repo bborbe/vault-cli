@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.52.1
+
+- Update go-git/go-git to v5.17.1 (fix security vulnerabilities)
+
 ## v0.52.0
 
 - feat: add path-suffix matching to `FindDecisionByName` so users can disambiguate decisions with identical short names by passing a path-containing identifier (e.g. "40 Trading/Weekly/2026-W12 - Review")

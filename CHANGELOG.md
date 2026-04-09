@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.52.2
+
+- Update Go to 1.26.2
+- Update bborbe/* deps (collection, errors, time, validation, parse)
+- Update containerd, docker/cli, moby/buildkit, otel deps
+- Update golang.org/x/* deps (sys, term)
+- Add 60s timeout to storage test suite
+
 ## v0.52.1
 
 - Update go-git/go-git to v5.17.1 (fix security vulnerabilities)

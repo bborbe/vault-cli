@@ -66,11 +66,11 @@ This is a test objective.
 			Expect(err).To(BeNil())
 			Expect(obj).NotTo(BeNil())
 			Expect(obj.Name).To(Equal("Test Objective"))
-			Expect(obj.Status).To(Equal(domain.ObjectiveStatusActive))
-			Expect(obj.PageType).To(Equal("objective"))
-			Expect(obj.Priority).To(Equal(domain.Priority(1)))
-			Expect(obj.Assignee).To(Equal("bborbe"))
-			Expect(obj.Tags).To(ContainElement("growth"))
+			Expect(obj.Status()).To(Equal(domain.ObjectiveStatusActive))
+			Expect(obj.PageType()).To(Equal("objective"))
+			Expect(obj.Priority()).To(Equal(domain.Priority(1)))
+			Expect(obj.Assignee()).To(Equal("bborbe"))
+			Expect(obj.Tags()).To(ContainElement("growth"))
 		})
 
 		It("returns error when objective file does not exist", func() {
@@ -82,23 +82,25 @@ This is a test objective.
 	Describe("WriteObjective", func() {
 		It("writes and reads back an objective correctly", func() {
 			objectivePath := filepath.Join(objectivesDir, "New Objective.md")
-			newObjective := &domain.Objective{
-				Name:     "New Objective",
-				FilePath: objectivePath,
-				Status:   domain.ObjectiveStatusActive,
-				PageType: "objective",
-				Priority: 2,
-				Assignee: "alice",
-			}
+			newObjective := domain.NewObjective(
+				map[string]any{
+					"status":    "active",
+					"page_type": "objective",
+					"priority":  2,
+					"assignee":  "alice",
+				},
+				domain.FileMetadata{Name: "New Objective", FilePath: objectivePath},
+				domain.Content(""),
+			)
 
 			Expect(store.WriteObjective(ctx, newObjective)).To(Succeed())
 
 			obj, err := store.ReadObjective(ctx, vaultPath, "New Objective")
 			Expect(err).To(BeNil())
 			Expect(obj.Name).To(Equal("New Objective"))
-			Expect(obj.Status).To(Equal(domain.ObjectiveStatusActive))
-			Expect(obj.Priority).To(Equal(domain.Priority(2)))
-			Expect(obj.Assignee).To(Equal("alice"))
+			Expect(obj.Status()).To(Equal(domain.ObjectiveStatusActive))
+			Expect(obj.Priority()).To(Equal(domain.Priority(2)))
+			Expect(obj.Assignee()).To(Equal("alice"))
 		})
 
 		It("returns error when writing to read-only directory", func() {
@@ -110,11 +112,14 @@ This is a test objective.
 			Expect(os.MkdirAll(readOnlyObjectivesDir, 0755)).To(Succeed())
 			Expect(os.Chmod(readOnlyObjectivesDir, 0444)).To(Succeed())
 
-			objective := &domain.Objective{
-				Name:     "Read-Only Objective",
-				FilePath: filepath.Join(readOnlyObjectivesDir, "Read-Only Objective.md"),
-				Status:   domain.ObjectiveStatusActive,
-			}
+			objective := domain.NewObjective(
+				map[string]any{"status": "active"},
+				domain.FileMetadata{
+					Name:     "Read-Only Objective",
+					FilePath: filepath.Join(readOnlyObjectivesDir, "Read-Only Objective.md"),
+				},
+				domain.Content(""),
+			)
 
 			err = store.WriteObjective(ctx, objective)
 			Expect(err).NotTo(BeNil())
@@ -122,18 +127,13 @@ This is a test objective.
 
 		It("excludes metadata fields from frontmatter", func() {
 			objectivePath := filepath.Join(objectivesDir, "Metadata Test.md")
-			objective := &domain.Objective{
-				Name:     "Metadata Test",
-				FilePath: objectivePath,
-				Status:   domain.ObjectiveStatusCompleted,
-				PageType: "objective",
-				Content: `---
-status: completed
-page_type: objective
----
-# Metadata Test
-`,
-			}
+			objective := domain.NewObjective(
+				map[string]any{"status": "completed", "page_type": "objective"},
+				domain.FileMetadata{Name: "Metadata Test", FilePath: objectivePath},
+				domain.Content(
+					"---\nstatus: completed\npage_type: objective\n---\n# Metadata Test\n",
+				),
+			)
 
 			Expect(store.WriteObjective(ctx, objective)).To(Succeed())
 
@@ -159,7 +159,7 @@ page_type: objective
 			Expect(err).To(BeNil())
 			Expect(obj).NotTo(BeNil())
 			Expect(obj.Name).To(Equal("Test Objective"))
-			Expect(obj.Status).To(Equal(domain.ObjectiveStatusActive))
+			Expect(obj.Status()).To(Equal(domain.ObjectiveStatusActive))
 		})
 
 		It("finds objective by partial name", func() {
@@ -175,13 +175,18 @@ page_type: objective
 		})
 
 		It("round-trips objective with FindObjectiveByName after WriteObjective", func() {
-			newObj := &domain.Objective{
-				Name:     "Round Trip Objective",
-				FilePath: filepath.Join(objectivesDir, "Round Trip Objective.md"),
-				Status:   domain.ObjectiveStatusOnHold,
-				PageType: "objective",
-				Tags:     []string{"test", "roundtrip"},
-			}
+			newObj := domain.NewObjective(
+				map[string]any{
+					"status":    "on_hold",
+					"page_type": "objective",
+					"tags":      []any{"test", "roundtrip"},
+				},
+				domain.FileMetadata{
+					Name:     "Round Trip Objective",
+					FilePath: filepath.Join(objectivesDir, "Round Trip Objective.md"),
+				},
+				domain.Content(""),
+			)
 
 			Expect(store.WriteObjective(ctx, newObj)).To(Succeed())
 
@@ -189,8 +194,8 @@ page_type: objective
 			Expect(err).To(BeNil())
 			Expect(found).NotTo(BeNil())
 			Expect(found.Name).To(Equal("Round Trip Objective"))
-			Expect(found.Status).To(Equal(domain.ObjectiveStatusOnHold))
-			Expect(found.Tags).To(Equal([]string{"test", "roundtrip"}))
+			Expect(found.Status()).To(Equal(domain.ObjectiveStatusOnHold))
+			Expect(found.Tags()).To(Equal([]string{"test", "roundtrip"}))
 		})
 	})
 

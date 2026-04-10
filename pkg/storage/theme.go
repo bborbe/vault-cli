@@ -6,9 +6,9 @@ package storage
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/bborbe/errors"
 
@@ -36,25 +36,22 @@ func (t *themeStorage) readThemeFromPath(
 ) (*domain.Theme, error) {
 	content, err := os.ReadFile(filePath) //#nosec G304 -- user-controlled vault path
 	if err != nil {
-		return nil, errors.Wrap(ctx, err, fmt.Sprintf("read file %s", filePath))
+		return nil, errors.Wrapf(ctx, err, "read file %s", filePath)
 	}
 
-	theme := &domain.Theme{
-		Name:     name,
-		Content:  string(content),
-		FilePath: filePath,
-	}
-
+	var modTime *time.Time
 	if info, err := os.Stat(filePath); err == nil {
 		mt := info.ModTime().UTC()
-		theme.ModifiedDate = &mt
+		modTime = &mt
 	}
 
-	if err := t.parseFrontmatter(ctx, content, theme); err != nil {
+	data, err := t.parseToFrontmatterMap(ctx, content)
+	if err != nil {
 		return nil, errors.Wrap(ctx, err, "parse frontmatter")
 	}
 
-	return theme, nil
+	meta := domain.FileMetadata{Name: name, FilePath: filePath, ModifiedDate: modTime}
+	return domain.NewTheme(data, meta, domain.Content(content)), nil
 }
 
 // FindThemeByName searches for a theme by name in the vault.
@@ -73,13 +70,13 @@ func (t *themeStorage) FindThemeByName(
 
 // WriteTheme writes a theme to a markdown file.
 func (t *themeStorage) WriteTheme(ctx context.Context, theme *domain.Theme) error {
-	content, err := t.serializeWithFrontmatter(ctx, theme, theme.Content)
+	content, err := t.serializeMapAsFrontmatter(ctx, theme.RawMap(), string(theme.Content))
 	if err != nil {
 		return errors.Wrap(ctx, err, "serialize frontmatter")
 	}
 
 	if err := os.WriteFile(theme.FilePath, []byte(content), 0600); err != nil {
-		return errors.Wrap(ctx, err, fmt.Sprintf("write file %s", theme.FilePath))
+		return errors.Wrapf(ctx, err, "write file %s", theme.FilePath)
 	}
 
 	return nil

@@ -7,14 +7,20 @@ package ops
 import (
 	"context"
 	"fmt"
-	"reflect"
-	"strings"
 
 	"github.com/bborbe/errors"
 
 	"github.com/bborbe/vault-cli/pkg/domain"
 	"github.com/bborbe/vault-cli/pkg/storage"
 )
+
+// FrontmatterEntity is implemented by all refactored entity types (Goal, Theme, Objective, Vision, Task).
+type FrontmatterEntity interface {
+	GetField(key string) string
+	SetField(ctx context.Context, key, value string) error
+	ClearField(key string)
+	Keys() []string
+}
 
 // EntityGetOperation retrieves a single frontmatter field value from an entity.
 //
@@ -24,7 +30,7 @@ type EntityGetOperation interface {
 }
 
 type entityGetOperation struct {
-	findFn     func(ctx context.Context, vaultPath, name string) (any, error)
+	findFn     func(ctx context.Context, vaultPath, name string) (FrontmatterEntity, error)
 	entityType string
 }
 
@@ -37,20 +43,13 @@ func (o *entityGetOperation) Execute(
 	if err != nil {
 		return "", errors.Wrap(ctx, err, fmt.Sprintf("find %s", o.entityType))
 	}
-	field, fieldVal, found := fieldByYAMLTag(entity, key)
-	if !found {
-		return "", fmt.Errorf("unknown field %q for %s", key, o.entityType)
-	}
-	if isReadOnlyTag(field) {
-		return "", fmt.Errorf("field %q is read-only", key)
-	}
-	return getFieldAsString(fieldVal)
+	return entity.GetField(key), nil
 }
 
 // NewGoalGetOperation creates an EntityGetOperation for goals.
 func NewGoalGetOperation(goalStorage storage.GoalStorage) EntityGetOperation {
 	return &entityGetOperation{
-		findFn: func(ctx context.Context, vaultPath, name string) (any, error) {
+		findFn: func(ctx context.Context, vaultPath, name string) (FrontmatterEntity, error) {
 			return goalStorage.FindGoalByName(ctx, vaultPath, name)
 		},
 		entityType: "goal",
@@ -60,7 +59,7 @@ func NewGoalGetOperation(goalStorage storage.GoalStorage) EntityGetOperation {
 // NewThemeGetOperation creates an EntityGetOperation for themes.
 func NewThemeGetOperation(themeStorage storage.ThemeStorage) EntityGetOperation {
 	return &entityGetOperation{
-		findFn: func(ctx context.Context, vaultPath, name string) (any, error) {
+		findFn: func(ctx context.Context, vaultPath, name string) (FrontmatterEntity, error) {
 			return themeStorage.FindThemeByName(ctx, vaultPath, name)
 		},
 		entityType: "theme",
@@ -70,7 +69,7 @@ func NewThemeGetOperation(themeStorage storage.ThemeStorage) EntityGetOperation 
 // NewObjectiveGetOperation creates an EntityGetOperation for objectives.
 func NewObjectiveGetOperation(objectiveStorage storage.ObjectiveStorage) EntityGetOperation {
 	return &entityGetOperation{
-		findFn: func(ctx context.Context, vaultPath, name string) (any, error) {
+		findFn: func(ctx context.Context, vaultPath, name string) (FrontmatterEntity, error) {
 			return objectiveStorage.FindObjectiveByName(ctx, vaultPath, name)
 		},
 		entityType: "objective",
@@ -80,7 +79,7 @@ func NewObjectiveGetOperation(objectiveStorage storage.ObjectiveStorage) EntityG
 // NewVisionGetOperation creates an EntityGetOperation for visions.
 func NewVisionGetOperation(visionStorage storage.VisionStorage) EntityGetOperation {
 	return &entityGetOperation{
-		findFn: func(ctx context.Context, vaultPath, name string) (any, error) {
+		findFn: func(ctx context.Context, vaultPath, name string) (FrontmatterEntity, error) {
 			return visionStorage.FindVisionByName(ctx, vaultPath, name)
 		},
 		entityType: "vision",
@@ -94,103 +93,112 @@ type EntitySetOperation interface {
 	Execute(ctx context.Context, vaultPath, entityName, key, value string) error
 }
 
-type entitySetOperation struct {
-	findFn     func(ctx context.Context, vaultPath, name string) (any, error)
-	writeFn    func(ctx context.Context, entity any) error
-	entityType string
+type goalSetOperation struct {
+	goalStorage storage.GoalStorage
 }
 
-// Execute sets the value of a frontmatter field on the named entity.
-func (o *entitySetOperation) Execute(
+// Execute sets the value of a frontmatter field on the named goal.
+func (o *goalSetOperation) Execute(
 	ctx context.Context,
 	vaultPath, entityName, key, value string,
 ) error {
-	entity, err := o.findFn(ctx, vaultPath, entityName)
+	goal, err := o.goalStorage.FindGoalByName(ctx, vaultPath, entityName)
 	if err != nil {
-		return errors.Wrap(ctx, err, fmt.Sprintf("find %s", o.entityType))
+		return errors.Wrap(ctx, err, "find goal")
 	}
-	field, fieldVal, found := fieldByYAMLTag(entity, key)
-	if !found {
-		return fmt.Errorf("unknown field %q for %s", key, o.entityType)
-	}
-	if isReadOnlyTag(field) {
-		return fmt.Errorf("field %q is read-only", key)
-	}
-	if err := setFieldFromString(ctx, fieldVal, field.Type, value); err != nil {
+	if err := goal.SetField(ctx, key, value); err != nil {
 		return errors.Wrap(ctx, err, fmt.Sprintf("set field %q", key))
 	}
-	if err := o.writeFn(ctx, entity); err != nil {
-		return errors.Wrap(ctx, err, fmt.Sprintf("write %s", o.entityType))
+	if err := o.goalStorage.WriteGoal(ctx, goal); err != nil {
+		return errors.Wrap(ctx, err, "write goal")
 	}
 	return nil
 }
 
 // NewGoalSetOperation creates an EntitySetOperation for goals.
 func NewGoalSetOperation(goalStorage storage.GoalStorage) EntitySetOperation {
-	return &entitySetOperation{
-		findFn: func(ctx context.Context, vaultPath, name string) (any, error) {
-			return goalStorage.FindGoalByName(ctx, vaultPath, name)
-		},
-		writeFn: func(ctx context.Context, entity any) error {
-			goal, ok := entity.(*domain.Goal)
-			if !ok {
-				return fmt.Errorf("unexpected entity type for goal")
-			}
-			return goalStorage.WriteGoal(ctx, goal)
-		},
-		entityType: "goal",
+	return &goalSetOperation{goalStorage: goalStorage}
+}
+
+type themeSetOperation struct {
+	themeStorage storage.ThemeStorage
+}
+
+// Execute sets the value of a frontmatter field on the named theme.
+func (o *themeSetOperation) Execute(
+	ctx context.Context,
+	vaultPath, entityName, key, value string,
+) error {
+	theme, err := o.themeStorage.FindThemeByName(ctx, vaultPath, entityName)
+	if err != nil {
+		return errors.Wrap(ctx, err, "find theme")
 	}
+	if err := theme.SetField(ctx, key, value); err != nil {
+		return errors.Wrap(ctx, err, fmt.Sprintf("set field %q", key))
+	}
+	if err := o.themeStorage.WriteTheme(ctx, theme); err != nil {
+		return errors.Wrap(ctx, err, "write theme")
+	}
+	return nil
 }
 
 // NewThemeSetOperation creates an EntitySetOperation for themes.
 func NewThemeSetOperation(themeStorage storage.ThemeStorage) EntitySetOperation {
-	return &entitySetOperation{
-		findFn: func(ctx context.Context, vaultPath, name string) (any, error) {
-			return themeStorage.FindThemeByName(ctx, vaultPath, name)
-		},
-		writeFn: func(ctx context.Context, entity any) error {
-			theme, ok := entity.(*domain.Theme)
-			if !ok {
-				return fmt.Errorf("unexpected entity type for theme")
-			}
-			return themeStorage.WriteTheme(ctx, theme)
-		},
-		entityType: "theme",
+	return &themeSetOperation{themeStorage: themeStorage}
+}
+
+type objectiveSetOperation struct {
+	objectiveStorage storage.ObjectiveStorage
+}
+
+// Execute sets the value of a frontmatter field on the named objective.
+func (o *objectiveSetOperation) Execute(
+	ctx context.Context,
+	vaultPath, entityName, key, value string,
+) error {
+	objective, err := o.objectiveStorage.FindObjectiveByName(ctx, vaultPath, entityName)
+	if err != nil {
+		return errors.Wrap(ctx, err, "find objective")
 	}
+	if err := objective.SetField(ctx, key, value); err != nil {
+		return errors.Wrap(ctx, err, fmt.Sprintf("set field %q", key))
+	}
+	if err := o.objectiveStorage.WriteObjective(ctx, objective); err != nil {
+		return errors.Wrap(ctx, err, "write objective")
+	}
+	return nil
 }
 
 // NewObjectiveSetOperation creates an EntitySetOperation for objectives.
 func NewObjectiveSetOperation(objectiveStorage storage.ObjectiveStorage) EntitySetOperation {
-	return &entitySetOperation{
-		findFn: func(ctx context.Context, vaultPath, name string) (any, error) {
-			return objectiveStorage.FindObjectiveByName(ctx, vaultPath, name)
-		},
-		writeFn: func(ctx context.Context, entity any) error {
-			objective, ok := entity.(*domain.Objective)
-			if !ok {
-				return fmt.Errorf("unexpected entity type for objective")
-			}
-			return objectiveStorage.WriteObjective(ctx, objective)
-		},
-		entityType: "objective",
+	return &objectiveSetOperation{objectiveStorage: objectiveStorage}
+}
+
+type visionSetOperation struct {
+	visionStorage storage.VisionStorage
+}
+
+// Execute sets the value of a frontmatter field on the named vision.
+func (o *visionSetOperation) Execute(
+	ctx context.Context,
+	vaultPath, entityName, key, value string,
+) error {
+	vision, err := o.visionStorage.FindVisionByName(ctx, vaultPath, entityName)
+	if err != nil {
+		return errors.Wrap(ctx, err, "find vision")
 	}
+	if err := vision.SetField(ctx, key, value); err != nil {
+		return errors.Wrap(ctx, err, fmt.Sprintf("set field %q", key))
+	}
+	if err := o.visionStorage.WriteVision(ctx, vision); err != nil {
+		return errors.Wrap(ctx, err, "write vision")
+	}
+	return nil
 }
 
 // NewVisionSetOperation creates an EntitySetOperation for visions.
 func NewVisionSetOperation(visionStorage storage.VisionStorage) EntitySetOperation {
-	return &entitySetOperation{
-		findFn: func(ctx context.Context, vaultPath, name string) (any, error) {
-			return visionStorage.FindVisionByName(ctx, vaultPath, name)
-		},
-		writeFn: func(ctx context.Context, entity any) error {
-			vision, ok := entity.(*domain.Vision)
-			if !ok {
-				return fmt.Errorf("unexpected entity type for vision")
-			}
-			return visionStorage.WriteVision(ctx, vision)
-		},
-		entityType: "vision",
-	}
+	return &visionSetOperation{visionStorage: visionStorage}
 }
 
 // EntityClearOperation clears a single frontmatter field value on an entity.
@@ -200,101 +208,104 @@ type EntityClearOperation interface {
 	Execute(ctx context.Context, vaultPath, entityName, key string) error
 }
 
-type entityClearOperation struct {
-	findFn     func(ctx context.Context, vaultPath, name string) (any, error)
-	writeFn    func(ctx context.Context, entity any) error
-	entityType string
+type goalClearOperation struct {
+	goalStorage storage.GoalStorage
 }
 
-// Execute clears the value of a frontmatter field on the named entity.
-func (o *entityClearOperation) Execute(
+// Execute clears the value of a frontmatter field on the named goal.
+func (o *goalClearOperation) Execute(
 	ctx context.Context,
 	vaultPath, entityName, key string,
 ) error {
-	entity, err := o.findFn(ctx, vaultPath, entityName)
+	goal, err := o.goalStorage.FindGoalByName(ctx, vaultPath, entityName)
 	if err != nil {
-		return errors.Wrap(ctx, err, fmt.Sprintf("find %s", o.entityType))
+		return errors.Wrap(ctx, err, "find goal")
 	}
-	field, fieldVal, found := fieldByYAMLTag(entity, key)
-	if !found {
-		return fmt.Errorf("unknown field %q for %s", key, o.entityType)
-	}
-	if isReadOnlyTag(field) {
-		return fmt.Errorf("field %q is read-only", key)
-	}
-	clearField(fieldVal, field.Type)
-	if err := o.writeFn(ctx, entity); err != nil {
-		return errors.Wrap(ctx, err, fmt.Sprintf("write %s", o.entityType))
+	goal.ClearField(key)
+	if err := o.goalStorage.WriteGoal(ctx, goal); err != nil {
+		return errors.Wrap(ctx, err, "write goal")
 	}
 	return nil
 }
 
 // NewGoalClearOperation creates an EntityClearOperation for goals.
 func NewGoalClearOperation(goalStorage storage.GoalStorage) EntityClearOperation {
-	return &entityClearOperation{
-		findFn: func(ctx context.Context, vaultPath, name string) (any, error) {
-			return goalStorage.FindGoalByName(ctx, vaultPath, name)
-		},
-		writeFn: func(ctx context.Context, entity any) error {
-			goal, ok := entity.(*domain.Goal)
-			if !ok {
-				return fmt.Errorf("unexpected entity type for goal")
-			}
-			return goalStorage.WriteGoal(ctx, goal)
-		},
-		entityType: "goal",
+	return &goalClearOperation{goalStorage: goalStorage}
+}
+
+type themeClearOperation struct {
+	themeStorage storage.ThemeStorage
+}
+
+// Execute clears the value of a frontmatter field on the named theme.
+func (o *themeClearOperation) Execute(
+	ctx context.Context,
+	vaultPath, entityName, key string,
+) error {
+	theme, err := o.themeStorage.FindThemeByName(ctx, vaultPath, entityName)
+	if err != nil {
+		return errors.Wrap(ctx, err, "find theme")
 	}
+	theme.ClearField(key)
+	if err := o.themeStorage.WriteTheme(ctx, theme); err != nil {
+		return errors.Wrap(ctx, err, "write theme")
+	}
+	return nil
 }
 
 // NewThemeClearOperation creates an EntityClearOperation for themes.
 func NewThemeClearOperation(themeStorage storage.ThemeStorage) EntityClearOperation {
-	return &entityClearOperation{
-		findFn: func(ctx context.Context, vaultPath, name string) (any, error) {
-			return themeStorage.FindThemeByName(ctx, vaultPath, name)
-		},
-		writeFn: func(ctx context.Context, entity any) error {
-			theme, ok := entity.(*domain.Theme)
-			if !ok {
-				return fmt.Errorf("unexpected entity type for theme")
-			}
-			return themeStorage.WriteTheme(ctx, theme)
-		},
-		entityType: "theme",
+	return &themeClearOperation{themeStorage: themeStorage}
+}
+
+type objectiveClearOperation struct {
+	objectiveStorage storage.ObjectiveStorage
+}
+
+// Execute clears the value of a frontmatter field on the named objective.
+func (o *objectiveClearOperation) Execute(
+	ctx context.Context,
+	vaultPath, entityName, key string,
+) error {
+	objective, err := o.objectiveStorage.FindObjectiveByName(ctx, vaultPath, entityName)
+	if err != nil {
+		return errors.Wrap(ctx, err, "find objective")
 	}
+	objective.ClearField(key)
+	if err := o.objectiveStorage.WriteObjective(ctx, objective); err != nil {
+		return errors.Wrap(ctx, err, "write objective")
+	}
+	return nil
 }
 
 // NewObjectiveClearOperation creates an EntityClearOperation for objectives.
 func NewObjectiveClearOperation(objectiveStorage storage.ObjectiveStorage) EntityClearOperation {
-	return &entityClearOperation{
-		findFn: func(ctx context.Context, vaultPath, name string) (any, error) {
-			return objectiveStorage.FindObjectiveByName(ctx, vaultPath, name)
-		},
-		writeFn: func(ctx context.Context, entity any) error {
-			objective, ok := entity.(*domain.Objective)
-			if !ok {
-				return fmt.Errorf("unexpected entity type for objective")
-			}
-			return objectiveStorage.WriteObjective(ctx, objective)
-		},
-		entityType: "objective",
+	return &objectiveClearOperation{objectiveStorage: objectiveStorage}
+}
+
+type visionClearOperation struct {
+	visionStorage storage.VisionStorage
+}
+
+// Execute clears the value of a frontmatter field on the named vision.
+func (o *visionClearOperation) Execute(
+	ctx context.Context,
+	vaultPath, entityName, key string,
+) error {
+	vision, err := o.visionStorage.FindVisionByName(ctx, vaultPath, entityName)
+	if err != nil {
+		return errors.Wrap(ctx, err, "find vision")
 	}
+	vision.ClearField(key)
+	if err := o.visionStorage.WriteVision(ctx, vision); err != nil {
+		return errors.Wrap(ctx, err, "write vision")
+	}
+	return nil
 }
 
 // NewVisionClearOperation creates an EntityClearOperation for visions.
 func NewVisionClearOperation(visionStorage storage.VisionStorage) EntityClearOperation {
-	return &entityClearOperation{
-		findFn: func(ctx context.Context, vaultPath, name string) (any, error) {
-			return visionStorage.FindVisionByName(ctx, vaultPath, name)
-		},
-		writeFn: func(ctx context.Context, entity any) error {
-			vision, ok := entity.(*domain.Vision)
-			if !ok {
-				return fmt.Errorf("unexpected entity type for vision")
-			}
-			return visionStorage.WriteVision(ctx, vision)
-		},
-		entityType: "vision",
-	}
+	return &visionClearOperation{visionStorage: visionStorage}
 }
 
 // EntityListAddOperation appends a value to a list frontmatter field on an entity.
@@ -311,119 +322,196 @@ type EntityListRemoveOperation interface {
 	Execute(ctx context.Context, vaultPath, entityName, field, value string) error
 }
 
-// entityListOperation is a shared implementation for both add and remove list operations.
-type entityListOperation struct {
-	findFn     func(ctx context.Context, vaultPath, name string) (any, error)
-	writeFn    func(ctx context.Context, entity any) error
-	listFn     func(fieldVal reflect.Value, value string) error
-	opLabel    string
-	entityType string
+// knownGoalScalarFields are goal fields that hold a scalar (not a list).
+var knownGoalScalarFields = map[string]bool{
+	"status": true, "page_type": true, "theme": true, "priority": true,
+	"assignee": true, "start_date": true, "target_date": true,
+	"completed": true, "defer_date": true,
 }
 
-// Execute applies the list operation (add or remove) to the named field on the entity.
-func (o *entityListOperation) Execute(
+type goalTagsListOperation struct {
+	goalStorage storage.GoalStorage
+	mode        string // "add" or "remove"
+}
+
+func (o *goalTagsListOperation) Execute(
 	ctx context.Context,
-	vaultPath, entityName, field, value string,
+	vaultPath, entityName, key, value string,
 ) error {
-	entity, err := o.findFn(ctx, vaultPath, entityName)
+	goal, err := o.goalStorage.FindGoalByName(ctx, vaultPath, entityName)
 	if err != nil {
-		return errors.Wrap(ctx, err, fmt.Sprintf("find %s", o.entityType))
+		return errors.Wrap(ctx, err, "find goal")
 	}
-	sf, fieldVal, found := fieldByYAMLTag(entity, field)
-	if !found {
-		return fmt.Errorf("unknown field %q for %s", field, o.entityType)
+	if knownGoalScalarFields[key] {
+		return fmt.Errorf("not a list field: %q", key)
 	}
-	if isReadOnlyTag(sf) {
-		return fmt.Errorf("field %q is read-only", field)
+	if key != "tags" {
+		return fmt.Errorf("unknown field: %q", key)
 	}
-	if !isListField(fieldVal) {
-		return fmt.Errorf("field %q is not a list field", field)
+	current := goal.Tags()
+	updated, err := applyListMutation(current, value, o.mode)
+	if err != nil {
+		return errors.Wrap(ctx, err, fmt.Sprintf("%s field %q", o.mode, key))
 	}
-	if err := o.listFn(fieldVal, value); err != nil {
-		return errors.Wrap(ctx, err, fmt.Sprintf("%s field %q", o.opLabel, field))
-	}
-	if err := o.writeFn(ctx, entity); err != nil {
-		return errors.Wrap(ctx, err, fmt.Sprintf("write %s", o.entityType))
+	goal.SetTags(updated)
+	if err := o.goalStorage.WriteGoal(ctx, goal); err != nil {
+		return errors.Wrap(ctx, err, "write goal")
 	}
 	return nil
 }
 
 // NewGoalListAddOperation creates an EntityListAddOperation for goals.
 func NewGoalListAddOperation(goalStorage storage.GoalStorage) EntityListAddOperation {
-	return &entityListOperation{
-		findFn: func(ctx context.Context, vaultPath, name string) (any, error) {
-			return goalStorage.FindGoalByName(ctx, vaultPath, name)
-		},
-		writeFn: func(ctx context.Context, entity any) error {
-			goal, ok := entity.(*domain.Goal)
-			if !ok {
-				return fmt.Errorf("unexpected entity type for goal")
-			}
-			return goalStorage.WriteGoal(ctx, goal)
-		},
-		listFn:     appendToList,
-		opLabel:    "append to",
-		entityType: "goal",
+	return &goalTagsListOperation{goalStorage: goalStorage, mode: "add"}
+}
+
+// NewGoalListRemoveOperation creates an EntityListRemoveOperation for goals.
+func NewGoalListRemoveOperation(goalStorage storage.GoalStorage) EntityListRemoveOperation {
+	return &goalTagsListOperation{goalStorage: goalStorage, mode: "remove"}
+}
+
+// knownThemeScalarFields are theme fields that hold a scalar (not a list).
+var knownThemeScalarFields = map[string]bool{
+	"status": true, "page_type": true, "priority": true,
+	"assignee": true, "start_date": true, "target_date": true,
+}
+
+type themeTagsListOperation struct {
+	themeStorage storage.ThemeStorage
+	mode         string
+}
+
+func (o *themeTagsListOperation) Execute(
+	ctx context.Context,
+	vaultPath, entityName, key, value string,
+) error {
+	theme, err := o.themeStorage.FindThemeByName(ctx, vaultPath, entityName)
+	if err != nil {
+		return errors.Wrap(ctx, err, "find theme")
 	}
+	if knownThemeScalarFields[key] {
+		return fmt.Errorf("not a list field: %q", key)
+	}
+	if key != "tags" {
+		return fmt.Errorf("unknown field: %q", key)
+	}
+	current := theme.Tags()
+	updated, err := applyListMutation(current, value, o.mode)
+	if err != nil {
+		return errors.Wrap(ctx, err, fmt.Sprintf("%s field %q", o.mode, key))
+	}
+	theme.SetTags(updated)
+	if err := o.themeStorage.WriteTheme(ctx, theme); err != nil {
+		return errors.Wrap(ctx, err, "write theme")
+	}
+	return nil
 }
 
 // NewThemeListAddOperation creates an EntityListAddOperation for themes.
 func NewThemeListAddOperation(themeStorage storage.ThemeStorage) EntityListAddOperation {
-	return &entityListOperation{
-		findFn: func(ctx context.Context, vaultPath, name string) (any, error) {
-			return themeStorage.FindThemeByName(ctx, vaultPath, name)
-		},
-		writeFn: func(ctx context.Context, entity any) error {
-			theme, ok := entity.(*domain.Theme)
-			if !ok {
-				return fmt.Errorf("unexpected entity type for theme")
-			}
-			return themeStorage.WriteTheme(ctx, theme)
-		},
-		listFn:     appendToList,
-		opLabel:    "append to",
-		entityType: "theme",
+	return &themeTagsListOperation{themeStorage: themeStorage, mode: "add"}
+}
+
+// NewThemeListRemoveOperation creates an EntityListRemoveOperation for themes.
+func NewThemeListRemoveOperation(themeStorage storage.ThemeStorage) EntityListRemoveOperation {
+	return &themeTagsListOperation{themeStorage: themeStorage, mode: "remove"}
+}
+
+// knownObjectiveScalarFields are objective fields that hold a scalar (not a list).
+var knownObjectiveScalarFields = map[string]bool{
+	"status": true, "page_type": true, "priority": true,
+	"assignee": true, "start_date": true, "target_date": true, "completed": true,
+}
+
+type objectiveTagsListOperation struct {
+	objectiveStorage storage.ObjectiveStorage
+	mode             string
+}
+
+func (o *objectiveTagsListOperation) Execute(
+	ctx context.Context,
+	vaultPath, entityName, key, value string,
+) error {
+	objective, err := o.objectiveStorage.FindObjectiveByName(ctx, vaultPath, entityName)
+	if err != nil {
+		return errors.Wrap(ctx, err, "find objective")
 	}
+	if knownObjectiveScalarFields[key] {
+		return fmt.Errorf("not a list field: %q", key)
+	}
+	if key != "tags" {
+		return fmt.Errorf("unknown field: %q", key)
+	}
+	current := objective.Tags()
+	updated, err := applyListMutation(current, value, o.mode)
+	if err != nil {
+		return errors.Wrap(ctx, err, fmt.Sprintf("%s field %q", o.mode, key))
+	}
+	objective.SetTags(updated)
+	if err := o.objectiveStorage.WriteObjective(ctx, objective); err != nil {
+		return errors.Wrap(ctx, err, "write objective")
+	}
+	return nil
 }
 
 // NewObjectiveListAddOperation creates an EntityListAddOperation for objectives.
 func NewObjectiveListAddOperation(
 	objectiveStorage storage.ObjectiveStorage,
 ) EntityListAddOperation {
-	return &entityListOperation{
-		findFn: func(ctx context.Context, vaultPath, name string) (any, error) {
-			return objectiveStorage.FindObjectiveByName(ctx, vaultPath, name)
-		},
-		writeFn: func(ctx context.Context, entity any) error {
-			objective, ok := entity.(*domain.Objective)
-			if !ok {
-				return fmt.Errorf("unexpected entity type for objective")
-			}
-			return objectiveStorage.WriteObjective(ctx, objective)
-		},
-		listFn:     appendToList,
-		opLabel:    "append to",
-		entityType: "objective",
+	return &objectiveTagsListOperation{objectiveStorage: objectiveStorage, mode: "add"}
+}
+
+// NewObjectiveListRemoveOperation creates an EntityListRemoveOperation for objectives.
+func NewObjectiveListRemoveOperation(
+	objectiveStorage storage.ObjectiveStorage,
+) EntityListRemoveOperation {
+	return &objectiveTagsListOperation{objectiveStorage: objectiveStorage, mode: "remove"}
+}
+
+// knownVisionScalarFields are vision fields that hold a scalar (not a list).
+var knownVisionScalarFields = map[string]bool{
+	"status": true, "page_type": true, "priority": true, "assignee": true,
+}
+
+type visionTagsListOperation struct {
+	visionStorage storage.VisionStorage
+	mode          string
+}
+
+func (o *visionTagsListOperation) Execute(
+	ctx context.Context,
+	vaultPath, entityName, key, value string,
+) error {
+	vision, err := o.visionStorage.FindVisionByName(ctx, vaultPath, entityName)
+	if err != nil {
+		return errors.Wrap(ctx, err, "find vision")
 	}
+	if knownVisionScalarFields[key] {
+		return fmt.Errorf("not a list field: %q", key)
+	}
+	if key != "tags" {
+		return fmt.Errorf("unknown field: %q", key)
+	}
+	current := vision.Tags()
+	updated, err := applyListMutation(current, value, o.mode)
+	if err != nil {
+		return errors.Wrap(ctx, err, fmt.Sprintf("%s field %q", o.mode, key))
+	}
+	vision.SetTags(updated)
+	if err := o.visionStorage.WriteVision(ctx, vision); err != nil {
+		return errors.Wrap(ctx, err, "write vision")
+	}
+	return nil
 }
 
 // NewVisionListAddOperation creates an EntityListAddOperation for visions.
 func NewVisionListAddOperation(visionStorage storage.VisionStorage) EntityListAddOperation {
-	return &entityListOperation{
-		findFn: func(ctx context.Context, vaultPath, name string) (any, error) {
-			return visionStorage.FindVisionByName(ctx, vaultPath, name)
-		},
-		writeFn: func(ctx context.Context, entity any) error {
-			vision, ok := entity.(*domain.Vision)
-			if !ok {
-				return fmt.Errorf("unexpected entity type for vision")
-			}
-			return visionStorage.WriteVision(ctx, vision)
-		},
-		listFn:     appendToList,
-		opLabel:    "append to",
-		entityType: "vision",
-	}
+	return &visionTagsListOperation{visionStorage: visionStorage, mode: "add"}
+}
+
+// NewVisionListRemoveOperation creates an EntityListRemoveOperation for visions.
+func NewVisionListRemoveOperation(visionStorage storage.VisionStorage) EntityListRemoveOperation {
+	return &visionTagsListOperation{visionStorage: visionStorage, mode: "remove"}
 }
 
 // NewTaskListAddOperation creates an EntityListAddOperation for tasks.
@@ -431,84 +519,6 @@ func NewTaskListAddOperation(taskStorage storage.TaskStorage) EntityListAddOpera
 	return &taskListOperation{
 		taskStorage: taskStorage,
 		mode:        "add",
-	}
-}
-
-// NewGoalListRemoveOperation creates an EntityListRemoveOperation for goals.
-func NewGoalListRemoveOperation(goalStorage storage.GoalStorage) EntityListRemoveOperation {
-	return &entityListOperation{
-		findFn: func(ctx context.Context, vaultPath, name string) (any, error) {
-			return goalStorage.FindGoalByName(ctx, vaultPath, name)
-		},
-		writeFn: func(ctx context.Context, entity any) error {
-			goal, ok := entity.(*domain.Goal)
-			if !ok {
-				return fmt.Errorf("unexpected entity type for goal")
-			}
-			return goalStorage.WriteGoal(ctx, goal)
-		},
-		listFn:     removeFromList,
-		opLabel:    "remove from",
-		entityType: "goal",
-	}
-}
-
-// NewThemeListRemoveOperation creates an EntityListRemoveOperation for themes.
-func NewThemeListRemoveOperation(themeStorage storage.ThemeStorage) EntityListRemoveOperation {
-	return &entityListOperation{
-		findFn: func(ctx context.Context, vaultPath, name string) (any, error) {
-			return themeStorage.FindThemeByName(ctx, vaultPath, name)
-		},
-		writeFn: func(ctx context.Context, entity any) error {
-			theme, ok := entity.(*domain.Theme)
-			if !ok {
-				return fmt.Errorf("unexpected entity type for theme")
-			}
-			return themeStorage.WriteTheme(ctx, theme)
-		},
-		listFn:     removeFromList,
-		opLabel:    "remove from",
-		entityType: "theme",
-	}
-}
-
-// NewObjectiveListRemoveOperation creates an EntityListRemoveOperation for objectives.
-func NewObjectiveListRemoveOperation(
-	objectiveStorage storage.ObjectiveStorage,
-) EntityListRemoveOperation {
-	return &entityListOperation{
-		findFn: func(ctx context.Context, vaultPath, name string) (any, error) {
-			return objectiveStorage.FindObjectiveByName(ctx, vaultPath, name)
-		},
-		writeFn: func(ctx context.Context, entity any) error {
-			objective, ok := entity.(*domain.Objective)
-			if !ok {
-				return fmt.Errorf("unexpected entity type for objective")
-			}
-			return objectiveStorage.WriteObjective(ctx, objective)
-		},
-		listFn:     removeFromList,
-		opLabel:    "remove from",
-		entityType: "objective",
-	}
-}
-
-// NewVisionListRemoveOperation creates an EntityListRemoveOperation for visions.
-func NewVisionListRemoveOperation(visionStorage storage.VisionStorage) EntityListRemoveOperation {
-	return &entityListOperation{
-		findFn: func(ctx context.Context, vaultPath, name string) (any, error) {
-			return visionStorage.FindVisionByName(ctx, vaultPath, name)
-		},
-		writeFn: func(ctx context.Context, entity any) error {
-			vision, ok := entity.(*domain.Vision)
-			if !ok {
-				return fmt.Errorf("unexpected entity type for vision")
-			}
-			return visionStorage.WriteVision(ctx, vision)
-		},
-		listFn:     removeFromList,
-		opLabel:    "remove from",
-		entityType: "vision",
 	}
 }
 
@@ -647,28 +657,46 @@ func (o *entityShowOperation) Execute(
 		return EntityShowResult{}, errors.Wrap(ctx, err, fmt.Sprintf("find %s", o.entityType))
 	}
 
-	v := reflect.ValueOf(entity).Elem()
-	t := v.Type()
 	fields := make(map[string]string)
 	var fieldOrder []string
-	for i := 0; i < t.NumField(); i++ {
-		sf := t.Field(i)
-		yamlTag := sf.Tag.Get("yaml")
-		name := strings.Split(yamlTag, ",")[0]
-		if name == "" || name == "-" {
-			continue
-		}
-		fieldStr, fieldErr := getFieldAsString(v.Field(i))
-		if fieldErr != nil {
-			continue
-		}
-		fields[name] = fieldStr
-		fieldOrder = append(fieldOrder, name)
-	}
+	var nameVal, filePathVal, contentVal string
 
-	nameVal := v.FieldByName("Name").String()
-	filePathVal := v.FieldByName("FilePath").String()
-	contentVal := v.FieldByName("Content").String()
+	switch e := entity.(type) {
+	case *domain.Goal:
+		nameVal = e.Name
+		filePathVal = e.FilePath
+		contentVal = string(e.Content)
+		for _, k := range e.Keys() {
+			fields[k] = e.GetField(k)
+			fieldOrder = append(fieldOrder, k)
+		}
+	case *domain.Theme:
+		nameVal = e.Name
+		filePathVal = e.FilePath
+		contentVal = string(e.Content)
+		for _, k := range e.Keys() {
+			fields[k] = e.GetField(k)
+			fieldOrder = append(fieldOrder, k)
+		}
+	case *domain.Objective:
+		nameVal = e.Name
+		filePathVal = e.FilePath
+		contentVal = string(e.Content)
+		for _, k := range e.Keys() {
+			fields[k] = e.GetField(k)
+			fieldOrder = append(fieldOrder, k)
+		}
+	case *domain.Vision:
+		nameVal = e.Name
+		filePathVal = e.FilePath
+		contentVal = string(e.Content)
+		for _, k := range e.Keys() {
+			fields[k] = e.GetField(k)
+			fieldOrder = append(fieldOrder, k)
+		}
+	default:
+		return EntityShowResult{}, errors.Errorf(ctx, "unsupported entity type %T", entity)
+	}
 
 	return EntityShowResult{
 		Name:       nameVal,

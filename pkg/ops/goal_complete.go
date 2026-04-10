@@ -66,7 +66,7 @@ func (g *goalCompleteOperation) Execute(
 			)
 	}
 
-	if goal.Status == domain.GoalStatusCompleted {
+	if goal.Status() == domain.GoalStatusCompleted {
 		msg := fmt.Sprintf("goal %q is already completed", goalName)
 		return MutationResult{Success: false, Error: msg}, fmt.Errorf("%s", msg) //nolint:goerr113
 	}
@@ -77,8 +77,8 @@ func (g *goalCompleteOperation) Execute(
 		}
 	}
 
-	goal.Status = domain.GoalStatusCompleted
-	goal.Completed = libtime.ToDate(g.currentDateTime.Now().Time()).Ptr()
+	_ = goal.SetStatus(domain.GoalStatusCompleted)
+	goal.SetCompleted(libtime.ToDate(g.currentDateTime.Now().Time()).Ptr())
 
 	if err := g.goalStorage.WriteGoal(ctx, goal); err != nil {
 		return MutationResult{

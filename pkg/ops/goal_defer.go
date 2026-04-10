@@ -78,7 +78,7 @@ func (g *goalDeferOperation) Execute(
 		}, errors.Wrap(ctx, err, "find goal")
 	}
 
-	goal.DeferDate = targetDate.Ptr()
+	goal.SetDeferDate(targetDate.Ptr())
 
 	if err := g.goalStorage.WriteGoal(ctx, goal); err != nil {
 		return MutationResult{

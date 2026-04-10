@@ -2,31 +2,33 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package domain
+package domain //nolint:dupl
 
 import (
-	"time"
+	"context"
+	"fmt"
 
-	libtime "github.com/bborbe/time"
+	"github.com/bborbe/collection"
+	"github.com/bborbe/validation"
 )
 
-// Objective represents an objective in the Obsidian vault with YAML frontmatter.
+// Objective represents an objective in the Obsidian vault.
+// Frontmatter is stored in ObjectiveFrontmatter (a typed map wrapper that preserves
+// unknown fields). Filesystem metadata is in the embedded FileMetadata.
 type Objective struct {
-	// Frontmatter fields
-	Status     ObjectiveStatus `yaml:"status"`
-	PageType   string          `yaml:"page_type"`
-	Priority   Priority        `yaml:"priority,omitempty"`
-	Assignee   string          `yaml:"assignee,omitempty"`
-	StartDate  *time.Time      `yaml:"start_date,omitempty"`
-	TargetDate *time.Time      `yaml:"target_date,omitempty"`
-	Tags       []string        `yaml:"tags,omitempty"`
-	Completed  *libtime.Date   `yaml:"completed,omitempty"`
+	ObjectiveFrontmatter
+	FileMetadata
+	// Content is the full markdown content including the frontmatter block.
+	Content Content
+}
 
-	// Metadata
-	Name         string     `yaml:"-"` // Filename without extension
-	Content      string     `yaml:"-"` // Full markdown content including frontmatter
-	FilePath     string     `yaml:"-"` // Absolute path to file
-	ModifiedDate *time.Time `yaml:"-"` // File modification time, populated by storage layer
+// NewObjective creates an Objective from a parsed frontmatter map and metadata.
+func NewObjective(data map[string]any, meta FileMetadata, content Content) *Objective {
+	return &Objective{
+		ObjectiveFrontmatter: NewObjectiveFrontmatter(data),
+		FileMetadata:         meta,
+		Content:              content,
+	}
 }
 
 // ObjectiveStatus represents the status of an objective.
@@ -37,6 +39,29 @@ const (
 	ObjectiveStatusCompleted ObjectiveStatus = "completed"
 	ObjectiveStatusOnHold    ObjectiveStatus = "on_hold"
 )
+
+// AvailableObjectiveStatuses lists all valid canonical objective status values.
+var AvailableObjectiveStatuses = ObjectiveStatuses{
+	ObjectiveStatusActive,
+	ObjectiveStatusCompleted,
+	ObjectiveStatusOnHold,
+}
+
+// ObjectiveStatuses is a collection of ObjectiveStatus values.
+type ObjectiveStatuses []ObjectiveStatus
+
+// Contains returns true if the collection contains the given status.
+func (o ObjectiveStatuses) Contains(status ObjectiveStatus) bool {
+	return collection.Contains(o, status)
+}
+
+// Validate returns an error if the status is not a valid canonical value.
+func (s ObjectiveStatus) Validate(ctx context.Context) error {
+	if !AvailableObjectiveStatuses.Contains(s) {
+		return fmt.Errorf("%w: unknown objective status '%s'", validation.Error, s)
+	}
+	return nil
+}
 
 // ObjectiveID represents an objective identifier (filename without .md extension).
 type ObjectiveID string

@@ -38,18 +38,19 @@ var _ = Describe("NewGoalGetOperation", func() {
 		goalName = "my-goal"
 
 		startDate := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
-		goal = &domain.Goal{
-			Name:     goalName,
-			Status:   domain.GoalStatusActive,
-			PageType: "goal",
-			Theme:    "health",
-			Priority: domain.Priority(2),
-			Assignee: "alice",
-			Tags:     []string{"urgent", "q1"},
-			FilePath: "/vault/Goals/my-goal.md",
-			Content:  "---\nstatus: active\n---\n",
-		}
-		goal.StartDate = &startDate
+		goal = domain.NewGoal(
+			map[string]any{
+				"status":    "active",
+				"page_type": "goal",
+				"theme":     "health",
+				"priority":  2,
+				"assignee":  "alice",
+				"tags":      []string{"urgent", "q1"},
+			},
+			domain.FileMetadata{Name: goalName, FilePath: "/vault/Goals/my-goal.md"},
+			domain.Content("---\nstatus: active\n---\n"),
+		)
+		goal.SetStartDate(&startDate)
 		mockGoalStorage.FindGoalByNameReturns(goal, nil)
 	})
 
@@ -82,7 +83,7 @@ var _ = Describe("NewGoalGetOperation", func() {
 	Context("getting unset optional field", func() {
 		BeforeEach(func() {
 			key = "assignee"
-			goal.Assignee = ""
+			goal.SetAssignee("")
 		})
 
 		It("returns empty string with no error", func() {
@@ -96,7 +97,7 @@ var _ = Describe("NewGoalGetOperation", func() {
 			key = "defer_date"
 			t := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
 			dd := domain.DateOrDateTime(t)
-			goal.DeferDate = &dd
+			goal.SetDeferDate(&dd)
 		})
 
 		It("returns the defer_date value", func() {
@@ -108,7 +109,7 @@ var _ = Describe("NewGoalGetOperation", func() {
 	Context("getting defer_date field when unset", func() {
 		BeforeEach(func() {
 			key = "defer_date"
-			goal.DeferDate = nil
+			goal.SetDeferDate(nil)
 		})
 
 		It("returns empty string with no error", func() {
@@ -122,8 +123,8 @@ var _ = Describe("NewGoalGetOperation", func() {
 			key = "xyz"
 		})
 
-		It("returns unknown field error", func() {
-			Expect(err).To(MatchError(ContainSubstring("unknown field")))
+		It("returns empty string with no error for unknown keys", func() {
+			Expect(err).To(BeNil())
 			Expect(result).To(Equal(""))
 		})
 	})
@@ -160,10 +161,11 @@ var _ = Describe("NewGoalSetOperation", func() {
 		vaultPath = "/path/to/vault"
 		goalName = "my-goal"
 
-		goal = &domain.Goal{
-			Name:   goalName,
-			Status: domain.GoalStatusActive,
-		}
+		goal = domain.NewGoal(
+			map[string]any{"status": "active"},
+			domain.FileMetadata{Name: goalName},
+			domain.Content(""),
+		)
 		mockGoalStorage.FindGoalByNameReturns(goal, nil)
 		mockGoalStorage.WriteGoalReturns(nil)
 	})
@@ -182,7 +184,7 @@ var _ = Describe("NewGoalSetOperation", func() {
 			Expect(err).To(BeNil())
 			Expect(mockGoalStorage.WriteGoalCallCount()).To(Equal(1))
 			_, writtenGoal := mockGoalStorage.WriteGoalArgsForCall(0)
-			Expect(string(writtenGoal.Status)).To(Equal("completed"))
+			Expect(string(writtenGoal.Status())).To(Equal("completed"))
 		})
 	})
 
@@ -196,8 +198,8 @@ var _ = Describe("NewGoalSetOperation", func() {
 			Expect(err).To(BeNil())
 			Expect(mockGoalStorage.WriteGoalCallCount()).To(Equal(1))
 			_, writtenGoal := mockGoalStorage.WriteGoalArgsForCall(0)
-			Expect(writtenGoal.StartDate).NotTo(BeNil())
-			Expect(writtenGoal.StartDate.Format("2006-01-02")).To(Equal("2025-06-15"))
+			Expect(writtenGoal.StartDate()).NotTo(BeNil())
+			Expect(writtenGoal.StartDate().Format("2006-01-02")).To(Equal("2025-06-15"))
 		})
 	})
 
@@ -211,8 +213,8 @@ var _ = Describe("NewGoalSetOperation", func() {
 			Expect(err).To(BeNil())
 			Expect(mockGoalStorage.WriteGoalCallCount()).To(Equal(1))
 			_, writtenGoal := mockGoalStorage.WriteGoalArgsForCall(0)
-			Expect(writtenGoal.DeferDate).NotTo(BeNil())
-			Expect(writtenGoal.DeferDate.Format("2006-01-02")).To(Equal("2026-04-01"))
+			Expect(writtenGoal.DeferDate()).NotTo(BeNil())
+			Expect(writtenGoal.DeferDate().Format("2006-01-02")).To(Equal("2026-04-01"))
 		})
 	})
 
@@ -238,7 +240,7 @@ var _ = Describe("NewGoalSetOperation", func() {
 			Expect(err).To(BeNil())
 			Expect(mockGoalStorage.WriteGoalCallCount()).To(Equal(1))
 			_, writtenGoal := mockGoalStorage.WriteGoalArgsForCall(0)
-			Expect(writtenGoal.Tags).To(Equal([]string{"tag-a", "tag-b"}))
+			Expect(writtenGoal.Tags()).To(Equal([]string{"tag-a", "tag-b"}))
 		})
 	})
 
@@ -246,39 +248,26 @@ var _ = Describe("NewGoalSetOperation", func() {
 		BeforeEach(func() {
 			key = "tags"
 			value = ""
-			goal.Tags = []string{"old"}
+			goal.SetTags([]string{"old"})
 		})
 
 		It("sets tags to nil", func() {
 			Expect(err).To(BeNil())
 			Expect(mockGoalStorage.WriteGoalCallCount()).To(Equal(1))
 			_, writtenGoal := mockGoalStorage.WriteGoalArgsForCall(0)
-			Expect(writtenGoal.Tags).To(BeNil())
+			Expect(writtenGoal.Tags()).To(BeNil())
 		})
 	})
 
-	Context("unknown field", func() {
+	Context("unknown field stores as custom key and calls WriteGoal", func() {
 		BeforeEach(func() {
 			key = "nonexistent"
 			value = "val"
 		})
 
-		It("returns unknown field error", func() {
-			Expect(err).To(MatchError(ContainSubstring("unknown field")))
-			Expect(mockGoalStorage.WriteGoalCallCount()).To(Equal(0))
-		})
-	})
-
-	Context("read-only field", func() {
-		BeforeEach(func() {
-			// yaml:"-" is the tag value for metadata fields
-			key = "-"
-			value = "some-value"
-		})
-
-		It("returns read-only error", func() {
-			Expect(err).To(MatchError(ContainSubstring("read-only")))
-			Expect(mockGoalStorage.WriteGoalCallCount()).To(Equal(0))
+		It("stores the value and calls WriteGoal", func() {
+			Expect(err).To(BeNil())
+			Expect(mockGoalStorage.WriteGoalCallCount()).To(Equal(1))
 		})
 	})
 
@@ -328,13 +317,16 @@ var _ = Describe("NewGoalClearOperation", func() {
 		goalName = "my-goal"
 
 		startDate := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
-		goal = &domain.Goal{
-			Name:     goalName,
-			Status:   domain.GoalStatusActive,
-			Assignee: "alice",
-			Tags:     []string{"urgent"},
-		}
-		goal.StartDate = &startDate
+		goal = domain.NewGoal(
+			map[string]any{
+				"status":   "active",
+				"assignee": "alice",
+				"tags":     []string{"urgent"},
+			},
+			domain.FileMetadata{Name: goalName},
+			domain.Content(""),
+		)
+		goal.SetStartDate(&startDate)
 		mockGoalStorage.FindGoalByNameReturns(goal, nil)
 		mockGoalStorage.WriteGoalReturns(nil)
 	})
@@ -352,7 +344,7 @@ var _ = Describe("NewGoalClearOperation", func() {
 			Expect(err).To(BeNil())
 			Expect(mockGoalStorage.WriteGoalCallCount()).To(Equal(1))
 			_, writtenGoal := mockGoalStorage.WriteGoalArgsForCall(0)
-			Expect(writtenGoal.Assignee).To(Equal(""))
+			Expect(writtenGoal.Assignee()).To(Equal(""))
 		})
 	})
 
@@ -365,7 +357,7 @@ var _ = Describe("NewGoalClearOperation", func() {
 			Expect(err).To(BeNil())
 			Expect(mockGoalStorage.WriteGoalCallCount()).To(Equal(1))
 			_, writtenGoal := mockGoalStorage.WriteGoalArgsForCall(0)
-			Expect(writtenGoal.StartDate).To(BeNil())
+			Expect(writtenGoal.StartDate()).To(BeNil())
 		})
 	})
 
@@ -374,14 +366,14 @@ var _ = Describe("NewGoalClearOperation", func() {
 			key = "defer_date"
 			t := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
 			dd := domain.DateOrDateTime(t)
-			goal.DeferDate = &dd
+			goal.SetDeferDate(&dd)
 		})
 
 		It("sets defer_date to nil", func() {
 			Expect(err).To(BeNil())
 			Expect(mockGoalStorage.WriteGoalCallCount()).To(Equal(1))
 			_, writtenGoal := mockGoalStorage.WriteGoalArgsForCall(0)
-			Expect(writtenGoal.DeferDate).To(BeNil())
+			Expect(writtenGoal.DeferDate()).To(BeNil())
 		})
 	})
 
@@ -394,18 +386,18 @@ var _ = Describe("NewGoalClearOperation", func() {
 			Expect(err).To(BeNil())
 			Expect(mockGoalStorage.WriteGoalCallCount()).To(Equal(1))
 			_, writtenGoal := mockGoalStorage.WriteGoalArgsForCall(0)
-			Expect(writtenGoal.Tags).To(BeNil())
+			Expect(writtenGoal.Tags()).To(BeNil())
 		})
 	})
 
-	Context("unknown field", func() {
+	Context("clearing unknown field is a no-op that still calls WriteGoal", func() {
 		BeforeEach(func() {
 			key = "nonexistent"
 		})
 
-		It("returns unknown field error", func() {
-			Expect(err).To(MatchError(ContainSubstring("unknown field")))
-			Expect(mockGoalStorage.WriteGoalCallCount()).To(Equal(0))
+		It("calls WriteGoal without error", func() {
+			Expect(err).To(BeNil())
+			Expect(mockGoalStorage.WriteGoalCallCount()).To(Equal(1))
 		})
 	})
 })
@@ -430,11 +422,14 @@ var _ = Describe("NewGoalListAddOperation", func() {
 		vaultPath = "/path/to/vault"
 		goalName = "my-goal"
 
-		goal = &domain.Goal{
-			Name:   goalName,
-			Status: domain.GoalStatusActive,
-			Tags:   []string{"existing"},
-		}
+		goal = domain.NewGoal(
+			map[string]any{
+				"status": "active",
+				"tags":   []string{"existing"},
+			},
+			domain.FileMetadata{Name: goalName},
+			domain.Content(""),
+		)
 		mockGoalStorage.FindGoalByNameReturns(goal, nil)
 		mockGoalStorage.WriteGoalReturns(nil)
 	})
@@ -454,8 +449,8 @@ var _ = Describe("NewGoalListAddOperation", func() {
 			Expect(mockGoalStorage.FindGoalByNameCallCount()).To(Equal(1))
 			Expect(mockGoalStorage.WriteGoalCallCount()).To(Equal(1))
 			_, writtenGoal := mockGoalStorage.WriteGoalArgsForCall(0)
-			Expect(writtenGoal.Tags).To(ContainElement("new-tag"))
-			Expect(writtenGoal.Tags).To(ContainElement("existing"))
+			Expect(writtenGoal.Tags()).To(ContainElement("new-tag"))
+			Expect(writtenGoal.Tags()).To(ContainElement("existing"))
 		})
 	})
 
@@ -540,11 +535,14 @@ var _ = Describe("NewGoalListRemoveOperation", func() {
 		vaultPath = "/path/to/vault"
 		goalName = "my-goal"
 
-		goal = &domain.Goal{
-			Name:   goalName,
-			Status: domain.GoalStatusActive,
-			Tags:   []string{"existing", "other"},
-		}
+		goal = domain.NewGoal(
+			map[string]any{
+				"status": "active",
+				"tags":   []string{"existing", "other"},
+			},
+			domain.FileMetadata{Name: goalName},
+			domain.Content(""),
+		)
 		mockGoalStorage.FindGoalByNameReturns(goal, nil)
 		mockGoalStorage.WriteGoalReturns(nil)
 	})
@@ -563,8 +561,8 @@ var _ = Describe("NewGoalListRemoveOperation", func() {
 			Expect(err).To(BeNil())
 			Expect(mockGoalStorage.WriteGoalCallCount()).To(Equal(1))
 			_, writtenGoal := mockGoalStorage.WriteGoalArgsForCall(0)
-			Expect(writtenGoal.Tags).NotTo(ContainElement("existing"))
-			Expect(writtenGoal.Tags).To(ContainElement("other"))
+			Expect(writtenGoal.Tags()).NotTo(ContainElement("existing"))
+			Expect(writtenGoal.Tags()).To(ContainElement("other"))
 		})
 	})
 
@@ -877,15 +875,16 @@ var _ = Describe("NewGoalShowOperation", func() {
 		vaultName = "my-vault"
 		goalName = "my-goal"
 
-		goal = &domain.Goal{
-			Name:     goalName,
-			Status:   domain.GoalStatusActive,
-			PageType: "goal",
-			Theme:    "health",
-			Tags:     []string{"important"},
-			FilePath: "/vault/Goals/my-goal.md",
-			Content:  "---\nstatus: active\n---\n",
-		}
+		goal = domain.NewGoal(
+			map[string]any{
+				"status":    "active",
+				"page_type": "goal",
+				"theme":     "health",
+				"tags":      []string{"important"},
+			},
+			domain.FileMetadata{Name: goalName, FilePath: "/vault/Goals/my-goal.md"},
+			domain.Content("---\nstatus: active\n---\n"),
+		)
 		mockGoalStorage.FindGoalByNameReturns(goal, nil)
 	})
 

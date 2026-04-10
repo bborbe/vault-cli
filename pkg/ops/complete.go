@@ -294,7 +294,7 @@ func (c *completeOperation) markGoalCheckbox(
 	}
 
 	// Find checkbox that matches task name
-	lines := strings.Split(goal.Content, "\n")
+	lines := strings.Split(string(goal.Content), "\n")
 	modified := false
 
 	for i, line := range lines {
@@ -316,7 +316,7 @@ func (c *completeOperation) markGoalCheckbox(
 	}
 
 	// Update goal content
-	goal.Content = strings.Join(lines, "\n")
+	goal.Content = domain.Content(strings.Join(lines, "\n"))
 
 	// Write updated goal
 	if err := c.goalStorage.WriteGoal(ctx, goal); err != nil {

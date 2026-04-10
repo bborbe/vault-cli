@@ -177,7 +177,7 @@ func (u *updateOperation) syncGoalCheckboxes(
 		return errors.Wrap(ctx, err, "find goal")
 	}
 
-	lines := strings.Split(goal.Content, "\n")
+	lines := strings.Split(string(goal.Content), "\n")
 	modified := false
 
 	// For each checkbox in the task, try to find matching checkbox in goal
@@ -203,7 +203,7 @@ func (u *updateOperation) syncGoalCheckboxes(
 	}
 
 	// Update goal content and write
-	goal.Content = strings.Join(lines, "\n")
+	goal.Content = domain.Content(strings.Join(lines, "\n"))
 	if err := u.goalStorage.WriteGoal(ctx, goal); err != nil {
 		return errors.Wrap(ctx, err, "write goal")
 	}

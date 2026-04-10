@@ -1,11 +1,12 @@
 ---
-status: prompted
+status: verifying
 tags:
     - dark-factory
     - spec
 approved: "2026-04-10T19:36:13Z"
 generating: "2026-04-10T19:37:01Z"
 prompted: "2026-04-10T19:47:26Z"
+verifying: "2026-04-10T22:53:50Z"
 branch: dark-factory/flexible-frontmatter-refactor
 ---
 

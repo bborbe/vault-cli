@@ -29,49 +29,6 @@ type baseStorage struct {
 	config *Config
 }
 
-func (b *baseStorage) parseFrontmatter(
-	ctx context.Context,
-	content []byte,
-	target interface{},
-) error {
-	matches := frontmatterRegex.FindSubmatch(content)
-	if len(matches) < 2 {
-		return errors.Errorf(ctx, "no frontmatter found")
-	}
-
-	frontmatter := matches[1]
-	if err := yaml.Unmarshal(frontmatter, target); err != nil {
-		return errors.Wrap(ctx, err, "unmarshal yaml")
-	}
-
-	return nil
-}
-
-func (b *baseStorage) serializeWithFrontmatter(
-	ctx context.Context,
-	frontmatter interface{},
-	originalContent string,
-) (string, error) {
-	matches := frontmatterRegex.FindStringSubmatch(originalContent)
-	var bodyContent string
-	if len(matches) >= 3 {
-		bodyContent = matches[2]
-	}
-
-	yamlBytes, err := yaml.Marshal(frontmatter)
-	if err != nil {
-		return "", errors.Wrap(ctx, err, "marshal yaml")
-	}
-
-	var buf bytes.Buffer
-	buf.WriteString("---\n")
-	buf.Write(yamlBytes)
-	buf.WriteString("---\n")
-	buf.WriteString(bodyContent)
-
-	return buf.String(), nil
-}
-
 // parseToFrontmatterMap parses the YAML frontmatter block from content into a
 // map[string]any, preserving all fields including unknown ones.
 // Returns an error if no frontmatter block is found or YAML is invalid.

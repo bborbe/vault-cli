@@ -71,6 +71,56 @@ func (b *baseStorage) serializeWithFrontmatter(
 	return buf.String(), nil
 }
 
+// parseToFrontmatterMap parses the YAML frontmatter block from content into a
+// map[string]any, preserving all fields including unknown ones.
+// Returns an error if no frontmatter block is found or YAML is invalid.
+func (b *baseStorage) parseToFrontmatterMap(
+	ctx context.Context,
+	content []byte,
+) (map[string]any, error) {
+	matches := frontmatterRegex.FindSubmatch(content)
+	if len(matches) < 2 {
+		return nil, errors.Errorf(ctx, "no frontmatter found")
+	}
+
+	var m map[string]any
+	if err := yaml.Unmarshal(matches[1], &m); err != nil {
+		return nil, errors.Wrap(ctx, err, "unmarshal yaml frontmatter")
+	}
+	if m == nil {
+		m = make(map[string]any)
+	}
+	return m, nil
+}
+
+// serializeMapAsFrontmatter serializes data as YAML frontmatter, replacing the
+// frontmatter block in originalContent and preserving the markdown body.
+// Fields are written in YAML library key order (alphabetical); this may differ
+// from the original file's key order, which is acceptable per the spec.
+func (b *baseStorage) serializeMapAsFrontmatter(
+	ctx context.Context,
+	data map[string]any,
+	originalContent string,
+) (string, error) {
+	matches := frontmatterRegex.FindStringSubmatch(originalContent)
+	var body string
+	if len(matches) >= 3 {
+		body = matches[2]
+	}
+
+	yamlBytes, err := yaml.Marshal(data)
+	if err != nil {
+		return "", errors.Wrap(ctx, err, "marshal yaml frontmatter")
+	}
+
+	var buf bytes.Buffer
+	buf.WriteString("---\n")
+	buf.Write(yamlBytes)
+	buf.WriteString("---\n")
+	buf.WriteString(body)
+	return buf.String(), nil
+}
+
 func (b *baseStorage) findFileByName(
 	ctx context.Context,
 	dir string,

@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.55.1
+
+- refactor: delete `pkg/ops/frontmatter_reflect.go` and its test — reflection-based field helpers replaced by map-based `FrontmatterMap` accessors
+- refactor: remove dead `parseFrontmatter`/`serializeWithFrontmatter` methods from `pkg/storage/base.go`
+- refactor: migrate `decisionStorage` to use `parseToFrontmatterMap`/`serializeMapAsFrontmatter`
+- docs: update `docs/development-patterns.md` to describe map-based entity pattern with `XxxFrontmatter`, `FileMetadata`, and typed accessors
+
 ## v0.55.0
 
 - refactor: migrate `domain.Goal`, `domain.Theme`, `domain.Objective`, `domain.Vision` from YAML-tagged structs to `XxxFrontmatter`+`FileMetadata`+`Content` embedding with typed getters/setters

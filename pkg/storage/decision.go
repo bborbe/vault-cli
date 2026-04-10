@@ -33,14 +33,33 @@ func (d *decisionStorage) readDecisionFromPath(
 		return nil, errors.Wrap(ctx, err, fmt.Sprintf("read file %s", filePath))
 	}
 
+	data, parseErr := d.parseToFrontmatterMap(ctx, content)
+	if parseErr != nil {
+		return nil, errors.Wrap(ctx, parseErr, "parse frontmatter")
+	}
+
 	decision := &domain.Decision{
 		Name:     name,
 		Content:  string(content),
 		FilePath: filePath,
 	}
-
-	if err := d.parseFrontmatter(ctx, content, decision); err != nil {
-		return nil, errors.Wrap(ctx, err, "parse frontmatter")
+	if v, ok := data["needs_review"].(bool); ok {
+		decision.NeedsReview = v
+	}
+	if v, ok := data["reviewed"].(bool); ok {
+		decision.Reviewed = v
+	}
+	if v, ok := data["reviewed_date"].(string); ok {
+		decision.ReviewedDate = v
+	}
+	if v, ok := data["status"].(string); ok {
+		decision.Status = v
+	}
+	if v, ok := data["type"].(string); ok {
+		decision.Type = v
+	}
+	if v, ok := data["page_type"].(string); ok {
+		decision.PageType = v
 	}
 
 	return decision, nil
@@ -184,7 +203,26 @@ func (d *decisionStorage) FindDecisionByName(
 
 // WriteDecision writes a decision to its markdown file, preserving the body content.
 func (d *decisionStorage) WriteDecision(ctx context.Context, decision *domain.Decision) error {
-	content, err := d.serializeWithFrontmatter(ctx, decision, decision.Content)
+	data := map[string]any{
+		"needs_review": decision.NeedsReview,
+	}
+	if decision.Reviewed {
+		data["reviewed"] = decision.Reviewed
+	}
+	if decision.ReviewedDate != "" {
+		data["reviewed_date"] = decision.ReviewedDate
+	}
+	if decision.Status != "" {
+		data["status"] = decision.Status
+	}
+	if decision.Type != "" {
+		data["type"] = decision.Type
+	}
+	if decision.PageType != "" {
+		data["page_type"] = decision.PageType
+	}
+
+	content, err := d.serializeMapAsFrontmatter(ctx, data, decision.Content)
 	if err != nil {
 		return errors.Wrap(ctx, err, "serialize frontmatter")
 	}

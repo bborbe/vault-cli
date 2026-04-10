@@ -144,6 +144,222 @@ var _ = Describe("vault-cli integration tests", func() {
 		)
 	})
 
+	Describe("frontmatter round-trip", func() {
+		var vaultPath, configPath string
+		var cleanup func()
+
+		AfterEach(func() {
+			cleanup()
+		})
+
+		It("preserves known fields through set operations", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"roundtrip-task": `---
+status: todo
+priority: 2
+task_identifier: test-uuid-roundtrip
+---
+# Roundtrip Task
+Body content here.
+`,
+			})
+
+			// Set status to in_progress
+			cmd := exec.Command(
+				binPath,
+				"--config", configPath,
+				"--vault", "test",
+				"task", "set",
+				"roundtrip-task",
+				"status", "in_progress",
+			)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(0))
+
+			// Verify status changed and other fields preserved
+			taskPath := filepath.Join(vaultPath, "Tasks", "roundtrip-task.md")
+			content, err := os.ReadFile(taskPath) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(content)).To(ContainSubstring("status: in_progress"))
+			Expect(string(content)).To(ContainSubstring("priority: 2"))
+			Expect(string(content)).To(ContainSubstring("task_identifier: test-uuid-roundtrip"))
+			Expect(string(content)).To(ContainSubstring("Body content here."))
+		})
+
+		PIt("preserves unknown frontmatter fields through set operations", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"unknown-fields-task": `---
+status: todo
+priority: 1
+custom_field: my-custom-value
+another_field: 42
+task_identifier: test-uuid-unknown
+---
+# Task with unknown fields
+`,
+			})
+
+			// Set a known field
+			cmd := exec.Command(
+				binPath,
+				"--config", configPath,
+				"--vault", "test",
+				"task", "set",
+				"unknown-fields-task",
+				"status", "in_progress",
+			)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(0))
+
+			// Verify unknown fields are preserved
+			taskPath := filepath.Join(
+				vaultPath,
+				"Tasks",
+				"unknown-fields-task.md",
+			)
+			content, err := os.ReadFile(taskPath) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(content)).To(ContainSubstring("custom_field: my-custom-value"))
+			Expect(string(content)).To(ContainSubstring("another_field: 42"))
+		})
+
+		It("preserves markdown content through set operations", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"content-task": `---
+status: todo
+priority: 1
+task_identifier: test-uuid-content
+---
+# Content Task
+
+This has **bold** and _italic_ text.
+
+- bullet 1
+- bullet 2
+
+` + "```go\nfmt.Println(\"hello\")\n```\n",
+			})
+
+			// Set status
+			cmd := exec.Command(
+				binPath,
+				"--config", configPath,
+				"--vault", "test",
+				"task", "set",
+				"content-task",
+				"status", "in_progress",
+			)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(0))
+
+			// Verify markdown content preserved
+			taskPath := filepath.Join(vaultPath, "Tasks", "content-task.md")
+			content, err := os.ReadFile(taskPath) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(content)).To(ContainSubstring("**bold**"))
+			Expect(string(content)).To(ContainSubstring("- bullet 1"))
+			Expect(string(content)).To(ContainSubstring("fmt.Println"))
+		})
+	})
+
+	Describe("task get/set", func() {
+		var vaultPath, configPath string
+		var cleanup func()
+
+		AfterEach(func() {
+			cleanup()
+		})
+
+		It("gets a known field value", func() {
+			_, configPath, cleanup = createTempVault(map[string]string{
+				"get-task": `---
+status: todo
+priority: 3
+task_identifier: test-uuid-get
+---
+# Get Task
+`,
+			})
+
+			cmd := exec.Command(
+				binPath,
+				"--config", configPath,
+				"--vault", "test",
+				"task", "get",
+				"get-task",
+				"status",
+			)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(0))
+			Expect(session.Out).To(gbytes.Say("todo"))
+		})
+
+		It("sets a known field with valid value", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"set-task": `---
+status: todo
+priority: 1
+task_identifier: test-uuid-set
+---
+# Set Task
+`,
+			})
+
+			cmd := exec.Command(
+				binPath,
+				"--config", configPath,
+				"--vault", "test",
+				"task", "set",
+				"set-task",
+				"priority", "5",
+			)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(0))
+
+			taskPath := filepath.Join(vaultPath, "Tasks", "set-task.md")
+			content, err := os.ReadFile(taskPath) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(content)).To(ContainSubstring("priority: 5"))
+		})
+	})
+
+	Describe("status normalization", func() {
+		var configPath string
+		var cleanup func()
+
+		AfterEach(func() {
+			cleanup()
+		})
+
+		It("normalizes legacy status 'next' to 'todo' on list", func() {
+			_, configPath, cleanup = createTempVault(map[string]string{
+				"legacy-task": `---
+status: next
+priority: 1
+---
+# Legacy Task
+`,
+			})
+
+			cmd := exec.Command(
+				binPath,
+				"--config", configPath,
+				"--vault", "test",
+				"task", "list",
+			)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(0))
+			// Task with status "next" should appear (normalized to todo)
+			Expect(session.Out).To(gbytes.Say("legacy-task"))
+		})
+	})
+
 	Describe("vault-cli list", func() {
 		var configPath string
 		var cleanup func()

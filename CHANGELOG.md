@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.53.0
+
+- feat: add `FrontmatterMap`, `FileMetadata`, and `Content` domain types as foundation for flexible frontmatter refactor
+- feat: add `parseToFrontmatterMap` and `serializeMapAsFrontmatter` methods to `baseStorage` for map-based YAML round-trips
+
 ## v0.52.2
 
 - Update Go to 1.26.2

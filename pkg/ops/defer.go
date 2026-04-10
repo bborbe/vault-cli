@@ -84,8 +84,8 @@ func (d *deferOperation) Execute(
 	}
 
 	// For +Nd: if existing DeferDate has a time component, preserve it
-	if matched, _ := regexp.MatchString(`^\+\d+d$`, dateStr); matched && task.DeferDate != nil {
-		existingT := task.DeferDate.Time()
+	if matched, _ := regexp.MatchString(`^\+\d+d$`, dateStr); matched && task.DeferDate() != nil {
+		existingT := task.DeferDate().Time()
 		existingUTC := existingT.UTC()
 		if existingUTC.Hour() != 0 || existingUTC.Minute() != 0 || existingUTC.Second() != 0 ||
 			existingUTC.Nanosecond() != 0 {
@@ -138,11 +138,11 @@ func (d *deferOperation) findAndDeferTask(
 	task *domain.Task,
 	targetDate domain.DateOrDateTime,
 ) (*domain.Task, error) {
-	task.DeferDate = targetDate.Ptr()
+	task.SetDeferDate(targetDate.Ptr())
 
 	// Clear planned_date if it's before the defer target date
-	if task.PlannedDate != nil && task.PlannedDate.Before(targetDate.Time()) {
-		task.PlannedDate = nil
+	if task.PlannedDate() != nil && task.PlannedDate().Before(targetDate.Time()) {
+		task.SetPlannedDate(nil)
 	}
 
 	if err := d.taskStorage.WriteTask(ctx, task); err != nil {

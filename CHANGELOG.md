@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.54.0
+
+- refactor: migrate `domain.Task` from YAML-tagged struct to `TaskFrontmatter`+`FileMetadata`+`Content` embedding with typed getters/setters
+- feat: add `TaskFrontmatter` typed wrapper with `GetField`/`SetField`/`ClearField` generic API preserving unknown frontmatter fields through round-trips
+- feat: add `Priority.Validate` method rejecting negative priorities
+- refactor: replace hardcoded switch in `FrontmatterGetOperation`/`FrontmatterSetOperation`/`FrontmatterClearOperation` with `task.GetField`/`task.SetField`/`task.ClearField`
+- refactor: replace reflection-based task list operations with typed `taskListOperation` using `SetGoals`/`SetTags`
+- test: add `task_frontmatter_test.go` covering typed getters, setters, and unknown-field round-trips
+- test: enable unknown-field preservation integration test in `cli_test.go`
+
 ## v0.53.0
 
 - feat: add `FrontmatterMap`, `FileMetadata`, and `Content` domain types as foundation for flexible frontmatter refactor

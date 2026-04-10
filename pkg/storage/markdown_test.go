@@ -114,14 +114,14 @@ This is a test task.
 				Expect(err).To(BeNil())
 				Expect(task).NotTo(BeNil())
 				Expect(task.Name).To(Equal("Test Task"))
-				Expect(task.Status).To(Equal(domain.TaskStatusTodo))
-				Expect(task.PageType).To(Equal("task"))
-				Expect(task.Priority).To(Equal(domain.Priority(1)))
-				Expect(task.Assignee).To(Equal("bborbe"))
-				Expect(task.Goals).To(ContainElement("Build vault-cli Core Library"))
+				Expect(task.Status()).To(Equal(domain.TaskStatusTodo))
+				Expect(task.PageType()).To(Equal("task"))
+				Expect(task.Priority()).To(Equal(domain.Priority(1)))
+				Expect(task.Assignee()).To(Equal("bborbe"))
+				Expect(task.Goals()).To(ContainElement("Build vault-cli Core Library"))
 			})
 
-			It("reads a task with string priority as -1 (resilient parsing)", func() {
+			It("reads a task with string priority as 0 (resilient parsing)", func() {
 				// Create a task with string priority value
 				taskContent := `---
 status: todo
@@ -131,7 +131,7 @@ assignee: bborbe
 ---
 # Task with String Priority
 
-This task has a string priority value that should parse as -1.
+This task has a string priority value that cannot be parsed as integer and returns 0.
 `
 				taskPath := filepath.Join(tasksDir, "String Priority Task.md")
 				Expect(os.WriteFile(taskPath, []byte(taskContent), 0600)).To(Succeed())
@@ -140,8 +140,8 @@ This task has a string priority value that should parse as -1.
 				Expect(err).To(BeNil())
 				Expect(task).NotTo(BeNil())
 				Expect(task.Name).To(Equal("String Priority Task"))
-				Expect(task.Status).To(Equal(domain.TaskStatusTodo))
-				Expect(task.Priority).To(Equal(domain.Priority(-1)))
+				Expect(task.Status()).To(Equal(domain.TaskStatusTodo))
+				Expect(task.Priority()).To(Equal(domain.Priority(0)))
 			})
 		})
 
@@ -150,13 +150,13 @@ This task has a string priority value that should parse as -1.
 				task, err := store.ReadTask(ctx, vaultPath, "Test Task")
 				Expect(err).To(BeNil())
 
-				task.Status = domain.TaskStatusCompleted
+				_ = task.SetStatus(domain.TaskStatusCompleted)
 				Expect(store.WriteTask(ctx, task)).To(Succeed())
 
 				// Read back and verify
 				updatedTask, err := store.ReadTask(ctx, vaultPath, "Test Task")
 				Expect(err).To(BeNil())
-				Expect(updatedTask.Status).To(Equal(domain.TaskStatusCompleted))
+				Expect(updatedTask.Status()).To(Equal(domain.TaskStatusCompleted))
 			})
 
 			It("returns error when writing to read-only directory", func() {
@@ -171,26 +171,33 @@ This task has a string priority value that should parse as -1.
 				// Make directory read-only
 				Expect(os.Chmod(readOnlyTasksDir, 0444)).To(Succeed())
 
-				task := &domain.Task{
-					Name:     "Read-Only Task",
-					FilePath: filepath.Join(readOnlyTasksDir, "Read-Only Task.md"),
-					Status:   domain.TaskStatusTodo,
-				}
+				task := domain.NewTask(
+					map[string]any{"status": "todo"},
+					domain.FileMetadata{
+						Name:     "Read-Only Task",
+						FilePath: filepath.Join(readOnlyTasksDir, "Read-Only Task.md"),
+					},
+					domain.Content("---\nstatus: todo\n---\n"),
+				)
 
 				err = store.WriteTask(ctx, task)
 				Expect(err).NotTo(BeNil())
 			})
 
 			It("round-trips task with all fields preserved", func() {
-				newTask := &domain.Task{
-					Name:     "Complete Task",
-					FilePath: filepath.Join(tasksDir, "Complete Task.md"),
-					Status:   domain.TaskStatusInProgress,
-					PageType: "task",
-					Priority: 2,
-					Assignee: "alice",
-					Goals:    []string{"Goal A", "Goal B"},
-					Content: `---
+				newTask := domain.NewTask(
+					map[string]any{
+						"status":    "in_progress",
+						"page_type": "task",
+						"priority":  2,
+						"assignee":  "alice",
+						"goals":     []any{"Goal A", "Goal B"},
+					},
+					domain.FileMetadata{
+						Name:     "Complete Task",
+						FilePath: filepath.Join(tasksDir, "Complete Task.md"),
+					},
+					domain.Content(`---
 status: in_progress
 page_type: task
 goals:
@@ -202,8 +209,8 @@ assignee: alice
 # Complete Task
 
 Task with all fields.
-`,
-				}
+`),
+				)
 
 				// Write task
 				Expect(store.WriteTask(ctx, newTask)).To(Succeed())
@@ -213,11 +220,11 @@ Task with all fields.
 				Expect(err).To(BeNil())
 				Expect(found).NotTo(BeNil())
 				Expect(found.Name).To(Equal("Complete Task"))
-				Expect(found.Status).To(Equal(domain.TaskStatusInProgress))
-				Expect(found.PageType).To(Equal("task"))
-				Expect(found.Priority).To(Equal(domain.Priority(2)))
-				Expect(found.Assignee).To(Equal("alice"))
-				Expect(found.Goals).To(Equal([]string{"Goal A", "Goal B"}))
+				Expect(found.Status()).To(Equal(domain.TaskStatusInProgress))
+				Expect(found.PageType()).To(Equal("task"))
+				Expect(found.Priority()).To(Equal(domain.Priority(2)))
+				Expect(found.Assignee()).To(Equal("alice"))
+				Expect(found.Goals()).To(Equal([]string{"Goal A", "Goal B"}))
 			})
 		})
 
@@ -679,11 +686,11 @@ Task with valid frontmatter.
 			Expect(err).To(BeNil())
 			Expect(task).NotTo(BeNil())
 			Expect(task.Name).To(Equal("Valid Frontmatter"))
-			Expect(task.Status).To(Equal(domain.TaskStatusCompleted))
-			Expect(task.PageType).To(Equal("task"))
-			Expect(task.Priority).To(Equal(domain.Priority(3)))
-			Expect(task.Assignee).To(Equal("bob"))
-			Expect(task.Goals).To(Equal([]string{"Goal X", "Goal Y"}))
+			Expect(task.Status()).To(Equal(domain.TaskStatusCompleted))
+			Expect(task.PageType()).To(Equal("task"))
+			Expect(task.Priority()).To(Equal(domain.Priority(3)))
+			Expect(task.Assignee()).To(Equal("bob"))
+			Expect(task.Goals()).To(Equal([]string{"Goal X", "Goal Y"}))
 		})
 	})
 
@@ -691,10 +698,18 @@ Task with valid frontmatter.
 		Describe("Task metadata field exclusion", func() {
 			It("excludes Name, Content, FilePath from frontmatter on WriteTask", func() {
 				// Create a task with both frontmatter fields and metadata fields
-				task := &domain.Task{
-					Name:     "Test Metadata Exclusion",
-					FilePath: filepath.Join(tasksDir, "Test Metadata Exclusion.md"),
-					Content: `---
+				task := domain.NewTask(
+					map[string]any{
+						"status":    "todo",
+						"page_type": "task",
+						"priority":  1,
+						"assignee":  "alice",
+					},
+					domain.FileMetadata{
+						Name:     "Test Metadata Exclusion",
+						FilePath: filepath.Join(tasksDir, "Test Metadata Exclusion.md"),
+					},
+					domain.Content(`---
 status: todo
 page_type: task
 priority: 1
@@ -703,12 +718,8 @@ assignee: alice
 # Test Metadata Exclusion
 
 Task body content.
-`,
-					Status:   domain.TaskStatusTodo,
-					PageType: "task",
-					Priority: 1,
-					Assignee: "alice",
-				}
+`),
+				)
 
 				// Write the task
 				Expect(store.WriteTask(ctx, task)).To(Succeed())
@@ -744,14 +755,18 @@ priority: 2
 
 This content itself has frontmatter delimiters.
 `
-				task := &domain.Task{
-					Name:     "Embedded Frontmatter Test",
-					FilePath: filepath.Join(tasksDir, "Embedded Frontmatter Test.md"),
-					Content:  contentWithFrontmatter,
-					Status:   domain.TaskStatusInProgress,
-					PageType: "task",
-					Priority: 2,
-				}
+				task := domain.NewTask(
+					map[string]any{
+						"status":    "in_progress",
+						"page_type": "task",
+						"priority":  2,
+					},
+					domain.FileMetadata{
+						Name:     "Embedded Frontmatter Test",
+						FilePath: filepath.Join(tasksDir, "Embedded Frontmatter Test.md"),
+					},
+					domain.Content(contentWithFrontmatter),
+				)
 
 				// Write the task
 				Expect(store.WriteTask(ctx, task)).To(Succeed())

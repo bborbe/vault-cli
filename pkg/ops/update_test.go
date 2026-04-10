@@ -36,10 +36,10 @@ var _ = Describe("UpdateOperation", func() {
 		taskName = "my-task"
 
 		// Default: return a task with mixed checkboxes
-		task = &domain.Task{
-			Name:   taskName,
-			Status: domain.TaskStatusTodo,
-			Content: `---
+		task = domain.NewTask(
+			map[string]any{"status": "todo"},
+			domain.FileMetadata{Name: taskName},
+			domain.Content(`---
 status: todo
 ---
 
@@ -48,8 +48,8 @@ status: todo
 - [x] First item
 - [ ] Second item
 - [ ] Third item
-`,
-		}
+`),
+		)
 		mockTaskStorage.FindTaskByNameReturns(task, nil)
 		mockTaskStorage.WriteTaskReturns(nil)
 	})
@@ -80,7 +80,7 @@ status: todo
 			It("sets status to done", func() {
 				Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 				_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-				Expect(writtenTask.Status).To(Equal(domain.TaskStatusCompleted))
+				Expect(writtenTask.Status()).To(Equal(domain.TaskStatusCompleted))
 			})
 		})
 
@@ -105,7 +105,7 @@ status: in_progress
 			It("sets status to todo", func() {
 				Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 				_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-				Expect(writtenTask.Status).To(Equal(domain.TaskStatusTodo))
+				Expect(writtenTask.Status()).To(Equal(domain.TaskStatusTodo))
 			})
 		})
 
@@ -130,7 +130,7 @@ status: todo
 			It("sets status to in_progress", func() {
 				Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 				_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-				Expect(writtenTask.Status).To(Equal(domain.TaskStatusInProgress))
+				Expect(writtenTask.Status()).To(Equal(domain.TaskStatusInProgress))
 			})
 		})
 
@@ -194,7 +194,7 @@ Just some text without checkboxes.
 		var goal *domain.Goal
 
 		BeforeEach(func() {
-			task.Goals = []string{"Test Goal"}
+			task.SetGoals([]string{"Test Goal"})
 			task.Content = `---
 status: todo
 ---
@@ -238,7 +238,7 @@ status: active
 
 	Context("task with goal not found", func() {
 		BeforeEach(func() {
-			task.Goals = []string{"Missing Goal"}
+			task.SetGoals([]string{"Missing Goal"})
 			mockGoalStorage.FindGoalByNameReturns(nil, ErrTest)
 		})
 

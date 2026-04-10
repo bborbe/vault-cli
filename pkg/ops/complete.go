@@ -91,7 +91,7 @@ func (c *completeOperation) Execute(
 	}
 
 	// Handle recurring tasks differently
-	if task.Recurring != "" {
+	if task.Recurring() != "" {
 		return c.handleRecurringTask(ctx, task, vaultPath, vaultName, warnings)
 	}
 
@@ -101,9 +101,9 @@ func (c *completeOperation) Execute(
 	}
 
 	// Update task status to completed
-	task.Status = domain.TaskStatusCompleted
-	task.Phase = domain.TaskPhaseDone.Ptr()
-	task.CompletedDate = c.currentDateTime.Now().Time().UTC().Format("2006-01-02T15:04:05Z")
+	_ = task.SetStatus(domain.TaskStatusCompleted)
+	task.SetPhase(domain.TaskPhaseDone.Ptr())
+	task.SetCompletedDate(c.currentDateTime.Now().Time().UTC().Format("2006-01-02T15:04:05Z"))
 
 	// Write updated task
 	if err := c.taskStorage.WriteTask(ctx, task); err != nil {
@@ -118,7 +118,7 @@ func (c *completeOperation) Execute(
 	}
 
 	// Update associated goals
-	for _, goalName := range task.Goals {
+	for _, goalName := range task.Goals() {
 		if err := c.markGoalCheckbox(ctx, vaultPath, goalName, task.Name); err != nil {
 			warning := fmt.Sprintf("failed to update goal %s: %v", goalName, err)
 			warnings = append(warnings, warning)
@@ -144,7 +144,7 @@ func (c *completeOperation) checkSubtaskCompletion(
 	ctx context.Context,
 	task *domain.Task,
 ) (MutationResult, bool, error) {
-	completed, inProgress, pending := countCheckboxStates(task.Content)
+	completed, inProgress, pending := countCheckboxStates(string(task.Content))
 	total := completed + inProgress + pending
 
 	// If no checkboxes or all complete, proceed normally
@@ -175,21 +175,21 @@ func (c *completeOperation) handleRecurringTask(
 	today := now.Format("2006-01-02")
 
 	// 1. Reset all checkboxes in content
-	task.Content = resetCheckboxes(task.Content)
+	task.Content = domain.Content(resetCheckboxes(string(task.Content)))
 
 	// Clear phase so next cycle starts fresh
-	task.Phase = nil
+	task.SetPhase(nil)
 
 	// 2. Set last_completed to today
-	task.LastCompleted = today
+	task.SetLastCompleted(today)
 
 	// 3. Bump defer_date based on recurring interval
-	newDeferDate := calculateNextDeferDate(task.Recurring, now)
-	task.DeferDate = newDeferDate.Ptr()
+	newDeferDate := calculateNextDeferDate(task.Recurring(), now)
+	task.SetDeferDate(newDeferDate.Ptr())
 
 	// 4. If planned_date exists and < new defer_date, clear it
-	if task.PlannedDate != nil && task.PlannedDate.Before(newDeferDate.Time()) {
-		task.PlannedDate = nil
+	if task.PlannedDate() != nil && task.PlannedDate().Before(newDeferDate.Time()) {
+		task.SetPlannedDate(nil)
 	}
 
 	// 5. Status remains as-is (do NOT set to completed)

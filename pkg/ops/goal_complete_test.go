@@ -91,7 +91,15 @@ var _ = Describe("GoalCompleteOperation", func() {
 	Context("open todo task blocks completion", func() {
 		BeforeEach(func() {
 			tasks := []*domain.Task{
-				{Name: "open-task", Status: domain.TaskStatusTodo, Goals: []string{goalName}},
+				func() *domain.Task {
+					t := domain.NewTask(
+						map[string]any{"status": "todo"},
+						domain.FileMetadata{Name: "open-task"},
+						domain.Content(""),
+					)
+					t.SetGoals([]string{goalName})
+					return t
+				}(),
 			}
 			mockTaskStorage.ListTasksReturns(tasks, nil)
 		})
@@ -110,11 +118,15 @@ var _ = Describe("GoalCompleteOperation", func() {
 	Context("open in_progress task blocks completion", func() {
 		BeforeEach(func() {
 			tasks := []*domain.Task{
-				{
-					Name:   "active-task",
-					Status: domain.TaskStatusInProgress,
-					Goals:  []string{goalName},
-				},
+				func() *domain.Task {
+					t := domain.NewTask(
+						map[string]any{"status": "in_progress"},
+						domain.FileMetadata{Name: "active-task"},
+						domain.Content(""),
+					)
+					t.SetGoals([]string{goalName})
+					return t
+				}(),
 			}
 			mockTaskStorage.ListTasksReturns(tasks, nil)
 		})
@@ -129,9 +141,33 @@ var _ = Describe("GoalCompleteOperation", func() {
 	Context("completed tasks do not block", func() {
 		BeforeEach(func() {
 			tasks := []*domain.Task{
-				{Name: "done-task", Status: domain.TaskStatusCompleted, Goals: []string{goalName}},
-				{Name: "aborted-task", Status: domain.TaskStatusAborted, Goals: []string{goalName}},
-				{Name: "hold-task", Status: domain.TaskStatusHold, Goals: []string{goalName}},
+				func() *domain.Task {
+					t := domain.NewTask(
+						map[string]any{"status": "completed"},
+						domain.FileMetadata{Name: "done-task"},
+						domain.Content(""),
+					)
+					t.SetGoals([]string{goalName})
+					return t
+				}(),
+				func() *domain.Task {
+					t := domain.NewTask(
+						map[string]any{"status": "aborted"},
+						domain.FileMetadata{Name: "aborted-task"},
+						domain.Content(""),
+					)
+					t.SetGoals([]string{goalName})
+					return t
+				}(),
+				func() *domain.Task {
+					t := domain.NewTask(
+						map[string]any{"status": "hold"},
+						domain.FileMetadata{Name: "hold-task"},
+						domain.Content(""),
+					)
+					t.SetGoals([]string{goalName})
+					return t
+				}(),
 			}
 			mockTaskStorage.ListTasksReturns(tasks, nil)
 		})
@@ -150,7 +186,15 @@ var _ = Describe("GoalCompleteOperation", func() {
 	Context("tasks linked to other goals do not block", func() {
 		BeforeEach(func() {
 			tasks := []*domain.Task{
-				{Name: "other-task", Status: domain.TaskStatusTodo, Goals: []string{"other-goal"}},
+				func() *domain.Task {
+					t := domain.NewTask(
+						map[string]any{"status": "todo"},
+						domain.FileMetadata{Name: "other-task"},
+						domain.Content(""),
+					)
+					t.SetGoals([]string{"other-goal"})
+					return t
+				}(),
 			}
 			mockTaskStorage.ListTasksReturns(tasks, nil)
 		})
@@ -174,7 +218,15 @@ var _ = Describe("GoalCompleteOperation", func() {
 		BeforeEach(func() {
 			force = true
 			tasks := []*domain.Task{
-				{Name: "open-task", Status: domain.TaskStatusTodo, Goals: []string{goalName}},
+				func() *domain.Task {
+					t := domain.NewTask(
+						map[string]any{"status": "todo"},
+						domain.FileMetadata{Name: "open-task"},
+						domain.Content(""),
+					)
+					t.SetGoals([]string{goalName})
+					return t
+				}(),
 			}
 			mockTaskStorage.ListTasksReturns(tasks, nil)
 		})

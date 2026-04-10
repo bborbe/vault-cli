@@ -116,7 +116,7 @@ func (g *goalCompleteOperation) checkOpenTasks(
 		if !taskLinkedToGoal(task, goalName) {
 			continue
 		}
-		if task.Status == domain.TaskStatusTodo || task.Status == domain.TaskStatusInProgress {
+		if task.Status() == domain.TaskStatusTodo || task.Status() == domain.TaskStatusInProgress {
 			openTasks = append(openTasks, task)
 		}
 	}
@@ -135,7 +135,7 @@ func (g *goalCompleteOperation) checkOpenTasks(
 }
 
 func taskLinkedToGoal(task *domain.Task, goalName string) bool {
-	for _, g := range task.Goals {
+	for _, g := range task.Goals() {
 		if g == goalName {
 			return true
 		}
@@ -146,7 +146,7 @@ func taskLinkedToGoal(task *domain.Task, goalName string) bool {
 func joinTaskNames(tasks []*domain.Task) string {
 	names := make([]string, len(tasks))
 	for i, t := range tasks {
-		names[i] = fmt.Sprintf("%s (%s)", t.Name, t.Status)
+		names[i] = fmt.Sprintf("%s (%s)", t.Name, t.Status())
 	}
 	return strings.Join(names, ", ")
 }

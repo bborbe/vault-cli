@@ -182,12 +182,11 @@ var _ = Describe("WriteTask UUID generation", func() {
 		Expect(os.MkdirAll(tasksDir, 0755)).To(Succeed())
 
 		taskPath = filepath.Join(tasksDir, "My Task.md")
-		task = &domain.Task{
-			Name:     "My Task",
-			FilePath: taskPath,
-			Status:   domain.TaskStatusTodo,
-			Content:  "---\nstatus: todo\npage_type: task\n---\n# My Task\n",
-		}
+		task = domain.NewTask(
+			map[string]any{"status": "todo", "page_type": "task"},
+			domain.FileMetadata{Name: "My Task", FilePath: taskPath},
+			domain.Content("---\nstatus: todo\npage_type: task\n---\n# My Task\n"),
+		)
 	})
 
 	AfterEach(func() {
@@ -204,7 +203,7 @@ var _ = Describe("WriteTask UUID generation", func() {
 	})
 
 	It("preserves an existing TaskIdentifier", func() {
-		task.TaskIdentifier = "my-stable-uuid"
+		task.SetTaskIdentifier("my-stable-uuid")
 		Expect(store.WriteTask(ctx, task)).To(Succeed())
 		content, err := os.ReadFile(taskPath) //#nosec G304 -- test file
 		Expect(err).NotTo(HaveOccurred())
@@ -212,11 +211,11 @@ var _ = Describe("WriteTask UUID generation", func() {
 	})
 
 	It("round-trips TaskIdentifier through read", func() {
-		task.TaskIdentifier = "round-trip-uuid"
+		task.SetTaskIdentifier("round-trip-uuid")
 		Expect(store.WriteTask(ctx, task)).To(Succeed())
 		read, err := store.ReadTask(ctx, vaultDir, domain.TaskID("My Task"))
 		Expect(err).NotTo(HaveOccurred())
-		Expect(read.TaskIdentifier).To(Equal("round-trip-uuid"))
+		Expect(read.TaskIdentifier()).To(Equal("round-trip-uuid"))
 	})
 
 	It("auto-generated UUID is non-empty and matches UUID pattern", func() {

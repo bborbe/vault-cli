@@ -5,6 +5,9 @@
 package domain
 
 import (
+	"context"
+
+	"github.com/bborbe/errors"
 	"gopkg.in/yaml.v3"
 )
 
@@ -24,5 +27,17 @@ func (p *Priority) UnmarshalYAML(value *yaml.Node) error {
 	}
 	// If we can't parse as int (e.g., "medium", "high"), use -1
 	*p = Priority(-1)
+	return nil
+}
+
+// Validate returns an error if the priority value is invalid.
+// Valid priorities are non-negative integers (0 and up).
+// The sentinel value -1 (used by UnmarshalYAML for unparseable YAML values)
+// is treated as invalid here because any explicit SetPriority call with a
+// negative value is a user error.
+func (p Priority) Validate(ctx context.Context) error {
+	if p < 0 {
+		return errors.Errorf(ctx, "priority must be >= 0, got %d", int(p))
+	}
 	return nil
 }

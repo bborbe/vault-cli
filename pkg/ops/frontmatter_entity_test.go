@@ -649,11 +649,15 @@ var _ = Describe("NewTaskListAddOperation", func() {
 		vaultPath = "/path/to/vault"
 		taskName = "my-task"
 
-		task = &domain.Task{
-			Name:   taskName,
-			Status: domain.TaskStatusTodo,
-			Goals:  []string{"existing-goal"},
-		}
+		task = func() *domain.Task {
+			t := domain.NewTask(
+				map[string]any{"status": "todo"},
+				domain.FileMetadata{Name: taskName},
+				domain.Content(""),
+			)
+			t.SetGoals([]string{"existing-goal"})
+			return t
+		}()
 		mockTaskStorage.FindTaskByNameReturns(task, nil)
 		mockTaskStorage.WriteTaskReturns(nil)
 	})
@@ -673,8 +677,8 @@ var _ = Describe("NewTaskListAddOperation", func() {
 			Expect(mockTaskStorage.FindTaskByNameCallCount()).To(Equal(1))
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.Goals).To(ContainElement("new-goal"))
-			Expect(writtenTask.Goals).To(ContainElement("existing-goal"))
+			Expect(writtenTask.Goals()).To(ContainElement("new-goal"))
+			Expect(writtenTask.Goals()).To(ContainElement("existing-goal"))
 		})
 	})
 
@@ -759,11 +763,15 @@ var _ = Describe("NewTaskListRemoveOperation", func() {
 		vaultPath = "/path/to/vault"
 		taskName = "my-task"
 
-		task = &domain.Task{
-			Name:   taskName,
-			Status: domain.TaskStatusTodo,
-			Goals:  []string{"goal-a", "goal-b"},
-		}
+		task = func() *domain.Task {
+			t := domain.NewTask(
+				map[string]any{"status": "todo"},
+				domain.FileMetadata{Name: taskName},
+				domain.Content(""),
+			)
+			t.SetGoals([]string{"goal-a", "goal-b"})
+			return t
+		}()
 		mockTaskStorage.FindTaskByNameReturns(task, nil)
 		mockTaskStorage.WriteTaskReturns(nil)
 	})
@@ -782,8 +790,8 @@ var _ = Describe("NewTaskListRemoveOperation", func() {
 			Expect(err).To(BeNil())
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.Goals).NotTo(ContainElement("goal-a"))
-			Expect(writtenTask.Goals).To(ContainElement("goal-b"))
+			Expect(writtenTask.Goals()).NotTo(ContainElement("goal-a"))
+			Expect(writtenTask.Goals()).To(ContainElement("goal-b"))
 		})
 	})
 

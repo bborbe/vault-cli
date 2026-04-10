@@ -428,20 +428,9 @@ func NewVisionListAddOperation(visionStorage storage.VisionStorage) EntityListAd
 
 // NewTaskListAddOperation creates an EntityListAddOperation for tasks.
 func NewTaskListAddOperation(taskStorage storage.TaskStorage) EntityListAddOperation {
-	return &entityListOperation{
-		findFn: func(ctx context.Context, vaultPath, name string) (any, error) {
-			return taskStorage.FindTaskByName(ctx, vaultPath, name)
-		},
-		writeFn: func(ctx context.Context, entity any) error {
-			task, ok := entity.(*domain.Task)
-			if !ok {
-				return fmt.Errorf("unexpected entity type for task")
-			}
-			return taskStorage.WriteTask(ctx, task)
-		},
-		listFn:     appendToList,
-		opLabel:    "append to",
-		entityType: "task",
+	return &taskListOperation{
+		taskStorage: taskStorage,
+		mode:        "add",
 	}
 }
 
@@ -525,20 +514,104 @@ func NewVisionListRemoveOperation(visionStorage storage.VisionStorage) EntityLis
 
 // NewTaskListRemoveOperation creates an EntityListRemoveOperation for tasks.
 func NewTaskListRemoveOperation(taskStorage storage.TaskStorage) EntityListRemoveOperation {
-	return &entityListOperation{
-		findFn: func(ctx context.Context, vaultPath, name string) (any, error) {
-			return taskStorage.FindTaskByName(ctx, vaultPath, name)
-		},
-		writeFn: func(ctx context.Context, entity any) error {
-			task, ok := entity.(*domain.Task)
-			if !ok {
-				return fmt.Errorf("unexpected entity type for task")
+	return &taskListOperation{
+		taskStorage: taskStorage,
+		mode:        "remove",
+	}
+}
+
+// taskListOperation implements list add/remove for Task entities using typed accessors.
+// It avoids the reflection-based fieldByYAMLTag approach since Task no longer has YAML tags.
+type taskListOperation struct {
+	taskStorage storage.TaskStorage
+	mode        string // "add" or "remove"
+}
+
+// knownTaskListFields are task fields that hold a list.
+var knownTaskListFields = map[string]bool{
+	"goals": true,
+	"tags":  true,
+}
+
+// knownTaskScalarFields are task fields that hold a scalar (not a list).
+var knownTaskScalarFields = map[string]bool{
+	"status": true, "page_type": true, "priority": true, "assignee": true,
+	"defer_date": true, "planned_date": true, "due_date": true,
+	"phase": true, "claude_session_id": true, "recurring": true,
+	"last_completed": true, "completed_date": true, "task_identifier": true,
+}
+
+// Execute applies the list operation (add or remove) to the named field on the task.
+func (o *taskListOperation) Execute(
+	ctx context.Context,
+	vaultPath, taskName, key, value string,
+) error {
+	task, err := o.taskStorage.FindTaskByName(ctx, vaultPath, taskName)
+	if err != nil {
+		return errors.Wrap(ctx, err, "find task")
+	}
+
+	if knownTaskScalarFields[key] {
+		return fmt.Errorf("not a list field: %q", key)
+	}
+	if !knownTaskListFields[key] {
+		return fmt.Errorf("unknown field: %q", key)
+	}
+
+	var current []string
+	switch key {
+	case "goals":
+		current = task.Goals()
+	case "tags":
+		current = task.Tags()
+	}
+
+	updated, err := applyListMutation(current, value, o.mode)
+	if err != nil {
+		return errors.Wrap(ctx, err, fmt.Sprintf("%s field %q", o.mode, key))
+	}
+
+	switch key {
+	case "goals":
+		task.SetGoals(updated)
+	case "tags":
+		task.SetTags(updated)
+	}
+
+	if err := o.taskStorage.WriteTask(ctx, task); err != nil {
+		return errors.Wrap(ctx, err, "write task")
+	}
+	return nil
+}
+
+// applyListMutation adds or removes a value from a string slice.
+// For mode "add": appends value; returns error if already present.
+// For mode "remove": filters out value; returns error if not found.
+func applyListMutation(current []string, value, mode string) ([]string, error) {
+	switch mode {
+	case "add":
+		for _, v := range current {
+			if v == value {
+				return nil, fmt.Errorf("value %q already exists in list", value)
 			}
-			return taskStorage.WriteTask(ctx, task)
-		},
-		listFn:     removeFromList,
-		opLabel:    "remove from",
-		entityType: "task",
+		}
+		return append(current, value), nil
+	case "remove":
+		result := make([]string, 0, len(current))
+		found := false
+		for _, v := range current {
+			if v == value {
+				found = true
+				continue
+			}
+			result = append(result, v)
+		}
+		if !found {
+			return nil, fmt.Errorf("value %q not found in list", value)
+		}
+		return result, nil
+	default:
+		return current, nil
 	}
 }
 

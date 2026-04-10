@@ -6,13 +6,9 @@ package ops
 
 import (
 	"context"
-	"fmt"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/bborbe/errors"
-	libtime "github.com/bborbe/time"
 
 	"github.com/bborbe/vault-cli/pkg/domain"
 	"github.com/bborbe/vault-cli/pkg/storage"
@@ -44,48 +40,7 @@ func (o *frontmatterGetOperation) Execute(
 		return "", errors.Wrap(ctx, err, "find task")
 	}
 
-	switch key {
-	case "phase":
-		if task.Phase != nil {
-			return task.Phase.String(), nil
-		}
-		return "", nil
-	case "claude_session_id":
-		return task.ClaudeSessionID, nil
-	case "assignee":
-		return task.Assignee, nil
-	case "status":
-		return string(task.Status), nil
-	case "priority":
-		return strconv.Itoa(int(task.Priority)), nil
-	case "defer_date":
-		if task.DeferDate != nil {
-			return formatDateOrDateTime(task.DeferDate), nil
-		}
-		return "", nil
-	case "planned_date":
-		if task.PlannedDate != nil {
-			return formatDateOrDateTime(task.PlannedDate), nil
-		}
-		return "", nil
-	case "due_date":
-		if task.DueDate != nil {
-			return formatDateOrDateTime(task.DueDate), nil
-		}
-		return "", nil
-	case "recurring":
-		return task.Recurring, nil
-	case "last_completed":
-		return task.LastCompleted, nil
-	case "page_type":
-		return task.PageType, nil
-	case "goals":
-		return strings.Join(task.Goals, ","), nil
-	case "tags":
-		return strings.Join(task.Tags, ","), nil
-	default:
-		return "", fmt.Errorf("unknown field: %s", key)
-	}
+	return task.GetField(key), nil
 }
 
 //counterfeiter:generate -o ../../mocks/frontmatter-set-operation.go --fake-name FrontmatterSetOperation . FrontmatterSetOperation
@@ -114,55 +69,8 @@ func (o *frontmatterSetOperation) Execute(
 		return errors.Wrap(ctx, err, "find task")
 	}
 
-	switch key {
-	case "phase":
-		if err := applyPhaseField(ctx, task, value); err != nil {
-			return err
-		}
-	case "claude_session_id":
-		task.ClaudeSessionID = value
-	case "assignee":
-		task.Assignee = value
-	case "status":
-		if err := applyStatusField(ctx, task, value); err != nil {
-			return err
-		}
-	case "priority":
-		p, err := strconv.Atoi(value)
-		if err != nil {
-			return errors.Wrap(ctx, err, "invalid priority value (expected integer)")
-		}
-		task.Priority = domain.Priority(p)
-	case "defer_date":
-		d, err := parseDatePtr(ctx, value)
-		if err != nil {
-			return err
-		}
-		task.DeferDate = d
-	case "planned_date":
-		d, err := parseDatePtr(ctx, value)
-		if err != nil {
-			return err
-		}
-		task.PlannedDate = d
-	case "due_date":
-		d, err := parseDatePtr(ctx, value)
-		if err != nil {
-			return err
-		}
-		task.DueDate = d
-	case "recurring":
-		task.Recurring = value
-	case "last_completed":
-		task.LastCompleted = value
-	case "page_type":
-		task.PageType = value
-	case "goals":
-		task.Goals = parseStringSlice(value)
-	case "tags":
-		task.Tags = parseStringSlice(value)
-	default:
-		return fmt.Errorf("unknown field: %s", key)
+	if err := task.SetField(ctx, key, value); err != nil {
+		return errors.Wrap(ctx, err, "set field")
 	}
 
 	if err := o.taskStorage.WriteTask(ctx, task); err != nil {
@@ -170,68 +78,6 @@ func (o *frontmatterSetOperation) Execute(
 	}
 
 	return nil
-}
-
-func applyPhaseField(ctx context.Context, task *domain.Task, value string) error {
-	phase := domain.TaskPhase(value)
-	if err := phase.Validate(ctx); err != nil {
-		return err
-	}
-	task.Phase = phase.Ptr()
-	return nil
-}
-
-func applyStatusField(ctx context.Context, task *domain.Task, value string) error {
-	status, err := parseTaskStatus(ctx, value)
-	if err != nil {
-		return err
-	}
-	task.Status = status
-	return nil
-}
-
-func parseTaskStatus(ctx context.Context, value string) (domain.TaskStatus, error) {
-	status := domain.TaskStatus(value)
-	if !domain.AvailableTaskStatuses.Contains(status) {
-		return "", errors.Wrap(
-			ctx,
-			fmt.Errorf("invalid status value: %s", value),
-			"expected one of: todo, in_progress, backlog, completed, hold, aborted",
-		)
-	}
-	return status, nil
-}
-
-func parseDatePtr(ctx context.Context, value string) (*domain.DateOrDateTime, error) {
-	if value == "" {
-		return nil, nil
-	}
-	t, err := libtime.ParseTime(ctx, value)
-	if err != nil {
-		return nil, errors.Wrap(ctx, err, "invalid date format (expected YYYY-MM-DD or RFC3339)")
-	}
-	d := domain.DateOrDateTime(*t)
-	return d.Ptr(), nil
-}
-
-// formatDateOrDateTime serializes a DateOrDateTime to YYYY-MM-DD for date-only values
-// (midnight UTC) and RFC3339 for values with a time component. Returns empty string for nil.
-func formatDateOrDateTime(d *domain.DateOrDateTime) string {
-	if d == nil {
-		return ""
-	}
-	t := d.Time().UTC()
-	if t.Hour() == 0 && t.Minute() == 0 && t.Second() == 0 && t.Nanosecond() == 0 {
-		return d.Time().Format(time.DateOnly)
-	}
-	return d.Time().Format(time.RFC3339)
-}
-
-func parseStringSlice(value string) []string {
-	if value == "" {
-		return nil
-	}
-	return strings.Split(value, ",")
 }
 
 //counterfeiter:generate -o ../../mocks/frontmatter-clear-operation.go --fake-name FrontmatterClearOperation . FrontmatterClearOperation
@@ -250,7 +96,7 @@ type frontmatterClearOperation struct {
 	taskStorage storage.TaskStorage
 }
 
-// Execute clears (zeros) the value of a frontmatter field on a task.
+// Execute clears (removes) the value of a frontmatter field on a task.
 func (o *frontmatterClearOperation) Execute(
 	ctx context.Context,
 	vaultPath, taskName, key string,
@@ -260,40 +106,24 @@ func (o *frontmatterClearOperation) Execute(
 		return errors.Wrap(ctx, err, "find task")
 	}
 
-	switch key {
-	case "phase":
-		task.Phase = nil
-	case "claude_session_id":
-		task.ClaudeSessionID = ""
-	case "assignee":
-		task.Assignee = ""
-	case "status":
-		task.Status = ""
-	case "priority":
-		task.Priority = 0
-	case "defer_date":
-		task.DeferDate = nil
-	case "planned_date":
-		task.PlannedDate = nil
-	case "due_date":
-		task.DueDate = nil
-	case "recurring":
-		task.Recurring = ""
-	case "last_completed":
-		task.LastCompleted = ""
-	case "page_type":
-		task.PageType = ""
-	case "goals":
-		task.Goals = nil
-	case "tags":
-		task.Tags = nil
-	default:
-		return fmt.Errorf("unknown field: %s", key)
-	}
+	task.ClearField(key)
 
 	if err := o.taskStorage.WriteTask(ctx, task); err != nil {
 		return errors.Wrap(ctx, err, "write task")
 	}
 
 	return nil
+}
+
+// formatDateOrDateTime serializes a DateOrDateTime to YYYY-MM-DD for date-only values
+// (midnight UTC) and RFC3339 for values with a time component. Returns empty string for nil.
+func formatDateOrDateTime(d *domain.DateOrDateTime) string {
+	if d == nil {
+		return ""
+	}
+	t := d.Time().UTC()
+	if t.Hour() == 0 && t.Minute() == 0 && t.Second() == 0 && t.Nanosecond() == 0 {
+		return d.Time().Format(time.DateOnly)
+	}
+	return d.Time().Format(time.RFC3339)
 }

@@ -64,7 +64,7 @@ func (u *updateOperation) Execute(
 			)
 	}
 
-	checkboxes := u.parseCheckboxes(task.Content)
+	checkboxes := u.parseCheckboxes(string(task.Content))
 	if len(checkboxes) == 0 {
 		warning := "No checkboxes found in task"
 		return MutationResult{
@@ -76,7 +76,7 @@ func (u *updateOperation) Execute(
 	}
 
 	completed, total := u.countCompleted(checkboxes)
-	task.Status = u.statusFromProgress(completed, total)
+	_ = task.SetStatus(u.statusFromProgress(completed, total))
 
 	if err := u.taskStorage.WriteTask(ctx, task); err != nil {
 		return MutationResult{
@@ -89,7 +89,7 @@ func (u *updateOperation) Execute(
 			)
 	}
 
-	warnings = u.syncGoals(ctx, vaultPath, task.Goals, checkboxes, warnings)
+	warnings = u.syncGoals(ctx, vaultPath, task.Goals(), checkboxes, warnings)
 
 	message := fmt.Sprintf(
 		"%s/%s: %d/%d checkboxes complete",

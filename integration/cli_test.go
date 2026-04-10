@@ -187,7 +187,7 @@ Body content here.
 			Expect(string(content)).To(ContainSubstring("Body content here."))
 		})
 
-		PIt("preserves unknown frontmatter fields through set operations", func() {
+		It("preserves unknown frontmatter fields through set operations", func() {
 			vaultPath, configPath, cleanup = createTempVault(map[string]string{
 				"unknown-fields-task": `---
 status: todo

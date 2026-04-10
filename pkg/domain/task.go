@@ -7,36 +7,29 @@ package domain
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/bborbe/collection"
 	"github.com/bborbe/validation"
 )
 
-// Task represents a task in the Obsidian vault with YAML frontmatter.
+// Task represents a task in the Obsidian vault.
+// Frontmatter is stored in TaskFrontmatter (a typed map wrapper that preserves
+// unknown fields). Filesystem metadata is in the embedded FileMetadata.
 type Task struct {
-	// Frontmatter fields
-	Status          TaskStatus      `yaml:"status"`
-	PageType        string          `yaml:"page_type"`
-	Goals           []string        `yaml:"goals,omitempty"`
-	Priority        Priority        `yaml:"priority,omitempty"`
-	Assignee        string          `yaml:"assignee,omitempty"`
-	DeferDate       *DateOrDateTime `yaml:"defer_date,omitempty"`
-	Tags            []string        `yaml:"tags,omitempty"`
-	Phase           *TaskPhase      `yaml:"phase,omitempty"`
-	ClaudeSessionID string          `yaml:"claude_session_id,omitempty"`
-	Recurring       string          `yaml:"recurring,omitempty"`
-	LastCompleted   string          `yaml:"last_completed,omitempty"`
-	CompletedDate   string          `yaml:"completed_date,omitempty"`
-	PlannedDate     *DateOrDateTime `yaml:"planned_date,omitempty"`
-	DueDate         *DateOrDateTime `yaml:"due_date,omitempty"`
-	TaskIdentifier  string          `yaml:"task_identifier,omitempty"`
+	TaskFrontmatter
+	FileMetadata
+	// Content is the full markdown content including the frontmatter block.
+	// It is used by the storage layer to extract the markdown body on write.
+	Content Content
+}
 
-	// Metadata
-	Name         string     `yaml:"-"` // Filename without extension
-	Content      string     `yaml:"-"` // Full markdown content including frontmatter
-	FilePath     string     `yaml:"-"` // Absolute path to file
-	ModifiedDate *time.Time `yaml:"-"` // File modification time, populated by storage layer
+// NewTask creates a Task from a parsed frontmatter map and metadata.
+func NewTask(data map[string]any, meta FileMetadata, content Content) *Task {
+	return &Task{
+		TaskFrontmatter: NewTaskFrontmatter(data),
+		FileMetadata:    meta,
+		Content:         content,
+	}
 }
 
 // TaskStatus represents the status of a task.
@@ -127,18 +120,4 @@ func NormalizeTaskStatus(raw string) (TaskStatus, bool) {
 	}
 
 	return "", false
-}
-
-// UnmarshalYAML implements custom YAML unmarshaling that normalizes status values.
-func (s *TaskStatus) UnmarshalYAML(unmarshal func(interface{}) error) error {
-	var raw string
-	if err := unmarshal(&raw); err != nil {
-		return err
-	}
-	normalized, ok := NormalizeTaskStatus(raw)
-	if !ok {
-		return fmt.Errorf("invalid task status: %q", raw)
-	}
-	*s = normalized
-	return nil
 }

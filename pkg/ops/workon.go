@@ -80,8 +80,8 @@ func (w *workOnOperation) Execute(
 			)
 	}
 
-	task.Status = domain.TaskStatusInProgress
-	task.Assignee = assignee
+	_ = task.SetStatus(domain.TaskStatusInProgress)
+	task.SetAssignee(assignee)
 
 	if err := w.taskStorage.WriteTask(ctx, task); err != nil {
 		return MutationResult{
@@ -134,10 +134,10 @@ func (w *workOnOperation) handleClaudeSession(
 	vaultPath string,
 ) (string, error) {
 	if w.starter == nil {
-		return task.ClaudeSessionID, nil
+		return task.ClaudeSessionID(), nil
 	}
-	if task.ClaudeSessionID != "" {
-		return task.ClaudeSessionID, nil
+	if task.ClaudeSessionID() != "" {
+		return task.ClaudeSessionID(), nil
 	}
 	prompt := fmt.Sprintf(`/work-on-task "%s"`, task.FilePath)
 	slog.Info("starting claude session", "task", task.Name)
@@ -145,7 +145,7 @@ func (w *workOnOperation) handleClaudeSession(
 	if err != nil {
 		return "", errors.Wrap(ctx, err, "start claude session")
 	}
-	task.ClaudeSessionID = sessionID
+	task.SetClaudeSessionID(sessionID)
 	if err := w.taskStorage.WriteTask(ctx, task); err != nil {
 		return sessionID, errors.Wrap(ctx, err, "save session id to task")
 	}

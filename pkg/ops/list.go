@@ -86,8 +86,8 @@ func (l *listOperation) Execute(
 		taskJ := filteredTasks[j]
 
 		// Sort by status priority
-		if taskI.Status != taskJ.Status {
-			return statusPriority(taskI.Status) < statusPriority(taskJ.Status)
+		if taskI.Status() != taskJ.Status() {
+			return statusPriority(taskI.Status()) < statusPriority(taskJ.Status())
 		}
 
 		// Within same status, sort alphabetically by name
@@ -98,27 +98,27 @@ func (l *listOperation) Execute(
 	for i, task := range filteredTasks {
 		items[i] = TaskListItem{
 			Name:            task.Name,
-			Status:          string(task.Status),
-			Assignee:        task.Assignee,
-			Priority:        int(task.Priority),
+			Status:          string(task.Status()),
+			Assignee:        task.Assignee(),
+			Priority:        int(task.Priority()),
 			Vault:           vaultName,
-			Category:        task.PageType,
-			Recurring:       task.Recurring,
-			ClaudeSessionID: task.ClaudeSessionID,
+			Category:        task.PageType(),
+			Recurring:       task.Recurring(),
+			ClaudeSessionID: task.ClaudeSessionID(),
 			Phase: func() string {
-				if task.Phase != nil {
-					return task.Phase.String()
+				if task.Phase() != nil {
+					return task.Phase().String()
 				}
 				return ""
 			}(),
 		}
-		items[i].DeferDate = formatDateOrDateTime(task.DeferDate)
-		items[i].PlannedDate = formatDateOrDateTime(task.PlannedDate)
-		items[i].DueDate = formatDateOrDateTime(task.DueDate)
+		items[i].DeferDate = formatDateOrDateTime(task.DeferDate())
+		items[i].PlannedDate = formatDateOrDateTime(task.PlannedDate())
+		items[i].DueDate = formatDateOrDateTime(task.DueDate())
 		if task.ModifiedDate != nil {
 			items[i].ModifiedDate = task.ModifiedDate.UTC().Format("2006-01-02T15:04:05Z")
 		}
-		items[i].CompletedDate = task.CompletedDate
+		items[i].CompletedDate = task.CompletedDate()
 	}
 	return items, nil
 }
@@ -150,12 +150,12 @@ func shouldIncludeTask(
 	goalFilter string,
 ) bool {
 	// Filter by assignee if specified
-	if assigneeFilter != "" && !strings.EqualFold(task.Assignee, assigneeFilter) {
+	if assigneeFilter != "" && !strings.EqualFold(task.Assignee(), assigneeFilter) {
 		return false
 	}
 
 	// Filter by goal if specified (exact, case-sensitive match)
-	if goalFilter != "" && !taskHasGoal(task.Goals, goalFilter) {
+	if goalFilter != "" && !taskHasGoal(task.Goals(), goalFilter) {
 		return false
 	}
 
@@ -165,7 +165,7 @@ func shouldIncludeTask(
 	}
 
 	// Apply status filter
-	return matchesStatusFilter(task.Status, statusFilters)
+	return matchesStatusFilter(task.Status(), statusFilters)
 }
 
 // taskHasGoal returns true if the goals list contains the given goal name.

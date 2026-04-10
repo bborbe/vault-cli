@@ -44,10 +44,11 @@ var _ = Describe("DeferOperation", func() {
 		dateStr = "+7d"
 
 		// Default: return a task
-		task = &domain.Task{
-			Name:   taskName,
-			Status: domain.TaskStatusTodo,
-		}
+		task = domain.NewTask(
+			map[string]any{"status": "todo"},
+			domain.FileMetadata{Name: taskName},
+			domain.Content(""),
+		)
 		mockTaskStorage.FindTaskByNameReturns(task, nil)
 		mockTaskStorage.WriteTaskReturns(nil)
 	})
@@ -69,18 +70,18 @@ var _ = Describe("DeferOperation", func() {
 			It("does not change task status", func() {
 				Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 				_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-				Expect(writtenTask.Status).To(Equal(domain.TaskStatusTodo))
+				Expect(writtenTask.Status()).To(Equal(domain.TaskStatusTodo))
 			})
 
 			It("sets defer_date to 7 days from now", func() {
 				Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 				_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-				Expect(writtenTask.DeferDate).NotTo(BeNil())
+				Expect(writtenTask.DeferDate()).NotTo(BeNil())
 				expected := libtimetest.ParseDateTime("2026-03-03T12:00:00Z").
 					Time().
 					AddDate(0, 0, 7).
 					Truncate(24 * time.Hour)
-				actual := writtenTask.DeferDate.Time()
+				actual := writtenTask.DeferDate().Time()
 				Expect(actual).To(Equal(expected))
 			})
 		})
@@ -97,12 +98,12 @@ var _ = Describe("DeferOperation", func() {
 			It("sets defer_date to 1 day from now", func() {
 				Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 				_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-				Expect(writtenTask.DeferDate).NotTo(BeNil())
+				Expect(writtenTask.DeferDate()).NotTo(BeNil())
 				expected := libtimetest.ParseDateTime("2026-03-03T12:00:00Z").
 					Time().
 					AddDate(0, 0, 1).
 					Truncate(24 * time.Hour)
-				actual := writtenTask.DeferDate.Time()
+				actual := writtenTask.DeferDate().Time()
 				Expect(actual).To(Equal(expected))
 			})
 		})
@@ -119,10 +120,10 @@ var _ = Describe("DeferOperation", func() {
 			It("sets defer_date to next Monday", func() {
 				Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 				_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-				Expect(writtenTask.DeferDate).NotTo(BeNil())
-				Expect(writtenTask.DeferDate.Time().Weekday()).To(Equal(time.Monday))
+				Expect(writtenTask.DeferDate()).NotTo(BeNil())
+				Expect(writtenTask.DeferDate().Time().Weekday()).To(Equal(time.Monday))
 				Expect(
-					writtenTask.DeferDate.Time().After(
+					writtenTask.DeferDate().Time().After(
 						libtimetest.ParseDateTime("2026-03-03T12:00:00Z").Time(),
 					),
 				).To(BeTrue())
@@ -141,9 +142,9 @@ var _ = Describe("DeferOperation", func() {
 			It("sets defer_date to specified date", func() {
 				Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 				_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-				Expect(writtenTask.DeferDate).NotTo(BeNil())
+				Expect(writtenTask.DeferDate()).NotTo(BeNil())
 				expected := time.Date(2026, 12, 31, 0, 0, 0, 0, time.UTC)
-				actual := writtenTask.DeferDate.Time()
+				actual := writtenTask.DeferDate().Time()
 				Expect(actual).To(Equal(expected))
 			})
 		})
@@ -160,10 +161,10 @@ var _ = Describe("DeferOperation", func() {
 			It("sets defer_date with time component", func() {
 				Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 				_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-				Expect(writtenTask.DeferDate).NotTo(BeNil())
+				Expect(writtenTask.DeferDate()).NotTo(BeNil())
 				loc := time.FixedZone("CET", 3600)
 				expected := time.Date(2026, 12, 31, 16, 0, 0, 0, loc)
-				Expect(writtenTask.DeferDate.Time().Equal(expected)).To(BeTrue())
+				Expect(writtenTask.DeferDate().Time().Equal(expected)).To(BeTrue())
 			})
 		})
 
@@ -173,7 +174,7 @@ var _ = Describe("DeferOperation", func() {
 				loc := time.FixedZone("CET", 3600)
 				existing := time.Date(2026, 3, 4, 16, 0, 0, 0, loc)
 				dd := domain.DateOrDateTime(existing)
-				task.DeferDate = dd.Ptr()
+				task.SetDeferDate(dd.Ptr())
 			})
 
 			It("returns no error", func() {
@@ -183,10 +184,10 @@ var _ = Describe("DeferOperation", func() {
 			It("preserves time and adds 1 day", func() {
 				Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 				_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-				Expect(writtenTask.DeferDate).NotTo(BeNil())
+				Expect(writtenTask.DeferDate()).NotTo(BeNil())
 				loc := time.FixedZone("CET", 3600)
 				expected := time.Date(2026, 3, 5, 16, 0, 0, 0, loc)
-				Expect(writtenTask.DeferDate.Time().Equal(expected)).To(BeTrue())
+				Expect(writtenTask.DeferDate().Time().Equal(expected)).To(BeTrue())
 			})
 		})
 
@@ -195,7 +196,7 @@ var _ = Describe("DeferOperation", func() {
 				dateStr = "+1d"
 				existing := time.Date(2026, 3, 4, 0, 0, 0, 0, time.UTC)
 				dd := domain.DateOrDateTime(existing)
-				task.DeferDate = dd.Ptr()
+				task.SetDeferDate(dd.Ptr())
 			})
 
 			It("returns no error", func() {
@@ -205,9 +206,9 @@ var _ = Describe("DeferOperation", func() {
 			It("stays date-only, adds 1 day", func() {
 				Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 				_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-				Expect(writtenTask.DeferDate).NotTo(BeNil())
+				Expect(writtenTask.DeferDate()).NotTo(BeNil())
 				// Date-only: no time preservation, just date arithmetic from now
-				resultUTC := writtenTask.DeferDate.Time().UTC()
+				resultUTC := writtenTask.DeferDate().Time().UTC()
 				Expect(resultUTC.Hour()).To(Equal(0))
 				Expect(resultUTC.Minute()).To(Equal(0))
 			})
@@ -574,7 +575,7 @@ No section headings.
 					AddDate(0, 0, 3)
 					// 3 days from now (before target of +7d)
 				dd := domain.DateOrDateTime(libtime.ToDate(plannedDate).Time())
-				task.PlannedDate = dd.Ptr()
+				task.SetPlannedDate(dd.Ptr())
 				dateStr = "+7d"
 			})
 
@@ -582,7 +583,7 @@ No section headings.
 				Expect(err).To(BeNil())
 				Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 				_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-				Expect(writtenTask.PlannedDate).To(BeNil())
+				Expect(writtenTask.PlannedDate()).To(BeNil())
 			})
 		})
 
@@ -592,7 +593,7 @@ No section headings.
 					AddDate(0, 0, 14)
 					// 14 days from now (after target of +7d)
 				dd := domain.DateOrDateTime(libtime.ToDate(plannedDate).Time())
-				task.PlannedDate = dd.Ptr()
+				task.SetPlannedDate(dd.Ptr())
 				dateStr = "+7d"
 			})
 
@@ -600,19 +601,19 @@ No section headings.
 				Expect(err).To(BeNil())
 				Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 				_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-				Expect(writtenTask.PlannedDate).NotTo(BeNil())
+				Expect(writtenTask.PlannedDate()).NotTo(BeNil())
 				expected := libtimetest.ParseDateTime("2026-03-03T12:00:00Z").
 					Time().
 					AddDate(0, 0, 14).
 					Truncate(24 * time.Hour)
-				actual := writtenTask.PlannedDate.Time()
+				actual := writtenTask.PlannedDate().Time()
 				Expect(actual).To(Equal(expected))
 			})
 		})
 
 		Context("when planned_date is nil", func() {
 			BeforeEach(func() {
-				task.PlannedDate = nil
+				task.SetPlannedDate(nil)
 				dateStr = "+7d"
 			})
 
@@ -620,7 +621,7 @@ No section headings.
 				Expect(err).To(BeNil())
 				Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 				_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-				Expect(writtenTask.PlannedDate).To(BeNil())
+				Expect(writtenTask.PlannedDate()).To(BeNil())
 			})
 		})
 	})

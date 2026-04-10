@@ -55,8 +55,16 @@ var _ = Describe("EnsureAllTaskIdentifiersOperation", func() {
 	Context("when all tasks already have task_identifier", func() {
 		BeforeEach(func() {
 			mockStorage.ListTasksReturns([]*domain.Task{
-				{Name: "Task A", FilePath: "/vault/Tasks/Task A.md", TaskIdentifier: "uuid-a"},
-				{Name: "Task B", FilePath: "/vault/Tasks/Task B.md", TaskIdentifier: "uuid-b"},
+				domain.NewTask(
+					map[string]any{"task_identifier": "uuid-a"},
+					domain.FileMetadata{Name: "Task A", FilePath: "/vault/Tasks/Task A.md"},
+					domain.Content(""),
+				),
+				domain.NewTask(
+					map[string]any{"task_identifier": "uuid-b"},
+					domain.FileMetadata{Name: "Task B", FilePath: "/vault/Tasks/Task B.md"},
+					domain.Content(""),
+				),
 			}, nil)
 		})
 
@@ -76,13 +84,21 @@ var _ = Describe("EnsureAllTaskIdentifiersOperation", func() {
 	Context("when some tasks are missing task_identifier", func() {
 		BeforeEach(func() {
 			mockStorage.ListTasksReturns([]*domain.Task{
-				{
-					Name:           "Task A",
-					FilePath:       "/vault/Tasks/Task A.md",
-					TaskIdentifier: "uuid-existing",
-				},
-				{Name: "Task B", FilePath: "/vault/Tasks/Task B.md", TaskIdentifier: ""},
-				{Name: "Task C", FilePath: "/vault/Tasks/Task C.md", TaskIdentifier: ""},
+				domain.NewTask(
+					map[string]any{"task_identifier": "uuid-existing"},
+					domain.FileMetadata{Name: "Task A", FilePath: "/vault/Tasks/Task A.md"},
+					domain.Content(""),
+				),
+				domain.NewTask(
+					map[string]any{},
+					domain.FileMetadata{Name: "Task B", FilePath: "/vault/Tasks/Task B.md"},
+					domain.Content(""),
+				),
+				domain.NewTask(
+					map[string]any{},
+					domain.FileMetadata{Name: "Task C", FilePath: "/vault/Tasks/Task C.md"},
+					domain.Content(""),
+				),
 			}, nil)
 			mockStorage.WriteTaskReturns(nil)
 		})
@@ -110,8 +126,16 @@ var _ = Describe("EnsureAllTaskIdentifiersOperation", func() {
 	Context("when WriteTask fails for one task", func() {
 		BeforeEach(func() {
 			mockStorage.ListTasksReturns([]*domain.Task{
-				{Name: "Task A", FilePath: "/vault/Tasks/Task A.md", TaskIdentifier: ""},
-				{Name: "Task B", FilePath: "/vault/Tasks/Task B.md", TaskIdentifier: ""},
+				domain.NewTask(
+					map[string]any{},
+					domain.FileMetadata{Name: "Task A", FilePath: "/vault/Tasks/Task A.md"},
+					domain.Content(""),
+				),
+				domain.NewTask(
+					map[string]any{},
+					domain.FileMetadata{Name: "Task B", FilePath: "/vault/Tasks/Task B.md"},
+					domain.Content(""),
+				),
 			}, nil)
 			// First call fails, second succeeds
 			mockStorage.WriteTaskReturnsOnCall(0, errors.New("permission denied"))

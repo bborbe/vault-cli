@@ -53,11 +53,11 @@ var _ = Describe("WorkOnOperation", func() {
 		assignee = "user@example.com"
 		isInteractive = false
 
-		task = &domain.Task{
-			Name:     taskName,
-			Status:   domain.TaskStatusTodo,
-			FilePath: "/path/to/vault/tasks/my-task.md",
-		}
+		task = domain.NewTask(
+			map[string]any{"status": "todo"},
+			domain.FileMetadata{Name: taskName, FilePath: "/path/to/vault/tasks/my-task.md"},
+			domain.Content(""),
+		)
 		mockTaskStorage.FindTaskByNameReturns(task, nil)
 		mockTaskStorage.WriteTaskReturns(nil)
 		mockStarter.StartSessionReturns("session-123", nil)
@@ -94,13 +94,13 @@ var _ = Describe("WorkOnOperation", func() {
 		It("marks task as in_progress", func() {
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(BeNumerically(">=", 1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.Status).To(Equal(domain.TaskStatusInProgress))
+			Expect(writtenTask.Status()).To(Equal(domain.TaskStatusInProgress))
 		})
 
 		It("sets assignee correctly", func() {
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(BeNumerically(">=", 1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.Assignee).To(Equal(assignee))
+			Expect(writtenTask.Assignee()).To(Equal(assignee))
 		})
 
 		It("starts a claude session", func() {
@@ -132,7 +132,7 @@ var _ = Describe("WorkOnOperation", func() {
 
 	Context("when task already has a session ID", func() {
 		BeforeEach(func() {
-			task.ClaudeSessionID = "existing-session"
+			task.SetClaudeSessionID("existing-session")
 		})
 
 		It("does not start a new session", func() {
@@ -297,7 +297,7 @@ var _ = Describe("WorkOnOperation", func() {
 			It("still marks task as in_progress", func() {
 				Expect(mockTaskStorage.WriteTaskCallCount()).To(BeNumerically(">=", 1))
 				_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-				Expect(writtenTask.Status).To(Equal(domain.TaskStatusInProgress))
+				Expect(writtenTask.Status()).To(Equal(domain.TaskStatusInProgress))
 			})
 		})
 
@@ -313,7 +313,7 @@ var _ = Describe("WorkOnOperation", func() {
 			It("still marks task as in_progress", func() {
 				Expect(mockTaskStorage.WriteTaskCallCount()).To(BeNumerically(">=", 1))
 				_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-				Expect(writtenTask.Status).To(Equal(domain.TaskStatusInProgress))
+				Expect(writtenTask.Status()).To(Equal(domain.TaskStatusInProgress))
 			})
 		})
 
@@ -331,7 +331,7 @@ var _ = Describe("WorkOnOperation", func() {
 			It("still marks task as in_progress", func() {
 				Expect(mockTaskStorage.WriteTaskCallCount()).To(BeNumerically(">=", 1))
 				_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-				Expect(writtenTask.Status).To(Equal(domain.TaskStatusInProgress))
+				Expect(writtenTask.Status()).To(Equal(domain.TaskStatusInProgress))
 			})
 		})
 	})

@@ -42,17 +42,17 @@ func (t *taskStorage) ReadTask(
 
 // WriteTask writes a task to a markdown file.
 func (t *taskStorage) WriteTask(ctx context.Context, task *domain.Task) error {
-	if task.TaskIdentifier == "" {
-		task.TaskIdentifier = uuid.New().String()
+	if task.TaskIdentifier() == "" {
+		task.SetTaskIdentifier(uuid.New().String())
 	}
 
-	content, err := t.serializeWithFrontmatter(ctx, task, task.Content)
+	content, err := t.serializeMapAsFrontmatter(ctx, task.RawMap(), string(task.Content))
 	if err != nil {
 		return errors.Wrap(ctx, err, "serialize frontmatter")
 	}
 
-	if err := os.WriteFile(task.FilePath, []byte(content), 0600); err != nil {
-		return errors.Wrap(ctx, err, fmt.Sprintf("write file %s", task.FilePath))
+	if err := os.WriteFile(task.FilePath, []byte(content), 0600); err != nil { //#nosec G306 -- task files require 0600
+		return errors.Wrapf(ctx, err, "write file %s", task.FilePath)
 	}
 
 	return nil

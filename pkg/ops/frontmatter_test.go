@@ -38,25 +38,25 @@ var _ = Describe("FrontmatterGetOperation", func() {
 		taskName = "my-task"
 
 		// Default: return a task with some fields set
-		deferDate := time.Date(2024, 12, 31, 0, 0, 0, 0, time.UTC)
-		plannedDate := time.Date(2025, 3, 15, 0, 0, 0, 0, time.UTC)
-		dueDate := time.Date(2025, 6, 30, 0, 0, 0, 0, time.UTC)
-		task = &domain.Task{
-			Name:            taskName,
-			Phase:           domain.TaskPhase("in_progress").Ptr(),
-			ClaudeSessionID: "session-123",
-			Assignee:        "alice",
-			Status:          domain.TaskStatusInProgress,
-			Priority:        domain.Priority(3),
-			DeferDate:       func() *domain.DateOrDateTime { d := domain.DateOrDateTime(deferDate); return &d }(),
-			PlannedDate:     func() *domain.DateOrDateTime { d := domain.DateOrDateTime(plannedDate); return &d }(),
-			DueDate:         func() *domain.DateOrDateTime { d := domain.DateOrDateTime(dueDate); return &d }(),
-			Recurring:       "weekly",
-			LastCompleted:   "2025-03-10",
-			PageType:        "task",
-			Goals:           []string{"goal-1", "goal-2"},
-			Tags:            []string{"urgent", "backend"},
-		}
+		task = domain.NewTask(
+			map[string]any{
+				"status":            "in_progress",
+				"phase":             "in_progress",
+				"claude_session_id": "session-123",
+				"assignee":          "alice",
+				"priority":          3,
+				"defer_date":        "2024-12-31",
+				"planned_date":      "2025-03-15",
+				"due_date":          "2025-06-30",
+				"recurring":         "weekly",
+				"last_completed":    "2025-03-10",
+				"page_type":         "task",
+				"goals":             []any{"goal-1", "goal-2"},
+				"tags":              []any{"urgent", "backend"},
+			},
+			domain.FileMetadata{Name: taskName},
+			domain.Content(""),
+		)
 		mockTaskStorage.FindTaskByNameReturns(task, nil)
 	})
 
@@ -133,7 +133,7 @@ var _ = Describe("FrontmatterGetOperation", func() {
 	Context("getting empty field", func() {
 		BeforeEach(func() {
 			key = "phase"
-			task.Phase = nil
+			task.SetPhase(nil)
 		})
 
 		It("returns empty string with no error", func() {
@@ -145,7 +145,7 @@ var _ = Describe("FrontmatterGetOperation", func() {
 	Context("getting defer_date when nil", func() {
 		BeforeEach(func() {
 			key = "defer_date"
-			task.DeferDate = nil
+			task.SetDeferDate(nil)
 		})
 
 		It("returns empty string with no error", func() {
@@ -168,7 +168,7 @@ var _ = Describe("FrontmatterGetOperation", func() {
 	Context("getting planned_date when nil", func() {
 		BeforeEach(func() {
 			key = "planned_date"
-			task.PlannedDate = nil
+			task.SetPlannedDate(nil)
 		})
 
 		It("returns empty string with no error", func() {
@@ -191,7 +191,7 @@ var _ = Describe("FrontmatterGetOperation", func() {
 	Context("getting due_date when nil", func() {
 		BeforeEach(func() {
 			key = "due_date"
-			task.DueDate = nil
+			task.SetDueDate(nil)
 		})
 
 		It("returns empty string with no error", func() {
@@ -247,7 +247,7 @@ var _ = Describe("FrontmatterGetOperation", func() {
 	Context("getting goals when empty", func() {
 		BeforeEach(func() {
 			key = "goals"
-			task.Goals = nil
+			task.SetGoals(nil)
 		})
 
 		It("returns empty string with no error", func() {
@@ -270,7 +270,7 @@ var _ = Describe("FrontmatterGetOperation", func() {
 	Context("getting tags when empty", func() {
 		BeforeEach(func() {
 			key = "tags"
-			task.Tags = nil
+			task.SetTags(nil)
 		})
 
 		It("returns empty string with no error", func() {
@@ -284,8 +284,8 @@ var _ = Describe("FrontmatterGetOperation", func() {
 			key = "unknown_key"
 		})
 
-		It("returns an error", func() {
-			Expect(err).To(MatchError(ContainSubstring("unknown field: unknown_key")))
+		It("returns no error and empty result", func() {
+			Expect(err).To(BeNil())
 			Expect(result).To(Equal(""))
 		})
 	})
@@ -323,9 +323,11 @@ var _ = Describe("FrontmatterSetOperation", func() {
 		taskName = "my-task"
 
 		// Default: return a task
-		task = &domain.Task{
-			Name: taskName,
-		}
+		task = domain.NewTask(
+			map[string]any{},
+			domain.FileMetadata{Name: taskName},
+			domain.Content(""),
+		)
 		mockTaskStorage.FindTaskByNameReturns(task, nil)
 		mockTaskStorage.WriteTaskReturns(nil)
 	})
@@ -344,8 +346,8 @@ var _ = Describe("FrontmatterSetOperation", func() {
 			Expect(err).To(BeNil())
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.Phase).NotTo(BeNil())
-			Expect(*writtenTask.Phase).To(Equal(domain.TaskPhasePlanning))
+			Expect(writtenTask.Phase()).NotTo(BeNil())
+			Expect(*writtenTask.Phase()).To(Equal(domain.TaskPhasePlanning))
 		})
 	})
 
@@ -375,7 +377,7 @@ var _ = Describe("FrontmatterSetOperation", func() {
 			Expect(err).To(BeNil())
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.ClaudeSessionID).To(Equal("session-456"))
+			Expect(writtenTask.ClaudeSessionID()).To(Equal("session-456"))
 		})
 	})
 
@@ -389,7 +391,7 @@ var _ = Describe("FrontmatterSetOperation", func() {
 			Expect(err).To(BeNil())
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.Assignee).To(Equal("bob"))
+			Expect(writtenTask.Assignee()).To(Equal("bob"))
 		})
 	})
 
@@ -403,7 +405,7 @@ var _ = Describe("FrontmatterSetOperation", func() {
 			Expect(err).To(BeNil())
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.Status).To(Equal(domain.TaskStatusCompleted))
+			Expect(writtenTask.Status()).To(Equal(domain.TaskStatusCompleted))
 		})
 	})
 
@@ -417,7 +419,7 @@ var _ = Describe("FrontmatterSetOperation", func() {
 			Expect(err).To(BeNil())
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.Priority).To(Equal(domain.Priority(1)))
+			Expect(writtenTask.Priority()).To(Equal(domain.Priority(1)))
 		})
 	})
 
@@ -431,8 +433,8 @@ var _ = Describe("FrontmatterSetOperation", func() {
 			Expect(err).To(BeNil())
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.DeferDate).NotTo(BeNil())
-			Expect(writtenTask.DeferDate.Format("2006-01-02")).To(Equal("2025-06-15"))
+			Expect(writtenTask.DeferDate()).NotTo(BeNil())
+			Expect(writtenTask.DeferDate().Format("2006-01-02")).To(Equal("2025-06-15"))
 		})
 	})
 
@@ -441,14 +443,16 @@ var _ = Describe("FrontmatterSetOperation", func() {
 			key = "defer_date"
 			value = ""
 			deferDate := time.Date(2024, 12, 31, 0, 0, 0, 0, time.UTC)
-			task.DeferDate = func() *domain.DateOrDateTime { d := domain.DateOrDateTime(deferDate); return &d }()
+			task.SetDeferDate(
+				func() *domain.DateOrDateTime { d := domain.DateOrDateTime(deferDate); return &d }(),
+			)
 		})
 
 		It("sets defer_date to nil", func() {
 			Expect(err).To(BeNil())
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.DeferDate).To(BeNil())
+			Expect(writtenTask.DeferDate()).To(BeNil())
 		})
 	})
 
@@ -473,8 +477,8 @@ var _ = Describe("FrontmatterSetOperation", func() {
 			Expect(err).To(BeNil())
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.PlannedDate).NotTo(BeNil())
-			Expect(writtenTask.PlannedDate.Format("2006-01-02")).To(Equal("2025-06-15"))
+			Expect(writtenTask.PlannedDate()).NotTo(BeNil())
+			Expect(writtenTask.PlannedDate().Format("2006-01-02")).To(Equal("2025-06-15"))
 		})
 	})
 
@@ -483,14 +487,16 @@ var _ = Describe("FrontmatterSetOperation", func() {
 			key = "planned_date"
 			value = ""
 			plannedDate := time.Date(2025, 3, 15, 0, 0, 0, 0, time.UTC)
-			task.PlannedDate = func() *domain.DateOrDateTime { d := domain.DateOrDateTime(plannedDate); return &d }()
+			task.SetPlannedDate(
+				func() *domain.DateOrDateTime { d := domain.DateOrDateTime(plannedDate); return &d }(),
+			)
 		})
 
 		It("sets planned_date to nil", func() {
 			Expect(err).To(BeNil())
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.PlannedDate).To(BeNil())
+			Expect(writtenTask.PlannedDate()).To(BeNil())
 		})
 	})
 
@@ -515,8 +521,8 @@ var _ = Describe("FrontmatterSetOperation", func() {
 			Expect(err).To(BeNil())
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.DueDate).NotTo(BeNil())
-			Expect(writtenTask.DueDate.Format("2006-01-02")).To(Equal("2025-06-15"))
+			Expect(writtenTask.DueDate()).NotTo(BeNil())
+			Expect(writtenTask.DueDate().Format("2006-01-02")).To(Equal("2025-06-15"))
 		})
 	})
 
@@ -525,14 +531,16 @@ var _ = Describe("FrontmatterSetOperation", func() {
 			key = "due_date"
 			value = ""
 			dueDate := time.Date(2025, 6, 30, 0, 0, 0, 0, time.UTC)
-			task.DueDate = func() *domain.DateOrDateTime { d := domain.DateOrDateTime(dueDate); return &d }()
+			task.SetDueDate(
+				func() *domain.DateOrDateTime { d := domain.DateOrDateTime(dueDate); return &d }(),
+			)
 		})
 
 		It("sets due_date to nil", func() {
 			Expect(err).To(BeNil())
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.DueDate).To(BeNil())
+			Expect(writtenTask.DueDate()).To(BeNil())
 		})
 	})
 
@@ -557,7 +565,7 @@ var _ = Describe("FrontmatterSetOperation", func() {
 			Expect(err).To(BeNil())
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.Recurring).To(Equal("monthly"))
+			Expect(writtenTask.Recurring()).To(Equal("monthly"))
 		})
 	})
 
@@ -571,7 +579,7 @@ var _ = Describe("FrontmatterSetOperation", func() {
 			Expect(err).To(BeNil())
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.LastCompleted).To(Equal("2025-03-15"))
+			Expect(writtenTask.LastCompleted()).To(Equal("2025-03-15"))
 		})
 	})
 
@@ -585,7 +593,7 @@ var _ = Describe("FrontmatterSetOperation", func() {
 			Expect(err).To(BeNil())
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.PageType).To(Equal("task"))
+			Expect(writtenTask.PageType()).To(Equal("task"))
 		})
 	})
 
@@ -599,7 +607,7 @@ var _ = Describe("FrontmatterSetOperation", func() {
 			Expect(err).To(BeNil())
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.Goals).To(Equal([]string{"goal-a", "goal-b"}))
+			Expect(writtenTask.Goals()).To(Equal([]string{"goal-a", "goal-b"}))
 		})
 	})
 
@@ -607,14 +615,14 @@ var _ = Describe("FrontmatterSetOperation", func() {
 		BeforeEach(func() {
 			key = "goals"
 			value = ""
-			task.Goals = []string{"old"}
+			task.SetGoals([]string{"old"})
 		})
 
 		It("sets goals to nil", func() {
 			Expect(err).To(BeNil())
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.Goals).To(BeNil())
+			Expect(writtenTask.Goals()).To(BeNil())
 		})
 	})
 
@@ -628,7 +636,7 @@ var _ = Describe("FrontmatterSetOperation", func() {
 			Expect(err).To(BeNil())
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.Tags).To(Equal([]string{"tag-a", "tag-b"}))
+			Expect(writtenTask.Tags()).To(Equal([]string{"tag-a", "tag-b"}))
 		})
 	})
 
@@ -636,14 +644,14 @@ var _ = Describe("FrontmatterSetOperation", func() {
 		BeforeEach(func() {
 			key = "tags"
 			value = ""
-			task.Tags = []string{"old"}
+			task.SetTags([]string{"old"})
 		})
 
 		It("sets tags to nil", func() {
 			Expect(err).To(BeNil())
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.Tags).To(BeNil())
+			Expect(writtenTask.Tags()).To(BeNil())
 		})
 	})
 
@@ -653,9 +661,9 @@ var _ = Describe("FrontmatterSetOperation", func() {
 			value = "value"
 		})
 
-		It("returns an error", func() {
-			Expect(err).To(MatchError(ContainSubstring("unknown field: unknown_key")))
-			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(0))
+		It("returns no error and calls WriteTask once", func() {
+			Expect(err).To(BeNil())
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 		})
 	})
 
@@ -705,25 +713,25 @@ var _ = Describe("FrontmatterClearOperation", func() {
 		taskName = "my-task"
 
 		// Default: return a task with fields set
-		deferDate := time.Date(2024, 12, 31, 0, 0, 0, 0, time.UTC)
-		plannedDate := time.Date(2025, 3, 15, 0, 0, 0, 0, time.UTC)
-		dueDate := time.Date(2025, 6, 30, 0, 0, 0, 0, time.UTC)
-		task = &domain.Task{
-			Name:            taskName,
-			Phase:           domain.TaskPhaseInProgress.Ptr(),
-			ClaudeSessionID: "session-123",
-			Assignee:        "alice",
-			Status:          domain.TaskStatusInProgress,
-			Priority:        domain.Priority(3),
-			DeferDate:       func() *domain.DateOrDateTime { d := domain.DateOrDateTime(deferDate); return &d }(),
-			PlannedDate:     func() *domain.DateOrDateTime { d := domain.DateOrDateTime(plannedDate); return &d }(),
-			DueDate:         func() *domain.DateOrDateTime { d := domain.DateOrDateTime(dueDate); return &d }(),
-			Recurring:       "weekly",
-			LastCompleted:   "2025-03-10",
-			PageType:        "task",
-			Goals:           []string{"goal-1", "goal-2"},
-			Tags:            []string{"urgent", "backend"},
-		}
+		task = domain.NewTask(
+			map[string]any{
+				"phase":             "in_progress",
+				"claude_session_id": "session-123",
+				"assignee":          "alice",
+				"status":            "in_progress",
+				"priority":          3,
+				"defer_date":        "2024-12-31",
+				"planned_date":      "2025-03-15",
+				"due_date":          "2025-06-30",
+				"recurring":         "weekly",
+				"last_completed":    "2025-03-10",
+				"page_type":         "task",
+				"goals":             []any{"goal-1", "goal-2"},
+				"tags":              []any{"urgent", "backend"},
+			},
+			domain.FileMetadata{Name: taskName},
+			domain.Content(""),
+		)
 		mockTaskStorage.FindTaskByNameReturns(task, nil)
 		mockTaskStorage.WriteTaskReturns(nil)
 	})
@@ -741,7 +749,7 @@ var _ = Describe("FrontmatterClearOperation", func() {
 			Expect(err).To(BeNil())
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.Phase).To(BeNil())
+			Expect(writtenTask.Phase()).To(BeNil())
 		})
 	})
 
@@ -754,7 +762,7 @@ var _ = Describe("FrontmatterClearOperation", func() {
 			Expect(err).To(BeNil())
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.ClaudeSessionID).To(Equal(""))
+			Expect(writtenTask.ClaudeSessionID()).To(Equal(""))
 		})
 	})
 
@@ -767,7 +775,7 @@ var _ = Describe("FrontmatterClearOperation", func() {
 			Expect(err).To(BeNil())
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.Assignee).To(Equal(""))
+			Expect(writtenTask.Assignee()).To(Equal(""))
 		})
 	})
 
@@ -780,7 +788,7 @@ var _ = Describe("FrontmatterClearOperation", func() {
 			Expect(err).To(BeNil())
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.Status).To(Equal(domain.TaskStatus("")))
+			Expect(writtenTask.Status()).To(Equal(domain.TaskStatus("")))
 		})
 	})
 
@@ -793,7 +801,7 @@ var _ = Describe("FrontmatterClearOperation", func() {
 			Expect(err).To(BeNil())
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.Priority).To(Equal(domain.Priority(0)))
+			Expect(writtenTask.Priority()).To(Equal(domain.Priority(0)))
 		})
 	})
 
@@ -806,7 +814,7 @@ var _ = Describe("FrontmatterClearOperation", func() {
 			Expect(err).To(BeNil())
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.DeferDate).To(BeNil())
+			Expect(writtenTask.DeferDate()).To(BeNil())
 		})
 	})
 
@@ -819,7 +827,7 @@ var _ = Describe("FrontmatterClearOperation", func() {
 			Expect(err).To(BeNil())
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.PlannedDate).To(BeNil())
+			Expect(writtenTask.PlannedDate()).To(BeNil())
 		})
 	})
 
@@ -832,7 +840,7 @@ var _ = Describe("FrontmatterClearOperation", func() {
 			Expect(err).To(BeNil())
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.DueDate).To(BeNil())
+			Expect(writtenTask.DueDate()).To(BeNil())
 		})
 	})
 
@@ -845,7 +853,7 @@ var _ = Describe("FrontmatterClearOperation", func() {
 			Expect(err).To(BeNil())
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.Recurring).To(Equal(""))
+			Expect(writtenTask.Recurring()).To(Equal(""))
 		})
 	})
 
@@ -858,7 +866,7 @@ var _ = Describe("FrontmatterClearOperation", func() {
 			Expect(err).To(BeNil())
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.LastCompleted).To(Equal(""))
+			Expect(writtenTask.LastCompleted()).To(Equal(""))
 		})
 	})
 
@@ -871,7 +879,7 @@ var _ = Describe("FrontmatterClearOperation", func() {
 			Expect(err).To(BeNil())
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.PageType).To(Equal(""))
+			Expect(writtenTask.PageType()).To(Equal(""))
 		})
 	})
 
@@ -884,7 +892,7 @@ var _ = Describe("FrontmatterClearOperation", func() {
 			Expect(err).To(BeNil())
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.Goals).To(BeNil())
+			Expect(writtenTask.Goals()).To(BeNil())
 		})
 	})
 
@@ -897,7 +905,7 @@ var _ = Describe("FrontmatterClearOperation", func() {
 			Expect(err).To(BeNil())
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.Tags).To(BeNil())
+			Expect(writtenTask.Tags()).To(BeNil())
 		})
 	})
 
@@ -906,9 +914,9 @@ var _ = Describe("FrontmatterClearOperation", func() {
 			key = "unknown_key"
 		})
 
-		It("returns an error", func() {
-			Expect(err).To(MatchError(ContainSubstring("unknown field: unknown_key")))
-			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(0))
+		It("returns no error and calls WriteTask once", func() {
+			Expect(err).To(BeNil())
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 		})
 	})
 

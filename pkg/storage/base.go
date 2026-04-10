@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/bborbe/errors"
 	"gopkg.in/yaml.v3"
@@ -199,22 +200,24 @@ func (b *baseStorage) readTaskFromPath(
 		return nil, errors.Wrap(ctx, err, fmt.Sprintf("read file %s", filePath))
 	}
 
-	task := &domain.Task{
-		Name:     name,
-		Content:  string(content),
-		FilePath: filePath,
-	}
-
+	var modTime *time.Time
 	if info, err := os.Stat(filePath); err == nil {
 		t := info.ModTime().UTC()
-		task.ModifiedDate = &t
+		modTime = &t
 	}
 
-	if err := b.parseFrontmatter(ctx, content, task); err != nil {
-		return nil, errors.Wrap(ctx, err, "parse frontmatter")
+	data, parseErr := b.parseToFrontmatterMap(ctx, content)
+	if parseErr != nil {
+		return nil, errors.Wrap(ctx, parseErr, "parse frontmatter")
 	}
 
-	return task, nil
+	meta := domain.FileMetadata{
+		Name:         name,
+		FilePath:     filePath,
+		ModifiedDate: modTime,
+	}
+
+	return domain.NewTask(data, meta, domain.Content(content)), nil
 }
 
 // isExcluded returns true when the given path falls under an excluded directory prefix.

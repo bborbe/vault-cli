@@ -79,31 +79,31 @@ func (o *showOperation) Execute(
 
 	detail := TaskDetail{
 		Name:   task.Name,
-		Status: string(task.Status),
+		Status: string(task.Status()),
 		Phase: func() string {
-			if task.Phase != nil {
-				return task.Phase.String()
+			if task.Phase() != nil {
+				return task.Phase().String()
 			}
 			return ""
 		}(),
-		Assignee:        task.Assignee,
-		Priority:        int(task.Priority),
-		Category:        task.PageType,
-		Recurring:       task.Recurring,
-		ClaudeSessionID: task.ClaudeSessionID,
-		Goals:           task.Goals,
-		Content:         task.Content,
+		Assignee:        task.Assignee(),
+		Priority:        int(task.Priority()),
+		Category:        task.PageType(),
+		Recurring:       task.Recurring(),
+		ClaudeSessionID: task.ClaudeSessionID(),
+		Goals:           task.Goals(),
+		Content:         string(task.Content),
 		FilePath:        task.FilePath,
 		Vault:           vaultName,
 	}
 
-	detail.DeferDate = formatDateOrDateTime(task.DeferDate)
-	detail.PlannedDate = formatDateOrDateTime(task.PlannedDate)
-	detail.DueDate = formatDateOrDateTime(task.DueDate)
-	detail.CompletedDate = task.CompletedDate
+	detail.DeferDate = formatDateOrDateTime(task.DeferDate())
+	detail.PlannedDate = formatDateOrDateTime(task.PlannedDate())
+	detail.DueDate = formatDateOrDateTime(task.DueDate())
+	detail.CompletedDate = task.CompletedDate()
 
 	// Extract description from body content
-	if matches := showFrontmatterRegex.FindStringSubmatch(task.Content); len(matches) >= 2 {
+	if matches := showFrontmatterRegex.FindStringSubmatch(string(task.Content)); len(matches) >= 2 {
 		body := strings.TrimSpace(matches[1])
 		stripped := markdownStripRegex.ReplaceAllString(body, "")
 		stripped = strings.Join(strings.Fields(stripped), " ")

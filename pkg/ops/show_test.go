@@ -41,22 +41,29 @@ var _ = Describe("ShowOperation", func() {
 		deferDate := time.Date(2025, 6, 15, 0, 0, 0, 0, time.UTC)
 		plannedDate := time.Date(2025, 7, 1, 0, 0, 0, 0, time.UTC)
 		dueDate := time.Date(2025, 8, 1, 0, 0, 0, 0, time.UTC)
-		task = &domain.Task{
-			Name:            taskName,
-			Status:          domain.TaskStatusInProgress,
-			Phase:           domain.TaskPhaseInProgress.Ptr(),
-			Assignee:        "alice",
-			Priority:        domain.Priority(2),
-			PageType:        "task",
-			Recurring:       "weekly",
-			ClaudeSessionID: "session-abc",
-			Goals:           []string{"goal-1", "goal-2"},
-			DeferDate:       func() *domain.DateOrDateTime { d := domain.DateOrDateTime(deferDate); return &d }(),
-			PlannedDate:     func() *domain.DateOrDateTime { d := domain.DateOrDateTime(plannedDate); return &d }(),
-			DueDate:         func() *domain.DateOrDateTime { d := domain.DateOrDateTime(dueDate); return &d }(),
-			Content:         "---\nstatus: in_progress\n---\nDo the thing with care.\n",
-			FilePath:        "/tmp/nonexistent-test-file.md",
-		}
+		task = domain.NewTask(
+			map[string]any{
+				"status":            "in_progress",
+				"phase":             "in_progress",
+				"assignee":          "alice",
+				"priority":          2,
+				"page_type":         "task",
+				"recurring":         "weekly",
+				"claude_session_id": "session-abc",
+				"goals":             []any{"goal-1", "goal-2"},
+			},
+			domain.FileMetadata{Name: taskName, FilePath: "/tmp/nonexistent-test-file.md"},
+			domain.Content("---\nstatus: in_progress\n---\nDo the thing with care.\n"),
+		)
+		task.SetDeferDate(
+			func() *domain.DateOrDateTime { d := domain.DateOrDateTime(deferDate); return &d }(),
+		)
+		task.SetPlannedDate(
+			func() *domain.DateOrDateTime { d := domain.DateOrDateTime(plannedDate); return &d }(),
+		)
+		task.SetDueDate(
+			func() *domain.DateOrDateTime { d := domain.DateOrDateTime(dueDate); return &d }(),
+		)
 		mockTaskStorage.FindTaskByNameReturns(task, nil)
 	})
 
@@ -76,16 +83,16 @@ var _ = Describe("ShowOperation", func() {
 
 	Context("with optional fields omitted", func() {
 		BeforeEach(func() {
-			task.Phase = nil
-			task.Assignee = ""
-			task.Priority = 0
-			task.PageType = ""
-			task.Recurring = ""
-			task.ClaudeSessionID = ""
-			task.Goals = nil
-			task.DeferDate = nil
-			task.PlannedDate = nil
-			task.DueDate = nil
+			task.SetPhase(nil)
+			task.SetAssignee("")
+			_ = task.SetPriority(context.Background(), 0)
+			task.SetPageType("")
+			task.SetRecurring("")
+			task.SetClaudeSessionID("")
+			task.SetGoals(nil)
+			task.SetDeferDate(nil)
+			task.SetPlannedDate(nil)
+			task.SetDueDate(nil)
 		})
 
 		It("succeeds without error", func() {
@@ -119,13 +126,11 @@ var _ = Describe("ShowOperation completed_date", func() {
 
 	Context("with completed_date set", func() {
 		BeforeEach(func() {
-			task := &domain.Task{
-				Name:          "done-task",
-				Status:        domain.TaskStatusCompleted,
-				CompletedDate: "2026-03-03T12:00:00Z",
-				Content:       "---\nstatus: completed\n---\nDone.\n",
-				FilePath:      "/tmp/nonexistent-show-test.md",
-			}
+			task := domain.NewTask(
+				map[string]any{"status": "completed", "completed_date": "2026-03-03T12:00:00Z"},
+				domain.FileMetadata{Name: "done-task", FilePath: "/tmp/nonexistent-show-test.md"},
+				domain.Content("---\nstatus: completed\n---\nDone.\n"),
+			)
 			mockTaskStorage.FindTaskByNameReturns(task, nil)
 		})
 
@@ -138,12 +143,11 @@ var _ = Describe("ShowOperation completed_date", func() {
 
 	Context("without completed_date set", func() {
 		BeforeEach(func() {
-			task := &domain.Task{
-				Name:     "todo-task",
-				Status:   domain.TaskStatusTodo,
-				Content:  "---\nstatus: todo\n---\nNot done yet.\n",
-				FilePath: "/tmp/nonexistent-show-test2.md",
-			}
+			task := domain.NewTask(
+				map[string]any{"status": "todo"},
+				domain.FileMetadata{Name: "todo-task", FilePath: "/tmp/nonexistent-show-test2.md"},
+				domain.Content("---\nstatus: todo\n---\nNot done yet.\n"),
+			)
 			mockTaskStorage.FindTaskByNameReturns(task, nil)
 		})
 

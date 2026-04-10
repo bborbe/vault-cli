@@ -49,10 +49,11 @@ var _ = Describe("CompleteOperation", func() {
 		taskName = "my-task"
 
 		// Default: return a task
-		task = &domain.Task{
-			Name:   taskName,
-			Status: domain.TaskStatusTodo,
-		}
+		task = domain.NewTask(
+			map[string]any{"status": "todo"},
+			domain.FileMetadata{Name: taskName},
+			domain.Content(""),
+		)
 		mockTaskStorage.FindTaskByNameReturns(task, nil)
 		mockTaskStorage.WriteTaskReturns(nil)
 	})
@@ -79,7 +80,7 @@ var _ = Describe("CompleteOperation", func() {
 		It("marks task as done", func() {
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.Status).To(Equal(domain.TaskStatusCompleted))
+			Expect(writtenTask.Status()).To(Equal(domain.TaskStatusCompleted))
 		})
 
 		It("calls WriteTask with updated task", func() {
@@ -118,7 +119,7 @@ var _ = Describe("CompleteOperation", func() {
 		var goal *domain.Goal
 
 		BeforeEach(func() {
-			task.Goals = []string{"Test Goal"}
+			task.SetGoals([]string{"Test Goal"})
 
 			goal = &domain.Goal{
 				Name: "Test Goal",
@@ -151,7 +152,7 @@ status: active
 
 	Context("task with goal not found", func() {
 		BeforeEach(func() {
-			task.Goals = []string{"Missing Goal"}
+			task.SetGoals([]string{"Missing Goal"})
 			mockGoalStorage.FindGoalByNameReturns(nil, ErrTest)
 		})
 
@@ -163,7 +164,7 @@ status: active
 
 	Context("task with goal WriteGoal error", func() {
 		BeforeEach(func() {
-			task.Goals = []string{"Test Goal"}
+			task.SetGoals([]string{"Test Goal"})
 			goal := &domain.Goal{
 				Name: "Test Goal",
 				Content: `---
@@ -268,8 +269,8 @@ status: active
 
 	Context("recurring daily task", func() {
 		BeforeEach(func() {
-			task.Recurring = "daily"
-			task.Status = domain.TaskStatusInProgress
+			task.SetRecurring("daily")
+			_ = task.SetStatus(domain.TaskStatusInProgress)
 			task.Content = `---
 status: in_progress
 recurring: daily
@@ -289,34 +290,34 @@ recurring: daily
 		It("resets checkboxes in content", func() {
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.Content).To(ContainSubstring("- [ ] Item 1"))
-			Expect(writtenTask.Content).To(ContainSubstring("- [ ] Item 2"))
-			Expect(writtenTask.Content).NotTo(ContainSubstring("- [x]"))
+			Expect(string(writtenTask.Content)).To(ContainSubstring("- [ ] Item 1"))
+			Expect(string(writtenTask.Content)).To(ContainSubstring("- [ ] Item 2"))
+			Expect(string(writtenTask.Content)).NotTo(ContainSubstring("- [x]"))
 		})
 
 		It("sets last_completed to today", func() {
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.LastCompleted).NotTo(BeEmpty())
+			Expect(writtenTask.LastCompleted()).NotTo(BeEmpty())
 		})
 
 		It("bumps defer_date to tomorrow", func() {
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.DeferDate).NotTo(BeNil())
+			Expect(writtenTask.DeferDate()).NotTo(BeNil())
 		})
 
 		It("keeps status unchanged", func() {
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.Status).To(Equal(domain.TaskStatusInProgress))
+			Expect(writtenTask.Status()).To(Equal(domain.TaskStatusInProgress))
 		})
 	})
 
 	Context("recurring weekly task", func() {
 		BeforeEach(func() {
-			task.Recurring = "weekly"
-			task.Status = domain.TaskStatusInProgress
+			task.SetRecurring("weekly")
+			_ = task.SetStatus(domain.TaskStatusInProgress)
 			task.Content = `---
 status: in_progress
 recurring: weekly
@@ -332,20 +333,20 @@ recurring: weekly
 		It("bumps defer_date by 7 days", func() {
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.DeferDate).NotTo(BeNil())
+			Expect(writtenTask.DeferDate()).NotTo(BeNil())
 		})
 
 		It("keeps status unchanged", func() {
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.Status).To(Equal(domain.TaskStatusInProgress))
+			Expect(writtenTask.Status()).To(Equal(domain.TaskStatusInProgress))
 		})
 	})
 
 	Context("recurring monthly task", func() {
 		BeforeEach(func() {
-			task.Recurring = "monthly"
-			task.Status = domain.TaskStatusInProgress
+			task.SetRecurring("monthly")
+			_ = task.SetStatus(domain.TaskStatusInProgress)
 			task.Content = `---
 status: in_progress
 recurring: monthly
@@ -361,20 +362,20 @@ recurring: monthly
 		It("bumps defer_date by 1 month", func() {
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.DeferDate).NotTo(BeNil())
+			Expect(writtenTask.DeferDate()).NotTo(BeNil())
 		})
 
 		It("keeps status unchanged", func() {
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.Status).To(Equal(domain.TaskStatusInProgress))
+			Expect(writtenTask.Status()).To(Equal(domain.TaskStatusInProgress))
 		})
 	})
 
 	Context("recurring weekdays task", func() {
 		BeforeEach(func() {
-			task.Recurring = "weekdays"
-			task.Status = domain.TaskStatusInProgress
+			task.SetRecurring("weekdays")
+			_ = task.SetStatus(domain.TaskStatusInProgress)
 			task.Content = `---
 status: in_progress
 recurring: weekdays
@@ -390,10 +391,10 @@ recurring: weekdays
 		It("sets defer_date to a weekday", func() {
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.DeferDate).NotTo(BeNil())
+			Expect(writtenTask.DeferDate()).NotTo(BeNil())
 
 			// Verify defer_date is a weekday (Monday-Friday)
-			weekday := writtenTask.DeferDate.Time().Weekday()
+			weekday := writtenTask.DeferDate().Time().Weekday()
 			Expect(weekday).NotTo(Equal(time.Saturday))
 			Expect(weekday).NotTo(Equal(time.Sunday))
 		})
@@ -401,23 +402,23 @@ recurring: weekdays
 		It("sets defer_date after today", func() {
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.DeferDate).NotTo(BeNil())
+			Expect(writtenTask.DeferDate()).NotTo(BeNil())
 
 			now := libtimetest.ParseDateTime("2026-03-03T12:00:00Z").Time()
-			Expect(writtenTask.DeferDate.Time().After(now)).To(BeTrue())
+			Expect(writtenTask.DeferDate().Time().After(now)).To(BeTrue())
 		})
 
 		It("keeps status unchanged", func() {
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.Status).To(Equal(domain.TaskStatusInProgress))
+			Expect(writtenTask.Status()).To(Equal(domain.TaskStatusInProgress))
 		})
 	})
 
 	Context("recurring 3d task", func() {
 		BeforeEach(func() {
-			task.Recurring = "3d"
-			task.Status = domain.TaskStatusInProgress
+			task.SetRecurring("3d")
+			_ = task.SetStatus(domain.TaskStatusInProgress)
 			task.Content = `---
 status: in_progress
 recurring: 3d
@@ -433,17 +434,17 @@ recurring: 3d
 		It("bumps defer_date by 3 days", func() {
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.DeferDate).NotTo(BeNil())
+			Expect(writtenTask.DeferDate()).NotTo(BeNil())
 			now := libtimetest.ParseDateTime("2026-03-03T12:00:00Z").Time()
 			expected := libtime.ToDate(now.AddDate(0, 0, 3)).Time()
-			Expect(writtenTask.DeferDate.Time()).To(Equal(expected))
+			Expect(writtenTask.DeferDate().Time()).To(Equal(expected))
 		})
 	})
 
 	Context("recurring quarterly task", func() {
 		BeforeEach(func() {
-			task.Recurring = "quarterly"
-			task.Status = domain.TaskStatusInProgress
+			task.SetRecurring("quarterly")
+			_ = task.SetStatus(domain.TaskStatusInProgress)
 			task.Content = `---
 status: in_progress
 recurring: quarterly
@@ -459,17 +460,17 @@ recurring: quarterly
 		It("bumps defer_date by 3 months", func() {
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.DeferDate).NotTo(BeNil())
+			Expect(writtenTask.DeferDate()).NotTo(BeNil())
 			now := libtimetest.ParseDateTime("2026-03-03T12:00:00Z").Time()
 			expected := libtime.ToDate(now.AddDate(0, 3, 0)).Time()
-			Expect(writtenTask.DeferDate.Time()).To(Equal(expected))
+			Expect(writtenTask.DeferDate().Time()).To(Equal(expected))
 		})
 	})
 
 	Context("recurring 2w task", func() {
 		BeforeEach(func() {
-			task.Recurring = "2w"
-			task.Status = domain.TaskStatusInProgress
+			task.SetRecurring("2w")
+			_ = task.SetStatus(domain.TaskStatusInProgress)
 			task.Content = `---
 status: in_progress
 recurring: 2w
@@ -485,17 +486,17 @@ recurring: 2w
 		It("bumps defer_date by 14 days", func() {
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.DeferDate).NotTo(BeNil())
+			Expect(writtenTask.DeferDate()).NotTo(BeNil())
 			now := libtimetest.ParseDateTime("2026-03-03T12:00:00Z").Time()
 			expected := libtime.ToDate(now.AddDate(0, 0, 14)).Time()
-			Expect(writtenTask.DeferDate.Time()).To(Equal(expected))
+			Expect(writtenTask.DeferDate().Time()).To(Equal(expected))
 		})
 	})
 
 	Context("recurring yearly task", func() {
 		BeforeEach(func() {
-			task.Recurring = "yearly"
-			task.Status = domain.TaskStatusInProgress
+			task.SetRecurring("yearly")
+			_ = task.SetStatus(domain.TaskStatusInProgress)
 			task.Content = `---
 status: in_progress
 recurring: yearly
@@ -511,60 +512,60 @@ recurring: yearly
 		It("bumps defer_date by 1 year", func() {
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.DeferDate).NotTo(BeNil())
+			Expect(writtenTask.DeferDate()).NotTo(BeNil())
 			now := libtimetest.ParseDateTime("2026-03-03T12:00:00Z").Time()
 			expected := libtime.ToDate(now.AddDate(1, 0, 0)).Time()
-			Expect(writtenTask.DeferDate.Time()).To(Equal(expected))
+			Expect(writtenTask.DeferDate().Time()).To(Equal(expected))
 		})
 	})
 
 	Context("non-recurring task still marked as done", func() {
 		BeforeEach(func() {
-			task.Recurring = ""
-			task.Status = domain.TaskStatusTodo
+			task.SetRecurring("")
+			_ = task.SetStatus(domain.TaskStatusTodo)
 		})
 
 		It("marks task as done", func() {
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.Status).To(Equal(domain.TaskStatusCompleted))
+			Expect(writtenTask.Status()).To(Equal(domain.TaskStatusCompleted))
 		})
 	})
 
 	Context("non-recurring task sets completed_date", func() {
 		BeforeEach(func() {
-			task.Recurring = ""
-			task.Status = domain.TaskStatusTodo
+			task.SetRecurring("")
+			_ = task.SetStatus(domain.TaskStatusTodo)
 		})
 
 		It("sets completed_date to a non-empty ISO 8601 datetime", func() {
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.CompletedDate).NotTo(BeEmpty())
-			Expect(writtenTask.CompletedDate).To(Equal("2026-03-03T12:00:00Z"))
+			Expect(writtenTask.CompletedDate()).NotTo(BeEmpty())
+			Expect(writtenTask.CompletedDate()).To(Equal("2026-03-03T12:00:00Z"))
 		})
 	})
 
 	Context("non-recurring task sets phase to done", func() {
 		BeforeEach(func() {
-			task.Recurring = ""
-			task.Status = domain.TaskStatusInProgress
-			task.Phase = domain.TaskPhaseHumanReview.Ptr()
+			task.SetRecurring("")
+			_ = task.SetStatus(domain.TaskStatusInProgress)
+			task.SetPhase(domain.TaskPhaseHumanReview.Ptr())
 		})
 
 		It("sets phase to done", func() {
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.Status).To(Equal(domain.TaskStatusCompleted))
-			Expect(writtenTask.Phase).NotTo(BeNil())
-			Expect(*writtenTask.Phase).To(Equal(domain.TaskPhaseDone))
+			Expect(writtenTask.Status()).To(Equal(domain.TaskStatusCompleted))
+			Expect(writtenTask.Phase()).NotTo(BeNil())
+			Expect(*writtenTask.Phase()).To(Equal(domain.TaskPhaseDone))
 		})
 	})
 
 	Context("recurring task does not set completed_date", func() {
 		BeforeEach(func() {
-			task.Recurring = "daily"
-			task.Status = domain.TaskStatusInProgress
+			task.SetRecurring("daily")
+			_ = task.SetStatus(domain.TaskStatusInProgress)
 			task.Content = `---
 status: in_progress
 recurring: daily
@@ -576,7 +577,7 @@ recurring: daily
 		It("does not set completed_date", func() {
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.CompletedDate).To(BeEmpty())
+			Expect(writtenTask.CompletedDate()).To(BeEmpty())
 		})
 	})
 
@@ -588,10 +589,10 @@ recurring: daily
 				Time().
 				AddDate(0, 0, -1)
 				// Yesterday
-			task.Recurring = "daily"
-			task.Status = domain.TaskStatusInProgress
+			task.SetRecurring("daily")
+			_ = task.SetStatus(domain.TaskStatusInProgress)
 			dd := domain.DateOrDateTime(libtime.ToDate(oldPlannedDate).Time())
-			task.PlannedDate = dd.Ptr()
+			task.SetPlannedDate(dd.Ptr())
 			task.Content = `---
 status: in_progress
 recurring: daily
@@ -603,7 +604,7 @@ recurring: daily
 		It("clears planned_date", func() {
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.PlannedDate).To(BeNil())
+			Expect(writtenTask.PlannedDate()).To(BeNil())
 		})
 	})
 
@@ -653,7 +654,7 @@ status: todo
 			Expect(err).To(BeNil())
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.Status).To(Equal(domain.TaskStatusCompleted))
+			Expect(writtenTask.Status()).To(Equal(domain.TaskStatusCompleted))
 		})
 	})
 
@@ -672,15 +673,15 @@ Just a simple task with no subtasks.
 			Expect(err).To(BeNil())
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.Status).To(Equal(domain.TaskStatusCompleted))
+			Expect(writtenTask.Status()).To(Equal(domain.TaskStatusCompleted))
 		})
 	})
 
 	Context("recurring task with phase set clears phase", func() {
 		BeforeEach(func() {
-			task.Recurring = "weekly"
-			task.Status = domain.TaskStatusInProgress
-			task.Phase = domain.TaskPhasePlanning.Ptr()
+			task.SetRecurring("weekly")
+			_ = task.SetStatus(domain.TaskStatusInProgress)
+			task.SetPhase(domain.TaskPhasePlanning.Ptr())
 			task.Content = `---
 status: in_progress
 recurring: weekly
@@ -693,15 +694,15 @@ phase: planning
 		It("clears phase after complete", func() {
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.Phase).To(BeNil())
+			Expect(writtenTask.Phase()).To(BeNil())
 		})
 	})
 
 	Context("recurring task with nil phase keeps phase nil", func() {
 		BeforeEach(func() {
-			task.Recurring = "daily"
-			task.Status = domain.TaskStatusInProgress
-			task.Phase = nil
+			task.SetRecurring("daily")
+			_ = task.SetStatus(domain.TaskStatusInProgress)
+			task.SetPhase(nil)
 			task.Content = `---
 status: in_progress
 recurring: daily
@@ -713,14 +714,14 @@ recurring: daily
 		It("phase remains nil after complete", func() {
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.Phase).To(BeNil())
+			Expect(writtenTask.Phase()).To(BeNil())
 		})
 	})
 
 	Context("recurring task with unchecked checkboxes", func() {
 		BeforeEach(func() {
-			task.Recurring = "daily"
-			task.Status = domain.TaskStatusInProgress
+			task.SetRecurring("daily")
+			_ = task.SetStatus(domain.TaskStatusInProgress)
 			task.Content = `---
 status: in_progress
 recurring: daily
@@ -739,11 +740,11 @@ recurring: daily
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
 			// Recurring tasks do not get marked as done
-			Expect(writtenTask.Status).To(Equal(domain.TaskStatusInProgress))
+			Expect(writtenTask.Status()).To(Equal(domain.TaskStatusInProgress))
 			// Checkboxes should be reset
-			Expect(writtenTask.Content).To(ContainSubstring("- [ ] Unchecked item 1"))
-			Expect(writtenTask.Content).To(ContainSubstring("- [ ] Checked item 1"))
-			Expect(writtenTask.Content).NotTo(ContainSubstring("- [x]"))
+			Expect(string(writtenTask.Content)).To(ContainSubstring("- [ ] Unchecked item 1"))
+			Expect(string(writtenTask.Content)).To(ContainSubstring("- [ ] Checked item 1"))
+			Expect(string(writtenTask.Content)).NotTo(ContainSubstring("- [x]"))
 		})
 	})
 })

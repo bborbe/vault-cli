@@ -53,7 +53,7 @@ func (e *ensureAllTaskIdentifiersOperation) Execute(
 
 	var result BackfillResult
 	for _, task := range tasks {
-		if task.TaskIdentifier != "" {
+		if task.TaskIdentifier() != "" {
 			continue // Already has an identifier, skip
 		}
 

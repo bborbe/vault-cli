@@ -121,17 +121,18 @@ var _ = Describe("CompleteOperation", func() {
 		BeforeEach(func() {
 			task.SetGoals([]string{"Test Goal"})
 
-			goal = &domain.Goal{
-				Name: "Test Goal",
-				Content: `---
+			goal = domain.NewGoal(
+				map[string]any{"status": "active"},
+				domain.FileMetadata{Name: "Test Goal"},
+				domain.Content(`---
 status: active
 ---
 # Test Goal
 
 ## Tasks
 - [ ] my-task
-`,
-			}
+`),
+			)
 			mockGoalStorage.FindGoalByNameReturns(goal, nil)
 			mockGoalStorage.WriteGoalReturns(nil)
 		})
@@ -145,7 +146,7 @@ status: active
 			Expect(err).To(BeNil())
 			if mockGoalStorage.WriteGoalCallCount() > 0 {
 				_, updatedGoal := mockGoalStorage.WriteGoalArgsForCall(0)
-				Expect(updatedGoal.Content).To(ContainSubstring("- [x]"))
+				Expect(string(updatedGoal.Content)).To(ContainSubstring("- [x]"))
 			}
 		})
 	})
@@ -165,17 +166,18 @@ status: active
 	Context("task with goal WriteGoal error", func() {
 		BeforeEach(func() {
 			task.SetGoals([]string{"Test Goal"})
-			goal := &domain.Goal{
-				Name: "Test Goal",
-				Content: `---
+			goal := domain.NewGoal(
+				map[string]any{"status": "active"},
+				domain.FileMetadata{Name: "Test Goal"},
+				domain.Content(`---
 status: active
 ---
 # Test Goal
 
 ## Tasks
 - [ ] my-task
-`,
-			}
+`),
+			)
 			mockGoalStorage.FindGoalByNameReturns(goal, nil)
 			mockGoalStorage.WriteGoalReturns(ErrTest)
 		})

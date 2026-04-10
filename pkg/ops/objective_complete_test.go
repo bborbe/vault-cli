@@ -41,10 +41,11 @@ var _ = Describe("ObjectiveCompleteOperation", func() {
 		objectiveName = "my-objective"
 		vaultName = "test-vault"
 
-		objective = &domain.Objective{
-			Name:   objectiveName,
-			Status: domain.ObjectiveStatusActive,
-		}
+		objective = domain.NewObjective(
+			map[string]any{"status": "active"},
+			domain.FileMetadata{Name: objectiveName},
+			domain.Content(""),
+		)
 		mockObjectiveStorage.FindObjectiveByNameReturns(objective, nil)
 		mockObjectiveStorage.WriteObjectiveReturns(nil)
 	})
@@ -69,7 +70,7 @@ var _ = Describe("ObjectiveCompleteOperation", func() {
 
 	Context("objective already completed", func() {
 		BeforeEach(func() {
-			objective.Status = domain.ObjectiveStatusCompleted
+			_ = objective.SetStatus(domain.ObjectiveStatusCompleted)
 			mockObjectiveStorage.FindObjectiveByNameReturns(objective, nil)
 		})
 
@@ -91,8 +92,8 @@ var _ = Describe("ObjectiveCompleteOperation", func() {
 		It("writes objective with completed status", func() {
 			Expect(mockObjectiveStorage.WriteObjectiveCallCount()).To(Equal(1))
 			_, writtenObjective := mockObjectiveStorage.WriteObjectiveArgsForCall(0)
-			Expect(writtenObjective.Status).To(Equal(domain.ObjectiveStatusCompleted))
-			Expect(writtenObjective.Completed).NotTo(BeNil())
+			Expect(writtenObjective.Status()).To(Equal(domain.ObjectiveStatusCompleted))
+			Expect(writtenObjective.Completed()).NotTo(BeNil())
 		})
 
 		It("returns result with success true", func() {

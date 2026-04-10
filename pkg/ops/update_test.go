@@ -205,18 +205,13 @@ status: todo
 - [ ] Second item
 `
 
-			goal = &domain.Goal{
-				Name: "Test Goal",
-				Content: `---
-status: active
----
-# Test Goal
-
-## Tasks
-- [ ] First item
-- [ ] Second item
-`,
-			}
+			goal = domain.NewGoal(
+				map[string]any{"status": "active"},
+				domain.FileMetadata{Name: "Test Goal"},
+				domain.Content(
+					"---\nstatus: active\n---\n# Test Goal\n\n## Tasks\n- [ ] First item\n- [ ] Second item\n",
+				),
+			)
 			mockGoalStorage.FindGoalByNameReturns(goal, nil)
 			mockGoalStorage.WriteGoalReturns(nil)
 		})

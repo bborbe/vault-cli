@@ -349,8 +349,8 @@ This is a test goal.
 				Expect(err).To(BeNil())
 				Expect(goal).NotTo(BeNil())
 				Expect(goal.Name).To(Equal("Test Goal"))
-				Expect(goal.Status).To(Equal(domain.GoalStatusActive))
-				Expect(goal.Theme).To(Equal("Development"))
+				Expect(goal.Status()).To(Equal(domain.GoalStatusActive))
+				Expect(goal.Theme()).To(Equal("Development"))
 				Expect(len(goal.Tasks)).To(Equal(3))
 				Expect(goal.Tasks[0].Checked).To(BeFalse())
 				Expect(goal.Tasks[1].Checked).To(BeTrue())
@@ -395,12 +395,14 @@ page_type: goal
 
 		Describe("WriteGoal and FindGoalByName", func() {
 			It("round-trips goal correctly", func() {
-				newGoal := &domain.Goal{
-					Name:     "New Goal",
-					FilePath: filepath.Join(goalsDir, "New Goal.md"),
-					Status:   domain.GoalStatusActive,
-					Theme:    "Testing",
-				}
+				newGoal := domain.NewGoal(
+					map[string]any{"status": "active", "theme": "Testing"},
+					domain.FileMetadata{
+						Name:     "New Goal",
+						FilePath: filepath.Join(goalsDir, "New Goal.md"),
+					},
+					domain.Content(""),
+				)
 
 				// Write goal
 				Expect(store.WriteGoal(ctx, newGoal)).To(Succeed())
@@ -410,17 +412,20 @@ page_type: goal
 				Expect(err).To(BeNil())
 				Expect(found).NotTo(BeNil())
 				Expect(found.Name).To(Equal("New Goal"))
-				Expect(found.Status).To(Equal(domain.GoalStatusActive))
-				Expect(found.Theme).To(Equal("Testing"))
+				Expect(found.Status()).To(Equal(domain.GoalStatusActive))
+				Expect(found.Theme()).To(Equal("Testing"))
 			})
 
 			It("finds goal by partial name", func() {
 				// First write a goal
-				newGoal := &domain.Goal{
-					Name:     "Unique Goal Name",
-					FilePath: filepath.Join(goalsDir, "Unique Goal Name.md"),
-					Status:   domain.GoalStatusActive,
-				}
+				newGoal := domain.NewGoal(
+					map[string]any{"status": "active"},
+					domain.FileMetadata{
+						Name:     "Unique Goal Name",
+						FilePath: filepath.Join(goalsDir, "Unique Goal Name.md"),
+					},
+					domain.Content(""),
+				)
 				Expect(store.WriteGoal(ctx, newGoal)).To(Succeed())
 
 				// Find by partial name
@@ -441,11 +446,14 @@ page_type: goal
 				// Make directory read-only
 				Expect(os.Chmod(readOnlyGoalsDir, 0444)).To(Succeed())
 
-				goal := &domain.Goal{
-					Name:     "Read-Only Goal",
-					FilePath: filepath.Join(readOnlyGoalsDir, "Read-Only Goal.md"),
-					Status:   domain.GoalStatusActive,
-				}
+				goal := domain.NewGoal(
+					map[string]any{"status": "active"},
+					domain.FileMetadata{
+						Name:     "Read-Only Goal",
+						FilePath: filepath.Join(readOnlyGoalsDir, "Read-Only Goal.md"),
+					},
+					domain.Content(""),
+				)
 
 				err = store.WriteGoal(ctx, goal)
 				Expect(err).NotTo(BeNil())
@@ -477,7 +485,7 @@ priority: 1
 				Expect(err).To(BeNil())
 				Expect(theme).NotTo(BeNil())
 				Expect(theme.Name).To(Equal("Test Theme"))
-				Expect(theme.Status).To(Equal(domain.ThemeStatusActive))
+				Expect(theme.Status()).To(Equal(domain.ThemeStatusActive))
 			})
 
 			It("finds theme by partial name", func() {
@@ -504,11 +512,11 @@ page_type: theme
 		Describe("WriteTheme and ReadTheme", func() {
 			It("round-trips theme correctly", func() {
 				themePath := filepath.Join(themesDir, "Health & Fitness.md")
-				newTheme := &domain.Theme{
-					Name:     "Health & Fitness",
-					FilePath: themePath,
-					Status:   domain.ThemeStatusActive,
-				}
+				newTheme := domain.NewTheme(
+					map[string]any{"status": "active"},
+					domain.FileMetadata{Name: "Health & Fitness", FilePath: themePath},
+					domain.Content(""),
+				)
 
 				// Write theme
 				Expect(store.WriteTheme(ctx, newTheme)).To(Succeed())
@@ -518,7 +526,7 @@ page_type: theme
 				Expect(err).To(BeNil())
 				Expect(read).NotTo(BeNil())
 				Expect(read.Name).To(Equal("Health & Fitness"))
-				Expect(read.Status).To(Equal(domain.ThemeStatusActive))
+				Expect(read.Status()).To(Equal(domain.ThemeStatusActive))
 			})
 
 			It("returns error when writing to read-only directory", func() {
@@ -533,11 +541,14 @@ page_type: theme
 				// Make directory read-only
 				Expect(os.Chmod(readOnlyThemesDir, 0444)).To(Succeed())
 
-				theme := &domain.Theme{
-					Name:     "Read-Only Theme",
-					FilePath: filepath.Join(readOnlyThemesDir, "Read-Only Theme.md"),
-					Status:   domain.ThemeStatusActive,
-				}
+				theme := domain.NewTheme(
+					map[string]any{"status": "active"},
+					domain.FileMetadata{
+						Name:     "Read-Only Theme",
+						FilePath: filepath.Join(readOnlyThemesDir, "Read-Only Theme.md"),
+					},
+					domain.Content(""),
+				)
 
 				err = store.WriteTheme(ctx, theme)
 				Expect(err).NotTo(BeNil())
@@ -799,30 +810,24 @@ This content itself has frontmatter delimiters.
 		Describe("Goal metadata field exclusion", func() {
 			It("excludes Name, Content, FilePath, Tasks from frontmatter on WriteGoal", func() {
 				// Create a goal with both frontmatter fields and metadata fields
-				goal := &domain.Goal{
-					Name:     "Test Goal Metadata Exclusion",
-					FilePath: filepath.Join(goalsDir, "Test Goal Metadata Exclusion.md"),
-					Content: `---
-status: active
-page_type: goal
-theme: Testing
-priority: 1
----
-# Test Goal Metadata Exclusion
-
-Goal body content.
-
-- [ ] Task 1
-- [x] Task 2
-`,
-					Status:   domain.GoalStatusActive,
-					PageType: "goal",
-					Theme:    "Testing",
-					Priority: 1,
-					Tasks: []domain.CheckboxItem{
-						{Line: 7, Checked: false, Text: "Task 1"},
-						{Line: 8, Checked: true, Text: "Task 2"},
+				goal := domain.NewGoal(
+					map[string]any{
+						"status":    "active",
+						"page_type": "goal",
+						"theme":     "Testing",
+						"priority":  1,
 					},
+					domain.FileMetadata{
+						Name:     "Test Goal Metadata Exclusion",
+						FilePath: filepath.Join(goalsDir, "Test Goal Metadata Exclusion.md"),
+					},
+					domain.Content(
+						"---\nstatus: active\npage_type: goal\ntheme: Testing\npriority: 1\n---\n# Test Goal Metadata Exclusion\n\nGoal body content.\n\n- [ ] Task 1\n- [x] Task 2\n",
+					),
+				)
+				goal.Tasks = []domain.CheckboxItem{
+					{Line: 7, Checked: false, Text: "Task 1"},
+					{Line: 8, Checked: true, Text: "Task 2"},
 				}
 
 				// Write the goal
@@ -857,24 +862,21 @@ Goal body content.
 
 			It("excludes Name, Content, FilePath from frontmatter on WriteTheme", func() {
 				// Create a theme with both frontmatter fields and metadata fields
-				theme := &domain.Theme{
-					Name:     "Test Theme Metadata Exclusion",
-					FilePath: filepath.Join(themesDir, "Test Theme Metadata Exclusion.md"),
-					Content: `---
-status: active
-page_type: theme
-priority: 1
-assignee: bob
----
-# Test Theme Metadata Exclusion
-
-Theme body content.
-`,
-					Status:   domain.ThemeStatusActive,
-					PageType: "theme",
-					Priority: 1,
-					Assignee: "bob",
-				}
+				theme := domain.NewTheme(
+					map[string]any{
+						"status":    "active",
+						"page_type": "theme",
+						"priority":  1,
+						"assignee":  "bob",
+					},
+					domain.FileMetadata{
+						Name:     "Test Theme Metadata Exclusion",
+						FilePath: filepath.Join(themesDir, "Test Theme Metadata Exclusion.md"),
+					},
+					domain.Content(
+						"---\nstatus: active\npage_type: theme\npriority: 1\nassignee: bob\n---\n# Test Theme Metadata Exclusion\n\nTheme body content.\n",
+					),
+				)
 
 				// Write the theme
 				Expect(store.WriteTheme(ctx, theme)).To(Succeed())

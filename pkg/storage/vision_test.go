@@ -66,11 +66,11 @@ This is a test vision.
 			Expect(err).To(BeNil())
 			Expect(vis).NotTo(BeNil())
 			Expect(vis.Name).To(Equal("Test Vision"))
-			Expect(vis.Status).To(Equal(domain.VisionStatusActive))
-			Expect(vis.PageType).To(Equal("vision"))
-			Expect(vis.Priority).To(Equal(domain.Priority(1)))
-			Expect(vis.Assignee).To(Equal("bborbe"))
-			Expect(vis.Tags).To(ContainElement("longterm"))
+			Expect(vis.Status()).To(Equal(domain.VisionStatusActive))
+			Expect(vis.PageType()).To(Equal("vision"))
+			Expect(vis.Priority()).To(Equal(domain.Priority(1)))
+			Expect(vis.Assignee()).To(Equal("bborbe"))
+			Expect(vis.Tags()).To(ContainElement("longterm"))
 		})
 
 		It("returns error when vision file does not exist", func() {
@@ -82,23 +82,25 @@ This is a test vision.
 	Describe("WriteVision", func() {
 		It("writes and reads back a vision correctly", func() {
 			visionPath := filepath.Join(visionDir, "New Vision.md")
-			newVision := &domain.Vision{
-				Name:     "New Vision",
-				FilePath: visionPath,
-				Status:   domain.VisionStatusActive,
-				PageType: "vision",
-				Priority: 2,
-				Assignee: "alice",
-			}
+			newVision := domain.NewVision(
+				map[string]any{
+					"status":    "active",
+					"page_type": "vision",
+					"priority":  2,
+					"assignee":  "alice",
+				},
+				domain.FileMetadata{Name: "New Vision", FilePath: visionPath},
+				domain.Content(""),
+			)
 
 			Expect(store.WriteVision(ctx, newVision)).To(Succeed())
 
 			vis, err := store.ReadVision(ctx, vaultPath, "New Vision")
 			Expect(err).To(BeNil())
 			Expect(vis.Name).To(Equal("New Vision"))
-			Expect(vis.Status).To(Equal(domain.VisionStatusActive))
-			Expect(vis.Priority).To(Equal(domain.Priority(2)))
-			Expect(vis.Assignee).To(Equal("alice"))
+			Expect(vis.Status()).To(Equal(domain.VisionStatusActive))
+			Expect(vis.Priority()).To(Equal(domain.Priority(2)))
+			Expect(vis.Assignee()).To(Equal("alice"))
 		})
 
 		It("returns error when writing to read-only directory", func() {
@@ -110,11 +112,14 @@ This is a test vision.
 			Expect(os.MkdirAll(readOnlyVisionDir, 0755)).To(Succeed())
 			Expect(os.Chmod(readOnlyVisionDir, 0444)).To(Succeed())
 
-			vision := &domain.Vision{
-				Name:     "Read-Only Vision",
-				FilePath: filepath.Join(readOnlyVisionDir, "Read-Only Vision.md"),
-				Status:   domain.VisionStatusActive,
-			}
+			vision := domain.NewVision(
+				map[string]any{"status": "active"},
+				domain.FileMetadata{
+					Name:     "Read-Only Vision",
+					FilePath: filepath.Join(readOnlyVisionDir, "Read-Only Vision.md"),
+				},
+				domain.Content(""),
+			)
 
 			err = store.WriteVision(ctx, vision)
 			Expect(err).NotTo(BeNil())
@@ -122,18 +127,11 @@ This is a test vision.
 
 		It("excludes metadata fields from frontmatter", func() {
 			visionPath := filepath.Join(visionDir, "Metadata Test.md")
-			vision := &domain.Vision{
-				Name:     "Metadata Test",
-				FilePath: visionPath,
-				Status:   domain.VisionStatusArchived,
-				PageType: "vision",
-				Content: `---
-status: archived
-page_type: vision
----
-# Metadata Test
-`,
-			}
+			vision := domain.NewVision(
+				map[string]any{"status": "archived", "page_type": "vision"},
+				domain.FileMetadata{Name: "Metadata Test", FilePath: visionPath},
+				domain.Content("---\nstatus: archived\npage_type: vision\n---\n# Metadata Test\n"),
+			)
 
 			Expect(store.WriteVision(ctx, vision)).To(Succeed())
 
@@ -159,7 +157,7 @@ page_type: vision
 			Expect(err).To(BeNil())
 			Expect(vis).NotTo(BeNil())
 			Expect(vis.Name).To(Equal("Test Vision"))
-			Expect(vis.Status).To(Equal(domain.VisionStatusActive))
+			Expect(vis.Status()).To(Equal(domain.VisionStatusActive))
 		})
 
 		It("finds vision by partial name", func() {
@@ -175,13 +173,18 @@ page_type: vision
 		})
 
 		It("round-trips vision with FindVisionByName after WriteVision", func() {
-			newVis := &domain.Vision{
-				Name:     "Round Trip Vision",
-				FilePath: filepath.Join(visionDir, "Round Trip Vision.md"),
-				Status:   domain.VisionStatusCompleted,
-				PageType: "vision",
-				Tags:     []string{"test", "roundtrip"},
-			}
+			newVis := domain.NewVision(
+				map[string]any{
+					"status":    "completed",
+					"page_type": "vision",
+					"tags":      []any{"test", "roundtrip"},
+				},
+				domain.FileMetadata{
+					Name:     "Round Trip Vision",
+					FilePath: filepath.Join(visionDir, "Round Trip Vision.md"),
+				},
+				domain.Content(""),
+			)
 
 			Expect(store.WriteVision(ctx, newVis)).To(Succeed())
 
@@ -189,8 +192,8 @@ page_type: vision
 			Expect(err).To(BeNil())
 			Expect(found).NotTo(BeNil())
 			Expect(found.Name).To(Equal("Round Trip Vision"))
-			Expect(found.Status).To(Equal(domain.VisionStatusCompleted))
-			Expect(found.Tags).To(Equal([]string{"test", "roundtrip"}))
+			Expect(found.Status()).To(Equal(domain.VisionStatusCompleted))
+			Expect(found.Tags()).To(Equal([]string{"test", "roundtrip"}))
 		})
 	})
 

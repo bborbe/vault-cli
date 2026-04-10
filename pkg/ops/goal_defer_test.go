@@ -43,10 +43,11 @@ var _ = Describe("GoalDeferOperation", func() {
 		dateStr = "+7d"
 		vaultName = "test-vault"
 
-		goal = &domain.Goal{
-			Name:   goalName,
-			Status: domain.GoalStatusActive,
-		}
+		goal = domain.NewGoal(
+			map[string]any{"status": "active"},
+			domain.FileMetadata{Name: goalName},
+			domain.Content(""),
+		)
 		mockGoalStorage.FindGoalByNameReturns(goal, nil)
 		mockGoalStorage.WriteGoalReturns(nil)
 	})
@@ -75,12 +76,12 @@ var _ = Describe("GoalDeferOperation", func() {
 			It("sets defer_date to 7 days from now", func() {
 				Expect(mockGoalStorage.WriteGoalCallCount()).To(Equal(1))
 				_, writtenGoal := mockGoalStorage.WriteGoalArgsForCall(0)
-				Expect(writtenGoal.DeferDate).NotTo(BeNil())
+				Expect(writtenGoal.DeferDate()).NotTo(BeNil())
 				expected := libtimetest.ParseDateTime("2026-03-25T12:00:00Z").
 					Time().
 					AddDate(0, 0, 7).
 					Truncate(24 * time.Hour)
-				actual := writtenGoal.DeferDate.Time()
+				actual := writtenGoal.DeferDate().Time()
 				Expect(actual).To(Equal(expected))
 			})
 		})
@@ -97,10 +98,10 @@ var _ = Describe("GoalDeferOperation", func() {
 			It("sets defer_date to next Monday", func() {
 				Expect(mockGoalStorage.WriteGoalCallCount()).To(Equal(1))
 				_, writtenGoal := mockGoalStorage.WriteGoalArgsForCall(0)
-				Expect(writtenGoal.DeferDate).NotTo(BeNil())
-				Expect(writtenGoal.DeferDate.Time().Weekday()).To(Equal(time.Monday))
+				Expect(writtenGoal.DeferDate()).NotTo(BeNil())
+				Expect(writtenGoal.DeferDate().Time().Weekday()).To(Equal(time.Monday))
 				Expect(
-					writtenGoal.DeferDate.Time().After(
+					writtenGoal.DeferDate().Time().After(
 						libtimetest.ParseDateTime("2026-03-25T12:00:00Z").Time(),
 					),
 				).To(BeTrue())
@@ -119,9 +120,9 @@ var _ = Describe("GoalDeferOperation", func() {
 			It("sets defer_date to specified date", func() {
 				Expect(mockGoalStorage.WriteGoalCallCount()).To(Equal(1))
 				_, writtenGoal := mockGoalStorage.WriteGoalArgsForCall(0)
-				Expect(writtenGoal.DeferDate).NotTo(BeNil())
+				Expect(writtenGoal.DeferDate()).NotTo(BeNil())
 				expected := time.Date(2026, 12, 31, 0, 0, 0, 0, time.UTC)
-				actual := writtenGoal.DeferDate.Time()
+				actual := writtenGoal.DeferDate().Time()
 				Expect(actual).To(Equal(expected))
 			})
 

@@ -181,7 +181,8 @@ func removeFromList(fieldVal reflect.Value, value string) error {
 }
 
 // isReadOnlyTag returns true if the yaml tag marks the field as metadata (yaml:"-").
-func isReadOnlyTag(field reflect.StructField) bool {
+// NOTE: kept for Prompt 4 refactor that will delete frontmatter_reflect.go entirely.
+func isReadOnlyTag(field reflect.StructField) bool { //nolint:unused
 	return field.Tag.Get("yaml") == "-"
 }
 

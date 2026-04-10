@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.55.0
+
+- refactor: migrate `domain.Goal`, `domain.Theme`, `domain.Objective`, `domain.Vision` from YAML-tagged structs to `XxxFrontmatter`+`FileMetadata`+`Content` embedding with typed getters/setters
+- feat: add `GoalFrontmatter`, `ThemeFrontmatter`, `ObjectiveFrontmatter`, `VisionFrontmatter` typed wrappers with `GetField`/`SetField`/`ClearField` generic API preserving unknown frontmatter fields
+- feat: add `Validate` method to `GoalStatus`, `ThemeStatus`, `ObjectiveStatus`, `VisionStatus` with `AvailableXxxStatuses` and `XxxStatuses` types
+- refactor: update `goal.go`, `theme.go`, `objective.go`, `vision.go` storage to use `parseToFrontmatterMap`/`serializeMapAsFrontmatter`
+- refactor: replace reflection-based entity list operations in `frontmatter_entity.go` with per-entity typed operations; `entityGetOperation` and `entityShowOperation` use type switch
+- test: add `goal_frontmatter_test.go` covering typed getters, setters, unknown-field round-trips, date round-trips, and priority validation
+
 ## v0.54.0
 
 - refactor: migrate `domain.Task` from YAML-tagged struct to `TaskFrontmatter`+`FileMetadata`+`Content` embedding with typed getters/setters

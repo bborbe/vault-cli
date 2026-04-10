@@ -6,9 +6,9 @@ package storage //nolint:dupl // Objective and Vision storage have similar struc
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/bborbe/errors"
 
@@ -36,36 +36,33 @@ func (o *objectiveStorage) readObjectiveFromPath(
 ) (*domain.Objective, error) {
 	content, err := os.ReadFile(filePath) //#nosec G304 -- user-controlled vault path
 	if err != nil {
-		return nil, errors.Wrap(ctx, err, fmt.Sprintf("read file %s", filePath))
+		return nil, errors.Wrapf(ctx, err, "read file %s", filePath)
 	}
 
-	objective := &domain.Objective{
-		Name:     name,
-		Content:  string(content),
-		FilePath: filePath,
-	}
-
+	var modTime *time.Time
 	if info, err := os.Stat(filePath); err == nil {
 		t := info.ModTime().UTC()
-		objective.ModifiedDate = &t
+		modTime = &t
 	}
 
-	if err := o.parseFrontmatter(ctx, content, objective); err != nil {
+	data, err := o.parseToFrontmatterMap(ctx, content)
+	if err != nil {
 		return nil, errors.Wrap(ctx, err, "parse frontmatter")
 	}
 
-	return objective, nil
+	meta := domain.FileMetadata{Name: name, FilePath: filePath, ModifiedDate: modTime}
+	return domain.NewObjective(data, meta, domain.Content(content)), nil
 }
 
 // WriteObjective writes an objective to a markdown file.
 func (o *objectiveStorage) WriteObjective(ctx context.Context, objective *domain.Objective) error {
-	content, err := o.serializeWithFrontmatter(ctx, objective, objective.Content)
+	content, err := o.serializeMapAsFrontmatter(ctx, objective.RawMap(), string(objective.Content))
 	if err != nil {
 		return errors.Wrap(ctx, err, "serialize frontmatter")
 	}
 
 	if err := os.WriteFile(objective.FilePath, []byte(content), 0600); err != nil {
-		return errors.Wrap(ctx, err, fmt.Sprintf("write file %s", objective.FilePath))
+		return errors.Wrapf(ctx, err, "write file %s", objective.FilePath)
 	}
 
 	return nil

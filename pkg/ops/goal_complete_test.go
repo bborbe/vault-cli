@@ -45,10 +45,11 @@ var _ = Describe("GoalCompleteOperation", func() {
 		vaultName = "test-vault"
 		force = false
 
-		goal = &domain.Goal{
-			Name:   goalName,
-			Status: domain.GoalStatusActive,
-		}
+		goal = domain.NewGoal(
+			map[string]any{"status": "active"},
+			domain.FileMetadata{Name: goalName},
+			domain.Content(""),
+		)
 		mockGoalStorage.FindGoalByNameReturns(goal, nil)
 		mockGoalStorage.WriteGoalReturns(nil)
 		mockTaskStorage.ListTasksReturns(nil, nil)
@@ -74,7 +75,7 @@ var _ = Describe("GoalCompleteOperation", func() {
 
 	Context("goal already completed", func() {
 		BeforeEach(func() {
-			goal.Status = domain.GoalStatusCompleted
+			_ = goal.SetStatus(domain.GoalStatusCompleted)
 			mockGoalStorage.FindGoalByNameReturns(goal, nil)
 		})
 
@@ -179,7 +180,7 @@ var _ = Describe("GoalCompleteOperation", func() {
 		It("writes goal as completed", func() {
 			Expect(mockGoalStorage.WriteGoalCallCount()).To(Equal(1))
 			_, writtenGoal := mockGoalStorage.WriteGoalArgsForCall(0)
-			Expect(writtenGoal.Status).To(Equal(domain.GoalStatusCompleted))
+			Expect(writtenGoal.Status()).To(Equal(domain.GoalStatusCompleted))
 		})
 	})
 
@@ -252,8 +253,8 @@ var _ = Describe("GoalCompleteOperation", func() {
 		It("writes goal with completed status", func() {
 			Expect(mockGoalStorage.WriteGoalCallCount()).To(Equal(1))
 			_, writtenGoal := mockGoalStorage.WriteGoalArgsForCall(0)
-			Expect(writtenGoal.Status).To(Equal(domain.GoalStatusCompleted))
-			Expect(writtenGoal.Completed).NotTo(BeNil())
+			Expect(writtenGoal.Status()).To(Equal(domain.GoalStatusCompleted))
+			Expect(writtenGoal.Completed()).NotTo(BeNil())
 		})
 
 		It("returns result with success true", func() {

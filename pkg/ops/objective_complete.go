@@ -60,13 +60,13 @@ func (o *objectiveCompleteOperation) Execute(
 			)
 	}
 
-	if objective.Status == domain.ObjectiveStatusCompleted {
+	if objective.Status() == domain.ObjectiveStatusCompleted {
 		msg := fmt.Sprintf("objective %q is already completed", objectiveName)
 		return MutationResult{Success: false, Error: msg}, fmt.Errorf("%s", msg) //nolint:goerr113
 	}
 
-	objective.Status = domain.ObjectiveStatusCompleted
-	objective.Completed = libtime.ToDate(o.currentDateTime.Now().Time()).Ptr()
+	_ = objective.SetStatus(domain.ObjectiveStatusCompleted)
+	objective.SetCompleted(libtime.ToDate(o.currentDateTime.Now().Time()).Ptr())
 
 	if err := o.objectiveStorage.WriteObjective(ctx, objective); err != nil {
 		return MutationResult{

@@ -6,9 +6,9 @@ package storage
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/bborbe/errors"
 
@@ -36,39 +36,35 @@ func (g *goalStorage) readGoalFromPath(
 ) (*domain.Goal, error) {
 	content, err := os.ReadFile(filePath) //#nosec G304 -- user-controlled vault path
 	if err != nil {
-		return nil, errors.Wrap(ctx, err, fmt.Sprintf("read file %s", filePath))
+		return nil, errors.Wrapf(ctx, err, "read file %s", filePath)
 	}
 
-	goal := &domain.Goal{
-		Name:     name,
-		Content:  string(content),
-		FilePath: filePath,
-	}
-
+	var modTime *time.Time
 	if info, err := os.Stat(filePath); err == nil {
 		t := info.ModTime().UTC()
-		goal.ModifiedDate = &t
+		modTime = &t
 	}
 
-	if err := g.parseFrontmatter(ctx, content, goal); err != nil {
+	data, err := g.parseToFrontmatterMap(ctx, content)
+	if err != nil {
 		return nil, errors.Wrap(ctx, err, "parse frontmatter")
 	}
 
-	// Parse checkbox items from content
+	meta := domain.FileMetadata{Name: name, FilePath: filePath, ModifiedDate: modTime}
+	goal := domain.NewGoal(data, meta, domain.Content(content))
 	goal.Tasks = g.parseCheckboxes(string(content))
-
 	return goal, nil
 }
 
 // WriteGoal writes a goal to a markdown file.
 func (g *goalStorage) WriteGoal(ctx context.Context, goal *domain.Goal) error {
-	content, err := g.serializeWithFrontmatter(ctx, goal, goal.Content)
+	content, err := g.serializeMapAsFrontmatter(ctx, goal.RawMap(), string(goal.Content))
 	if err != nil {
 		return errors.Wrap(ctx, err, "serialize frontmatter")
 	}
 
 	if err := os.WriteFile(goal.FilePath, []byte(content), 0600); err != nil {
-		return errors.Wrap(ctx, err, fmt.Sprintf("write file %s", goal.FilePath))
+		return errors.Wrapf(ctx, err, "write file %s", goal.FilePath)
 	}
 
 	return nil

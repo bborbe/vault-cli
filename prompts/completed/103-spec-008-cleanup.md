@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [008-flexible-frontmatter-refactor]
+summary: Deleted reflection-based frontmatter helpers, removed dead storage methods, migrated decision.go to map-based pattern, and updated docs/development-patterns.md with Entity Structure section.
+container: vault-cli-103-spec-008-cleanup
+dark-factory-version: v0.108.0-dirty
 created: "2026-04-10T00:00:00Z"
 queued: "2026-04-10T21:46:01Z"
+started: "2026-04-10T22:50:50Z"
+completed: "2026-04-10T22:53:50Z"
 ---
 
 <summary>

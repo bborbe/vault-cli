@@ -1,8 +1,12 @@
 ---
-status: approved
+status: completed
 spec: [008-flexible-frontmatter-refactor]
+container: vault-cli-101-spec-008-task-migration
+dark-factory-version: v0.108.0-dirty
 created: "2026-04-10T00:00:00Z"
 queued: "2026-04-10T21:45:56Z"
+started: "2026-04-10T21:51:37Z"
+completed: "2026-04-10T22:26:25Z"
 ---
 
 <summary>

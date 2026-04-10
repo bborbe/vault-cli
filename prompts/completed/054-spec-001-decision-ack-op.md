@@ -1,6 +1,6 @@
 ---
 status: completed
-spec: ["001"]
+spec: [001-decision-list-ack]
 summary: Implemented DecisionAckOperation in pkg/ops/decision_ack.go with counterfeiter mock and full test coverage for ack, status override, JSON output, and error propagation
 container: vault-cli-054-spec-001-decision-ack-op
 dark-factory-version: v0.54.0

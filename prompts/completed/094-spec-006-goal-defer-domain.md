@@ -1,6 +1,6 @@
 ---
 status: completed
-spec: ["006"]
+spec: [006-goal-defer-date]
 summary: Added DeferDate *DateOrDateTime field to domain.Goal struct and extended frontmatter_reflect to handle *DateOrDateTime pointer type for generic set/get/clear operations, with full test coverage.
 container: vault-cli-094-spec-006-goal-defer-domain
 dark-factory-version: v0.67.3-dirty

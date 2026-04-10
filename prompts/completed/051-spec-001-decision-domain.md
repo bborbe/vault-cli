@@ -1,6 +1,6 @@
 ---
 status: completed
-spec: ["001"]
+spec: [001-decision-list-ack]
 summary: Created Decision domain struct in pkg/domain/decision.go with YAML frontmatter fields and DecisionID type, plus unit tests verifying YAML round-tripping and omitempty behavior.
 container: vault-cli-051-spec-001-decision-domain
 dark-factory-version: v0.54.0

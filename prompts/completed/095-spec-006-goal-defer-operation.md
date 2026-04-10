@@ -1,6 +1,6 @@
 ---
 status: completed
-spec: ["006"]
+spec: [006-goal-defer-date]
 summary: Created GoalDeferOperation with shared date-parsing helpers extracted from deferOperation, wired vault-cli goal defer CLI command, generated mock, and wrote tests with ≥80% coverage.
 container: vault-cli-095-spec-006-goal-defer-operation
 dark-factory-version: v0.67.3-dirty

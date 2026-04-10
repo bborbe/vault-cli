@@ -1,6 +1,6 @@
 ---
 status: completed
-spec: ["004"]
+spec: [004-entity-complete-commands]
 summary: Wired goal complete and objective complete subcommands into createGoalCommands and createObjectiveCommands in pkg/cli/cli.go
 container: vault-cli-076-spec-004-cli-wiring
 dark-factory-version: v0.57.5

@@ -1,6 +1,6 @@
 ---
 status: completed
-spec: ["005"]
+spec: [005-ops-no-stdout]
 summary: Refactored five query operations (list, show, search, decision-list, entity-show) to return structured results instead of writing to stdout; CLI layer now owns all output formatting
 container: vault-cli-091-spec-005-query-ops
 dark-factory-version: v0.59.5-dirty

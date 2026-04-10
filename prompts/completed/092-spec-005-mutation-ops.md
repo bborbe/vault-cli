@@ -1,6 +1,6 @@
 ---
 status: completed
-spec: ["005"]
+spec: [005-ops-no-stdout]
 summary: Refactored seven mutation operations (complete, defer, workon, update, decision-ack, goal-complete, objective-complete) to return (MutationResult, error) and never write to stdout; CLI layer now owns all output formatting.
 container: vault-cli-092-spec-005-mutation-ops
 dark-factory-version: v0.59.5-dirty

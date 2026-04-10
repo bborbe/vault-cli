@@ -1,6 +1,6 @@
 ---
 status: completed
-spec: ["004"]
+spec: [004-entity-complete-commands]
 summary: Added Completed *libtime.Date field to Goal and Objective structs, added ListTasks to TaskStorage interface, and regenerated all counterfeiter mocks.
 container: vault-cli-074-spec-004-domain-storage
 dark-factory-version: v0.57.5

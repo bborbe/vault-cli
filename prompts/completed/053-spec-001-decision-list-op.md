@@ -1,6 +1,6 @@
 ---
 status: completed
-spec: ["001"]
+spec: [001-decision-list-ack]
 summary: Implemented DecisionListOperation in pkg/ops/decision_list.go with filter modes (unreviewed/reviewed/all), plain and JSON output, alphabetical sorting, and generated counterfeiter mock; tests cover all filter modes, output formats, empty results, and sorting at 85.9% coverage
 container: vault-cli-053-spec-001-decision-list-op
 dark-factory-version: v0.54.0

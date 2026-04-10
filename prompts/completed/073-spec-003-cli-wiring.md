@@ -1,6 +1,6 @@
 ---
 status: completed
-spec: ["003"]
+spec: [003-list-field-add-remove]
 summary: Wired EntityListAddOperation and EntityListRemoveOperation into the CLI by adding createEntityListAddCommand and createEntityListRemoveCommand helpers and add/remove subcommands to task, goal, theme, objective, and vision command groups; also extracted createTaskCommands helper to fix funlen linter violation.
 container: vault-cli-073-spec-003-cli-wiring
 dark-factory-version: v0.57.5

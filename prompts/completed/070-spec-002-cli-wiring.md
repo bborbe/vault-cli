@@ -1,6 +1,6 @@
 ---
 status: completed
-spec: ["002"]
+spec: [002-generic-frontmatter-ops]
 summary: Added createEntityGetCommand/SetCommand/ClearCommand/ShowCommand helpers and wired get/set/clear/show subcommands into goal, theme, objective, and vision CLI command groups using the VaultDispatcher pattern
 container: vault-cli-070-spec-002-cli-wiring
 dark-factory-version: v0.57.5

@@ -1,6 +1,6 @@
 ---
 status: completed
-spec: ["007"]
+spec: [007-task-identifier-field]
 container: vault-cli-097-spec-007-backfill-operation
 dark-factory-version: v0.68.1-dirty
 created: "2026-03-27T00:00:00Z"

@@ -1,6 +1,6 @@
 ---
 status: completed
-spec: ["003"]
+spec: [003-list-field-add-remove]
 summary: Added EntityListAddOperation and EntityListRemoveOperation to the generic entity frontmatter ops layer, with isListField/appendToList/removeFromList reflection helpers and constructors for all five entity types (task, goal, theme, objective, vision)
 container: vault-cli-072-spec-003-list-ops
 dark-factory-version: v0.57.5

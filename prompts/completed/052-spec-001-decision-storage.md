@@ -1,6 +1,6 @@
 ---
 status: completed
-spec: ["001"]
+spec: [001-decision-list-ack]
 summary: Added ListDecisions, FindDecisionByName, and WriteDecision to Storage interface with recursive vault scanning, symlink guard, ambiguous-match detection, and regenerated mocks
 container: vault-cli-052-spec-001-decision-storage
 dark-factory-version: v0.54.0

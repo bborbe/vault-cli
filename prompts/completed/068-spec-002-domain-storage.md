@@ -1,6 +1,6 @@
 ---
 status: completed
-spec: ["002"]
+spec: [002-generic-frontmatter-ops]
 summary: Created Objective and Vision domain structs and storage layer, added ThemeStorage/ObjectiveStorage/VisionStorage narrow interfaces with FindByName methods, generated counterfeiter mocks, and added test coverage above 80%.
 container: vault-cli-068-spec-002-domain-storage
 dark-factory-version: v0.57.5

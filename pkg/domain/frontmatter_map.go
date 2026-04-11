@@ -5,8 +5,12 @@
 package domain
 
 import (
+	"context"
 	"fmt"
 	"strings"
+	"time"
+
+	libtime "github.com/bborbe/time"
 )
 
 // FrontmatterMap is a typed wrapper around map[string]any that stores YAML frontmatter
@@ -42,6 +46,36 @@ func (f FrontmatterMap) GetString(key string) string {
 		return s
 	default:
 		return fmt.Sprintf("%v", v)
+	}
+}
+
+// GetTime returns the time.Time value stored for key.
+// Handles three shapes:
+//   - time.Time (YAML parses date/datetime literals into this automatically)
+//   - string (falls back to libtime.ParseTime for manually-authored values)
+//   - anything else → nil
+//
+// Returns nil on missing key, empty string, parse failure, or unsupported type.
+func (f FrontmatterMap) GetTime(key string) *time.Time {
+	v := f.data[key]
+	if v == nil {
+		return nil
+	}
+	switch t := v.(type) {
+	case time.Time:
+		tc := t
+		return &tc
+	case string:
+		if t == "" {
+			return nil
+		}
+		parsed, err := libtime.ParseTime(context.Background(), t)
+		if err != nil {
+			return nil
+		}
+		return parsed
+	default:
+		return nil
 	}
 }
 

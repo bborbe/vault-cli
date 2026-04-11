@@ -138,4 +138,26 @@ var _ = Describe("GoalFrontmatter", func() {
 			Expect(fm.GetField("nonexistent")).To(Equal(""))
 		})
 	})
+
+	Describe("DeferDate", func() {
+		It("returns nil for missing key", func() {
+			Expect(fm.DeferDate()).To(BeNil())
+		})
+
+		It("parses string value", func() {
+			fm = domain.NewGoalFrontmatter(map[string]any{"defer_date": "2026-04-13"})
+			d := fm.DeferDate()
+			Expect(d).NotTo(BeNil())
+			Expect(d.Time().UTC().Format("2006-01-02")).To(Equal("2026-04-13"))
+		})
+
+		It("handles time.Time value (YAML-parsed path)", func() {
+			fm = domain.NewGoalFrontmatter(
+				map[string]any{"defer_date": time.Date(2026, 4, 13, 0, 0, 0, 0, time.UTC)},
+			)
+			d := fm.DeferDate()
+			Expect(d).NotTo(BeNil())
+			Expect(d.Time().UTC().Format("2006-01-02")).To(Equal("2026-04-13"))
+		})
+	})
 })

@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.55.2
+
+- fix: add `FrontmatterMap.GetTime` helper that handles both `time.Time` (YAML-parsed) and `string` forms for date fields
+- fix: route `TaskFrontmatter.DeferDate`, `PlannedDate`, `DueDate`, `LastCompleted`, `CompletedDate` through `GetTime` so YAML-native date literals no longer produce nil or corrupted `"00:00:00 +0000 UTC"` strings
+- fix: route `GoalFrontmatter.DeferDate` through shared `GetTime` helper, replacing ad-hoc type assertion fallback
+- refactor: extract `formatTimeAsDate` helper and simplify `formatDateOrDateTime` to delegate to it
+- test: add `GetTime` unit tests covering time.Time, string, nil, empty string, wrong-type, missing-key, and unparseable-string paths
+- test: add unit tests for `TaskFrontmatter` date accessors covering both YAML-native `time.Time` and string input paths
+- test: add `GoalFrontmatter.DeferDate` unit tests for both input paths
+- test: add integration tests asserting `task show --output json` and `task list --output json` include correct date fields from YAML-native date literals
+
 ## v0.55.1
 
 - refactor: delete `pkg/ops/frontmatter_reflect.go` and its test — reflection-based field helpers replaced by map-based `FrontmatterMap` accessors

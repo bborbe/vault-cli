@@ -191,11 +191,112 @@ var _ = Describe("TaskFrontmatter", func() {
 			Expect(fm.DeferDate()).To(BeNil())
 		})
 
-		It("parses date-only value", func() {
+		It("parses date-only string value", func() {
 			fm = domain.NewTaskFrontmatter(map[string]any{"defer_date": "2026-03-01"})
 			d := fm.DeferDate()
 			Expect(d).NotTo(BeNil())
 			Expect(d.Time().UTC().Format("2006-01-02")).To(Equal("2026-03-01"))
+		})
+
+		It("handles time.Time value (YAML-parsed path)", func() {
+			fm = domain.NewTaskFrontmatter(
+				map[string]any{"defer_date": time.Date(2026, 4, 13, 0, 0, 0, 0, time.UTC)},
+			)
+			d := fm.DeferDate()
+			Expect(d).NotTo(BeNil())
+			Expect(d.Time().UTC().Format("2006-01-02")).To(Equal("2026-04-13"))
+		})
+	})
+
+	Describe("PlannedDate", func() {
+		It("returns nil for missing key", func() {
+			Expect(fm.PlannedDate()).To(BeNil())
+		})
+
+		It("parses date-only string value", func() {
+			fm = domain.NewTaskFrontmatter(map[string]any{"planned_date": "2026-05-01"})
+			d := fm.PlannedDate()
+			Expect(d).NotTo(BeNil())
+			Expect(d.Time().UTC().Format("2006-01-02")).To(Equal("2026-05-01"))
+		})
+
+		It("handles time.Time value (YAML-parsed path)", func() {
+			fm = domain.NewTaskFrontmatter(
+				map[string]any{"planned_date": time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC)},
+			)
+			d := fm.PlannedDate()
+			Expect(d).NotTo(BeNil())
+			Expect(d.Time().UTC().Format("2006-01-02")).To(Equal("2026-05-01"))
+		})
+	})
+
+	Describe("DueDate", func() {
+		It("returns nil for missing key", func() {
+			Expect(fm.DueDate()).To(BeNil())
+		})
+
+		It("parses date-only string value", func() {
+			fm = domain.NewTaskFrontmatter(map[string]any{"due_date": "2026-06-15"})
+			d := fm.DueDate()
+			Expect(d).NotTo(BeNil())
+			Expect(d.Time().UTC().Format("2006-01-02")).To(Equal("2026-06-15"))
+		})
+
+		It("handles time.Time value (YAML-parsed path)", func() {
+			fm = domain.NewTaskFrontmatter(
+				map[string]any{"due_date": time.Date(2026, 6, 15, 0, 0, 0, 0, time.UTC)},
+			)
+			d := fm.DueDate()
+			Expect(d).NotTo(BeNil())
+			Expect(d.Time().UTC().Format("2006-01-02")).To(Equal("2026-06-15"))
+		})
+	})
+
+	Describe("LastCompleted", func() {
+		It("returns empty string for missing key", func() {
+			Expect(fm.LastCompleted()).To(Equal(""))
+		})
+
+		It("formats time.Time midnight-UTC as YYYY-MM-DD (regression guard)", func() {
+			fm = domain.NewTaskFrontmatter(
+				map[string]any{"last_completed": time.Date(2026, 3, 8, 0, 0, 0, 0, time.UTC)},
+			)
+			Expect(fm.LastCompleted()).To(Equal("2026-03-08"))
+			Expect(fm.LastCompleted()).NotTo(ContainSubstring("00:00:00 +0000 UTC"))
+		})
+
+		It("parses string date value", func() {
+			fm = domain.NewTaskFrontmatter(map[string]any{"last_completed": "2026-03-08"})
+			Expect(fm.LastCompleted()).To(Equal("2026-03-08"))
+		})
+
+		It("formats datetime with non-zero time as RFC3339", func() {
+			fm = domain.NewTaskFrontmatter(map[string]any{"last_completed": "2026-03-08T12:30:00Z"})
+			Expect(fm.LastCompleted()).To(Equal("2026-03-08T12:30:00Z"))
+		})
+	})
+
+	Describe("CompletedDate", func() {
+		It("returns empty string for missing key", func() {
+			Expect(fm.CompletedDate()).To(Equal(""))
+		})
+
+		It("formats time.Time midnight-UTC as YYYY-MM-DD (regression guard)", func() {
+			fm = domain.NewTaskFrontmatter(
+				map[string]any{"completed_date": time.Date(2026, 3, 9, 0, 0, 0, 0, time.UTC)},
+			)
+			Expect(fm.CompletedDate()).To(Equal("2026-03-09"))
+			Expect(fm.CompletedDate()).NotTo(ContainSubstring("00:00:00 +0000 UTC"))
+		})
+
+		It("parses string date value", func() {
+			fm = domain.NewTaskFrontmatter(map[string]any{"completed_date": "2026-03-09"})
+			Expect(fm.CompletedDate()).To(Equal("2026-03-09"))
+		})
+
+		It("formats datetime with non-zero time as RFC3339", func() {
+			fm = domain.NewTaskFrontmatter(map[string]any{"completed_date": "2026-03-09T12:30:00Z"})
+			Expect(fm.CompletedDate()).To(Equal("2026-03-09T12:30:00Z"))
 		})
 	})
 

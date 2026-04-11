@@ -131,20 +131,8 @@ func (f GoalFrontmatter) Completed() *libtime.Date {
 
 // DeferDate reads "defer_date" key as *DateOrDateTime.
 func (f GoalFrontmatter) DeferDate() *DateOrDateTime {
-	v := f.Get("defer_date")
-	if v == nil {
-		return nil
-	}
-	if t, ok := v.(time.Time); ok {
-		d := DateOrDateTime(t)
-		return &d
-	}
-	raw := f.GetString("defer_date")
-	if raw == "" {
-		return nil
-	}
-	t, err := libtime.ParseTime(context.Background(), raw)
-	if err != nil {
+	t := f.GetTime("defer_date")
+	if t == nil {
 		return nil
 	}
 	d := DateOrDateTime(*t)

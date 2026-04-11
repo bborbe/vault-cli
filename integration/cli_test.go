@@ -5,6 +5,7 @@
 package integration_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -677,6 +678,122 @@ This is my task.
 				Expect(err).NotTo(HaveOccurred())
 				Eventually(session).Should(gexec.Exit(1))
 			})
+		})
+	})
+
+	Describe("vault-cli task show with YAML date literal", func() {
+		var vaultPath, configPath string
+		var cleanup func()
+
+		BeforeEach(func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"aqua": `---
+status: todo
+priority: 2
+defer_date: 2026-04-13
+---
+# Aqua
+`,
+			})
+		})
+
+		AfterEach(func() {
+			cleanup()
+		})
+
+		It("outputs defer_date in JSON when YAML has a native date literal", func() {
+			cmd := exec.Command(
+				binPath,
+				"--config", configPath,
+				"--vault", "test",
+				"task", "show", "aqua",
+				"--output", "json",
+			)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(0))
+			Expect(session.Out).To(gbytes.Say(`"defer_date":\s*"2026-04-13"`))
+			Expect(string(session.Out.Contents())).NotTo(ContainSubstring("00:00:00 +0000 UTC"))
+		})
+
+		// vaultPath is assigned in BeforeEach to avoid unused variable lint error
+		_ = &vaultPath
+	})
+
+	Describe("vault-cli task JSON schema", func() {
+		var configPath string
+		var cleanup func()
+
+		BeforeEach(func() {
+			_, configPath, cleanup = createTempVault(map[string]string{
+				"schema-task": `---
+status: in_progress
+priority: 2
+assignee: bborbe
+recurring: weekly
+phase: todo
+defer_date: 2026-04-13
+planned_date: "2026-04-15"
+due_date: 2026-04-20T10:30:00Z
+completed_date: "2026-03-09T12:30:00Z"
+last_completed: 2026-03-08
+task_identifier: 043d9cac-d56b-4a36-921e-b0e35819fb66
+goals:
+  - "[[Example Goal]]"
+tags:
+  - alpha
+---
+body
+`,
+			})
+		})
+
+		AfterEach(func() {
+			cleanup()
+		})
+
+		It("includes all date fields with correct values in task show --output json", func() {
+			cmd := exec.Command(
+				binPath,
+				"--config", configPath,
+				"--vault", "test",
+				"task", "show", "schema-task",
+				"--output", "json",
+			)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(0))
+
+			var parsed map[string]any
+			Expect(json.Unmarshal(session.Out.Contents(), &parsed)).To(Succeed())
+			Expect(parsed).To(HaveKeyWithValue("defer_date", "2026-04-13"))
+			Expect(parsed).To(HaveKeyWithValue("planned_date", "2026-04-15"))
+			Expect(parsed).To(HaveKeyWithValue("due_date", "2026-04-20T10:30:00Z"))
+			Expect(parsed).To(HaveKeyWithValue("completed_date", "2026-03-09T12:30:00Z"))
+			Expect(string(session.Out.Contents())).NotTo(ContainSubstring("00:00:00 +0000 UTC"))
+		})
+
+		It("includes all date fields with correct values in task list --output json", func() {
+			cmd := exec.Command(
+				binPath,
+				"--config", configPath,
+				"--vault", "test",
+				"task", "list",
+				"--output", "json",
+			)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(0))
+
+			var items []map[string]any
+			Expect(json.Unmarshal(session.Out.Contents(), &items)).To(Succeed())
+			Expect(items).To(HaveLen(1))
+			item := items[0]
+			Expect(item).To(HaveKeyWithValue("defer_date", "2026-04-13"))
+			Expect(item).To(HaveKeyWithValue("planned_date", "2026-04-15"))
+			Expect(item).To(HaveKeyWithValue("due_date", "2026-04-20T10:30:00Z"))
+			Expect(item).To(HaveKeyWithValue("completed_date", "2026-03-09T12:30:00Z"))
+			Expect(string(session.Out.Contents())).NotTo(ContainSubstring("00:00:00 +0000 UTC"))
 		})
 	})
 

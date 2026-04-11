@@ -69,15 +69,12 @@ func (f TaskFrontmatter) Priority() Priority {
 // Assignee reads "assignee" key as string.
 func (f TaskFrontmatter) Assignee() string { return f.GetString("assignee") }
 
-// DeferDate reads "defer_date" key, parses via libtime.ParseTime.
-// Returns nil on missing or parse failure.
+// DeferDate reads "defer_date" key as *DateOrDateTime.
+// Handles both time.Time (YAML-parsed) and string (hand-authored) forms.
+// Returns nil on missing or unparseable value.
 func (f TaskFrontmatter) DeferDate() *DateOrDateTime {
-	raw := f.GetString("defer_date")
-	if raw == "" {
-		return nil
-	}
-	t, err := libtime.ParseTime(context.Background(), raw)
-	if err != nil {
+	t := f.GetTime("defer_date")
+	if t == nil {
 		return nil
 	}
 	d := DateOrDateTime(*t)
@@ -103,36 +100,45 @@ func (f TaskFrontmatter) ClaudeSessionID() string { return f.GetString("claude_s
 // Recurring reads "recurring" key as string.
 func (f TaskFrontmatter) Recurring() string { return f.GetString("recurring") }
 
-// LastCompleted reads "last_completed" key as string.
-func (f TaskFrontmatter) LastCompleted() string { return f.GetString("last_completed") }
-
-// CompletedDate reads "completed_date" key as string.
-func (f TaskFrontmatter) CompletedDate() string { return f.GetString("completed_date") }
-
-// PlannedDate reads "planned_date" key, parses via libtime.ParseTime.
-// Returns nil on missing or parse failure.
-func (f TaskFrontmatter) PlannedDate() *DateOrDateTime {
-	raw := f.GetString("planned_date")
-	if raw == "" {
-		return nil
+// LastCompleted reads "last_completed" as a formatted date string.
+// Returns "" on missing value. Date-only values (midnight UTC) format as
+// "2006-01-02"; values with a time component format as RFC3339.
+func (f TaskFrontmatter) LastCompleted() string {
+	t := f.GetTime("last_completed")
+	if t == nil {
+		return ""
 	}
-	t, err := libtime.ParseTime(context.Background(), raw)
-	if err != nil {
+	return formatTimeAsDate(*t)
+}
+
+// CompletedDate reads "completed_date" as a formatted date string.
+// Same formatting rules as LastCompleted.
+func (f TaskFrontmatter) CompletedDate() string {
+	t := f.GetTime("completed_date")
+	if t == nil {
+		return ""
+	}
+	return formatTimeAsDate(*t)
+}
+
+// PlannedDate reads "planned_date" key as *DateOrDateTime.
+// Handles both time.Time (YAML-parsed) and string (hand-authored) forms.
+// Returns nil on missing or unparseable value.
+func (f TaskFrontmatter) PlannedDate() *DateOrDateTime {
+	t := f.GetTime("planned_date")
+	if t == nil {
 		return nil
 	}
 	d := DateOrDateTime(*t)
 	return &d
 }
 
-// DueDate reads "due_date" key, parses via libtime.ParseTime.
-// Returns nil on missing or parse failure.
+// DueDate reads "due_date" key as *DateOrDateTime.
+// Handles both time.Time (YAML-parsed) and string (hand-authored) forms.
+// Returns nil on missing or unparseable value.
 func (f TaskFrontmatter) DueDate() *DateOrDateTime {
-	raw := f.GetString("due_date")
-	if raw == "" {
-		return nil
-	}
-	t, err := libtime.ParseTime(context.Background(), raw)
-	if err != nil {
+	t := f.GetTime("due_date")
+	if t == nil {
 		return nil
 	}
 	d := DateOrDateTime(*t)
@@ -382,18 +388,23 @@ func (f *TaskFrontmatter) ClearField(key string) {
 	f.Delete(key)
 }
 
+// formatTimeAsDate serializes a time.Time using the same rule as formatDateOrDateTime:
+// YYYY-MM-DD for midnight-UTC values, RFC3339 preserving timezone otherwise.
+func formatTimeAsDate(t time.Time) string {
+	tUTC := t.UTC()
+	if tUTC.Hour() == 0 && tUTC.Minute() == 0 && tUTC.Second() == 0 && tUTC.Nanosecond() == 0 {
+		return tUTC.Format(time.DateOnly)
+	}
+	return t.Format(time.RFC3339)
+}
+
 // formatDateOrDateTime serializes a DateOrDateTime to YYYY-MM-DD for date-only values
 // (midnight UTC) and RFC3339 preserving the original timezone for values with a time component.
 func formatDateOrDateTime(d *DateOrDateTime) string {
 	if d == nil {
 		return ""
 	}
-	t := d.Time()
-	tUTC := t.UTC()
-	if tUTC.Hour() == 0 && tUTC.Minute() == 0 && tUTC.Second() == 0 && tUTC.Nanosecond() == 0 {
-		return tUTC.Format(time.DateOnly)
-	}
-	return t.Format(time.RFC3339)
+	return formatTimeAsDate(d.Time())
 }
 
 // stringSliceToAny converts []string to []any for map storage.

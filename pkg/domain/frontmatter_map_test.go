@@ -5,6 +5,8 @@
 package domain_test
 
 import (
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -161,6 +163,57 @@ var _ = Describe("FrontmatterMap", func() {
 		It("returns the underlying map", func() {
 			raw := fm.RawMap()
 			Expect(raw).To(HaveKeyWithValue("x", "y"))
+		})
+	})
+
+	Describe("GetTime", func() {
+		It("returns non-nil for time.Time value", func() {
+			t := time.Date(2026, 4, 13, 0, 0, 0, 0, time.UTC)
+			fm := domain.NewFrontmatterMap(map[string]any{"d": t})
+			result := fm.GetTime("d")
+			Expect(result).NotTo(BeNil())
+			Expect(result.UTC().Format("2006-01-02")).To(Equal("2026-04-13"))
+		})
+
+		It("parses ISO-8601 date-only string", func() {
+			fm := domain.NewFrontmatterMap(map[string]any{"d": "2026-04-13"})
+			result := fm.GetTime("d")
+			Expect(result).NotTo(BeNil())
+			Expect(result.UTC().Year()).To(Equal(2026))
+			Expect(result.UTC().Month()).To(Equal(time.April))
+			Expect(result.UTC().Day()).To(Equal(13))
+		})
+
+		It("parses RFC3339 datetime string", func() {
+			fm := domain.NewFrontmatterMap(map[string]any{"d": "2026-03-08T00:00:00Z"})
+			result := fm.GetTime("d")
+			Expect(result).NotTo(BeNil())
+			Expect(result.UTC().Format("2006-01-02")).To(Equal("2026-03-08"))
+		})
+
+		It("returns nil for nil value", func() {
+			fm := domain.NewFrontmatterMap(map[string]any{"d": nil})
+			Expect(fm.GetTime("d")).To(BeNil())
+		})
+
+		It("returns nil for empty string", func() {
+			fm := domain.NewFrontmatterMap(map[string]any{"d": ""})
+			Expect(fm.GetTime("d")).To(BeNil())
+		})
+
+		It("returns nil for wrong type (integer)", func() {
+			fm := domain.NewFrontmatterMap(map[string]any{"d": 42})
+			Expect(fm.GetTime("d")).To(BeNil())
+		})
+
+		It("returns nil for missing key", func() {
+			fm := domain.NewFrontmatterMap(nil)
+			Expect(fm.GetTime("absent")).To(BeNil())
+		})
+
+		It("returns nil for unparseable string", func() {
+			fm := domain.NewFrontmatterMap(map[string]any{"d": "not-a-date"})
+			Expect(fm.GetTime("d")).To(BeNil())
 		})
 	})
 })

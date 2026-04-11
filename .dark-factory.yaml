@@ -1,7 +1,8 @@
-pr: false
-worktree: false
-validationPrompt: docs/dod.md
 autoRelease: true
+pr: false
+testCommand: "make test"
+validationPrompt: docs/dod.md
+worktree: false
 env:
   GOPATH: /home/node/go
   GOCACHE: /home/node/.cache/go-build

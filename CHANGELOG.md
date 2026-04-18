@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.55.3
+
+- feat: add `/vault-cli:read-guides` command to load vault-cli docs + vault hierarchy writing guides (Vision/Theme/Objective/Goal/Task)
+- chore: ignore `.dark-factory.log`
+- chore: bump plugin manifest (`.claude-plugin/{plugin,marketplace}.json`) from 0.40.0 → 0.55.3 to match package version
+
 ## v0.55.2
 
 - fix: add `FrontmatterMap.GetTime` helper that handles both `time.Time` (YAML-parsed) and `string` forms for date fields

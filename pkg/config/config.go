@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -150,6 +151,14 @@ func (c *configLoader) Load(ctx context.Context) (*Config, error) {
 		return nil, fmt.Errorf("parse config yaml: %w", err)
 	}
 
+	config.DefaultVault = strings.ToLower(config.DefaultVault)
+	normalized := make(map[string]Vault, len(config.Vaults))
+	for key, vault := range config.Vaults {
+		vault.Name = strings.ToLower(vault.Name)
+		normalized[strings.ToLower(key)] = vault
+	}
+	config.Vaults = normalized
+
 	return &config, nil
 }
 
@@ -164,6 +173,7 @@ func (c *configLoader) GetVault(ctx context.Context, vaultName string) (*Vault, 
 	if vaultName == "" {
 		vaultName = config.DefaultVault
 	}
+	vaultName = strings.ToLower(vaultName)
 
 	// Look up vault
 	vault, ok := config.Vaults[vaultName]

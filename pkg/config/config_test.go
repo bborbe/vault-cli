@@ -93,6 +93,45 @@ vaults:
 			})
 		})
 
+		Context("mixed-case keys", func() {
+			BeforeEach(func() {
+				configData := `default_vault: Personal
+vaults:
+  Personal:
+    name: Personal
+    path: /path/personal
+  WORK:
+    name: WORK
+    path: /path/work
+`
+				err := os.WriteFile(configPath, []byte(configData), 0600)
+				Expect(err).To(BeNil())
+				loader = config.NewLoader(configPath)
+			})
+
+			It("normalizes vault map keys to lowercase", func() {
+				cfg, err := loader.Load(ctx)
+				Expect(err).To(BeNil())
+				Expect(cfg.Vaults).To(HaveKey("personal"))
+				Expect(cfg.Vaults).To(HaveKey("work"))
+				Expect(cfg.Vaults).NotTo(HaveKey("Personal"))
+				Expect(cfg.Vaults).NotTo(HaveKey("WORK"))
+			})
+
+			It("normalizes Vault.Name to lowercase", func() {
+				cfg, err := loader.Load(ctx)
+				Expect(err).To(BeNil())
+				Expect(cfg.Vaults["personal"].Name).To(Equal("personal"))
+				Expect(cfg.Vaults["work"].Name).To(Equal("work"))
+			})
+
+			It("normalizes DefaultVault to lowercase", func() {
+				cfg, err := loader.Load(ctx)
+				Expect(err).To(BeNil())
+				Expect(cfg.DefaultVault).To(Equal("personal"))
+			})
+		})
+
 		Context("malformed YAML", func() {
 			BeforeEach(func() {
 				configData := `current_user: user@example.com
@@ -168,6 +207,58 @@ vaults:
 			It("returns error", func() {
 				_, err := loader.GetVault(ctx, "nonexistent")
 				Expect(err).NotTo(BeNil())
+			})
+		})
+
+		Context("case-insensitive lookup", func() {
+			BeforeEach(func() {
+				configData := `vaults:
+  personal:
+    name: personal
+    path: /path/personal
+`
+				err := os.WriteFile(configPath, []byte(configData), 0600)
+				Expect(err).To(BeNil())
+				loader = config.NewLoader(configPath)
+			})
+
+			It("resolves mixed-case vault name", func() {
+				vault, err := loader.GetVault(ctx, "Personal")
+				Expect(err).To(BeNil())
+				Expect(vault.Name).To(Equal("personal"))
+				Expect(vault.Path).To(Equal("/path/personal"))
+			})
+
+			It("resolves upper-case vault name", func() {
+				vault, err := loader.GetVault(ctx, "PERSONAL")
+				Expect(err).To(BeNil())
+				Expect(vault.Name).To(Equal("personal"))
+			})
+
+			It("still returns error for unknown vault regardless of case", func() {
+				_, err := loader.GetVault(ctx, "Nonexistent")
+				Expect(err).NotTo(BeNil())
+				Expect(err.Error()).To(ContainSubstring("vault not found"))
+			})
+		})
+
+		Context("mixed-case default vault", func() {
+			BeforeEach(func() {
+				configData := `default_vault: Personal
+vaults:
+  personal:
+    name: personal
+    path: /path/personal
+`
+				err := os.WriteFile(configPath, []byte(configData), 0600)
+				Expect(err).To(BeNil())
+				loader = config.NewLoader(configPath)
+			})
+
+			It("resolves default vault when called with empty name", func() {
+				vault, err := loader.GetVault(ctx, "")
+				Expect(err).To(BeNil())
+				Expect(vault.Name).To(Equal("personal"))
 			})
 		})
 

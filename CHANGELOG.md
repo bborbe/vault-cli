@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.56.0
+
+- feat: make vault name lookup case-insensitive by normalizing config keys, Vault.Name, and DefaultVault to lowercase on load
+
 ## v0.55.3
 
 - feat: add `/vault-cli:read-guides` command to load vault-cli docs + vault hierarchy writing guides (Vision/Theme/Objective/Goal/Task)

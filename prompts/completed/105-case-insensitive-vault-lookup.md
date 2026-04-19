@@ -1,13 +1,12 @@
 ---
-status: committing
+status: completed
 summary: Implemented case-insensitive vault name lookup by normalizing config keys, Vault.Name, and DefaultVault to lowercase on load, and lowercasing vaultName before map lookup in GetVault; added corresponding Ginkgo tests for mixed-case scenarios.
 container: vault-cli-105-case-insensitive-vault-lookup
 dark-factory-version: v0.125.1
 created: "2026-04-19T00:00:00Z"
 queued: "2026-04-19T11:21:01Z"
 started: "2026-04-19T11:43:38Z"
-completed: "2026-04-19T11:23:46Z"
-lastFailReason: 'validate completion report: completion report status: partial'
+completed: "2026-04-19T11:47:13Z"
 ---
 
 <summary>

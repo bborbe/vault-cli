@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.57.1
+
+- Add CLAUDE.md project documentation
+- Remove .idea/ IDE config from repository
+- Restructure scenarios with NNN prefix and `/tmp/new-vault-cli` fresh-binary build pattern (dark-factory §2a); split task lifecycle into non-recurring + recurring scenarios
+
 ## v0.57.0
 
 - feat: Add optional template path fields (task_template, goal_template, theme_template, objective_template, vision_template) to vault config with path resolution

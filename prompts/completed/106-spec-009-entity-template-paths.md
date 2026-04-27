@@ -1,5 +1,5 @@
 ---
-status: committing
+status: completed
 spec: [009-entity-templates]
 summary: Added five optional template path fields (task_template, goal_template, theme_template, objective_template, vision_template) to Vault struct with path resolution helper, typed accessors, resolution in GetVault and GetAllVaults, comprehensive Ginkgo tests, and CHANGELOG entry.
 container: vault-cli-106-spec-009-entity-template-paths
@@ -7,6 +7,7 @@ dark-factory-version: v0.135.19-1-gc08c946
 created: "2026-04-27T10:00:00Z"
 queued: "2026-04-27T10:02:50Z"
 started: "2026-04-27T10:03:45Z"
+completed: "2026-04-27T10:39:46Z"
 branch: dark-factory/entity-templates
 ---
 

@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.58.0
+
+- feat: Add `/create-task` slash command and `task-creator` agent to the plugin (generic, vault-config-driven; reads `task_template`, no hardcoded paths or assignees)
+- chore: Bump plugin and marketplace manifest versions to 0.58.0 (previously stuck at 0.55.3)
+
 ## v0.57.1
 
 - Add CLAUDE.md project documentation

@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.57.0
+
+- feat: Add optional template path fields (task_template, goal_template, theme_template, objective_template, vision_template) to vault config with path resolution
+
 ## v0.56.0
 
 - feat: make vault name lookup case-insensitive by normalizing config keys, Vault.Name, and DefaultVault to lowercase on load

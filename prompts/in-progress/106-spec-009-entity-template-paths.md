@@ -1,7 +1,12 @@
 ---
-status: created
+status: committing
 spec: [009-entity-templates]
+summary: Added five optional template path fields (task_template, goal_template, theme_template, objective_template, vision_template) to Vault struct with path resolution helper, typed accessors, resolution in GetVault and GetAllVaults, comprehensive Ginkgo tests, and CHANGELOG entry.
+container: vault-cli-106-spec-009-entity-template-paths
+dark-factory-version: v0.135.19-1-gc08c946
 created: "2026-04-27T10:00:00Z"
+queued: "2026-04-27T10:02:50Z"
+started: "2026-04-27T10:03:45Z"
 branch: dark-factory/entity-templates
 ---
 
@@ -122,7 +127,7 @@ templateFields := []*string{
 for _, f := range templateFields {
     resolved, err := resolveTemplatePath(*f, vault.Path)
     if err != nil {
-        return nil, err
+        return nil, fmt.Errorf("resolve template path: %w", err)
     }
     *f = resolved
 }
@@ -211,6 +216,9 @@ Use the existing `Load` test configs (no `*_template` fields) and confirm `GetTa
 **Round-trip serialization (YAML marshal/unmarshal):**
 Construct a `Vault` with only `task_template` set. Marshal to YAML with `yaml.Marshal`. Assert the output contains `task_template:`. Then marshal a `Vault` with no template fields set; assert the output does NOT contain `task_template` (omitempty).
 
+**`GetAllVaults` resolves template paths:**
+Add at least one test that calls `loader.GetAllVaults(ctx)` against a config with a relative `task_template`, and asserts the returned vault's `GetTaskTemplate()` is the absolute resolved path. This ensures the resolution block in `GetAllVaults` (req #5) is exercised.
+
 ### 7. Update CHANGELOG.md
 
 Add under `## Unreleased` (create the section if it does not exist, immediately after the `# Changelog` heading):
@@ -231,6 +239,7 @@ Add under `## Unreleased` (create the section if it does not exist, immediately 
 - Do NOT commit — dark-factory handles git
 - Template fields must use `omitempty` on both yaml and json tags so existing configs without them are unaffected
 - The accessor methods must be simple field readers — all resolution happens in `GetVault` and `GetAllVaults`
+- Unlike the existing `Get*Dir()` accessors which return defaults (e.g. `"Tasks"`, `"21 Themes"`), the new `Get*Template()` accessors return empty string when the field is unset — there is no default template path
 </constraints>
 
 <verification>

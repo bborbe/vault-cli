@@ -33,6 +33,11 @@ type Vault struct {
 	DailyDir          string   `yaml:"daily_dir,omitempty"           json:"daily_dir,omitempty"`
 	ClaudeScript      string   `yaml:"claude_script,omitempty"       json:"claude_script,omitempty"`
 	SessionProjectDir string   `yaml:"session_project_dir,omitempty" json:"session_project_dir,omitempty"`
+	TaskTemplate      string   `yaml:"task_template,omitempty"       json:"task_template,omitempty"`
+	GoalTemplate      string   `yaml:"goal_template,omitempty"       json:"goal_template,omitempty"`
+	ThemeTemplate     string   `yaml:"theme_template,omitempty"      json:"theme_template,omitempty"`
+	ObjectiveTemplate string   `yaml:"objective_template,omitempty"  json:"objective_template,omitempty"`
+	VisionTemplate    string   `yaml:"vision_template,omitempty"     json:"vision_template,omitempty"`
 	Excludes          []string `yaml:"excludes,omitempty"            json:"excludes,omitempty"`
 }
 
@@ -92,6 +97,31 @@ func (v *Vault) GetExcludes() []string {
 // GetSessionProjectDir returns the session project directory override, or empty string if not set.
 func (v *Vault) GetSessionProjectDir() string {
 	return v.SessionProjectDir
+}
+
+// GetTaskTemplate returns the resolved absolute path to the task template, or empty string if not set.
+func (v *Vault) GetTaskTemplate() string {
+	return v.TaskTemplate
+}
+
+// GetGoalTemplate returns the resolved absolute path to the goal template, or empty string if not set.
+func (v *Vault) GetGoalTemplate() string {
+	return v.GoalTemplate
+}
+
+// GetThemeTemplate returns the resolved absolute path to the theme template, or empty string if not set.
+func (v *Vault) GetThemeTemplate() string {
+	return v.ThemeTemplate
+}
+
+// GetObjectiveTemplate returns the resolved absolute path to the objective template, or empty string if not set.
+func (v *Vault) GetObjectiveTemplate() string {
+	return v.ObjectiveTemplate
+}
+
+// GetVisionTemplate returns the resolved absolute path to the vision template, or empty string if not set.
+func (v *Vault) GetVisionTemplate() string {
+	return v.VisionTemplate
 }
 
 // GetClaudeScript returns the claude script to use for sessions, defaulting to "claude" if not set.
@@ -198,6 +228,21 @@ func (c *configLoader) GetVault(ctx context.Context, vaultName string) (*Vault, 
 		vault.SessionProjectDir = filepath.Join(homeDir, vault.SessionProjectDir[1:])
 	}
 
+	templateFields := []*string{
+		&vault.TaskTemplate,
+		&vault.GoalTemplate,
+		&vault.ThemeTemplate,
+		&vault.ObjectiveTemplate,
+		&vault.VisionTemplate,
+	}
+	for _, f := range templateFields {
+		resolved, err := resolveTemplatePath(*f, vault.Path)
+		if err != nil {
+			return nil, fmt.Errorf("resolve template path: %w", err)
+		}
+		*f = resolved
+	}
+
 	return &vault, nil
 }
 
@@ -226,6 +271,20 @@ func (c *configLoader) GetAllVaults(ctx context.Context) ([]*Vault, error) {
 			}
 			v.SessionProjectDir = filepath.Join(homeDir, v.SessionProjectDir[1:])
 		}
+		templateFields := []*string{
+			&v.TaskTemplate,
+			&v.GoalTemplate,
+			&v.ThemeTemplate,
+			&v.ObjectiveTemplate,
+			&v.VisionTemplate,
+		}
+		for _, f := range templateFields {
+			resolved, err := resolveTemplatePath(*f, v.Path)
+			if err != nil {
+				return nil, fmt.Errorf("resolve template path: %w", err)
+			}
+			*f = resolved
+		}
 		vaults = append(vaults, &v)
 	}
 
@@ -251,6 +310,28 @@ func (c *configLoader) GetCurrentUser(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("current_user not configured")
 	}
 	return config.CurrentUser, nil
+}
+
+// resolveTemplatePath resolves a template field value to an absolute path.
+// Returns empty string if value is empty.
+// Expands a leading ~ to the user home directory.
+// Joins a relative path against vaultPath (already an absolute path).
+// Returns an absolute path unchanged.
+func resolveTemplatePath(value, vaultPath string) (string, error) {
+	if value == "" {
+		return "", nil
+	}
+	if len(value) > 0 && value[0] == '~' {
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			return "", fmt.Errorf("get home directory: %w", err)
+		}
+		return filepath.Join(homeDir, value[1:]), nil
+	}
+	if filepath.IsAbs(value) {
+		return value, nil
+	}
+	return filepath.Join(vaultPath, value), nil
 }
 
 // getDefaultConfig returns a default configuration.

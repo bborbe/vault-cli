@@ -11,6 +11,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"gopkg.in/yaml.v3"
 
 	"github.com/bborbe/vault-cli/pkg/config"
 )
@@ -346,6 +347,190 @@ vaults:
 		It("returns error for unknown vault", func() {
 			_, err := loader.GetVaultPath(ctx, "nonexistent")
 			Expect(err).NotTo(BeNil())
+		})
+	})
+
+	Describe("Vault template accessors", func() {
+		Context("when no template fields are set", func() {
+			BeforeEach(func() {
+				configData := `vaults:
+  main:
+    name: main
+    path: /vault/main
+`
+				err := os.WriteFile(configPath, []byte(configData), 0600)
+				Expect(err).To(BeNil())
+				loader = config.NewLoader(configPath)
+			})
+
+			It("GetTaskTemplate returns empty string", func() {
+				vault, err := loader.GetVault(ctx, "main")
+				Expect(err).To(BeNil())
+				Expect(vault.GetTaskTemplate()).To(Equal(""))
+			})
+
+			It("GetGoalTemplate returns empty string", func() {
+				vault, err := loader.GetVault(ctx, "main")
+				Expect(err).To(BeNil())
+				Expect(vault.GetGoalTemplate()).To(Equal(""))
+			})
+
+			It("GetThemeTemplate returns empty string", func() {
+				vault, err := loader.GetVault(ctx, "main")
+				Expect(err).To(BeNil())
+				Expect(vault.GetThemeTemplate()).To(Equal(""))
+			})
+
+			It("GetObjectiveTemplate returns empty string", func() {
+				vault, err := loader.GetVault(ctx, "main")
+				Expect(err).To(BeNil())
+				Expect(vault.GetObjectiveTemplate()).To(Equal(""))
+			})
+
+			It("GetVisionTemplate returns empty string", func() {
+				vault, err := loader.GetVault(ctx, "main")
+				Expect(err).To(BeNil())
+				Expect(vault.GetVisionTemplate()).To(Equal(""))
+			})
+		})
+
+		Context("when task_template is an absolute path", func() {
+			BeforeEach(func() {
+				configData := `vaults:
+  main:
+    name: main
+    path: /vault/main
+    task_template: /absolute/path/task.md
+`
+				err := os.WriteFile(configPath, []byte(configData), 0600)
+				Expect(err).To(BeNil())
+				loader = config.NewLoader(configPath)
+			})
+
+			It("returns the absolute path unchanged", func() {
+				vault, err := loader.GetVault(ctx, "main")
+				Expect(err).To(BeNil())
+				Expect(vault.GetTaskTemplate()).To(Equal("/absolute/path/task.md"))
+			})
+		})
+
+		Context("when task_template is a relative path", func() {
+			BeforeEach(func() {
+				configData := `vaults:
+  main:
+    name: main
+    path: /vault/main
+    task_template: 90 Templates/Task Template.md
+`
+				err := os.WriteFile(configPath, []byte(configData), 0600)
+				Expect(err).To(BeNil())
+				loader = config.NewLoader(configPath)
+			})
+
+			It("resolves relative path against vault root", func() {
+				vault, err := loader.GetVault(ctx, "main")
+				Expect(err).To(BeNil())
+				Expect(
+					vault.GetTaskTemplate(),
+				).To(Equal("/vault/main/90 Templates/Task Template.md"))
+			})
+		})
+
+		Context("when task_template is a tilde-prefixed path", func() {
+			BeforeEach(func() {
+				configData := `vaults:
+  main:
+    name: main
+    path: /vault/main
+    task_template: ~/Templates/task.md
+`
+				err := os.WriteFile(configPath, []byte(configData), 0600)
+				Expect(err).To(BeNil())
+				loader = config.NewLoader(configPath)
+			})
+
+			It("expands tilde to home directory", func() {
+				homeDir, err := os.UserHomeDir()
+				Expect(err).To(BeNil())
+				vault, err := loader.GetVault(ctx, "main")
+				Expect(err).To(BeNil())
+				Expect(vault.GetTaskTemplate()).NotTo(ContainSubstring("~"))
+				Expect(vault.GetTaskTemplate()).To(HavePrefix(homeDir))
+			})
+		})
+
+		Context("when all five template fields are set to absolute paths", func() {
+			BeforeEach(func() {
+				configData := `vaults:
+  main:
+    name: main
+    path: /vault/main
+    task_template: /tmpl/task.md
+    goal_template: /tmpl/goal.md
+    theme_template: /tmpl/theme.md
+    objective_template: /tmpl/objective.md
+    vision_template: /tmpl/vision.md
+`
+				err := os.WriteFile(configPath, []byte(configData), 0600)
+				Expect(err).To(BeNil())
+				loader = config.NewLoader(configPath)
+			})
+
+			It("returns all five template paths correctly", func() {
+				vault, err := loader.GetVault(ctx, "main")
+				Expect(err).To(BeNil())
+				Expect(vault.GetTaskTemplate()).To(Equal("/tmpl/task.md"))
+				Expect(vault.GetGoalTemplate()).To(Equal("/tmpl/goal.md"))
+				Expect(vault.GetThemeTemplate()).To(Equal("/tmpl/theme.md"))
+				Expect(vault.GetObjectiveTemplate()).To(Equal("/tmpl/objective.md"))
+				Expect(vault.GetVisionTemplate()).To(Equal("/tmpl/vision.md"))
+			})
+		})
+
+		Context("round-trip YAML serialization", func() {
+			It("includes task_template in YAML when set", func() {
+				v := config.Vault{
+					Name:         "main",
+					Path:         "/vault/main",
+					TaskTemplate: "/tmpl/task.md",
+				}
+				data, err := yaml.Marshal(v)
+				Expect(err).To(BeNil())
+				Expect(string(data)).To(ContainSubstring("task_template"))
+			})
+
+			It("omits task_template from YAML when not set", func() {
+				v := config.Vault{
+					Name: "main",
+					Path: "/vault/main",
+				}
+				data, err := yaml.Marshal(v)
+				Expect(err).To(BeNil())
+				Expect(string(data)).NotTo(ContainSubstring("task_template"))
+			})
+		})
+
+		Context("GetAllVaults resolves template paths", func() {
+			BeforeEach(func() {
+				configData := `vaults:
+  main:
+    name: main
+    path: /vault/main
+    task_template: 90 Templates/Task Template.md
+`
+				err := os.WriteFile(configPath, []byte(configData), 0600)
+				Expect(err).To(BeNil())
+				loader = config.NewLoader(configPath)
+			})
+
+			It("resolves relative task_template against vault root", func() {
+				vaults, err := loader.GetAllVaults(ctx)
+				Expect(err).To(BeNil())
+				Expect(vaults).To(HaveLen(1))
+				Expect(
+					vaults[0].GetTaskTemplate(),
+				).To(Equal("/vault/main/90 Templates/Task Template.md"))
+			})
 		})
 	})
 

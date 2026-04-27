@@ -1,7 +1,8 @@
 ---
-status: generating
+status: prompted
 approved: "2026-04-27T09:44:27Z"
 generating: "2026-04-27T09:45:02Z"
+prompted: "2026-04-27T09:47:25Z"
 branch: dark-factory/entity-templates
 ---
 

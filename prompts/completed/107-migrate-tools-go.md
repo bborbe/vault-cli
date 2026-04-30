@@ -1,11 +1,12 @@
 ---
-status: committing
+status: completed
 summary: Migrated from tools.go to tools.env + Makefile @version pattern; deleted tools.go, dropped replace block, go.mod reduced from 452 to 49 lines, all CVE suppressions removed as their deps are gone, make precommit passes end-to-end.
 container: vault-cli-107-migrate-tools-go
 dark-factory-version: dev
 created: "2026-04-30T20:08:12Z"
 queued: "2026-04-30T20:08:12Z"
 started: "2026-04-30T20:08:13Z"
+completed: "2026-04-30T20:12:53Z"
 ---
 
 # Migrate from tools.go to tools.env + Makefile @version pattern

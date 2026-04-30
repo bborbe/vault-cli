@@ -3,8 +3,6 @@ name: goal-manager-agent
 description: Goal management operations — verification and status queries
 tools:
   - Read
-  - Write
-  - Edit
   - Glob
   - Grep
   - Bash
@@ -14,10 +12,20 @@ model: sonnet
 
 # Goal Manager Agent
 
-Handles goal operations: verify.
+Handles goal operations: status, verify.
 
-**Action:** $ACTION (verify)
+**Action:** $ACTION (status|verify)
 **Arguments:** $ARGS
+**Mode:** $MODE (interactive|tool) - default: interactive
+
+## Modes
+
+**interactive** (default): Full prompts, quality output
+**tool**: Minimal output for orchestration. Returns only:
+- Success: `{"success": true, ...}`
+- Failure: `{"success": false, "error": "..."}`
+
+**ALWAYS get current date/weekday at start:** `date +"%Y-%m-%d %A %u"`
 
 ## Constants
 
@@ -60,6 +68,61 @@ Extract success criteria checkboxes.
 3. Count completed vs pending
 
 ## Actions
+
+### status
+
+Show goal status. Accepts an explicit goal name/path, or detects from conversation if none given.
+
+**Arguments:** Optional goal name or path. If empty, detect from conversation.
+
+**Steps:**
+
+1. **Resolve goal:**
+   - If `$ARGS` is non-empty → use `find_goal($ARGS)` directly, skip detection
+   - If `$ARGS` is empty:
+     - MODE=interactive: parse conversation for file paths, wiki links, goal mentions
+       - 0 matches → error "No active goal detected; pass a goal name explicitly"
+       - >1 matches → AskUserQuestion to select
+     - MODE=tool: return `{"success": false, "error": "goal name required in tool mode"}` and STOP
+
+2. **Find goal file:**
+   ```
+   find_goal(goal_name)
+   ```
+
+3. **Parse Success Criteria:**
+   ```
+   criteria = parse_success_criteria(goal_path)
+   ```
+
+4. **Parse linked subtasks:**
+   ```
+   subtasks = get_subtask_statuses(goal_path)
+   ```
+
+5. **Calculate progress:**
+   - Criteria: completed / total × 100
+   - Subtasks: completed / total × 100
+
+6. **Extract next step:**
+   - If pending subtask exists → first pending subtask
+   - Else if in-progress subtask exists → first in-progress subtask
+   - Else if pending criterion exists → first pending criterion
+   - Else if all criteria complete and all subtasks completed → "Complete! Run /vault-cli:complete-goal"
+
+7. **Output:**
+   ```
+   🎯 Goal: {goal_name}
+   Status: {status}
+   Criteria: {completed}/{total} ({percent}%)
+   Subtasks: {completed}/{total} ({percent}%)
+   🔜 Next: {next_step}
+   ```
+
+8. **Warnings:**
+   - If status is `in_progress` but 0 subtasks in_progress: "⚠️ No active subtask. Pick one to start."
+   - If 100% on both criteria and subtasks: "🎉 Ready to complete!"
+   - If status `completed` but criteria/subtasks not 100%: "⚠️ Status mismatch — re-verify."
 
 ### verify
 

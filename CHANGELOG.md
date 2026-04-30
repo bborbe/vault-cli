@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.58.1
+
+- chore: Migrate to tools.env + Makefile @version pattern; remove tools.go and obsolete replace block. go.mod reduced from 452 to 49 lines
+
 ## v0.58.0
 
 - feat: Add `/create-task` slash command and `task-creator` agent to the plugin (generic, vault-config-driven; reads `task_template`, no hardcoded paths or assignees)

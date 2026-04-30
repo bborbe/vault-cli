@@ -14,7 +14,7 @@ replace (
 require (
 	github.com/bborbe/collection v1.20.11
 	github.com/bborbe/errors v1.5.11
-	github.com/bborbe/time v1.25.8
+	github.com/bborbe/time v1.25.10
 	github.com/bborbe/validation v1.4.12
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/golangci/golangci-lint/v2 v2.11.4
@@ -98,7 +98,7 @@ require (
 	github.com/aymerick/douceur v0.2.0 // indirect
 	github.com/bazelbuild/buildtools v0.0.0-20250826111327-4006b543a694 // indirect
 	github.com/bborbe/math v1.3.9 // indirect
-	github.com/bborbe/parse v1.10.9 // indirect
+	github.com/bborbe/parse v1.10.11 // indirect
 	github.com/bborbe/run v1.9.23 // indirect
 	github.com/bborbe/sentry v1.9.16 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect

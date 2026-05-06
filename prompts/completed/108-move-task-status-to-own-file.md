@@ -1,11 +1,12 @@
 ---
-status: committing
+status: completed
 summary: Moved TaskStatus type, constants, helpers, and related functions from pkg/domain/task.go into new file pkg/domain/task_status.go, mirroring the task_phase.go pattern; pruned imports from task.go; added CHANGELOG Unreleased entry.
 container: vault-cli-108-move-task-status-to-own-file
 dark-factory-version: v0.151.2-4-g3dc5753
 created: "2026-05-06T20:55:00Z"
 queued: "2026-05-06T19:57:41Z"
 started: "2026-05-06T19:58:19Z"
+completed: "2026-05-06T19:59:59Z"
 ---
 
 <summary>

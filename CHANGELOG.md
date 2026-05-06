@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.58.2
+
+- chore(domain): move `TaskStatus` and helpers to `pkg/domain/task_status.go` (mirrors `task_phase.go`); pure refactor, no API change
+
 ## v0.58.1
 
 - chore: Migrate to tools.env + Makefile @version pattern; remove tools.go and obsolete replace block. go.mod reduced from 452 to 49 lines

@@ -1,13 +1,13 @@
 module github.com/bborbe/vault-cli
 
-go 1.26.2
+go 1.26.3
 
 require (
-	github.com/bborbe/collection v1.20.11
-	github.com/bborbe/errors v1.5.11
-	github.com/bborbe/time v1.25.10
-	github.com/bborbe/validation v1.4.12
-	github.com/fsnotify/fsnotify v1.9.0
+	github.com/bborbe/collection v1.20.12
+	github.com/bborbe/errors v1.5.13
+	github.com/bborbe/time v1.25.11
+	github.com/bborbe/validation v1.4.13
+	github.com/fsnotify/fsnotify v1.10.1
 	github.com/google/uuid v1.6.0
 	github.com/onsi/ginkgo/v2 v2.28.3
 	github.com/onsi/gomega v1.40.0

@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.58.3
+
+- bump go 1.26.2 → 1.26.3
+- update bborbe/collection, errors, time, validation deps
+- update fsnotify v1.9.0 → v1.10.1
+
 ## v0.58.2
 
 - chore(domain): move `TaskStatus` and helpers to `pkg/domain/task_status.go` (mirrors `task_phase.go`); pure refactor, no API change

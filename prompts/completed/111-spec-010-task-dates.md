@@ -1,5 +1,5 @@
 ---
-status: committing
+status: completed
 spec: [010-unify-date-fields-to-dateordatetime]
 summary: Migrated Task completed_date and last_completed/last_completed_date from plain string storage to *libtime.DateOrDateTime, added created_date field, implemented dual-write for last_completed legacy key, updated ops/complete.go, show.go, list.go, and frontmatter_entity.go accordingly, and fixed pre-existing plugin version mismatch (0.58.6 → 0.58.7).
 container: vault-cli-111-spec-010-task-dates
@@ -7,6 +7,7 @@ dark-factory-version: v0.156.1-1-g04f3863-dirty
 created: "2026-05-08T00:00:00Z"
 queued: "2026-05-08T19:04:32Z"
 started: "2026-05-08T19:11:11Z"
+completed: "2026-05-08T19:17:24Z"
 branch: dark-factory/unify-date-fields-to-dateordatetime
 ---
 

@@ -6,8 +6,11 @@ package storage_test
 
 import (
 	"context"
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -601,6 +604,46 @@ page_type: task
 			pages, err := store.ListPages(ctx, vaultPath, "Empty")
 			Expect(err).To(BeNil())
 			Expect(pages).To(HaveLen(0))
+		})
+
+		It("returns empty list and no error when directory does not exist", func() {
+			// Confirm the raw os.ReadDir produces ErrNotExist for a missing path
+			missingPath := filepath.Join(vaultPath, "DoesNotExist", "sub")
+			_, rawErr := os.ReadDir(missingPath)
+			Expect(errors.Is(rawErr, fs.ErrNotExist)).To(BeTrue())
+
+			pages, err := store.ListPages(ctx, vaultPath, "DoesNotExist")
+			Expect(err).To(BeNil())
+			Expect(pages).To(BeEmpty())
+		})
+
+		It("returns error on permission denied", func() {
+			if runtime.GOOS == "windows" {
+				Skip("permission bits not supported on Windows")
+			}
+			if os.Geteuid() == 0 {
+				Skip("running as root; permission checks are ineffective")
+			}
+
+			restrictedDir := filepath.Join(vaultPath, "Restricted")
+			Expect(os.MkdirAll(restrictedDir, 0755)).To(Succeed())
+			Expect(os.Chmod(restrictedDir, 0)).To(Succeed())
+			defer func() { _ = os.Chmod(restrictedDir, 0755) }()
+
+			pages, err := store.ListPages(ctx, vaultPath, "Restricted")
+			Expect(err).NotTo(BeNil())
+			Expect(err.Error()).To(ContainSubstring("read directory"))
+			Expect(pages).To(BeNil())
+		})
+
+		It("returns error and is not ErrNotExist when path is a file not a directory", func() {
+			filePath := filepath.Join(vaultPath, "NotADir.md")
+			Expect(os.WriteFile(filePath, []byte("content"), 0600)).To(Succeed())
+
+			pages, err := store.ListPages(ctx, vaultPath, "NotADir.md")
+			Expect(err).NotTo(BeNil())
+			Expect(errors.Is(err, fs.ErrNotExist)).To(BeFalse())
+			Expect(pages).To(BeNil())
 		})
 	})
 

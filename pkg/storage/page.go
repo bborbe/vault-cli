@@ -7,6 +7,7 @@ package storage
 import (
 	"context"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -31,6 +32,10 @@ func (p *pageStorage) ListPages(
 
 	entries, err := os.ReadDir(targetDir)
 	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			slog.Debug("pages directory does not exist; returning empty list", "dir", targetDir)
+			return nil, nil
+		}
 		return nil, errors.Wrap(ctx, err, fmt.Sprintf("read directory %s", targetDir))
 	}
 

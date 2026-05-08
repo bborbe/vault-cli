@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.58.4
+
+- fix: `vault-cli {task,goal,theme,objective} list` now returns an empty list (exit 0) when the configured pages directory does not exist, instead of erroring. All other I/O errors (permission denied, broken symlinks, ENOTDIR) still error with the original wrapped message.
+
 ## v0.58.3
 
 - bump go 1.26.2 → 1.26.3

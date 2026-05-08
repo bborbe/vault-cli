@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.58.6
+
+- Update github.com/bborbe/time v1.25.11 → v1.27.0
+- Update golang.org/x/term v0.42.0 → v0.43.0
+- Update golang.org/x/sys v0.43.0 → v0.44.0
+- Update github.com/bborbe/parse v1.10.11 → v1.10.12
+
 ## v0.58.5
 
 - chore: Lock the four version strings (CHANGELOG top, `plugin.json`, `marketplace.json` metadata + plugins[0]) to a single value. Added `scripts/check-versions.sh`, wired into `make precommit` as `check-versions` target.

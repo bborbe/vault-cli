@@ -1,11 +1,12 @@
 ---
-status: committing
+status: completed
 summary: Modified ListPages in pkg/storage/page.go to return nil,nil when the pages directory does not exist (fs.ErrNotExist), added io/fs import, and added 3 new Ginkgo test cases covering missing dir, permission denied, and ENOTDIR scenarios, plus CHANGELOG entry.
 container: vault-cli-109-list-tolerates-missing-pages-dir
 dark-factory-version: v0.156.1-1-g04f3863-dirty
 created: "2026-05-08T12:35:00Z"
 queued: "2026-05-08T12:41:26Z"
 started: "2026-05-08T12:41:54Z"
+completed: "2026-05-08T12:44:13Z"
 ---
 
 <summary>

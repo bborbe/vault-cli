@@ -1,7 +1,9 @@
 ---
-spec: ["010"]
-status: draft
+status: approved
+spec: [010-unify-date-fields-to-dateordatetime]
 created: "2026-05-08T00:00:00Z"
+queued: "2026-05-08T19:04:32Z"
+branch: dark-factory/unify-date-fields-to-dateordatetime
 ---
 
 <summary>
@@ -32,11 +34,14 @@ Read `test-pyramid-triggers.md` in `~/.claude/plugins/marketplaces/coding/docs/`
 
 Key files to read before making changes:
 - `pkg/domain/goal_frontmatter.go` — full file; current StartDate/TargetDate return *time.Time; DeferDate already returns *libtime.DateOrDateTime after Prompt 1
-- `pkg/domain/task_frontmatter.go` — reference pattern: DeferDate/SetDeferDate, setDateField, formatDateOrDateTime
-- `pkg/ops/goal_complete.go` — check if it calls SetStartDate/SetTargetDate with *time.Time
-- Search for all callers: `grep -rn 'SetStartDate\|SetTargetDate\|\.StartDate()\|\.TargetDate()' pkg/ --include='*.go' | grep -i goal`
-- `pkg/domain/goal_frontmatter_test.go` (if exists) — existing test patterns
-- `vendor/github.com/bborbe/time/` — confirm libtime.DateOrDateTime construction from time.Time
+- `pkg/domain/task_frontmatter.go` — reference pattern: DeferDate/SetDeferDate, setDateField, formatDateOrDateTime. Both files are in the same `package domain` — `setDateField` is callable directly from `goal_frontmatter.go`.
+- Search for all callers: `grep -rn 'SetStartDate\|SetTargetDate\|\.StartDate()\|\.TargetDate()' --include='*.go' .`
+- `pkg/domain/goal_frontmatter_test.go` exists — extend it.
+- `github.com/bborbe/time` library: this repo is non-vendored. Use `go doc github.com/bborbe/time.DateOrDateTime`. Library type is `type DateOrDateTime stdtime.Time`; `libtime.DateOrDateTime(*t)` works directly.
+
+**Spec note (revised 2026-05-08)**: Compat-layer constraint dropped. Audit confirms zero external callers. Canonical `StartDate()`/`SetStartDate()`/`TargetDate()`/`SetTargetDate()` signatures change to `*libtime.DateOrDateTime`. No `*FromTime` shims required.
+
+**Precondition**: Prompt 1 must have completed. Verify with `grep -q 'libtime\.DateOrDateTime' pkg/domain/task_frontmatter.go`.
 </context>
 
 <requirements>
@@ -126,62 +131,24 @@ func (f *GoalFrontmatter) SetStartDate(d *libtime.DateOrDateTime) {
 }
 ```
 
-This replaces the old `SetStartDate(t *time.Time)`. The signature changes from `*time.Time` to `*libtime.DateOrDateTime`.
-
-#### 4b. Add SetStartDateFromTime() compat setter (if callers pass *time.Time)
-
-Per spec Non-goals: "Removing the `*time.Time`-based getter/setter API. Decision: keep as compatibility layer."
-Add a compat setter so existing callers compile unchanged:
-
-```go
-// SetStartDateFromTime stores start_date from a *time.Time.
-// Kept for backward compatibility. New callers should use SetStartDate(*libtime.DateOrDateTime).
-func (f *GoalFrontmatter) SetStartDateFromTime(t *time.Time) {
-    if t == nil {
-        f.Delete("start_date")
-        return
-    }
-    f.Set("start_date", t.UTC().Format(time.DateOnly))
-}
-```
-
-**Important:** If any existing caller called the OLD `SetStartDate(t *time.Time)`, it now calls a method that doesn't exist (signature changed). Options:
-1. Rename the compat version to the OLD name `SetStartDate` and give the new typed version a new name — but this is counter-intuitive
-2. OR: Update existing `*time.Time` callers to use `SetStartDateFromTime`
-
-Prefer option 2: update callers (found in step 1 audit) to call `SetStartDateFromTime`. If the audit found no callers, skip the compat setter entirely.
+This replaces the old `SetStartDate(t *time.Time)`. The signature changes from `*time.Time` to `*libtime.DateOrDateTime`. Update any in-tree callers found in step 1 audit to pass `*libtime.DateOrDateTime`.
 
 ### 5. Update pkg/domain/goal_frontmatter.go — SetTargetDate setter
 
-Same pattern as SetStartDate (steps 4a/4b).
+Same pattern as SetStartDate.
 
-### 6. Update pkg/domain/goal_frontmatter.go — setDateFromString helper
+### 6. Update pkg/domain/goal_frontmatter.go — SetField helper
 
-The existing `setDateFromString` helper parses only `YYYY-MM-DD` via `time.Parse(time.DateOnly, value)`. After migration, `start_date` and `target_date` accept both date-only and RFC3339. Replace the `*time.Time` setter with a `*libtime.DateOrDateTime` setter using `setDateField` from task_frontmatter.go (which is not directly callable across packages — the equivalent logic must be inlined or a package-local helper added).
-
-Inline the equivalent:
+`setDateField` in `task_frontmatter.go` is in the **same `domain` package** and is callable directly from `goal_frontmatter.go` — do NOT duplicate it. Use it directly:
 
 ```go
-func setGoalDateField(
-    ctx context.Context,
-    setter func(*libtime.DateOrDateTime),
-    value string,
-) error {
-    if value == "" {
-        setter(nil)
-        return nil
-    }
-    t, err := libtime.ParseTime(ctx, value)
-    if err != nil {
-        return errors.Wrap(ctx, err, "invalid date format (expected YYYY-MM-DD or RFC3339)")
-    }
-    d := libtime.DateOrDateTime(*t)
-    setter(&d)
-    return nil
-}
+case "start_date":
+    return setDateField(ctx, f.SetStartDate, value)
+case "target_date":
+    return setDateField(ctx, f.SetTargetDate, value)
 ```
 
-This replaces `setDateFromString` which accepted only `YYYY-MM-DD`. If `setDateFromString` is used elsewhere in `goal_frontmatter.go` for the `*time.Time` compat setter, keep it for that case.
+Remove `setDateFromString` (the `time.Parse(time.DateOnly, ...)` helper) once no caller remains.
 
 ### 7. Update GetField in GoalFrontmatter
 
@@ -194,29 +161,20 @@ case "target_date":
     return formatDateOrDateTime(f.TargetDate())
 ```
 
-Remove the old `t.UTC().Format(time.DateOnly)` formatting (the `formatDateOrDateTime` function preserves date-only as `YYYY-MM-DD` for midnight-UTC values — same output for existing date-only files).
+Remove the old `t.UTC().Format(time.DateOnly)` formatting.
 
 ### 8. Update SetField in GoalFrontmatter
 
-Change `start_date` and `target_date` cases to use `setGoalDateField`:
-
-```go
-case "start_date":
-    return setGoalDateField(ctx, f.SetStartDate, value)
-case "target_date":
-    return setGoalDateField(ctx, f.SetTargetDate, value)
-```
-
-Remove or rename the old `setDateFromString` method if no longer needed.
+Already covered in step 6.
 
 ### 9. Import cleanup in goal_frontmatter.go
 
-- `import "time"` — keep if used by `formatTimeAsDate` call or compat setter body
-- `libtime "github.com/bborbe/time"` — already imported; confirm correct alias
+- `import "time"` — keep if used by `formatTimeAsDate` or other paths; otherwise remove.
+- `libtime "github.com/bborbe/time"` — already imported.
 
-### 10. Write tests in pkg/domain/goal_frontmatter_test.go (create if absent)
+### 10. Extend tests in pkg/domain/goal_frontmatter_test.go
 
-If `pkg/domain/goal_frontmatter_test.go` does not exist, create it with the domain test suite bootstrap. Check whether `pkg/domain/domain_suite_test.go` already exists — if so, do NOT recreate it; just add the test file for GoalFrontmatter.
+`pkg/domain/goal_frontmatter_test.go` and `pkg/domain/domain_suite_test.go` already exist — extend the existing suite, do NOT recreate.
 
 Cover:
 - `StartDate()` returns nil when key absent
@@ -240,7 +198,7 @@ After each method change, run `make test` to catch compile errors immediately.
 
 <constraints>
 - `StartDate()` and `TargetDate()` getters MUST return `*libtime.DateOrDateTime` (not `*time.Time`)
-- Existing `*time.Time` setter callers must NOT be silently broken — audit (step 1) and either update callers or add compat setters with renamed method names
+- Audit (step 1) and update any in-tree caller that previously called `*time.Time`-typed Goal accessors. Spec compat-layer constraint dropped (revised 2026-05-08); no `*FromTime` shims required.
 - `DeferDate()` / `SetDeferDate()` must NOT be touched — they were already migrated in Prompt 1
 - `formatDateOrDateTime` and `GetTime` are shared helpers; do NOT redefine them in goal_frontmatter.go — use as-is from their respective packages
 - Round-trip rule: midnight-UTC values format as `YYYY-MM-DD`; values with time components format as RFC3339 with timezone — this is libtime.DateOrDateTime's public contract
@@ -263,12 +221,12 @@ grep -n 'func.*StartDate\|func.*TargetDate' pkg/domain/goal_frontmatter.go
 grep -A 10 'func.*GoalFrontmatter.*StartDate()' pkg/domain/goal_frontmatter.go
 # expected: uses GetTime() and DateOrDateTime, not time.Parse(time.DateOnly)
 
-# Confirm SetField uses setGoalDateField (not setDateFromString with time.Parse)
-grep 'setGoalDateField\|ParseTime' pkg/domain/goal_frontmatter.go
-# expected: setGoalDateField or libtime.ParseTime in SetField for start/target dates
+# Confirm SetField uses setDateField (the same helper task_frontmatter.go uses)
+grep 'setDateField\|setDateFromString' pkg/domain/goal_frontmatter.go
+# expected: setDateField in SetField for start/target dates; no setDateFromString remaining
 
-# Confirm *time.Time grep on getters returns nothing (only compat setters may have it)
-grep '\*time\.Time' pkg/domain/goal_frontmatter.go
-# expected: only in compat setter methods (SetStartDateFromTime etc.) if kept, not in getters
+# Confirm no *time.Time on canonical accessors
+grep -E 'StartDate\(|TargetDate\(|SetStartDate|SetTargetDate' pkg/domain/goal_frontmatter.go | grep '\*time\.Time'
+# expected: no output
 ```
 </verification>

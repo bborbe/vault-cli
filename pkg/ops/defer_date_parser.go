@@ -11,21 +11,19 @@ import (
 	"time"
 
 	libtime "github.com/bborbe/time"
-
-	"github.com/bborbe/vault-cli/pkg/domain"
 )
 
 // parseDeferDate parses a date string using the same rules as task defer:
 // +Nd (relative days), weekday names, YYYY-MM-DD (ISO date), RFC3339 datetime.
-func parseDeferDate(dateStr string, now time.Time) (domain.DateOrDateTime, error) {
+func parseDeferDate(dateStr string, now time.Time) (libtime.DateOrDateTime, error) {
 	// Handle relative dates: +1d, +7d, etc.
 	if matched, _ := regexp.MatchString(`^\+\d+d$`, dateStr); matched {
 		var days int
 		if _, err := fmt.Sscanf(dateStr, "+%dd", &days); err != nil {
-			return domain.DateOrDateTime{}, fmt.Errorf("parse relative date: %w", err)
+			return libtime.DateOrDateTime{}, fmt.Errorf("parse relative date: %w", err)
 		}
 		t := libtime.ToDate(now.AddDate(0, 0, days)).Time()
-		return domain.DateOrDateTime(t), nil
+		return libtime.DateOrDateTime(t), nil
 	}
 
 	// Handle weekday names
@@ -40,20 +38,20 @@ func parseDeferDate(dateStr string, now time.Time) (domain.DateOrDateTime, error
 	}
 	if weekday, ok := weekdayMap[strings.ToLower(dateStr)]; ok {
 		t := libtime.ToDate(nextWeekday(now, weekday)).Time()
-		return domain.DateOrDateTime(t), nil
+		return libtime.DateOrDateTime(t), nil
 	}
 
 	// Handle ISO date: 2024-12-31
 	if t, err := time.Parse("2006-01-02", dateStr); err == nil {
-		return domain.DateOrDateTime(t), nil
+		return libtime.DateOrDateTime(t), nil
 	}
 
 	// Handle RFC3339 datetime: 2026-03-19T16:00:00+01:00
 	if t, err := time.Parse(time.RFC3339, dateStr); err == nil {
-		return domain.DateOrDateTime(t), nil
+		return libtime.DateOrDateTime(t), nil
 	}
 
-	return domain.DateOrDateTime{}, fmt.Errorf(
+	return libtime.DateOrDateTime{}, fmt.Errorf(
 		"invalid date format: %s (use +Nd, weekday, YYYY-MM-DD, or RFC3339)",
 		dateStr,
 	)
@@ -61,7 +59,7 @@ func parseDeferDate(dateStr string, now time.Time) (domain.DateOrDateTime, error
 
 // isDeferDateInPast reports whether targetDate is in the past relative to now.
 // Date-only values (midnight UTC) are compared at day granularity so "today" is never past.
-func isDeferDateInPast(targetDate domain.DateOrDateTime, now time.Time) bool {
+func isDeferDateInPast(targetDate libtime.DateOrDateTime, now time.Time) bool {
 	targetT := targetDate.Time()
 	targetUTC := targetT.UTC()
 	if targetUTC.Hour() == 0 && targetUTC.Minute() == 0 && targetUTC.Second() == 0 &&

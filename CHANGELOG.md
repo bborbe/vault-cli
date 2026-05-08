@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.58.7
+
+- refactor: replace local domain.DateOrDateTime with libtime.DateOrDateTime from github.com/bborbe/time@v1.27.0
+
 ## v0.58.6
 
 - Update github.com/bborbe/time v1.25.11 → v1.27.0

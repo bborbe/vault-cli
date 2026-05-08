@@ -1,10 +1,11 @@
 ---
-status: generating
+status: prompted
 tags:
     - dark-factory
     - spec
 approved: "2026-05-08T17:52:30Z"
 generating: "2026-05-08T18:03:07Z"
+prompted: "2026-05-08T18:13:30Z"
 branch: dark-factory/unify-date-fields-to-dateordatetime
 ---
 
@@ -47,7 +48,7 @@ After this work:
 - Schema versioning or a frontmatter-format migration that rewrites existing vault files in place.
 - Changing CLI command surfaces (subcommands, flag names).
 - Introducing new date fields beyond Task `created_date` (which is in scope here — see Desired Behavior #1).
-- Removing the `*time.Time`-based getter/setter API. **Decision: keep as compatibility layer** — new `*DateOrDateTime` accessors are added alongside; existing `*time.Time` getters/setters remain and are implemented in terms of the new typed primitives. Lower migration risk for callers.
+- Maintaining `*time.Time`-based getter/setter signatures. **Decision (revised 2026-05-08): signatures may change.** A pre-execution audit confirmed zero external callers of `StartDate()`/`SetStartDate()`/`TargetDate()`/`SetTargetDate()` outside `pkg/domain/`. The compat-layer constraint was over-conservative; canonical accessors switch to `*libtime.DateOrDateTime`. Optional renamed `*FromTime` shims may be added if any in-tree caller cannot trivially migrate, but no spec contract requires them.
 - Permanently keeping the legacy `last_completed` frontmatter key. **In-spec rename to `last_completed_date`** with a one-release dual-write window (read either key, write both `last_completed` AND `last_completed_date`); old key is dropped in a follow-up release.
 
 ## Desired Behavior
@@ -60,7 +61,7 @@ After this work:
 6. A vault file authored with date-only YAML literals (`start_date: 2025-01-15`) reads cleanly and writes back as `2025-01-15`, not `2025-01-15T00:00:00Z`.
 7. A producer writing an RFC3339 timestamp (`2025-01-15T14:30:00+01:00`) reads back the same string with timezone preserved.
 8. The `defer_date` getter/setter signatures match between Task and Goal.
-9. Existing `*time.Time` getters and setters on Goal/Objective/Theme remain callable with unchanged signatures (compat layer); they delegate to the new `*DateOrDateTime` storage internally.
+9. Canonical `StartDate()`/`TargetDate()` etc. on Goal/Objective/Theme switch to `*libtime.DateOrDateTime`. No requirement to preserve `*time.Time` signatures (audit confirmed zero external callers). All in-tree call sites are updated as part of the relevant prompt.
 
 ## Constraints
 
@@ -77,7 +78,7 @@ After this work:
 |---------|-------------------|----------|
 | Vault file has `start_date: 2025-01-15` (YAML date literal) | Read as `*DateOrDateTime`, formats back as `2025-01-15` | None needed |
 | Vault file has `start_date: "2025-01-15T14:30:00+01:00"` (RFC3339 string) | Read with timezone preserved, round-trips identically | None needed |
-| Caller previously passed non-midnight `*time.Time` to `SetStartDate` | Compat layer kept (per `## Resolved Decisions` and Non-goals): `*time.Time` setters still accept and silently truncate to date-only as before. New `*DateOrDateTime` setters preserve the time component. | None needed — compat preserves legacy behavior |
+| Caller previously passed non-midnight `*time.Time` to `SetStartDate` | Audit confirmed zero such callers. Canonical setter signature switches to `*libtime.DateOrDateTime`; in-tree callers updated. | None — no external callers |
 | Producer writes garbage string to `defer_date` | Parse error surfaces at read time with field name and offending value | Fix producer |
 | Two date fields on the same entity disagree on form (one date-only, one RFC3339) | Both round-trip correctly in their own form | None needed |
 
@@ -91,14 +92,14 @@ Not applicable — this is internal data-model refactoring. No new HTTP, file, o
 - [ ] vault-cli go.mod is bumped to `bborbe/time@v1.27.0` (or later) and `pkg/domain/date_or_datetime.go` is deleted in favour of `libtime.DateOrDateTime`. All references in `pkg/domain/*_frontmatter.go` switch to the library type.
 - [ ] Migration is split into the 5 sequential prompts listed under `## Resolved Decisions` → "Migration ordering".
 - [ ] Follow-up issue/spec opened to drop the legacy `last_completed` write after one release cycle. (Closes the dual-write window.)
-- [ ] `grep -r '\*time.Time' pkg/domain/*_frontmatter.go` returns only compat-layer accessors (no remaining storage in `*time.Time`).
+- [ ] `grep -rn '\*time.Time' pkg/domain/*_frontmatter.go` returns no canonical date-field accessors (only places where `time.Time` appears via YAML auto-parsing helpers; no `Start/Target/Defer/Planned/Due/Reviewed` accessor returns or accepts `*time.Time`).
 - [ ] Task `created_date` (new), `completed_date`, and `last_completed_date` use `*DateOrDateTime`. `last_completed_date` is the canonical key; legacy `last_completed` is read as a fallback and dual-written for one release cycle.
 - [ ] Goal `start_date`, `target_date`, `defer_date` use `*DateOrDateTime`.
 - [ ] Objective `start_date`, `target_date` use `*DateOrDateTime`.
 - [ ] Theme `start_date`, `target_date` use `*DateOrDateTime`.
 - [ ] Decision `reviewed_date` uses `*DateOrDateTime`.
 - [ ] Cross-domain `defer_date` has identical type and behavior on Goal and Task.
-- [ ] Existing `*time.Time` getters/setters on Goal/Objective/Theme still compile and pass their tests (compat layer preserved).
+- [ ] All in-tree call sites compile against the new `*libtime.DateOrDateTime` signatures. (Compat-layer constraint dropped — audit confirmed zero external callers.)
 - [ ] A round-trip test loads a fixture with mixed date-only and RFC3339 values across all entity types, performs get/set via the CLI, and asserts no semantic loss and no form churn.
 - [ ] All existing tests pass.
 

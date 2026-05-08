@@ -8,6 +8,7 @@ import (
 	"context"
 	"time"
 
+	libtime "github.com/bborbe/time"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -380,9 +381,9 @@ var _ = Describe("ListOperation JSON output", func() {
 
 	Context("with all enriched fields populated", func() {
 		BeforeEach(func() {
-			deferDate := domain.DateOrDateTime(time.Date(2026, 3, 15, 0, 0, 0, 0, time.UTC))
-			plannedDate := domain.DateOrDateTime(time.Date(2026, 3, 20, 0, 0, 0, 0, time.UTC))
-			dueDate := domain.DateOrDateTime(time.Date(2026, 3, 25, 0, 0, 0, 0, time.UTC))
+			deferDate := libtime.DateOrDateTime(time.Date(2026, 3, 15, 0, 0, 0, 0, time.UTC))
+			plannedDate := libtime.DateOrDateTime(time.Date(2026, 3, 20, 0, 0, 0, 0, time.UTC))
+			dueDate := libtime.DateOrDateTime(time.Date(2026, 3, 25, 0, 0, 0, 0, time.UTC))
 			enrichedTask := domain.NewTask(
 				map[string]any{
 					"status":            "in_progress",
@@ -517,9 +518,9 @@ var _ = Describe("ListOperation JSON output", func() {
 	Context("with datetime date fields (non-zero time component)", func() {
 		BeforeEach(func() {
 			loc := time.FixedZone("CET", 3600)
-			deferDate := domain.DateOrDateTime(time.Date(2026, 3, 18, 16, 0, 0, 0, loc))
-			plannedDate := domain.DateOrDateTime(time.Date(2026, 3, 20, 9, 30, 0, 0, time.UTC))
-			dueDate := domain.DateOrDateTime(time.Date(2026, 3, 25, 0, 0, 0, 0, time.UTC))
+			deferDate := libtime.DateOrDateTime(time.Date(2026, 3, 18, 16, 0, 0, 0, loc))
+			plannedDate := libtime.DateOrDateTime(time.Date(2026, 3, 20, 9, 30, 0, 0, time.UTC))
+			dueDate := libtime.DateOrDateTime(time.Date(2026, 3, 25, 0, 0, 0, 0, time.UTC))
 			datetimeTask := domain.NewTask(
 				map[string]any{"status": "todo"},
 				domain.FileMetadata{Name: "Datetime Task"},

@@ -129,13 +129,13 @@ func (f GoalFrontmatter) Completed() *libtime.Date {
 	return d
 }
 
-// DeferDate reads "defer_date" key as *DateOrDateTime.
-func (f GoalFrontmatter) DeferDate() *DateOrDateTime {
+// DeferDate reads "defer_date" key as *libtime.DateOrDateTime.
+func (f GoalFrontmatter) DeferDate() *libtime.DateOrDateTime {
 	t := f.GetTime("defer_date")
 	if t == nil {
 		return nil
 	}
-	d := DateOrDateTime(*t)
+	d := libtime.DateOrDateTime(*t)
 	return &d
 }
 
@@ -203,7 +203,7 @@ func (f *GoalFrontmatter) SetCompleted(d *libtime.Date) {
 }
 
 // SetDeferDate stores the defer_date in the map. Deletes key if d is nil.
-func (f *GoalFrontmatter) SetDeferDate(d *DateOrDateTime) {
+func (f *GoalFrontmatter) SetDeferDate(d *libtime.DateOrDateTime) {
 	if d == nil {
 		f.Delete("defer_date")
 		return
@@ -343,7 +343,7 @@ func (f *GoalFrontmatter) setDeferDateFromString(ctx context.Context, value stri
 	if err != nil {
 		return errors.Wrap(ctx, err, "invalid date format")
 	}
-	d := DateOrDateTime(*t)
+	d := libtime.DateOrDateTime(*t)
 	f.SetDeferDate(&d)
 	return nil
 }

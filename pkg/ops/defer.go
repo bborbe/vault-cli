@@ -91,7 +91,7 @@ func (d *deferOperation) Execute(
 			existingUTC.Nanosecond() != 0 {
 			var days int
 			if _, err := fmt.Sscanf(dateStr, "+%dd", &days); err == nil {
-				targetDate = domain.DateOrDateTime(existingT.AddDate(0, 0, days))
+				targetDate = libtime.DateOrDateTime(existingT.AddDate(0, 0, days))
 			}
 		}
 	}
@@ -136,12 +136,12 @@ func (d *deferOperation) Execute(
 func (d *deferOperation) findAndDeferTask(
 	ctx context.Context,
 	task *domain.Task,
-	targetDate domain.DateOrDateTime,
+	targetDate libtime.DateOrDateTime,
 ) (*domain.Task, error) {
 	task.SetDeferDate(targetDate.Ptr())
 
 	// Clear planned_date if it's before the defer target date
-	if task.PlannedDate() != nil && task.PlannedDate().Before(targetDate.Time()) {
+	if task.PlannedDate() != nil && task.PlannedDate().Before(targetDate) {
 		task.SetPlannedDate(nil)
 	}
 
@@ -156,7 +156,7 @@ func (d *deferOperation) updateDailyNotes(
 	ctx context.Context,
 	vaultPath string,
 	taskName string,
-	targetDate domain.DateOrDateTime,
+	targetDate libtime.DateOrDateTime,
 ) []string {
 	var warnings []string
 	today := d.currentDateTime.Now().Format("2006-01-02")

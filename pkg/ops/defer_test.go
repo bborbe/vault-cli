@@ -173,7 +173,7 @@ var _ = Describe("DeferOperation", func() {
 				dateStr = "+1d"
 				loc := time.FixedZone("CET", 3600)
 				existing := time.Date(2026, 3, 4, 16, 0, 0, 0, loc)
-				dd := domain.DateOrDateTime(existing)
+				dd := libtime.DateOrDateTime(existing)
 				task.SetDeferDate(dd.Ptr())
 			})
 
@@ -195,7 +195,7 @@ var _ = Describe("DeferOperation", func() {
 			BeforeEach(func() {
 				dateStr = "+1d"
 				existing := time.Date(2026, 3, 4, 0, 0, 0, 0, time.UTC)
-				dd := domain.DateOrDateTime(existing)
+				dd := libtime.DateOrDateTime(existing)
 				task.SetDeferDate(dd.Ptr())
 			})
 
@@ -574,7 +574,7 @@ No section headings.
 					Time().
 					AddDate(0, 0, 3)
 					// 3 days from now (before target of +7d)
-				dd := domain.DateOrDateTime(libtime.ToDate(plannedDate).Time())
+				dd := libtime.DateOrDateTime(libtime.ToDate(plannedDate).Time())
 				task.SetPlannedDate(dd.Ptr())
 				dateStr = "+7d"
 			})
@@ -592,7 +592,7 @@ No section headings.
 				plannedDate := libtimetest.ParseDateTime("2026-03-03T12:00:00Z").Time().
 					AddDate(0, 0, 14)
 					// 14 days from now (after target of +7d)
-				dd := domain.DateOrDateTime(libtime.ToDate(plannedDate).Time())
+				dd := libtime.DateOrDateTime(libtime.ToDate(plannedDate).Time())
 				task.SetPlannedDate(dd.Ptr())
 				dateStr = "+7d"
 			})

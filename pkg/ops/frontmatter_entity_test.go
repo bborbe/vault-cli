@@ -9,6 +9,7 @@ import (
 	"errors"
 	"time"
 
+	libtime "github.com/bborbe/time"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -96,7 +97,7 @@ var _ = Describe("NewGoalGetOperation", func() {
 		BeforeEach(func() {
 			key = "defer_date"
 			t := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
-			dd := domain.DateOrDateTime(t)
+			dd := libtime.DateOrDateTime(t)
 			goal.SetDeferDate(&dd)
 		})
 
@@ -365,7 +366,7 @@ var _ = Describe("NewGoalClearOperation", func() {
 		BeforeEach(func() {
 			key = "defer_date"
 			t := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
-			dd := domain.DateOrDateTime(t)
+			dd := libtime.DateOrDateTime(t)
 			goal.SetDeferDate(&dd)
 		})
 

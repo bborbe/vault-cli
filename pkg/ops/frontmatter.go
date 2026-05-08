@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/bborbe/errors"
+	libtime "github.com/bborbe/time"
 
-	"github.com/bborbe/vault-cli/pkg/domain"
 	"github.com/bborbe/vault-cli/pkg/storage"
 )
 
@@ -115,9 +115,9 @@ func (o *frontmatterClearOperation) Execute(
 	return nil
 }
 
-// formatDateOrDateTime serializes a DateOrDateTime to YYYY-MM-DD for date-only values
+// formatDateOrDateTime serializes a libtime.DateOrDateTime to YYYY-MM-DD for date-only values
 // (midnight UTC) and RFC3339 for values with a time component. Returns empty string for nil.
-func formatDateOrDateTime(d *domain.DateOrDateTime) string {
+func formatDateOrDateTime(d *libtime.DateOrDateTime) string {
 	if d == nil {
 		return ""
 	}

@@ -1,19 +1,19 @@
 ---
-spec: ["010"]
-status: draft
+status: committing
+spec: [010-unify-date-fields-to-dateordatetime]
+summary: Replaced local domain.DateOrDateTime with libtime.DateOrDateTime from github.com/bborbe/time@v1.27.0 across 17 files, deleted the local type and its test, fixed pre-existing plugin version mismatch, and added CHANGELOG entry.
+container: vault-cli-110-spec-010-libtime-upgrade
+dark-factory-version: v0.156.1-1-g04f3863-dirty
 created: "2026-05-08T00:00:00Z"
+queued: "2026-05-08T19:04:32Z"
+started: "2026-05-08T19:04:33Z"
+branch: dark-factory/unify-date-fields-to-dateordatetime
 ---
 
 <summary>
-- bborbe/time dependency bumped from v1.25.11 to v1.27.0 in go.mod and vendor
-- Local pkg/domain/date_or_datetime.go and its test file deleted entirely
-- All 17 files that referenced domain.DateOrDateTime now import and use libtime.DateOrDateTime instead
-- Task DeferDate/PlannedDate/DueDate getters and Goal DeferDate getter return *libtime.DateOrDateTime
-- Task SetDeferDate/SetPlannedDate/SetDueDate and Goal SetDeferDate setters take *libtime.DateOrDateTime
-- formatDateOrDateTime helper in both pkg/domain/ and pkg/ops/ updated to use libtime.DateOrDateTime
-- setDateField helper in pkg/domain/task_frontmatter.go updated for new type
-- parseDeferDate and isDeferDateInPast in pkg/ops/defer_date_parser.go use libtime.DateOrDateTime
-- defer.go operations updated to construct/use libtime.DateOrDateTime
+- Switch the local DateOrDateTime helper to the shared library version from github.com/bborbe/time
+- Delete the local pkg/domain/date_or_datetime.go and its test
+- Update everywhere that reads or writes Task or Goal date fields to use the library type
 - All existing tests continue to pass with the migrated type
 </summary>
 
@@ -35,41 +35,36 @@ Key files to read before making changes:
 - `pkg/ops/defer.go` — constructs domain.DateOrDateTime directly via type conversion
 - `pkg/ops/defer_date_parser.go` — parseDeferDate and isDeferDateInPast take/return domain.DateOrDateTime
 - `pkg/ops/frontmatter.go` — has its own formatDateOrDateTime(d *domain.DateOrDateTime) function
-- `go.mod` — current: github.com/bborbe/time v1.25.11
+- `pkg/ops/complete.go` — `calculateNextDeferDate` (around line 229) returns `domain.DateOrDateTime` and has 5 conversion sites
+- `go.mod` — `bborbe/time` is already at v1.27.0; treat the bump as a verification, not an action
 </context>
 
 <requirements>
 ### 1. Verify libtime.DateOrDateTime API before writing any code
 
-Run these greps against the vendored v1.27.0 source after bumping (step 2 below), then read the output to determine the correct construction and method names:
+This repo does NOT vendor (`vendor/` is gitignored). Read the library source from the module cache or via `go doc`:
 
 ```bash
-# After step 2: confirm type definition
-grep -rn "type DateOrDateTime" $(go env GOPATH)/pkg/mod/github.com/bborbe/time@v1.27.0/ 2>/dev/null
-# or check vendor
-grep -rn "type DateOrDateTime" vendor/github.com/bborbe/time/
+# Confirm type definition
+go doc github.com/bborbe/time.DateOrDateTime
 
 # Check method set
-grep -rn "func.*DateOrDateTime" vendor/github.com/bborbe/time/ | head -30
+go doc -all github.com/bborbe/time.DateOrDateTime | head -60
 
-# Check if .Time() method exists (used in formatDateOrDateTime)
-grep -rn "func.*DateOrDateTime.*Time()" vendor/github.com/bborbe/time/
-
-# Check constructors (how to build from time.Time)
-grep -rn "func.*DateOrDateTime" vendor/github.com/bborbe/time/ | grep -i "new\|from\|make"
+# Module cache path (alternative)
+ls $(go env GOMODCACHE)/github.com/bborbe/time@v1.27.0/time_date-or-date-time.go
 ```
 
-Use the output to fill in the blanks in steps 4–7. Do NOT guess — grep confirms.
+The library type is `type DateOrDateTime stdtime.Time` (named time.Time type). Construction `libtime.DateOrDateTime(*t)` where `t` is `*time.Time` works directly — same idiom as the existing local type. The library type also exposes `.Time() time.Time` (use this in `formatDateOrDateTime`).
 
-### 2. Bump bborbe/time in go.mod and vendor
+### 2. Verify go.mod is at v1.27.0
 
 ```bash
-go get github.com/bborbe/time@v1.27.0
-go mod tidy
-go mod vendor
+grep 'bborbe/time' go.mod
+# expected: github.com/bborbe/time v1.27.0
 ```
 
-Verify: `grep 'bborbe/time' go.mod` shows `v1.27.0`.
+If it's already at v1.27.0 (it is, per repo state), this step is a no-op. If the version is older, run `go get github.com/bborbe/time@v1.27.0 && go mod tidy`. Do NOT run `go mod vendor` — this repo is non-vendored.
 
 ### 3. Delete the local type files
 
@@ -149,9 +144,17 @@ Same pattern as task_frontmatter.go for:
 
 **Note:** After this change, both `pkg/domain/task_frontmatter.go` and `pkg/ops/frontmatter.go` will have a `formatDateOrDateTime` function with the same signature. This duplication pre-existed; do NOT merge them in this prompt.
 
-### 9. Update all test files
+### 8a. Update pkg/ops/complete.go
 
-Files to update (each may contain `domain.DateOrDateTime` references):
+`calculateNextDeferDate` (around line 229) returns `domain.DateOrDateTime`; 5 internal call sites use the local type:
+
+- Return type: `domain.DateOrDateTime` → `libtime.DateOrDateTime`
+- All `domain.DateOrDateTime(t)` constructions → `libtime.DateOrDateTime(t)`
+- Imports: add `libtime` if not already; remove `domain` if no longer needed
+
+### 9. Update all remaining files
+
+Run `grep -rln 'domain\.DateOrDateTime' .` and update every match. Expected files (each may contain `domain.DateOrDateTime` references):
 - `pkg/domain/task_frontmatter_test.go`
 - `pkg/ops/complete_test.go`
 - `pkg/ops/defer_test.go`
@@ -160,7 +163,7 @@ Files to update (each may contain `domain.DateOrDateTime` references):
 - `pkg/ops/list_test.go`
 - `pkg/ops/show_test.go`
 
-For each: replace `domain.DateOrDateTime(...)` → `libtime.DateOrDateTime(...)` (or verified constructor). Update imports accordingly.
+For each: replace `domain.DateOrDateTime(...)` → `libtime.DateOrDateTime(...)`. Update imports accordingly.
 
 ### 10. Iterative verification
 
@@ -168,8 +171,9 @@ After each file change, run `make test` to catch compile errors immediately. Do 
 
 After all changes compile and tests pass, run:
 ```bash
-go test -coverprofile=/tmp/cover.out -mod=vendor ./pkg/domain/... ./pkg/ops/... && go tool cover -func=/tmp/cover.out | grep -E 'domain|ops'
+go test -coverprofile=/tmp/cover.out ./pkg/domain/... ./pkg/ops/... && go tool cover -func=/tmp/cover.out | grep -E 'domain|ops'
 ```
+(No `-mod=vendor`; this repo is non-vendored.) Coverage on touched files must not regress.
 </requirements>
 
 <constraints>

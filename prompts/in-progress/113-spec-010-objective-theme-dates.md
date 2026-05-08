@@ -1,7 +1,9 @@
 ---
-spec: ["010"]
-status: draft
+status: approved
+spec: [010-unify-date-fields-to-dateordatetime]
 created: "2026-05-08T00:00:00Z"
+queued: "2026-05-08T19:04:32Z"
+branch: dark-factory/unify-date-fields-to-dateordatetime
 ---
 
 <summary>
@@ -83,29 +85,7 @@ func (f *ObjectiveFrontmatter) SetStartDate(d *libtime.DateOrDateTime) {
 
 **SetTargetDate() setter:** Same pattern.
 
-**Compat setters:** If the step 1 audit shows callers passing `*time.Time`, add `SetStartDateFromTime(t *time.Time)` and `SetTargetDateFromTime(t *time.Time)` compat setters (same as Prompt 3 pattern). Update those callers to use the renamed compat method.
-
-**SetField helper:** Replace `setDateFromString` usage with an equivalent `setObjectiveDateField` helper that uses `libtime.ParseTime` (accepts both YYYY-MM-DD and RFC3339):
-
-```go
-func setObjectiveDateField(
-    ctx context.Context,
-    setter func(*libtime.DateOrDateTime),
-    value string,
-) error {
-    if value == "" {
-        setter(nil)
-        return nil
-    }
-    t, err := libtime.ParseTime(ctx, value)
-    if err != nil {
-        return errors.Wrap(ctx, err, "invalid date format (expected YYYY-MM-DD or RFC3339)")
-    }
-    d := libtime.DateOrDateTime(*t)
-    setter(&d)
-    return nil
-}
-```
+**SetField helper:** Replace the inline `time.Parse(time.DateOnly, ...)` calls in `SetField` with `setDateField` from `task_frontmatter.go` (same `domain` package — directly callable, do NOT inline a copy).
 
 **GetField:** Update `start_date` and `target_date` cases:
 
@@ -120,12 +100,12 @@ case "target_date":
 
 ```go
 case "start_date":
-    return setObjectiveDateField(ctx, f.SetStartDate, value)
+    return setDateField(ctx, f.SetStartDate, value)
 case "target_date":
-    return setObjectiveDateField(ctx, f.SetTargetDate, value)
+    return setDateField(ctx, f.SetTargetDate, value)
 ```
 
-**Import:** Add `libtime "github.com/bborbe/time"` if not already present. Remove `import "time"` only if no remaining uses (check: compat setters may still reference `time.DateOnly`).
+**Import:** Add `libtime "github.com/bborbe/time"` if not already present. Keep `import "time"` if `Completed()` (objective only) still references `time.Time` for YAML auto-parsed values; otherwise remove.
 
 ### 3. Update pkg/domain/theme_frontmatter.go
 
@@ -135,15 +115,13 @@ Apply identical changes as step 2, but for `ThemeFrontmatter`:
 - `TargetDate() *libtime.DateOrDateTime` (was `*time.Time`)
 - `SetStartDate(d *libtime.DateOrDateTime)` (was `*time.Time`)
 - `SetTargetDate(d *libtime.DateOrDateTime)` (was `*time.Time`)
-- Compat setters if needed (from step 1 audit)
-- `setThemeDateField` helper using `libtime.ParseTime`
-- `GetField` and `SetField` updates for `start_date` and `target_date`
+- `GetField` uses `formatDateOrDateTime` and `SetField` uses `setDateField` (both from `task_frontmatter.go`, same package)
 
 Note: `ThemeFrontmatter` does NOT have a `Completed` field or `DeferDate` — only `start_date` and `target_date`.
 
-### 4. Write tests in pkg/domain/objective_frontmatter_test.go (create if absent)
+### 4. Extend tests in pkg/domain/objective_frontmatter_test.go
 
-Check for `pkg/domain/domain_suite_test.go` — do NOT recreate it if it exists.
+`pkg/domain/objective_frontmatter_test.go` and `pkg/domain/domain_suite_test.go` already exist — extend the existing suite, do NOT recreate.
 
 Cover for ObjectiveFrontmatter:
 - `StartDate()` nil when absent
@@ -156,9 +134,9 @@ Cover for ObjectiveFrontmatter:
 - `GetField("start_date")` returns formatted string
 - `SetField(ctx, "start_date", "2025-03-01")` works; `SetField(ctx, "start_date", "2025-03-01T09:00:00Z")` works
 
-### 5. Write tests in pkg/domain/theme_frontmatter_test.go (create if absent)
+### 5. Extend tests in pkg/domain/theme_frontmatter_test.go
 
-Cover the same cases as step 4 but for `ThemeFrontmatter.StartDate` and `ThemeFrontmatter.TargetDate`.
+Cover the same cases as step 4 but for `ThemeFrontmatter.StartDate` and `ThemeFrontmatter.TargetDate`. File already exists — extend it.
 
 ### 6. Iterative verification
 
@@ -167,7 +145,7 @@ After each file change, run `make test`. Fix compile errors before moving on.
 
 <constraints>
 - `StartDate()` and `TargetDate()` MUST return `*libtime.DateOrDateTime` on both Objective and Theme (not `*time.Time`)
-- Spec Non-goals: "keep as compatibility layer — new `*DateOrDateTime` accessors are added alongside; existing `*time.Time` getters/setters remain and are implemented in terms of the new typed primitives." For setters where callers pass `*time.Time`, add compat setters with renamed names (`SetStartDateFromTime`, `SetTargetDateFromTime`) rather than overloading the canonical name
+- Spec compat-layer constraint dropped (revised 2026-05-08): canonical signatures change to `*libtime.DateOrDateTime`. Audit confirmed zero external callers; in-tree callers (if any) are updated accordingly.
 - `formatDateOrDateTime` used in GetField MUST come from the same package — do NOT re-import from domain into ops or vice versa; both packages have their own copy of this function
 - Do NOT change GoalFrontmatter (done in Prompt 3) — only Objective and Theme
 - Do NOT change TaskFrontmatter (done in Prompts 1 and 2)

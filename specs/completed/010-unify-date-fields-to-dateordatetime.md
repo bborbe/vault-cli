@@ -1,5 +1,5 @@
 ---
-status: verifying
+status: completed
 tags:
     - dark-factory
     - spec
@@ -7,6 +7,7 @@ approved: "2026-05-08T17:52:30Z"
 generating: "2026-05-08T18:03:07Z"
 prompted: "2026-05-08T18:13:30Z"
 verifying: "2026-05-08T21:26:20Z"
+completed: "2026-05-08T21:55:04Z"
 branch: dark-factory/unify-date-fields-to-dateordatetime
 ---
 

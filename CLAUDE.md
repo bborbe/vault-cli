@@ -72,20 +72,38 @@ Obsidian vault task management CLI — fast CRUD for markdown files (tasks, goal
 - **BLOCKING: Never run `dark-factory prompt approve`, `dark-factory spec approve`, or `dark-factory daemon` without explicit user confirmation.** Write the prompt/spec, then STOP and ask the user to approve. Do not assume approval from prior context or task momentum.
 - **Before starting daemon** — run `dark-factory status` first to check if one is already running. Only start if not running.
 - **Start daemon in background** — use Bash tool with `run_in_background: true` (not foreground, not detached with `&`)
+- **After completing a spec or major refactor**, walk the relevant `scenarios/*.md` to verify end-to-end behavior. Always against a freshly built binary, never against the installed `vault-cli`.
+- **Before `make install`**, follow [docs/releasing-vault-cli.md](docs/releasing-vault-cli.md) — mandatory reading and procedure. The release gate (run all scenarios against `/tmp/new-vault-cli`) and the version alignment check both live there. Unit tests + `make precommit` alone are not sufficient.
 
-## Release Checklist
+  **Scenario-skip rule (only exception):** Compare installed version to HEAD — if no binary-relevant files changed, the installed binary is byte-equivalent to what you'd install, so scenarios add no signal.
+  ```bash
+  INSTALLED=$(vault-cli --version | awk '{print $NF}')
+  git diff $INSTALLED..HEAD --name-only | grep -E '\.(go|mod|sum)$|^Makefile$'
+  # empty output → skip scenarios; any hit → run them
+  ```
+  Do NOT shortcut by "change type" intuition ("docs-only", "config-only") — always run the diff.
 
-When releasing a new version, update version in **all three files**:
-1. `CHANGELOG.md` — new `## vX.Y.Z` section
-2. `.claude-plugin/plugin.json` — `"version"` field
-3. `.claude-plugin/marketplace.json` — both `"version"` fields (metadata + plugins array)
+## Plugin Release Checklist
 
-Then commit, tag, and push:
-```bash
-git add -A && git commit -m "release vX.Y.Z"
-git tag vX.Y.Z
-git push && git push --tags
-```
+**When to release:** Any change to `commands/`, `agents/`, `docs/`, or `skills/` requires a plugin version bump — these files ship as part of the plugin.
+
+**How to release:**
+
+1. Pick the next version: increment minor from the latest `CHANGELOG.md` entry (e.g. v0.58.3 → v0.59.0)
+2. Update **all four files** — version string must be identical everywhere (without `v` prefix in JSON):
+   - `CHANGELOG.md` — add new `## vX.Y.Z` section at top with all changes (binary + plugin)
+   - `.claude-plugin/plugin.json` — `"version": "X.Y.Z"`
+   - `.claude-plugin/marketplace.json` — `"version": "X.Y.Z"` in **both** `metadata` and `plugins[0]`
+3. Commit: `release plugin vX.Y.Z: <summary>`
+4. Push: `git push`
+
+**Common mistakes:**
+- Forgetting `.claude-plugin/` files (plugin stays at old version)
+- Creating a separate "Plugin vX" changelog section (wrong — one version for everything)
+- Using different versions in the 3 JSON fields (must all match)
+- Not including binary changes (fix, feature) in the changelog when they're uncommitted
+
+Full release procedure: see [docs/releasing-vault-cli.md](docs/releasing-vault-cli.md).
 
 ## Claude Code Plugin
 

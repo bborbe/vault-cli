@@ -20,8 +20,12 @@ install:
 	@go install -mod=mod -ldflags "$(LDFLAGS)" .
 
 .PHONY: precommit
-precommit: ensure format generate test check addlicense
+precommit: ensure format generate test check addlicense check-versions
 	@echo "ready to commit"
+
+.PHONY: check-versions
+check-versions:
+	@bash scripts/check-versions.sh
 
 .PHONY: ensure
 ensure:

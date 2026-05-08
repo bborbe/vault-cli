@@ -1,5 +1,5 @@
 ---
-status: committing
+status: completed
 spec: [010-unify-date-fields-to-dateordatetime]
 summary: Migrated Decision.ReviewedDate from string to *libtime.DateOrDateTime; updated storage read (time.Time/string switch), write (formatReviewedDate helper), decision_ack (ToDate conversion), decision_list (formatDateOrDateTime at response site); updated all affected tests.
 container: vault-cli-114-spec-010-decision-date-field
@@ -7,6 +7,7 @@ dark-factory-version: v0.156.1-1-g04f3863-dirty
 created: "2026-05-08T00:00:00Z"
 queued: "2026-05-08T19:04:32Z"
 started: "2026-05-08T21:22:27Z"
+completed: "2026-05-08T21:26:19Z"
 branch: dark-factory/unify-date-fields-to-dateordatetime
 ---
 

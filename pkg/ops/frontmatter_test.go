@@ -9,6 +9,7 @@ import (
 	"errors"
 	"time"
 
+	libtime "github.com/bborbe/time"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -444,7 +445,7 @@ var _ = Describe("FrontmatterSetOperation", func() {
 			value = ""
 			deferDate := time.Date(2024, 12, 31, 0, 0, 0, 0, time.UTC)
 			task.SetDeferDate(
-				func() *domain.DateOrDateTime { d := domain.DateOrDateTime(deferDate); return &d }(),
+				func() *libtime.DateOrDateTime { d := libtime.DateOrDateTime(deferDate); return &d }(),
 			)
 		})
 
@@ -488,7 +489,7 @@ var _ = Describe("FrontmatterSetOperation", func() {
 			value = ""
 			plannedDate := time.Date(2025, 3, 15, 0, 0, 0, 0, time.UTC)
 			task.SetPlannedDate(
-				func() *domain.DateOrDateTime { d := domain.DateOrDateTime(plannedDate); return &d }(),
+				func() *libtime.DateOrDateTime { d := libtime.DateOrDateTime(plannedDate); return &d }(),
 			)
 		})
 
@@ -532,7 +533,7 @@ var _ = Describe("FrontmatterSetOperation", func() {
 			value = ""
 			dueDate := time.Date(2025, 6, 30, 0, 0, 0, 0, time.UTC)
 			task.SetDueDate(
-				func() *domain.DateOrDateTime { d := domain.DateOrDateTime(dueDate); return &d }(),
+				func() *libtime.DateOrDateTime { d := libtime.DateOrDateTime(dueDate); return &d }(),
 			)
 		})
 

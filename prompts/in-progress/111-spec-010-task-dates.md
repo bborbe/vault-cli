@@ -1,7 +1,9 @@
 ---
-spec: ["010"]
-status: draft
+status: approved
+spec: [010-unify-date-fields-to-dateordatetime]
 created: "2026-05-08T00:00:00Z"
+queued: "2026-05-08T19:04:32Z"
+branch: dark-factory/unify-date-fields-to-dateordatetime
 ---
 
 <summary>
@@ -35,25 +37,19 @@ Key files to read before making changes:
 - `pkg/ops/complete.go` — calls SetCompletedDate and SetLastCompleted; need to understand how it sources the timestamp from currentDateTime
 - `pkg/ops/show.go` — TaskDetail struct has CompletedDate string; set from task.CompletedDate()
 - `pkg/ops/list.go` — TaskItem struct has CompletedDate string; set from task.CompletedDate()
-- `pkg/ops/frontmatter_entity.go` — allowed frontmatter fields list (line ~551)
+- `pkg/ops/frontmatter_entity.go` — `knownTaskScalarFields` map (around line 547)
 - `pkg/domain/task_frontmatter_test.go` — existing test patterns
-- `vendor/github.com/bborbe/time/` — grep for libtime.DateOrDateTime constructor and any method to format as string
+- `github.com/bborbe/time` library: this repo is non-vendored. Use `go doc github.com/bborbe/time.DateOrDateTime` or read from `$(go env GOMODCACHE)/github.com/bborbe/time@v1.27.0/`. Library type is `type DateOrDateTime stdtime.Time`; construction `libtime.DateOrDateTime(*t)` from `*time.Time` works directly. `.Time() time.Time` accessor exists.
+
+**Precondition**: Prompt 1 must have completed. Verify with `grep -q 'libtime\.DateOrDateTime' pkg/domain/task_frontmatter.go` — if no match, stop and run Prompt 1 first.
 </context>
 
 <requirements>
-### 1. Verify libtime.DateOrDateTime construction from libtime.DateTime
+### 1. Confirm conversion idiom (read existing post-Prompt-1 code)
 
-In `ops/complete.go`, `c.currentDateTime.Now()` returns a `libtime.DateTime`. You need to convert it to `*libtime.DateOrDateTime` for the new setters. Grep to confirm the correct conversion:
+Read `pkg/domain/task_frontmatter.go` after Prompt 1 has shipped. The existing `DeferDate()` body is the reference: it converts `*time.Time` → `*libtime.DateOrDateTime` via `d := libtime.DateOrDateTime(*t)`. Use the same idiom in steps 4 and 5.
 
-```bash
-# Find how to get a time.Time from libtime.DateTime
-grep -rn "func.*DateTime.*Time()" vendor/github.com/bborbe/time/ | head -5
-
-# Check if libtime.DateOrDateTime has a constructor from time.Time
-grep -rn "func.*DateOrDateTime" vendor/github.com/bborbe/time/ | head -20
-```
-
-Use the confirmed API in steps 4 and 5 below.
+For `c.currentDateTime.Now()` (returns `libtime.DateTime`), get the underlying `time.Time` via `.Time()`, then construct the same way: `libtime.DateOrDateTime(c.currentDateTime.Now().Time())`.
 
 ### 2. Update pkg/domain/task_frontmatter.go — completed_date field
 
@@ -279,7 +275,7 @@ d := libtime.DateOrDateTime(t)
 task.SetLastCompletedDate(&d)
 ```
 
-`libtime.ToDate(t).Time()` normalizes to midnight UTC, ensuring the value serializes as `YYYY-MM-DD`. Confirm `libtime.ToDate` exists: `grep -rn 'func ToDate' vendor/github.com/bborbe/time/`.
+`libtime.ToDate(t).Time()` normalizes to midnight UTC, ensuring the value serializes as `YYYY-MM-DD`. Confirm `libtime.ToDate` exists: `go doc github.com/bborbe/time.ToDate`.
 
 ### 6. Update pkg/ops/show.go and pkg/ops/list.go
 
@@ -307,7 +303,7 @@ Both files should already have access to `formatDateOrDateTime` (it's in the sam
 
 ### 7. Update pkg/ops/frontmatter_entity.go — allowed fields
 
-Locate the `allowedTaskFrontmatterKeys` or equivalent map (around line 551). Add the new and renamed keys:
+Locate the `knownTaskScalarFields` map (around line 547). Add the new and renamed keys:
 
 ```go
 "last_completed_date": true,

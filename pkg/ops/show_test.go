@@ -9,6 +9,7 @@ import (
 	"errors"
 	"time"
 
+	libtime "github.com/bborbe/time"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -56,13 +57,13 @@ var _ = Describe("ShowOperation", func() {
 			domain.Content("---\nstatus: in_progress\n---\nDo the thing with care.\n"),
 		)
 		task.SetDeferDate(
-			func() *domain.DateOrDateTime { d := domain.DateOrDateTime(deferDate); return &d }(),
+			func() *libtime.DateOrDateTime { d := libtime.DateOrDateTime(deferDate); return &d }(),
 		)
 		task.SetPlannedDate(
-			func() *domain.DateOrDateTime { d := domain.DateOrDateTime(plannedDate); return &d }(),
+			func() *libtime.DateOrDateTime { d := libtime.DateOrDateTime(plannedDate); return &d }(),
 		)
 		task.SetDueDate(
-			func() *domain.DateOrDateTime { d := domain.DateOrDateTime(dueDate); return &d }(),
+			func() *libtime.DateOrDateTime { d := libtime.DateOrDateTime(dueDate); return &d }(),
 		)
 		mockTaskStorage.FindTaskByNameReturns(task, nil)
 	})

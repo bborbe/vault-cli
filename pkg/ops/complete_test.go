@@ -593,7 +593,7 @@ recurring: daily
 				// Yesterday
 			task.SetRecurring("daily")
 			_ = task.SetStatus(domain.TaskStatusInProgress)
-			dd := domain.DateOrDateTime(libtime.ToDate(oldPlannedDate).Time())
+			dd := libtime.DateOrDateTime(libtime.ToDate(oldPlannedDate).Time())
 			task.SetPlannedDate(dd.Ptr())
 			task.Content = `---
 status: in_progress

@@ -69,15 +69,15 @@ func (f TaskFrontmatter) Priority() Priority {
 // Assignee reads "assignee" key as string.
 func (f TaskFrontmatter) Assignee() string { return f.GetString("assignee") }
 
-// DeferDate reads "defer_date" key as *DateOrDateTime.
+// DeferDate reads "defer_date" key as *libtime.DateOrDateTime.
 // Handles both time.Time (YAML-parsed) and string (hand-authored) forms.
 // Returns nil on missing or unparseable value.
-func (f TaskFrontmatter) DeferDate() *DateOrDateTime {
+func (f TaskFrontmatter) DeferDate() *libtime.DateOrDateTime {
 	t := f.GetTime("defer_date")
 	if t == nil {
 		return nil
 	}
-	d := DateOrDateTime(*t)
+	d := libtime.DateOrDateTime(*t)
 	return &d
 }
 
@@ -121,27 +121,27 @@ func (f TaskFrontmatter) CompletedDate() string {
 	return formatTimeAsDate(*t)
 }
 
-// PlannedDate reads "planned_date" key as *DateOrDateTime.
+// PlannedDate reads "planned_date" key as *libtime.DateOrDateTime.
 // Handles both time.Time (YAML-parsed) and string (hand-authored) forms.
 // Returns nil on missing or unparseable value.
-func (f TaskFrontmatter) PlannedDate() *DateOrDateTime {
+func (f TaskFrontmatter) PlannedDate() *libtime.DateOrDateTime {
 	t := f.GetTime("planned_date")
 	if t == nil {
 		return nil
 	}
-	d := DateOrDateTime(*t)
+	d := libtime.DateOrDateTime(*t)
 	return &d
 }
 
-// DueDate reads "due_date" key as *DateOrDateTime.
+// DueDate reads "due_date" key as *libtime.DateOrDateTime.
 // Handles both time.Time (YAML-parsed) and string (hand-authored) forms.
 // Returns nil on missing or unparseable value.
-func (f TaskFrontmatter) DueDate() *DateOrDateTime {
+func (f TaskFrontmatter) DueDate() *libtime.DateOrDateTime {
 	t := f.GetTime("due_date")
 	if t == nil {
 		return nil
 	}
-	d := DateOrDateTime(*t)
+	d := libtime.DateOrDateTime(*t)
 	return &d
 }
 
@@ -216,7 +216,7 @@ func (f *TaskFrontmatter) SetPhase(p *TaskPhase) {
 }
 
 // SetDeferDate stores the defer_date in the map. Deletes the key if d is nil.
-func (f *TaskFrontmatter) SetDeferDate(d *DateOrDateTime) {
+func (f *TaskFrontmatter) SetDeferDate(d *libtime.DateOrDateTime) {
 	if d == nil {
 		f.Delete("defer_date")
 		return
@@ -225,7 +225,7 @@ func (f *TaskFrontmatter) SetDeferDate(d *DateOrDateTime) {
 }
 
 // SetPlannedDate stores the planned_date in the map. Deletes the key if d is nil.
-func (f *TaskFrontmatter) SetPlannedDate(d *DateOrDateTime) {
+func (f *TaskFrontmatter) SetPlannedDate(d *libtime.DateOrDateTime) {
 	if d == nil {
 		f.Delete("planned_date")
 		return
@@ -234,7 +234,7 @@ func (f *TaskFrontmatter) SetPlannedDate(d *DateOrDateTime) {
 }
 
 // SetDueDate stores the due_date in the map. Deletes the key if d is nil.
-func (f *TaskFrontmatter) SetDueDate(d *DateOrDateTime) {
+func (f *TaskFrontmatter) SetDueDate(d *libtime.DateOrDateTime) {
 	if d == nil {
 		f.Delete("due_date")
 		return
@@ -300,7 +300,7 @@ func setStringSliceField(setter func([]string), value string) {
 }
 
 // setDateField parses a date string and calls setter, or clears on empty.
-func setDateField(ctx context.Context, setter func(*DateOrDateTime), value string) error {
+func setDateField(ctx context.Context, setter func(*libtime.DateOrDateTime), value string) error {
 	if value == "" {
 		setter(nil)
 		return nil
@@ -309,7 +309,7 @@ func setDateField(ctx context.Context, setter func(*DateOrDateTime), value strin
 	if err != nil {
 		return errors.Wrap(ctx, err, "invalid date format")
 	}
-	d := DateOrDateTime(*t)
+	d := libtime.DateOrDateTime(*t)
 	setter(&d)
 	return nil
 }
@@ -398,9 +398,9 @@ func formatTimeAsDate(t time.Time) string {
 	return t.Format(time.RFC3339)
 }
 
-// formatDateOrDateTime serializes a DateOrDateTime to YYYY-MM-DD for date-only values
+// formatDateOrDateTime serializes a libtime.DateOrDateTime to YYYY-MM-DD for date-only values
 // (midnight UTC) and RFC3339 preserving the original timezone for values with a time component.
-func formatDateOrDateTime(d *DateOrDateTime) string {
+func formatDateOrDateTime(d *libtime.DateOrDateTime) string {
 	if d == nil {
 		return ""
 	}

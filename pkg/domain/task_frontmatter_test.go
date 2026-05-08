@@ -8,6 +8,7 @@ import (
 	"context"
 	"time"
 
+	libtime "github.com/bborbe/time"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -303,14 +304,14 @@ var _ = Describe("TaskFrontmatter", func() {
 	Describe("SetDeferDate", func() {
 		It("stores a date", func() {
 			t := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
-			d := domain.DateOrDateTime(t)
+			d := libtime.DateOrDateTime(t)
 			fm.SetDeferDate(&d)
 			Expect(fm.DeferDate()).NotTo(BeNil())
 		})
 
 		It("clears date when nil", func() {
 			t := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
-			d := domain.DateOrDateTime(t)
+			d := libtime.DateOrDateTime(t)
 			fm.SetDeferDate(&d)
 			fm.SetDeferDate(nil)
 			Expect(fm.DeferDate()).To(BeNil())

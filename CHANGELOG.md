@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.59.0
+
+- feat: Migrate Task `completed_date`, `last_completed`/`last_completed_date` to `*libtime.DateOrDateTime`; add new `created_date` field with typed getter/setter. Dual-write window writes both `last_completed_date` (canonical) and `last_completed` (legacy) for one release cycle.
+
 ## v0.58.7
 
 - refactor: replace local domain.DateOrDateTime with libtime.DateOrDateTime from github.com/bborbe/time@v1.27.0

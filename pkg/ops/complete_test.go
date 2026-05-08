@@ -543,8 +543,8 @@ recurring: yearly
 		It("sets completed_date to a non-empty ISO 8601 datetime", func() {
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.CompletedDate()).NotTo(BeEmpty())
-			Expect(writtenTask.CompletedDate()).To(Equal("2026-03-03T12:00:00Z"))
+			Expect(writtenTask.CompletedDate()).NotTo(BeNil())
+			Expect(writtenTask.GetField("completed_date")).To(Equal("2026-03-03T12:00:00Z"))
 		})
 	})
 
@@ -579,7 +579,7 @@ recurring: daily
 		It("does not set completed_date", func() {
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-			Expect(writtenTask.CompletedDate()).To(BeEmpty())
+			Expect(writtenTask.CompletedDate()).To(BeNil())
 		})
 	})
 

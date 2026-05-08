@@ -275,29 +275,178 @@ var _ = Describe("TaskFrontmatter", func() {
 			fm = domain.NewTaskFrontmatter(map[string]any{"last_completed": "2026-03-08T12:30:00Z"})
 			Expect(fm.LastCompleted()).To(Equal("2026-03-08T12:30:00Z"))
 		})
+
+		It("reads from last_completed_date when both keys present (prefers canonical)", func() {
+			fm = domain.NewTaskFrontmatter(map[string]any{
+				"last_completed_date": "2026-04-01",
+				"last_completed":      "2026-03-08",
+			})
+			Expect(fm.LastCompleted()).To(Equal("2026-04-01"))
+		})
+	})
+
+	Describe("LastCompletedDate", func() {
+		It("returns nil when both keys absent", func() {
+			Expect(fm.LastCompletedDate()).To(BeNil())
+		})
+
+		It("reads last_completed_date when present", func() {
+			fm = domain.NewTaskFrontmatter(map[string]any{"last_completed_date": "2026-04-01"})
+			d := fm.LastCompletedDate()
+			Expect(d).NotTo(BeNil())
+			Expect(d.Time().UTC().Format("2006-01-02")).To(Equal("2026-04-01"))
+		})
+
+		It("falls back to last_completed when only legacy key present", func() {
+			fm = domain.NewTaskFrontmatter(map[string]any{"last_completed": "2026-03-08"})
+			d := fm.LastCompletedDate()
+			Expect(d).NotTo(BeNil())
+			Expect(d.Time().UTC().Format("2006-01-02")).To(Equal("2026-03-08"))
+		})
+
+		It("prefers last_completed_date when both keys present", func() {
+			fm = domain.NewTaskFrontmatter(map[string]any{
+				"last_completed_date": "2026-04-01",
+				"last_completed":      "2026-03-08",
+			})
+			d := fm.LastCompletedDate()
+			Expect(d).NotTo(BeNil())
+			Expect(d.Time().UTC().Format("2006-01-02")).To(Equal("2026-04-01"))
+		})
+	})
+
+	Describe("SetLastCompletedDate", func() {
+		It("writes both last_completed_date and last_completed (dual-write)", func() {
+			t := time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC)
+			d := libtime.DateOrDateTime(t)
+			fm.SetLastCompletedDate(&d)
+			Expect(fm.GetField("last_completed_date")).To(Equal("2026-05-01"))
+			Expect(fm.GetField("last_completed")).To(Equal("2026-05-01"))
+		})
+
+		It("deletes both keys when nil", func() {
+			t := time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC)
+			d := libtime.DateOrDateTime(t)
+			fm.SetLastCompletedDate(&d)
+			fm.SetLastCompletedDate(nil)
+			Expect(fm.LastCompletedDate()).To(BeNil())
+			Expect(fm.LastCompleted()).To(Equal(""))
+		})
+	})
+
+	Describe("SetLastCompleted (compat)", func() {
+		It("dual-writes both keys via compat setter", func() {
+			fm.SetLastCompleted("2026-01-15")
+			Expect(fm.GetField("last_completed")).To(Equal("2026-01-15"))
+			Expect(fm.GetField("last_completed_date")).To(Equal("2026-01-15"))
+		})
+
+		It("clears both keys on empty string", func() {
+			fm.SetLastCompleted("2026-01-15")
+			fm.SetLastCompleted("")
+			Expect(fm.LastCompletedDate()).To(BeNil())
+			Expect(fm.LastCompleted()).To(Equal(""))
+		})
+
+		It("stores raw string for unparseable value (fallback path)", func() {
+			fm.SetLastCompleted("not-a-date!!!")
+			// GetField routes through LastCompleted() which parses as date; use GetString for raw access
+			Expect(fm.GetString("last_completed")).To(Equal("not-a-date!!!"))
+			Expect(fm.GetString("last_completed_date")).To(Equal("not-a-date!!!"))
+		})
 	})
 
 	Describe("CompletedDate", func() {
-		It("returns empty string for missing key", func() {
-			Expect(fm.CompletedDate()).To(Equal(""))
+		It("returns nil for missing key", func() {
+			Expect(fm.CompletedDate()).To(BeNil())
 		})
 
-		It("formats time.Time midnight-UTC as YYYY-MM-DD (regression guard)", func() {
+		It("returns non-nil *DateOrDateTime for time.Time midnight-UTC value", func() {
 			fm = domain.NewTaskFrontmatter(
 				map[string]any{"completed_date": time.Date(2026, 3, 9, 0, 0, 0, 0, time.UTC)},
 			)
-			Expect(fm.CompletedDate()).To(Equal("2026-03-09"))
-			Expect(fm.CompletedDate()).NotTo(ContainSubstring("00:00:00 +0000 UTC"))
+			d := fm.CompletedDate()
+			Expect(d).NotTo(BeNil())
+			Expect(d.Time().UTC().Format("2006-01-02")).To(Equal("2026-03-09"))
 		})
 
-		It("parses string date value", func() {
+		It("returns non-nil *DateOrDateTime for date-only string", func() {
 			fm = domain.NewTaskFrontmatter(map[string]any{"completed_date": "2026-03-09"})
-			Expect(fm.CompletedDate()).To(Equal("2026-03-09"))
+			d := fm.CompletedDate()
+			Expect(d).NotTo(BeNil())
+			Expect(d.Time().UTC().Format("2006-01-02")).To(Equal("2026-03-09"))
 		})
 
-		It("formats datetime with non-zero time as RFC3339", func() {
+		It("returns non-nil *DateOrDateTime for RFC3339 string", func() {
 			fm = domain.NewTaskFrontmatter(map[string]any{"completed_date": "2026-03-09T12:30:00Z"})
-			Expect(fm.CompletedDate()).To(Equal("2026-03-09T12:30:00Z"))
+			d := fm.CompletedDate()
+			Expect(d).NotTo(BeNil())
+			Expect(d.Time().UTC().Format(time.RFC3339)).To(Equal("2026-03-09T12:30:00Z"))
+		})
+	})
+
+	Describe("SetCompletedDate", func() {
+		It("deletes key when nil", func() {
+			t := time.Date(2026, 3, 9, 0, 0, 0, 0, time.UTC)
+			d := libtime.DateOrDateTime(t)
+			fm.SetCompletedDate(&d)
+			fm.SetCompletedDate(nil)
+			Expect(fm.CompletedDate()).To(BeNil())
+		})
+
+		It("stores value and retrieves it", func() {
+			t := time.Date(2026, 3, 9, 0, 0, 0, 0, time.UTC)
+			d := libtime.DateOrDateTime(t)
+			fm.SetCompletedDate(&d)
+			result := fm.CompletedDate()
+			Expect(result).NotTo(BeNil())
+			Expect(result.Time().UTC().Format("2006-01-02")).To(Equal("2026-03-09"))
+		})
+
+		It("round-trips date-only value as YYYY-MM-DD", func() {
+			t := time.Date(2026, 3, 9, 0, 0, 0, 0, time.UTC)
+			d := libtime.DateOrDateTime(t)
+			fm.SetCompletedDate(&d)
+			Expect(fm.GetField("completed_date")).To(Equal("2026-03-09"))
+		})
+
+		It("round-trips RFC3339 value preserving timezone", func() {
+			t := time.Date(2026, 3, 9, 12, 30, 0, 0, time.UTC)
+			d := libtime.DateOrDateTime(t)
+			fm.SetCompletedDate(&d)
+			Expect(fm.GetField("completed_date")).To(Equal("2026-03-09T12:30:00Z"))
+		})
+	})
+
+	Describe("CreatedDate", func() {
+		It("returns nil when key absent", func() {
+			Expect(fm.CreatedDate()).To(BeNil())
+		})
+
+		It("round-trips date-only value", func() {
+			t := time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC)
+			d := libtime.DateOrDateTime(t)
+			fm.SetCreatedDate(&d)
+			result := fm.CreatedDate()
+			Expect(result).NotTo(BeNil())
+			Expect(result.Time().UTC().Format("2006-01-02")).To(Equal("2026-01-15"))
+		})
+
+		It("round-trips RFC3339 value", func() {
+			t := time.Date(2026, 1, 15, 9, 0, 0, 0, time.UTC)
+			d := libtime.DateOrDateTime(t)
+			fm.SetCreatedDate(&d)
+			Expect(fm.GetField("created_date")).To(Equal("2026-01-15T09:00:00Z"))
+		})
+	})
+
+	Describe("SetCreatedDate", func() {
+		It("deletes key when nil", func() {
+			t := time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC)
+			d := libtime.DateOrDateTime(t)
+			fm.SetCreatedDate(&d)
+			fm.SetCreatedDate(nil)
+			Expect(fm.CreatedDate()).To(BeNil())
 		})
 	})
 

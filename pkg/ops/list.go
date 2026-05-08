@@ -118,7 +118,7 @@ func (l *listOperation) Execute(
 		if task.ModifiedDate != nil {
 			items[i].ModifiedDate = task.ModifiedDate.UTC().Format("2006-01-02T15:04:05Z")
 		}
-		items[i].CompletedDate = task.CompletedDate()
+		items[i].CompletedDate = formatDateOrDateTime(task.CompletedDate())
 	}
 	return items, nil
 }

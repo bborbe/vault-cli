@@ -548,7 +548,8 @@ var knownTaskScalarFields = map[string]bool{
 	"status": true, "page_type": true, "priority": true, "assignee": true,
 	"defer_date": true, "planned_date": true, "due_date": true,
 	"phase": true, "claude_session_id": true, "recurring": true,
-	"last_completed": true, "completed_date": true, "task_identifier": true,
+	"last_completed": true, "last_completed_date": true, "completed_date": true,
+	"created_date": true, "task_identifier": true,
 }
 
 // Execute applies the list operation (add or remove) to the named field on the task.

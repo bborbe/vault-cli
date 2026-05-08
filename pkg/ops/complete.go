@@ -103,7 +103,9 @@ func (c *completeOperation) Execute(
 	// Update task status to completed
 	_ = task.SetStatus(domain.TaskStatusCompleted)
 	task.SetPhase(domain.TaskPhaseDone.Ptr())
-	task.SetCompletedDate(c.currentDateTime.Now().Time().UTC().Format("2006-01-02T15:04:05Z"))
+	nowTime := c.currentDateTime.Now().Time()
+	completedD := libtime.DateOrDateTime(nowTime)
+	task.SetCompletedDate(&completedD)
 
 	// Write updated task
 	if err := c.taskStorage.WriteTask(ctx, task); err != nil {
@@ -180,8 +182,10 @@ func (c *completeOperation) handleRecurringTask(
 	// Clear phase so next cycle starts fresh
 	task.SetPhase(nil)
 
-	// 2. Set last_completed to today
-	task.SetLastCompleted(today)
+	// 2. Set last_completed_date to today (canonical; also dual-writes last_completed)
+	lastCompletedT := libtime.ToDate(now).Time()
+	lastCompletedD := libtime.DateOrDateTime(lastCompletedT)
+	task.SetLastCompletedDate(&lastCompletedD)
 
 	// 3. Bump defer_date based on recurring interval
 	newDeferDate := calculateNextDeferDate(task.Recurring(), now)

@@ -100,25 +100,48 @@ func (f TaskFrontmatter) ClaudeSessionID() string { return f.GetString("claude_s
 // Recurring reads "recurring" key as string.
 func (f TaskFrontmatter) Recurring() string { return f.GetString("recurring") }
 
-// LastCompleted reads "last_completed" as a formatted date string.
-// Returns "" on missing value. Date-only values (midnight UTC) format as
-// "2006-01-02"; values with a time component format as RFC3339.
-func (f TaskFrontmatter) LastCompleted() string {
-	t := f.GetTime("last_completed")
-	if t == nil {
-		return ""
+// LastCompletedDate reads "last_completed_date" as *libtime.DateOrDateTime.
+// Falls back to the legacy "last_completed" key for backward compatibility.
+// Returns nil on missing or unparseable value.
+func (f TaskFrontmatter) LastCompletedDate() *libtime.DateOrDateTime {
+	if t := f.GetTime("last_completed_date"); t != nil {
+		d := libtime.DateOrDateTime(*t)
+		return &d
 	}
-	return formatTimeAsDate(*t)
+	if t := f.GetTime("last_completed"); t != nil {
+		d := libtime.DateOrDateTime(*t)
+		return &d
+	}
+	return nil
 }
 
-// CompletedDate reads "completed_date" as a formatted date string.
-// Same formatting rules as LastCompleted.
-func (f TaskFrontmatter) CompletedDate() string {
+// LastCompleted reads "last_completed" (legacy) or "last_completed_date" (canonical)
+// as a formatted date string. Kept for backward compatibility.
+func (f TaskFrontmatter) LastCompleted() string {
+	return formatDateOrDateTime(f.LastCompletedDate())
+}
+
+// CompletedDate reads "completed_date" as *libtime.DateOrDateTime.
+// Handles both time.Time (YAML-parsed) and string (hand-authored) forms.
+// Returns nil on missing or unparseable value.
+func (f TaskFrontmatter) CompletedDate() *libtime.DateOrDateTime {
 	t := f.GetTime("completed_date")
 	if t == nil {
-		return ""
+		return nil
 	}
-	return formatTimeAsDate(*t)
+	d := libtime.DateOrDateTime(*t)
+	return &d
+}
+
+// CreatedDate reads "created_date" as *libtime.DateOrDateTime.
+// Returns nil on missing or unparseable value.
+func (f TaskFrontmatter) CreatedDate() *libtime.DateOrDateTime {
+	t := f.GetTime("created_date")
+	if t == nil {
+		return nil
+	}
+	d := libtime.DateOrDateTime(*t)
+	return &d
 }
 
 // PlannedDate reads "planned_date" key as *libtime.DateOrDateTime.
@@ -178,11 +201,55 @@ func (f *TaskFrontmatter) SetClaudeSessionID(v string) { f.Set("claude_session_i
 // SetRecurring stores the recurring value in the map.
 func (f *TaskFrontmatter) SetRecurring(v string) { f.Set("recurring", v) }
 
-// SetLastCompleted stores the last_completed value in the map.
-func (f *TaskFrontmatter) SetLastCompleted(v string) { f.Set("last_completed", v) }
+// SetLastCompletedDate stores the last_completed_date in the map.
+// Dual-writes to both "last_completed_date" (canonical) and "last_completed" (legacy)
+// for one release cycle to allow external consumers to migrate.
+// Deletes both keys if d is nil.
+func (f *TaskFrontmatter) SetLastCompletedDate(d *libtime.DateOrDateTime) {
+	if d == nil {
+		f.Delete("last_completed_date")
+		f.Delete("last_completed")
+		return
+	}
+	formatted := formatDateOrDateTime(d)
+	f.Set("last_completed_date", formatted)
+	f.Set("last_completed", formatted) // dual-write window
+}
 
-// SetCompletedDate stores the completed_date value in the map.
-func (f *TaskFrontmatter) SetCompletedDate(v string) { f.Set("completed_date", v) }
+// SetLastCompleted stores the last_completed value. Kept for backward compatibility.
+// Delegates to SetLastCompletedDate for dual-write behavior.
+func (f *TaskFrontmatter) SetLastCompleted(v string) {
+	if v == "" {
+		f.SetLastCompletedDate(nil)
+		return
+	}
+	t, err := libtime.ParseTime(context.Background(), v)
+	if err != nil {
+		f.Set("last_completed", v)
+		f.Set("last_completed_date", v)
+		return
+	}
+	d := libtime.DateOrDateTime(*t)
+	f.SetLastCompletedDate(&d)
+}
+
+// SetCompletedDate stores the completed_date in the map. Deletes the key if d is nil.
+func (f *TaskFrontmatter) SetCompletedDate(d *libtime.DateOrDateTime) {
+	if d == nil {
+		f.Delete("completed_date")
+		return
+	}
+	f.Set("completed_date", formatDateOrDateTime(d))
+}
+
+// SetCreatedDate stores the created_date in the map. Deletes the key if d is nil.
+func (f *TaskFrontmatter) SetCreatedDate(d *libtime.DateOrDateTime) {
+	if d == nil {
+		f.Delete("created_date")
+		return
+	}
+	f.Set("created_date", formatDateOrDateTime(d))
+}
 
 // SetTaskIdentifier stores the task_identifier value in the map.
 func (f *TaskFrontmatter) SetTaskIdentifier(v string) { f.Set("task_identifier", v) }
@@ -277,8 +344,12 @@ func (f TaskFrontmatter) GetField(key string) string {
 		return f.Recurring()
 	case "last_completed":
 		return f.LastCompleted()
+	case "last_completed_date":
+		return formatDateOrDateTime(f.LastCompletedDate())
 	case "completed_date":
-		return f.CompletedDate()
+		return formatDateOrDateTime(f.CompletedDate())
+	case "created_date":
+		return formatDateOrDateTime(f.CreatedDate())
 	case "planned_date":
 		return formatDateOrDateTime(f.PlannedDate())
 	case "due_date":
@@ -367,8 +438,12 @@ func (f *TaskFrontmatter) SetField(ctx context.Context, key, value string) error
 		f.SetRecurring(value)
 	case "last_completed":
 		f.SetLastCompleted(value)
+	case "last_completed_date":
+		return setDateField(ctx, f.SetLastCompletedDate, value)
 	case "completed_date":
-		f.SetCompletedDate(value)
+		return setDateField(ctx, f.SetCompletedDate, value)
+	case "created_date":
+		return setDateField(ctx, f.SetCreatedDate, value)
 	case "planned_date":
 		return setDateField(ctx, f.SetPlannedDate, value)
 	case "due_date":

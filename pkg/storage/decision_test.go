@@ -8,7 +8,9 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"time"
 
+	libtime "github.com/bborbe/time"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -324,6 +326,72 @@ type: data
 		})
 	})
 
+	Describe("reviewed_date round-trip", func() {
+		It("reads YAML date literal as date-only DateOrDateTime", func() {
+			content := "---\nneeds_review: true\nreviewed_date: 2025-01-15\n---\n# Decision\n"
+			filePath := filepath.Join(vaultPath, "DateLiteral.md")
+			Expect(os.WriteFile(filePath, []byte(content), 0600)).To(Succeed())
+
+			decisions, err := store.ListDecisions(ctx, vaultPath)
+			Expect(err).To(BeNil())
+			Expect(decisions).To(HaveLen(1))
+
+			d := decisions[0]
+			Expect(d.ReviewedDate).NotTo(BeNil())
+			t := d.ReviewedDate.Time().UTC()
+			Expect(t.Format("2006-01-02")).To(Equal("2025-01-15"))
+			Expect(t.Hour()).To(Equal(0))
+		})
+
+		It("reads RFC3339 string as DateOrDateTime with time component", func() {
+			content := "---\nneeds_review: true\nreviewed_date: \"2025-01-15T14:30:00Z\"\n---\n# Decision\n"
+			filePath := filepath.Join(vaultPath, "RFC3339.md")
+			Expect(os.WriteFile(filePath, []byte(content), 0600)).To(Succeed())
+
+			decisions, err := store.ListDecisions(ctx, vaultPath)
+			Expect(err).To(BeNil())
+			Expect(decisions).To(HaveLen(1))
+
+			d := decisions[0]
+			Expect(d.ReviewedDate).NotTo(BeNil())
+			t := d.ReviewedDate.Time().UTC()
+			Expect(t.Hour()).To(Equal(14))
+			Expect(t.Minute()).To(Equal(30))
+		})
+
+		It("leaves ReviewedDate nil when reviewed_date is absent", func() {
+			content := "---\nneeds_review: true\nstatus: pending\n---\n# Decision\n"
+			filePath := filepath.Join(vaultPath, "NoDate.md")
+			Expect(os.WriteFile(filePath, []byte(content), 0600)).To(Succeed())
+
+			decisions, err := store.ListDecisions(ctx, vaultPath)
+			Expect(err).To(BeNil())
+			Expect(decisions).To(HaveLen(1))
+			Expect(decisions[0].ReviewedDate).To(BeNil())
+		})
+
+		It("writes midnight-UTC DateOrDateTime as YYYY-MM-DD in frontmatter", func() {
+			content := "---\nneeds_review: true\n---\n# Decision\n"
+			filePath := filepath.Join(vaultPath, "WriteDate.md")
+			Expect(os.WriteFile(filePath, []byte(content), 0600)).To(Succeed())
+
+			decisions, err := store.ListDecisions(ctx, vaultPath)
+			Expect(err).To(BeNil())
+			Expect(decisions).To(HaveLen(1))
+
+			d := decisions[0]
+			reviewedDate := libtime.DateOrDateTime(
+				time.Date(2025, 1, 15, 0, 0, 0, 0, time.UTC),
+			)
+			d.ReviewedDate = &reviewedDate
+			Expect(store.WriteDecision(ctx, d)).To(Succeed())
+
+			rawBytes, err := os.ReadFile(filePath)
+			Expect(err).To(BeNil())
+			Expect(string(rawBytes)).To(ContainSubstring("reviewed_date: \"2025-01-15\""))
+		})
+	})
+
 	Describe("WriteDecision", func() {
 		It("preserves markdown body content and only changes frontmatter", func() {
 			originalContent := `---
@@ -350,7 +418,10 @@ Some important context.
 			d := decisions[0]
 			d.NeedsReview = false
 			d.Reviewed = true
-			d.ReviewedDate = "2026-03-16"
+			reviewedDate := libtime.DateOrDateTime(
+				time.Date(2026, 3, 16, 0, 0, 0, 0, time.UTC),
+			)
+			d.ReviewedDate = &reviewedDate
 
 			Expect(store.WriteDecision(ctx, d)).To(Succeed())
 

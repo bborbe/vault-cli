@@ -23,15 +23,15 @@ var _ = Describe("Decision", func() {
 
 			BeforeEach(func() {
 				decision = domain.Decision{
-					NeedsReview:  true,
-					Reviewed:     true,
-					ReviewedDate: "2025-06-01",
-					Status:       "approved",
-					Type:         "architecture",
-					PageType:     "decision",
-					Name:         "10 Decisions/Some Page Name",
-					Content:      "---\nneeds_review: true\n---\nsome content",
-					FilePath:     "/vault/10 Decisions/Some Page Name.md",
+					NeedsReview: true,
+					Reviewed:    true,
+					// ReviewedDate is managed by the storage layer (yaml:"-"); not set here
+					Status:   "approved",
+					Type:     "architecture",
+					PageType: "decision",
+					Name:     "10 Decisions/Some Page Name",
+					Content:  "---\nneeds_review: true\n---\nsome content",
+					FilePath: "/vault/10 Decisions/Some Page Name.md",
 				}
 				data, err = yaml.Marshal(decision)
 			})
@@ -43,10 +43,13 @@ var _ = Describe("Decision", func() {
 			It("marshals frontmatter fields", func() {
 				Expect(string(data)).To(ContainSubstring("needs_review: true"))
 				Expect(string(data)).To(ContainSubstring("reviewed: true"))
-				Expect(string(data)).To(ContainSubstring("reviewed_date:"))
 				Expect(string(data)).To(ContainSubstring("status: approved"))
 				Expect(string(data)).To(ContainSubstring("type: architecture"))
 				Expect(string(data)).To(ContainSubstring("page_type: decision"))
+			})
+
+			It("does not marshal reviewed_date (managed by storage layer)", func() {
+				Expect(string(data)).NotTo(ContainSubstring("reviewed_date:"))
 			})
 
 			It("does not marshal metadata fields", func() {
@@ -55,12 +58,11 @@ var _ = Describe("Decision", func() {
 				Expect(string(data)).NotTo(ContainSubstring("/vault/"))
 			})
 
-			It("round-trips correctly", func() {
+			It("round-trips correctly for YAML-managed fields", func() {
 				var result domain.Decision
 				Expect(yaml.Unmarshal(data, &result)).To(Succeed())
 				Expect(result.NeedsReview).To(BeTrue())
 				Expect(result.Reviewed).To(BeTrue())
-				Expect(result.ReviewedDate).To(Equal("2025-06-01"))
 				Expect(result.Status).To(Equal("approved"))
 				Expect(result.Type).To(Equal("architecture"))
 				Expect(result.PageType).To(Equal("decision"))

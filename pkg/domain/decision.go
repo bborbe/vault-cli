@@ -4,15 +4,17 @@
 
 package domain
 
+import libtime "github.com/bborbe/time"
+
 // Decision represents a markdown file in the vault that has needs_review frontmatter.
 type Decision struct {
 	// Frontmatter fields
-	NeedsReview  bool   `yaml:"needs_review"`
-	Reviewed     bool   `yaml:"reviewed,omitempty"`
-	ReviewedDate string `yaml:"reviewed_date,omitempty"`
-	Status       string `yaml:"status,omitempty"`
-	Type         string `yaml:"type,omitempty"`
-	PageType     string `yaml:"page_type,omitempty"`
+	NeedsReview  bool                    `yaml:"needs_review"`
+	Reviewed     bool                    `yaml:"reviewed,omitempty"`
+	ReviewedDate *libtime.DateOrDateTime `yaml:"-"` // managed by storage layer
+	Status       string                  `yaml:"status,omitempty"`
+	Type         string                  `yaml:"type,omitempty"`
+	PageType     string                  `yaml:"page_type,omitempty"`
 
 	// Metadata — excluded from YAML serialization
 	Name     string `yaml:"-"` // Relative path from vault root without .md extension

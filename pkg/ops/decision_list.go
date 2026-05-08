@@ -70,7 +70,7 @@ func (d *decisionListOperation) Execute(
 		items = append(items, DecisionListItem{
 			Name:         dec.Name,
 			Reviewed:     dec.Reviewed,
-			ReviewedDate: dec.ReviewedDate,
+			ReviewedDate: formatDateOrDateTime(dec.ReviewedDate),
 			Status:       dec.Status,
 			Type:         dec.Type,
 			PageType:     dec.PageType,

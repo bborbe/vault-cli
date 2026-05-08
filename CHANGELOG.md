@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.59.1
+
+- refactor: Migrate Goal `start_date` and `target_date` from `*time.Time` to `*libtime.DateOrDateTime`; update `GetField`/`SetField` to use `formatDateOrDateTime` and `setDateField`; remove `setDateFromString` helper
+
 ## v0.59.0
 
 - feat: Migrate Task `completed_date`, `last_completed`/`last_completed_date` to `*libtime.DateOrDateTime`; add new `created_date` field with typed getter/setter. Dual-write window writes both `last_completed_date` (canonical) and `last_completed` (legacy) for one release cycle.

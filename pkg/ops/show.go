@@ -100,7 +100,7 @@ func (o *showOperation) Execute(
 	detail.DeferDate = formatDateOrDateTime(task.DeferDate())
 	detail.PlannedDate = formatDateOrDateTime(task.PlannedDate())
 	detail.DueDate = formatDateOrDateTime(task.DueDate())
-	detail.CompletedDate = task.CompletedDate()
+	detail.CompletedDate = formatDateOrDateTime(task.CompletedDate())
 
 	// Extract description from body content
 	if matches := showFrontmatterRegex.FindStringSubmatch(string(task.Content)); len(matches) >= 2 {

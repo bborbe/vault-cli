@@ -1,5 +1,5 @@
 ---
-status: committing
+status: completed
 spec: [010-unify-date-fields-to-dateordatetime]
 summary: Migrated ObjectiveFrontmatter and ThemeFrontmatter StartDate/TargetDate from *time.Time to *libtime.DateOrDateTime, updated GetField/SetField to use formatDateOrDateTime and setDateField, and added comprehensive Ginkgo test coverage for both types.
 container: vault-cli-113-spec-010-objective-theme-dates
@@ -7,6 +7,7 @@ dark-factory-version: v0.156.1-1-g04f3863-dirty
 created: "2026-05-08T00:00:00Z"
 queued: "2026-05-08T19:04:32Z"
 started: "2026-05-08T21:19:09Z"
+completed: "2026-05-08T21:22:25Z"
 branch: dark-factory/unify-date-fields-to-dateordatetime
 ---
 

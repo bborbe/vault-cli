@@ -61,7 +61,8 @@ func (d *decisionAckOperation) Execute(
 	}
 
 	decision.Reviewed = true
-	decision.ReviewedDate = d.currentDateTime.Now().Format("2006-01-02")
+	reviewedDate := libtime.DateOrDateTime(libtime.ToDate(d.currentDateTime.Now().Time()).Time())
+	decision.ReviewedDate = &reviewedDate
 
 	if statusOverride != "" {
 		decision.Status = statusOverride

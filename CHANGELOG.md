@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.60.0
+
+- feat: Unify all *_date frontmatter fields across Task, Goal, Objective, Theme, Decision to use libtime.DateOrDateTime for RFC3339 round-trip fidelity [spec 010]
+- chore: Drop legacy last_completed write after one release cycle (dual-write window from spec 010 task migration)
+
 ## v0.59.2
 
 - refactor: Migrate Objective and Theme `start_date` and `target_date` from `*time.Time` to `*libtime.DateOrDateTime`; update `GetField`/`SetField` to use `formatDateOrDateTime` and `setDateField`

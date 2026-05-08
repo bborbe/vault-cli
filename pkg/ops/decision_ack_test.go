@@ -82,7 +82,12 @@ var _ = Describe("DecisionAckOperation", func() {
 			Expect(mockDecisionStorage.WriteDecisionCallCount()).To(Equal(1))
 			_, written := mockDecisionStorage.WriteDecisionArgsForCall(0)
 			Expect(written.Reviewed).To(BeTrue())
-			Expect(written.ReviewedDate).To(Equal("2026-03-16"))
+			Expect(written.ReviewedDate).NotTo(BeNil())
+			t := written.ReviewedDate.Time().UTC()
+			Expect(t.Format("2006-01-02")).To(Equal("2026-03-16"))
+			Expect(t.Hour()).To(Equal(0))
+			Expect(t.Minute()).To(Equal(0))
+			Expect(t.Second()).To(Equal(0))
 		})
 
 		It("returns result with correct name and vault", func() {

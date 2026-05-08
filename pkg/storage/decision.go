@@ -12,8 +12,10 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/bborbe/errors"
+	libtime "github.com/bborbe/time"
 
 	"github.com/bborbe/vault-cli/pkg/domain"
 )
@@ -49,8 +51,19 @@ func (d *decisionStorage) readDecisionFromPath(
 	if v, ok := data["reviewed"].(bool); ok {
 		decision.Reviewed = v
 	}
-	if v, ok := data["reviewed_date"].(string); ok {
-		decision.ReviewedDate = v
+	if raw := data["reviewed_date"]; raw != nil {
+		switch v := raw.(type) {
+		case time.Time:
+			d := libtime.DateOrDateTime(v)
+			decision.ReviewedDate = &d
+		case string:
+			if v != "" {
+				if t, err := libtime.ParseTime(context.Background(), v); err == nil {
+					d := libtime.DateOrDateTime(*t)
+					decision.ReviewedDate = &d
+				}
+			}
+		}
 	}
 	if v, ok := data["status"].(string); ok {
 		decision.Status = v
@@ -209,8 +222,8 @@ func (d *decisionStorage) WriteDecision(ctx context.Context, decision *domain.De
 	if decision.Reviewed {
 		data["reviewed"] = decision.Reviewed
 	}
-	if decision.ReviewedDate != "" {
-		data["reviewed_date"] = decision.ReviewedDate
+	if decision.ReviewedDate != nil {
+		data["reviewed_date"] = formatReviewedDate(decision.ReviewedDate)
 	}
 	if decision.Status != "" {
 		data["status"] = decision.Status
@@ -232,4 +245,17 @@ func (d *decisionStorage) WriteDecision(ctx context.Context, decision *domain.De
 	}
 
 	return nil
+}
+
+// formatReviewedDate serializes a *libtime.DateOrDateTime to string for YAML storage.
+// Midnight-UTC values format as YYYY-MM-DD; others as RFC3339 with timezone.
+func formatReviewedDate(d *libtime.DateOrDateTime) string {
+	if d == nil {
+		return ""
+	}
+	t := d.Time().UTC()
+	if t.Hour() == 0 && t.Minute() == 0 && t.Second() == 0 && t.Nanosecond() == 0 {
+		return t.Format(time.DateOnly)
+	}
+	return d.Time().Format(time.RFC3339)
 }

@@ -38,7 +38,7 @@ var _ = Describe("NewGoalGetOperation", func() {
 		vaultPath = "/path/to/vault"
 		goalName = "my-goal"
 
-		startDate := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+		startDate := libtime.DateOrDateTime(time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC))
 		goal = domain.NewGoal(
 			map[string]any{
 				"status":    "active",
@@ -189,7 +189,7 @@ var _ = Describe("NewGoalSetOperation", func() {
 		})
 	})
 
-	Context("setting a *time.Time date field", func() {
+	Context("setting a *libtime.DateOrDateTime date field", func() {
 		BeforeEach(func() {
 			key = "start_date"
 			value = "2025-06-15"
@@ -317,7 +317,7 @@ var _ = Describe("NewGoalClearOperation", func() {
 		vaultPath = "/path/to/vault"
 		goalName = "my-goal"
 
-		startDate := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+		startDate := libtime.DateOrDateTime(time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC))
 		goal = domain.NewGoal(
 			map[string]any{
 				"status":   "active",

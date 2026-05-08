@@ -1,9 +1,15 @@
 ---
-status: approved
+status: committing
 spec: [010-unify-date-fields-to-dateordatetime]
+summary: Migrated Goal start_date and target_date from *time.Time to *libtime.DateOrDateTime; setters/getters/GetField/SetField all updated; tests extended; fixed pre-existing plugin version mismatch (0.58.7 → 0.59.0) that blocked make precommit
+container: vault-cli-112-spec-010-goal-dates
+dark-factory-version: v0.156.1-1-g04f3863-dirty
 created: "2026-05-08T00:00:00Z"
 queued: "2026-05-08T19:04:32Z"
+started: "2026-05-08T20:27:40Z"
+completed: "2026-05-08T19:22:01Z"
 branch: dark-factory/unify-date-fields-to-dateordatetime
+lastFailReason: 'validate completion report: completion report status: failed'
 ---
 
 <summary>

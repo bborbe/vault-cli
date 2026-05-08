@@ -3,7 +3,9 @@
 ## v0.60.0
 
 - feat: Unify all *_date frontmatter fields across Task, Goal, Objective, Theme, Decision to use libtime.DateOrDateTime for RFC3339 round-trip fidelity [spec 010]
-- chore: Drop legacy last_completed write after one release cycle (dual-write window from spec 010 task migration)
+- feat: Migrate Decision `reviewed_date` from plain string to *libtime.DateOrDateTime
+- chore: Drop check-versions from `make precommit`; add `make release-check` for release-time gating
+- docs: Update releasing-vault-cli.md for relaxed version-alignment gate (release-time only, not precommit)
 
 ## v0.59.2
 

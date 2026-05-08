@@ -13,6 +13,19 @@ Vault-cli ships two artifacts that version independently:
 
 A single change can touch one surface or both.
 
+## 🚨 Version alignment — locked model
+
+All four version strings MUST always equal each other:
+
+1. `CHANGELOG.md` — top `## vX.Y.Z` entry
+2. `.claude-plugin/plugin.json` — `"version"`
+3. `.claude-plugin/marketplace.json` — `metadata.version`
+4. `.claude-plugin/marketplace.json` — `plugins[0].version`
+
+`make precommit` runs `scripts/check-versions.sh` which exits non-zero on any mismatch. Daemon preflight uses `make precommit` too — a misaligned tree blocks all queued prompts until aligned.
+
+**Implication for `autoRelease`**: when a prompt produces a binary release (CHANGELOG bump → tag), the same prompt MUST also bump the three plugin JSON fields. Otherwise the next prompt's preflight fails. The daemon does NOT bump the plugin JSONs automatically — it's the prompt's responsibility.
+
 ## The release gate (run BEFORE every `make install`)
 
 The gate exists because `make precommit` does NOT cover real-vault behavior, vault-cli ↔ filesystem boundaries, or CLI argument parsing seams. Unit tests pass while runtime behavior is broken — and downstream consumers (task-orchestrator, scripts, agents) inherit those breakages immediately.
@@ -46,26 +59,15 @@ git diff "$INSTALLED"..HEAD --name-only | grep -E '\.(go|mod|sum)$|^Makefile$'
 
 This is the ONLY documented skip. Do not invent others ("docs-only changes shouldn't break anything") — surface mappings are fragile.
 
-## Version alignment check (run BEFORE every commit that bumps versions)
+## Version alignment check (automated)
 
-Whenever you bump any version (binary tag OR plugin JSON), all related fields must align. Run:
+`scripts/check-versions.sh` enforces the locked model: top CHANGELOG entry == plugin.json `version` == marketplace.json `metadata.version` == marketplace.json `plugins[0].version`. Run directly or via `make check-versions`. Wired into `make precommit`, so it fails the build (and daemon preflight) on any mismatch.
 
 ```bash
-# Binary alignment: latest tag matches latest CHANGELOG section
-LATEST_TAG=$(git tag -l | sort -V | tail -1)
-LATEST_CHANGELOG=$(grep -m1 '^## v' CHANGELOG.md | sed 's/^## //')
-test "$LATEST_TAG" = "$LATEST_CHANGELOG" && echo "✅ binary aligned" || echo "❌ tag=$LATEST_TAG changelog=$LATEST_CHANGELOG"
-
-# Plugin alignment: three JSON fields must match each other
-PLUGIN=$(jq -r .version .claude-plugin/plugin.json)
-META=$(jq -r .metadata.version .claude-plugin/marketplace.json)
-PLUGINS0=$(jq -r '.plugins[0].version' .claude-plugin/marketplace.json)
-test "$PLUGIN" = "$META" -a "$META" = "$PLUGINS0" && echo "✅ plugin aligned ($PLUGIN)" || echo "❌ plugin=$PLUGIN meta=$META plugins[0]=$PLUGINS0"
+make check-versions
+# or
+bash scripts/check-versions.sh
 ```
-
-(Future: ship `scripts/check-versions.sh` that runs both checks and exits non-zero on any mismatch.)
-
-Plugin version is independent of the binary tag — the two streams are not required to match each other, only to be internally consistent within their surface.
 
 ## Binary release (automatic — but the operator owns the gate)
 

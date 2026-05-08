@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.58.5
+
+- chore: Lock the four version strings (CHANGELOG top, `plugin.json`, `marketplace.json` metadata + plugins[0]) to a single value. Added `scripts/check-versions.sh`, wired into `make precommit` as `check-versions` target.
+- docs: Added `docs/releasing-vault-cli.md` mirroring dark-factory's release-gate procedure (run all scenarios against a freshly built binary before `make install`). Updated `CLAUDE.md` with the locked-model alignment rule, the scenario gate rule, and the Plugin Release Checklist section.
+- chore: Added `scenarios/helper/lib.sh` with reusable helpers (`build_binary`, `setup_example_vault`, `days_from_today`, `assert_*`, `scenario_done`) for future scripted scenario runners.
+- fix: Fixed portability bugs in scenarios 002, 003, 004 — `cp -r src/ dst/` (BSD vs GNU divergence) replaced with `cp -R src/. dst/`. Fixed YAML date-quoting mismatches in scenarios 003 (`defer_date`) and 004 (`reviewed_date`); assertions now tolerate optional quotes via `grep -E`.
+- fix: Corrected scenario 004 to match the binary's intentional immutable-history model — `decision ack` does NOT flip `needs_review`; it adds `reviewed: true` + `reviewed_date`. Description and assertions updated.
+
 ## v0.58.4
 
 - fix: `vault-cli {task,goal,theme,objective} list` now returns an empty list (exit 0) when the configured pages directory does not exist, instead of erroring. All other I/O errors (permission denied, broken symlinks, ENOTDIR) still error with the original wrapped message.

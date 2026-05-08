@@ -12,7 +12,7 @@ Validates that the standard happy-path task lifecycle (list → work-on → defe
 go build -C ~/Documents/workspaces/vault-cli -o /tmp/new-vault-cli .
 VAULT_CLI=/tmp/new-vault-cli
 WORK_DIR=$(mktemp -d)
-cp -r ~/Documents/workspaces/vault-cli/example/ "$WORK_DIR/"
+cp -R ~/Documents/workspaces/vault-cli/example/. "$WORK_DIR/"  # /. trailing-dot is portable across BSD + GNU cp
 sed -i.bak "s|__VAULT_PATH__|$WORK_DIR/vault|g" "$WORK_DIR/config.yaml" && rm "$WORK_DIR/config.yaml.bak"
 CONFIG="$WORK_DIR/config.yaml"
 TASK_FILE="$WORK_DIR/vault/24 Tasks/Simple Task.md"

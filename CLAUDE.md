@@ -83,6 +83,21 @@ Obsidian vault task management CLI — fast CRUD for markdown files (tasks, goal
   ```
   Do NOT shortcut by "change type" intuition ("docs-only", "config-only") — always run the diff.
 
+## 🚨 Version Alignment — MANDATORY
+
+**Four version strings MUST always equal each other:**
+
+1. `CHANGELOG.md` — top `## vX.Y.Z` entry (the most-recent versioned section)
+2. `.claude-plugin/plugin.json` — `"version"` field
+3. `.claude-plugin/marketplace.json` — `metadata.version`
+4. `.claude-plugin/marketplace.json` — `plugins[0].version`
+
+`make precommit` runs `check-versions` which fails the build if any of the four diverge. Never commit a release with mismatched versions.
+
+**Every release commit bumps all four together** — even patch releases triggered by the dark-factory daemon. Plugin manifests are NOT decoupled from the binary tag; users running `claude plugin update vault-cli@vault-cli` rely on the manifest version matching the tag.
+
+When the daemon's `autoRelease` ships a new binary version, the prompt that triggered it MUST also bump the three plugin JSON fields — otherwise the next prompt's preflight (`make precommit`) fails.
+
 ## Plugin Release Checklist
 
 **When to release:** Any change to `commands/`, `agents/`, `docs/`, or `skills/` requires a plugin version bump — these files ship as part of the plugin.

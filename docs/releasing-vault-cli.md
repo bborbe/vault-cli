@@ -13,18 +13,20 @@ Vault-cli ships two artifacts that version independently:
 
 A single change can touch one surface or both.
 
-## 🚨 Version alignment — locked model
+## 🚨 Version alignment — locked at release time only
 
-All four version strings MUST always equal each other:
+All four version strings MUST equal each other **at release time**:
 
 1. `CHANGELOG.md` — top `## vX.Y.Z` entry
 2. `.claude-plugin/plugin.json` — `"version"`
 3. `.claude-plugin/marketplace.json` — `metadata.version`
 4. `.claude-plugin/marketplace.json` — `plugins[0].version`
 
-`make precommit` runs `scripts/check-versions.sh` which exits non-zero on any mismatch. Daemon preflight uses `make precommit` too — a misaligned tree blocks all queued prompts until aligned.
+The check is **release-time only** — `make precommit` does NOT run it. Use `make release-check` (or `make check-versions` directly) before tagging.
 
-**Implication for `autoRelease`**: when a prompt produces a binary release (CHANGELOG bump → tag), the same prompt MUST also bump the three plugin JSON fields. Otherwise the next prompt's preflight fails. The daemon does NOT bump the plugin JSONs automatically — it's the prompt's responsibility.
+**Why not in `precommit`**: every refactor commit advances `## Unreleased` → eventually a `## vX.Y.Z` heading; if every prompt had to bump plugin JSONs in lockstep, each refactor would consume a release number. We learned this the hard way during spec 010 — three prompts auto-bumped plugin versions just to clear the precommit gate, burning v0.58.7 → v0.59.0 → v0.59.1 on internal refactors.
+
+**Implication for `autoRelease`**: when a prompt produces a binary release (CHANGELOG bump → tag), the plugin JSONs may lag behind. Operator runs `make release-check` before producing a plugin release and bumps the JSONs to match the latest CHANGELOG entry at that time.
 
 ## The release gate (run BEFORE every `make install`)
 
@@ -59,15 +61,19 @@ git diff "$INSTALLED"..HEAD --name-only | grep -E '\.(go|mod|sum)$|^Makefile$'
 
 This is the ONLY documented skip. Do not invent others ("docs-only changes shouldn't break anything") — surface mappings are fragile.
 
-## Version alignment check (automated)
+## Version alignment check (release-time)
 
-`scripts/check-versions.sh` enforces the locked model: top CHANGELOG entry == plugin.json `version` == marketplace.json `metadata.version` == marketplace.json `plugins[0].version`. Run directly or via `make check-versions`. Wired into `make precommit`, so it fails the build (and daemon preflight) on any mismatch.
+`scripts/check-versions.sh` enforces the locked model: top CHANGELOG entry == plugin.json `version` == marketplace.json `metadata.version` == marketplace.json `plugins[0].version`. Run directly, via `make check-versions`, or via `make release-check` (which adds `make precommit` first).
 
 ```bash
+make release-check          # full gate: precommit + check-versions
+# or, just the version check:
 make check-versions
-# or
+# or:
 bash scripts/check-versions.sh
 ```
+
+**NOT wired into `make precommit`** — see the "Version alignment" section above for why.
 
 ## Binary release (automatic — but the operator owns the gate)
 
@@ -113,7 +119,7 @@ git diff "$LAST_PLUGIN_TAG"..HEAD --name-only -- commands/ agents/ docs/ skills/
    - `.claude-plugin/marketplace.json` `metadata.version`
    - `.claude-plugin/marketplace.json` `plugins[0].version`
 4. **Add a `## vX.Y.Z` section** to `CHANGELOG.md` at the top, covering all changes since the previous entry (binary AND plugin in the same section — there is one CHANGELOG, not two).
-5. **Run the version alignment check** (above) — must report `✅ plugin aligned`.
+5. **Run `make release-check`** (above) — must pass precommit AND report `✅ plugin aligned`.
 6. **Commit:** `git commit -m "release plugin vX.Y.Z: <summary>"`.
 7. **Push:** `git push`.
 

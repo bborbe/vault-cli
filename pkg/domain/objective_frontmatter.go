@@ -60,46 +60,28 @@ func (f ObjectiveFrontmatter) Priority() Priority {
 // Assignee reads "assignee" key.
 func (f ObjectiveFrontmatter) Assignee() string { return f.GetString("assignee") }
 
-// StartDate reads "start_date" key as *time.Time.
-func (f ObjectiveFrontmatter) StartDate() *time.Time {
-	v := f.Get("start_date")
-	if v == nil {
+// StartDate reads "start_date" as *libtime.DateOrDateTime.
+// Handles both time.Time (YAML-parsed) and string (hand-authored) forms.
+// Returns nil on missing or unparseable value.
+func (f ObjectiveFrontmatter) StartDate() *libtime.DateOrDateTime {
+	t := f.GetTime("start_date")
+	if t == nil {
 		return nil
 	}
-	if t, ok := v.(time.Time); ok {
-		utc := t.UTC()
-		return &utc
-	}
-	raw, ok := v.(string)
-	if !ok || raw == "" {
-		return nil
-	}
-	t, err := time.Parse(time.DateOnly, raw)
-	if err != nil {
-		return nil
-	}
-	return &t
+	d := libtime.DateOrDateTime(*t)
+	return &d
 }
 
-// TargetDate reads "target_date" key as *time.Time.
-func (f ObjectiveFrontmatter) TargetDate() *time.Time {
-	v := f.Get("target_date")
-	if v == nil {
+// TargetDate reads "target_date" as *libtime.DateOrDateTime.
+// Handles both time.Time (YAML-parsed) and string (hand-authored) forms.
+// Returns nil on missing or unparseable value.
+func (f ObjectiveFrontmatter) TargetDate() *libtime.DateOrDateTime {
+	t := f.GetTime("target_date")
+	if t == nil {
 		return nil
 	}
-	if t, ok := v.(time.Time); ok {
-		utc := t.UTC()
-		return &utc
-	}
-	raw, ok := v.(string)
-	if !ok || raw == "" {
-		return nil
-	}
-	t, err := time.Parse(time.DateOnly, raw)
-	if err != nil {
-		return nil
-	}
-	return &t
+	d := libtime.DateOrDateTime(*t)
+	return &d
 }
 
 // Tags reads "tags" key via GetStringSlice.
@@ -150,22 +132,22 @@ func (f *ObjectiveFrontmatter) SetPriority(ctx context.Context, p Priority) erro
 // SetAssignee stores the assignee in the map.
 func (f *ObjectiveFrontmatter) SetAssignee(v string) { f.Set("assignee", v) }
 
-// SetStartDate stores the start_date in the map. Deletes key if t is nil.
-func (f *ObjectiveFrontmatter) SetStartDate(t *time.Time) {
-	if t == nil {
+// SetStartDate stores the start_date in the map. Deletes key if d is nil.
+func (f *ObjectiveFrontmatter) SetStartDate(d *libtime.DateOrDateTime) {
+	if d == nil {
 		f.Delete("start_date")
 		return
 	}
-	f.Set("start_date", t.UTC().Format(time.DateOnly))
+	f.Set("start_date", formatDateOrDateTime(d))
 }
 
-// SetTargetDate stores the target_date in the map. Deletes key if t is nil.
-func (f *ObjectiveFrontmatter) SetTargetDate(t *time.Time) {
-	if t == nil {
+// SetTargetDate stores the target_date in the map. Deletes key if d is nil.
+func (f *ObjectiveFrontmatter) SetTargetDate(d *libtime.DateOrDateTime) {
+	if d == nil {
 		f.Delete("target_date")
 		return
 	}
-	f.Set("target_date", t.UTC().Format(time.DateOnly))
+	f.Set("target_date", formatDateOrDateTime(d))
 }
 
 // SetTags stores tags in the map. Deletes key if v is nil or empty.
@@ -202,17 +184,9 @@ func (f ObjectiveFrontmatter) GetField(key string) string {
 	case "assignee":
 		return f.Assignee()
 	case "start_date":
-		t := f.StartDate()
-		if t == nil {
-			return ""
-		}
-		return t.UTC().Format(time.DateOnly)
+		return formatDateOrDateTime(f.StartDate())
 	case "target_date":
-		t := f.TargetDate()
-		if t == nil {
-			return ""
-		}
-		return t.UTC().Format(time.DateOnly)
+		return formatDateOrDateTime(f.TargetDate())
 	case "tags":
 		return strings.Join(f.Tags(), ",")
 	case "completed":
@@ -246,25 +220,9 @@ func (f *ObjectiveFrontmatter) SetField(ctx context.Context, key, value string) 
 	case "assignee":
 		f.SetAssignee(value)
 	case "start_date":
-		if value == "" {
-			f.SetStartDate(nil)
-			return nil
-		}
-		t, err := time.Parse(time.DateOnly, value)
-		if err != nil {
-			return errors.Wrap(ctx, err, "invalid date format (expected YYYY-MM-DD)")
-		}
-		f.SetStartDate(&t)
+		return setDateField(ctx, f.SetStartDate, value)
 	case "target_date":
-		if value == "" {
-			f.SetTargetDate(nil)
-			return nil
-		}
-		t, err := time.Parse(time.DateOnly, value)
-		if err != nil {
-			return errors.Wrap(ctx, err, "invalid date format (expected YYYY-MM-DD)")
-		}
-		f.SetTargetDate(&t)
+		return setDateField(ctx, f.SetTargetDate, value)
 	case "tags":
 		if value == "" {
 			f.SetTags(nil)

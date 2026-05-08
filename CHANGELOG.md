@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.59.2
+
+- refactor: Migrate Objective and Theme `start_date` and `target_date` from `*time.Time` to `*libtime.DateOrDateTime`; update `GetField`/`SetField` to use `formatDateOrDateTime` and `setDateField`
+
 ## v0.59.1
 
 - refactor: Migrate Goal `start_date` and `target_date` from `*time.Time` to `*libtime.DateOrDateTime`; update `GetField`/`SetField` to use `formatDateOrDateTime` and `setDateField`; remove `setDateFromString` helper

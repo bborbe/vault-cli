@@ -1,5 +1,5 @@
 ---
-status: committing
+status: completed
 spec: [010-unify-date-fields-to-dateordatetime]
 summary: Replaced local domain.DateOrDateTime with libtime.DateOrDateTime from github.com/bborbe/time@v1.27.0 across 17 files, deleted the local type and its test, fixed pre-existing plugin version mismatch, and added CHANGELOG entry.
 container: vault-cli-110-spec-010-libtime-upgrade
@@ -7,6 +7,7 @@ dark-factory-version: v0.156.1-1-g04f3863-dirty
 created: "2026-05-08T00:00:00Z"
 queued: "2026-05-08T19:04:32Z"
 started: "2026-05-08T19:04:33Z"
+completed: "2026-05-08T19:11:09Z"
 branch: dark-factory/unify-date-fields-to-dateordatetime
 ---
 

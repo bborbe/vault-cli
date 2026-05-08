@@ -1,11 +1,12 @@
 ---
-status: prompted
+status: verifying
 tags:
     - dark-factory
     - spec
 approved: "2026-05-08T17:52:30Z"
 generating: "2026-05-08T18:03:07Z"
 prompted: "2026-05-08T18:13:30Z"
+verifying: "2026-05-08T21:26:20Z"
 branch: dark-factory/unify-date-fields-to-dateordatetime
 ---
 
@@ -126,3 +127,13 @@ make precommit
 ## Do-Nothing Option
 
 Tolerable but degrading. Producers (notably agent task-controller) increasingly want RFC3339 timestamps; each new field added without unification widens the inconsistency. The cross-domain `defer_date` collision is already a footgun. Doing nothing means every new producer integration re-discovers the three-pattern problem. Acceptable to defer this spec while higher-priority work ships, but not acceptable as a permanent state.
+
+## Verification Result
+
+**Verified:** 2026-05-08T21:50:10Z (HEAD a7f54c9)
+**Binary:** /Users/bborbe/Documents/workspaces/go/bin/dark-factory (v0.156.1-1-g04f3863-dirty)
+**Scenario:** No scenario file — verification is `make precommit` (unit/integration round-trip coverage). Re-verification covered the previously-missing follow-up artifact AC.
+**Evidence:**
+- Follow-up spec present at `specs/ideas/drop-legacy-last-completed-key.md` (status: `idea`); scope: drop dual-write of legacy `last_completed`, retain read-fallback for one more release; explicitly cross-references parent spec 010.
+- All other ACs verified in prior run (libtime v1.27.0 bump, deletion of local `date_or_datetime.go`, 5-prompt sequential migration, `*DateOrDateTime` adoption across Task/Goal/Objective/Theme/Decision, cross-domain `defer_date` parity, `make precommit` green).
+**Verdict:** PASS

@@ -1,6 +1,10 @@
 ---
-status: draft
+status: executing
+container: vault-cli-117-task-list-expose-goals-field
+dark-factory-version: v0.156.1-1-g04f3863-dirty
 created: "2026-05-11T00:00:00Z"
+queued: "2026-05-10T22:15:37Z"
+started: "2026-05-10T22:15:38Z"
 ---
 
 <summary>
@@ -67,7 +71,7 @@ Do NOT change the `Execute` signature. Do NOT change the `ListOperation` interfa
 
 ### 3. Add Ginkgo test cases in `pkg/ops/list_test.go`
 
-Add a new `Context` block inside the existing `Describe("ListOperation", ...)`. Place it adjacent to the existing `Context("with --goal filter", ...)` block (search for that string — around line 208). Reuse the suite-level `ctx`, `listOp`, `mockPageStorage`, `vaultPath`, `pagesDir`, `statusFilters`, `showAll`, `assigneeFilter`, `goalFilter`, and `tasks` variables and the `JustBeforeEach` that calls `listOp.Execute(...)`. Capture the return value via a top-level `var items []ops.TaskListItem` (or extend the existing `JustBeforeEach` to also assign `items`; if `JustBeforeEach` currently discards the items return value with `_, err = ...`, change it to `items, err = ...` and declare `items` alongside the existing `err` near the top of the `Describe`).
+Add a new `Context("Goals field in TaskListItem", ...)` block **inside the existing `Describe("ListOperation JSON output", ...)` block at `pkg/ops/list_test.go:369`** (NOT the line-20 `Describe("ListOperation", ...)`). The JSON-output Describe already declares `var items []ops.TaskListItem` and already calls `items, execErr = listOp.Execute(...)` per-Context — exactly the scaffold these test cases need. Mirror the existing per-Context pattern: a local `BeforeEach` builds tasks via `mockPageStorage.ListPagesReturns(...)` and the existing per-Describe `JustBeforeEach` runs `Execute`. **Do NOT modify the line-20 Describe at all** — that would require widening its `JustBeforeEach` from `_, err = ...` to `items, err = ...` and inflate the diff across every existing test in the suite.
 
 Add the following `It(...)` cases inside a new `Context("Goals field in TaskListItem", ...)` block:
 
@@ -140,7 +144,7 @@ Do NOT bump any version string in `CHANGELOG.md`, `.claude-plugin/plugin.json`, 
 - Do NOT modify the `shouldIncludeTask` or `taskHasGoal` filter logic — they already use `task.Goals()` and are unaffected
 - Do NOT introduce a new package or rename existing files
 - Do NOT add stdout writes from `pkg/ops` — operations return structured results, the CLI layer owns formatting (per `docs/development-patterns.md`)
-- Existing tests must remain green without modification (the only acceptable existing-test edit is widening the `JustBeforeEach` from `_, err = ...` to `items, err = ...` plus the new `var items []ops.TaskListItem` declaration — purely additive to the test scaffold)
+- Existing tests must remain green without modification — the line-20 `Describe("ListOperation", ...)` block and its `JustBeforeEach` MUST NOT be touched (the line-369 `Describe("ListOperation JSON output", ...)` already has the right scaffold; reuse it)
 - Use the `bborbe/errors` wrapping convention if any new error site is introduced (none expected — this change has no new error paths)
 - Follow Ginkgo v2 / Gomega style (`Describe`, `Context`, `It`, `Expect(...).To(...)`) per `~/.claude/plugins/marketplaces/coding/docs/go-testing-guide.md`
 - Do NOT bump versions in `CHANGELOG.md`, `.claude-plugin/plugin.json`, or `.claude-plugin/marketplace.json` — release pipeline handles it

@@ -1,11 +1,12 @@
 ---
-status: prompted
+status: verifying
 tags:
     - dark-factory
     - spec
 approved: "2026-05-10T20:51:12Z"
 generating: "2026-05-10T20:54:26Z"
 prompted: "2026-05-10T21:01:16Z"
+verifying: "2026-05-10T22:15:19Z"
 branch: dark-factory/promote-task-watch-to-vault-watch
 ---
 

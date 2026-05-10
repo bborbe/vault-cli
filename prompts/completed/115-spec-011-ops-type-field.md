@@ -1,5 +1,5 @@
 ---
-status: committing
+status: completed
 spec: [011-promote-task-watch-to-vault-watch]
 summary: Added WatchDir struct with Kind field, extended WatchEvent with Type field populated from directory→kind map lookup, updated buildDirMap and handleEvent, updated CLI caller and all tests including new multi-kind test.
 container: vault-cli-115-spec-011-ops-type-field
@@ -7,6 +7,7 @@ dark-factory-version: v0.156.1-1-g04f3863-dirty
 created: "2026-05-10T00:00:00Z"
 queued: "2026-05-10T22:07:30Z"
 started: "2026-05-10T22:07:32Z"
+completed: "2026-05-10T22:10:03Z"
 branch: dark-factory/promote-task-watch-to-vault-watch
 ---
 

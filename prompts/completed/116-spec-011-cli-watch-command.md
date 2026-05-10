@@ -1,5 +1,5 @@
 ---
-status: committing
+status: completed
 spec: [011-promote-task-watch-to-vault-watch]
 summary: Added `vault-cli watch` root-level command with `--types` filtering, extracted `NewRootCommand` for testability, added deprecation warning to `vault-cli task watch`, created `pkg/cli/watch_test.go` with type-validation and deprecation tests, and registered `watch` in integration test command table.
 container: vault-cli-116-spec-011-cli-watch-command
@@ -7,6 +7,7 @@ dark-factory-version: v0.156.1-1-g04f3863-dirty
 created: "2026-05-10T00:00:00Z"
 queued: "2026-05-10T22:07:30Z"
 started: "2026-05-10T22:10:06Z"
+completed: "2026-05-10T22:15:19Z"
 branch: dark-factory/promote-task-watch-to-vault-watch
 ---
 

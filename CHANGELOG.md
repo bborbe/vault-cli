@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.62.0
+
+- feat: Add `WatchDir` struct carrying entity `Kind` alongside directory path; extend `WatchEvent` with `type` field populated from directory→kind map lookup [spec 011 prompt 1]
+
 ## v0.61.0
 
 - feat: Add canonical structural docs `docs/goal-writing.md` and `docs/task-writing.md` (modeled after dark-factory's `spec-writing.md` pattern)

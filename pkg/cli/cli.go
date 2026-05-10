@@ -2032,11 +2032,11 @@ func createTaskWatchCommand(
 				targets = append(targets, ops.WatchTarget{
 					VaultPath: vault.Path,
 					VaultName: vault.Name,
-					WatchDirs: []string{
-						vault.GetTasksDir(),
-						vault.GetGoalsDir(),
-						vault.GetThemesDir(),
-						vault.GetObjectivesDir(),
+					WatchDirs: []ops.WatchDir{
+						{Dir: vault.GetTasksDir(), Kind: "task"},
+						{Dir: vault.GetGoalsDir(), Kind: "goal"},
+						{Dir: vault.GetThemesDir(), Kind: "theme"},
+						{Dir: vault.GetObjectivesDir(), Kind: "objective"},
 					},
 				})
 			}

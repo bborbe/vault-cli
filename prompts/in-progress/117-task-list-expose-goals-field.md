@@ -1,5 +1,6 @@
 ---
-status: executing
+status: committing
+summary: Added Goals []string field to TaskListItem in pkg/ops/list.go, populated it from task.Goals() in Execute, added 5 Ginkgo test cases in the JSON output Describe block, and updated CHANGELOG.md with an Unreleased entry.
 container: vault-cli-117-task-list-expose-goals-field
 dark-factory-version: v0.156.1-1-g04f3863-dirty
 created: "2026-05-11T00:00:00Z"

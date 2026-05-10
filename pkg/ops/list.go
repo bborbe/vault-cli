@@ -44,20 +44,21 @@ type listOperation struct {
 
 // TaskListItem represents a task in list output.
 type TaskListItem struct {
-	Name            string `json:"name"`
-	Status          string `json:"status"`
-	Assignee        string `json:"assignee,omitempty"`
-	Priority        int    `json:"priority,omitempty"`
-	Vault           string `json:"vault"`
-	Category        string `json:"category,omitempty"`
-	Recurring       string `json:"recurring,omitempty"`
-	DeferDate       string `json:"defer_date,omitempty"`
-	PlannedDate     string `json:"planned_date,omitempty"`
-	DueDate         string `json:"due_date,omitempty"`
-	ClaudeSessionID string `json:"claude_session_id,omitempty"`
-	Phase           string `json:"phase,omitempty"`
-	ModifiedDate    string `json:"modified_date,omitempty"`
-	CompletedDate   string `json:"completed_date,omitempty"`
+	Name            string   `json:"name"`
+	Status          string   `json:"status"`
+	Assignee        string   `json:"assignee,omitempty"`
+	Priority        int      `json:"priority,omitempty"`
+	Vault           string   `json:"vault"`
+	Category        string   `json:"category,omitempty"`
+	Recurring       string   `json:"recurring,omitempty"`
+	DeferDate       string   `json:"defer_date,omitempty"`
+	PlannedDate     string   `json:"planned_date,omitempty"`
+	DueDate         string   `json:"due_date,omitempty"`
+	ClaudeSessionID string   `json:"claude_session_id,omitempty"`
+	Phase           string   `json:"phase,omitempty"`
+	ModifiedDate    string   `json:"modified_date,omitempty"`
+	CompletedDate   string   `json:"completed_date,omitempty"`
+	Goals           []string `json:"goals,omitempty"`
 }
 
 // Execute lists tasks from the vault, optionally filtered by status, assignee, and goal.
@@ -119,6 +120,7 @@ func (l *listOperation) Execute(
 			items[i].ModifiedDate = task.ModifiedDate.UTC().Format("2006-01-02T15:04:05Z")
 		}
 		items[i].CompletedDate = formatDateOrDateTime(task.CompletedDate())
+		items[i].Goals = task.Goals()
 	}
 	return items, nil
 }

@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.64.0
+
+- feat: Expose `goals` frontmatter array in `task list --output json` — enables consumers to filter tasks by goal without re-parsing the markdown source. Verbatim emission (brackets preserved); consumer strips `[[ ]]` if needed.
+
 ## v0.63.0
 
 - feat: Add `vault-cli watch` top-level command with `--types` filter for entity kinds (task, goal, theme, objective); emit deprecation warning from `vault-cli task watch` pointing to the canonical command [spec 011 prompt 2]

@@ -6,6 +6,7 @@ package ops_test
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	libtime "github.com/bborbe/time"
@@ -659,6 +660,68 @@ var _ = Describe("ListOperation JSON output", func() {
 				Expect(item.Status).NotTo(Equal("todo"))
 				Expect(item.Status).NotTo(Equal("hold"))
 			}
+		})
+	})
+
+	Context("Goals field in TaskListItem", func() {
+		It("emits goals verbatim with brackets preserved", func() {
+			taskWithGoals := domain.NewTask(
+				map[string]any{"status": "todo"},
+				domain.FileMetadata{Name: "Task With Goals"},
+				domain.Content(""),
+			)
+			taskWithGoals.SetGoals([]string{"[[Goal A]]", "[[Goal B]]"})
+			mockPageStorage.ListPagesReturns([]*domain.Task{taskWithGoals}, nil)
+			items, execErr = listOp.Execute(ctx, "/vault", "my-vault", "Tasks", nil, true, "", "")
+			Expect(execErr).To(BeNil())
+			Expect(items).To(HaveLen(1))
+			Expect(items[0].Goals).To(Equal([]string{"[[Goal A]]", "[[Goal B]]"}))
+		})
+
+		It("yields nil Goals for tasks with no goals frontmatter", func() {
+			taskNoGoals := domain.NewTask(
+				map[string]any{"status": "todo"},
+				domain.FileMetadata{Name: "Task No Goals"},
+				domain.Content(""),
+			)
+			mockPageStorage.ListPagesReturns([]*domain.Task{taskNoGoals}, nil)
+			items, execErr = listOp.Execute(ctx, "/vault", "my-vault", "Tasks", nil, true, "", "")
+			Expect(execErr).To(BeNil())
+			Expect(items[0].Goals).To(BeNil())
+		})
+
+		It("yields empty Goals for tasks with explicit empty goals list", func() {
+			// GetStringSlice returns a non-nil empty []string for goals: []any{} because
+			// it allocates via make([]string, 0, len(s)) before iterating.
+			// encoding/json's omitempty treats empty slices as empty, so "goals" is still dropped.
+			taskEmptyGoals := domain.NewTask(
+				map[string]any{"status": "todo", "goals": []any{}},
+				domain.FileMetadata{Name: "Task Empty Goals"},
+				domain.Content(""),
+			)
+			mockPageStorage.ListPagesReturns([]*domain.Task{taskEmptyGoals}, nil)
+			items, execErr = listOp.Execute(ctx, "/vault", "my-vault", "Tasks", nil, true, "", "")
+			Expect(execErr).To(BeNil())
+			Expect(items[0].Goals).To(BeEmpty())
+		})
+
+		It("omits goals key from JSON when no goals are set", func() {
+			item := ops.TaskListItem{Name: "X", Status: "todo", Vault: "v"}
+			data, marshalErr := json.Marshal(item)
+			Expect(marshalErr).To(BeNil())
+			Expect(string(data)).NotTo(ContainSubstring(`"goals"`))
+		})
+
+		It("includes goals in JSON when goals are set", func() {
+			item := ops.TaskListItem{
+				Name:   "X",
+				Status: "todo",
+				Vault:  "v",
+				Goals:  []string{"[[Goal A]]"},
+			}
+			data, marshalErr := json.Marshal(item)
+			Expect(marshalErr).To(BeNil())
+			Expect(string(data)).To(ContainSubstring(`"goals":["[[Goal A]]"]`))
 		})
 	})
 })

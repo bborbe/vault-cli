@@ -130,9 +130,10 @@ Order:
 3. Short summary paragraph (1–2 sentences)
 4. `# Impact` — why this task matters
 5. `# Success Criteria` — checkboxes the task must meet
-6. `# Tasks` — actionable subtasks as checkboxes
-7. `# Verification` — how to verify completion
-8. `# Definition of Done` — final acceptance bar
+6. `# Out of Scope` — explicit deferrals (2–5 concrete items; placeholder if author drafting). Forces scope articulation; parallels `# Non-goals` on goals. See `vault-cli/docs/task-writing.md`.
+7. `# Tasks` — actionable subtasks as checkboxes
+8. `# Verification` — how to verify completion
+9. `# Definition of Done` — final acceptance bar
 
 If a template body was loaded in step 7, use it instead of generating these sections from scratch — but still write the frontmatter computed in step 8.
 

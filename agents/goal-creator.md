@@ -133,8 +133,9 @@ If a template body was loaded in step 7, use it. Otherwise, generate the standar
 4. `# Impact` — why this goal matters strategically
 5. `# Status Summary` — Progress / Current / Next / Blockers placeholders
 6. `# Success Criteria` — measurable outcomes as checkboxes
-7. `# Tasks` — placeholder for linked subtasks (created later)
-8. `# Related` — themes / related goals / docs
+7. `# Non-goals` — explicit out-of-scope items (3–7 concrete deferrals; placeholder if author drafting). Forces scope articulation at write-time; mirrors dark-factory spec convention. See Goal Writing Guide section 7.
+8. `# Tasks` — placeholder for linked subtasks (created later)
+9. `# Related` — themes / related goals / docs
 
 ## 10. Check for filename collision
 

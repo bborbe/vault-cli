@@ -43,8 +43,9 @@ func getVaults(
 	return (*configLoader).GetAllVaults(ctx)
 }
 
-// Run executes the CLI application.
-func Run(ctx context.Context, args []string) error {
+// NewRootCommand builds and returns the root cobra command for vault-cli.
+// Callers can set args and I/O streams before calling ExecuteContext.
+func NewRootCommand(ctx context.Context) *cobra.Command {
 	var configLoader config.Loader
 	var vaultName string
 	var configPath string
@@ -87,6 +88,7 @@ func Run(ctx context.Context, args []string) error {
 	rootCmd.AddCommand(createObjectiveCommands(ctx, &configLoader, &vaultName, &outputFormat))
 	rootCmd.AddCommand(createVisionCommands(ctx, &configLoader, &vaultName, &outputFormat))
 	rootCmd.AddCommand(createDecisionCommands(ctx, &configLoader, &vaultName, &outputFormat))
+	rootCmd.AddCommand(createWatchCommand(ctx, &configLoader, &vaultName))
 
 	configCmd := &cobra.Command{
 		Use:   "config",
@@ -96,6 +98,12 @@ func Run(ctx context.Context, args []string) error {
 	configCmd.AddCommand(createConfigCurrentUserCommand(ctx, &configLoader))
 	rootCmd.AddCommand(configCmd)
 
+	return rootCmd
+}
+
+// Run executes the CLI application.
+func Run(ctx context.Context, args []string) error {
+	rootCmd := NewRootCommand(ctx)
 	rootCmd.SetArgs(args)
 	return rootCmd.ExecuteContext(ctx)
 }
@@ -2022,32 +2030,140 @@ func createTaskWatchCommand(
 		Short: "Watch task folders for changes (streaming JSON output)",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			fmt.Fprintln(
+				cmd.ErrOrStderr(),
+				"DEPRECATED: 'vault-cli task watch' is deprecated; use 'vault-cli watch' instead. See spec 011.",
+			)
+
 			vaults, err := getVaults(ctx, configLoader, vaultName)
 			if err != nil {
 				return errors.Wrap(ctx, err, "get vaults")
 			}
 
-			targets := make([]ops.WatchTarget, 0, len(vaults))
-			for _, vault := range vaults {
-				targets = append(targets, ops.WatchTarget{
-					VaultPath: vault.Path,
-					VaultName: vault.Name,
-					WatchDirs: []ops.WatchDir{
-						{Dir: vault.GetTasksDir(), Kind: "task"},
-						{Dir: vault.GetGoalsDir(), Kind: "goal"},
-						{Dir: vault.GetThemesDir(), Kind: "theme"},
-						{Dir: vault.GetObjectivesDir(), Kind: "objective"},
-					},
-				})
+			watchOp := ops.NewWatchOperation()
+			return watchOp.Execute(
+				ctx,
+				buildWatchTargets(vaults),
+				func(event ops.WatchEvent) error {
+					enc := json.NewEncoder(os.Stdout)
+					return enc.Encode(event)
+				},
+			)
+		},
+	}
+}
+
+// parseWatchTypes validates and parses the --types flag value.
+// Returns nil typeFilter (all types) when the flag was not set.
+func parseWatchTypes(ctx context.Context, changed bool, typesStr string) ([]string, error) {
+	if !changed {
+		return nil, nil
+	}
+	if typesStr == "" {
+		return nil, errors.Errorf(
+			ctx,
+			"--types requires at least one value; valid values: task, goal, theme, objective",
+		)
+	}
+	validKinds := []string{"task", "goal", "theme", "objective"}
+	parts := strings.Split(typesStr, ",")
+	for _, part := range parts {
+		if !watchTypeIsValid(part, validKinds) {
+			return nil, errors.Errorf(
+				ctx,
+				"unknown type %q in --types; valid values: task, goal, theme, objective",
+				part,
+			)
+		}
+	}
+	return parts, nil
+}
+
+func watchTypeIsValid(part string, validKinds []string) bool {
+	for _, v := range validKinds {
+		if part == v {
+			return true
+		}
+	}
+	return false
+}
+
+func watchEventMatchesFilter(event ops.WatchEvent, typeFilter []string) bool {
+	if len(typeFilter) == 0 {
+		return true
+	}
+	for _, t := range typeFilter {
+		if event.Type == t {
+			return true
+		}
+	}
+	return false
+}
+
+func createWatchCommand(
+	ctx context.Context,
+	configLoader *config.Loader,
+	vaultName *string,
+) *cobra.Command {
+	var typesStr string
+	cmd := &cobra.Command{
+		Use:   "watch",
+		Short: "Watch vault directories for changes (streaming JSON output)",
+		Long: `Watch tasks, goals, themes, and objectives directories for file changes.
+Emits one newline-delimited JSON event per debounced change.
+
+Each event includes:
+  event  - change type: created, modified, deleted, renamed
+  name   - filename without .md extension
+  vault  - vault name
+  path   - vault-relative file path
+  type   - entity kind: task, goal, theme, objective
+
+Use --types to filter to a subset of entity kinds.
+Valid type values: task, goal, theme, objective`,
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			typeFilter, err := parseWatchTypes(ctx, cmd.Flags().Lookup("types").Changed, typesStr)
+			if err != nil {
+				return err
 			}
 
+			vaults, err := getVaults(ctx, configLoader, vaultName)
+			if err != nil {
+				return errors.Wrap(ctx, err, "get vaults")
+			}
+
+			targets := buildWatchTargets(vaults)
 			watchOp := ops.NewWatchOperation()
 			return watchOp.Execute(ctx, targets, func(event ops.WatchEvent) error {
+				if !watchEventMatchesFilter(event, typeFilter) {
+					return nil
+				}
 				enc := json.NewEncoder(os.Stdout)
 				return enc.Encode(event)
 			})
 		},
 	}
+	cmd.Flags().
+		StringVar(&typesStr, "types", "", "Comma-separated entity types to emit (task,goal,theme,objective). Omit for all types.")
+	return cmd
+}
+
+func buildWatchTargets(vaults []*config.Vault) []ops.WatchTarget {
+	targets := make([]ops.WatchTarget, 0, len(vaults))
+	for _, vault := range vaults {
+		targets = append(targets, ops.WatchTarget{
+			VaultPath: vault.Path,
+			VaultName: vault.Name,
+			WatchDirs: []ops.WatchDir{
+				{Dir: vault.GetTasksDir(), Kind: "task"},
+				{Dir: vault.GetGoalsDir(), Kind: "goal"},
+				{Dir: vault.GetThemesDir(), Kind: "theme"},
+				{Dir: vault.GetObjectivesDir(), Kind: "objective"},
+			},
+		})
+	}
+	return targets
 }
 
 func createConfigListCommand(

@@ -107,7 +107,9 @@ var _ = Describe("WatchOperation", func() {
 				{
 					VaultPath: vaultDir,
 					VaultName: "personal",
-					WatchDirs: []string{"Tasks"},
+					WatchDirs: []ops.WatchDir{
+						{Dir: "Tasks", Kind: "task"},
+					},
 				},
 			}
 
@@ -123,6 +125,7 @@ var _ = Describe("WatchOperation", func() {
 			Expect(ev.Vault).To(Equal("personal"))
 			Expect(ev.Path).To(Equal(filepath.Join("Tasks", "My Task.md")))
 			Expect(ev.Event).To(BeElementOf("created", "modified"))
+			Expect(ev.Type).To(Equal("task"))
 		})
 
 		It("ignores non-.md files", func() {
@@ -130,7 +133,9 @@ var _ = Describe("WatchOperation", func() {
 				{
 					VaultPath: vaultDir,
 					VaultName: "personal",
-					WatchDirs: []string{"Tasks"},
+					WatchDirs: []ops.WatchDir{
+						{Dir: "Tasks", Kind: "task"},
+					},
 				},
 			}
 
@@ -147,7 +152,9 @@ var _ = Describe("WatchOperation", func() {
 				{
 					VaultPath: vaultDir,
 					VaultName: "personal",
-					WatchDirs: []string{"Tasks"},
+					WatchDirs: []ops.WatchDir{
+						{Dir: "Tasks", Kind: "task"},
+					},
 				},
 			}
 
@@ -176,7 +183,10 @@ var _ = Describe("WatchOperation", func() {
 				{
 					VaultPath: vaultDir,
 					VaultName: "personal",
-					WatchDirs: []string{"Tasks", "NonExistentDir"},
+					WatchDirs: []ops.WatchDir{
+						{Dir: "Tasks", Kind: "task"},
+						{Dir: "NonExistentDir", Kind: "task"},
+					},
 				},
 			}
 
@@ -187,6 +197,44 @@ var _ = Describe("WatchOperation", func() {
 			}, 500*time.Millisecond)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(events).NotTo(BeEmpty())
+		})
+
+		It("emits the correct Type for each entity kind", func() {
+			vaultDir2 := filepath.Join(vaultDir, "vault-multikind")
+			for _, sub := range []string{"Tasks", "Goals", "Themes", "Objectives"} {
+				Expect(os.MkdirAll(filepath.Join(vaultDir2, sub), 0755)).To(Succeed())
+			}
+
+			targets := []ops.WatchTarget{
+				{
+					VaultPath: vaultDir2,
+					VaultName: "v",
+					WatchDirs: []ops.WatchDir{
+						{Dir: "Tasks", Kind: "task"},
+						{Dir: "Goals", Kind: "goal"},
+						{Dir: "Themes", Kind: "theme"},
+						{Dir: "Objectives", Kind: "objective"},
+					},
+				},
+			}
+
+			events, err := captureWatchEvents(ctx, watchOp, targets, func() {
+				for sub, name := range map[string]string{"Tasks": "T", "Goals": "G", "Themes": "Th", "Objectives": "O"} {
+					Expect(
+						os.WriteFile(filepath.Join(vaultDir2, sub, name+".md"), []byte("x"), 0644),
+					).To(Succeed())
+				}
+			}, 700*time.Millisecond)
+			Expect(err).NotTo(HaveOccurred())
+
+			typeByName := map[string]string{}
+			for _, ev := range events {
+				typeByName[ev.Name] = ev.Type
+			}
+			Expect(typeByName["T"]).To(Equal("task"))
+			Expect(typeByName["G"]).To(Equal("goal"))
+			Expect(typeByName["Th"]).To(Equal("theme"))
+			Expect(typeByName["O"]).To(Equal("objective"))
 		})
 	})
 })

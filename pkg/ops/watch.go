@@ -17,11 +17,17 @@ import (
 	"github.com/fsnotify/fsnotify"
 )
 
+// WatchDir pairs a vault-relative directory name with the entity kind it contains.
+type WatchDir struct {
+	Dir  string
+	Kind string
+}
+
 // WatchTarget describes a vault and the directories to watch within it.
 type WatchTarget struct {
 	VaultPath string
 	VaultName string
-	WatchDirs []string
+	WatchDirs []WatchDir
 }
 
 // WatchEvent is the JSON-encoded event emitted on stdout.
@@ -30,6 +36,7 @@ type WatchEvent struct {
 	Name  string `json:"name"`
 	Vault string `json:"vault"`
 	Path  string `json:"path"`
+	Type  string `json:"type"`
 }
 
 // WatchOperation watches vault directories and streams change events.
@@ -50,6 +57,7 @@ type watchOperation struct{}
 type vaultInfo struct {
 	vaultPath string
 	vaultName string
+	kind      string
 }
 
 // Execute watches all vault directories and calls handler for each debounced event.
@@ -89,8 +97,8 @@ func (w *watchOperation) Execute(
 func buildDirMap(watcher *fsnotify.Watcher, vaults []WatchTarget) map[string]vaultInfo {
 	dirToVault := make(map[string]vaultInfo)
 	for _, target := range vaults {
-		for _, dir := range target.WatchDirs {
-			absDir := filepath.Join(target.VaultPath, dir)
+		for _, wd := range target.WatchDirs {
+			absDir := filepath.Join(target.VaultPath, wd.Dir)
 			if _, err := os.Stat(absDir); err != nil {
 				slog.Debug("watch skipping missing directory", "dir", absDir)
 				continue
@@ -102,6 +110,7 @@ func buildDirMap(watcher *fsnotify.Watcher, vaults []WatchTarget) map[string]vau
 			dirToVault[absDir] = vaultInfo{
 				vaultPath: target.VaultPath,
 				vaultName: target.VaultName,
+				kind:      wd.Kind,
 			}
 		}
 	}
@@ -136,6 +145,7 @@ func handleEvent(
 		Name:  strings.TrimSuffix(filepath.Base(absPath), ".md"),
 		Vault: info.vaultName,
 		Path:  relPath,
+		Type:  info.kind,
 	}
 	debouncer.schedule(info.vaultName+":"+relPath, func() {
 		_ = handler(ev)

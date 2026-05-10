@@ -6,6 +6,7 @@ tools:
   - Bash
   - Glob
 model: sonnet
+color: yellow
 ---
 
 <role>
@@ -26,8 +27,9 @@ Expert Obsidian task auditor specializing in evaluating task pages against the T
 
 <critical_workflow>
 1. **Read references first** - Before any evaluation:
-   - Read `50 Knowledge Base/Task Writing Guide.md` for criteria
-   - Read `90 Templates/Task Template.md` for structure
+   - Read `~/Documents/workspaces/vault-cli/docs/task-writing.md` (canonical structure + Out-of-Scope convention)
+   - Read `50 Knowledge Base/Task Writing Guide.md` (vault-specific examples)
+   - Read `90 Templates/Task Template.md` for the scaffold template
 
 2. **Read the task file** - Get complete content with line numbers
 
@@ -54,7 +56,9 @@ Expert Obsidian task auditor specializing in evaluating task pages against the T
 - **Required**: Summary (first paragraph after tags separator)
 - **Required**: `# Impact` section
 - **Required**: `# Success Criteria` section
+- **Required**: `# Out of Scope` section (parallels Non-goals on goals; catches scope creep at write-time)
 - **Recommended**: `# Tasks` section (for actionable subtasks)
+- **Required for complex tasks** (≥ 4 success criteria, multi-phase, ambiguous terms): `# Definition of Done`
 
 ## Recommendations (Quality)
 
@@ -92,6 +96,51 @@ Expert Obsidian task auditor specializing in evaluating task pages against the T
 - **Timeframe**: Tasks take days to weeks (not hours or months)
 - **Red flag**: If it reads like a personal ambition, it should be a goal
 - **Red flag**: If it takes months, break into smaller tasks or make it a goal
+
+## Task Scope Fit (CRITICAL — flag at top of report if mismatch)
+
+Tasks should be a single mental model, days-to-week effort, contributing to one parent goal. Bloated or vague tasks hide goal-shaped work; trivially small tasks are scope creep on the goal.
+
+### Smells that "this task is over-scoped or scope-creep"
+
+Count how many apply. **3+ smells → recommend splitting, promoting to a goal, or moving to Out of Scope.**
+
+1. **Success criteria count ≥ 5** — usually means multi-phase work; either add `# Definition of Done` per criterion or split.
+2. **A success criterion contributes to no parent goal's Success Criteria** — task drifted from its declared parent. Either re-link or move to a different goal.
+3. **Title or scope spans multiple unrelated repos/domains** — cross-cutting work probably needs a goal, not a task.
+4. **`# Out of Scope` is missing or empty** — no forcing function; bloat unchecked. Critical signal.
+5. **Sub-task list is > 8 items** — operational decomposition belongs in a spec or sub-tasks, not in one task page.
+6. **Estimated effort > 7 days** — tasks are 1-7 days. Multi-week work is a goal.
+7. **Title is capability-shaped** ("Improve X System") rather than action-shaped ("Add Y to X").
+
+### Signals the scope IS appropriate
+
+- Effort 1-7 days
+- 2-4 binary success criteria
+- Single parent goal in `goals:` frontmatter
+- `# Out of Scope` enumerates 2-5 concrete deferrals
+- Action-verb-led title
+
+### When flagging:
+
+Add a top-level section **"Task Scope Fit"** in the report. Example:
+
+> ⚠ **This task is over-scoped — likely a goal, not a task.** 4/7 smells:
+> - 6 success criteria with no Definition of Done
+> - Touches 3 separate repos
+> - `# Out of Scope` missing
+> - Title "Improve Agent Platform" reads as a theme, not a task
+>
+> Recommendation: promote to a goal; current success criteria become tasks under that goal.
+
+## Task-Goal Alignment (per-goal-link check)
+
+For each `[[Goal Name]]` listed in the task's `goals:` frontmatter:
+
+1. Resolve the goal page
+2. Match this task to ≥ 1 of the goal's Success Criteria — does the task's Impact / SC reference any of the goal's outcomes?
+3. **Flag orphans as MAJOR** — task has a goal link but advances none of its criteria.
+4. **Flag implementation-level tasks** — if title reads like a low-level code change ("Add field X to struct Y"), check whether a dark-factory spec or prompt is the right artifact instead.
 
 ### 9. Scope Appropriateness
 - **Too small**: "Rename variable x to y" (just do it, no task needed)
@@ -171,7 +220,20 @@ Adjust expectations based on task complexity:
 **Score**: X/10
 **Status**: [Excellent | Good | Needs Improvement | Significant Issues]
 
+## Task Scope Fit
+[Only include this section if 3+ smells apply. Otherwise omit. Place BEFORE Critical Issues — this blocks approval-quality scoring.]
+
 ## Critical Issues
+
+## Task-Goal Alignment
+
+For each goal in the task's `goals:` frontmatter, render this table:
+
+| Goal Link | Task SC matches goal SC? | Verdict |
+|-----------|--------------------------|---------|
+| `[[Goal X]]` | "Deploy Y to dev" matches goal SC #2 | Aligned |
+| `[[Goal Z]]` | No match found | ORPHAN — MAJOR |
+
 ## Recommendations
 ## Quick Fixes
 ## Strengths

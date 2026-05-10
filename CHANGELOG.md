@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.61.0
+
+- feat: Add canonical structural docs `docs/goal-writing.md` and `docs/task-writing.md` (modeled after dark-factory's `spec-writing.md` pattern)
+- feat: Establish `# Non-goals` (goals) and `# Out of Scope` (tasks) as required sections — forcing function for scope-creep prevention at write-time
+- feat: `goal-auditor` adds "Goal Scope Fit" smells block (8 indicators; 3+ → flag) and per-task "Task-Goal Alignment" check
+- feat: `task-auditor` adds "Task Scope Fit" smells block (7 indicators) and per-goal-link "Task-Goal Alignment" check
+- feat: `goal-creator` and `task-creator` scaffold the new required sections by default
+- feat: `read-guides` lists the new canonical docs first, framing vault Obsidian guides as vault-specific examples
+- fix: `read-guides` Glob calls used `~` paths which silently returned zero matches; replaced with `Bash(ls:*)` which correctly expands tilde
+- fix: `read-guides` `allowed-tools` array literal `[Read, Glob, Bash]` replaced with comma-separated string and scoped Bash patterns
+- chore: Add `color: blue` to `goal-auditor` and `color: yellow` to `task-auditor`
+
 ## v0.60.0
 
 - feat: Unify all *_date frontmatter fields across Task, Goal, Objective, Theme, Decision to use libtime.DateOrDateTime for RFC3339 round-trip fidelity [spec 010]

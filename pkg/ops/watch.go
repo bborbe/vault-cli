@@ -163,7 +163,7 @@ func mapFsnotifyOp(op fsnotify.Op) string {
 	case op.Has(fsnotify.Remove):
 		return "deleted"
 	case op.Has(fsnotify.Rename):
-		return "renamed"
+		return "deleted"
 	default:
 		return ""
 	}

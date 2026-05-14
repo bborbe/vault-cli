@@ -2113,7 +2113,7 @@ func createWatchCommand(
 Emits one newline-delimited JSON event per debounced change.
 
 Each event includes:
-  event  - change type: created, modified, deleted, renamed
+  event  - change type: created, modified, deleted
   name   - filename without .md extension
   vault  - vault name
   path   - vault-relative file path

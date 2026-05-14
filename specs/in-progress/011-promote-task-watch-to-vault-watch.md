@@ -123,3 +123,20 @@ Manual smoke test (release-gate equivalent, against `/tmp/new-vault-cli` per `CL
 ## Do-Nothing Option
 
 Leave `vault-cli task watch` as the only entry point. Consumers continue to depend on the misnamed command and must derive the entity kind themselves from `path` by string-matching configured directory names — fragile under vault rename, and undocumented as a supported pattern. New consumers (task-orchestrator's goal-cleanup loop) discover the wide scope only by reading source code. Acceptable short-term but blocks a clean public API for the cross-repo subscription pattern.
+
+## Verification Result
+
+**Verified:** 2026-05-14T14:57:33Z (HEAD 0e930a2)
+**Binary:** /Users/bborbe/Documents/workspaces/go/bin/vault-cli (15504642 bytes, version dev)
+**Scenario:** Live `vault-cli watch` + `task watch` against `/tmp/spec011-vault` (Tasks/Goals/21 Themes/22 Objectives); --types filter and error cases exercised against the fresh binary.
+**Evidence:**
+- `vault-cli watch --vault smoke` stdout: `{"event":"created","name":"Alpha",...,"type":"task"}` + `goal/Beta` + `theme/Gamma` + `objective/Delta` (all four kinds, `type` populated from dir→kind map)
+- `vault-cli watch --types goal`: only `{"...","name":"B","type":"goal"}`; task/theme/objective suppressed
+- `vault-cli watch --types task,goal`: only `A2(task)` + `B2(goal)`; theme/objective suppressed
+- `vault-cli watch --types unknown` → stderr `Error: unknown type "unknown" in --types; valid values: task, goal, theme, objective`, EXIT=1
+- `vault-cli watch --types ""` → `Error: --types requires at least one value...`, EXIT=1
+- `vault-cli task watch` stderr (1 line): `DEPRECATED: 'vault-cli task watch' is deprecated; use 'vault-cli watch' instead. See spec 011.`; stdout: 4 clean JSON events covering all four kinds, each with `type` field — no deprecation text on stdout
+- `vault-cli watch --help` long description lists `type` field meanings and `--types` with valid values `task, goal, theme, objective`
+- `go test ./pkg/ops/... ./pkg/cli/...` → both packages `ok` (includes pre-existing `task watch` tests + new `vault-cli watch --types` and deprecation tests in `pkg/cli/watch_test.go`)
+- `make precommit` → `ready to commit` (gosec 0 issues, trivy clean, addlicense clean)
+**Verdict:** PASS

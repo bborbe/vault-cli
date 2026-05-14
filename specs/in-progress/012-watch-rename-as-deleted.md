@@ -1,11 +1,12 @@
 ---
-status: prompted
+status: verifying
 tags:
     - dark-factory
     - spec
 approved: "2026-05-14T14:19:04Z"
 generating: "2026-05-14T14:20:38Z"
 prompted: "2026-05-14T14:24:52Z"
+verifying: "2026-05-14T14:31:32Z"
 branch: dark-factory/watch-rename-as-deleted
 ---
 
@@ -105,3 +106,20 @@ End-to-end smoke (manual, optional):
 ## Do-Nothing Option
 
 Leaving `renamed` in place keeps the leaky abstraction and the downstream bug. Every consumer that wants to handle Obsidian deletes must learn that `renamed` can mean "gone" and special-case it. Fixing it in the watcher is a one-line behavior change plus tests and resolves the task-orchestrator lingering-card bug with no consumer code changes required. Not acceptable to leave as-is.
+
+## Verification Result
+
+**Verified:** 2026-05-14T14:39:01Z (HEAD 46c2ffb)
+**Binary:** /Users/bborbe/Documents/workspaces/go/bin/vault-cli (rebuilt via `go install ./...`)
+**Scenario:** Live replay against fresh binary with temp vault `/tmp/spec012-test/{Tasks,Goals}` — `mv` outside watched dir + `rm` of created file; Ginkgo `pkg/ops` suite (553 specs) including two new `Label("integration")` cases.
+**Evidence:**
+- Live `mv`: `{"event":"deleted","name":"MovedTask","vault":"spec012","path":"Tasks/MovedTask.md","type":"task"}`
+- Live `rm`: `{"event":"deleted","name":"DeletedTask","vault":"spec012","path":"Tasks/DeletedTask.md","type":"task"}`
+- Zero `renamed` occurrences in live output (`grep -c renamed /tmp/spec012-watch.log` = 0)
+- `pkg/ops/watch.go:157-170` `mapFsnotifyOp` maps both `Remove` and `Rename` to `"deleted"`; grep confirms `"renamed"` string is absent from all `.go` files except `watch_test.go` NotTo-assertion
+- `vault-cli watch --help` lists only `created, modified, deleted`
+- `pkg/ops` Ginkgo run: `Ran 553 of 555 Specs ... SUCCESS! -- 553 Passed | 0 Failed`
+- `make precommit`: "ready to commit"
+- CHANGELOG.md:5 carries breaking-change note (released as v0.64.1, was Unreleased pre-release)
+- README.md: no `renamed` matches
+**Verdict:** PASS

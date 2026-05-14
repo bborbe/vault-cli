@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.64.1
+
+- fix: Map fsnotify `Rename` op to `deleted` event in `vault-cli watch` — removes the `renamed` event type from the public API. Consumers handling `deleted` now automatically receive Obsidian trash-deletes (which use `os.Rename` internally). Breaking: any consumer expecting `event:"renamed"` will no longer receive that string.
+
 ## v0.64.0
 
 - feat: Expose `goals` frontmatter array in `task list --output json` — enables consumers to filter tasks by goal without re-parsing the markdown source. Verbatim emission (brackets preserved); consumer strips `[[ ]]` if needed.

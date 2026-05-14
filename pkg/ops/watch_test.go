@@ -199,6 +199,87 @@ var _ = Describe("WatchOperation", func() {
 			Expect(events).NotTo(BeEmpty())
 		})
 
+		It(
+			"emits event:deleted when an .md file is moved out of the watched directory",
+			Label("integration"),
+			func() {
+				outsideDir, err := os.MkdirTemp("", "vault-watch-outside-*")
+				Expect(err).NotTo(HaveOccurred())
+				DeferCleanup(func() { Expect(os.RemoveAll(outsideDir)).To(Succeed()) })
+
+				// Create file before watcher starts so no "created" event is captured.
+				mdPath := filepath.Join(tasksDir, "Moved Task.md")
+				Expect(os.WriteFile(mdPath, []byte("content"), 0600)).To(Succeed())
+
+				targets := []ops.WatchTarget{
+					{
+						VaultPath: vaultDir,
+						VaultName: "personal",
+						WatchDirs: []ops.WatchDir{{Dir: "Tasks", Kind: "task"}},
+					},
+				}
+
+				events, err := captureWatchEvents(ctx, watchOp, targets, func() {
+					dest := filepath.Join(outsideDir, "Moved Task.md")
+					Expect(os.Rename(mdPath, dest)).To(Succeed())
+				}, 600*time.Millisecond)
+				Expect(err).NotTo(HaveOccurred())
+
+				var deletedEvs []ops.WatchEvent
+				for _, ev := range events {
+					if ev.Name == "Moved Task" && ev.Event == "deleted" {
+						deletedEvs = append(deletedEvs, ev)
+					}
+				}
+				Expect(
+					deletedEvs,
+				).To(HaveLen(1), "expected exactly one deleted event for the moved file")
+				Expect(deletedEvs[0].Path).To(Equal(filepath.Join("Tasks", "Moved Task.md")))
+				Expect(deletedEvs[0].Vault).To(Equal("personal"))
+
+				// The string "renamed" must never appear in any event.
+				for _, ev := range events {
+					Expect(
+						ev.Event,
+					).NotTo(Equal("renamed"), "renamed event must not be emitted after fix")
+				}
+			},
+		)
+
+		It(
+			"emits event:deleted when an .md file is removed with os.Remove",
+			Label("integration"),
+			func() {
+				// Create file before watcher starts so no "created" event is captured.
+				mdPath := filepath.Join(tasksDir, "Deleted Task.md")
+				Expect(os.WriteFile(mdPath, []byte("content"), 0600)).To(Succeed())
+
+				targets := []ops.WatchTarget{
+					{
+						VaultPath: vaultDir,
+						VaultName: "personal",
+						WatchDirs: []ops.WatchDir{{Dir: "Tasks", Kind: "task"}},
+					},
+				}
+
+				events, err := captureWatchEvents(ctx, watchOp, targets, func() {
+					Expect(os.Remove(mdPath)).To(Succeed())
+				}, 600*time.Millisecond)
+				Expect(err).NotTo(HaveOccurred())
+
+				var deletedEvs []ops.WatchEvent
+				for _, ev := range events {
+					if ev.Name == "Deleted Task" && ev.Event == "deleted" {
+						deletedEvs = append(deletedEvs, ev)
+					}
+				}
+				Expect(
+					deletedEvs,
+				).To(HaveLen(1), "expected exactly one deleted event for the removed file")
+				Expect(deletedEvs[0].Path).To(Equal(filepath.Join("Tasks", "Deleted Task.md")))
+			},
+		)
+
 		It("emits the correct Type for each entity kind", func() {
 			vaultDir2 := filepath.Join(vaultDir, "vault-multikind")
 			for _, sub := range []string{"Tasks", "Goals", "Themes", "Objectives"} {

@@ -1,5 +1,5 @@
 ---
-status: committing
+status: completed
 spec: [012-watch-rename-as-deleted]
 summary: Changed mapFsnotifyOp() to return 'deleted' for fsnotify.Rename op, removed 'renamed' from watch --help text, added two integration tests verifying the mapping, and added CHANGELOG Unreleased entry.
 container: vault-cli-118-spec-012-watch-rename-as-deleted
@@ -7,6 +7,7 @@ dark-factory-version: v0.156.1-1-g04f3863-dirty
 created: "2026-05-14T14:30:00Z"
 queued: "2026-05-14T14:29:37Z"
 started: "2026-05-14T14:29:38Z"
+completed: "2026-05-14T14:31:32Z"
 branch: dark-factory/watch-rename-as-deleted
 ---
 

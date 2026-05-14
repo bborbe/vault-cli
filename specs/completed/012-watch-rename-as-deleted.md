@@ -1,5 +1,5 @@
 ---
-status: verifying
+status: completed
 tags:
     - dark-factory
     - spec
@@ -7,6 +7,7 @@ approved: "2026-05-14T14:19:04Z"
 generating: "2026-05-14T14:20:38Z"
 prompted: "2026-05-14T14:24:52Z"
 verifying: "2026-05-14T14:31:32Z"
+completed: "2026-05-14T14:40:58Z"
 branch: dark-factory/watch-rename-as-deleted
 ---
 

@@ -8,6 +8,11 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## v0.66.2
+
+- feat(plugin): Add `/vault-cli:reflect` slash command — extracts high-significance learnings from the parent Claude Code conversation and documents them in the active vault's Knowledge Base. Migrated from Personal + Brogrammers vault local copies (both archived). Inline (cannot delegate to a sub-agent because it needs the parent conversation). Graceful detection of `mcp__semantic-search__*` MCPs; falls back to `Glob` / `Grep` when absent.
+- feat(config): Add `knowledge_dir` field to per-vault `Vault` config, alongside `tasks_dir` / `goals_dir` / `themes_dir` / `objectives_dir` / `vision_dir` / `daily_dir`. New `GetKnowledgeDir()` accessor with default `"50 Knowledge Base"`. Surfaced in `vault-cli config list --output json` (omitted when unset). Unblocks vault-agnostic KB-writing commands like `/vault-cli:reflect`.
+
 ## v0.66.1
 
 - fix(plugin): Declare `mcp__atlassian__*` and `mcp__semantic-search__search_related` tools in `work-on-task-assistant` frontmatter so the agent can actually call the MCPs. Without these the agent was unable to invoke `mcp__atlassian__getJiraIssue` and fell back to direct `curl https://<host>/rest/api/3/issue/...`, which fails (no auth) and bypasses MCP credential management.

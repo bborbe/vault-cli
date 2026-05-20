@@ -1,5 +1,5 @@
 ---
-status: verifying
+status: completed
 tags:
     - dark-factory
     - spec
@@ -7,6 +7,7 @@ approved: "2026-05-20T15:58:40Z"
 generating: "2026-05-20T16:00:25Z"
 prompted: "2026-05-20T16:12:28Z"
 verifying: "2026-05-20T16:58:25Z"
+completed: "2026-05-20T18:15:26Z"
 branch: dark-factory/rename-task-status-phase-taxonomy
 ---
 

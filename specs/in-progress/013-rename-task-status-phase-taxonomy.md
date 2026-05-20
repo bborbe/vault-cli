@@ -128,3 +128,19 @@ vault-cli task list --vault Personal | head
 ## Do-Nothing Option
 
 Tolerable but degrading. The status/phase name collision is a permanent friction tax. Every audit guide, every agent prompt, every grep query needs awkward "which dimension?" qualifiers. The task-orchestrator rename is already in flight and assumes vault-cli moves first (so old vault files keep working through the alias path). Deferring vault-cli's side means the orchestrator either also defers or accepts a temporary mismatch where it writes the new canonical and vault-cli's `Validate` rejects it. Acceptable to defer briefly, but not as a permanent state.
+
+## Verification Result
+
+**Verified:** 2026-05-20T18:14:37Z (HEAD de39cca)
+**Binary:** /tmp/new-vault-cli (built fresh from de39cca; installed binary path verified separately)
+**Scenario:** Walked all 4 markdown scenarios (001-004) against /tmp/new-vault-cli; ran `make release-check`; confirmed CI green for tag v0.65.1; spot-checked real-vault read via `task list --vault Personal`.
+**Evidence:**
+- AvailableTaskStatuses at `pkg/domain/task_status.go:39-46` contains TaskStatusNext, omits TaskStatusTodo; AvailableTaskPhases at `pkg/domain/task_phase.go:39-46` contains TaskPhaseExecution, omits TaskPhaseInProgress.
+- NormalizeTaskStatus migration map at `pkg/domain/task_status.go:88-94` maps `"todo" → TaskStatusNext` and preserves `current/done/deferred` aliases; NormalizeTaskPhase at `:88-91` maps `"in_progress" → TaskPhaseExecution`.
+- Lint error message at `pkg/ops/lint.go:227` reads `"status is %q, expected one of: next, in_progress, backlog, completed, hold, aborted"` (no `todo`).
+- `pkg/ops/lint_test.go:1202-1244` exercises legacy `status: todo` and `phase: in_progress` on-disk fixtures and asserts zero `IssueTypeInvalidStatus`/`IssueTypeStatusPhaseMismatch` issues; `pkg/storage/base_test.go:79-99` round-trips `status: todo` through parse→serialize→re-parse with equality assertion.
+- `grep -nE 'TaskPhaseInProgress' pkg/ops/workon.go` returned no lines.
+- `make release-check` final lines: `✅ all four versions equal: 0.65.1` and `ready to release`; CHANGELOG top `## v0.65.1`, plugin.json `"version": "0.65.1"`, both marketplace.json version fields `0.65.1`.
+- `git describe --tags --abbrev=0` returned `v0.65.1`; CI run 26180439763 success on master commit de39cca.
+- Scenario 002 work-on → defer → complete produced on-disk frontmatter `status: completed`, `assignee: alice`, `defer_date: "2026-05-21"`; Scenario 003 recurring completion kept `status: in_progress`, reset all checkboxes to `[ ]`, advanced `defer_date` to NEXT_WEEK and stamped `last_completed`; Scenario 004 ack set `reviewed: true` + `reviewed_date` while leaving `needs_review: true` untouched.
+**Verdict:** PASS

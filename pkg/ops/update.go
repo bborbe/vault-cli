@@ -124,7 +124,7 @@ func (u *updateOperation) statusFromProgress(completed, total int) domain.TaskSt
 	if completed > 0 {
 		return domain.TaskStatusInProgress
 	}
-	return domain.TaskStatusTodo
+	return domain.TaskStatusNext
 }
 
 func (u *updateOperation) syncGoals(

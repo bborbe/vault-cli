@@ -219,17 +219,15 @@ func (l *lintOperation) collectLintIssues(
 	}
 
 	// Check for invalid status
-	if statusIssue, invalidStatusValue, statusIsFixable := l.detectInvalidStatus(
-		frontmatterYAML,
-	); statusIssue {
+	if statusIssue, invalidStatusValue := l.detectInvalidStatus(frontmatterYAML); statusIssue {
 		issues = append(issues, LintIssue{
 			FilePath:  filePath,
 			IssueType: IssueTypeInvalidStatus,
 			Description: fmt.Sprintf(
-				"status is %q, expected one of: todo, in_progress, backlog, completed, hold, aborted",
+				"status is %q, expected one of: next, in_progress, backlog, completed, hold, aborted",
 				invalidStatusValue,
 			),
-			Fixable: statusIsFixable,
+			Fixable: false,
 			Fixed:   false,
 		})
 	}
@@ -354,24 +352,19 @@ func (l *lintOperation) detectInvalidPriority(frontmatterYAML string) (bool, str
 }
 
 // detectInvalidStatus detects if status field has an invalid value.
-// Returns: (issueFound, invalidValue, isFixable)
-func (l *lintOperation) detectInvalidStatus(frontmatterYAML string) (bool, string, bool) {
+// Returns: (issueFound, invalidValue)
+func (l *lintOperation) detectInvalidStatus(frontmatterYAML string) (bool, string) {
 	statusRegex := regexp.MustCompile(`(?m)^status:\s*['"]?([a-z_]+)['"]?\s*$`)
 	matches := statusRegex.FindStringSubmatch(frontmatterYAML)
 	if len(matches) >= 2 {
 		statusValue := matches[1]
-
-		// Use domain package to check validity
-		if domain.IsValidTaskStatus(domain.TaskStatus(statusValue)) {
-			return false, "", false
+		_, ok := domain.NormalizeTaskStatus(statusValue)
+		if ok {
+			return false, "" // canonical or known alias — accepted silently
 		}
-
-		// Check if it's fixable by seeing if normalization gives a different valid value
-		normalizedStatus, ok := domain.NormalizeTaskStatus(statusValue)
-		isFixable := ok && normalizedStatus != domain.TaskStatus(statusValue)
-		return true, statusValue, isFixable
+		return true, statusValue // truly unknown, not fixable
 	}
-	return false, "", false
+	return false, ""
 }
 
 // detectOrphanGoals detects goals that reference non-existent goal files.
@@ -544,6 +537,7 @@ func (l *lintOperation) detectStatusPhaseMismatch(frontmatterYAML string) (bool,
 
 	// Rule 3: backlog/hold status incompatible with active phases
 	activePhases := []domain.TaskPhase{
+		domain.TaskPhaseExecution,
 		domain.TaskPhaseInProgress,
 		domain.TaskPhaseAIReview,
 		domain.TaskPhaseHumanReview,

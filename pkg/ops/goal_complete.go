@@ -116,7 +116,9 @@ func (g *goalCompleteOperation) checkOpenTasks(
 		if !taskLinkedToGoal(task, goalName) {
 			continue
 		}
-		if task.Status() == domain.TaskStatusTodo || task.Status() == domain.TaskStatusInProgress {
+		if task.Status() == domain.TaskStatusNext ||
+			task.Status() == domain.TaskStatusTodo ||
+			task.Status() == domain.TaskStatusInProgress {
 			openTasks = append(openTasks, task)
 		}
 	}

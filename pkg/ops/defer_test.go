@@ -70,7 +70,7 @@ var _ = Describe("DeferOperation", func() {
 			It("does not change task status", func() {
 				Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 				_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-				Expect(writtenTask.Status()).To(Equal(domain.TaskStatusTodo))
+				Expect(writtenTask.Status()).To(Equal(domain.TaskStatusNext))
 			})
 
 			It("sets defer_date to 7 days from now", func() {

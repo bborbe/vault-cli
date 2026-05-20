@@ -102,10 +102,10 @@ status: in_progress
 				Expect(err).To(BeNil())
 			})
 
-			It("sets status to todo", func() {
+			It("sets status to next", func() {
 				Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 				_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-				Expect(writtenTask.Status()).To(Equal(domain.TaskStatusTodo))
+				Expect(writtenTask.Status()).To(Equal(domain.TaskStatusNext))
 			})
 		})
 

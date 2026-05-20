@@ -8,6 +8,14 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## v0.66.0
+
+- feat(plugin): Add five new slash commands — `next-steps`, `next-task`, `sync-progress`, `work-on-goal`, `work-on-task` — migrated from Personal + Brogrammers vaults to a single source of truth. Replaces per-vault divergent copies (Personal `next-task` was 562 lines, Brogrammers 170 lines, 714 diff lines).
+- feat(plugin): Add two supporting sub-agents — `work-on-goal-assistant`, `work-on-task-assistant`. Both use graceful runtime detection: any `mcp__atlassian-*` namespace is supported (personal, seibert, future), Jira cloudId auto-detected via `getAccessibleAtlassianResources`, `mcp__semantic-search` optional, `gh` optional. No hardcoded hostnames, project keys, or vault paths.
+- feat(plugin): Folder names read from `vault-cli config list --output json` per vault — `tasks_dir`, `goals_dir`, `themes_dir`, `objectives_dir`, `daily_dir`. Cross-vault discovery walks each entry under `~/Documents/Obsidian/`.
+- feat(plugin): `work-on-goal` drops Focus-page auto-lookup — goal name is now a required argument. Vault-side wrappers can resolve their own default before invoking.
+- feat(plugin): Generic `[A-Z]+-\d+` Jira regex everywhere — works for `TRADE-`, `BRO-`, or any project key.
+
 ## v0.65.2
 
 - fix: `vault-cli task set <id> {status|phase}` accepts the legacy aliases `todo` and `in_progress` again — both are normalised to canonical (`next`, `execution`) before validation, and the canonical form is written to disk. Restores the alias acceptance documented in the rename strategy that was missing on the write path.

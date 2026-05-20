@@ -12,6 +12,7 @@ import (
 
 	"github.com/bborbe/errors"
 	libtime "github.com/bborbe/time"
+	"github.com/bborbe/validation"
 )
 
 // TaskFrontmatter holds the YAML frontmatter for a Task.
@@ -398,17 +399,17 @@ func (f *TaskFrontmatter) setPriorityField(ctx context.Context, value string) er
 	return f.SetPriority(ctx, Priority(n))
 }
 
-// setPhaseField validates and stores the phase, or clears on empty.
+// setPhaseField normalises the value (accepting aliases) and stores the phase, or clears on empty.
 func (f *TaskFrontmatter) setPhaseField(ctx context.Context, value string) error {
 	if value == "" {
 		f.SetPhase(nil)
 		return nil
 	}
-	p := TaskPhase(value)
-	if err := p.Validate(ctx); err != nil {
-		return err
+	canonical, ok := NormalizeTaskPhase(value)
+	if !ok {
+		return errors.Wrapf(ctx, validation.Error, "unknown task phase '%s'", value)
 	}
-	f.SetPhase(&p)
+	f.SetPhase(&canonical)
 	return nil
 }
 
@@ -417,7 +418,11 @@ func (f *TaskFrontmatter) setPhaseField(ctx context.Context, value string) error
 func (f *TaskFrontmatter) SetField(ctx context.Context, key, value string) error {
 	switch key {
 	case "status":
-		return f.SetStatus(TaskStatus(value))
+		canonical, ok := NormalizeTaskStatus(value)
+		if !ok {
+			return errors.Wrapf(ctx, validation.Error, "unknown task status '%s'", value)
+		}
+		return f.SetStatus(canonical)
 	case "page_type":
 		f.SetPageType(value)
 	case "goals":

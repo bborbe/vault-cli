@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## v0.65.2
+
+- fix: `vault-cli task set <id> {status|phase}` accepts the legacy aliases `todo` and `in_progress` again — both are normalised to canonical (`next`, `execution`) before validation, and the canonical form is written to disk. Restores the alias acceptance documented in the rename strategy that was missing on the write path.
+
 ## v0.65.1
 
 - test: Fix integration tests missed by spec 013 — update assertions for canonical `next` status, replace `status: next` invalid-status fixture with `status: garbage`, rewrite lint `--fix` context to assert alias-silent-acceptance

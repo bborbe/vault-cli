@@ -16,7 +16,12 @@ import (
 type TaskStatus string
 
 const (
-	// TaskStatusTodo means the task is queued for action but not yet started.
+	// TaskStatusNext means the task is queued for action but not yet started.
+	// This is the canonical value; "todo" is accepted as an alias via NormalizeTaskStatus.
+	TaskStatusNext TaskStatus = "next"
+	// TaskStatusTodo is an alias for TaskStatusNext kept for backward compatibility.
+	// Existing vault files with status: "todo" continue to read and validate via NormalizeTaskStatus.
+	// Do not use TaskStatusTodo for new writes — use TaskStatusNext.
 	TaskStatusTodo TaskStatus = "todo"
 	// TaskStatusInProgress means someone is actively working on the task.
 	TaskStatusInProgress TaskStatus = "in_progress"
@@ -32,7 +37,7 @@ const (
 
 // AvailableTaskStatuses lists all valid canonical task status values.
 var AvailableTaskStatuses = TaskStatuses{
-	TaskStatusTodo,
+	TaskStatusNext,
 	TaskStatusInProgress,
 	TaskStatusBacklog,
 	TaskStatusCompleted,
@@ -82,7 +87,7 @@ func NormalizeTaskStatus(raw string) (TaskStatus, bool) {
 
 	// Migration map for legacy/alias status values
 	migrationMap := map[string]TaskStatus{
-		"next":     TaskStatusTodo,
+		"todo":     TaskStatusNext,
 		"current":  TaskStatusInProgress,
 		"done":     TaskStatusCompleted,
 		"deferred": TaskStatusHold,

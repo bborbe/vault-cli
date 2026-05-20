@@ -28,7 +28,7 @@ var _ = Describe("TaskPhase", func() {
 			},
 			Entry("todo", domain.TaskPhaseTodo),
 			Entry("planning", domain.TaskPhasePlanning),
-			Entry("in_progress", domain.TaskPhaseInProgress),
+			Entry("execution", domain.TaskPhaseExecution),
 			Entry("ai_review", domain.TaskPhaseAIReview),
 			Entry("human_review", domain.TaskPhaseHumanReview),
 			Entry("done", domain.TaskPhaseDone),
@@ -71,11 +71,16 @@ var _ = Describe("TaskPhase", func() {
 		It("returns true for valid phases", func() {
 			Expect(domain.AvailableTaskPhases.Contains(domain.TaskPhaseTodo)).To(BeTrue())
 			Expect(domain.AvailableTaskPhases.Contains(domain.TaskPhaseDone)).To(BeTrue())
+			Expect(domain.AvailableTaskPhases.Contains(domain.TaskPhaseExecution)).To(BeTrue())
 		})
 
 		It("returns false for invalid phases", func() {
 			Expect(domain.AvailableTaskPhases.Contains(domain.TaskPhase("invalid"))).To(BeFalse())
 			Expect(domain.AvailableTaskPhases.Contains(domain.TaskPhase(""))).To(BeFalse())
+		})
+
+		It("excludes alias phases from canonical set", func() {
+			Expect(domain.AvailableTaskPhases.Contains(domain.TaskPhaseInProgress)).To(BeFalse())
 		})
 	})
 
@@ -106,6 +111,52 @@ var _ = Describe("TaskPhase", func() {
 				Expect(w2.Phase).NotTo(BeNil())
 				Expect(*w2.Phase).To(Equal(domain.TaskPhaseInProgress))
 			})
+		})
+	})
+})
+
+var _ = Describe("NormalizeTaskPhase", func() {
+	var ctx context.Context
+	BeforeEach(func() {
+		ctx = context.Background()
+		_ = ctx
+	})
+
+	Context("canonical values round-trip", func() {
+		DescribeTable("returns the canonical value unchanged",
+			func(raw string, expected domain.TaskPhase) {
+				phase, ok := domain.NormalizeTaskPhase(raw)
+				Expect(ok).To(BeTrue())
+				Expect(phase).To(Equal(expected))
+			},
+			Entry("todo", "todo", domain.TaskPhaseTodo),
+			Entry("planning", "planning", domain.TaskPhasePlanning),
+			Entry("execution", "execution", domain.TaskPhaseExecution),
+			Entry("ai_review", "ai_review", domain.TaskPhaseAIReview),
+			Entry("human_review", "human_review", domain.TaskPhaseHumanReview),
+			Entry("done", "done", domain.TaskPhaseDone),
+		)
+	})
+
+	Context("alias values", func() {
+		It("normalizes in_progress to execution", func() {
+			phase, ok := domain.NormalizeTaskPhase("in_progress")
+			Expect(ok).To(BeTrue())
+			Expect(phase).To(Equal(domain.TaskPhaseExecution))
+		})
+	})
+
+	Context("invalid values", func() {
+		It("returns false for garbage", func() {
+			phase, ok := domain.NormalizeTaskPhase("garbage")
+			Expect(ok).To(BeFalse())
+			Expect(phase).To(Equal(domain.TaskPhase("")))
+		})
+
+		It("returns false for empty string", func() {
+			phase, ok := domain.NormalizeTaskPhase("")
+			Expect(ok).To(BeFalse())
+			Expect(phase).To(Equal(domain.TaskPhase("")))
 		})
 	})
 })

@@ -476,7 +476,7 @@ var _ = Describe("ListOperation JSON output", func() {
 			Expect(execErr).To(BeNil())
 			Expect(items).To(HaveLen(1))
 			Expect(items[0].Name).To(Equal("Minimal Task"))
-			Expect(items[0].Status).To(Equal("todo"))
+			Expect(items[0].Status).To(Equal("next"))
 			Expect(items[0].Vault).To(Equal("my-vault"))
 		})
 	})

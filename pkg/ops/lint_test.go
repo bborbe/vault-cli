@@ -247,7 +247,7 @@ This task has an invalid status.
 	})
 
 	Context("INVALID_STATUS with migration map", func() {
-		Context("status: next", func() {
+		Context("status: next (canonical)", func() {
 			BeforeEach(func() {
 				nextStatusContent := `---
 status: next
@@ -258,32 +258,23 @@ task_identifier: test-uuid-next
 ---
 # Task With Next Status
 
-This task has the old 'next' status.
+This task has the canonical 'next' status.
 `
 				taskPath := filepath.Join(vaultPath, tasksDir, "Next Status.md")
 				Expect(os.WriteFile(taskPath, []byte(nextStatusContent), 0600)).To(Succeed())
 			})
 
-			It("detects 'next' as invalid status", func() {
+			It("accepts 'next' as canonical — no issues", func() {
 				issues, err := lintOp.Execute(ctx, vaultPath, tasksDir, false)
 				Expect(err).To(BeNil())
-				Expect(issues).To(HaveLen(1))
-			})
-
-			It("fixes 'next' to 'todo'", func() {
-				_, err := lintOp.Execute(ctx, vaultPath, tasksDir, true)
-				Expect(err).To(BeNil())
-
-				// Verify file was fixed
-				taskPath := filepath.Join(vaultPath, tasksDir, "Next Status.md")
-				content, err := os.ReadFile(taskPath) //#nosec G304 -- test file
-				Expect(err).To(BeNil())
-				Expect(string(content)).To(ContainSubstring("status: todo"))
-				Expect(string(content)).NotTo(ContainSubstring("status: next"))
+				for _, issue := range issues {
+					Expect(issue.IssueType).NotTo(Equal(ops.IssueTypeInvalidStatus),
+						"status: next must not produce an invalid status issue")
+				}
 			})
 		})
 
-		Context("status: current", func() {
+		Context("status: current (alias for in_progress)", func() {
 			BeforeEach(func() {
 				currentStatusContent := `---
 status: current
@@ -294,32 +285,23 @@ task_identifier: test-uuid-current
 ---
 # Task With Current Status
 
-This task has the old 'current' status.
+This task has the 'current' alias status.
 `
 				taskPath := filepath.Join(vaultPath, tasksDir, "Current Status.md")
 				Expect(os.WriteFile(taskPath, []byte(currentStatusContent), 0600)).To(Succeed())
 			})
 
-			It("detects 'current' as invalid status", func() {
+			It("accepts 'current' silently — no invalid status issue", func() {
 				issues, err := lintOp.Execute(ctx, vaultPath, tasksDir, false)
 				Expect(err).To(BeNil())
-				Expect(issues).To(HaveLen(1))
-			})
-
-			It("fixes 'current' to 'in_progress'", func() {
-				_, err := lintOp.Execute(ctx, vaultPath, tasksDir, true)
-				Expect(err).To(BeNil())
-
-				// Verify file was fixed
-				taskPath := filepath.Join(vaultPath, tasksDir, "Current Status.md")
-				content, err := os.ReadFile(taskPath) //#nosec G304 -- test file
-				Expect(err).To(BeNil())
-				Expect(string(content)).To(ContainSubstring("status: in_progress"))
-				Expect(string(content)).NotTo(ContainSubstring("status: current"))
+				for _, issue := range issues {
+					Expect(issue.IssueType).NotTo(Equal(ops.IssueTypeInvalidStatus),
+						"alias status current must not produce an invalid status issue")
+				}
 			})
 		})
 
-		Context("status: done", func() {
+		Context("status: done (alias for completed)", func() {
 			BeforeEach(func() {
 				doneStatusContent := `---
 status: done
@@ -330,28 +312,19 @@ task_identifier: test-uuid-done
 ---
 # Task With Done Status
 
-This task has the old 'done' status.
+This task has the 'done' alias status.
 `
 				taskPath := filepath.Join(vaultPath, tasksDir, "Done Status.md")
 				Expect(os.WriteFile(taskPath, []byte(doneStatusContent), 0600)).To(Succeed())
 			})
 
-			It("detects 'done' as invalid status", func() {
+			It("accepts 'done' silently — no invalid status issue", func() {
 				issues, err := lintOp.Execute(ctx, vaultPath, tasksDir, false)
 				Expect(err).To(BeNil())
-				Expect(issues).To(HaveLen(1))
-			})
-
-			It("fixes 'done' to 'completed'", func() {
-				_, err := lintOp.Execute(ctx, vaultPath, tasksDir, true)
-				Expect(err).To(BeNil())
-
-				// Verify file was fixed
-				taskPath := filepath.Join(vaultPath, tasksDir, "Done Status.md")
-				content, err := os.ReadFile(taskPath) //#nosec G304 -- test file
-				Expect(err).To(BeNil())
-				Expect(string(content)).To(ContainSubstring("status: completed"))
-				Expect(string(content)).NotTo(ContainSubstring("status: done"))
+				for _, issue := range issues {
+					Expect(issue.IssueType).NotTo(Equal(ops.IssueTypeInvalidStatus),
+						"alias status done must not produce an invalid status issue")
+				}
 			})
 		})
 
@@ -588,7 +561,7 @@ This is a valid task.
 	})
 
 	Context("with different valid statuses", func() {
-		validStatuses := []string{"todo", "in_progress", "backlog", "completed", "hold", "aborted"}
+		validStatuses := []string{"next", "in_progress", "backlog", "completed", "hold", "aborted"}
 
 		for _, status := range validStatuses {
 			status := status
@@ -886,40 +859,31 @@ priority: 1
 		})
 	})
 
-	Context("with migrateable status values", func() {
+	Context("with 'next' status (new canonical)", func() {
 		BeforeEach(func() {
-			// File with migrateable status
-			migrateContent := `---
+			content := `---
 status: next
 priority: 1
-task_identifier: test-uuid-migrate
+task_identifier: test-uuid-next
 ---
-# Migrateable Status
+# Next Status Task
 `
-			taskPath := filepath.Join(vaultPath, tasksDir, "Migrate.md")
-			Expect(os.WriteFile(taskPath, []byte(migrateContent), 0600)).To(Succeed())
+			taskPath := filepath.Join(vaultPath, tasksDir, "Next.md")
+			Expect(os.WriteFile(taskPath, []byte(content), 0600)).To(Succeed())
 		})
 
-		It("reports migrateable status as fixable WARN in JSON", func() {
-			issues, err = lintOp.Execute(ctx, vaultPath, tasksDir, false)
+		It("reports no IssueTypeInvalidStatus for status: next", func() {
+			issues, err := lintOp.Execute(ctx, vaultPath, tasksDir, false)
 			Expect(err).To(BeNil())
-			Expect(issues).To(HaveLen(1))
-		})
-
-		It("fixes migrateable status", func() {
-			_, err = lintOp.Execute(ctx, vaultPath, tasksDir, true)
-			Expect(err).To(BeNil())
-
-			// Verify the file was fixed
-			taskPath := filepath.Join(vaultPath, tasksDir, "Migrate.md")
-			content, readErr := os.ReadFile(taskPath) //#nosec G304 -- test file
-			Expect(readErr).To(BeNil())
-			Expect(string(content)).To(ContainSubstring("status: todo"))
+			for _, issue := range issues {
+				Expect(issue.IssueType).NotTo(Equal(ops.IssueTypeInvalidStatus),
+					"status: next must not produce an invalid status issue")
+			}
 		})
 	})
 
 	Context("with all valid status values", func() {
-		validStatuses := []string{"todo", "in_progress", "backlog", "completed", "hold", "aborted"}
+		validStatuses := []string{"next", "in_progress", "backlog", "completed", "hold", "aborted"}
 
 		for _, status := range validStatuses {
 			status := status // capture loop variable
@@ -943,39 +907,25 @@ priority: 1
 		}
 	})
 
-	Context("with old migrateable status values", func() {
-		migrateMap := map[string]string{
-			"next":      "todo",
-			"current":   "in_progress",
-			"completed": "completed",
-		}
+	Context("with legacy alias status values (silently accepted)", func() {
+		DescribeTable("produces no invalid status issue for known aliases",
+			func(status string) {
+				content := "---\nstatus: " + status + "\npriority: 1\n---\n# Task\n"
+				taskPath := filepath.Join(vaultPath, tasksDir, "Alias.md")
+				Expect(os.WriteFile(taskPath, []byte(content), 0600)).To(Succeed())
 
-		for oldStatus, newStatus := range migrateMap {
-			oldStatus := oldStatus // capture loop variable
-			newStatus := newStatus
-			Context("migrating "+oldStatus+" to "+newStatus, func() {
-				BeforeEach(func() {
-					content := `---
-status: ` + oldStatus + `
-priority: 1
----
-# Task
-`
-					taskPath := filepath.Join(vaultPath, tasksDir, "Task.md")
-					Expect(os.WriteFile(taskPath, []byte(content), 0600)).To(Succeed())
-				})
-
-				It("fixes the status", func() {
-					_, err = lintOp.Execute(ctx, vaultPath, tasksDir, true)
-					Expect(err).To(BeNil())
-
-					taskPath := filepath.Join(vaultPath, tasksDir, "Task.md")
-					content, readErr := os.ReadFile(taskPath) //#nosec G304 -- test file
-					Expect(readErr).To(BeNil())
-					Expect(string(content)).To(ContainSubstring("status: " + newStatus))
-				})
-			})
-		}
+				issues, err := lintOp.Execute(ctx, vaultPath, tasksDir, false)
+				Expect(err).To(BeNil())
+				for _, issue := range issues {
+					Expect(issue.IssueType).NotTo(Equal(ops.IssueTypeInvalidStatus),
+						"alias status %q must not produce an invalid status issue", status)
+				}
+			},
+			Entry("todo (old canonical, now alias)", "todo"),
+			Entry("current (alias for in_progress)", "current"),
+			Entry("done (alias for completed)", "done"),
+			Entry("deferred (alias for hold)", "deferred"),
+		)
 	})
 
 	Context("with priority values with quotes", func() {
@@ -1088,14 +1038,15 @@ priority: 1
 		BeforeEach(func() {
 			content := `---
 status: next
-priority: 1
+priority: high
+task_identifier: test-uuid-write-error
 ---
 # Task
 `
 			taskPath := filepath.Join(vaultPath, tasksDir, "Task.md")
 			Expect(os.WriteFile(taskPath, []byte(content), 0600)).To(Succeed())
 
-			// Make file read-only to cause write error
+			// Make file read-only to cause write error on fixable issues
 			Expect(os.Chmod(taskPath, 0400)).To(Succeed())
 		})
 
@@ -1124,14 +1075,13 @@ priority: 1
 			Expect(os.WriteFile(taskPath, []byte(content), 0600)).To(Succeed())
 		})
 
-		It("detects and fixes quoted status", func() {
-			_, err := lintOp.Execute(ctx, vaultPath, tasksDir, true)
+		It("accepts quoted canonical status with no invalid status issue", func() {
+			issues, err := lintOp.Execute(ctx, vaultPath, tasksDir, false)
 			Expect(err).To(BeNil())
-
-			taskPath := filepath.Join(vaultPath, tasksDir, "Task.md")
-			content, readErr := os.ReadFile(taskPath) //#nosec G304 -- test file
-			Expect(readErr).To(BeNil())
-			Expect(string(content)).To(ContainSubstring("status: todo"))
+			for _, issue := range issues {
+				Expect(issue.IssueType).NotTo(Equal(ops.IssueTypeInvalidStatus),
+					"quoted canonical status must not produce an invalid status issue")
+			}
 		})
 	})
 
@@ -1147,14 +1097,13 @@ priority: 1
 			Expect(os.WriteFile(taskPath, []byte(content), 0600)).To(Succeed())
 		})
 
-		It("detects and fixes quoted status", func() {
-			_, err := lintOp.Execute(ctx, vaultPath, tasksDir, true)
+		It("accepts quoted alias status with no invalid status issue", func() {
+			issues, err := lintOp.Execute(ctx, vaultPath, tasksDir, false)
 			Expect(err).To(BeNil())
-
-			taskPath := filepath.Join(vaultPath, tasksDir, "Task.md")
-			content, readErr := os.ReadFile(taskPath) //#nosec G304 -- test file
-			Expect(readErr).To(BeNil())
-			Expect(string(content)).To(ContainSubstring("status: completed"))
+			for _, issue := range issues {
+				Expect(issue.IssueType).NotTo(Equal(ops.IssueTypeInvalidStatus),
+					"quoted alias status must not produce an invalid status issue")
+			}
 		})
 	})
 
@@ -1217,20 +1166,19 @@ task_identifier: test-uuid-json-enc
 
 	Context("with edge cases in status values", func() {
 		statusEdgeCases := map[string]bool{
-			"todo":        true,  // valid
-			"in_progress": true,  // valid
-			"backlog":     true,  // valid
-			"completed":   true,  // valid
-			"hold":        true,  // valid
-			"aborted":     true,  // valid
-			"next":        false, // fixable invalid
-			"current":     false, // fixable invalid
-			"done":        false, // fixable invalid
+			"next":        true, // canonical
+			"todo":        true, // accepted alias
+			"in_progress": true, // canonical
+			"backlog":     true, // canonical
+			"completed":   true, // canonical
+			"hold":        true, // canonical
+			"aborted":     true, // canonical
+			"current":     true, // accepted alias
+			"done":        true, // accepted alias
 		}
 
-		for status, isValid := range statusEdgeCases {
+		for status := range statusEdgeCases {
 			status := status
-			isValid := isValid
 			Context("with status: "+status, func() {
 				BeforeEach(func() {
 					content := `---
@@ -1243,25 +1191,56 @@ priority: 1
 					Expect(os.WriteFile(taskPath, []byte(content), 0600)).To(Succeed())
 				})
 
-				if isValid {
-					It("accepts valid status in json mode", func() {
-						_, err := lintOp.Execute(ctx, vaultPath, tasksDir, false)
-						Expect(err).To(BeNil())
-					})
-				} else {
-					It("detects fixable invalid status in json mode", func() {
-						issues, err := lintOp.Execute(ctx, vaultPath, tasksDir, false)
-						Expect(err).To(BeNil())
-						Expect(issues).NotTo(BeEmpty())
-					})
-
-					It("fixes invalid status in json mode", func() {
-						_, err := lintOp.Execute(ctx, vaultPath, tasksDir, true)
-						Expect(err).To(BeNil())
-					})
-				}
+				It("accepts valid status in json mode", func() {
+					_, err := lintOp.Execute(ctx, vaultPath, tasksDir, false)
+					Expect(err).To(BeNil())
+				})
 			})
 		}
+	})
+
+	Context("with legacy status and phase values on disk", func() {
+		It("accepts legacy 'todo' status with zero IssueTypeInvalidStatus issues", func() {
+			content := `---
+status: todo
+priority: 1
+task_identifier: test-uuid-legacy-status
+---
+# Legacy Status Task
+`
+			taskPath := filepath.Join(vaultPath, tasksDir, "LegacyStatus.md")
+			Expect(os.WriteFile(taskPath, []byte(content), 0600)).To(Succeed())
+
+			issues, err := lintOp.Execute(ctx, vaultPath, tasksDir, false)
+			Expect(err).To(BeNil())
+			for _, issue := range issues {
+				Expect(issue.IssueType).NotTo(Equal(ops.IssueTypeInvalidStatus),
+					"status: todo must produce zero IssueTypeInvalidStatus issues")
+			}
+		})
+
+		It(
+			"accepts legacy 'phase: in_progress' with zero IssueTypeStatusPhaseMismatch issues (when status is compatible)",
+			func() {
+				content := `---
+status: in_progress
+phase: in_progress
+priority: 1
+task_identifier: test-uuid-legacy-phase
+---
+# Legacy Phase Task
+`
+				taskPath := filepath.Join(vaultPath, tasksDir, "LegacyPhase.md")
+				Expect(os.WriteFile(taskPath, []byte(content), 0600)).To(Succeed())
+
+				issues, err := lintOp.Execute(ctx, vaultPath, tasksDir, false)
+				Expect(err).To(BeNil())
+				for _, issue := range issues {
+					Expect(issue.IssueType).NotTo(Equal(ops.IssueTypeStatusPhaseMismatch),
+						"status: in_progress + phase: in_progress must produce zero mismatch issues")
+				}
+			},
+		)
 	})
 })
 

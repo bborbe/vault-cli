@@ -190,8 +190,10 @@ func matchesStatusFilter(status domain.TaskStatus, filters []string) bool {
 		}
 		return false
 	}
-	// Default: show only todo and in_progress
-	return status == domain.TaskStatusTodo || status == domain.TaskStatusInProgress
+	// Default: show only next/todo (alias) and in_progress
+	return status == domain.TaskStatusNext ||
+		status == domain.TaskStatusTodo ||
+		status == domain.TaskStatusInProgress
 }
 
 // statusPriority returns a numeric priority for sorting task statuses.
@@ -199,7 +201,7 @@ func statusPriority(status domain.TaskStatus) int {
 	switch status {
 	case domain.TaskStatusInProgress:
 		return 1
-	case domain.TaskStatusTodo:
+	case domain.TaskStatusNext, domain.TaskStatusTodo:
 		return 2
 	case domain.TaskStatusHold:
 		return 3

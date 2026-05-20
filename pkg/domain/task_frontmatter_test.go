@@ -33,7 +33,7 @@ var _ = Describe("TaskFrontmatter", func() {
 
 		It("returns canonical status for known value", func() {
 			fm = domain.NewTaskFrontmatter(map[string]any{"status": "todo"})
-			Expect(fm.Status()).To(Equal(domain.TaskStatusTodo))
+			Expect(fm.Status()).To(Equal(domain.TaskStatusNext))
 		})
 
 		It("normalizes alias 'done' to completed", func() {
@@ -46,9 +46,9 @@ var _ = Describe("TaskFrontmatter", func() {
 			Expect(fm.Status()).To(Equal(domain.TaskStatusInProgress))
 		})
 
-		It("normalizes alias 'next' to todo", func() {
+		It("returns canonical 'next' unchanged", func() {
 			fm = domain.NewTaskFrontmatter(map[string]any{"status": "next"})
-			Expect(fm.Status()).To(Equal(domain.TaskStatusTodo))
+			Expect(fm.Status()).To(Equal(domain.TaskStatusNext))
 		})
 
 		It("normalizes alias 'deferred' to hold", func() {
@@ -470,7 +470,7 @@ var _ = Describe("TaskFrontmatter", func() {
 	Describe("GetField", func() {
 		It("returns status", func() {
 			fm = domain.NewTaskFrontmatter(map[string]any{"status": "todo"})
-			Expect(fm.GetField("status")).To(Equal("todo"))
+			Expect(fm.GetField("status")).To(Equal("next"))
 		})
 
 		It("returns goals as comma-separated", func() {

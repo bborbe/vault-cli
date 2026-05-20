@@ -29,8 +29,11 @@ var _ = Describe("TaskStatus", func() {
 	Describe("Validate", func() {
 		ctx := context.Background()
 
-		It("returns nil for todo", func() {
-			Expect(domain.TaskStatusTodo.Validate(ctx)).To(BeNil())
+		It("rejects 'todo' as canonical", func() {
+			Expect(domain.TaskStatusTodo.Validate(ctx)).NotTo(BeNil())
+		})
+		It("accepts 'next' as canonical", func() {
+			Expect(domain.TaskStatusNext.Validate(ctx)).To(BeNil())
 		})
 		It("returns nil for in_progress", func() {
 			Expect(domain.TaskStatusInProgress.Validate(ctx)).To(BeNil())
@@ -57,10 +60,10 @@ var _ = Describe("TaskStatus", func() {
 
 	Describe("NormalizeTaskStatus", func() {
 		Context("canonical values", func() {
-			It("returns todo unchanged", func() {
-				status, ok := domain.NormalizeTaskStatus("todo")
+			It("returns next unchanged", func() {
+				status, ok := domain.NormalizeTaskStatus("next")
 				Expect(ok).To(BeTrue())
-				Expect(status).To(Equal(domain.TaskStatusTodo))
+				Expect(status).To(Equal(domain.TaskStatusNext))
 			})
 
 			It("returns in_progress unchanged", func() {
@@ -95,6 +98,12 @@ var _ = Describe("TaskStatus", func() {
 		})
 
 		Context("alias values", func() {
+			It("normalizes todo to next", func() {
+				status, ok := domain.NormalizeTaskStatus("todo")
+				Expect(ok).To(BeTrue())
+				Expect(status).To(Equal(domain.TaskStatusNext))
+			})
+
 			It("normalizes done to completed", func() {
 				status, ok := domain.NormalizeTaskStatus("done")
 				Expect(ok).To(BeTrue())
@@ -105,12 +114,6 @@ var _ = Describe("TaskStatus", func() {
 				status, ok := domain.NormalizeTaskStatus("current")
 				Expect(ok).To(BeTrue())
 				Expect(status).To(Equal(domain.TaskStatusInProgress))
-			})
-
-			It("normalizes next to todo", func() {
-				status, ok := domain.NormalizeTaskStatus("next")
-				Expect(ok).To(BeTrue())
-				Expect(status).To(Equal(domain.TaskStatusTodo))
 			})
 
 			It("normalizes deferred to hold", func() {
@@ -142,8 +145,12 @@ var _ = Describe("TaskStatus", func() {
 	})
 
 	Describe("IsValidTaskStatus", func() {
-		It("returns true for todo", func() {
-			Expect(domain.IsValidTaskStatus(domain.TaskStatusTodo)).To(BeTrue())
+		It("returns false for todo (alias-only)", func() {
+			Expect(domain.IsValidTaskStatus(domain.TaskStatusTodo)).To(BeFalse())
+		})
+
+		It("returns true for next", func() {
+			Expect(domain.IsValidTaskStatus(domain.TaskStatusNext)).To(BeTrue())
 		})
 
 		It("returns true for in_progress", func() {

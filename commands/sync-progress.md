@@ -20,9 +20,8 @@ From the Document-Driven Workflow: *update documents during work, not after*. Th
 
 ```
 GH_AVAILABLE          = `command -v gh` exits 0
-JIRA_MCP_AVAILABLE    = any mcp__atlassian-*__getJiraIssue tool present
-JIRA_CLOUD_ID         = first id returned from mcp__atlassian-*__getAccessibleAtlassianResources (cached)
-JIRA_NAMESPACE        = matched atlassian-mcp suffix (e.g. personal, seibert)
+JIRA_MCP_AVAILABLE    = mcp__atlassian__getJiraIssue tool present
+JIRA_CLOUD_ID         = first id returned from mcp__atlassian__getAccessibleAtlassianResources (cached for session)
 ```
 
 If any integration is absent, skip its section silently — never error.
@@ -117,7 +116,7 @@ Never invent PR URLs — only record ones that appear verbatim in conversation/t
 Detect Jira ticket refs in conversation: `[A-Z]+-\d+`.
 
 For each detected ticket:
-1. `mcp__atlassian-{JIRA_NAMESPACE}__getJiraIssue(cloudId={JIRA_CLOUD_ID}, issueIdOrKey=<key>)` → current status
+1. `mcp__atlassian__getJiraIssue(cloudId=JIRA_CLOUD_ID, issueIdOrKey=<key>)` → current status
 2. If conversation indicates completion AND ticket status != Done:
    - `getTransitionsForJiraIssue(...)` → find "Done" (case-insensitive)
    - `transitionJiraIssue(...)` → transition

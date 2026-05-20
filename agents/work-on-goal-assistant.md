@@ -2,7 +2,7 @@
 name: work-on-goal-assistant
 description: Prepare a goal for work — find goal, search domain guides, analyze task progress, recommend next task, delegate to work-on-task-assistant. Works in any vault.
 model: haiku
-tools: Read, Glob, Grep, Bash, Task, AskUserQuestion
+tools: Read, Glob, Grep, Bash, Task, AskUserQuestion, mcp__semantic-search__search_related
 color: purple
 ---
 

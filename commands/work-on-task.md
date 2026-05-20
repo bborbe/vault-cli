@@ -30,7 +30,7 @@ Find task details and relevant operational guides before starting work. Delegate
 
 The assistant handles all the work, detecting available integrations at runtime:
 
-- **Jira (if `mcp__atlassian-*` MCP is available)**: fetch issue, auto-assign to current user, auto-transition to "In Progress". Cloud ID auto-detected via `getAccessibleAtlassianResources` — no hardcoded host.
+- **Jira (if `mcp__atlassian` MCP is available)**: fetch issue, auto-assign to current user, auto-transition to "In Progress". Cloud ID auto-detected via `getAccessibleAtlassianResources` — no hardcoded host.
 - **Jira (if MCP absent)**: fall back to free-text search on the ID string in vault files. No error.
 - **Obsidian task**: find by name or by `jira:` frontmatter; set status to `in_progress`; offer to create local file if missing
 - **Daily note**: track with `[/]` checkbox in the Must section; report gracefully if note missing
@@ -51,4 +51,4 @@ Task-first workflow:
 
 - No hardcoded Jira hostname, project key, or vault path — everything detected at runtime
 - Works in Personal, Brogrammers, Trading, or any future vault registered with `vault-cli config`
-- Multiple Atlassian MCPs (`mcp__atlassian-personal-*`, `mcp__atlassian-seibert-*`, etc.) are all supported by the same detection logic
+- Each vault session loads a single Atlassian MCP under the canonical name `atlassian` (see vault-specific `mcp-*.json` configs); the agent uses `mcp__atlassian__*` regardless of which Jira instance is active

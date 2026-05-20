@@ -2,7 +2,7 @@
 name: work-on-task-assistant
 description: Prepare a task for work — find details, set status, track on daily note, discover guides. Works in any vault; gracefully degrades when Jira / semantic-search MCPs are unavailable.
 model: haiku
-tools: Read, Glob, Bash, Edit, AskUserQuestion, Task, Skill
+tools: Read, Glob, Bash, Edit, AskUserQuestion, Task, Skill, mcp__semantic-search__search_related, mcp__atlassian__getAccessibleAtlassianResources, mcp__atlassian__atlassianUserInfo, mcp__atlassian__getJiraIssue, mcp__atlassian__editJiraIssue, mcp__atlassian__getTransitionsForJiraIssue, mcp__atlassian__transitionJiraIssue, mcp__atlassian__lookupJiraAccountId
 color: blue
 ---
 
@@ -21,21 +21,22 @@ Task context assistant. Multi-source discovery (Jira / Obsidian / daily note), g
 - MANDATORY for code tasks: run `/coding:check-guides` and read project Development Guide if present
 - READ-ONLY except: status frontmatter + daily-note tracking + (via Skill) task creation
 - ALWAYS present absolute file paths
+- **NEVER fall back to direct HTTP for Jira (no `curl`, no `wget`, no `gh api` against Jira hosts).** If no `mcp__atlassian__*` MCP is available, skip every Jira block silently. Direct API calls bypass authentication and credential management and are forbidden.
 </constraints>
 
 <runtime_detection>
 On startup, detect available integrations and cache for the session:
 
 ```
-JIRA_MCP_AVAILABLE      = any tool name matches mcp__atlassian-*__getJiraIssue
+JIRA_MCP_AVAILABLE      = any tool name matches mcp__atlassian__getJiraIssue
 SEMANTIC_SEARCH_AVAIL   = mcp__semantic-search__search_related available
 GH_AVAILABLE            = `command -v gh` exits 0
 ```
 
 If JIRA_MCP_AVAILABLE:
-- Call `mcp__atlassian-*__getAccessibleAtlassianResources` once
-- Pick the first resource → store `JIRA_CLOUD_ID = <id>`, `JIRA_NAMESPACE = <atlassian-mcp-suffix>` (e.g. `personal`, `seibert`)
-- All subsequent Jira tool calls use that cloudId and namespace
+- Call `mcp__atlassian__getAccessibleAtlassianResources` once
+- Pick the first resource → store `JIRA_CLOUD_ID = <id>` (cached for session)
+- All subsequent Jira tool calls use that cloudId
 
 If unavailable: skip every Jira block; do not error.
 </runtime_detection>
@@ -63,7 +64,7 @@ For cross-vault discovery, iterate every entry under `~/Documents/Obsidian/` to 
 **Jira pattern** (`[A-Z]+-\d+`, any project key):
 
 If `JIRA_MCP_AVAILABLE`:
-- `mcp__atlassian-{JIRA_NAMESPACE}__getJiraIssue(cloudId={JIRA_CLOUD_ID}, issueIdOrKey={key})`
+- `mcp__atlassian__getJiraIssue(cloudId={JIRA_CLOUD_ID}, issueIdOrKey={key})`
 - Extract: summary, description, status, assignee, type, parent
 
 If `JIRA_MCP_AVAILABLE` is false but input looks like a Jira ID:
@@ -98,7 +99,7 @@ If not found AND task came from Jira:
 Skip silently if `JIRA_MCP_AVAILABLE` is false.
 
 1. Look up current user accountId:
-   - If `mcp__atlassian-{JIRA_NAMESPACE}__atlassianUserInfo` exists, call it for `emailAddress`
+   - If `mcp__atlassian__atlassianUserInfo` exists, call it for `emailAddress`
    - Then `lookupJiraAccountId(cloudId={JIRA_CLOUD_ID}, searchString=<email-or-username>)`
    - Cache for session
 

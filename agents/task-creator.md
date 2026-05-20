@@ -60,7 +60,7 @@ Scan the description for patterns like `BRO-18665`, `TRADE-4304`, `OC-2042`, etc
 - If found, store as `JIRA_KEY` and remove from the title text.
 - If a single key is found, prepend it to the final filename: `{JIRA_KEY} {Title}.md`.
 
-In MODE=interactive, optionally fetch the Jira issue details via `mcp__atlassian-seibert__getJiraIssue` to enrich the title and description (only if a Jira key was detected and the MCP tool is available). Skip in MODE=tool.
+In MODE=interactive, optionally fetch the Jira issue details via `mcp__atlassian__getJiraIssue` to enrich the title and description (only if a Jira key was detected and the MCP tool is available). Skip in MODE=tool.
 
 ## 4. Detect incident-shaped task (interactive only)
 

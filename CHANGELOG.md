@@ -8,6 +8,13 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## v0.66.1
+
+- fix(plugin): Declare `mcp__atlassian__*` and `mcp__semantic-search__search_related` tools in `work-on-task-assistant` frontmatter so the agent can actually call the MCPs. Without these the agent was unable to invoke `mcp__atlassian__getJiraIssue` and fell back to direct `curl https://<host>/rest/api/3/issue/...`, which fails (no auth) and bypasses MCP credential management.
+- fix(plugin): Add explicit constraint — no direct HTTP / `curl` / `gh api` fallback for Jira. If `mcp__atlassian__*` is unavailable, skip every Jira block silently.
+- fix(plugin): Declare `mcp__semantic-search__search_related` on `work-on-goal-assistant` so semantic search isn't silently degraded.
+- refactor(plugin): Unify Atlassian MCP namespace to the single canonical `atlassian` name across `work-on-task-assistant`, `work-on-goal-assistant`, `task-creator`, and the `next-task` / `work-on-task` / `sync-progress` slash commands. Previously the migrated agents referenced vault-specific suffixes (`atlassian-personal`, `atlassian-seibert`); now both vaults expose their Atlassian MCP under the same canonical key, so the plugin works with a single tool whitelist regardless of which Jira instance is active. Operator-side companion change (not part of this release): per-vault `~/.claude/mcp-*.json` configs each register their instance under the key `atlassian`.
+
 ## v0.66.0
 
 - feat(plugin): Add five new slash commands — `next-steps`, `next-task`, `sync-progress`, `work-on-goal`, `work-on-task` — migrated from Personal + Brogrammers vaults to a single source of truth. Replaces per-vault divergent copies (Personal `next-task` was 562 lines, Brogrammers 170 lines, 714 diff lines).

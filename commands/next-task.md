@@ -173,7 +173,7 @@ For TASK with subtasks: show next 3 pending subtask lines.
 
 ## Jira detection (graceful)
 
-If task content references a Jira-style ID matching `[A-Z]+-\d+` (e.g. `TRADE-123`, `BRO-456`), and `mcp__atlassian-*__getJiraIssue` is available in the session:
+If task content references a Jira-style ID matching `[A-Z]+-\d+` (e.g. `TRADE-123`, `BRO-456`), and `mcp__atlassian__getJiraIssue` is available in the session:
 - Decorate the task in the output with the Jira status (single getJiraIssue call)
 - Otherwise display the bare ID without decoration
 

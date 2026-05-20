@@ -297,7 +297,7 @@ task_identifier: test-uuid-get
 			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 			Expect(err).NotTo(HaveOccurred())
 			Eventually(session).Should(gexec.Exit(0))
-			Expect(session.Out).To(gbytes.Say("todo"))
+			Expect(session.Out).To(gbytes.Say("next"))
 		})
 
 		It("sets a known field with valid value", func() {
@@ -338,10 +338,10 @@ task_identifier: test-uuid-set
 			cleanup()
 		})
 
-		It("normalizes legacy status 'next' to 'todo' on list", func() {
+		It("normalizes legacy status 'todo' to 'next' on list", func() {
 			_, configPath, cleanup = createTempVault(map[string]string{
 				"legacy-task": `---
-status: next
+status: todo
 priority: 1
 ---
 # Legacy Task
@@ -357,7 +357,7 @@ priority: 1
 			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 			Expect(err).NotTo(HaveOccurred())
 			Eventually(session).Should(gexec.Exit(0))
-			// Task with status "next" should appear (normalized to todo)
+			// Task with status "todo" should appear (normalized to next)
 			Expect(session.Out).To(gbytes.Say("legacy-task"))
 		})
 	})
@@ -459,11 +459,12 @@ This task has valid frontmatter.
 		Context("with invalid status", func() {
 			BeforeEach(func() {
 				_, configPath, cleanup = createTempVault(map[string]string{
-					"next-status-task": `---
-status: next
+					"invalid-status-task": `---
+status: garbage
 priority: 2
+task_identifier: test-uuid-garbage
 ---
-# Task with next status
+# Task with invalid status
 `,
 				})
 			})
@@ -527,15 +528,15 @@ priority: high
 		var vaultPath, configPath string
 		var cleanup func()
 
-		Context("with status: next", func() {
+		Context("with legacy status: todo (silently accepted alias)", func() {
 			BeforeEach(func() {
 				vaultPath, configPath, cleanup = createTempVault(map[string]string{
-					"next-status-task": `---
-status: next
+					"legacy-todo-task": `---
+status: todo
 priority: 2
-task_identifier: test-uuid-next
+task_identifier: test-uuid-legacy
 ---
-# Task with next status
+# Task with legacy todo status
 `,
 				})
 			})
@@ -544,7 +545,7 @@ task_identifier: test-uuid-next
 				cleanup()
 			})
 
-			It("exits 0, shows FIXED, and updates file to status: todo", func() {
+			It("exits 0, reports no issues, and leaves file unchanged", func() {
 				cmd := exec.Command(
 					binPath,
 					"--config",
@@ -558,10 +559,11 @@ task_identifier: test-uuid-next
 				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 				Expect(err).NotTo(HaveOccurred())
 				Eventually(session).Should(gexec.Exit(0))
-				Expect(session.Out).To(gbytes.Say("FIXED"))
+				Expect(session.Out).To(gbytes.Say("No lint issues found"))
+				Expect(session.Out).NotTo(gbytes.Say("FIXED"))
 
-				// Verify file was updated
-				taskPath := filepath.Join(vaultPath, "Tasks", "next-status-task.md")
+				// Verify file was NOT rewritten — alias preserved on disk
+				taskPath := filepath.Join(vaultPath, "Tasks", "legacy-todo-task.md")
 				content, err := os.ReadFile(taskPath) //#nosec G304 -- test file
 				Expect(err).NotTo(HaveOccurred())
 				Expect(string(content)).To(ContainSubstring("status: todo"))

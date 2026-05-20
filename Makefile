@@ -53,7 +53,7 @@ generate:
 
 .PHONY: test
 test:
-	go test -mod=mod -p=$${GO_TEST_PARALLEL:-1} -cover -race $(shell go list -mod=mod ./... | grep -v /vendor/)
+	go test -mod=mod -count=1 -p=$${GO_TEST_PARALLEL:-1} -cover -race $(shell go list -mod=mod ./... | grep -v /vendor/)
 
 .PHONY: check
 check: lint vet errcheck vulncheck osv-scanner gosec trivy

@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.64.3
+
+- test: Fix integration tests missed by spec 013 — update assertions for canonical `next` status, replace `status: next` invalid-status fixture with `status: garbage`, rewrite lint `--fix` context to assert alias-silent-acceptance
+- chore: Add `-count=1` to `make test` target to prevent Go test cache from hiding integration failures when only `pkg/` source changes
+
 ## v0.65.0
 
 - feat: Rename canonical task status `todo` → `next` and phase `in_progress` → `execution` to eliminate status/phase name collision. Old values (`todo`, `in_progress`) remain accepted aliases via `NormalizeTaskStatus` / `NormalizeTaskPhase` — existing vault files are untouched on disk.

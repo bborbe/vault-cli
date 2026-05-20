@@ -1,5 +1,5 @@
 ---
-status: committing
+status: completed
 spec: [013-rename-task-status-phase-taxonomy]
 summary: Updated 4 integration test blocks in cli_test.go to match canonical `next` status taxonomy and added -count=1 to Makefile test target to prevent stale cache hiding failures.
 container: vault-cli-exec-121-fix-integration-tests-for-taxonomy-rename
@@ -7,6 +7,7 @@ dark-factory-version: v0.162.0
 created: "2026-05-20T17:27:08Z"
 queued: "2026-05-20T17:27:08Z"
 started: "2026-05-20T17:27:10Z"
+completed: "2026-05-20T17:29:12Z"
 ---
 
 <summary>

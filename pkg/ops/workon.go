@@ -56,7 +56,9 @@ type workOnOperation struct {
 	resumer          ClaudeResumer
 }
 
-// Execute marks a task as in_progress, assigns it, and starts or resumes a Claude session.
+// Execute marks a task as in_progress, advances phase to planning when entering the
+// workflow (current phase nil/empty/"todo"), assigns it, and starts or resumes a Claude session.
+// A mid-flight phase (in_progress, ai_review, human_review, done, ...) is preserved.
 func (w *workOnOperation) Execute(
 	ctx context.Context,
 	vaultPath string,
@@ -82,6 +84,13 @@ func (w *workOnOperation) Execute(
 
 	_ = task.SetStatus(domain.TaskStatusInProgress)
 	task.SetAssignee(assignee)
+
+	// Advance phase to planning only when entering the workflow.
+	// Resuming a mid-flight task (in_progress, ai_review, human_review, done, ...)
+	// must not reset progress backward.
+	if currentPhase := task.Phase(); currentPhase == nil || *currentPhase == domain.TaskPhaseTodo {
+		task.SetPhase(domain.TaskPhasePlanning.Ptr())
+	}
 
 	if err := w.taskStorage.WriteTask(ctx, task); err != nil {
 		return MutationResult{

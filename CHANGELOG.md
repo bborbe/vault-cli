@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.64.2
+
+- fix: `vault-cli task work-on` advances `phase` from `todo`/missing/empty to `planning` when entering the workflow; mid-flight phases (`in_progress`, `ai_review`, `human_review`, `done`, ...) are left unchanged so resuming a task does not reset progress
+
 ## v0.64.1
 
 - fix: Map fsnotify `Rename` op to `deleted` event in `vault-cli watch` — removes the `renamed` event type from the public API. Consumers handling `deleted` now automatically receive Obsidian trash-deletes (which use `os.Rename` internally). Breaking: any consumer expecting `event:"renamed"` will no longer receive that string.

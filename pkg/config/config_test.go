@@ -75,6 +75,47 @@ vaults:
 			})
 		})
 
+		Context("knowledge_dir in vault config", func() {
+			BeforeEach(func() {
+				configData := `vaults:
+  main:
+    name: main
+    path: /vault/main
+    knowledge_dir: "50 Knowledge"
+`
+				err := os.WriteFile(configPath, []byte(configData), 0600)
+				Expect(err).To(BeNil())
+				loader = config.NewLoader(configPath)
+			})
+
+			It("loads knowledge_dir from YAML", func() {
+				vault, err := loader.GetVault(ctx, "main")
+				Expect(err).To(BeNil())
+				Expect(vault.KnowledgeDir).To(Equal("50 Knowledge"))
+				Expect(vault.GetKnowledgeDir()).To(Equal("50 Knowledge"))
+			})
+		})
+
+		Context("missing knowledge_dir in vault config", func() {
+			BeforeEach(func() {
+				configData := `vaults:
+  main:
+    name: main
+    path: /vault/main
+`
+				err := os.WriteFile(configPath, []byte(configData), 0600)
+				Expect(err).To(BeNil())
+				loader = config.NewLoader(configPath)
+			})
+
+			It("defaults knowledge_dir to 50 Knowledge Base", func() {
+				vault, err := loader.GetVault(ctx, "main")
+				Expect(err).To(BeNil())
+				Expect(vault.KnowledgeDir).To(Equal(""))
+				Expect(vault.GetKnowledgeDir()).To(Equal("50 Knowledge Base"))
+			})
+		})
+
 		Context("missing config file", func() {
 			BeforeEach(func() {
 				loader = config.NewLoader(configPath) // File doesn't exist

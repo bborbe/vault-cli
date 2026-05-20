@@ -31,6 +31,7 @@ type Vault struct {
 	ObjectivesDir     string   `yaml:"objectives_dir,omitempty"      json:"objectives_dir,omitempty"`
 	VisionDir         string   `yaml:"vision_dir,omitempty"          json:"vision_dir,omitempty"`
 	DailyDir          string   `yaml:"daily_dir,omitempty"           json:"daily_dir,omitempty"`
+	KnowledgeDir      string   `yaml:"knowledge_dir,omitempty"       json:"knowledge_dir,omitempty"`
 	ClaudeScript      string   `yaml:"claude_script,omitempty"       json:"claude_script,omitempty"`
 	SessionProjectDir string   `yaml:"session_project_dir,omitempty" json:"session_project_dir,omitempty"`
 	TaskTemplate      string   `yaml:"task_template,omitempty"       json:"task_template,omitempty"`
@@ -87,6 +88,14 @@ func (v *Vault) GetDailyDir() string {
 		return v.DailyDir
 	}
 	return "Daily Notes"
+}
+
+// GetKnowledgeDir returns the knowledge base directory, defaulting to "50 Knowledge Base" if not set.
+func (v *Vault) GetKnowledgeDir() string {
+	if v.KnowledgeDir != "" {
+		return v.KnowledgeDir
+	}
+	return "50 Knowledge Base"
 }
 
 // GetExcludes returns the list of excluded directory prefixes.

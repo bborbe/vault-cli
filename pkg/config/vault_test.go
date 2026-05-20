@@ -5,6 +5,8 @@
 package config_test
 
 import (
+	"encoding/json"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -84,6 +86,18 @@ var _ = Describe("Vault", func() {
 		})
 	})
 
+	Describe("GetKnowledgeDir", func() {
+		It("returns custom knowledge dir when set", func() {
+			vault := &config.Vault{KnowledgeDir: "Custom Knowledge"}
+			Expect(vault.GetKnowledgeDir()).To(Equal("Custom Knowledge"))
+		})
+
+		It("returns default 50 Knowledge Base when empty", func() {
+			vault := &config.Vault{}
+			Expect(vault.GetKnowledgeDir()).To(Equal("50 Knowledge Base"))
+		})
+	})
+
 	Describe("GetClaudeScript", func() {
 		It("returns custom claude script when set", func() {
 			vault := &config.Vault{ClaudeScript: "/usr/local/bin/my-claude"}
@@ -105,6 +119,22 @@ var _ = Describe("Vault", func() {
 		It("returns empty string when not set", func() {
 			vault := &config.Vault{}
 			Expect(vault.GetSessionProjectDir()).To(Equal(""))
+		})
+	})
+
+	Describe("JSON marshalling", func() {
+		It("includes knowledge_dir in JSON when set", func() {
+			vault := config.Vault{Name: "main", Path: "/vault", KnowledgeDir: "50 Knowledge"}
+			data, err := json.Marshal(vault)
+			Expect(err).To(BeNil())
+			Expect(string(data)).To(ContainSubstring(`"knowledge_dir":"50 Knowledge"`))
+		})
+
+		It("omits knowledge_dir from JSON when empty", func() {
+			vault := config.Vault{Name: "main", Path: "/vault"}
+			data, err := json.Marshal(vault)
+			Expect(err).To(BeNil())
+			Expect(string(data)).NotTo(ContainSubstring("knowledge_dir"))
 		})
 	})
 })

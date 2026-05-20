@@ -8,7 +8,9 @@ import (
 	"context"
 	"time"
 
+	errors "github.com/bborbe/errors"
 	libtime "github.com/bborbe/time"
+	"github.com/bborbe/validation"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -548,6 +550,60 @@ var _ = Describe("TaskFrontmatter", func() {
 		It("preserves unknown fields stored in constructor map", func() {
 			fm = domain.NewTaskFrontmatter(map[string]any{"unknown_field": "preserved"})
 			Expect(fm.GetField("unknown_field")).To(Equal("preserved"))
+		})
+	})
+})
+
+var _ = Describe("TaskFrontmatter SetField alias normalization", func() {
+	var ctx context.Context
+	var fm domain.TaskFrontmatter
+
+	BeforeEach(func() {
+		ctx = context.Background()
+		fm = domain.NewTaskFrontmatter(nil)
+	})
+
+	Context("status field", func() {
+		It("normalises alias 'todo' to canonical 'next' on disk", func() {
+			Expect(fm.SetField(ctx, "status", "todo")).To(Succeed())
+			Expect(fm.Status()).To(Equal(domain.TaskStatusNext))
+		})
+
+		It("accepts canonical 'next' verbatim", func() {
+			Expect(fm.SetField(ctx, "status", "next")).To(Succeed())
+			Expect(fm.Status()).To(Equal(domain.TaskStatusNext))
+		})
+
+		It("rejects an unknown status value with validation.Error", func() {
+			err := fm.SetField(ctx, "status", "banana")
+			Expect(err).To(HaveOccurred())
+			Expect(errors.Is(err, validation.Error)).To(BeTrue())
+		})
+	})
+
+	Context("phase field", func() {
+		It("normalises alias 'in_progress' to canonical 'execution' on disk", func() {
+			Expect(fm.SetField(ctx, "phase", "in_progress")).To(Succeed())
+			Expect(fm.Phase()).NotTo(BeNil())
+			Expect(*fm.Phase()).To(Equal(domain.TaskPhaseExecution))
+		})
+
+		It("accepts canonical 'execution' verbatim", func() {
+			Expect(fm.SetField(ctx, "phase", "execution")).To(Succeed())
+			Expect(fm.Phase()).NotTo(BeNil())
+			Expect(*fm.Phase()).To(Equal(domain.TaskPhaseExecution))
+		})
+
+		It("clears the phase on empty value", func() {
+			Expect(fm.SetField(ctx, "phase", "execution")).To(Succeed())
+			Expect(fm.SetField(ctx, "phase", "")).To(Succeed())
+			Expect(fm.Phase()).To(BeNil())
+		})
+
+		It("rejects an unknown phase value with validation.Error", func() {
+			err := fm.SetField(ctx, "phase", "banana")
+			Expect(err).To(HaveOccurred())
+			Expect(errors.Is(err, validation.Error)).To(BeTrue())
 		})
 	})
 })

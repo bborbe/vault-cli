@@ -1,9 +1,18 @@
 # Changelog
 
-## v0.64.3
+All notable changes to this project will be documented in this file.
+
+Please choose versions by [Semantic Versioning](http://semver.org/).
+
+* MAJOR version when you make incompatible API changes,
+* MINOR version when you add functionality in a backwards-compatible manner, and
+* PATCH version when you make backwards-compatible bug fixes.
+
+## v0.65.1
 
 - test: Fix integration tests missed by spec 013 — update assertions for canonical `next` status, replace `status: next` invalid-status fixture with `status: garbage`, rewrite lint `--fix` context to assert alias-silent-acceptance
 - chore: Add `-count=1` to `make test` target to prevent Go test cache from hiding integration failures when only `pkg/` source changes
+- chore: Align tag with CHANGELOG — autoRelease bumped patch from prior `v0.64.2` tag instead of recognizing existing `## v0.65.0` entry, producing orphan `v0.64.3` tag. This release aligns plugin manifests + tag at `v0.65.1`.
 
 ## v0.65.0
 
@@ -458,14 +467,6 @@
 ## v0.16.0
 
 - feat: Add Claude session management to `vault-cli task work-on` — starts or resumes a Claude coding session, with `--mode` flag (auto/interactive/headless) for TTY detection
-
-All notable changes to this project will be documented in this file.
-
-Please choose versions by [Semantic Versioning](http://semver.org/).
-
-* MAJOR version when you make incompatible API changes,
-* MINOR version when you add functionality in a backwards-compatible manner, and
-* PATCH version when you make backwards-compatible bug fixes.
 
 ## v0.15.0
 

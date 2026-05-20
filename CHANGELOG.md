@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## v0.66.3
+
+- feat(plugin): Add `/vault-cli:update-task` and `/vault-cli:update-goal` slash commands — thin wrappers that delegate to the existing `vault-cli:task-manager-agent` and `vault-cli:goal-manager-agent` for in-progress checkbox updates, summary refresh, and noteworthy-progress detection. Migrated from Personal + Brogrammers vault local copies (both archived). Vault-agnostic — folders resolved from `vault-cli config list`.
+
 ## v0.66.2
 
 - feat(plugin): Add `/vault-cli:reflect` slash command — extracts high-significance learnings from the parent Claude Code conversation and documents them in the active vault's Knowledge Base. Migrated from Personal + Brogrammers vault local copies (both archived). Inline (cannot delegate to a sub-agent because it needs the parent conversation). Graceful detection of `mcp__semantic-search__*` MCPs; falls back to `Glob` / `Grep` when absent.

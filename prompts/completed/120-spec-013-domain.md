@@ -1,5 +1,5 @@
 ---
-status: committing
+status: completed
 spec: [013-rename-task-status-phase-taxonomy]
 summary: Atomically flipped canonical task status from 'todo' to 'next' and phase from 'in_progress' to 'execution' across pkg/domain/, pkg/ops/, pkg/storage/, plus version-aligned v0.65.0 release; all tests pass and make precommit exits 0.
 container: vault-cli-exec-120-spec-013-domain
@@ -7,9 +7,8 @@ dark-factory-version: v0.162.0
 created: "2026-05-20T16:09:22Z"
 queued: "2026-05-20T16:33:29Z"
 started: "2026-05-20T16:45:10Z"
-completed: "2026-05-20T16:36:57Z"
+completed: "2026-05-20T16:57:34Z"
 branch: dark-factory/rename-task-status-phase-taxonomy
-lastFailReason: 'validate completion report: completion report status: partial'
 ---
 
 <summary>

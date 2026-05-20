@@ -1,11 +1,12 @@
 ---
-status: committing
+status: completed
 summary: 'Normalised task status and phase aliases at the SetField boundary: `todo` maps to `next` and `in_progress` maps to `execution` before validation, canonical form is written to disk, and Validate() canonical-only contract is preserved.'
 container: vault-cli-exec-122-normalize-aliases-in-setfield
 dark-factory-version: v0.162.0
 created: "2026-05-20T19:35:00Z"
 queued: "2026-05-20T19:36:58Z"
 started: "2026-05-20T19:37:00Z"
+completed: "2026-05-20T19:39:26Z"
 ---
 
 <summary>

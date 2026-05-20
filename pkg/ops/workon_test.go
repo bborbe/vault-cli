@@ -335,4 +335,78 @@ var _ = Describe("WorkOnOperation", func() {
 			})
 		})
 	})
+
+	Context("phase advancement", func() {
+		Context("when phase is missing (nil)", func() {
+			It("sets phase to planning", func() {
+				Expect(mockTaskStorage.WriteTaskCallCount()).To(BeNumerically(">=", 1))
+				_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
+				Expect(writtenTask.Phase()).NotTo(BeNil())
+				Expect(*writtenTask.Phase()).To(Equal(domain.TaskPhasePlanning))
+			})
+		})
+
+		Context("when phase is empty string", func() {
+			BeforeEach(func() {
+				task = domain.NewTask(
+					map[string]any{"status": "todo", "phase": ""},
+					domain.FileMetadata{
+						Name:     taskName,
+						FilePath: "/path/to/vault/tasks/my-task.md",
+					},
+					domain.Content(""),
+				)
+				mockTaskStorage.FindTaskByNameReturns(task, nil)
+			})
+
+			It("sets phase to planning", func() {
+				Expect(mockTaskStorage.WriteTaskCallCount()).To(BeNumerically(">=", 1))
+				_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
+				Expect(writtenTask.Phase()).NotTo(BeNil())
+				Expect(*writtenTask.Phase()).To(Equal(domain.TaskPhasePlanning))
+			})
+		})
+
+		Context("when phase is todo", func() {
+			BeforeEach(func() {
+				task = domain.NewTask(
+					map[string]any{"status": "todo", "phase": "todo"},
+					domain.FileMetadata{
+						Name:     taskName,
+						FilePath: "/path/to/vault/tasks/my-task.md",
+					},
+					domain.Content(""),
+				)
+				mockTaskStorage.FindTaskByNameReturns(task, nil)
+			})
+
+			It("sets phase to planning", func() {
+				Expect(mockTaskStorage.WriteTaskCallCount()).To(BeNumerically(">=", 1))
+				_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
+				Expect(writtenTask.Phase()).NotTo(BeNil())
+				Expect(*writtenTask.Phase()).To(Equal(domain.TaskPhasePlanning))
+			})
+		})
+
+		Context("when phase is in_progress (resume case)", func() {
+			BeforeEach(func() {
+				task = domain.NewTask(
+					map[string]any{"status": "in_progress", "phase": "in_progress"},
+					domain.FileMetadata{
+						Name:     taskName,
+						FilePath: "/path/to/vault/tasks/my-task.md",
+					},
+					domain.Content(""),
+				)
+				mockTaskStorage.FindTaskByNameReturns(task, nil)
+			})
+
+			It("leaves phase unchanged", func() {
+				Expect(mockTaskStorage.WriteTaskCallCount()).To(BeNumerically(">=", 1))
+				_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
+				Expect(writtenTask.Phase()).NotTo(BeNil())
+				Expect(*writtenTask.Phase()).To(Equal(domain.TaskPhaseInProgress))
+			})
+		})
+	})
 })

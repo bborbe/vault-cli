@@ -1,11 +1,12 @@
 ---
-status: committing
+status: completed
 summary: 'Added phase-advance logic to WorkOnOperation.Execute: advances phase to planning when nil/empty/todo, preserves mid-flight phases; added four Ginkgo test cases covering all four input states; updated godoc and CHANGELOG.'
 container: vault-cli-exec-119-workon-advance-phase-to-planning
 dark-factory-version: v0.162.0
 created: "2026-05-20T00:00:00Z"
 queued: "2026-05-20T12:16:12Z"
 started: "2026-05-20T12:16:13Z"
+completed: "2026-05-20T12:18:19Z"
 ---
 
 <summary>

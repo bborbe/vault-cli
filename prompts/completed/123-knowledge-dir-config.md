@@ -1,11 +1,12 @@
 ---
-status: committing
+status: completed
 summary: Added knowledge_dir config field to Vault struct with GetKnowledgeDir() accessor defaulting to '50 Knowledge Base'
 container: vault-cli-exec-123-knowledge-dir-config
 dark-factory-version: v0.164.0
 created: "2026-05-20T21:28:15Z"
 queued: "2026-05-20T21:28:15Z"
 started: "2026-05-20T21:28:52Z"
+completed: "2026-05-20T21:32:11Z"
 ---
 
 <summary>

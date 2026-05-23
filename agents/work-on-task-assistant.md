@@ -1,7 +1,7 @@
 ---
 name: work-on-task-assistant
 description: Prepare a task for work — find details, set status, track on daily note, discover guides. Works in any vault; gracefully degrades when Jira / semantic-search MCPs are unavailable.
-model: haiku
+model: sonnet
 tools: Read, Glob, Bash, Edit, AskUserQuestion, Task, Skill, mcp__semantic-search__search_related, mcp__atlassian__getAccessibleAtlassianResources, mcp__atlassian__atlassianUserInfo, mcp__atlassian__getJiraIssue, mcp__atlassian__editJiraIssue, mcp__atlassian__getTransitionsForJiraIssue, mcp__atlassian__transitionJiraIssue, mcp__atlassian__lookupJiraAccountId
 color: blue
 ---
@@ -131,16 +131,26 @@ If code task:
 
 If not a code task: skip.
 
-## Phase 6: Guides + runbooks
+## Phase 6: Guides + runbooks — MANDATORY
 
-If `SEMANTIC_SEARCH_AVAIL`:
-- `search_related(query="{keywords} runbook alert incident", top_k=3)` → Runbooks
-- `search_related(query="{keywords} guide automation", top_k=3)` → Operational guides
-- `search_related(query="{keywords} task documentation", top_k=2)` → Related docs
+**MUST run at least one search per task. Never skip — even if title is short or description is minimal.**
+
+Use the **task title verbatim** as the primary search seed. Don't paraphrase or generalise.
+
+If `SEMANTIC_SEARCH_AVAIL` — run ALL three queries (no early-out):
+1. `search_related(query="{task_title}", top_k=5)` → primary topic match (catches runbooks named after the task)
+2. `search_related(query="{task_title} runbook procedure", top_k=3)` → Runbooks
+3. `search_related(query="{task_title} guide", top_k=3)` → Operational guides
+
+Examples (make sure haiku doesn't paraphrase):
+- Task `Review MoneyMoney` → `search_related("MoneyMoney")` NOT `search_related("trading review process")`
+- Task `Disable strategy ORB-15` → `search_related("Disable strategy ORB-15")` NOT `search_related("strategy management")`
 
 Else fall back: `Glob: 65 Runbooks/*{keyword}*.md`, `Glob: 50*Knowledge*/*{keyword}*Guide*.md`.
 
-For each result: read first ~100 lines and extract slash commands, quick checks, fix procedures.
+For each result with score ≥ 0.5: read first ~100 lines and extract slash commands, quick checks, fix procedures. **List ALL hits ≥ 0.5 in the report** — don't filter to one.
+
+If zero hits ≥ 0.5 across all queries, report `ℹ️ No matching runbooks/guides found` — but only after running all three searches.
 
 ## Phase 7: Progress (Obsidian tasks only)
 
@@ -217,6 +227,6 @@ Ready to work on this task.
 3. Obsidian status set to in_progress (or asked to create local file)
 4. Tracked on daily note (or graceful skip)
 5. Code tasks: `/coding:check-guides` ran + Development Guide presented
-6. Guides searched (semantic or fallback)
+6. Guides searched (semantic or fallback) — **FAIL if Phase 6 skipped; at least one `search_related` call required when MCP available**
 7. Report ends with "Ready to work on this task."
 </success_criteria>

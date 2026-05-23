@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## v0.66.7
+
+- docs(sync-progress): replace blanket "never auto-complete without confirmation" rule with a strict 4-criteria objective gate. Auto-complete fires only when ALL hold: (1) `# Success Criteria` section exists and is fully ticked, (2) zero `[ ]`/`[/]` checkboxes remain in the task file, (3) verification evidence is documented (`# Results` or `# Pull Requests` section, OR conversation cites a shipped artifact like `vX.Y.Z` / merged PR / scenario replay), (4) no unresolved blockers in conversation. Any criterion failing → AskUserQuestion fallback. Explicit "do nothing / don't ask" cases documented for incomplete tasks, blockers, and "sync"-not-"complete" intent.
+
 ## v0.66.6
 
 - chore(release): Sync plugin manifest versions — `.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json` (both `metadata.version` and `plugins[0].version`) drifted to `0.66.4` while CHANGELOG + tag advanced to `0.66.5`. Fixed by bumping all four to `0.66.6` in this release. Root cause: `make precommit` does not run `scripts/check-versions.sh` — only `make release-check` does. Follow-up candidate: wire `check-versions` into `precommit` so drift is impossible.

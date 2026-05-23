@@ -128,13 +128,40 @@ If JIRA_MCP_AVAILABLE is false: skip silently.
 
 Store `UPDATED_FILES = [paths]` for Phase 4.
 
-## Phase 4: Mark tasks complete (gated)
+## Phase 4: Mark tasks complete
 
-If conversation indicates a task is fully complete (all checkboxes done):
-- AskUserQuestion → `Mark <task> as completed?`
-- If yes: `Skill: vault-cli:complete-task` with the task name
+Skip the user-confirmation prompt when the evidence is unambiguous; only ask when something is fuzzy.
 
-Never auto-complete without confirmation.
+### 4a. Auto-complete (no AskUserQuestion) — strict objective criteria
+
+Auto-complete by calling `vault-cli task complete "{name}"` directly if AND ONLY IF ALL of the following hold:
+
+1. **Success Criteria present and fully ticked.** Task file contains a `# Success Criteria` (or `## Success Criteria`) heading AND every checkbox between it and the next `^#` heading is `[x]`. Zero `[ ]` and zero `[/]` in that section.
+2. **No incomplete checkboxes anywhere in the file.** `grep -E '^\s*-\s+\[[ /]\]' <task-file>` returns zero lines.
+3. **Verification evidence documented in the file.** At least ONE of:
+   - A `# Results` (or `## Results (YYYY-MM-DD)`) section exists with non-empty content
+   - A `# Pull Requests` section exists with at least one PR link
+   - This `/vault-cli:sync-progress` run is itself about to add such a section (see Phase 3) AND the conversation explicitly cites a shipped artifact: a released version (`vX.Y.Z`), a merged/closed PR URL, a successful scenario replay, a successful integration test run, or equivalent objective shipping signal
+4. **No unresolved blockers in conversation.** The conversation does NOT contain phrases like "still need to", "TODO before complete", "blocked on", "follow-up required for this task", "not yet done", "skip for now", or a deferred AC. Follow-up items filed AS SEPARATE specs/tasks/ideas do NOT count as blockers — they explicitly off-scope themselves.
+
+If all 4 hold, call `vault-cli task complete` directly. Report it in Phase 5. Do NOT ask.
+
+### 4b. Confirmed-complete (AskUserQuestion required)
+
+If criteria 1–4 do NOT all hold but the conversation still signals completion (e.g. all checkboxes ticked but no Success Criteria section; or verification was discussed but not documented), use `AskUserQuestion`:
+
+```
+Question: "All N/N checkboxes ticked. Mark <task> as completed?"
+Options: "Yes — mark completed" | "Hold — keep as in_progress"
+```
+
+If "Yes" → invoke `Skill: vault-cli:complete-task`.
+
+### When NOT to mark complete
+
+- Task is not 100% checked → never mark complete, never ask. (Phase 3 still updates progress.)
+- Conversation contains an unresolved blocker for this specific task → never auto-complete; ask the user how to proceed.
+- The user explicitly said "update progress" or "sync" (not "complete") AND the file has no Success Criteria block → skip the completion phase entirely.
 
 ## Phase 5: Report
 

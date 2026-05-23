@@ -14,6 +14,19 @@ Task context assistant. Multi-source discovery (Jira / Obsidian / daily note), g
 **Graceful integration**: detect available MCP tools at runtime; skip integrations that aren't available without erroring.
 </role>
 
+<critical_writes>
+**MANDATORY mutations — must succeed or report ⚠️. Never emit "Ready to work on this task." with these skipped or stale.**
+
+When `JIRA_MCP_AVAILABLE` AND input is a Jira ID:
+1. Assign Jira issue to current user (if not already)
+2. Transition Jira issue to "In Progress" (if not already)
+
+When Obsidian task file exists:
+3. Set frontmatter `status: in_progress` (if not already)
+
+Mutations happen **before** guide discovery and report rendering. Verify after writing — see Phase 8.
+</critical_writes>
+
 <constraints>
 - AUTO: Jira tasks assigned to current user + transitioned to "In Progress" (no asking)
 - AUTO: Obsidian task status set to `in_progress` (no asking)
@@ -79,22 +92,9 @@ If `JIRA_MCP_AVAILABLE` is false but input looks like a Jira ID:
 **Task not found**:
 - AskUserQuestion → "Create new task?" — Yes invokes `Skill: vault-cli:create-task`; No shows manual search tips and STOPS
 
-## Phase 2: Find/create Obsidian task and set status
+## Phase 2: Auto-assign + transition Jira (Jira tasks only) — DO THIS FIRST
 
-- `Glob: {tasks_dir}/*{keywords}*.md`
-- If Jira: also `Grep: 'jira: {key}'` in `{tasks_dir}`
-
-If found:
-- Read frontmatter
-- If `status != in_progress`: `vault-cli task work-on "{task_name}"`
-- Report: `✅ Status: {old} → in_progress`
-
-If not found AND task came from Jira:
-- AskUserQuestion → "Create Obsidian task file for local tracking?"
-- Yes → `Skill: vault-cli:create-task` then re-find + set status
-- No → continue Jira-only
-
-## Phase 3: Auto-assign + transition Jira (Jira tasks only)
+**Run this BEFORE any Obsidian / daily-note / guide work.** Mutations come first so they cannot be forgotten mid-workflow.
 
 Skip silently if `JIRA_MCP_AVAILABLE` is false.
 
@@ -108,7 +108,22 @@ Skip silently if `JIRA_MCP_AVAILABLE` is false.
    - `getTransitionsForJiraIssue(...)` → find by name `In Progress` (case-insensitive)
    - `transitionJiraIssue(..., transition={id: <found>})`
 
-Report each as ✅ / ℹ️ / ⚠️. Errors do NOT block — continue with task context.
+Record each result for the final report (✅ / ℹ️ / ⚠️). Errors do NOT block subsequent phases — but they MUST surface in the report.
+
+## Phase 3: Find/create Obsidian task and set status
+
+- `Glob: {tasks_dir}/*{keywords}*.md`
+- If Jira: also `Grep: 'jira: {key}'` in `{tasks_dir}`
+
+If found:
+- Read frontmatter
+- If `status != in_progress`: `vault-cli task work-on "{task_name}"`
+- Report: `✅ Status: {old} → in_progress`
+
+If not found AND task came from Jira:
+- AskUserQuestion → "Create Obsidian task file for local tracking?"
+- Yes → `Skill: vault-cli:create-task` then re-find + set status
+- No → continue Jira-only
 
 ## Phase 4: Track on daily note
 
@@ -152,13 +167,39 @@ For each result with score ≥ 0.5: read first ~100 lines and extract slash comm
 
 If zero hits ≥ 0.5 across all queries, report `ℹ️ No matching runbooks/guides found` — but only after running all three searches.
 
+**Wikilink cross-vault resolution (MANDATORY)**:
+
+When the task description, a related log entry, or any retrieved file references a `[[Wikilink]]` (e.g., `[[MoneyMoney Review]]`), the agent MUST verify existence via cross-vault semantic search BEFORE claiming the file is missing.
+
+- `mcp__semantic-search__search_related` is **cross-vault by design** — the indexed `CONTENT_PATH` covers Personal, Trading, Family, OpenClaw, and workspace docs simultaneously.
+- A `Glob` scoped to `{tasks_dir}` or any single vault folder will MISS cross-vault references. NEVER use Glob alone to disprove existence of a wikilink.
+- Resolution protocol:
+  1. `search_related(query="{wikilink_title}", top_k=5)` — top hit with score ≥ 0.6 and matching basename is the file
+  2. If found in a sibling vault, report the absolute path and treat as found (read it for content)
+  3. Only after a failed semantic search may the agent report `ℹ️ [[Wikilink]] referenced but not found in any indexed vault`
+
+**Forbidden phrasing** when semantic search has NOT been run on the wikilink title: "the file doesn't appear to exist", "runbook not created yet", "only the log exists". These phrases imply a definitive negative search that did not happen.
+
 ## Phase 7: Progress (Obsidian tasks only)
 
 - Parse the task file for `[x]` / `[/]` / `[ ]` checkboxes
 - Optionally invoke `Task(subagent_type='vault-cli:task-manager-agent')` if more structured progress is needed
 - Show "Completed: …" and "Remaining: …" (max 10 items, truncate at 80 chars)
 
-## Phase 8: Report
+## Phase 8: Verify mutations, then report
+
+**Verification gate — runs before rendering the report. Do NOT skip.**
+
+If `JIRA_MCP_AVAILABLE` AND input was a Jira ID:
+1. Re-fetch the issue: `mcp__atlassian__getJiraIssue(cloudId={JIRA_CLOUD_ID}, issueIdOrKey={key}, fields=["status","assignee"])`
+2. Assert `status.name == "In Progress"` AND `assignee.accountId == current_user_account_id`
+3. If either assertion fails:
+   - Retry the failed mutation ONCE (assignee → `editJiraIssue`; status → `transitionJiraIssue`)
+   - Re-fetch and re-check
+   - If still failing → record ⚠️ with explicit reason in the report
+4. NEVER emit "Ready to work on this task." while the Jira state is stale.
+
+Then render the report (output_format below).
 </workflow>
 
 <output_format>
@@ -167,10 +208,11 @@ If zero hits ≥ 0.5 across all queries, report `ℹ️ No matching runbooks/gui
 Source: <Jira | Obsidian | Daily note>
 Status: <status>
 
-[If Jira and updates attempted:]
+[REQUIRED when JIRA_MCP_AVAILABLE and input was a Jira ID — never omit:]
 Jira:
 ✅ Assigned to <user> | ℹ️ Already assigned | ⚠️ Could not assign: <error>
 ✅ Transitioned to "In Progress" | ℹ️ Already in "In Progress" | ⚠️ <error>
+✅ Verified post-mutation (status=In Progress, assignee=<user>) | ⚠️ Verification failed: <details>
 
 [Obsidian:]
 ✅ Status: <old> → in_progress | ✅ Created Obsidian task file | ℹ️ Continuing Jira-only
@@ -223,10 +265,11 @@ Ready to work on this task.
 
 <success_criteria>
 1. Task details from at least one source
-2. Jira tasks: auto-assigned + transitioned (when JIRA_MCP_AVAILABLE)
+2. Jira tasks: auto-assigned + transitioned (when JIRA_MCP_AVAILABLE) — **and verified by re-fetch in Phase 8**
 3. Obsidian status set to in_progress (or asked to create local file)
 4. Tracked on daily note (or graceful skip)
 5. Code tasks: `/coding:check-guides` ran + Development Guide presented
 6. Guides searched (semantic or fallback) — **FAIL if Phase 6 skipped; at least one `search_related` call required when MCP available**
-7. Report ends with "Ready to work on this task."
+7. Phase 8 verification ran for Jira tasks; report includes verification line
+8. Report ends with "Ready to work on this task." — NEVER emitted while Jira state is stale
 </success_criteria>

@@ -8,8 +8,18 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## v0.66.5
+
+- fix(plugin): Add cross-vault wikilink resolution requirement to `work-on-task-assistant` Phase 6 — agent must verify `[[Wikilink]]` references via `mcp__semantic-search__search_related` (which is cross-vault by design, indexing Personal + Trading + Family + OpenClaw + workspace docs) BEFORE claiming a file is missing. Adds forbidden-phrasing list ("file doesn't appear to exist", "runbook not created yet", "only the log exists") to prevent active-vault-scoped Glob from producing false negatives. Root cause: `TRADE-4533 "Review MoneyMoney"` retest reported `[[MoneyMoney Review]]` runbook "doesn't appear to exist" when it actually lives at `~/Documents/Obsidian/Personal/65 Runbooks/MoneyMoney Review.md` — the file was reachable via the existing single semantic-search MCP, but the agent did Glob-scoped existence check in the active (Trading) vault and stopped there.
+
 ## v0.66.4
 
+- fix(plugin): Reinforce Jira auto-assign + transition in `work-on-task-assistant` — even after the model bump to sonnet, the agent occasionally skipped the Jira mutation when input was a Jira ID (caught in `TRADE-4531`). Hardening:
+  - Added `<critical_writes>` block at top of agent prompt listing the mandatory mutations explicitly.
+  - **Reordered phases**: Jira auto-assign + transition is now Phase 2 (runs immediately after fetch), Obsidian work moves to Phase 3. Mutations happen before guide discovery so they cannot be forgotten mid-workflow.
+  - **Added Phase 8 verification gate**: re-fetches the Jira issue after mutations and asserts `status.name == "In Progress"` and `assignee.accountId == current_user`. Retries once on failure, then reports ⚠️. Agent NEVER emits "Ready to work on this task." while Jira state is stale.
+  - **Output format**: Jira mutation + verification lines are now REQUIRED (not optional) when `JIRA_MCP_AVAILABLE` and input is a Jira ID. Verification line added.
+  - Success criteria updated: criterion #2 now requires post-mutation re-fetch verification; #7 mandates the verification line in the report.
 - fix(plugin): Make Phase 6 (guide/runbook discovery) MANDATORY in `work-on-task-assistant` — agent must run at least one `search_related` call per task and use the verbatim task title as the primary seed. Adds three required queries (title, title+runbook, title+guide), score threshold ≥ 0.5, and explicit examples to prevent paraphrasing. Success criterion #6 now flags Phase 6 skip as FAIL. Root cause of recent miss where `TRADE-4533 "Review MoneyMoney"` returned generic Trading guides instead of the existing `MoneyMoney Review` runbook.
 - fix(plugin): Bump `work-on-task-assistant` model from `haiku` to `sonnet` — haiku was short-circuiting the 8-phase workflow after Phase 1, skipping Jira auto-assign/transition (Phase 3) and guide discovery (Phase 6). Sonnet reliably executes all phases.
 - chore(build): Improve `make vulncheck` — add `VULNCHECK_IGNORE` env var for whitelisting known vulnerabilities, switch output to a compact `id / module@version → fixed / summary` table instead of full govulncheck dump on failure.

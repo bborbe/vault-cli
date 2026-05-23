@@ -8,6 +8,12 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## v0.66.4
+
+- fix(plugin): Make Phase 6 (guide/runbook discovery) MANDATORY in `work-on-task-assistant` — agent must run at least one `search_related` call per task and use the verbatim task title as the primary seed. Adds three required queries (title, title+runbook, title+guide), score threshold ≥ 0.5, and explicit examples to prevent paraphrasing. Success criterion #6 now flags Phase 6 skip as FAIL. Root cause of recent miss where `TRADE-4533 "Review MoneyMoney"` returned generic Trading guides instead of the existing `MoneyMoney Review` runbook.
+- fix(plugin): Bump `work-on-task-assistant` model from `haiku` to `sonnet` — haiku was short-circuiting the 8-phase workflow after Phase 1, skipping Jira auto-assign/transition (Phase 3) and guide discovery (Phase 6). Sonnet reliably executes all phases.
+- chore(build): Improve `make vulncheck` — add `VULNCHECK_IGNORE` env var for whitelisting known vulnerabilities, switch output to a compact `id / module@version → fixed / summary` table instead of full govulncheck dump on failure.
+
 ## v0.66.3
 
 - feat(plugin): Add `/vault-cli:update-task` and `/vault-cli:update-goal` slash commands — thin wrappers that delegate to the existing `vault-cli:task-manager-agent` and `vault-cli:goal-manager-agent` for in-progress checkbox updates, summary refresh, and noteworthy-progress detection. Migrated from Personal + Brogrammers vault local copies (both archived). Vault-agnostic — folders resolved from `vault-cli config list`.

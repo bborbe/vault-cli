@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## v0.66.6
+
+- chore(release): Sync plugin manifest versions — `.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json` (both `metadata.version` and `plugins[0].version`) drifted to `0.66.4` while CHANGELOG + tag advanced to `0.66.5`. Fixed by bumping all four to `0.66.6` in this release. Root cause: `make precommit` does not run `scripts/check-versions.sh` — only `make release-check` does. Follow-up candidate: wire `check-versions` into `precommit` so drift is impossible.
+
 ## v0.66.5
 
 - fix(plugin): Add cross-vault wikilink resolution requirement to `work-on-task-assistant` Phase 6 — agent must verify `[[Wikilink]]` references via `mcp__semantic-search__search_related` (which is cross-vault by design, indexing Personal + Trading + Family + OpenClaw + workspace docs) BEFORE claiming a file is missing. Adds forbidden-phrasing list ("file doesn't appear to exist", "runbook not created yet", "only the log exists") to prevent active-vault-scoped Glob from producing false negatives. Root cause: `TRADE-4533 "Review MoneyMoney"` retest reported `[[MoneyMoney Review]]` runbook "doesn't appear to exist" when it actually lives at `~/Documents/Obsidian/Personal/65 Runbooks/MoneyMoney Review.md` — the file was reachable via the existing single semantic-search MCP, but the agent did Glob-scoped existence check in the active (Trading) vault and stopped there.

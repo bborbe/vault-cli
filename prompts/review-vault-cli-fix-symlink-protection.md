@@ -30,6 +30,8 @@ Files to read before making changes:
 <requirements>
 ### 1. Read the existing isSymlinkOutsideVault implementation in base.go
 
+Note: `isSymlinkOutsideVault` is a **package-level function** (NOT a method on `baseStorage`). Signature: `func isSymlinkOutsideVault(path, vaultPath string) bool`. Pass the vault path explicitly at each call site.
+
 Understand how it works and its current error handling behavior (returns false on error, which silently allows broken symlinks).
 
 ### 2. Fix isSymlinkOutsideVault to return true on error
@@ -43,7 +45,7 @@ The current implementation returns `false` when `filepath.EvalSymlinks` fails, w
 
 ### 3. Add symlink check to task.go
 
-Read task.go around line 31. Add a call to `b.isSymlinkOutsideVault(path, dir)` before `os.ReadFile`/`os.WriteFile` operations. If the check returns true (symlink escapes vault), return an error.
+Read task.go around line 31. Add a call to `isSymlinkOutsideVault(path, vaultPath)` before `os.ReadFile`/`os.WriteFile` operations. If the check returns true (symlink escapes vault), return an error.
 
 ### 4. Add symlink check to goal.go
 

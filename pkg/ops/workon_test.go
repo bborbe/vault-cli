@@ -21,6 +21,7 @@ var _ = Describe("WorkOnOperation", func() {
 	var (
 		ctx                  context.Context
 		err                  error
+		result               ops.MutationResult
 		workOnOp             ops.WorkOnOperation
 		mockTaskStorage      *mocks.TaskStorage
 		mockDailyNoteStorage *mocks.DailyNoteStorage
@@ -65,7 +66,7 @@ var _ = Describe("WorkOnOperation", func() {
 	})
 
 	JustBeforeEach(func() {
-		_, err = workOnOp.Execute(
+		result, err = workOnOp.Execute(
 			ctx,
 			vaultPath,
 			taskName,
@@ -108,7 +109,7 @@ var _ = Describe("WorkOnOperation", func() {
 		})
 	})
 
-	Context("when starter is nil", func() {
+	Context("when starter is nil and task has no cached session ID", func() {
 		BeforeEach(func() {
 			currentDateTime := libtime.NewCurrentDateTime()
 			currentDateTime.SetNow(libtimetest.ParseDateTime("2026-03-03T12:00:00Z"))
@@ -127,6 +128,47 @@ var _ = Describe("WorkOnOperation", func() {
 
 		It("skips session start", func() {
 			Expect(mockStarter.StartSessionCallCount()).To(Equal(0))
+		})
+
+		It("emits warning about missing starter", func() {
+			Expect(
+				result.Warnings,
+			).To(ContainElement(ContainSubstring("claude session: claude session starter unavailable")))
+		})
+
+		It("returns empty session ID", func() {
+			Expect(result.SessionID).To(Equal(""))
+		})
+	})
+
+	Context("when starter is nil but task has cached session ID", func() {
+		BeforeEach(func() {
+			task.SetClaudeSessionID("cached-session-456")
+			currentDateTime := libtime.NewCurrentDateTime()
+			currentDateTime.SetNow(libtimetest.ParseDateTime("2026-03-03T12:00:00Z"))
+			workOnOp = ops.NewWorkOnOperation(
+				mockTaskStorage,
+				mockDailyNoteStorage,
+				currentDateTime,
+				nil,
+				nil,
+			)
+		})
+
+		It("returns no error", func() {
+			Expect(err).To(BeNil())
+		})
+
+		It("skips session start", func() {
+			Expect(mockStarter.StartSessionCallCount()).To(Equal(0))
+		})
+
+		It("returns cached session ID", func() {
+			Expect(result.SessionID).To(Equal("cached-session-456"))
+		})
+
+		It("emits no warnings", func() {
+			Expect(result.Warnings).To(BeEmpty())
 		})
 	})
 

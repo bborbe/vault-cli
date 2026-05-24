@@ -1,8 +1,9 @@
 ---
-status: prompted
+status: verifying
 approved: "2026-05-24T13:56:58Z"
 generating: "2026-05-24T13:56:59Z"
 prompted: "2026-05-24T14:05:29Z"
+verifying: "2026-05-24T14:35:01Z"
 branch: dark-factory/bug-work-on-silent-failure-and-hardcoded-slash-command
 ---
 

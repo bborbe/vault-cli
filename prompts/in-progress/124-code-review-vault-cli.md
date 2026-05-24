@@ -1,7 +1,12 @@
 ---
-status: approved
+status: committing
+summary: 'Generated 5 fix prompts for Critical/Important code review findings: fmt.Errorf violations (2), bare return err (1), context.Background() leaks (1), and missing symlink protection (1)'
+container: vault-cli-exec-124-code-review-vault-cli
+dark-factory-version: v0.171.1-3-gd94f1fa
 created: "2026-05-24T10:22:28Z"
 queued: "2026-05-24T11:05:39Z"
+started: "2026-05-24T11:07:00Z"
+completed: "2026-05-24T11:12:53Z"
 ---
 
 <summary>

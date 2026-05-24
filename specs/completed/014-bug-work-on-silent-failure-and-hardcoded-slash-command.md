@@ -1,9 +1,10 @@
 ---
-status: verifying
+status: completed
 approved: "2026-05-24T13:56:58Z"
 generating: "2026-05-24T13:56:59Z"
 prompted: "2026-05-24T14:05:29Z"
 verifying: "2026-05-24T14:35:01Z"
+completed: "2026-05-24T18:09:53Z"
 branch: dark-factory/bug-work-on-silent-failure-and-hardcoded-slash-command
 ---
 
@@ -152,7 +153,7 @@ The hardcoded `/work-on-task` is a separate defect: the slash command namespace 
 - [ ] **Runtime repro — forced unknown command** (does not depend on host Claude Code state): create a throwaway vault config with `work_on_command: /definitely-not-a-real-command-xyz` and run `vault-cli task work-on <task> --mode headless --vault <throwaway>`. Evidence: command exits non-zero AND stderr matches the regex `Unknown command|claude returned 0 turns`. Repro script lives in the prompt body, not the spec.
 - [ ] **Runtime repro — happy path** (depends on the filer's Claude Code having `/vault-cli:work-on-task` registered; mark as manual verification on the filer's machine): on the user's actual machine, running `vault-cli task work-on "ORB DE40 W21 Sunday Review and Extend Closing to W22" --mode headless --vault Personal --output json` exits 0 AND running the printed `claude --resume <session_id>` enters interactive mode AND does NOT print `No conversation found`. Evidence: filer pastes the terminal session into the verify-spec output.
 - [ ] `make precommit` exits 0.
-- [ ] CHANGELOG.md has a new `## Unreleased` section listing both fixes — evidence: `grep -nE '^## Unreleased' CHANGELOG.md` returns ≥1 line AND `awk '/^## Unreleased/,/^## v/' CHANGELOG.md` includes the substrings `work_on_command` AND (`StartSession` OR `silent`).
+- [ ] CHANGELOG.md has versioned `## vX.Y.Z` entries covering both fixes — evidence: `grep -nE '^## v[0-9]' CHANGELOG.md` returns ≥1 line AND `grep -nE 'work_on_command' CHANGELOG.md` returns ≥1 line AND `grep -nE 'StartSession|silent|num_turns|claude session' CHANGELOG.md` returns ≥1 line. **Amendment note:** the original AC required an `## Unreleased` section, but vault-cli's autoRelease daemon renames `## Unreleased` → `## vX.Y.Z` on every prompt commit, so a persistent `## Unreleased` section never exists in the committed state. The fixes shipped as v0.66.10 (config field), v0.66.11 (claude_session zero-turns), v0.66.12 (workon slash-command swap), v0.66.13 (CLI exit-code propagation).
 
 ## Verification
 

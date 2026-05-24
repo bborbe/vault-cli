@@ -7,6 +7,7 @@ package ops_test
 import (
 	"context"
 
+	"github.com/bborbe/errors"
 	libtime "github.com/bborbe/time"
 	libtimetest "github.com/bborbe/time/test"
 	. "github.com/onsi/ginkgo/v2"
@@ -206,13 +207,40 @@ var _ = Describe("WorkOnOperation", func() {
 		})
 	})
 
-	Context("when session start fails", func() {
+	Context("when session start fails (hard failure)", func() {
 		BeforeEach(func() {
 			mockStarter.StartSessionReturns("", ErrTest)
 		})
 
-		It("still returns no error (session failure is a warning)", func() {
-			Expect(err).To(BeNil())
+		It("returns wrapped error", func() {
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("start work-on session"))
+		})
+
+		It("returns Success=false", func() {
+			Expect(result.Success).To(BeFalse())
+		})
+	})
+
+	Context("when claude returns zero turns", func() {
+		BeforeEach(func() {
+			mockStarter.StartSessionReturns(
+				"",
+				errors.New(ctx, "claude returned 0 turns: Unknown command: /x"),
+			)
+		})
+
+		It("returns non-nil error wrapped with start work-on session and Success=false", func() {
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("start work-on session"))
+			Expect(err.Error()).To(ContainSubstring("claude returned 0 turns: Unknown command: /x"))
+			Expect(result.Success).To(BeFalse())
+		})
+
+		It("still marks task as in_progress", func() {
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(BeNumerically(">=", 1))
+			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
+			Expect(writtenTask.Status()).To(Equal(domain.TaskStatusInProgress))
 		})
 	})
 

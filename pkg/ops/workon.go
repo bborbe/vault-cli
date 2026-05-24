@@ -115,9 +115,17 @@ func (w *workOnOperation) Execute(
 
 	sessionID, sessionErr := w.handleClaudeSession(ctx, task, sessionDir, vault)
 	if sessionErr != nil {
-		warning := fmt.Sprintf("claude session: %v", sessionErr)
-		warnings = append(warnings, warning)
-		slog.Warn("workon warning", "warning", warning)
+		if errors.Is(sessionErr, ErrStarterUnavailable) {
+			// Soft failure — claude binary missing. Spec 014 Failure Modes table:
+			// "Unchanged". Keep as warning, continue, CLI exits 0.
+			warning := fmt.Sprintf("claude session: %v", sessionErr)
+			warnings = append(warnings, warning)
+			slog.Warn("workon warning", "warning", warning)
+		} else {
+			slog.Warn("workon session error", "error", sessionErr)
+			return MutationResult{Success: false, Name: task.Name, Vault: vaultName, Warnings: warnings, SessionID: sessionID, Error: sessionErr.Error()},
+				errors.Wrap(ctx, sessionErr, "start work-on session")
+		}
 	}
 
 	if isInteractive && w.resumer != nil && sessionID != "" {
@@ -150,10 +158,7 @@ func (w *workOnOperation) handleClaudeSession(
 		return existing, nil
 	}
 	if w.starter == nil {
-		return "", errors.New(
-			ctx,
-			"claude session starter unavailable — claude script not found in PATH",
-		)
+		return "", ErrStarterUnavailable
 	}
 	prompt := fmt.Sprintf(`%s "%s"`, vault.GetWorkOnCommand(), task.FilePath)
 	slog.Info("starting claude session", "task", task.Name)

@@ -93,6 +93,9 @@ func (c *claudeSessionStarter) StartSession(
 
 	var result struct {
 		SessionID string `json:"session_id"`
+		NumTurns  int    `json:"num_turns"`
+		IsError   bool   `json:"is_error"`
+		Result    string `json:"result"`
 	}
 	if err := json.Unmarshal(output, &result); err != nil {
 		return "", errors.Wrap(ctx, err, "parse claude output")
@@ -100,6 +103,14 @@ func (c *claudeSessionStarter) StartSession(
 
 	if result.SessionID == "" {
 		return "", fmt.Errorf("claude returned empty session_id")
+	}
+
+	if result.NumTurns == 0 {
+		return "", fmt.Errorf("claude returned 0 turns: %s", result.Result)
+	}
+
+	if result.IsError {
+		return "", fmt.Errorf("claude reported error: %s", result.Result)
 	}
 
 	return result.SessionID, nil

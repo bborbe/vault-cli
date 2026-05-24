@@ -148,5 +148,19 @@ var _ = Describe("Vault", func() {
 			Expect(err).To(BeNil())
 			Expect(string(data)).NotTo(ContainSubstring("knowledge_dir"))
 		})
+
+		It("includes work_on_command in JSON when set", func() {
+			vault := config.Vault{Name: "main", Path: "/vault", WorkOnCommand: "/cmd"}
+			data, err := json.Marshal(vault)
+			Expect(err).To(BeNil())
+			Expect(string(data)).To(ContainSubstring(`"work_on_command":"/cmd"`))
+		})
+
+		It("omits work_on_command from JSON when empty", func() {
+			vault := config.Vault{Name: "main", Path: "/vault"}
+			data, err := json.Marshal(vault)
+			Expect(err).To(BeNil())
+			Expect(string(data)).NotTo(ContainSubstring("work_on_command"))
+		})
 	})
 })

@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [014-bug-work-on-silent-failure-and-hardcoded-slash-command]
+summary: Added num_turns and is_error detection to StartSession - returns error when Claude headless returns 0 turns or is_error flag
+container: vault-cli-exec-128-spec-014-startsession-detect-zero-turns-and-error
+dark-factory-version: v0.171.1-3-gd94f1fa
 created: "2026-05-24T14:33:00Z"
 queued: "2026-05-24T14:24:43Z"
+started: "2026-05-24T14:28:41Z"
+completed: "2026-05-24T14:31:14Z"
 branch: dark-factory/bug-work-on-silent-failure-and-hardcoded-slash-command
 ---
 

@@ -41,7 +41,7 @@ var _ = Describe("ClaudeSessionStarter", func() {
 
 	Context("successful session start", func() {
 		BeforeEach(func() {
-			output = []byte(`{"session_id":"abc-123","result":"ok"}`)
+			output = []byte(`{"session_id":"abc-123","result":"ok","num_turns":1,"is_error":false}`)
 		})
 
 		It("returns the session_id", func() {
@@ -76,7 +76,7 @@ var _ = Describe("ClaudeSessionStarter", func() {
 
 	Context("empty session_id in response", func() {
 		BeforeEach(func() {
-			output = []byte(`{"session_id":"","result":"ok"}`)
+			output = []byte(`{"session_id":"","result":"ok","num_turns":1,"is_error":false}`)
 		})
 
 		It("returns error about empty session_id", func() {
@@ -98,18 +98,62 @@ var _ = Describe("ClaudeSessionStarter", func() {
 		})
 	})
 
+	Context("returns session_id when num_turns >= 1 and is_error is false", func() {
+		BeforeEach(func() {
+			output = []byte(
+				`{"session_id":"happy-path-sid","result":"done","num_turns":3,"is_error":false}`,
+			)
+		})
+
+		It("returns session_id and nil error", func() {
+			sessionID, err := starter.StartSession(ctx, "prompt", "/vault")
+			Expect(err).To(BeNil())
+			Expect(sessionID).To(Equal("happy-path-sid"))
+		})
+	})
+
+	Context("num_turns is zero", func() {
+		BeforeEach(func() {
+			output = []byte(
+				`{"session_id":"sid-123","result":"Unknown command: /x","num_turns":0,"is_error":false}`,
+			)
+		})
+
+		It("returns error containing 0 turns and result", func() {
+			_, err := starter.StartSession(ctx, "prompt", "/vault")
+			Expect(err).NotTo(BeNil())
+			Expect(err.Error()).To(ContainSubstring("0 turns"))
+			Expect(err.Error()).To(ContainSubstring("Unknown command: /x"))
+		})
+	})
+
+	Context("is_error is true", func() {
+		BeforeEach(func() {
+			output = []byte(
+				`{"session_id":"sid-456","result":"something failed","num_turns":1,"is_error":true}`,
+			)
+		})
+
+		It("returns error containing error and result", func() {
+			_, err := starter.StartSession(ctx, "prompt", "/vault")
+			Expect(err).NotTo(BeNil())
+			Expect(err.Error()).To(ContainSubstring("error"))
+			Expect(err.Error()).To(ContainSubstring("something failed"))
+		})
+	})
+
 	Context("args passed to command runner", func() {
 		var capturedArgs []string
 		var capturedDir string
 
 		JustBeforeEach(func() {
-			output = []byte(`{"session_id":"sid-1"}`)
+			output = []byte(`{"session_id":"sid-1","num_turns":1,"is_error":false}`)
 			starter = ops.NewClaudeSessionStarterWithRunner(
 				"/bin/claude",
 				func(_ context.Context, args []string, dir string) ([]byte, error) {
 					capturedArgs = args
 					capturedDir = dir
-					return []byte(`{"session_id":"sid-1"}`), nil
+					return []byte(`{"session_id":"sid-1","num_turns":1,"is_error":false}`), nil
 				},
 			)
 		})
@@ -132,7 +176,7 @@ var _ = Describe("ClaudeSessionStarter", func() {
 				"/opt/custom-claude",
 				func(_ context.Context, args []string, _ string) ([]byte, error) {
 					capturedArgs = args
-					return []byte(`{"session_id":"sid-2"}`), nil
+					return []byte(`{"session_id":"sid-2","num_turns":1,"is_error":false}`), nil
 				},
 			)
 			_, err := customStarter.StartSession(ctx, "prompt", "/vault")

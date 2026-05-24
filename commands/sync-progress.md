@@ -5,7 +5,9 @@ allowed-tools:
   - Edit
   - Grep
   - Glob
-  - Bash
+  - Bash(vault-cli:*)
+  - Bash(grep:*)
+  - Bash(command -v:*)
 ---
 
 Synchronize progress documentation based on completed work in the conversation. Updates the daily note, task/goal pages, and (if integrations are available) records the matching PR and transitions Jira.
@@ -126,7 +128,22 @@ If JIRA_MCP_AVAILABLE is false: skip silently.
 
 ### 3.5 Track updated files
 
-Store `UPDATED_FILES = [paths]` for Phase 4.
+For each file written in Phase 3.1–3.4, record a structured record (in memory) for Phase 5:
+
+- `path` — absolute file path
+- `vault` — vault name (basename of the matching `vault.path` from `vault-cli config list`)
+- `relpath` — file path minus the vault path, no leading slash, no `.md` suffix
+- `link` — `obsidian://open?vault=<vault>&file=<percent-encoded relpath>`. Percent-encode every character in `relpath` that is NOT in the unreserved set `[A-Za-z0-9-_.~]`. Common cases: space → `%20`, `/` → `%2F`, em-dash `—` → `%E2%80%94`, `+` → `%2B`, `%` → `%25`, `:` → `%3A`, `&` → `%26`, `?` → `%3F`, `#` → `%23`. NEVER encode the literal `?` or `=` separators between query-string keys. The `vault` value follows the same rule.
+- `title` — basename of the file without `.md`
+- `category` — one of `daily` | `task` | `goal` | `runbook` | `doc`, classified by ancestor directory:
+  - matches `vault.daily_dir` → `daily`
+  - matches `vault.tasks_dir` → `task`
+  - matches `vault.goals_dir` → `goal`
+  - path contains `/65 Runbooks/` or `/70 Runbooks/` → `runbook`
+  - else → `doc`
+- `section` — the h2 section name where content landed (e.g. `What happened today`, `Pull Requests`, `Results`); empty if the whole file is new
+
+Phase 5 reads these structured records to emit clickable links — do not skip the schema and feed Phase 5 raw paths.
 
 ## Phase 4: Mark tasks complete
 
@@ -165,16 +182,43 @@ If "Yes" → invoke `Skill: vault-cli:complete-task`.
 
 ## Phase 5: Report
 
-Output a concise summary:
+Output a concise summary. **Every updated file is rendered as a clickable `obsidian://` link** built from the Phase 3.5 records — wikilinks aren't clickable in chat, raw paths aren't openable.
+
+Grouping order: `Daily` → `Task` → `Goal` → `Runbook` → `Doc`. Omit any group with zero entries. One bullet per file.
 
 ```markdown
 🔄 Synced progress for {Task / PR-only / multiple}
 
 Updated:
-- {daily_dir}/YYYY-MM-DD.md
-- [[Task Page]] — {section}
-- {PR recorded on task page if any}
-- {Jira ticket transitioned if any}
+- Daily: [{title}]({link})
+- Task: [{title}]({link}) — {section}
+- Goal: [{title}]({link}) — {section}
+- Runbook: [{title}]({link}) — {section}
+- Doc: [{title}]({link}) — {section}
 
-Decisions: {if any}
+PRs: [<org>/<repo>#<N>](<url>)            ← only if any
+Jira: <KEY> → Done                         ← only if any
+Decisions: {if any}                        ← only if any
+Completed: [{title}]({link})               ← only if Phase 4 auto-completed or user said Yes
 ```
+
+Rules:
+- Use the structured `link` from Phase 3.5 — do NOT hand-roll `obsidian://` URLs in Phase 5
+- Drop the trailing `— {section}` if `section` is empty
+- Never invent links — only emit links for files actually written this run
+
+Worked example:
+
+```markdown
+🔄 Synced progress for Reclaim Disk Space on nuke-k3s-dev-0
+
+Updated:
+- Daily: [2026-05-24](obsidian://open?vault=Personal&file=60%20Periodic%20Notes%2FDaily%2F2026-05-24)
+- Task: [Reclaim Disk Space on nuke-k3s-dev-0 — MT5 Bases Cache + BoltDB Growth 2026-05](obsidian://open?vault=Personal&file=24%20Tasks%2FReclaim%20Disk%20Space%20on%20nuke-k3s-dev-0%20%E2%80%94%20MT5%20Bases%20Cache%20%2B%20BoltDB%20Growth%202026-05) — Verification
+- Goal: [Reduce Trading BoltDB Disk Footprint by 40%](obsidian://open?vault=Personal&file=23%20Goals%2FReduce%20Trading%20BoltDB%20Disk%20Footprint%20by%2040%25) — Tasks
+- Runbook: [DiskOutOfSpace Nuke Host Volume Expansion](obsidian://open?vault=Personal&file=65%20Runbooks%2FDiskOutOfSpace%20Nuke%20Host%20Volume%20Expansion) — Expansion History
+
+Completed: [Reclaim Disk Space on nuke-k3s-dev-0 — MT5 Bases Cache + BoltDB Growth 2026-05](obsidian://open?vault=Personal&file=24%20Tasks%2FReclaim%20Disk%20Space%20on%20nuke-k3s-dev-0%20%E2%80%94%20MT5%20Bases%20Cache%20%2B%20BoltDB%20Growth%202026-05)
+```
+
+If the `Completed:` task is already listed under `Task:` above, omit the `Completed:` line to avoid duplicate links — the report is for at-a-glance; the auto-complete is implied by Phase 4's separate console output.

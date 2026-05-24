@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## v0.66.8
+
+- docs(sync-progress): clickable `obsidian://` links in Phase 5 report — every updated file is now grouped by category (Daily / Task / Goal / Runbook / Doc) and rendered as a clickable URL, replacing wikilinks that aren't actionable from chat. New Phase 3.5 schema captures `{path, vault, relpath, link, title, category, section}` per write so Phase 5 doesn't re-derive anything. Fixes from `/coding:audit-slash-command`: (1) `allowed-tools` scoped to `Bash(vault-cli:*)`, `Bash(grep:*)`, `Bash(command -v:*)` instead of bare `Bash`, (2) URL-encoding rule now enumerates the full unreserved-set rule plus explicit examples for em-dash, `+`, `%`, `&`, `?`, `#` (previously only listed `%20` / `%2F` while worked examples used `%E2%80%94` / `%2B` / `%25` — would have produced broken links for common task names), (3) removed misleading "UPDATED_FILES for Phase 4" claim (Phase 4 never uses it), (4) worked example `Completed:` line now has a real encoded URL instead of `obsidian://...` placeholder that violated the "never invent links" rule.
+
 ## v0.66.7
 
 - docs(sync-progress): replace blanket "never auto-complete without confirmation" rule with a strict 4-criteria objective gate. Auto-complete fires only when ALL hold: (1) `# Success Criteria` section exists and is fully ticked, (2) zero `[ ]`/`[/]` checkboxes remain in the task file, (3) verification evidence is documented (`# Results` or `# Pull Requests` section, OR conversation cites a shipped artifact like `vX.Y.Z` / merged PR / scenario replay), (4) no unresolved blockers in conversation. Any criterion failing → AskUserQuestion fallback. Explicit "do nothing / don't ask" cases documented for incomplete tasks, blockers, and "sync"-not-"complete" intent.

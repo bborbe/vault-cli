@@ -14,6 +14,7 @@ import (
 	"github.com/bborbe/errors"
 	libtime "github.com/bborbe/time"
 
+	"github.com/bborbe/vault-cli/pkg/config"
 	"github.com/bborbe/vault-cli/pkg/domain"
 	"github.com/bborbe/vault-cli/pkg/storage"
 )
@@ -28,6 +29,7 @@ type WorkOnOperation interface {
 		vaultName string,
 		isInteractive bool,
 		sessionDir string,
+		vault *config.Vault,
 	) (MutationResult, error)
 }
 
@@ -67,6 +69,7 @@ func (w *workOnOperation) Execute(
 	vaultName string,
 	isInteractive bool,
 	sessionDir string,
+	vault *config.Vault,
 ) (MutationResult, error) {
 	var warnings []string
 
@@ -110,7 +113,7 @@ func (w *workOnOperation) Execute(
 		slog.Warn("workon warning", "warning", warning)
 	}
 
-	sessionID, sessionErr := w.handleClaudeSession(ctx, task, sessionDir)
+	sessionID, sessionErr := w.handleClaudeSession(ctx, task, sessionDir, vault)
 	if sessionErr != nil {
 		warning := fmt.Sprintf("claude session: %v", sessionErr)
 		warnings = append(warnings, warning)
@@ -141,6 +144,7 @@ func (w *workOnOperation) handleClaudeSession(
 	ctx context.Context,
 	task *domain.Task,
 	vaultPath string,
+	vault *config.Vault,
 ) (string, error) {
 	if existing := task.ClaudeSessionID(); existing != "" {
 		return existing, nil
@@ -151,7 +155,7 @@ func (w *workOnOperation) handleClaudeSession(
 			"claude session starter unavailable — claude script not found in PATH",
 		)
 	}
-	prompt := fmt.Sprintf(`/work-on-task "%s"`, task.FilePath)
+	prompt := fmt.Sprintf(`%s "%s"`, vault.GetWorkOnCommand(), task.FilePath)
 	slog.Info("starting claude session", "task", task.Name)
 	sessionID, err := w.starter.StartSession(ctx, prompt, vaultPath)
 	if err != nil {

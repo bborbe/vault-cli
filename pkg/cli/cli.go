@@ -335,6 +335,7 @@ func createWorkOnCommand(
 					vault.Name,
 					isInteractive,
 					sessionDir,
+					vault,
 				)
 				return formatWorkOnResult(result, err, currentUser, *outputFormat)
 			})

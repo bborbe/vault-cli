@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## v0.66.12
+
+- feat(workon): Use configurable `work_on_command` from vault config instead of hardcoded `/work-on-task` in `handleClaudeSession`
+
 ## v0.66.11
 
 - fix(claude_session): Return error when `num_turns: 0` (slash command unknown, no conversation created) or `is_error: true` (claude reported an error) instead of silently returning the session_id. Error messages include the `result` field text for debugging.

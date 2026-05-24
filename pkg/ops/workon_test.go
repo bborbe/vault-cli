@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/bborbe/vault-cli/mocks"
+	"github.com/bborbe/vault-cli/pkg/config"
 	"github.com/bborbe/vault-cli/pkg/domain"
 	"github.com/bborbe/vault-cli/pkg/ops"
 )
@@ -32,6 +33,7 @@ var _ = Describe("WorkOnOperation", func() {
 		assignee             string
 		task                 *domain.Task
 		isInteractive        bool
+		testVault            config.Vault
 	)
 
 	BeforeEach(func() {
@@ -53,6 +55,11 @@ var _ = Describe("WorkOnOperation", func() {
 		taskName = "my-task"
 		assignee = "user@example.com"
 		isInteractive = false
+		testVault = config.Vault{
+			Path:          vaultPath,
+			Name:          "test-vault",
+			WorkOnCommand: "/vault-cli:work-on-task",
+		}
 
 		task = domain.NewTask(
 			map[string]any{"status": "todo"},
@@ -74,6 +81,7 @@ var _ = Describe("WorkOnOperation", func() {
 			"test-vault",
 			isInteractive,
 			vaultPath,
+			&testVault,
 		)
 	})
 
@@ -106,6 +114,18 @@ var _ = Describe("WorkOnOperation", func() {
 
 		It("starts a claude session", func() {
 			Expect(mockStarter.StartSessionCallCount()).To(Equal(1))
+		})
+	})
+
+	Context("custom work on command", func() {
+		BeforeEach(func() {
+			testVault.WorkOnCommand = "/custom-cmd"
+		})
+
+		It("uses the configured work on command in the prompt", func() {
+			Expect(mockStarter.StartSessionCallCount()).To(Equal(1))
+			_, prompt, _ := mockStarter.StartSessionArgsForCall(0)
+			Expect(prompt).To(MatchRegexp(`^/custom-cmd "`))
 		})
 	})
 

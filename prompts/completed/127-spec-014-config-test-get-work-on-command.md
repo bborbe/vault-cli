@@ -1,5 +1,5 @@
 ---
-status: committing
+status: completed
 spec: [014-bug-work-on-silent-failure-and-hardcoded-slash-command]
 summary: Added JSON marshalling tests for work_on_command tag verification in vault_test.go
 container: vault-cli-exec-127-spec-014-config-test-get-work-on-command
@@ -7,7 +7,7 @@ dark-factory-version: v0.171.1-3-gd94f1fa
 created: "2026-05-24T14:31:00Z"
 queued: "2026-05-24T14:24:43Z"
 started: "2026-05-24T14:26:53Z"
-completed: "2026-05-24T14:28:26Z"
+completed: "2026-05-24T14:28:39Z"
 branch: dark-factory/bug-work-on-silent-failure-and-hardcoded-slash-command
 ---
 

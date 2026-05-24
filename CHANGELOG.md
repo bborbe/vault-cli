@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## v0.66.9
+
+- fix(workon): Return error instead of silent empty session when `ClaudeSessionStarter` is nil (claude script not found in PATH). Previously `handleClaudeSession` returned `("", nil)` when starter was nil and task had no cached session ID, causing callers like task-orchestrator to receive `{"success": true, "session_id": ""}` with no diagnostic. Now returns an error that `Execute` wraps as a warning in `MutationResult.Warnings`.
+
 ## v0.66.8
 
 - docs(sync-progress): clickable `obsidian://` links in Phase 5 report — every updated file is now grouped by category (Daily / Task / Goal / Runbook / Doc) and rendered as a clickable URL, replacing wikilinks that aren't actionable from chat. New Phase 3.5 schema captures `{path, vault, relpath, link, title, category, section}` per write so Phase 5 doesn't re-derive anything. Fixes from `/coding:audit-slash-command`: (1) `allowed-tools` scoped to `Bash(vault-cli:*)`, `Bash(grep:*)`, `Bash(command -v:*)` instead of bare `Bash`, (2) URL-encoding rule now enumerates the full unreserved-set rule plus explicit examples for em-dash, `+`, `%`, `&`, `?`, `#` (previously only listed `%20` / `%2F` while worked examples used `%E2%80%94` / `%2B` / `%25` — would have produced broken links for common task names), (3) removed misleading "UPDATED_FILES for Phase 4" claim (Phase 4 never uses it), (4) worked example `Completed:` line now has a real encoded URL instead of `obsidian://...` placeholder that violated the "never invent links" rule.

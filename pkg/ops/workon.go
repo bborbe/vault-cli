@@ -142,11 +142,14 @@ func (w *workOnOperation) handleClaudeSession(
 	task *domain.Task,
 	vaultPath string,
 ) (string, error) {
-	if w.starter == nil {
-		return task.ClaudeSessionID(), nil
+	if existing := task.ClaudeSessionID(); existing != "" {
+		return existing, nil
 	}
-	if task.ClaudeSessionID() != "" {
-		return task.ClaudeSessionID(), nil
+	if w.starter == nil {
+		return "", errors.New(
+			ctx,
+			"claude session starter unavailable — claude script not found in PATH",
+		)
 	}
 	prompt := fmt.Sprintf(`/work-on-task "%s"`, task.FilePath)
 	slog.Info("starting claude session", "task", task.Name)

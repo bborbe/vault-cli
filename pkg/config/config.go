@@ -34,6 +34,7 @@ type Vault struct {
 	KnowledgeDir      string   `yaml:"knowledge_dir,omitempty"       json:"knowledge_dir,omitempty"`
 	ClaudeScript      string   `yaml:"claude_script,omitempty"       json:"claude_script,omitempty"`
 	SessionProjectDir string   `yaml:"session_project_dir,omitempty" json:"session_project_dir,omitempty"`
+	WorkOnCommand     string   `yaml:"work_on_command,omitempty"     json:"work_on_command,omitempty"`
 	TaskTemplate      string   `yaml:"task_template,omitempty"       json:"task_template,omitempty"`
 	GoalTemplate      string   `yaml:"goal_template,omitempty"       json:"goal_template,omitempty"`
 	ThemeTemplate     string   `yaml:"theme_template,omitempty"      json:"theme_template,omitempty"`
@@ -106,6 +107,15 @@ func (v *Vault) GetExcludes() []string {
 // GetSessionProjectDir returns the session project directory override, or empty string if not set.
 func (v *Vault) GetSessionProjectDir() string {
 	return v.SessionProjectDir
+}
+
+// GetWorkOnCommand returns the Claude slash command for starting work-on sessions,
+// defaulting to /vault-cli:work-on-task if not configured.
+func (v *Vault) GetWorkOnCommand() string {
+	if v.WorkOnCommand != "" {
+		return v.WorkOnCommand
+	}
+	return "/vault-cli:work-on-task"
 }
 
 // GetTaskTemplate returns the resolved absolute path to the task template, or empty string if not set.

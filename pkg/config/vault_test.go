@@ -122,6 +122,18 @@ var _ = Describe("Vault", func() {
 		})
 	})
 
+	Describe("GetWorkOnCommand", func() {
+		It("returns custom work on command when set", func() {
+			vault := &config.Vault{WorkOnCommand: "/my-custom:work-on"}
+			Expect(vault.GetWorkOnCommand()).To(Equal("/my-custom:work-on"))
+		})
+
+		It("returns default /vault-cli:work-on-task when empty", func() {
+			vault := &config.Vault{}
+			Expect(vault.GetWorkOnCommand()).To(Equal("/vault-cli:work-on-task"))
+		})
+	})
+
 	Describe("JSON marshalling", func() {
 		It("includes knowledge_dir in JSON when set", func() {
 			vault := config.Vault{Name: "main", Path: "/vault", KnowledgeDir: "50 Knowledge"}

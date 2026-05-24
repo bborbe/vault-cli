@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## v0.66.10
+
+- feat(config): Add configurable `work_on_command` field to vault configuration with default `/vault-cli:work-on-task`. Follows existing optional vault field pattern (e.g., `GetClaudeScript`). Allows per-vault customization of the Claude slash command used to start work-on sessions.
+
 ## v0.66.9
 
 - fix(workon): Return error instead of silent empty session when `ClaudeSessionStarter` is nil (claude script not found in PATH). Previously `handleClaudeSession` returned `("", nil)` when starter was nil and task had no cached session ID, causing callers like task-orchestrator to receive `{"success": true, "session_id": ""}` with no diagnostic. Now returns an error that `Execute` wraps as a warning in `MutationResult.Warnings`.

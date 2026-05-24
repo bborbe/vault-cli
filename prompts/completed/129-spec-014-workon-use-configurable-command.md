@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [014-bug-work-on-silent-failure-and-hardcoded-slash-command]
+summary: Replaced hardcoded /work-on-task with configurable vault.GetWorkOnCommand() in handleClaudeSession
+container: vault-cli-exec-129-spec-014-workon-use-configurable-command
+dark-factory-version: v0.171.1-3-gd94f1fa
 created: "2026-05-24T14:32:00Z"
 queued: "2026-05-24T14:24:43Z"
+started: "2026-05-24T14:31:18Z"
+completed: "2026-05-24T14:34:59Z"
 branch: dark-factory/bug-work-on-silent-failure-and-hardcoded-slash-command
 ---
 

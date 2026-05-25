@@ -91,7 +91,7 @@ func (l *lintOperation) Execute(
 			return nil
 		}
 
-		fileIssues, err := l.lintFile(vaultPath, path, fix)
+		fileIssues, err := l.lintFile(ctx, vaultPath, path, fix)
 		if err != nil {
 			return errors.Wrap(ctx, err, fmt.Sprintf("lint file %s", path))
 		}
@@ -112,7 +112,7 @@ func (l *lintOperation) ExecuteFile(
 	taskName string,
 	vaultName string,
 ) ([]LintIssue, error) {
-	issues, err := l.lintFile("", filePath, false)
+	issues, err := l.lintFile(ctx, "", filePath, false)
 	if err != nil {
 		return nil, errors.Wrap(ctx, err, fmt.Sprintf("lint file %s", filePath))
 	}
@@ -134,10 +134,15 @@ type ValidateResult struct {
 }
 
 // lintFile checks a single file for lint issues and optionally fixes them.
-func (l *lintOperation) lintFile(vaultPath string, filePath string, fix bool) ([]LintIssue, error) {
+func (l *lintOperation) lintFile(
+	ctx context.Context,
+	vaultPath string,
+	filePath string,
+	fix bool,
+) ([]LintIssue, error) {
 	content, err := os.ReadFile(filePath) //#nosec G304 -- user-controlled vault path
 	if err != nil {
-		return nil, fmt.Errorf("read file: %w", err)
+		return nil, errors.Wrap(ctx, err, "read file")
 	}
 
 	// Handle missing frontmatter first
@@ -152,9 +157,9 @@ func (l *lintOperation) lintFile(vaultPath string, filePath string, fix bool) ([
 
 	// Fix issues if requested
 	if fix && len(issues) > 0 {
-		issues, err = l.fixIssues(filePath, string(content), issues)
+		issues, err = l.fixIssues(ctx, filePath, string(content), issues)
 		if err != nil {
-			return nil, fmt.Errorf("fix issues: %w", err)
+			return nil, errors.Wrap(ctx, err, "fix issues")
 		}
 	}
 
@@ -584,6 +589,7 @@ func (l *lintOperation) detectMissingTaskIdentifier(frontmatterYAML string) bool
 
 // fixIssues fixes fixable issues in the file.
 func (l *lintOperation) fixIssues(
+	ctx context.Context,
 	filePath string,
 	content string,
 	issues []LintIssue,
@@ -638,7 +644,7 @@ func (l *lintOperation) fixIssues(
 	// Write fixed content back to file
 	if modified {
 		if err := os.WriteFile(filePath, []byte(updatedContent), 0600); err != nil { //#nosec G304,G703 -- user-controlled vault path
-			return issues, fmt.Errorf("write file: %w", err)
+			return issues, errors.Wrapf(ctx, err, "write file %s", filePath)
 		}
 	}
 

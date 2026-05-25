@@ -312,11 +312,11 @@ func (c *completeOperation) markGoalCheckbox(
 	}
 
 	if !modified {
-		return fmt.Errorf(
+		return errors.Errorf(ctx,
 			"checkbox not found for task %s in goal %s",
 			taskName,
 			goalName,
-		) //nolint:goerr113
+		)
 	}
 
 	// Update goal content

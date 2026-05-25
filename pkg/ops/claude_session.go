@@ -86,7 +86,7 @@ func (c *claudeSessionStarter) StartSession(
 	output, err := c.runCmd(timeoutCtx, args, cwd)
 	if err != nil {
 		if timeoutCtx.Err() == context.DeadlineExceeded {
-			return "", fmt.Errorf("claude session start timed out after 5m")
+			return "", errors.Errorf(ctx, "claude session start timed out after 5m")
 		}
 		return "", errors.Wrap(ctx, err, "run claude")
 	}
@@ -102,15 +102,15 @@ func (c *claudeSessionStarter) StartSession(
 	}
 
 	if result.SessionID == "" {
-		return "", fmt.Errorf("claude returned empty session_id")
+		return "", errors.Errorf(ctx, "claude returned empty session_id")
 	}
 
 	if result.NumTurns == 0 {
-		return "", fmt.Errorf("claude returned 0 turns: %s", result.Result)
+		return "", errors.Errorf(ctx, "claude returned 0 turns: %s", result.Result)
 	}
 
 	if result.IsError {
-		return "", fmt.Errorf("claude reported error: %s", result.Result)
+		return "", errors.Errorf(ctx, "claude reported error: %s", result.Result)
 	}
 
 	return result.SessionID, nil

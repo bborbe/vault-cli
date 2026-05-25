@@ -51,7 +51,7 @@ func (g *goalDeferOperation) Execute(
 ) (MutationResult, error) {
 	now := g.currentDateTime.Now().Time()
 
-	targetDate, err := parseDeferDate(dateStr, now)
+	targetDate, err := parseDeferDate(ctx, dateStr, now)
 	if err != nil {
 		return MutationResult{
 			Success: false,
@@ -60,14 +60,17 @@ func (g *goalDeferOperation) Execute(
 	}
 
 	if isDeferDateInPast(targetDate, now) {
-		baseErr := fmt.Errorf(
-			"cannot defer to past date: %s",
-			targetDate.Time().Format("2006-01-02"),
-		) //nolint:goerr113
 		return MutationResult{
-			Success: false,
-			Error:   baseErr.Error(),
-		}, errors.Wrap(ctx, baseErr, "validate date")
+				Success: false,
+				Error: fmt.Sprintf(
+					"cannot defer to past date: %s",
+					targetDate.Time().Format("2006-01-02"),
+				),
+			}, errors.Errorf(
+				ctx,
+				"cannot defer to past date: %s",
+				targetDate.Time().Format("2006-01-02"),
+			)
 	}
 
 	goal, err := g.goalStorage.FindGoalByName(ctx, vaultPath, goalName)

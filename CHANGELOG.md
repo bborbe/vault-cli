@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## v0.67.4
+
+- fix: Replace all fmt.Errorf with errors.Wrapf/errors.Errorf in pkg/ops/ files to enable context-enriched error tracing
+
 ## v0.67.3
 
 - fix: Replace all fmt.Errorf with errors.Wrapf/errors.Errorf in pkg/config/config.go to enable context-enriched error tracing

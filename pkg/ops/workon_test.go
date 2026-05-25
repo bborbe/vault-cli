@@ -251,7 +251,7 @@ var _ = Describe("WorkOnOperation", func() {
 
 		It("calls ResumeSession", func() {
 			Expect(mockResumer.ResumeSessionCallCount()).To(Equal(1))
-			sessionID, cwd := mockResumer.ResumeSessionArgsForCall(0)
+			_, sessionID, cwd := mockResumer.ResumeSessionArgsForCall(0)
 			Expect(sessionID).To(Equal("session-123"))
 			Expect(cwd).To(Equal(vaultPath))
 		})

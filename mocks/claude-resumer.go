@@ -2,17 +2,19 @@
 package mocks
 
 import (
+	"context"
 	"sync"
 
 	"github.com/bborbe/vault-cli/pkg/ops"
 )
 
 type ClaudeResumer struct {
-	ResumeSessionStub        func(string, string) error
+	ResumeSessionStub        func(context.Context, string, string) error
 	resumeSessionMutex       sync.RWMutex
 	resumeSessionArgsForCall []struct {
-		arg1 string
+		arg1 context.Context
 		arg2 string
+		arg3 string
 	}
 	resumeSessionReturns struct {
 		result1 error
@@ -24,19 +26,20 @@ type ClaudeResumer struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *ClaudeResumer) ResumeSession(arg1 string, arg2 string) error {
+func (fake *ClaudeResumer) ResumeSession(arg1 context.Context, arg2 string, arg3 string) error {
 	fake.resumeSessionMutex.Lock()
 	ret, specificReturn := fake.resumeSessionReturnsOnCall[len(fake.resumeSessionArgsForCall)]
 	fake.resumeSessionArgsForCall = append(fake.resumeSessionArgsForCall, struct {
-		arg1 string
+		arg1 context.Context
 		arg2 string
-	}{arg1, arg2})
+		arg3 string
+	}{arg1, arg2, arg3})
 	stub := fake.ResumeSessionStub
 	fakeReturns := fake.resumeSessionReturns
-	fake.recordInvocation("ResumeSession", []interface{}{arg1, arg2})
+	fake.recordInvocation("ResumeSession", []interface{}{arg1, arg2, arg3})
 	fake.resumeSessionMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2)
+		return stub(arg1, arg2, arg3)
 	}
 	if specificReturn {
 		return ret.result1
@@ -50,17 +53,17 @@ func (fake *ClaudeResumer) ResumeSessionCallCount() int {
 	return len(fake.resumeSessionArgsForCall)
 }
 
-func (fake *ClaudeResumer) ResumeSessionCalls(stub func(string, string) error) {
+func (fake *ClaudeResumer) ResumeSessionCalls(stub func(context.Context, string, string) error) {
 	fake.resumeSessionMutex.Lock()
 	defer fake.resumeSessionMutex.Unlock()
 	fake.ResumeSessionStub = stub
 }
 
-func (fake *ClaudeResumer) ResumeSessionArgsForCall(i int) (string, string) {
+func (fake *ClaudeResumer) ResumeSessionArgsForCall(i int) (context.Context, string, string) {
 	fake.resumeSessionMutex.RLock()
 	defer fake.resumeSessionMutex.RUnlock()
 	argsForCall := fake.resumeSessionArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
 func (fake *ClaudeResumer) ResumeSessionReturns(result1 error) {

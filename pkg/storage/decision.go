@@ -58,7 +58,7 @@ func (d *decisionStorage) readDecisionFromPath(
 			decision.ReviewedDate = &d
 		case string:
 			if v != "" {
-				if t, err := libtime.ParseTime(context.Background(), v); err == nil {
+				if t, err := libtime.ParseTime(ctx, v); err == nil {
 					d := libtime.DateOrDateTime(*t)
 					decision.ReviewedDate = &d
 				}

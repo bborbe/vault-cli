@@ -1,7 +1,12 @@
 ---
-status: approved
+status: completed
+summary: Replaced context.Background() with ctx in libtime.ParseTime call within readDecisionFromPath to enable context cancellation for storage operations
+container: vault-cli-exec-132-review-vault-cli-fix-context-background
+dark-factory-version: v0.171.1-3-gd94f1fa
 created: "2026-05-24T00:00:00Z"
 queued: "2026-05-25T12:34:04Z"
+started: "2026-05-25T12:36:28Z"
+completed: "2026-05-25T12:39:51Z"
 ---
 
 <summary>

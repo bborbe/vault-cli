@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## v0.67.2
+
+- fix: Propagate caller's context to `libtime.ParseTime` in `readDecisionFromPath` so storage operations respect context cancellation
+
 ## v0.67.1
 
 - fix: Wrap bare `return err` with `errors.Wrapf` in walk callbacks in `pkg/storage/decision.go`, `pkg/storage/task.go`, `pkg/storage/base.go`, and `pkg/ops/lint.go` to provide context about which directory was being walked when errors occurred

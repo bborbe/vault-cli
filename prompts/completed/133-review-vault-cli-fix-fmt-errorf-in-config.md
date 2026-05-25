@@ -1,7 +1,12 @@
 ---
-status: approved
+status: completed
+summary: Replaced all fmt.Errorf with errors.Wrapf/errors.Errorf in pkg/config/config.go for proper context-enriched error tracing
+container: vault-cli-exec-133-review-vault-cli-fix-fmt-errorf-in-config
+dark-factory-version: v0.171.1-3-gd94f1fa
 created: "2026-05-24T00:00:00Z"
 queued: "2026-05-25T12:34:04Z"
+started: "2026-05-25T12:39:54Z"
+completed: "2026-05-25T12:42:42Z"
 ---
 
 <summary>

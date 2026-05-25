@@ -6,11 +6,11 @@ package config
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/bborbe/errors"
 	"gopkg.in/yaml.v3"
 )
 
@@ -178,26 +178,26 @@ func (c *configLoader) Load(ctx context.Context) (*Config, error) {
 	if configPath == "" {
 		homeDir, err := os.UserHomeDir()
 		if err != nil {
-			return nil, fmt.Errorf("get home directory: %w", err)
+			return nil, errors.Wrap(ctx, err, "get home directory")
 		}
 		configPath = filepath.Join(homeDir, ".vault-cli", "config.yaml")
 	}
 
 	// If config file doesn't exist, return default config
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		return c.getDefaultConfig()
+		return c.getDefaultConfig(ctx)
 	}
 
 	// Read config file
 	data, err := os.ReadFile(configPath) //#nosec G304 -- user-controlled config path
 	if err != nil {
-		return nil, fmt.Errorf("read config file %s: %w", configPath, err)
+		return nil, errors.Wrapf(ctx, err, "read config file %s", configPath)
 	}
 
 	// Parse YAML
 	var config Config
 	if err := yaml.Unmarshal(data, &config); err != nil {
-		return nil, fmt.Errorf("parse config yaml: %w", err)
+		return nil, errors.Wrap(ctx, err, "parse config yaml")
 	}
 
 	config.DefaultVault = strings.ToLower(config.DefaultVault)
@@ -215,7 +215,7 @@ func (c *configLoader) Load(ctx context.Context) (*Config, error) {
 func (c *configLoader) GetVault(ctx context.Context, vaultName string) (*Vault, error) {
 	config, err := c.Load(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("load config: %w", err)
+		return nil, errors.Wrap(ctx, err, "load config")
 	}
 
 	// If no vault name specified, use default
@@ -227,14 +227,14 @@ func (c *configLoader) GetVault(ctx context.Context, vaultName string) (*Vault, 
 	// Look up vault
 	vault, ok := config.Vaults[vaultName]
 	if !ok {
-		return nil, fmt.Errorf("vault not found: %s", vaultName)
+		return nil, errors.Errorf(ctx, "vault not found: %s", vaultName)
 	}
 
 	// Expand home directory if path starts with ~
 	if len(vault.Path) > 0 && vault.Path[0] == '~' {
 		homeDir, err := os.UserHomeDir()
 		if err != nil {
-			return nil, fmt.Errorf("get home directory: %w", err)
+			return nil, errors.Wrap(ctx, err, "get home directory")
 		}
 		vault.Path = filepath.Join(homeDir, vault.Path[1:])
 	}
@@ -242,7 +242,7 @@ func (c *configLoader) GetVault(ctx context.Context, vaultName string) (*Vault, 
 	if len(vault.SessionProjectDir) > 0 && vault.SessionProjectDir[0] == '~' {
 		homeDir, err := os.UserHomeDir()
 		if err != nil {
-			return nil, fmt.Errorf("get home directory: %w", err)
+			return nil, errors.Wrap(ctx, err, "get home directory")
 		}
 		vault.SessionProjectDir = filepath.Join(homeDir, vault.SessionProjectDir[1:])
 	}
@@ -255,9 +255,9 @@ func (c *configLoader) GetVault(ctx context.Context, vaultName string) (*Vault, 
 		&vault.VisionTemplate,
 	}
 	for _, f := range templateFields {
-		resolved, err := resolveTemplatePath(*f, vault.Path)
+		resolved, err := resolveTemplatePath(ctx, *f, vault.Path)
 		if err != nil {
-			return nil, fmt.Errorf("resolve template path: %w", err)
+			return nil, errors.Wrap(ctx, err, "resolve template path")
 		}
 		*f = resolved
 	}
@@ -269,7 +269,7 @@ func (c *configLoader) GetVault(ctx context.Context, vaultName string) (*Vault, 
 func (c *configLoader) GetAllVaults(ctx context.Context) ([]*Vault, error) {
 	config, err := c.Load(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("load config: %w", err)
+		return nil, errors.Wrap(ctx, err, "load config")
 	}
 
 	vaults := make([]*Vault, 0, len(config.Vaults))
@@ -279,14 +279,14 @@ func (c *configLoader) GetAllVaults(ctx context.Context) ([]*Vault, error) {
 		if len(v.Path) > 0 && v.Path[0] == '~' {
 			homeDir, err := os.UserHomeDir()
 			if err != nil {
-				return nil, fmt.Errorf("get home directory: %w", err)
+				return nil, errors.Wrap(ctx, err, "get home directory")
 			}
 			v.Path = filepath.Join(homeDir, v.Path[1:])
 		}
 		if len(v.SessionProjectDir) > 0 && v.SessionProjectDir[0] == '~' {
 			homeDir, err := os.UserHomeDir()
 			if err != nil {
-				return nil, fmt.Errorf("get home directory: %w", err)
+				return nil, errors.Wrap(ctx, err, "get home directory")
 			}
 			v.SessionProjectDir = filepath.Join(homeDir, v.SessionProjectDir[1:])
 		}
@@ -298,9 +298,9 @@ func (c *configLoader) GetAllVaults(ctx context.Context) ([]*Vault, error) {
 			&v.VisionTemplate,
 		}
 		for _, f := range templateFields {
-			resolved, err := resolveTemplatePath(*f, v.Path)
+			resolved, err := resolveTemplatePath(ctx, *f, v.Path)
 			if err != nil {
-				return nil, fmt.Errorf("resolve template path: %w", err)
+				return nil, errors.Wrap(ctx, err, "resolve template path")
 			}
 			*f = resolved
 		}
@@ -323,10 +323,10 @@ func (c *configLoader) GetVaultPath(ctx context.Context, vaultName string) (stri
 func (c *configLoader) GetCurrentUser(ctx context.Context) (string, error) {
 	config, err := c.Load(ctx)
 	if err != nil {
-		return "", fmt.Errorf("load config: %w", err)
+		return "", errors.Wrap(ctx, err, "load config")
 	}
 	if config.CurrentUser == "" {
-		return "", fmt.Errorf("current_user not configured")
+		return "", errors.Errorf(ctx, "current_user not configured")
 	}
 	return config.CurrentUser, nil
 }
@@ -336,14 +336,14 @@ func (c *configLoader) GetCurrentUser(ctx context.Context) (string, error) {
 // Expands a leading ~ to the user home directory.
 // Joins a relative path against vaultPath (already an absolute path).
 // Returns an absolute path unchanged.
-func resolveTemplatePath(value, vaultPath string) (string, error) {
+func resolveTemplatePath(ctx context.Context, value, vaultPath string) (string, error) {
 	if value == "" {
 		return "", nil
 	}
 	if len(value) > 0 && value[0] == '~' {
 		homeDir, err := os.UserHomeDir()
 		if err != nil {
-			return "", fmt.Errorf("get home directory: %w", err)
+			return "", errors.Wrap(ctx, err, "get home directory")
 		}
 		return filepath.Join(homeDir, value[1:]), nil
 	}
@@ -354,10 +354,10 @@ func resolveTemplatePath(value, vaultPath string) (string, error) {
 }
 
 // getDefaultConfig returns a default configuration.
-func (c *configLoader) getDefaultConfig() (*Config, error) {
+func (c *configLoader) getDefaultConfig(ctx context.Context) (*Config, error) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		return nil, fmt.Errorf("get home directory: %w", err)
+		return nil, errors.Wrap(ctx, err, "get home directory")
 	}
 
 	return &Config{

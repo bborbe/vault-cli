@@ -30,14 +30,14 @@ func (t *taskStorage) ReadTask(
 ) (*domain.Task, error) {
 	filePath := filepath.Join(vaultPath, t.config.TasksDir, taskID.String()+".md")
 	if _, err := os.Stat(filePath); err == nil {
-		return t.readTaskFromPath(ctx, filePath, taskID.String())
+		return t.readTaskFromPath(ctx, filePath, taskID.String(), vaultPath)
 	}
 	tasksDir := filepath.Join(vaultPath, t.config.TasksDir)
 	matchedPath, matchedName, err := t.findFileByName(ctx, tasksDir, taskID.String())
 	if err != nil {
 		return nil, errors.Wrap(ctx, err, fmt.Sprintf("find task %s", taskID))
 	}
-	return t.readTaskFromPath(ctx, matchedPath, matchedName)
+	return t.readTaskFromPath(ctx, matchedPath, matchedName, vaultPath)
 }
 
 // WriteTask writes a task to a markdown file.
@@ -46,6 +46,9 @@ func (t *taskStorage) WriteTask(ctx context.Context, task *domain.Task) error {
 		task.SetTaskIdentifier(uuid.New().String())
 	}
 
+	if isSymlink(task.FilePath) {
+		return errors.Errorf(ctx, "refusing to write through symlink: %s", task.FilePath)
+	}
 	content, err := t.serializeMapAsFrontmatter(ctx, task.RawMap(), string(task.Content))
 	if err != nil {
 		return errors.Wrap(ctx, err, "serialize frontmatter")
@@ -69,7 +72,7 @@ func (t *taskStorage) FindTaskByName(
 	if err != nil {
 		return nil, errors.Wrap(ctx, err, "find task file")
 	}
-	return t.readTaskFromPath(ctx, matchedPath, matchedName)
+	return t.readTaskFromPath(ctx, matchedPath, matchedName, vaultPath)
 }
 
 // ListTasks returns all tasks from the vault, including subdirectories.
@@ -92,7 +95,7 @@ func (t *taskStorage) ListTasks(
 		}
 
 		fileName := strings.TrimSuffix(d.Name(), ".md")
-		task, err := t.readTaskFromPath(ctx, path, fileName)
+		task, err := t.readTaskFromPath(ctx, path, fileName, vaultPath)
 		if err != nil {
 			slog.Debug("skipping unreadable task", "file", fileName, "error", err)
 			return nil

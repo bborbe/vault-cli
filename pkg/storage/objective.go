@@ -26,14 +26,19 @@ func (o *objectiveStorage) ReadObjective(
 	objectiveID domain.ObjectiveID,
 ) (*domain.Objective, error) {
 	filePath := filepath.Join(vaultPath, o.config.ObjectivesDir, objectiveID.String()+".md")
-	return o.readObjectiveFromPath(ctx, filePath, objectiveID.String())
+	return o.readObjectiveFromPath(ctx, filePath, objectiveID.String(), vaultPath)
 }
 
+//nolint:dupl // Theme, Objective, Vision have similar storage structure
 func (o *objectiveStorage) readObjectiveFromPath(
 	ctx context.Context,
 	filePath string,
 	name string,
+	vaultPath string,
 ) (*domain.Objective, error) {
+	if isSymlinkOutsideVault(filePath, vaultPath) {
+		return nil, errors.Errorf(ctx, "symlink outside vault: %s", filePath)
+	}
 	content, err := os.ReadFile(filePath) //#nosec G304 -- user-controlled vault path
 	if err != nil {
 		return nil, errors.Wrapf(ctx, err, "read file %s", filePath)
@@ -56,6 +61,9 @@ func (o *objectiveStorage) readObjectiveFromPath(
 
 // WriteObjective writes an objective to a markdown file.
 func (o *objectiveStorage) WriteObjective(ctx context.Context, objective *domain.Objective) error {
+	if isSymlink(objective.FilePath) {
+		return errors.Errorf(ctx, "refusing to write through symlink: %s", objective.FilePath)
+	}
 	content, err := o.serializeMapAsFrontmatter(ctx, objective.RawMap(), string(objective.Content))
 	if err != nil {
 		return errors.Wrap(ctx, err, "serialize frontmatter")
@@ -79,5 +87,5 @@ func (o *objectiveStorage) FindObjectiveByName(
 	if err != nil {
 		return nil, errors.Wrap(ctx, err, "find objective file")
 	}
-	return o.readObjectiveFromPath(ctx, matchedPath, matchedName)
+	return o.readObjectiveFromPath(ctx, matchedPath, matchedName, vaultPath)
 }

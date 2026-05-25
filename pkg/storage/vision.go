@@ -26,14 +26,19 @@ func (v *visionStorage) ReadVision(
 	visionID domain.VisionID,
 ) (*domain.Vision, error) {
 	filePath := filepath.Join(vaultPath, v.config.VisionDir, visionID.String()+".md")
-	return v.readVisionFromPath(ctx, filePath, visionID.String())
+	return v.readVisionFromPath(ctx, filePath, visionID.String(), vaultPath)
 }
 
+//nolint:dupl // Theme, Objective, Vision have similar storage structure
 func (v *visionStorage) readVisionFromPath(
 	ctx context.Context,
 	filePath string,
 	name string,
+	vaultPath string,
 ) (*domain.Vision, error) {
+	if isSymlinkOutsideVault(filePath, vaultPath) {
+		return nil, errors.Errorf(ctx, "symlink outside vault: %s", filePath)
+	}
 	content, err := os.ReadFile(filePath) //#nosec G304 -- user-controlled vault path
 	if err != nil {
 		return nil, errors.Wrapf(ctx, err, "read file %s", filePath)
@@ -56,6 +61,9 @@ func (v *visionStorage) readVisionFromPath(
 
 // WriteVision writes a vision to a markdown file.
 func (v *visionStorage) WriteVision(ctx context.Context, vision *domain.Vision) error {
+	if isSymlink(vision.FilePath) {
+		return errors.Errorf(ctx, "refusing to write through symlink: %s", vision.FilePath)
+	}
 	content, err := v.serializeMapAsFrontmatter(ctx, vision.RawMap(), string(vision.Content))
 	if err != nil {
 		return errors.Wrap(ctx, err, "serialize frontmatter")
@@ -79,5 +87,5 @@ func (v *visionStorage) FindVisionByName(
 	if err != nil {
 		return nil, errors.Wrap(ctx, err, "find vision file")
 	}
-	return v.readVisionFromPath(ctx, matchedPath, matchedName)
+	return v.readVisionFromPath(ctx, matchedPath, matchedName, vaultPath)
 }

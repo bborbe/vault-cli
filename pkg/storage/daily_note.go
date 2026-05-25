@@ -24,6 +24,9 @@ func (d *dailyNoteStorage) ReadDailyNote(
 	date string,
 ) (string, error) {
 	filePath := filepath.Join(vaultPath, d.config.DailyDir, date+".md")
+	if isSymlinkOutsideVault(filePath, vaultPath) {
+		return "", errors.Errorf(ctx, "symlink outside vault: %s", filePath)
+	}
 	content, err := os.ReadFile(filePath) //#nosec G304 -- user-controlled vault path
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -47,6 +50,9 @@ func (d *dailyNoteStorage) WriteDailyNote(
 	}
 
 	filePath := filepath.Join(dailyNotesDir, date+".md")
+	if isSymlinkOutsideVault(filePath, vaultPath) {
+		return errors.Errorf(ctx, "symlink outside vault: %s", filePath)
+	}
 	if err := os.WriteFile(filePath, []byte(content), 0600); err != nil {
 		return errors.Wrap(ctx, err, fmt.Sprintf("write daily note %s", filePath))
 	}

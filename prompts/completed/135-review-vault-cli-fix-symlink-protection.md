@@ -1,7 +1,12 @@
 ---
-status: approved
+status: completed
+summary: Added symlink escape protection to all storage implementations (task, goal, theme, objective, vision, daily_note)
+container: vault-cli-exec-135-review-vault-cli-fix-symlink-protection
+dark-factory-version: v0.171.1-3-gd94f1fa
 created: "2026-05-24T00:00:00Z"
 queued: "2026-05-25T12:34:04Z"
+started: "2026-05-25T12:48:06Z"
+completed: "2026-05-25T12:59:48Z"
 ---
 
 <summary>

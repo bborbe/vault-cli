@@ -1,6 +1,7 @@
 ---
 description: Defer task to specific date
 argument-hint: "<task-name> <YYYY-MM-DD|+Nd|weekday> [--tool]"
+allowed-tools: Bash(vault-cli task defer:*)
 ---
 
 <objective>

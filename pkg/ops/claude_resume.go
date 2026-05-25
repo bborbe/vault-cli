@@ -5,10 +5,12 @@
 package ops
 
 import (
-	"fmt"
+	"context"
 	"os"
 	"os/exec"
 	"syscall"
+
+	"github.com/bborbe/errors"
 )
 
 //counterfeiter:generate -o ../../mocks/claude-resumer.go --fake-name ClaudeResumer . ClaudeResumer
@@ -16,7 +18,7 @@ import (
 // ClaudeResumer resumes an existing Claude session.
 type ClaudeResumer interface {
 	// ResumeSession replaces the current process with an interactive claude --resume session.
-	ResumeSession(sessionID string, cwd string) error
+	ResumeSession(ctx context.Context, sessionID string, cwd string) error
 }
 
 // NewClaudeResumer creates a ClaudeResumer using the given claude script.
@@ -53,9 +55,9 @@ type claudeResumer struct {
 	execFn     func(argv0 string, argv []string, envv []string) error
 }
 
-func (c *claudeResumer) ResumeSession(sessionID string, cwd string) error {
+func (c *claudeResumer) ResumeSession(ctx context.Context, sessionID string, cwd string) error {
 	if err := c.chdir(cwd); err != nil {
-		return fmt.Errorf("change directory to %s: %w", cwd, err)
+		return errors.Wrapf(ctx, err, "change directory to %s", cwd)
 	}
 	args := []string{"claude", "--resume", sessionID}
 	return c.execFn(c.claudePath, args, os.Environ())

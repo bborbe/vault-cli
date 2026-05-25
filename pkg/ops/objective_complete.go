@@ -62,7 +62,7 @@ func (o *objectiveCompleteOperation) Execute(
 
 	if objective.Status() == domain.ObjectiveStatusCompleted {
 		msg := fmt.Sprintf("objective %q is already completed", objectiveName)
-		return MutationResult{Success: false, Error: msg}, fmt.Errorf("%s", msg) //nolint:goerr113
+		return MutationResult{Success: false, Error: msg}, errors.Errorf(ctx, "%s", msg)
 	}
 
 	_ = objective.SetStatus(domain.ObjectiveStatusCompleted)

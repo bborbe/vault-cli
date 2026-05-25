@@ -5,6 +5,7 @@
 package ops_test
 
 import (
+	"context"
 	"errors"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -50,14 +51,14 @@ var _ = Describe("ClaudeResumer", func() {
 
 	Context("successful resume", func() {
 		It("calls exec with correct args", func() {
-			err := resumer.ResumeSession("session-abc", "/vault/path")
+			err := resumer.ResumeSession(context.Background(), "session-abc", "/vault/path")
 			Expect(err).To(BeNil())
 			Expect(capturedArgv0).To(Equal("/usr/local/bin/claude"))
 			Expect(capturedArgv).To(Equal([]string{"claude", "--resume", "session-abc"}))
 		})
 
 		It("changes to cwd before exec", func() {
-			_ = resumer.ResumeSession("session-abc", "/vault/path")
+			_ = resumer.ResumeSession(context.Background(), "session-abc", "/vault/path")
 			Expect(capturedChdirDir).To(Equal("/vault/path"))
 		})
 	})
@@ -68,7 +69,7 @@ var _ = Describe("ClaudeResumer", func() {
 		})
 
 		It("returns error without calling exec", func() {
-			err := resumer.ResumeSession("session-abc", "/vault/path")
+			err := resumer.ResumeSession(context.Background(), "session-abc", "/vault/path")
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(ContainSubstring("change directory"))
 			Expect(capturedArgv0).To(BeEmpty())
@@ -81,7 +82,7 @@ var _ = Describe("ClaudeResumer", func() {
 		})
 
 		It("returns exec error", func() {
-			err := resumer.ResumeSession("session-abc", "/vault/path")
+			err := resumer.ResumeSession(context.Background(), "session-abc", "/vault/path")
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(ContainSubstring("exec failed"))
 		})
@@ -98,7 +99,7 @@ var _ = Describe("ClaudeResumer", func() {
 					return nil
 				},
 			)
-			err := customResumer.ResumeSession("session-xyz", "/vault")
+			err := customResumer.ResumeSession(context.Background(), "session-xyz", "/vault")
 			Expect(err).To(BeNil())
 			Expect(capturedArgv0).To(Equal("/opt/custom-claude"))
 		})

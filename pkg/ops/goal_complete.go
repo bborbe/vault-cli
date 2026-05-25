@@ -68,7 +68,7 @@ func (g *goalCompleteOperation) Execute(
 
 	if goal.Status() == domain.GoalStatusCompleted {
 		msg := fmt.Sprintf("goal %q is already completed", goalName)
-		return MutationResult{Success: false, Error: msg}, fmt.Errorf("%s", msg) //nolint:goerr113
+		return MutationResult{Success: false, Error: msg}, errors.Errorf(ctx, "%s", msg)
 	}
 
 	if !force {
@@ -130,7 +130,7 @@ func (g *goalCompleteOperation) checkOpenTasks(
 			len(openTasks),
 			taskList,
 		)
-		return MutationResult{Success: false, Error: msg}, fmt.Errorf("%s", msg) //nolint:goerr113
+		return MutationResult{Success: false, Error: msg}, errors.Errorf(ctx, "%s", msg)
 	}
 
 	return MutationResult{}, nil

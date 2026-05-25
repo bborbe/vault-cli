@@ -5,22 +5,33 @@
 package ops
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 	"strings"
 	"time"
 
+	"github.com/bborbe/errors"
 	libtime "github.com/bborbe/time"
 )
 
 // parseDeferDate parses a date string using the same rules as task defer:
 // +Nd (relative days), weekday names, YYYY-MM-DD (ISO date), RFC3339 datetime.
-func parseDeferDate(dateStr string, now time.Time) (libtime.DateOrDateTime, error) {
+func parseDeferDate(
+	ctx context.Context,
+	dateStr string,
+	now time.Time,
+) (libtime.DateOrDateTime, error) {
 	// Handle relative dates: +1d, +7d, etc.
 	if matched, _ := regexp.MatchString(`^\+\d+d$`, dateStr); matched {
 		var days int
 		if _, err := fmt.Sscanf(dateStr, "+%dd", &days); err != nil {
-			return libtime.DateOrDateTime{}, fmt.Errorf("parse relative date: %w", err)
+			return libtime.DateOrDateTime{}, errors.Wrapf(
+				ctx,
+				err,
+				"parse relative date %s",
+				dateStr,
+			)
 		}
 		t := libtime.ToDate(now.AddDate(0, 0, days)).Time()
 		return libtime.DateOrDateTime(t), nil
@@ -51,7 +62,7 @@ func parseDeferDate(dateStr string, now time.Time) (libtime.DateOrDateTime, erro
 		return libtime.DateOrDateTime(t), nil
 	}
 
-	return libtime.DateOrDateTime{}, fmt.Errorf(
+	return libtime.DateOrDateTime{}, errors.Errorf(ctx,
 		"invalid date format: %s (use +Nd, weekday, YYYY-MM-DD, or RFC3339)",
 		dateStr,
 	)

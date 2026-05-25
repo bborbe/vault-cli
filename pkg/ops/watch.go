@@ -6,7 +6,6 @@ package ops
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -14,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bborbe/errors"
 	"github.com/fsnotify/fsnotify"
 )
 
@@ -68,7 +68,7 @@ func (w *watchOperation) Execute(
 ) error {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
-		return fmt.Errorf("create watcher: %w", err)
+		return errors.Wrap(ctx, err, "create watcher")
 	}
 	defer watcher.Close()
 

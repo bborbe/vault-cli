@@ -343,13 +343,13 @@ func (o *goalTagsListOperation) Execute(
 		return errors.Wrap(ctx, err, "find goal")
 	}
 	if knownGoalScalarFields[key] {
-		return fmt.Errorf("not a list field: %q", key)
+		return errors.Errorf(ctx, "not a list field: %q", key)
 	}
 	if key != "tags" {
-		return fmt.Errorf("unknown field: %q", key)
+		return errors.Errorf(ctx, "unknown field: %q", key)
 	}
 	current := goal.Tags()
-	updated, err := applyListMutation(current, value, o.mode)
+	updated, err := applyListMutation(ctx, current, value, o.mode)
 	if err != nil {
 		return errors.Wrap(ctx, err, fmt.Sprintf("%s field %q", o.mode, key))
 	}
@@ -390,13 +390,13 @@ func (o *themeTagsListOperation) Execute(
 		return errors.Wrap(ctx, err, "find theme")
 	}
 	if knownThemeScalarFields[key] {
-		return fmt.Errorf("not a list field: %q", key)
+		return errors.Errorf(ctx, "not a list field: %q", key)
 	}
 	if key != "tags" {
-		return fmt.Errorf("unknown field: %q", key)
+		return errors.Errorf(ctx, "unknown field: %q", key)
 	}
 	current := theme.Tags()
-	updated, err := applyListMutation(current, value, o.mode)
+	updated, err := applyListMutation(ctx, current, value, o.mode)
 	if err != nil {
 		return errors.Wrap(ctx, err, fmt.Sprintf("%s field %q", o.mode, key))
 	}
@@ -437,13 +437,13 @@ func (o *objectiveTagsListOperation) Execute(
 		return errors.Wrap(ctx, err, "find objective")
 	}
 	if knownObjectiveScalarFields[key] {
-		return fmt.Errorf("not a list field: %q", key)
+		return errors.Errorf(ctx, "not a list field: %q", key)
 	}
 	if key != "tags" {
-		return fmt.Errorf("unknown field: %q", key)
+		return errors.Errorf(ctx, "unknown field: %q", key)
 	}
 	current := objective.Tags()
-	updated, err := applyListMutation(current, value, o.mode)
+	updated, err := applyListMutation(ctx, current, value, o.mode)
 	if err != nil {
 		return errors.Wrap(ctx, err, fmt.Sprintf("%s field %q", o.mode, key))
 	}
@@ -487,13 +487,13 @@ func (o *visionTagsListOperation) Execute(
 		return errors.Wrap(ctx, err, "find vision")
 	}
 	if knownVisionScalarFields[key] {
-		return fmt.Errorf("not a list field: %q", key)
+		return errors.Errorf(ctx, "not a list field: %q", key)
 	}
 	if key != "tags" {
-		return fmt.Errorf("unknown field: %q", key)
+		return errors.Errorf(ctx, "unknown field: %q", key)
 	}
 	current := vision.Tags()
-	updated, err := applyListMutation(current, value, o.mode)
+	updated, err := applyListMutation(ctx, current, value, o.mode)
 	if err != nil {
 		return errors.Wrap(ctx, err, fmt.Sprintf("%s field %q", o.mode, key))
 	}
@@ -563,10 +563,10 @@ func (o *taskListOperation) Execute(
 	}
 
 	if knownTaskScalarFields[key] {
-		return fmt.Errorf("not a list field: %q", key)
+		return errors.Errorf(ctx, "not a list field: %q", key)
 	}
 	if !knownTaskListFields[key] {
-		return fmt.Errorf("unknown field: %q", key)
+		return errors.Errorf(ctx, "unknown field: %q", key)
 	}
 
 	var current []string
@@ -577,7 +577,7 @@ func (o *taskListOperation) Execute(
 		current = task.Tags()
 	}
 
-	updated, err := applyListMutation(current, value, o.mode)
+	updated, err := applyListMutation(ctx, current, value, o.mode)
 	if err != nil {
 		return errors.Wrap(ctx, err, fmt.Sprintf("%s field %q", o.mode, key))
 	}
@@ -598,12 +598,16 @@ func (o *taskListOperation) Execute(
 // applyListMutation adds or removes a value from a string slice.
 // For mode "add": appends value; returns error if already present.
 // For mode "remove": filters out value; returns error if not found.
-func applyListMutation(current []string, value, mode string) ([]string, error) {
+func applyListMutation(
+	ctx context.Context,
+	current []string,
+	value, mode string,
+) ([]string, error) {
 	switch mode {
 	case "add":
 		for _, v := range current {
 			if v == value {
-				return nil, fmt.Errorf("value %q already exists in list", value)
+				return nil, errors.Errorf(ctx, "value %q already exists in list", value)
 			}
 		}
 		return append(current, value), nil
@@ -618,7 +622,7 @@ func applyListMutation(current []string, value, mode string) ([]string, error) {
 			result = append(result, v)
 		}
 		if !found {
-			return nil, fmt.Errorf("value %q not found in list", value)
+			return nil, errors.Errorf(ctx, "value %q not found in list", value)
 		}
 		return result, nil
 	default:

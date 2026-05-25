@@ -58,7 +58,7 @@ func (d *deferOperation) Execute(
 ) (MutationResult, error) {
 	// Parse initial target date
 	now := d.currentDateTime.Now().Time()
-	targetDate, err := parseDeferDate(dateStr, now)
+	targetDate, err := parseDeferDate(ctx, dateStr, now)
 	if err != nil {
 		return MutationResult{
 				Success: false,
@@ -98,17 +98,16 @@ func (d *deferOperation) Execute(
 
 	// Validate target is not in the past (date-only: compare at day level; datetime: compare at full precision)
 	if isDeferDateInPast(targetDate, now) {
-		baseErr := fmt.Errorf(
-			"cannot defer to past date: %s",
-			targetDate.Time().Format("2006-01-02"),
-		) //nolint:goerr113
 		return MutationResult{
 				Success: false,
-				Error:   baseErr.Error(),
-			}, errors.Wrap(
+				Error: fmt.Sprintf(
+					"cannot defer to past date: %s",
+					targetDate.Time().Format("2006-01-02"),
+				),
+			}, errors.Errorf(
 				ctx,
-				baseErr,
-				"validate date",
+				"cannot defer to past date: %s",
+				targetDate.Time().Format("2006-01-02"),
 			)
 	}
 

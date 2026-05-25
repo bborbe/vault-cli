@@ -26,14 +26,18 @@ func (g *goalStorage) ReadGoal(
 	goalID domain.GoalID,
 ) (*domain.Goal, error) {
 	filePath := filepath.Join(vaultPath, g.config.GoalsDir, goalID.String()+".md")
-	return g.readGoalFromPath(ctx, filePath, goalID.String())
+	return g.readGoalFromPath(ctx, filePath, goalID.String(), vaultPath)
 }
 
 func (g *goalStorage) readGoalFromPath(
 	ctx context.Context,
 	filePath string,
 	name string,
+	vaultPath string,
 ) (*domain.Goal, error) {
+	if isSymlinkOutsideVault(filePath, vaultPath) {
+		return nil, errors.Errorf(ctx, "symlink outside vault: %s", filePath)
+	}
 	content, err := os.ReadFile(filePath) //#nosec G304 -- user-controlled vault path
 	if err != nil {
 		return nil, errors.Wrapf(ctx, err, "read file %s", filePath)
@@ -58,6 +62,9 @@ func (g *goalStorage) readGoalFromPath(
 
 // WriteGoal writes a goal to a markdown file.
 func (g *goalStorage) WriteGoal(ctx context.Context, goal *domain.Goal) error {
+	if isSymlink(goal.FilePath) {
+		return errors.Errorf(ctx, "refusing to write through symlink: %s", goal.FilePath)
+	}
 	content, err := g.serializeMapAsFrontmatter(ctx, goal.RawMap(), string(goal.Content))
 	if err != nil {
 		return errors.Wrap(ctx, err, "serialize frontmatter")
@@ -81,5 +88,5 @@ func (g *goalStorage) FindGoalByName(
 	if err != nil {
 		return nil, errors.Wrap(ctx, err, "find goal file")
 	}
-	return g.readGoalFromPath(ctx, matchedPath, matchedName)
+	return g.readGoalFromPath(ctx, matchedPath, matchedName, vaultPath)
 }

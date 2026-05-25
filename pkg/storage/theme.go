@@ -26,14 +26,19 @@ func (t *themeStorage) ReadTheme(
 	themeID domain.ThemeID,
 ) (*domain.Theme, error) {
 	filePath := filepath.Join(vaultPath, t.config.ThemesDir, themeID.String()+".md")
-	return t.readThemeFromPath(ctx, filePath, themeID.String())
+	return t.readThemeFromPath(ctx, filePath, themeID.String(), vaultPath)
 }
 
+//nolint:dupl // Theme, Objective, Vision have similar storage structure
 func (t *themeStorage) readThemeFromPath(
 	ctx context.Context,
 	filePath string,
 	name string,
+	vaultPath string,
 ) (*domain.Theme, error) {
+	if isSymlinkOutsideVault(filePath, vaultPath) {
+		return nil, errors.Errorf(ctx, "symlink outside vault: %s", filePath)
+	}
 	content, err := os.ReadFile(filePath) //#nosec G304 -- user-controlled vault path
 	if err != nil {
 		return nil, errors.Wrapf(ctx, err, "read file %s", filePath)
@@ -65,11 +70,14 @@ func (t *themeStorage) FindThemeByName(
 	if err != nil {
 		return nil, errors.Wrap(ctx, err, "find theme file")
 	}
-	return t.readThemeFromPath(ctx, matchedPath, matchedName)
+	return t.readThemeFromPath(ctx, matchedPath, matchedName, vaultPath)
 }
 
 // WriteTheme writes a theme to a markdown file.
 func (t *themeStorage) WriteTheme(ctx context.Context, theme *domain.Theme) error {
+	if isSymlink(theme.FilePath) {
+		return errors.Errorf(ctx, "refusing to write through symlink: %s", theme.FilePath)
+	}
 	content, err := t.serializeMapAsFrontmatter(ctx, theme.RawMap(), string(theme.Content))
 	if err != nil {
 		return errors.Wrap(ctx, err, "serialize frontmatter")

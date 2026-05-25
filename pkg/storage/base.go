@@ -151,7 +151,11 @@ func (b *baseStorage) readTaskFromPath(
 	ctx context.Context,
 	filePath string,
 	name string,
+	vaultPath string,
 ) (*domain.Task, error) {
+	if isSymlinkOutsideVault(filePath, vaultPath) {
+		return nil, errors.Errorf(ctx, "symlink outside vault: %s", filePath)
+	}
 	content, err := os.ReadFile(filePath) //#nosec G304 -- user-controlled vault path
 	if err != nil {
 		return nil, errors.Wrap(ctx, err, fmt.Sprintf("read file %s", filePath))
@@ -193,11 +197,15 @@ func (b *baseStorage) isExcluded(vaultPath, path string) bool {
 }
 
 // isSymlinkOutsideVault returns true when path is a symlink resolving outside vaultPath.
+// Returns false for non-symlink files.
 func isSymlinkOutsideVault(path, vaultPath string) bool {
-	resolved, err := filepath.EvalSymlinks(path)
-	if err != nil {
+	// First check if path is actually a symlink
+	info, err := os.Lstat(path)
+	if err != nil || info.Mode()&os.ModeSymlink == 0 {
 		return false
 	}
+
+	// Resolve vault path (handles if vault path itself is a symlink)
 	resolvedVault, err := filepath.EvalSymlinks(vaultPath)
 	if err != nil {
 		return false
@@ -206,9 +214,21 @@ func isSymlinkOutsideVault(path, vaultPath string) bool {
 	if err != nil {
 		return false
 	}
+
+	// Evaluate the symlink target
+	resolved, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		return true // Broken symlink - treat as unsafe
+	}
 	absResolved, err := filepath.Abs(resolved)
 	if err != nil {
-		return false
+		return true
 	}
 	return !strings.HasPrefix(absResolved, absVault)
+}
+
+// isSymlink returns true if the path is a symlink.
+func isSymlink(path string) bool {
+	info, err := os.Lstat(path)
+	return err == nil && info.Mode()&os.ModeSymlink != 0
 }

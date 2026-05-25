@@ -51,7 +51,7 @@ func (p *pageStorage) ListPages(
 		fileName := strings.TrimSuffix(entry.Name(), ".md")
 		filePath := filepath.Join(targetDir, entry.Name())
 
-		task, err := p.readTaskFromPath(ctx, filePath, fileName)
+		task, err := p.readTaskFromPath(ctx, filePath, fileName, vaultPath)
 		if err != nil {
 			// Log error but continue with other tasks
 			slog.Debug("skipping unreadable page", "file", fileName, "error", err)

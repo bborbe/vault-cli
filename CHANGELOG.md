@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## v0.67.5
+
+- fix: Add symlink escape protection to storage implementations (task, goal, theme, objective, vision, daily_note) - isSymlinkOutsideVault now correctly returns false for non-symlink files and true for broken symlinks
+
 ## v0.67.4
 
 - fix: Replace all fmt.Errorf with errors.Wrapf/errors.Errorf in pkg/ops/ files to enable context-enriched error tracing

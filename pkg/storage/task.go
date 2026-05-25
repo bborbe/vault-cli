@@ -82,7 +82,7 @@ func (t *taskStorage) ListTasks(
 	var tasks []*domain.Task
 	err := filepath.WalkDir(tasksDir, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
-			return err
+			return errors.Wrapf(ctx, err, "walk tasks dir")
 		}
 		if d.IsDir() {
 			return nil

@@ -1,10 +1,12 @@
 ---
-status: executing
+status: completed
+summary: Fixed bare return err in walk callbacks across pkg/storage/decision.go, pkg/storage/task.go, pkg/storage/base.go, and pkg/ops/lint.go by wrapping with errors.Wrapf to provide context about which directory was being walked
 container: vault-cli-exec-131-review-vault-cli-fix-bare-return-err
 dark-factory-version: v0.171.1-3-gd94f1fa
 created: "2026-05-24T00:00:00Z"
 queued: "2026-05-25T12:34:04Z"
 started: "2026-05-25T12:34:28Z"
+completed: "2026-05-25T12:36:24Z"
 ---
 
 <summary>

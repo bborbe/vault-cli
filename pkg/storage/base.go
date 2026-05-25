@@ -96,7 +96,7 @@ func (b *baseStorage) findFileByName(
 	var matchedPath, matchedName string
 	err := filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
-			return err
+			return errors.Wrapf(ctx, err, "walk directory")
 		}
 		if d.IsDir() {
 			return nil

@@ -85,7 +85,7 @@ func (l *lintOperation) Execute(
 	var issues []LintIssue
 	err := filepath.Walk(tasksDirPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			return err
+			return errors.Wrapf(ctx, err, "walk %s", tasksDirPath)
 		}
 		if info.IsDir() || !strings.HasSuffix(path, ".md") {
 			return nil

@@ -87,7 +87,7 @@ func (d *decisionStorage) ListDecisions(
 
 	err := filepath.WalkDir(vaultPath, func(path string, de fs.DirEntry, err error) error {
 		if err != nil {
-			return err
+			return errors.Wrapf(ctx, err, "walk vault %s", vaultPath)
 		}
 		if de.IsDir() {
 			if d.isExcluded(vaultPath, path) {

@@ -8,6 +8,11 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## v0.67.0
+
+- add `defer-goal` slash command wrapping `vault-cli goal defer`, mirror of `defer-task` (interactive + `--tool` JSON modes)
+- restrict `defer-goal` and `defer-task` slash commands to their specific `vault-cli` subcommand via `allowed-tools`
+
 ## v0.66.13
 
 - fix(workon): `task work-on` now exits non-zero when claude's headless session returns an actual failure (zero turns, is_error). The "claude binary missing" case still exits 0 with a warning, preserving v0.66.9 behavior. Closes spec 014 AC8 — the verifier confirmed exit 0 on the forced unknown-command repro before this fix.

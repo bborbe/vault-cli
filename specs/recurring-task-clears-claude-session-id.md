@@ -34,6 +34,11 @@ After completing a recurring task, the resulting file has no `claude_session_id`
 2. When `vault-cli task complete` is invoked on a non-recurring task, the `claude_session_id` field is preserved exactly as it was.
 3. The clearing operation removes the key entirely; it does not leave `claude_session_id: ""` or `claude_session_id: null` in the file.
 
+## Assumptions
+
+- `Frontmatter` (or its underlying map) already exposes a way to delete a key — either `Frontmatter.Delete(key)` (confirmed: `pkg/domain/frontmatter_map.go:122`) or a setter that maps to it. If a new `ClearClaudeSessionID()` method is added on `TaskFrontmatter`, it routes through that existing delete primitive — no new storage layer required.
+- Delete-of-absent-key is a no-op in the underlying map and cannot fail (`pkg/domain/frontmatter_map.go:122` — plain `delete(map, key)`).
+
 ## Constraints
 
 - The fix must live inside the existing recurring-task completion path in `pkg/ops/complete.go` (`handleRecurringTask`). No restructuring of the completion flow.
@@ -53,7 +58,7 @@ After completing a recurring task, the resulting file has no `claude_session_id`
 
 - [ ] After `vault-cli task complete` runs on a recurring task whose frontmatter contained `claude_session_id: <uuid>`, reading the file back shows no `claude_session_id` key — evidence: `grep -c '^claude_session_id:' <task-file>` returns `0`.
 - [ ] After `vault-cli task complete` runs on a non-recurring task whose frontmatter contained `claude_session_id: <uuid>`, the same value is still present — evidence: `grep '^claude_session_id:' <task-file>` returns the original line unchanged.
-- [ ] A unit test in `pkg/ops/complete_test.go`, in the existing "recurring daily task" context, asserts that the completed file's frontmatter does not contain the `claude_session_id` key after completion — evidence: `go test ./pkg/ops/ -run <NewTestName>` exits 0; the test fails if the field clearing is removed from `handleRecurringTask`.
+- [ ] Given a recurring task whose frontmatter contains `claude_session_id`, when `handleRecurringTask` completes the file, the resulting frontmatter does not contain that key — evidence: a unit test in `pkg/ops/complete_test.go` (under the existing "recurring daily task" context) exits 0 with `go test ./pkg/ops/ -run <NewTestName>`, AND mutation-test check: removing the clearing call from `handleRecurringTask` makes that test fail.
 - [ ] `make precommit` exits 0 — evidence: exit code.
 
 ## Verification

@@ -189,6 +189,20 @@ var _ = Describe("TaskFrontmatter", func() {
 		})
 	})
 
+	Describe("ClearClaudeSessionID", func() {
+		It("removes the key when set", func() {
+			fm.SetClaudeSessionID("session-uuid")
+			fm.ClearClaudeSessionID()
+			// Get returns nil only for absent keys; "" would mean key present with empty value.
+			Expect(fm.Get("claude_session_id")).To(BeNil())
+		})
+
+		It("is a no-op when the key is absent", func() {
+			Expect(func() { fm.ClearClaudeSessionID() }).NotTo(Panic())
+			Expect(fm.Get("claude_session_id")).To(BeNil())
+		})
+	})
+
 	Describe("DeferDate", func() {
 		It("returns nil for missing key", func() {
 			Expect(fm.DeferDate()).To(BeNil())

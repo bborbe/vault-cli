@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: Clear claude_session_id when completing a recurring task so the next occurrence starts with a fresh session ID
+
 ## v0.67.5
 
 - fix: Add symlink escape protection to storage implementations (task, goal, theme, objective, vision, daily_note) - isSymlinkOutsideVault now correctly returns false for non-symlink files and true for broken symlinks

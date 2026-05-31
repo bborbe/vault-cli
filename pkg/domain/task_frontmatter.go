@@ -199,6 +199,9 @@ func (f *TaskFrontmatter) SetAssignee(v string) { f.Set("assignee", v) }
 // SetClaudeSessionID stores the claude_session_id in the map.
 func (f *TaskFrontmatter) SetClaudeSessionID(v string) { f.Set("claude_session_id", v) }
 
+// ClearClaudeSessionID removes the claude_session_id key from the map.
+func (f *TaskFrontmatter) ClearClaudeSessionID() { f.Delete("claude_session_id") }
+
 // SetRecurring stores the recurring value in the map.
 func (f *TaskFrontmatter) SetRecurring(v string) { f.Set("recurring", v) }
 

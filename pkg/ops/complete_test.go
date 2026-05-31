@@ -273,6 +273,7 @@ status: active
 		BeforeEach(func() {
 			task.SetRecurring("daily")
 			_ = task.SetStatus(domain.TaskStatusInProgress)
+			task.SetClaudeSessionID("test-session-uuid")
 			task.Content = `---
 status: in_progress
 recurring: daily
@@ -295,6 +296,12 @@ recurring: daily
 			Expect(string(writtenTask.Content)).To(ContainSubstring("- [ ] Item 1"))
 			Expect(string(writtenTask.Content)).To(ContainSubstring("- [ ] Item 2"))
 			Expect(string(writtenTask.Content)).NotTo(ContainSubstring("- [x]"))
+		})
+
+		It("clears claude_session_id after completion", func() {
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
+			Expect(writtenTask.Get("claude_session_id")).To(BeNil())
 		})
 
 		It("sets last_completed to today", func() {

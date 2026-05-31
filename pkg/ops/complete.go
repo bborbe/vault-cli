@@ -196,7 +196,10 @@ func (c *completeOperation) handleRecurringTask(
 		task.SetPlannedDate(nil)
 	}
 
-	// 5. Status remains as-is (do NOT set to completed)
+	// 5. Clear claude_session_id so next occurrence starts fresh
+	task.ClearClaudeSessionID()
+
+	// 6. Status remains as-is (do NOT set to completed)
 
 	// Write updated task
 	if err := c.taskStorage.WriteTask(ctx, task); err != nil {

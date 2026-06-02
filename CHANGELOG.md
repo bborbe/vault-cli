@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## v0.67.7
+
+- doc: sync-progress always posts Jira progress comment when ticket exists (was optional); adds 404 fallback and 1-hour dedup rule
+
 ## v0.67.6
 
 - fix: Clear claude_session_id when completing a recurring task so the next occurrence starts with a fresh session ID

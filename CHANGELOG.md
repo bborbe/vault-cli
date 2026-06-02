@@ -8,6 +8,11 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat: add `/vault-cli:refine-task` slash command — conversationally refines task substance (DoD, scope, subtasks, goal alignment) by invoking `task-auditor`, surfacing findings as numbered questions, applying edits, and re-auditing until score ≥ 8
+- doc: cross-ref `/vault-cli:refine-task` from `work-on-task` and `create-task` so the refinement step is discoverable in the task lifecycle
+
 ## v0.67.7
 
 - doc: sync-progress always posts Jira progress comment when ticket exists (was optional); adds 404 fallback and 1-hour dedup rule

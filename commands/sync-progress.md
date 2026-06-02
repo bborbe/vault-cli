@@ -118,11 +118,12 @@ Never invent PR URLs — only record ones that appear verbatim in conversation/t
 Detect Jira ticket refs in conversation: `[A-Z]+-\d+`.
 
 For each detected ticket:
-1. `mcp__atlassian__getJiraIssue(cloudId=JIRA_CLOUD_ID, issueIdOrKey=<key>)` → current status
-2. If conversation indicates completion AND ticket status != Done:
+1. `mcp__atlassian__getJiraIssue(cloudId=JIRA_CLOUD_ID, issueIdOrKey=<key>)` → current status. If the ticket does not exist (404 / not accessible) → skip silently.
+2. **Always** post a progress comment via `addCommentToJiraIssue(...)`. Same content as Phase 3.1's daily-note section (summary + key results + decisions + PR links), as Jira markdown. Deduplicate: if the last comment on the ticket already contains the same headline summary and a timestamp within the last hour, skip — avoids double-posting on re-runs of `/vault-cli:sync-progress`.
+3. If conversation indicates completion AND ticket status != Done:
    - `getTransitionsForJiraIssue(...)` → find "Done" (case-insensitive)
    - `transitionJiraIssue(...)` → transition
-   - Optionally `addCommentToJiraIssue(...)` with the summary
+   - The comment from step 2 stands as the completion record — no second comment needed.
 
 If JIRA_MCP_AVAILABLE is false: skip silently.
 

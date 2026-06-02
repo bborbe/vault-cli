@@ -154,6 +154,7 @@ claude plugin update vault-cli@vault-cli
 | `/vault-cli:task-status` | Show task progress and next step |
 | `/vault-cli:verify-task` | Quick task validation (status, goals, DoD) |
 | `/vault-cli:audit-task` | Full task audit against Task Writing Guide |
+| `/vault-cli:refine-task` | Conversationally refine a task's substance (DoD, scope, subtasks, goal alignment) |
 | `/vault-cli:verify-goal` | Quick goal validation (status, subtasks) |
 | `/vault-cli:audit-goal` | Full goal audit against Goal Writing Guide |
 | `/vault-cli:verify-theme` | Quick theme validation (structure, sections) |

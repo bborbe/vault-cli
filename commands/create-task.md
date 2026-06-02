@@ -12,3 +12,5 @@ Parse `$ARGUMENTS`:
 - Remaining text → task description / title
 
 Pass the parsed arguments to the task-creator agent.
+
+After the first draft lands, consider `/vault-cli:refine-task <name>` to sharpen substance (DoD, subtasks, scope, goal alignment) before starting work.

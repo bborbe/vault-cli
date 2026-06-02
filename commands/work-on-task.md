@@ -47,6 +47,8 @@ Task-first workflow:
 3. Start work
 4. `/vault-cli:sync-progress` → log progress when done
 
+**If the task isn't ready** (unclear DoD, vague subtasks, scope creep, goal-orphan): run `/vault-cli:refine-task <id>` first. `work-on-task` is content-agnostic by design — it sets status and finds guides, it does not question your task content. `refine-task` is the dedicated tool for sharpening substance.
+
 ## Notes
 
 - No hardcoded Jira hostname, project key, or vault path — everything detected at runtime

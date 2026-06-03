@@ -8,6 +8,14 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## v0.68.1
+
+- bump Go 1.26.3 → 1.26.4
+- bump bborbe/* deps (collection, time, validation, run)
+- bump golang.org/x deps (net, sys, text)
+- bump ginkgo/v2 v2.29.0 and gomega v1.41.0
+- exclude cloud.google.com/go v0.26.0
+
 ## v0.68.0
 
 - feat: add `/vault-cli:refine-task` slash command — conversationally refines task substance (DoD, scope, subtasks, goal alignment) by invoking `task-auditor`, surfacing findings as numbered questions, applying edits, and re-auditing until score ≥ 8

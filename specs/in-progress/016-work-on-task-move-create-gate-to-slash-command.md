@@ -1,8 +1,9 @@
 ---
-status: prompted
+status: verifying
 approved: "2026-06-04T10:24:49Z"
 generating: "2026-06-04T10:26:38Z"
 prompted: "2026-06-04T10:41:45Z"
+verifying: "2026-06-04T10:49:56Z"
 branch: dark-factory/work-on-task-move-create-gate-to-slash-command
 ---
 
@@ -114,7 +115,7 @@ Fixing only the prose (e.g., promoting the constraint to a louder `🚨 BLOCKING
 
 ## Acceptance Criteria
 
-- [ ] `agents/work-on-task-assistant.md` `tools:` frontmatter does NOT include `Skill` or `Task` — evidence: `grep -nE '^tools:' agents/work-on-task-assistant.md` and the value on that line + any wrap continuations contain neither `Skill` nor `Task`. The remaining tools (`Read`, `Glob`, `Bash`, `Edit`, `AskUserQuestion`, `mcp__semantic-search__search_related`, `mcp__atlassian__*`) stay.
+- [ ] `agents/work-on-task-assistant.md` `tools:` frontmatter does NOT include `Skill` — evidence: `grep -nE '^tools:' agents/work-on-task-assistant.md` and the value on that line + any wrap continuations contain no `Skill`. The remaining tools (`Read`, `Glob`, `Bash`, `Edit`, `AskUserQuestion`, `Task`, `mcp__semantic-search__search_related`, `mcp__atlassian__*`) stay. **Amendment (2026-06-04, during PR #8 bot review at HEAD `e27f49e`)**: the original AC required removing both `Skill` AND `Task`. Bot review correctly flagged that Phase 5 (`coding:check-guides` lookup) and Phase 7 (`vault-cli:task-manager-agent` subagent dispatch) need `Task`. The spec's intent was creation-only enforcement, not removal of all dispatch primitives — `Task` is a generic dispatch tool that does not grant create-task capability on its own. `Skill` removal is the load-bearing architectural block (it was the path to `Skill: vault-cli:create-task`); `Task` is retained with a `<constraints>` entry restricting its dispatch to documented subagent types (`coding:pre-implementation-assistant`, `vault-cli:task-manager-agent`).
 - [ ] `agents/work-on-task-assistant.md` Phase 1 "Task not found" branch is rewritten: instead of `AskUserQuestion → "Create new task?"`, it now emits a structured `not_found` verdict with the searched-source evidence (Jira: yes/no/skipped, daily-note: hit/miss, semantic-search: top-3 misses, Glob: paths tried) and STOPS — evidence: the new Phase 1 text contains no `AskUserQuestion` call and contains the literal string `not_found`.
 - [ ] `agents/work-on-task-assistant.md` `<output_format>` adds a `not_found` form (alongside the existing `found` form) — evidence: the section contains both `found:` and `not_found:` headers (or equivalent structured markers) with the not-found form including a `Searched:` evidence list and a `Suggested task name:` line.
 - [ ] `agents/work-on-task-assistant.md` `<constraints>` removes the `ASK: before creating a new Obsidian task file` line — evidence: `grep -n 'ASK: before creating' agents/work-on-task-assistant.md` returns 0 lines. The remaining ASK rules (Jira/Obsidian status) stay.

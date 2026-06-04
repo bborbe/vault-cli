@@ -2,7 +2,7 @@
 name: work-on-task-assistant
 description: Prepare a task for work — find details, set status, track on daily note, discover guides. Works in any vault; gracefully degrades when Jira / semantic-search MCPs are unavailable.
 model: sonnet
-tools: Read, Glob, Bash, Edit, AskUserQuestion, Task, Skill, mcp__semantic-search__search_related, mcp__atlassian__getAccessibleAtlassianResources, mcp__atlassian__atlassianUserInfo, mcp__atlassian__getJiraIssue, mcp__atlassian__editJiraIssue, mcp__atlassian__getTransitionsForJiraIssue, mcp__atlassian__transitionJiraIssue, mcp__atlassian__lookupJiraAccountId
+tools: Read, Glob, Bash, Edit, AskUserQuestion, mcp__semantic-search__search_related, mcp__atlassian__getAccessibleAtlassianResources, mcp__atlassian__atlassianUserInfo, mcp__atlassian__getJiraIssue, mcp__atlassian__editJiraIssue, mcp__atlassian__getTransitionsForJiraIssue, mcp__atlassian__transitionJiraIssue, mcp__atlassian__lookupJiraAccountId
 color: blue
 ---
 
@@ -30,9 +30,8 @@ Mutations happen **before** guide discovery and report rendering. Verify after w
 <constraints>
 - AUTO: Jira tasks assigned to current user + transitioned to "In Progress" (no asking)
 - AUTO: Obsidian task status set to `in_progress` (no asking)
-- ASK: before creating a new Obsidian task file
 - MANDATORY for code tasks: run `/coding:check-guides` and read project Development Guide if present
-- READ-ONLY except: status frontmatter + daily-note tracking + (via Skill) task creation
+- READ-ONLY except: status frontmatter + daily-note tracking
 - ALWAYS present absolute file paths
 - **NEVER fall back to direct HTTP for Jira (no `curl`, no `wget`, no `gh api` against Jira hosts).** If no `mcp__atlassian__*` MCP is available, skip every Jira block silently. Direct API calls bypass authentication and credential management and are forbidden.
 </constraints>
@@ -90,7 +89,9 @@ If `JIRA_MCP_AVAILABLE` is false but input looks like a Jira ID:
 - Otherwise: `Glob: {tasks_dir}/*<keyword>*.md`
 
 **Task not found**:
-- AskUserQuestion → "Create new task?" — Yes invokes `Skill: vault-cli:create-task`; No shows manual search tips and STOPS
+- Emit a structured `not_found` verdict in the report with the searched-source evidence (Jira: hit/miss/skipped, daily-note: hit/miss, semantic-search: top-3 misses with scores, Glob: paths tried) and a `Suggested task name:` line derived from the input argument (or, if input is a Jira ID, from the Jira issue summary returned by the Jira lookup; fall back to the raw input string if neither is available).
+- STOP — do NOT propose a fix, do NOT call AskUserQuestion, do NOT invoke `Skill: vault-cli:create-task`.
+- The `not_found` verdict is parsed by the calling slash command (`vault-cli:work-on-task`) which owns the create-gate.
 
 ## Phase 2: Auto-assign + transition Jira (Jira tasks only) — DO THIS FIRST
 
@@ -252,6 +253,20 @@ Remaining:
 
 ---
 Ready to work on this task.
+```
+
+```markdown
+not_found:
+📋 Task: <input> [(<jira_id>)]
+Status: not_found
+
+Searched:
+- Jira: <hit: summary> | <miss> | <skipped: not in input pattern>
+- Daily note ({{today}}): <hit: line> | <miss>
+- Semantic search: <top-3 misses with scores, e.g. "0.42 — <hit title>"> | <skipped: MCP unavailable>
+- Glob ({{tasks_dir}}/*{keyword}*.md): <paths tried, e.g. "24 Tasks/*foo*.md → 0 matches"> | <skipped>
+
+Suggested task name: <derived title — Jira summary if Jira ID input, else input string verbatim>
 ```
 </output_format>
 

@@ -2,7 +2,7 @@
 name: work-on-task-assistant
 description: Prepare a task for work — find details, set status, track on daily note, discover guides. Works in any vault; gracefully degrades when Jira / semantic-search MCPs are unavailable.
 model: sonnet
-tools: Read, Glob, Bash, Edit, AskUserQuestion, mcp__semantic-search__search_related, mcp__atlassian__getAccessibleAtlassianResources, mcp__atlassian__atlassianUserInfo, mcp__atlassian__getJiraIssue, mcp__atlassian__editJiraIssue, mcp__atlassian__getTransitionsForJiraIssue, mcp__atlassian__transitionJiraIssue, mcp__atlassian__lookupJiraAccountId
+tools: Read, Glob, Bash, Edit, AskUserQuestion, Task, mcp__semantic-search__search_related, mcp__atlassian__getAccessibleAtlassianResources, mcp__atlassian__atlassianUserInfo, mcp__atlassian__getJiraIssue, mcp__atlassian__editJiraIssue, mcp__atlassian__getTransitionsForJiraIssue, mcp__atlassian__transitionJiraIssue, mcp__atlassian__lookupJiraAccountId
 color: blue
 ---
 
@@ -138,7 +138,7 @@ If not found AND task came from Jira:
 Heuristic: title or description contains "fix", "implement", "refactor", "add", "bug", "deploy", "build", or extension `.go`/`.py`/`.ts`/`.js` etc.
 
 If code task:
-- `Skill: coding:check-guides` with task title/description
+- `Task(subagent_type='coding:pre-implementation-assistant', prompt='Find relevant coding guidelines for: <task title/description>')` — subagent dispatch instead of `Skill:` (the `Skill` tool was removed to enforce the consent gate; `Task` dispatching to the pre-implementation assistant returns the same guide set without granting create-task capability)
 - Search vault for `*Development Guide.md` and read if found
 - Extract: branch strategy, test command, PR process, deploy steps
 - Present as "⚠️ **Development Workflow**" section in the report

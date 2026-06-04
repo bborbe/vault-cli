@@ -75,3 +75,15 @@ go test ./pkg/ops/ -run TestComplete -v
 ## Do-Nothing Option
 
 Leaving this bug in place means every recurring task that ever had a `workon` invocation will keep reporting that stale session ID forever (or until the next `workon` overwrites it). Any consumer that reads `claude_session_id` to attribute work to a session gets wrong data. The cost to fix is tiny (one method, one call, one test); the cost to leave is ongoing data corruption. Not acceptable.
+
+## Verification Result
+
+**Verified:** 2026-06-04T14:42:40Z (HEAD f7ee1c6)
+**Binary:** /tmp/vault-cli-015 (built from HEAD, `vault-cli version dev`)
+**Scenario:** Built CLI from master, created isolated test vault with two tasks each carrying `claude_session_id`, ran `vault-cli task complete` on both, inspected resulting frontmatter; ran focused Ginkgo test + mutation check; ran `make precommit`.
+**Evidence:**
+- AC1: `grep -c '^claude_session_id:' "$VAULT/24 Tasks/Recurring Test Task.md"` → `0`; rewritten frontmatter shows no key (not `""`, not `null`).
+- AC2: `grep '^claude_session_id:' "$VAULT/24 Tasks/NonRecurring Test Task.md"` → `claude_session_id: aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee` (unchanged).
+- AC3: `go test ./pkg/ops/ -ginkgo.focus="clears claude_session_id"` → `1 Passed | 0 Failed`. Mutation: commenting out `task.ClearClaudeSessionID()` at `pkg/ops/complete.go:200` → `1 Failed` (call is load-bearing).
+- AC4: `make precommit` → `ready to commit`, exit 0.
+**Verdict:** PASS

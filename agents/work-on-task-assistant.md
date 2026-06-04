@@ -191,6 +191,8 @@ When the task description, a related log entry, or any retrieved file references
 
 **Verification gate — runs before rendering the report. Do NOT skip.**
 
+**Carve-out for `not_found`**: if Phase 1 emitted a `not_found` verdict, Phase 8 is a no-op — the `not_found` verdict IS the report, no mutations occurred to verify, and the agent STOPs without emitting "Ready to work on this task." (which is the found-case marker, not a universal one). Skip every assertion below in this case.
+
 If `JIRA_MCP_AVAILABLE` AND input was a Jira ID:
 1. Re-fetch the issue: `mcp__atlassian__getJiraIssue(cloudId={JIRA_CLOUD_ID}, issueIdOrKey={key}, fields=["status","assignee"])`
 2. Assert `status.name == "In Progress"` AND `assignee.accountId == current_user_account_id`

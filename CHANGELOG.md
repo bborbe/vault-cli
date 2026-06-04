@@ -8,6 +8,11 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat: Move task-creation consent gate from `vault-cli:work-on-task-assistant` to `vault-cli:work-on-task` slash command — agent loses `Skill` and `Task` tools, emits a structured `not_found` verdict when the requested task is missing; slash command parses the verdict, asks the user via `AskUserQuestion`, and on `Yes` routes to `Skill: vault-cli:create-task` before re-invoking the agent
+- feat: Add `not_found` form to `vault-cli:work-on-task-assistant` `<output_format>` so the slash command can parse the absence case (searched-source evidence + suggested task name)
+
 ## v0.68.1
 
 - bump Go 1.26.3 → 1.26.4

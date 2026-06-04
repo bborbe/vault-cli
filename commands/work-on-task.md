@@ -41,9 +41,9 @@ Output ends with `Ready to work on this task.`
 
 ## Phase 4 — Handle not_found
 
-The agent (Phase 2 of this command) emits a structured `not_found` verdict when the requested task cannot be found in any source. This phase parses that verdict and asks the user before any file is created.
+The agent (dispatched in `## Process` step 2) emits a structured `not_found` verdict from its own Phase 1 (`Find task`) when the requested task cannot be found in any source. This phase parses that verdict and asks the user before any file is created.
 
-1. **Parse the agent's report** for the `not_found:` marker AND capture the verdict body into variables. The agent's `<output_format>` produces a fenced markdown block with the literal `not_found:` header on its own line — match on that token, then extract:
+1. **Parse the agent's report** for the `not_found:` marker AND capture the verdict body into variables. The agent's `<output_format>` defines two separate fenced markdown blocks — one for the `found` case (ends with `Ready to work on this task.`) and one for the `not_found:` case (literal `not_found:` header on its own line). Look for the `not_found:` block specifically; if the report ends with `Ready to work on this task.` and contains no `not_found:` block, Phase 4 is a no-op and you are done. When the `not_found:` block IS present, match on the `not_found:` token, then extract:
    - `SEARCHED_BLOCK` — the bullet list under the `Searched:` line (verbatim, line-by-line, until the next blank line or `Suggested task name:` line)
    - `SUGGESTED_NAME` — the value after `Suggested task name:` (verbatim, trimmed)
 2. **Use `SUGGESTED_NAME` as the seed.** (If the input was a Jira ID and the Jira lookup returned a summary, the agent supplied that summary; otherwise the agent supplied the input string verbatim. Either way, `SUGGESTED_NAME` is what you pass on.)

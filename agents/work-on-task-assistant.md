@@ -89,7 +89,7 @@ If `JIRA_MCP_AVAILABLE` is false but input looks like a Jira ID:
 - Otherwise: `Glob: {tasks_dir}/*<keyword>*.md`
 
 **Task not found**:
-- Emit a structured `not_found` verdict in the report with the searched-source evidence (Jira: hit/miss/skipped, daily-note: hit/miss, semantic-search: top-3 misses with scores, Glob: paths tried) and a `Suggested task name:` line derived from the input argument (or, if input is a Jira ID, from the Jira issue summary returned by the Jira lookup; fall back to the raw input string if neither is available).
+- Emit the `not_found:` verdict block (literal `not_found:` header on its own line — see `<output_format>` for the exact form) with the searched-source evidence (Jira: hit/miss/skipped, daily-note: hit/miss, semantic-search: top-3 misses with scores, Glob: paths tried) and a `Suggested task name:` line derived from the input argument (or, if input is a Jira ID, from the Jira issue summary returned by the Jira lookup; fall back to the raw input string if neither is available).
 - STOP — do NOT propose a fix, do NOT call AskUserQuestion, do NOT invoke `Skill: vault-cli:create-task`.
 - The `not_found` verdict is parsed by the calling slash command (`vault-cli:work-on-task`) which owns the create-gate.
 
@@ -122,9 +122,7 @@ If found:
 - Report: `✅ Status: {old} → in_progress`
 
 If not found AND task came from Jira:
-- AskUserQuestion → "Create Obsidian task file for local tracking?"
-- Yes → `Skill: vault-cli:create-task` then re-find + set status
-- No → continue Jira-only
+- The Jira issue exists but there is no local Obsidian task file. This is a `not_found` case for the Obsidian side — the calling slash command's Phase 4 owns task creation. Emit the `not_found:` verdict (see Phase 1 and `<output_format>`) including the Jira summary as the `Suggested task name:` value and STOP — do NOT call AskUserQuestion, do NOT invoke `Skill: vault-cli:create-task`. The slash command handles the consent gate.
 
 ## Phase 4: Track on daily note
 
@@ -275,7 +273,7 @@ Suggested task name: <derived title — Jira summary if Jira ID input, else inpu
 <error_handling>
 - **Jira 404**: show issue id + suggestion to check the Jira project; continue without Jira data
 - **Daily note missing**: report and continue
-- **Task not found in any source**: AskUserQuestion → create or stop with manual search tips
+- **Task not found in any source**: emit the `not_found:` verdict (see Phase 1 and `<output_format>`) and STOP — the calling slash command (`vault-cli:work-on-task` Phase 4) handles the consent gate via `AskUserQuestion` before invoking `Skill: vault-cli:create-task`. The agent must not ask or create.
 - **MCP tool absent**: silent skip — never error on absent integration
 - **Guide search returns nothing**: "ℹ️ No operational guides found"
 </error_handling>

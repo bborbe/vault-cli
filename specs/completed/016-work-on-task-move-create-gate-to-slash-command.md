@@ -1,9 +1,10 @@
 ---
-status: verifying
+status: completed
 approved: "2026-06-04T10:24:49Z"
 generating: "2026-06-04T10:26:38Z"
 prompted: "2026-06-04T10:41:45Z"
 verifying: "2026-06-04T10:49:56Z"
+completed: "2026-06-04T14:19:27Z"
 branch: dark-factory/work-on-task-move-create-gate-to-slash-command
 ---
 

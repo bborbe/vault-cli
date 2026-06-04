@@ -43,26 +43,28 @@ Output ends with `Ready to work on this task.`
 
 The agent (Phase 2 of this command) emits a structured `not_found` verdict when the requested task cannot be found in any source. This phase parses that verdict and asks the user before any file is created.
 
-1. **Parse the agent's report** for the `not_found:` marker. The agent's `<output_format>` produces a fenced markdown block with the literal `not_found:` header on its own line — match on that token.
-2. **Derive a suggested task name.** The agent's verdict includes a `Suggested task name:` line — use that value verbatim as the seed for the create step. (If the input was a Jira ID and the Jira lookup returned a summary, the agent supplies that summary; otherwise the agent supplies the input string verbatim.)
+1. **Parse the agent's report** for the `not_found:` marker AND capture the verdict body into variables. The agent's `<output_format>` produces a fenced markdown block with the literal `not_found:` header on its own line — match on that token, then extract:
+   - `SEARCHED_BLOCK` — the bullet list under the `Searched:` line (verbatim, line-by-line, until the next blank line or `Suggested task name:` line)
+   - `SUGGESTED_NAME` — the value after `Suggested task name:` (verbatim, trimmed)
+2. **Use `SUGGESTED_NAME` as the seed.** (If the input was a Jira ID and the Jira lookup returned a summary, the agent supplied that summary; otherwise the agent supplied the input string verbatim. Either way, `SUGGESTED_NAME` is what you pass on.)
 3. **Ask the user via `AskUserQuestion`** with the `vault-cli` main-session UX channel:
    - `header`: `Create new task?`
-   - `question`: `Create new Obsidian task "<suggested name>"?`
-   - `options`: two entries — `Yes, create it` (description: `Run vault-cli:create-task with "<suggested name>" as the seed title, then re-invoke work-on-task-assistant`) and `No, stop here` (description: `Print manual search tips and stop — no task is created`)
-4. **On `Yes, create it`**: invoke `Skill: vault-cli:create-task "<suggested name>"` (use the same argument form as `commands/create-task.md` — pass the suggested name as a quoted argument). The create-task skill has its own interactive flow that asks for parent goal, priority, category, defer date, etc. — do not duplicate those asks.
+   - `question`: `Create new Obsidian task "<SUGGESTED_NAME>"?` (substitute the captured value)
+   - `options`: two entries — `Yes, create it` (description: `Run vault-cli:create-task with "<SUGGESTED_NAME>" as the seed title, then re-invoke work-on-task-assistant`) and `No, stop here` (description: `Print manual search tips and stop — no task is created`)
+4. **On `Yes, create it`**: invoke `Skill: vault-cli:create-task "<SUGGESTED_NAME>"` (use the same argument form as `commands/create-task.md` — pass the captured suggested name as a quoted argument). The create-task skill has its own interactive flow that asks for parent goal, priority, category, defer date, etc. — do not duplicate those asks.
 5. **On create success** (create-task skill returns the new task file path or reports success): re-invoke `Task tool with subagent_type: 'vault-cli:work-on-task-assistant' prompt: 'Find details and guides for: <new task title>'` — same form as the Phase 2 invocation, but with the new task title. The agent's standard Phase 2–8 prep mutations then run against the just-created task.
-6. **On `No, stop here`**: print the manual search tips and STOP. The manual search tips are:
+6. **On create failure or user cancel inside `vault-cli:create-task`** (the skill returns a non-success status, errors out, or the user aborts midway through its interactive prompts): print `❌ Task creation failed or was cancelled. No task created; no follow-up invocation.` and STOP — do NOT re-invoke `vault-cli:work-on-task-assistant`, do NOT retry the create.
+7. **On `No, stop here`**: print the manual search tips and STOP. Substitute `SEARCHED_BLOCK` (captured in step 1) where indicated; resolve `{daily_dir}` from `vault-cli config list --output json` for the active vault before printing:
    ```
    ❌ Task not found: "<input>"
 
    Searched:
-   - <echo the Searched: section from the agent's verdict>
-   - <echo the Glob paths tried>
+   <SEARCHED_BLOCK>
 
    Manual search tips:
    - Check the active vault's tasks dir (`vault-cli config list` → `tasks_dir`)
    - Grep across vaults: `grep -rln "<keyword>" ~/Documents/Obsidian/`
-   - Check today's daily note (`{daily_dir}/YYYY-MM-DD.md`)
+   - Check today's daily note (`<resolved daily_dir>/YYYY-MM-DD.md`)
    - If input looked like a Jira ID, confirm the issue exists in the Atlassian project
 
    No task was created.

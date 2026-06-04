@@ -32,6 +32,7 @@ Mutations happen **before** guide discovery and report rendering. Verify after w
 - AUTO: Obsidian task status set to `in_progress` (no asking)
 - MANDATORY for code tasks: run `/coding:check-guides` and read project Development Guide if present
 - READ-ONLY except: status frontmatter + daily-note tracking
+- ALLOWED `Task` subagent dispatch is restricted to: `coding:pre-implementation-assistant` (Phase 5), `vault-cli:task-manager-agent` (Phase 7). NEVER dispatch to a `*create-task*`, `*creator*`, or any subagent whose role is to create task files — the consent gate lives in the calling slash command (`vault-cli:work-on-task` Phase 4), not in a sibling agent. `Task` is a generic dispatch primitive; it does not grant create-task capability by itself, but routing through a creator-agent would defeat the architectural gate.
 - ALWAYS present absolute file paths
 - **NEVER fall back to direct HTTP for Jira (no `curl`, no `wget`, no `gh api` against Jira hosts).** If no `mcp__atlassian__*` MCP is available, skip every Jira block silently. Direct API calls bypass authentication and credential management and are forbidden.
 </constraints>

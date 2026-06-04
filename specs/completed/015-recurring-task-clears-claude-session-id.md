@@ -1,11 +1,12 @@
 ---
-status: prompted
+status: completed
 tags:
     - dark-factory
     - spec
 approved: "2026-05-31T11:46:15Z"
 generating: "2026-05-31T11:46:53Z"
 prompted: "2026-05-31T11:49:02Z"
+completed: "2026-06-04T14:45:45Z"
 branch: dark-factory/recurring-task-clears-claude-session-id
 ---
 

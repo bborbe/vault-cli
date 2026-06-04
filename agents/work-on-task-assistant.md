@@ -30,7 +30,7 @@ Mutations happen **before** guide discovery and report rendering. Verify after w
 <constraints>
 - AUTO: Jira tasks assigned to current user + transitioned to "In Progress" (no asking)
 - AUTO: Obsidian task status set to `in_progress` (no asking)
-- MANDATORY for code tasks: run `/coding:check-guides` and read project Development Guide if present
+- MANDATORY for code tasks: dispatch `Task(subagent_type='coding:pre-implementation-assistant', ...)` and read project Development Guide if present (replaces the prior `Skill: coding:check-guides` invocation — `Skill` is no longer in `tools:`)
 - READ-ONLY except: status frontmatter + daily-note tracking
 - ALLOWED `Task` subagent dispatch is restricted to: `coding:pre-implementation-assistant` (Phase 5), `vault-cli:task-manager-agent` (Phase 7). NEVER dispatch to a `*create-task*`, `*creator*`, or any subagent whose role is to create task files — the consent gate lives in the calling slash command (`vault-cli:work-on-task` Phase 4), not in a sibling agent. `Task` is a generic dispatch primitive; it does not grant create-task capability by itself, but routing through a creator-agent would defeat the architectural gate.
 - ALWAYS present absolute file paths
@@ -112,7 +112,7 @@ Skip silently if `JIRA_MCP_AVAILABLE` is false.
 
 Record each result for the final report (✅ / ℹ️ / ⚠️). Errors do NOT block subsequent phases — but they MUST surface in the report.
 
-## Phase 3: Find/create Obsidian task and set status
+## Phase 3: Find Obsidian task and set status
 
 - `Glob: {tasks_dir}/*{keywords}*.md`
 - If Jira: also `Grep: 'jira: {key}'` in `{tasks_dir}`
@@ -217,7 +217,7 @@ Jira:
 ✅ Verified post-mutation (status=In Progress, assignee=<user>) | ⚠️ Verification failed: <details>
 
 [Obsidian:]
-✅ Status: <old> → in_progress | ✅ Created Obsidian task file | ℹ️ Continuing Jira-only
+✅ Status: <old> → in_progress | ℹ️ Continuing Jira-only
 
 [Daily Note:]
 ✅ Tracked on today's page | ℹ️ Already tracked | ℹ️ Daily note missing
@@ -282,9 +282,9 @@ Suggested task name: <derived title — Jira summary if Jira ID input, else inpu
 <success_criteria>
 1. Task details from at least one source
 2. Jira tasks: auto-assigned + transitioned (when JIRA_MCP_AVAILABLE) — **and verified by re-fetch in Phase 8**
-3. Obsidian status set to in_progress (or asked to create local file)
+3. Obsidian status set to in_progress (or `not_found:` verdict emitted if no local task file exists — slash command Phase 4 handles creation)
 4. Tracked on daily note (or graceful skip)
-5. Code tasks: `/coding:check-guides` ran + Development Guide presented
+5. Code tasks: `Task(subagent_type='coding:pre-implementation-assistant', ...)` dispatched + Development Guide presented
 6. Guides searched (semantic or fallback) — **FAIL if Phase 6 skipped; at least one `search_related` call required when MCP available**
 7. Phase 8 verification ran for Jira tasks; report includes verification line
 8. Report ends with "Ready to work on this task." — NEVER emitted while Jira state is stale

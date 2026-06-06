@@ -1,26 +1,39 @@
 ---
 description: Validate that a task has Success Criteria and the subtasks needed to reach its goal; conversationally fill gaps; on phase=planning, transition to execution.
-argument-hint: <task-file-path-or-name>
+argument-hint: <task-file-path-or-name> (or detects from conversation)
 allowed-tools: [Task, Read, Edit, Glob, Bash, AskUserQuestion]
 ---
 
 Drive a task to *execution-ready* through conversation. Checks that the task has Success Criteria defined and subtasks that lead from now to the goal. Runs `task-auditor` for findings, asks targeted questions, applies answers, loops until ready. On a task in `phase: planning`, flips to `phase: execution` as the final step.
+
+This command **must stay inline** — it analyzes the parent conversation when no argument is given; a sub-agent cannot see the conversation.
 
 ## When to use
 
 Right after `/vault-cli:create-task` (capture lenient → plan strict), or any time a task feels incomplete. Replaces `/vault-cli:refine-task` — same workflow plus a phase-aware tail.
 
 ```bash
+/vault-cli:plan-task                              # detects from conversation (e.g. just after /create-task)
 /vault-cli:plan-task "Some Task Name"
 /vault-cli:plan-task 24\ Tasks/Some\ Task.md
 ```
 
 ## Process
 
-### 1. Validate + resolve
+### 1. Resolve task path
 
-- No argument → `❌ Pass a task identifier or name.` STOP.
-- Resolve to file path (vault-cli config respected): exact path, else `Glob 24 Tasks/*<arg>*.md`. Multiple → list and STOP. Zero → STOP.
+**With argument:** exact path if path-like, else `Glob` `<tasks_dir>/*<arg>*.md` (vault-cli config respected). Multiple matches → list and STOP. Zero → STOP.
+
+**Without argument — detect from conversation** (in priority order):
+
+1. **Most recent `/create-task` output** — scan the parent conversation for `/vault-cli:create-task "<name>"` (with or without slash) or its result line (`✅ Created task: <name>` / file-path output). If found and unambiguous, use that name.
+2. **Most recent `[[Task Name]]` wikilink** referenced in the conversation as a task subject (not as a generic mention in prose). Match against `<tasks_dir>/`.
+3. **Daily note's first `[/]` checkbox** — `{daily_dir}/YYYY-MM-DD.md`; the first item marked `[/]` (in-progress) is the active task.
+4. **Most recently modified file in `<tasks_dir>/`** — final fallback.
+
+Resolve the detected name via `Glob` same as the with-argument path. Multiple matches → list candidates and ask owner via `AskUserQuestion` (single-question, short options). Zero → `❌ No task detected. Pass a task identifier or name.` STOP.
+
+When detection succeeds without explicit argument, print the resolved task name on first line of output (`Detected task: <name>`) so the owner can interrupt if wrong before any state mutation.
 
 ### 2. Read status + phase
 

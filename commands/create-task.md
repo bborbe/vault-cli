@@ -13,4 +13,4 @@ Parse `$ARGUMENTS`:
 
 Pass the parsed arguments to the task-creator agent.
 
-After the first draft lands, consider `/vault-cli:refine-task <name>` to sharpen substance (DoD, subtasks, scope, goal alignment) before starting work.
+After the first draft lands, run `/vault-cli:plan-task` (no argument needed — detects from this conversation) to validate Success Criteria + subtasks, fill any gaps, and transition the task to `phase: execution`.

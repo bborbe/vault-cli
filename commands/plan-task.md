@@ -44,9 +44,11 @@ vault-cli task get "<name>" phase --output json
 
 ### 3. Entry contract — flip if needed
 
-- `status` in `next`/`todo`/`backlog` → `vault-cli task set "<name>" status in_progress`
-- `phase` is `todo`/empty → `vault-cli task set "<name>" phase planning`
-- Already past planning → continue without flip; step 7 will skip the phase transition.
+The goal is to land at `status: in_progress, phase: planning` for fresh tasks; respect a deliberate post-planning phase setting.
+
+- `status` in `next`/`todo`/`backlog` → flip status AND phase together: `vault-cli task set "<name>" status in_progress` + `vault-cli task set "<name>" phase planning` (if phase is empty/`todo`/`planning`). Skip the phase flip if phase is `execution` / `ai_review` / `human_review` / `done` (treat as deliberate — sharpen but don't move phase backward).
+- `status` already `in_progress` and `phase` is `todo`/empty → `vault-cli task set "<name>" phase planning`
+- `status` already `in_progress` and `phase` is past planning → continue without flip; step 7 will skip the phase transition.
 
 ### 4. Run task-auditor
 

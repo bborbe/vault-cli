@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## v0.70.1
+
+- bump version
+
 ## v0.70.0
 
 - feat: Rename `/vault-cli:refine-task` → `/vault-cli:plan-task`. Plan-task is phase-aware: validates Success Criteria and subtask coverage via `task-auditor`, drives a conversational fix loop, and on `phase: planning` flips the task to `phase: execution` after the auditor passes (score ≥ 8). Entry contract: on `status: next, phase: todo`, plan-task flips to `in_progress, planning` itself — no `/work-on-task` prerequisite. Hard rename; the legacy `refine-task` command is removed (low-callsite, owner-confirmed migration cost was zero).

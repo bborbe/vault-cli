@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat: Rename `/vault-cli:refine-task` → `/vault-cli:plan-task`. Plan-task is phase-aware: validates Success Criteria and subtask coverage via `task-auditor`, drives a conversational fix loop, and on `phase: planning` flips the task to `phase: execution` after the auditor passes (score ≥ 8). Entry contract: on `status: next, phase: todo`, plan-task flips to `in_progress, planning` itself — no `/work-on-task` prerequisite. Hard rename; the legacy `refine-task` command is removed (low-callsite, owner-confirmed migration cost was zero).
+
 ## v0.69.0
 
 - feat: Move task-creation consent gate from `vault-cli:work-on-task-assistant` agent to the `work-on-task` slash command — agent loses the `Skill` tool (architectural block on `Skill: vault-cli:create-task`); `Task` is retained for legitimate subagent dispatch in Phase 5 (`coding:pre-implementation-assistant`) and Phase 7 (`vault-cli:task-manager-agent`). On miss the agent emits a structured `not_found:` verdict; the slash command parses it, asks the user via `AskUserQuestion`, and on `Yes` routes to `Skill: vault-cli:create-task` before re-invoking the agent against the new task.

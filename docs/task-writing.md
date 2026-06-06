@@ -74,7 +74,7 @@ In order:
 4. `# Success Criteria` — 2-4 binary checkbox outcomes (binary = done or not done)
 5. `# Definition of Done` — required for complex tasks (≥ 4 success criteria, multi-phase, or ambiguous terms). Per-criterion verification: `**Automated**: ...`, `**Behavioral**: ...`
 6. `# Out of Scope` — recommended; explicit deferrals (parallels `# Non-goals` on goals)
-7. `# Tasks` — actionable subtask checkboxes (work-tracking; not parent-goal links)
+7. `# Tasks` — actionable subtask checkboxes (work-tracking; not parent-goal links). **Granularity rule:** session-sized work blocks, not CLI steps. Aim for 3-6 items. Collapse "write spec / audit / approve / generate prompts / precommit / open PR / merge" into one "ship the change through the pipeline" block. Each subtask should represent a meaningful unit a human can pick up, work on, and report back about — not a single command.
 8. `# Progress` — log of work done, dated entries; lives at bottom
 
 Optional: `# Related` — sister tasks, docs, runbooks.

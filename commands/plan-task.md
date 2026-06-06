@@ -100,7 +100,8 @@ Print: `⚠ Task improved to X/10. Phase unchanged. Remaining: <bullets>. Re-run
 ## Notes
 
 - **Scope is minimal on purpose.** Plan-task's job is "task has SC + has subtasks to reach the goal + structurally sound per auditor." Rich heuristics (MVP framing, KISS pass, Out-of-Scope capture, evidence shape, verification depth) belong in `task-auditor` and `task-writing.md` as canonical rules — not as forced workflow steps here. Letting the auditor enforce them keeps `/plan-task` short and consistent across vaults.
-- **Questions stay tight.** Short setup → short options → quote the offending line for context. No paragraphs of preamble per question. Owner sees what's being asked and what each answer changes.
+- **Questions stay tight, with consequence visible.** 2-3 lines of setup → short options. "Tight" doesn't mean stripping context — owner must see what each answer *changes*. Quote the offending line, name the trade-off, then options.
+- **Subtask granularity = session-sized.** When proposing or sharpening `# Tasks` items, target *work-block size* (a session's worth of work), not CLI-step size. Aim for 3-6 items per task. Reject auditor-suggested over-decomposition like "run precommit / open PR / merge PR" as separate subtasks — those collapse into one "ship the change" block.
 - **Reads `~/.claude/plugins/marketplaces/vault-cli/docs/task-writing.md` as the canonical rule source** — same rules `task-auditor` enforces.
 - **Conversational on purpose.** Owner is the judge of substance. Plan-task never silently rewrites; every change comes from an explicit answer.
 - **Entry contract.** On a fresh task (`status: next, phase: todo`), plan-task flips to `in_progress, planning` itself. No `/work-on-task` prerequisite.

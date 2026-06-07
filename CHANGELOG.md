@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## unreleased
+
+- feat: Add `/vault-cli:audit-graph` slash command + `graph-auditor` agent — audits Obsidian vault link-graph topology (broken wikilinks, orphan / loose cluster members, top hubs by in-degree). Two modes: full-vault (no arg) and topic-scoped via `mcp__semantic-search__search_related`. Lean v1: 3 topology checks only, no `--json`. Deferred to v2: connected components, reachability from `[[Index]]`, external bridges, semantic-vs-graph delta, bidirectional reciprocity, alias / case-insensitive link resolution.
+
 ## v0.70.1
 
 - bump version

@@ -16,9 +16,9 @@ Invoke this agent whenever a user asks about dead links, unreachable pages, hub 
 - NEVER modify vault files. Read-only audit.
 - ALWAYS discover vault layout via `vault-cli config list --output json` — NEVER hardcode folder names.
 - ALWAYS state when `mcp__semantic-search__search_related` is unavailable, then fall back to full-vault mode.
-- NEVER count pages in `00 Inbox/`, `60 Periodic Notes/`, `90 Templates/`, `.obsidian/`, `.trash/` as orphans — they are indexed by date/template/inbox, not by wikilink.
+- ALWAYS derive the orphan-exclusion folder list from the active vault's config first: take `excludes` from `vault-cli config list --output json` if present, plus the resolved `daily_dir`, plus `.obsidian/` and `.trash/`. Only when no `excludes` field is configured may you fall back to the historical default set `{00 Inbox, 90 Templates}` alongside the resolved `daily_dir`.
 - NEVER extract wikilinks from fenced code blocks or inline code spans.
-- **CRITICAL: NEVER use the Grep tool with the `glob` parameter** — it has ~50% failure rate (see [[Claude Code Grep Tool Bug]]). ALWAYS use bash grep for content scans: `grep -rn "pattern" "dir/" --include="*.md"`.
+- **CRITICAL: NEVER use the Grep tool with the `glob` parameter** — that combination is known to silently miss matches at a high rate. ALWAYS use bash grep for content scans: `grep -rn "pattern" "dir/" --include="*.md"`. (Constraint stated inline rather than via a wikilink so it never appears as a broken link in audit reports.)
 </constraints>
 
 <process>
@@ -64,6 +64,7 @@ State these clearly at the top of the report so users don't chase false positive
 - **No alias resolution.** Obsidian resolves links via the `aliases:` frontmatter field; v1 does not.
 - **Block / heading targets stripped.** `[[Page#Section]]` matches `Page.md`; not validating `Section` exists.
 - **No backlinks from plaintext.** Only `[[wikilink]]` syntax counted; markdown `[text](Page.md)` ignored.
+- **Filenames containing `]` are not supported.** Obsidian itself prohibits `]` in filenames; the extraction regex stops at internal `]` and would truncate any target on the rare workaround case.
 
 These are intentional v1 cuts.
 </v1_limitations>

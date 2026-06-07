@@ -76,6 +76,9 @@ These are intentional v1 cuts.
 Mode: <topic-scoped: "<topic>" | full-vault>
 Pages in scope: N
 v1 limitations: case-sensitive, no alias resolution (see agent notes)
+<!-- If semantic-search MCP was unavailable in topic mode, ADD:
+⚠️ Degraded: semantic-search unavailable; scoped to full vault. -->
+
 
 ## Broken Links (K)
 - [<source page>](obsidian://open?vault=<vault-name>&file=<relpath>) → `[[<broken target>]]` (line L)
@@ -103,7 +106,7 @@ Full-vault mode: true orphans — zero inbound from any vault page (excluding da
 - "Consider promoting [[<page>]] as the parent MOC for this cluster"
 ```
 
-**`obsidian://` URL encoding:** `obsidian://open?vault=<vault-name>&file=<percent-encoded relpath without .md>`. Percent-encode every character not in `[A-Za-z0-9-_.~]`: space → `%20`, `/` → `%2F`, `—` → `%E2%80%94`, `#` → `%23`, `&` → `%26`, `?` → `%3F`, `%` → `%25`. Do NOT encode `&` / `=` separators between query-string keys.
+**`obsidian://` URL encoding:** `obsidian://open?vault=<vault-name>&file=<percent-encoded relpath without .md>`. Percent-encode every character not in `[A-Za-z0-9-_.~+]` (`+` is preserved unencoded — valid in POSIX filenames and Obsidian accepts it raw in this URL scheme): space → `%20`, `/` → `%2F`, `—` → `%E2%80%94`, `#` → `%23`, `&` → `%26`, `?` → `%3F`, `%` → `%25`. Do NOT encode `&` / `=` separators between query-string keys.
 </output_format>
 
 <final_step>

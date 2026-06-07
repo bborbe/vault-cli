@@ -159,7 +159,27 @@ Ask critical question: "Can this goal be marked complete WITHOUT this task?"
 - If YES → Wrong parent (loose association, not blocking dependency)
 - If NO → Correct parent (goal blocks on this task)
 
-### 11. Definition of Done Quality (Complex Tasks)
+### 11. Shipping Checklist (Shipping-Class Tasks)
+
+**Detect shipping-class tasks** — task ships a real-world artifact. Keyword signals in title / impact / subtasks / success criteria:
+
+- `PR`, `pull request`, `merge`, `release`, `tag`, `ship`, `deploy`, `publish`, `roll out`
+- `slash command`, `plugin`, `agent`, `library`, `binary`, `package`
+- References to a git repo, marketplace, registry, app store
+
+**If shipping-class, require these THREE subtasks (or success criteria) explicitly:**
+
+1. **Merge / land the change** — PR merged, code on main/master
+2. **Release fired** — version tagged, artifact published (don't trust `autoRelease: true` config alone; the tag must actually exist)
+3. **End-to-end verification** — the shipped artifact actually runs in its real environment (not just unit-tested, not just audited, not "deferred to first use")
+
+**Flag as MAJOR if any of the three is missing or marked `[x]` with an explicit defer note** (e.g. *"Test deferred — will validate on first use"*). A deferred verification is not a completed verification.
+
+**Anti-pattern to flag explicitly:**
+
+> Ticked verification subtask with body like *"deferred to first use"*, *"will check next session"*, *"trust the audit"*, *"trust CI"*. These are dishonest ticks. The subtask should stay open until evidence of real-environment execution exists.
+
+### 12. Definition of Done Quality (Complex Tasks)
 
 **First determine if task is complex** using these heuristics:
 - ≥5 subtasks OR multi-phase language
@@ -177,7 +197,7 @@ Ask critical question: "Can this goal be marked complete WITHOUT this task?"
 
 ## Quick Fixes (Minor)
 
-### 12. Formatting
+### 13. Formatting
 - Title not duplicated as H1 (Obsidian shows filename)
 - Proper markdown formatting
 - Consistent checkbox markers `- [ ]`

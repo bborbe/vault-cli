@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## unreleased
+
+- feat: `/vault-cli:task-status` adds an `Outcome:` line to the header — the task body's first paragraph after the frontmatter `---` separator (the canonical Summary per `task-writing.md`), truncated to ~140 chars. Sits above the volatile Status line as a contract reminder ("what's true when this is done") so the owner sees outcome + state in one glance. Omitted entirely for legacy tasks without a Summary paragraph; flat output mode is unaffected.
+
 ## v0.72.0
 
 - feat: `/vault-cli:task-status` runs `/vault-cli:sync-progress` inline first (file is always disk-fresh before the report) and emits a grouped-checkbox status report split by `# Success Criteria` / `# Tasks` / `# Definition of Done` with verbatim `[x] / [ ] / [/]` state per item. Aggregate progress in the header, one-line `Next:` action at the bottom. Legacy flat output kept under `OUTPUT=flat` for orchestration callers. Frontmatter description now explicitly notes the sync-progress side-effect so owners aren't surprised by the file mutation.

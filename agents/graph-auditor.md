@@ -24,13 +24,15 @@ Invoke this agent whenever a user asks about dead links, unreachable pages, hub 
 <process>
 1. **Resolve vault** — run `vault-cli config list --output json` and pick the entry matching `$PWD`. If `$PWD` is outside every vault, ask the user which vault to audit.
 
-2. **Build the full-vault basename index** — `find <vault-path> -name '*.md'` once. Strip `.md`; this is the set of valid link targets for the whole vault. Needed even in topic mode for correct broken-link resolution (a cluster page may link to a non-cluster page that does exist).
+2. **Build the full-vault basename index** — `find "<vault-path>" -name '*.md'` once (quote the path; vault paths may contain spaces). Strip `.md`; this is the set of valid link targets for the whole vault. Needed even in topic mode for correct broken-link resolution (a cluster page may link to a non-cluster page that does exist).
 
 3. **Scope the page set:**
    - **Topic mode** (argument non-empty): call `mcp__semantic-search__search_related(query=<topic>, top_k=30)` → cluster pages.
    - **Full-vault mode** (no argument): the entire basename index from step 2.
 
-4. **Extract wikilinks** — for the pages in scope, run **one** `grep -Hn -oE '\[\[[^]#|]+' <files…>` (not one per file). Strip the leading `[[`. This is your `source:line:target` list. Single-grep avoids 30+ sequential file reads.
+4. **Extract wikilinks** — for the pages in scope, run **one** `grep -Hn -oE '\[\[[^]#|]+' <files…>` (not one per file; quote paths with spaces). Strip the leading `[[`. This is your `source:line:target` list. Single-grep avoids 30+ sequential file reads.
+
+   The regex intentionally stops at `|` and `#`: for `[[Page|Alias]]` we capture `Page` (alias is display text, not a link target); for `[[Page#Section]]` we capture `Page` (heading targets stripped per `<v1_limitations>`). Graph topology cares about edges between pages, not about display aliases.
 
 5. **Build the graph and resolve:**
    - For each `(source, target)`: resolve target by basename against the step-2 index.

@@ -79,7 +79,12 @@ Emit a grouped-checkbox status report for a resolved task path. The slash comman
 
 2. **Parse outcome line.** Read the task body's **first paragraph after the post-frontmatter `---` separator** and before the first `# ` heading. Skip any `## Pull Requests` / `## Results` blocks that `/sync-progress` injected at the top. Per `task-writing.md`, this paragraph is the canonical Summary — action-verb-led, 1-2 sentences, describing the outcome.
 
-   Extract as `outcome`. Strip trailing `**` / `_` / leading bullets. Truncate to ~140 chars with `…` suffix if longer. If the body has no usable first paragraph (legacy task with empty Summary), set `outcome = ""` and omit the line in step 7.
+   Extract as `outcome`. Strip trailing `**` / `_` / leading bullets. Truncate to ~140 chars **at the nearest preceding word boundary** (split on whitespace, not on mid-word characters); append `…` suffix if truncated. The boundary rule keeps multi-byte / grapheme-cluster characters intact and avoids visual artifacts on emoji / CJK content.
+
+   Edge cases that all resolve to `outcome = ""` (and the line is omitted in step 7):
+   - Task file has no frontmatter / no post-frontmatter `---` separator (legacy or hand-edited files)
+   - First non-heading block is empty or whitespace-only
+   - First non-heading block is itself an injected `## Pull Requests` / `## Results` section with no Summary paragraph above it
 
 3. **Parse sections.** Use `Grep` / `Read` to find these top-level headings (case-sensitive, exact match):
    - `# Success Criteria`

@@ -161,10 +161,11 @@ Ask critical question: "Can this goal be marked complete WITHOUT this task?"
 
 ### 11. Shipping Checklist (Shipping-Class Tasks)
 
-**Detect shipping-class tasks** — task ships a real-world artifact. Keyword signals in title / impact / subtasks / success criteria:
+**Detect shipping-class tasks** — task ships a real-world artifact. Match keyword signals in title / impact / subtasks / success criteria (case-insensitive):
 
 - `PR`, `pull request`, `merge`, `release`, `tag`, `ship`, `deploy`, `publish`, `roll out`
-- `slash command`, `plugin`, `agent`, `library`, `binary`, `package`
+- `slash command`, `plugin`, `library`, `binary`, `package`
+- `Claude agent`, `AI agent`, `software agent`, or `agent` co-occurring with `plugin` / `slash command` / `marketplace` / a repo path (avoid false positives on "insurance agent", "travel agent", "agent-based model")
 - References to a git repo, marketplace, registry, app store
 
 **If shipping-class, require these THREE subtasks (or success criteria) explicitly:**
@@ -175,9 +176,11 @@ Ask critical question: "Can this goal be marked complete WITHOUT this task?"
 
 **Flag as MAJOR if any of the three is missing or marked `[x]` with an explicit defer note** (e.g. *"Test deferred — will validate on first use"*). A deferred verification is not a completed verification.
 
-**Anti-pattern to flag explicitly:**
+**Anti-pattern to flag explicitly** (case-insensitive substring match):
 
-> Ticked verification subtask with body like *"deferred to first use"*, *"will check next session"*, *"trust the audit"*, *"trust CI"*. These are dishonest ticks. The subtask should stay open until evidence of real-environment execution exists.
+> Ticked verification subtask with body containing any of: *"deferred to first use"*, *"deferred — will validate"*, *"will check next session"*, *"will verify on first use"*, *"first deployment will test"*, *"trust the audit"*, *"trust CI"*, *"trust the tests"*, *"will validate later"*. These are dishonest ticks. The subtask should stay open until evidence of real-environment execution exists.
+
+Normalize content to lowercase before comparison so case variants ("Trust CI", "DEFERRED to first use") don't slip through.
 
 ### 12. Definition of Done Quality (Complex Tasks)
 

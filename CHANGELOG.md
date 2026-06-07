@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat: `/vault-cli:task-status` runs `/vault-cli:sync-progress` inline first (file is always disk-fresh before the report) and emits a grouped-checkbox status report split by `# Success Criteria` / `# Tasks` / `# Definition of Done` with verbatim `[x] / [ ] / [/]` state per item. Aggregate progress in the header, one-line `Next:` action at the bottom. Legacy flat output kept under `OUTPUT=flat` for orchestration callers. Frontmatter description now explicitly notes the sync-progress side-effect so owners aren't surprised by the file mutation.
+
 ## v0.71.0
 
 - feat: `task-auditor` adds **Shipping Checklist** rule (criterion #11): when a task is shipping-class (signals: PR, release, deploy, plugin, slash command, etc.), require three explicit subtasks — merge, release fired (tag exists), and end-to-end verification in real environment. Flags `[x]` ticks with defer notes ("deferred to first use", "trust CI") as dishonest. Aligns with new `Shipping Checklist` section in `docs/task-writing.md`.

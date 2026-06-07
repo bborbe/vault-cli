@@ -63,54 +63,80 @@ grep -n "^- \[[ x/]\]" "{task_path}"
 
 ### status
 
-Show task status from conversation context.
+Emit a grouped-checkbox status report for a resolved task path. The slash command (`commands/task-status.md`) handles conversation-based task detection AND the inline `/sync-progress` step before invoking this action; this agent only reads, parses, and formats.
 
-**Arguments:** None (detects task from conversation)
+**Arguments:**
+- `TASK_PATH` (required) — absolute path to the task file. The slash command resolves this in Phase 2; do NOT attempt to detect from conversation here (sub-agents can't see the parent conversation).
+- `OUTPUT` (optional) — `grouped-checkbox` (new default) or `flat` (legacy aggregate-only).
 
 **Steps:**
 
-1. **Detect task:**
-   - Parse conversation for file paths, wiki links, task mentions
-   - If 0 → error "No active task detected"
-   - If >1 → AskUserQuestion to select
-
-2. **Find task file:**
+1. **Read frontmatter:**
    ```
-   find_task(task_name)
+   status = frontmatter.status
+   phase  = frontmatter.phase
    ```
 
-3. **Parse checkboxes:**
+2. **Parse sections.** Use `Grep` / `Read` to find these top-level headings (case-sensitive, exact match):
+   - `# Success Criteria`
+   - `# Tasks`
+   - `# Definition of Done`
+
+   For each section that exists, capture all top-level checkbox lines until the next `# ` heading. Match pattern: `^- \[[ x/]\] (.*)$`.
+
+3. **Per-section parse:** for each captured line, extract:
+   - State: `[x]` / `[ ]` / `[/]` (verbatim)
+   - Text: everything after the closing `]` and space
+   - Truncate text to 80 characters; append `…` if truncated
+
+4. **Aggregate count.** Sum across all parsed sections:
    ```
-   checkboxes = parse_checkboxes(task_path)
+   total = SC.count + Tasks.count + DoD.count
+   completed = SC.x_count + Tasks.x_count + DoD.x_count
+   percent = round((completed / total) × 100)
+   ```
+   If `total == 0`, render `<no checkboxes>` after the header and stop after step 6.
+
+5. **Extract next step.** Walk sections in priority order (Success Criteria → Tasks → Definition of Done); within each section, return the text of the first `[ ]` or `[/]` item (prefer `[ ]` when both exist at same position). If all items are `[x]`, the next step is `✅ Task complete. Run /complete-task to close.`
+
+6. **Render output** — `OUTPUT=grouped-checkbox` (default):
+   ```
+   Task: {task_name}
+   Status: {status} · phase: {phase} · {completed}/{total} ({percent}%)
+
+   ## Success Criteria
+   {state} {text}
+   ...
+
+   ## Tasks
+   {state} {text}
+   ...
+
+   ## Definition of Done
+   {state} {text}
+   ...
+
+   Next: {next_step_text}
    ```
 
-4. **If no checkboxes:**
-   ```
-   📋 {task_name}
-   No checkboxes found.
-   ```
-   STOP.
+   **Rules:**
+   - Section header (e.g. `## Success Criteria`) only prints when the section exists AND has ≥ 1 checkbox. Empty sections are omitted entirely (no header, no body).
+   - Preserve the disk's exact state token (`[x]` / `[ ]` / `[/]`) — do NOT normalize.
+   - One blank line between sections for visual grouping.
+   - `Next:` is one line, ends the output, names one concrete action.
 
-5. **Calculate progress:**
-   ```
-   percent = (completed / total) × 100
-   ```
-
-6. **Extract next step:**
-   - If pending exists → first pending item
-   - If only in-progress → first in-progress item
-   - If all complete → "Complete! Run /sync-progress"
-
-7. **Output:**
+7. **Legacy flat mode** — `OUTPUT=flat`:
    ```
    📋 Task: {task_name}
    Progress: {completed}/{total} ({percent}%)
-   🎯 Next: {first_pending}
+   🎯 Next: {next_step}
    ```
 
-8. **Warnings:**
-   - If >3 in-progress: "⚠️ Multiple in-progress. Focus on one."
-   - If 100% complete: "🎉 Complete!"
+   Used by callers that haven't migrated yet (e.g. internal scripts). Default callers receive `grouped-checkbox`.
+
+8. **Warnings (append after the report):**
+   - If `>3 in-progress`: `⚠️ Multiple in-progress items. Focus on one.`
+   - If `total == 0`: `⚠️ No checkboxes found in any of # Success Criteria / # Tasks / # Definition of Done.`
 
 ### verify
 

@@ -4,10 +4,6 @@ argument-hint: "[topic]"
 allowed-tools: Task
 ---
 
-## Context
-
-- Active vault config: !`vault-cli config list --output json`
-
 <objective>
 Run the `graph-auditor` agent against the active Obsidian vault. Two modes:
 - **Topic mode** — when `$ARGUMENTS` is non-empty, scope the audit to pages semantically related to that topic.

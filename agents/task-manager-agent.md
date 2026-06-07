@@ -77,31 +77,38 @@ Emit a grouped-checkbox status report for a resolved task path. The slash comman
    phase  = frontmatter.phase
    ```
 
-2. **Parse sections.** Use `Grep` / `Read` to find these top-level headings (case-sensitive, exact match):
+2. **Parse outcome line.** Read the task body's **first paragraph after the post-frontmatter `---` separator** and before the first `# ` heading. Skip any `## Pull Requests` / `## Results` blocks that `/sync-progress` injected at the top. Per `task-writing.md`, this paragraph is the canonical Summary — action-verb-led, 1-2 sentences, describing the outcome.
+
+   Extract as `outcome`. Strip trailing `**` / `_` / leading bullets. Truncate to ~140 chars with `…` suffix if longer. If the body has no usable first paragraph (legacy task with empty Summary), set `outcome = ""` and omit the line in step 7.
+
+3. **Parse sections.** Use `Grep` / `Read` to find these top-level headings (case-sensitive, exact match):
    - `# Success Criteria`
    - `# Tasks`
    - `# Definition of Done`
 
    For each section that exists, capture all top-level checkbox lines until the next `# ` heading. Match pattern: `^- \[[ x/]\] (.*)$`.
 
-3. **Per-section parse:** for each captured line, extract:
+4. **Per-section parse:** for each captured line, extract:
    - State: `[x]` / `[ ]` / `[/]` (verbatim)
    - Text: everything after the closing `]` and space
    - Truncate text to 80 characters; append `…` if truncated
 
-4. **Aggregate count.** Sum across all parsed sections:
+5. **Aggregate count.** Sum across all parsed sections:
    ```
    total = SC.count + Tasks.count + DoD.count
    completed = SC.x_count + Tasks.x_count + DoD.x_count
    percent = round((completed / total) × 100)
    ```
-   If `total == 0`, render `<no checkboxes>` after the header and stop after step 6.
+   If `total == 0`, render `<no checkboxes>` after the header and stop after step 7.
 
-5. **Extract next step.** Walk sections in priority order (Success Criteria → Tasks → Definition of Done); within each section, return the text of the first `[ ]` or `[/]` item (prefer `[ ]` when both exist at same position). If all items are `[x]`, the next step is `✅ Task complete. Run /complete-task to close.`
+6. **Extract next step.** Walk sections in priority order (Success Criteria → Tasks → Definition of Done); within each section, return the text of the first `[ ]` or `[/]` item (prefer `[ ]` when both exist at same position). If all items are `[x]`, the next step is `✅ Task complete. Run /complete-task to close.`
 
-6. **Render output** — `OUTPUT=grouped-checkbox` (default):
+   This is a quick hint, NOT a full recommendation. For an action-prioritized list with deferrals + interactive pick, use `/vault-cli:next-steps`.
+
+7. **Render output** — `OUTPUT=grouped-checkbox` (default):
    ```
    Task: {task_name}
+   Outcome: {outcome}
    Status: {status} · phase: {phase} · {completed}/{total} ({percent}%)
 
    ## Success Criteria
@@ -120,21 +127,22 @@ Emit a grouped-checkbox status report for a resolved task path. The slash comman
    ```
 
    **Rules:**
+   - `Outcome:` line is omitted entirely when `outcome` is empty (legacy task with no Summary paragraph). When present, it's the contract reminder — "what's true when this is done" — and sits above the volatile Status line for at-a-glance scanning.
    - Section header (e.g. `## Success Criteria`) only prints when the section exists AND has ≥ 1 checkbox. Empty sections are omitted entirely (no header, no body).
    - Preserve the disk's exact state token (`[x]` / `[ ]` / `[/]`) — do NOT normalize.
    - One blank line between sections for visual grouping.
    - `Next:` is one line, ends the output, names one concrete action.
 
-7. **Legacy flat mode** — `OUTPUT=flat`:
+8. **Legacy flat mode** — `OUTPUT=flat`:
    ```
    📋 Task: {task_name}
    Progress: {completed}/{total} ({percent}%)
    🎯 Next: {next_step}
    ```
 
-   Used by callers that haven't migrated yet (e.g. internal scripts). Default callers receive `grouped-checkbox`.
+   Used by callers that haven't migrated yet (e.g. internal scripts). Default callers receive `grouped-checkbox`. Flat mode does not surface the outcome line — orchestration callers don't need it.
 
-8. **Warnings (append after the report):**
+9. **Warnings (append after the report):**
    - If `>3 in-progress`: `⚠️ Multiple in-progress items. Focus on one.`
    - If `total == 0`: `⚠️ No checkboxes found in any of # Success Criteria / # Tasks / # Definition of Done.`
 

@@ -107,6 +107,22 @@ Adopted by parallel with goals' Non-goals convention. Explicit deferrals prevent
 - Each item is a *concrete* deferral or alternative
 - Link a follow-up task if the deferred work is real
 
+## Shipping Checklist — required for shipping-class tasks
+
+A **shipping-class task** ships a real-world artifact: PR/release, plugin update, agent definition, deploy, library publish, binary, deployment manifest.
+
+Detect shipping flavor via signals: title or impact mentions `PR`, `release`, `tag`, `ship`, `deploy`, `publish`, `roll out`, `slash command`, `plugin`, `agent`, `library`; or subtasks reference a git repo / marketplace / registry.
+
+When the task is shipping-class, the `# Tasks` section **must explicitly enumerate** these three items:
+
+1. **Merge / land the change** — PR merged, code on default branch
+2. **Release fired** — version tagged, artifact published. Don't trust `autoRelease: true` config alone; the tag must actually exist. Verify with `git tag --sort=-creatordate | head` or `gh release list`.
+3. **End-to-end verification** — the shipped artifact runs in its real environment (a real Claude Code session for a slash command, real cluster for a deploy, real install for a library). Audits and unit tests don't count; "deferred to first use" doesn't count.
+
+**Anti-pattern:** ticking a verification subtask with body like *"deferred — will validate on first use"* / *"trust CI"* / *"trust the audit"*. These are dishonest ticks and the `task-auditor` flags them as MAJOR. Keep the subtask `[ ]` until real-environment execution evidence exists.
+
+**Why the third one matters most:** audit skills (`/coding:audit-slash-command`, `/coding:audit-agent`) catch structural issues; bot reviewers catch some runtime bugs. Neither catches *"my new slash command isn't actually installed in this session yet"*. Only running the command end-to-end does.
+
 ## Scope Check
 
 Before committing to a task, verify these signals:

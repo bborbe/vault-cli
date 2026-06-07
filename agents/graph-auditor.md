@@ -1,6 +1,6 @@
 ---
 name: graph-auditor
-description: Audit Obsidian vault link-graph topology — broken wikilinks, orphan pages, and de facto MOC hubs. Use when reviewing wikilink health, hunting dead links, finding orphan/unreachable pages, or discovering hub pages in a vault.
+description: Audit Obsidian vault link-graph topology — broken wikilinks, orphan pages, and de facto MOC hubs. Use when reviewing wikilink health, hunting dead links, finding orphan/unreachable pages, or discovering hub pages in a vault. Topic-scoped mode uses `mcp__semantic-search__search_related` when available; falls back gracefully to full-vault scan when absent.
 tools: Read, Bash, Glob
 model: sonnet
 color: yellow
@@ -18,6 +18,7 @@ Invoke this agent whenever a user asks about dead links, unreachable pages, hub 
 - ALWAYS state when `mcp__semantic-search__search_related` is unavailable, then fall back to full-vault mode.
 - NEVER count pages in `00 Inbox/`, `60 Periodic Notes/`, `90 Templates/`, `.obsidian/`, `.trash/` as orphans — they are indexed by date/template/inbox, not by wikilink.
 - NEVER extract wikilinks from fenced code blocks or inline code spans.
+- **CRITICAL: NEVER use the Grep tool with the `glob` parameter** — it has ~50% failure rate (see [[Claude Code Grep Tool Bug]]). ALWAYS use bash grep for content scans: `grep -rn "pattern" "dir/" --include="*.md"`.
 </constraints>
 
 <process>

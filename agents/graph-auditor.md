@@ -1,7 +1,7 @@
 ---
 name: graph-auditor
 description: Audit Obsidian vault link-graph topology — broken wikilinks, orphan pages, and de facto MOC hubs. Use when reviewing wikilink health, hunting dead links, finding orphan/unreachable pages, or discovering hub pages in a vault. Topic-scoped mode uses `mcp__semantic-search__search_related` when available; falls back gracefully to full-vault scan when absent.
-tools: Read, Bash, Glob
+tools: Read, Bash, Glob, mcp__semantic-search__search_related
 model: sonnet
 color: yellow
 ---
@@ -78,8 +78,11 @@ v1 limitations: case-sensitive, no alias resolution (see agent notes)
 - [<source page>](obsidian://open?vault=<vault-name>&file=<relpath>) → `[[<broken target>]]` (line L)
 ...
 
-## Orphans / Loose Cluster Members (K)
-(Topic-mode wording: "loose cluster members" — reachable from elsewhere in the vault, just not from the cluster.)
+## Loose Cluster Members (K)   <!-- in topic mode -->
+## Orphans (K)                  <!-- in full-vault mode; pick exactly one -->
+
+Topic mode: "loose cluster members" — reachable from elsewhere in the vault, just not from the cluster.
+Full-vault mode: true orphans — zero inbound from any vault page (excluding daily / templates / inbox).
 
 - [<page>](obsidian://open?vault=<vault-name>&file=<relpath>)
 ...

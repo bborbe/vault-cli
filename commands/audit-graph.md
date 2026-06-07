@@ -15,7 +15,7 @@ Run the `graph-auditor` agent against the active Obsidian vault. Two modes:
    - Non-empty → topic mode; pass the full argument string as the topic
    - Empty → full-vault mode
 2. Invoke the `graph-auditor` agent via Task tool:
-   - `subagent_type: "graph-auditor"`
+   - `subagent_type: "vault-cli:graph-auditor"`
    - `prompt: "Audit graph topology. Topic: <topic-or-empty>"`
 3. Present the agent's report verbatim.
 </process>

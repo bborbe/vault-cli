@@ -10,6 +10,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 
 ## unreleased
 
+- feat: `/vault-cli:plan-task` Step 5 now enforces five planning-gate checks instead of two. Adds three new non-negotiables: an e2e verify subtask for shipping-class tasks (rejects all 9 dishonest-tick phrases from `task-writing.md:122-134`); subtask-goal alignment (every `# Tasks` checkbox must map to a `# Success Criteria` outcome or be the verify subtask, else flagged as scope-creep); and a soft KISS warning when `# Tasks` has > 8 checkboxes (owner can still proceed). Step 7's phase-transition gate now requires all four hard non-negotiables to pass, not just the original two. Closes a gap where plan-task let tasks pass while missing verification subtasks (e.g. BRO-20548 closed without an e2e check).
 - feat: `/vault-cli:task-status` adds an `Outcome:` line to the header — the task body's first paragraph after the frontmatter `---` separator (the canonical Summary per `task-writing.md`), truncated to ~140 chars. Sits above the volatile Status line as a contract reminder ("what's true when this is done") so the owner sees outcome + state in one glance. Omitted entirely for legacy tasks without a Summary paragraph; flat output mode is unaffected.
 
 ## v0.72.0

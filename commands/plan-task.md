@@ -58,14 +58,33 @@ Task tool with:
   prompt: 'Audit <resolved-path>. Return: score (1-10), Critical Issues, Task Scope Fit findings, Task-Goal Alignment, top 5 Recommendations.'
 ```
 
-### 5. Check the two non-negotiables
+### 5. Check the non-negotiables
 
-Two checks beyond the auditor's general scoring:
+Five checks beyond the auditor's general scoring — first four are hard (any failure → mandatory question in step 6, can't exit on auditor score alone), fifth is a soft warning.
 
-- **Success Criteria defined** — `# Success Criteria` section exists with ≥ 2 binary checkboxes
+**Hard:**
+
+- **Success Criteria defined** — `# Success Criteria` section exists with ≥ 2 binary checkboxes.
 - **Subtasks reach the goal** — `# Tasks` section (or equivalent) lists concrete steps that, if completed, produce the SC outcomes. If subtasks are missing or vague ("Implement feature" alone), flag.
+- **E2E verify subtask present** — for shipping-class tasks (PR / release / plugin update / agent / deploy / library publish; or subtasks reference a git repo / marketplace / registry — see `task-writing.md` "Shipping Checklist"), `# Tasks` must include a subtask that runs the shipped artifact in its real environment. Reject the subtask if its body contains a case-insensitive substring match of any dishonest-tick phrase from `task-writing.md:122-134`:
+    - *"deferred to first use"*
+    - *"deferred — will validate"*
+    - *"will check next session"*
+    - *"will verify on first use"*
+    - *"first deployment will test"*
+    - *"trust the audit"*
+    - *"trust CI"*
+    - *"trust the tests"*
+    - *"will validate later"*
 
-Either failing → mandatory question in step 6; can't exit on auditor score alone.
+    Skip this check for non-shipping-class tasks (pure research, decision, doc-only with no published artifact).
+- **Subtask-goal alignment** — every `# Tasks` checkbox must either (a) map by topic to ≥ 1 `# Success Criteria` outcome, or (b) be the e2e verify subtask. Flag any orphan as a scope-creep candidate; in step 6 the owner can link it to an SC, move it to `# Out of Scope`, or split it into a separate task.
+
+**Soft:**
+
+- **KISS ceiling** — if `# Tasks` has > 8 checkboxes, warn: *"task may be too large for one session — consider splitting, moving items to `# Out of Scope`, or promoting to a goal."* Owner decides; task can still proceed to execution.
+
+Any hard check failing → mandatory question in step 6; can't exit on auditor score alone. Soft check failing → surfaced as a question in step 6 but doesn't block exit if owner says proceed.
 
 ### 6. Surface gaps + fix loop
 
@@ -77,11 +96,11 @@ Translate findings (auditor + non-negotiable checks) into questions. Rules:
 - Quote the offending line/section so owner sees what triggered the question
 - Use `AskUserQuestion` for the actual ask
 
-Apply each answer via `Edit`. Re-run auditor after each batch. Print delta `Score: X → Y`. Loop until score ≥ 8 AND both non-negotiables pass OR owner says "good enough."
+Apply each answer via `Edit`. Re-run auditor after each batch. Print delta `Score: X → Y`. Loop until score ≥ 8 AND all four hard non-negotiables pass OR owner says "good enough."
 
 ### 7. Exit / phase transition
 
-**Phase was `planning` AND score ≥ 8 AND non-negotiables pass:**
+**Phase was `planning` AND score ≥ 8 AND hard non-negotiables pass:**
 
 ```bash
 vault-cli task set "<name>" phase execution
@@ -99,7 +118,7 @@ Print: `⚠ Task improved to X/10. Phase unchanged. Remaining: <bullets>. Re-run
 
 ## Notes
 
-- **Scope is minimal on purpose.** Plan-task's job is "task has SC + has subtasks to reach the goal + structurally sound per auditor." Rich heuristics (MVP framing, KISS pass, Out-of-Scope capture, evidence shape, verification depth) belong in `task-auditor` and `task-writing.md` as canonical rules — not as forced workflow steps here. Letting the auditor enforce them keeps `/plan-task` short and consistent across vaults.
+- **Scope is focused on what blocks safe execution.** Plan-task enforces five planning-gate checks (SC defined, subtasks reach goal, e2e verify subtask, subtask-goal alignment, KISS ceiling) because each one prevents a specific failure mode: missing outcomes, missing path, dishonest-tick verification, scope creep, oversize task. Other heuristics (MVP framing, Out-of-Scope capture quality, evidence shape) stay in `task-auditor` and `task-writing.md` as canonical rules — surfaced via the auditor in step 4, not promoted to dedicated gates. Letting the auditor enforce general structure while plan-task enforces the five named gates keeps the command short and the gates legible.
 - **Questions stay tight, with consequence visible.** 2-3 lines of setup → short options. "Tight" doesn't mean stripping context — owner must see what each answer *changes*. Quote the offending line, name the trade-off, then options.
 - **Subtask granularity = session-sized.** When proposing or sharpening `# Tasks` items, target *work-block size* (a session's worth of work), not CLI-step size. Aim for 3-6 items per task. Reject auditor-suggested over-decomposition like "run precommit / open PR / merge PR" as separate subtasks — those collapse into one "ship the change" block.
 - **Reads `~/.claude/plugins/marketplaces/vault-cli/docs/task-writing.md` as the canonical rule source** — same rules `task-auditor` enforces.

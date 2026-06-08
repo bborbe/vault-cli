@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## unreleased
+## v0.74.0
 
 - feat: `/vault-cli:plan-task` Step 5's E2E verify subtask check now also rejects *vague* verify subtasks. The body must describe both *what to do* and *what to expect* — at least one concrete shape (procedure to execute, observable to check, or artifact to inspect) plus a result a reader could independently confirm. Bare promises like *"Verify the endpoint"* fail; procedure-only steps like *"run a check on the endpoint"* also fail (no expected result); concrete steps like *"curl /widgets, confirm 200 + body matches schema"* pass. LLM quality call (no verb list or regex). Closes the *vague-verify* hole that PR #15's *missing-verify* fix left open.
 

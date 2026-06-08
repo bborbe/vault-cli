@@ -79,7 +79,14 @@ Five checks beyond the auditor's general scoring — first four are hard (any fa
         - *"trust the tests"*
         - *"will validate later"*
 
-    2. **Concrete procedure, not just a promise.** The body must describe HOW verification happens — a concrete procedure, observable, or artifact check. Vague promises like *"Verify the endpoint"* or *"Verify it works"* fail; concrete steps like *"curl /widgets, confirm 200 + body matches schema"* or *"run the e2e scenario in `scenarios/foo.md`, confirm exit 0"* pass. Use the same vagueness judgment as the **Subtasks reach the goal** gate above — the agent reads the body and decides whether a reader would know what to actually do. No verb list or regex needed; this is a quality call.
+    2. **Concrete procedure, not just a promise.** The body must describe HOW verification happens AND what result counts as success — a reader must know both *what to do* and *what to expect*. Three shapes count as concrete (any one is sufficient; combinations are stronger):
+        - a **procedure to execute** — `curl /widgets`, `kubectl get pod foo`, `open the rendered page`, `run make docs-build`, `gh release list`
+        - an **observable to check** — `HTTP 200`, `exit 0`, `log contains "X"`, `table renders without overflow`, `tag v0.74.0 exists`
+        - an **artifact to inspect** — `output matches schema docs/widget-response.schema.json`, `marketplace.json version equals git tag`, `rendered README has working Code-Of-Conduct link`
+
+        A verify subtask passes when its body covers (a) at least one of the three shapes AND (b) a result a reader could independently confirm. Vague promises fail: *"Verify the endpoint"* names a target but no action and no expected result; *"Verify it works"* names neither. Concrete examples pass — HTTP: *"curl /widgets, confirm 200 + body matches schema"*; CLI: *"run `scenarios/release.md`, confirm exit 0"*; doc: *"open the rendered README, confirm the install table renders + Code-Of-Conduct link works"*; K8s: *"kubectl get pod foo, confirm Running + log contains 'startup complete'"*.
+
+        LLM quality call (no verb list, no regex) — the rule above IS the anchor. Re-read it when in doubt; the procedure / observable / artifact taxonomy defines what concrete means here.
 
     Skip this whole check for non-shipping-class tasks (pure research, decision, doc-only with no published artifact).
 - **Subtask-goal alignment** — every `# Tasks` checkbox must either (a) map by topic to ≥ 1 `# Success Criteria` outcome, or (b) be the e2e verify subtask. Flag any orphan as a scope-creep candidate; in step 6 the owner can link it to an SC, move it to `# Out of Scope`, or split it into a separate task.

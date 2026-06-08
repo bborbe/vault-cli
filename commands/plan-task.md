@@ -66,18 +66,22 @@ Five checks beyond the auditor's general scoring — first four are hard (any fa
 
 - **Success Criteria defined** — `# Success Criteria` section exists with ≥ 2 binary checkboxes.
 - **Subtasks reach the goal** — `# Tasks` section (or equivalent) lists concrete steps that, if completed, produce the SC outcomes. If subtasks are missing or vague ("Implement feature" alone), flag.
-- **E2E verify subtask present** — for shipping-class tasks (PR / release / plugin update / agent / deploy / library publish; or subtasks reference a git repo / marketplace / registry — see `task-writing.md` "Shipping Checklist"), `# Tasks` must include a subtask that runs the shipped artifact in its real environment. Reject the subtask if its body contains a case-insensitive substring match of any dishonest-tick phrase from `task-writing.md:122-134`:
-    - *"deferred to first use"*
-    - *"deferred — will validate"*
-    - *"will check next session"*
-    - *"will verify on first use"*
-    - *"first deployment will test"*
-    - *"trust the audit"*
-    - *"trust CI"*
-    - *"trust the tests"*
-    - *"will validate later"*
+- **E2E verify subtask present** — for shipping-class tasks (PR / release / plugin update / agent / deploy / library publish; or subtasks reference a git repo / marketplace / registry — see `task-writing.md` "Shipping Checklist"), `# Tasks` must include a subtask that runs the shipped artifact in its real environment. Two sub-checks on that subtask:
 
-    Skip this check for non-shipping-class tasks (pure research, decision, doc-only with no published artifact).
+    1. **No dishonest-tick phrases.** Reject if the body contains a case-insensitive substring match of any phrase from `task-writing.md:122-134`:
+        - *"deferred to first use"*
+        - *"deferred — will validate"*
+        - *"will check next session"*
+        - *"will verify on first use"*
+        - *"first deployment will test"*
+        - *"trust the audit"*
+        - *"trust CI"*
+        - *"trust the tests"*
+        - *"will validate later"*
+
+    2. **Concrete procedure, not just a promise.** The body must describe HOW verification happens — a concrete procedure, observable, or artifact check. Vague promises like *"Verify the endpoint"* or *"Verify it works"* fail; concrete steps like *"curl /widgets, confirm 200 + body matches schema"* or *"run the e2e scenario in `scenarios/foo.md`, confirm exit 0"* pass. Use the same vagueness judgment as the **Subtasks reach the goal** gate above — the agent reads the body and decides whether a reader would know what to actually do. No verb list or regex needed; this is a quality call.
+
+    Skip this whole check for non-shipping-class tasks (pure research, decision, doc-only with no published artifact).
 - **Subtask-goal alignment** — every `# Tasks` checkbox must either (a) map by topic to ≥ 1 `# Success Criteria` outcome, or (b) be the e2e verify subtask. Flag any orphan as a scope-creep candidate; in step 6 the owner can link it to an SC, move it to `# Out of Scope`, or split it into a separate task.
 
 **Soft:**

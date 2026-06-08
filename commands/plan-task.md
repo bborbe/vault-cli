@@ -66,18 +66,29 @@ Five checks beyond the auditor's general scoring — first four are hard (any fa
 
 - **Success Criteria defined** — `# Success Criteria` section exists with ≥ 2 binary checkboxes.
 - **Subtasks reach the goal** — `# Tasks` section (or equivalent) lists concrete steps that, if completed, produce the SC outcomes. If subtasks are missing or vague ("Implement feature" alone), flag.
-- **E2E verify subtask present** — for shipping-class tasks (PR / release / plugin update / agent / deploy / library publish; or subtasks reference a git repo / marketplace / registry — see `task-writing.md` "Shipping Checklist"), `# Tasks` must include a subtask that runs the shipped artifact in its real environment. Reject the subtask if its body contains a case-insensitive substring match of any dishonest-tick phrase from `task-writing.md:122-134`:
-    - *"deferred to first use"*
-    - *"deferred — will validate"*
-    - *"will check next session"*
-    - *"will verify on first use"*
-    - *"first deployment will test"*
-    - *"trust the audit"*
-    - *"trust CI"*
-    - *"trust the tests"*
-    - *"will validate later"*
+- **E2E verify subtask present** — for shipping-class tasks (PR / release / plugin update / agent / deploy / library publish; or subtasks reference a git repo / marketplace / registry — see `task-writing.md` "Shipping Checklist"), `# Tasks` must include a subtask that runs the shipped artifact in its real environment. Two sub-checks on that subtask:
 
-    Skip this check for non-shipping-class tasks (pure research, decision, doc-only with no published artifact).
+    1. **No dishonest-tick phrases.** Reject if the body contains a case-insensitive substring match of any phrase from `task-writing.md:122-134`:
+        - *"deferred to first use"*
+        - *"deferred — will validate"*
+        - *"will check next session"*
+        - *"will verify on first use"*
+        - *"first deployment will test"*
+        - *"trust the audit"*
+        - *"trust CI"*
+        - *"trust the tests"*
+        - *"will validate later"*
+
+    2. **Concrete procedure, not just a promise.** The body must describe HOW verification happens AND what result counts as success — a reader must know both *what to do* and *what to expect*. Three shapes count as concrete (any one is sufficient; combinations are stronger):
+        - a **procedure to execute** — `curl /widgets`, `kubectl get pod foo`, `open the rendered page`, `run make docs-build`, `gh release list`
+        - an **observable to check** — `HTTP 200`, `exit 0`, `log contains "X"`, `table renders without overflow`, `tag v0.74.0 exists`
+        - an **artifact to inspect** — `output matches schema docs/widget-response.schema.json`, `marketplace.json version equals git tag`, `rendered README has working Code-Of-Conduct link`
+
+        A verify subtask passes when its body covers (a) at least one of the three shapes AND (b) a result a reader could independently confirm. **Both clauses required** — a procedure without an expected result is still vague. Vague fails: *"Verify the endpoint"* names a target but no action and no expected result; *"Verify it works"* names neither; *"run a check on the endpoint"* names a procedure shape but no expected result (the (b) clause fails). Concrete passes — HTTP: *"curl /widgets, confirm 200 + body matches schema"*; CLI: *"run `scenarios/release.md`, confirm exit 0"*; doc: *"open the rendered README, confirm the install table renders + Code-Of-Conduct link works"*; K8s: *"kubectl get pod foo, confirm Running + log contains 'startup complete'"*.
+
+        LLM quality call (no verb list, no regex) — the rule above IS the anchor. Re-read it when in doubt; the procedure / observable / artifact taxonomy defines what concrete means here.
+
+    Skip this whole check for non-shipping-class tasks (pure research, decision, doc-only with no published artifact).
 - **Subtask-goal alignment** — every `# Tasks` checkbox must either (a) map by topic to ≥ 1 `# Success Criteria` outcome, or (b) be the e2e verify subtask. Flag any orphan as a scope-creep candidate; in step 6 the owner can link it to an SC, move it to `# Out of Scope`, or split it into a separate task.
 
 **Soft:**

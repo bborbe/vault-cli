@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.75.0
 
 - feat: Add `/vault-cli:session-close` slash command — end-of-session safety check ported from `~/.claude/commands/session-close.md`. Verifies progress is synced, git state is clean, no orphan worktrees, no in-flight dark-factory work, and surfaces reflect/runbook/link-hygiene signals. Inline command (analyzes parent conversation; sub-agent cannot see it). All vault-specific paths driven by `vault-cli config` — `tasks_dir`, `goals_dir`, `daily_dir`, `knowledge_dir`. Runbook folders auto-discovered via `^[0-9]+ [Rr]unbooks$` regex (no config field). Cross-surface checks (git, dark-factory, `gh`, TaskList) degrade silently when absent — coworker-installable across any vault registered with `vault-cli config`. Completes the per-session lifecycle bookend alongside the existing per-task (`work-on-task` → `sync-progress` → `complete-task`) and per-day (`start-day` → `complete-day`) trinities.
 

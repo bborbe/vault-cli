@@ -71,14 +71,16 @@ For every repo the session touched (cwd + any other repos with edits in this con
 
 ```bash
 cd <repo> && git status --short
-cd <repo> && git log --oneline @{u}.. 2>/dev/null || echo "no upstream / not pushed"
+# Check upstream first — without this, `git log @{u}..` errors AND a fallback echo
+# would be miscounted as an unpushed commit by any line-counting consumer.
+cd <repo> && git rev-parse --abbrev-ref @{u} >/dev/null 2>&1 && git log --oneline @{u}.. || true
 ```
 
-Report per repo:
+Interpret per repo:
 
-- Uncommitted changes (count + first few file paths)
-- Unpushed commits (count + first commit message)
-- Untracked files matching sensitive patterns (`.env`, `*.key`, `credentials.json`)
+- `git status --short` output → uncommitted changes (count + first few file paths)
+- `git log @{u}..` output → unpushed commits; **empty output means either caught-up-with-remote OR no upstream configured** — both are silent-OK states
+- Untracked files matching sensitive patterns (`.env`, `*.key`, `credentials.json`) → from `git status --short` (the `??` lines)
 
 If any repo has uncommitted/unpushed work, ASK whether to commit/push before closing. Do NOT auto-commit — surface the choice.
 

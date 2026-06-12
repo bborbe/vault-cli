@@ -160,6 +160,8 @@ claude plugin update vault-cli@vault-cli
 | `/vault-cli:verify-theme` | Quick theme validation (structure, sections) |
 | `/vault-cli:audit-theme` | Full theme audit against Theme Writing Guide |
 | `/vault-cli:audit-objective` | Full objective audit against Objective Writing Guide |
+| `/vault-cli:sync-progress` | Sync conversation progress to daily note + task pages (mid-session checkpoint) |
+| `/vault-cli:session-close` | End-of-session safety check — sync, git state, worktrees, reflect signals |
 
 ## Shell Completion
 

@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.77.0
 
 - feat: `/vault-cli:sync-progress` (new Phase 6) and `/vault-cli:complete-task` (MODE=interactive step 2e) now emit a `⚪ DONE` state-closer panel recommending `/vault-cli:session-close` after a task is completed in the session. Prevents the prior drift where Claude invented a closer pointing at `/vault-cli:next-task` — wrong for the one-task-per-session orchestrator workflow (queued daily-note items get fresh Claude sessions via the orchestrator, never appended to the current one). `complete-task` MODE=tool path is explicitly guarded — JSON output stays clean. PR-only / progress-only sync paths skip the closer.
 - feat: `/vault-cli:session-close` (new Phase 4.5) now scans the session's touched vault tasks; any task still `status: in_progress` surfaces as outstanding before close with concrete next-actions (`/vault-cli:complete-task`, `/vault-cli:defer-task`, or status hold/aborted). Scoped to TOUCHED tasks only — untouched `[/]` items on the daily note belong to other sessions / the orchestrator and are intentionally NOT flagged. Closes the loop opposite to the closer change: complete-task / sync-progress tell you to close the session; session-close refuses to call it clean if the anchor task isn't actually done.

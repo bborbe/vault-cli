@@ -12,7 +12,7 @@ A task is an operational work item that takes 1-7 days, contributes to a parent 
 - **Create**: `/vault-cli:create-task "<title>"`
 - **Audit**: `/vault-cli:audit-task "<title>"`
 - **Sections**: Summary → Impact → Success Criteria → [DoD] → **Out of Scope** → Tasks → Progress
-- **Forcing functions**: ≥ 1 parent goal linked; Out-of-Scope enumerated; criteria binary
+- **Forcing functions**: parent goal linked when one exists; Out-of-Scope enumerated; criteria binary
 
 ## Goal
 
@@ -71,8 +71,8 @@ In order:
 1. `Tags: [[Task]]` (after frontmatter, before content separator)
 2. **Summary** — first paragraph after the `---` separator. Action-verb-led. 1-2 sentences.
 3. `# Impact` — why this matters; reference parent goal's success criteria explicitly when possible
-4. `# Success Criteria` — 2-4 binary checkbox outcomes (binary = done or not done)
-5. `# Definition of Done` — required for complex tasks (≥ 4 success criteria, multi-phase, or ambiguous terms). Per-criterion verification: `**Automated**: ...`, `**Behavioral**: ...`
+4. `# Success Criteria` — binary checkbox outcomes (done or not done). **Count guidance**: 2-4 is typical for focused tasks; shipping checklists naturally run 5-8 (PR → merge → release → deploy → verify per env). The cap isn't strict — what matters is that each item is binary-verifiable. Items can be marked `(optional)` when conditional (e.g. "set env IF non-default desired"); optional items don't block completion.
+5. `# Definition of Done` — required for complex tasks **only when success criteria are aspirational** ("Code is clean", "Performance improved"). When SC items already encode their own verification command/check (e.g. `kubectl get … -o jsonpath=…`), the SC line IS the DoD line and a separate per-criterion DoD section is redundant. Per-criterion verification when needed: `**Automated**: ...`, `**Behavioral**: ...`
 6. `# Out of Scope` — recommended; explicit deferrals (parallels `# Non-goals` on goals)
 7. `# Tasks` — actionable subtask checkboxes (work-tracking; not parent-goal links). **Granularity rule:** session-sized work blocks, not CLI steps. Aim for 3-6 items. Collapse "write spec / audit / approve / generate prompts / precommit / open PR / merge" into one "ship the change through the pipeline" block. Each subtask should represent a meaningful unit a human can pick up, work on, and report back about — not a single command.
 8. `# Progress` — log of work done, dated entries; lives at bottom
@@ -116,7 +116,7 @@ Detect shipping flavor via signals: title or impact mentions `PR`, `release`, `t
 When the task is shipping-class, the `# Tasks` section **must explicitly enumerate** these three items:
 
 1. **Merge / land the change** — PR merged, code on default branch
-2. **Release fired** — version tagged, artifact published. Don't trust `autoRelease: true` config alone; the tag must actually exist. Verify with `git tag --sort=-creatordate | head` or `gh release list`.
+2. **Release fired** — version tagged, artifact published. When the repo auto-releases on merge (CI workflow, dark-factory `autoRelease: true`, conventional-commits action), a separate "verify tag exists" subtask is bookkeeping — the merge subtask covers it as long as the tag is cited in `# Results` or `# Pull Requests` (e.g. "merged → `v0.66.0`"). Only require a standalone release subtask when the repo does NOT auto-release. Verify with `git tag --sort=-creatordate | head` or `gh release list` if uncertain.
 3. **End-to-end verification** — the shipped artifact runs in its real environment (a real Claude Code session for a slash command, real cluster for a deploy, real install for a library). Audits and unit tests don't count; "deferred to first use" doesn't count.
 
 **Anti-pattern:** ticking a verification subtask with body containing any of these dishonest-tick phrases (case-insensitive substring match):
@@ -139,10 +139,10 @@ The `task-auditor` flags any of these as MAJOR. Keep the subtask `[ ]` until rea
 
 Before committing to a task, verify these signals:
 
-- **Success criteria count 2-4** — if ≥ 5, complex enough to need DoD
+- **Success criteria binary-verifiable** — each item is done-or-not-done. Count is guidance, not a cap: 2-4 typical, 5-8 normal for shipping checklists. DoD is needed when SCs are aspirational, not just numerous.
 - **Single mental model** — if the task touches multiple unrelated domains/repos, split
 - **Days-to-week effort** — if multi-week, it's a goal masquerading as a task
-- **Linked to ≥ 1 parent goal** — orphan tasks are scope creep by definition
+- **Linked to a parent goal when one exists** — for operational/infra/follow-up tasks with no clean parent goal, a theme link is acceptable; forcing a synthetic parent goal is worse than no link
 - **Title is action-verb-led** — "Add X", "Fix Y", "Migrate Z"; not "Stuff about X"
 
 If 3+ smells fail → split or promote to a goal.
@@ -152,7 +152,7 @@ If 3+ smells fail → split or promote to a goal.
 Before approving:
 
 - [ ] What outcome will be true when done (binary)?
-- [ ] Does this contribute to a specific parent goal's success criterion?
+- [ ] Does this contribute to a specific parent goal's success criterion (or, if no clean parent exists, link a theme)?
 - [ ] What's explicitly out of scope?
 - [ ] Are success criteria binary (yes/no, not "improve X")?
 - [ ] Is this 1-7 days of work, not weeks?

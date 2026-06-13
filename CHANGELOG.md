@@ -14,6 +14,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 - feat: `/vault-cli:session-close` (new Phase 4.5) now scans the session's touched vault tasks; any task still `status: in_progress` surfaces as outstanding before close with concrete next-actions (`/vault-cli:complete-task`, `/vault-cli:defer-task`, or status hold/aborted). Scoped to TOUCHED tasks only — untouched `[/]` items on the daily note belong to other sessions / the orchestrator and are intentionally NOT flagged. Closes the loop opposite to the closer change: complete-task / sync-progress tell you to close the session; session-close refuses to call it clean if the anchor task isn't actually done.
 - refactor: `/vault-cli:complete-task` MODE=interactive no longer uses AskUserQuestion when task has incomplete items — replaced with abort-with-`--force`-hint message. Reduces friction on the common path (just complete) while keeping the safety gate for partial completions explicit.
 - feat: `/vault-cli:complete-task` adds `--force` flag — bypasses the incomplete-items gate. MODE=tool is unchanged (always sets `phase: human_review` on incomplete, never completes).
+- fix: `/vault-cli:session-close` Phase 4.5 now surfaces `vault-cli task get` failures as outstanding instead of silently skipping. Each unverified task gets its own outstanding line citing exit code + stderr first line. A failed status lookup means the anchor-task safety gate is unverified — exactly the failure mode this phase guards against. Bot PR-reviewer finding (MAJOR) from PR #18.
 
 ## v0.76.0
 

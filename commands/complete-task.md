@@ -36,6 +36,22 @@ Mark task as complete using vault-cli. Handles normal and recurring tasks approp
       ```
       - If warnings in output, show them
 
+   e. **Emit closer panel** — append below the report, verbatim, no rewording:
+      ```
+      ⚪ DONE
+      👤 You: approve: /vault-cli:session-close
+      ⏰ Next: your reply
+      ```
+
+      Why this closer is the only correct one here:
+
+      - **One task per session.** Completing a task = THIS session is done. Queued items on today's daily note are NOT "queued in this session" — they are picked up by the orchestrator in fresh Claude sessions, never by appending more tasks to the current one.
+      - **Never recommend `/vault-cli:next-task` here.** That command exists for the orchestrator (or the user opening a new session); it is not a follow-up to `/vault-cli:complete-task`.
+      - **Never recommend a specific next task by name.** Same reason — the next session's anchor selection belongs to the orchestrator, not to this command.
+      - **The "no end-of-day suggestions" global rule does NOT override this.** Session-close ≠ day-close. The rule forbids unsolicited *stop for the day* nudges; closing one task's session is the routine step between two task sessions, not a wind-down.
+
+      MODE=tool MUST NOT emit this panel (see step 3 — JSON only).
+
 3. **MODE=tool (--tool flag):**
 
    a. Read task file to check completion state
@@ -54,6 +70,8 @@ Mark task as complete using vault-cli. Handles normal and recurring tasks approp
       STOP.
 
    d. Never ask questions, never use AskUserQuestion
+
+   e. **Never emit the `⚪ DONE` closer panel** — MODE=tool output is JSON only. The closer panel from step 2e is interactive-mode only.
 
 4. Task types (handled by vault-cli internally):
    - Normal tasks: status→completed, goals updated, daily note checked

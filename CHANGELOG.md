@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat: `/vault-cli:sync-progress` (new Phase 6) and `/vault-cli:complete-task` (MODE=interactive step 2e) now emit a `⚪ DONE` state-closer panel recommending `/vault-cli:session-close` after a task is completed in the session. Prevents the prior drift where Claude invented a closer pointing at `/vault-cli:next-task` — which is wrong for the one-task-per-session orchestrator workflow (queued daily-note items get fresh Claude sessions via the orchestrator, never appended to the current one). MODE=tool path of `complete-task` is explicitly guarded — JSON output stays clean. PR-only / progress-only sync paths skip the closer (active task is still `in_progress`).
+
 ## v0.75.0
 
 - feat: Add `/vault-cli:session-close` slash command — end-of-session safety check ported from `~/.claude/commands/session-close.md`. Verifies progress is synced, git state is clean, no orphan worktrees, no in-flight dark-factory work, and surfaces reflect/runbook/link-hygiene signals. Inline command (analyzes parent conversation; sub-agent cannot see it). All vault-specific paths driven by `vault-cli config` — `tasks_dir`, `goals_dir`, `daily_dir`, `knowledge_dir`. Runbook folders auto-discovered via `^[0-9]+ [Rr]unbooks$` regex (no config field). Cross-surface checks (git, dark-factory, `gh`, TaskList) degrade silently when absent — coworker-installable across any vault registered with `vault-cli config`. Completes the per-session lifecycle bookend alongside the existing per-task (`work-on-task` → `sync-progress` → `complete-task`) and per-day (`start-day` → `complete-day`) trinities.

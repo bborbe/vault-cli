@@ -223,3 +223,22 @@ Completed: [Reclaim Disk Space on nuke-k3s-dev-0 — MT5 Bases Cache + BoltDB Gr
 ```
 
 If the `Completed:` task is already listed under `Task:` above, omit the `Completed:` line to avoid duplicate links — the report is for at-a-glance; the auto-complete is implied by Phase 4's separate console output.
+
+## Phase 6: Closer panel (task-complete only)
+
+If a task was completed in Phase 4 (auto via 4a OR confirmed via 4b), append the state-closer panel below the Phase 5 report — exactly this shape, verbatim, no rewording:
+
+```
+⚪ DONE
+👤 You: approve: /vault-cli:session-close
+⏰ Next: your reply
+```
+
+Why this closer is the only correct one here:
+
+- **One task per session.** Completing a task = THIS session is done. Queued items on today's daily note are NOT "queued in this session" — they are picked up by the orchestrator in fresh Claude sessions, never by appending more tasks to the current one.
+- **Never recommend `/vault-cli:next-task` here.** That command exists for the orchestrator (or the user opening a new session); it is not a follow-up to `/vault-cli:sync-progress`.
+- **Never recommend a specific next task by name.** Same reason — the next session's anchor selection belongs to the orchestrator, not to this command.
+- **The "no end-of-day suggestions" global rule does NOT override this.** Session-close ≠ day-close. The rule forbids unsolicited *stop for the day* nudges; closing one task's session is the routine step between two task sessions, not a wind-down.
+
+**Skip the closer entirely** when Phase 4 did NOT complete a task — i.e. PR-only sync, progress-only sync, or any path where the active task is still `in_progress`. In those cases the session continues on the same task; emitting `⚪ DONE` would be wrong.

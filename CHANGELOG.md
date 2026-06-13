@@ -10,7 +10,9 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 
 ## Unreleased
 
-- feat: `/vault-cli:sync-progress` (new Phase 6) and `/vault-cli:complete-task` (MODE=interactive step 2e) now emit a `⚪ DONE` state-closer panel recommending `/vault-cli:session-close` after a task is completed in the session. Prevents the prior drift where Claude invented a closer pointing at `/vault-cli:next-task` — which is wrong for the one-task-per-session orchestrator workflow (queued daily-note items get fresh Claude sessions via the orchestrator, never appended to the current one). MODE=tool path of `complete-task` is explicitly guarded — JSON output stays clean. PR-only / progress-only sync paths skip the closer (active task is still `in_progress`).
+- feat: enforce the one-task-per-session contract across three slash commands:
+  - `/vault-cli:sync-progress` (new Phase 6) and `/vault-cli:complete-task` (MODE=interactive step 2e) now emit a `⚪ DONE` state-closer panel recommending `/vault-cli:session-close` after a task is completed in the session. Prevents the prior drift where Claude invented a closer pointing at `/vault-cli:next-task` — wrong for the one-task-per-session orchestrator workflow (queued daily-note items get fresh Claude sessions via the orchestrator, never appended to the current one). `complete-task` MODE=tool path is explicitly guarded — JSON output stays clean. PR-only / progress-only sync paths skip the closer.
+  - `/vault-cli:session-close` (new Phase 4.5) now scans the session's touched vault tasks; any task still `status: in_progress` surfaces as outstanding before close with concrete next-actions (`/vault-cli:complete-task`, `/vault-cli:defer-task`, or status hold/aborted). Scoped to TOUCHED tasks only — untouched `[/]` items on the daily note belong to other sessions / the orchestrator and are intentionally NOT flagged. Closes the loop opposite to the closer change: complete-task / sync-progress tell you to close the session; session-close refuses to call it clean if the anchor task isn't actually done.
 
 ## v0.75.0
 

@@ -43,7 +43,7 @@ Expert Obsidian task auditor specializing in evaluating task pages against the T
 
 ### 1. YAML Frontmatter
 - **Required**: `status` field with valid value (in_progress/todo/backlog/hold/completed)
-- **Required**: `goals` field with at least one `[[Goal Name]]` link
+- **Recommended**: `goals` field with at least one `[[Goal Name]]` link. For operational/infra/follow-up tasks with no clean parent goal, a `themes:` link is acceptable — do NOT flag as MAJOR if `themes:` is populated. Only flag as MAJOR when neither `goals:` nor `themes:` is present.
 - **Invalid**: Missing frontmatter delimiters `---`
 - **Invalid**: Malformed YAML syntax
 
@@ -58,7 +58,7 @@ Expert Obsidian task auditor specializing in evaluating task pages against the T
 - **Required**: `# Success Criteria` section
 - **Required**: `# Out of Scope` section (parallels Non-goals on goals; catches scope creep at write-time)
 - **Recommended**: `# Tasks` section (for actionable subtasks)
-- **Required for complex tasks** (≥ 4 success criteria, multi-phase, ambiguous terms): `# Definition of Done`
+- **Required for complex tasks** when success criteria are aspirational ("Code is clean", "Performance improved"): `# Definition of Done`. When SC items already encode their own verification (e.g. specific kubectl/curl command + expected result), DoD is redundant — do NOT flag absence as MAJOR. Heuristic: if each SC line is independently checkable by a reader, no DoD section needed.
 
 ## Recommendations (Quality)
 
@@ -80,7 +80,8 @@ Expert Obsidian task auditor specializing in evaluating task pages against the T
 - **Binary**: Each criterion is done or not done
 - **Measurable**: Includes numbers, coverage, or verifiable outcomes
 - **Verification method**: How to confirm completion (tests pass, metric achieved)
-- **Count**: 2-4 criteria (comprehensive but focused)
+- **Count**: 2-4 typical for focused tasks; 5-8 normal for shipping checklists (PR / merge / release / deploy / verify per env). Don't penalize high count on its own — judge per-item verifiability instead.
+- **Optional items**: `(optional)` markers are allowed for conditional steps (e.g. "set env IF non-default desired"). Optional items don't block completion and shouldn't be flagged as "noise".
 - **Weak signals**: Vague outcomes ("works", "better"), process steps instead of end states
 
 ### 7. Subtasks Quality
@@ -105,7 +106,7 @@ Tasks should be a single mental model, days-to-week effort, contributing to one 
 
 Count how many apply. **3+ smells → recommend splitting, promoting to a goal, or moving to Out of Scope.**
 
-1. **Success criteria count ≥ 5** — usually means multi-phase work; either add `# Definition of Done` per criterion or split.
+1. **Success criteria count ≥ 5 AND items are aspirational** — only a smell when SCs are vague ("works", "better"). Shipping checklists with concrete per-item verification (merge / release / deploy / smoke) routinely run 5-8 and are fine without DoD. Count alone is NOT a smell.
 2. **A success criterion contributes to no parent goal's Success Criteria** — task drifted from its declared parent. Either re-link or move to a different goal.
 3. **Title or scope spans multiple unrelated repos/domains** — cross-cutting work probably needs a goal, not a task.
 4. **`# Out of Scope` is missing or empty** — no forcing function; bloat unchecked. Critical signal.
@@ -116,8 +117,8 @@ Count how many apply. **3+ smells → recommend splitting, promoting to a goal, 
 ### Signals the scope IS appropriate
 
 - Effort 1-7 days
-- 2-4 binary success criteria
-- Single parent goal in `goals:` frontmatter
+- Binary, verifiable success criteria (count is guidance, not a cap)
+- Parent goal in `goals:` frontmatter when one exists; theme link acceptable for operational/follow-up work
 - `# Out of Scope` enumerates 2-5 concrete deferrals
 - Action-verb-led title
 
@@ -141,6 +142,8 @@ For each `[[Goal Name]]` listed in the task's `goals:` frontmatter:
 2. Match this task to ≥ 1 of the goal's Success Criteria — does the task's Impact / SC reference any of the goal's outcomes?
 3. **Flag orphans as MAJOR** — task has a goal link but advances none of its criteria.
 4. **Flag implementation-level tasks** — if title reads like a low-level code change ("Add field X to struct Y"), check whether a dark-factory spec or prompt is the right artifact instead.
+
+**When `goals:` is absent but `themes:` is populated**: do NOT flag as MAJOR orphan. Theme linkage is acceptable for operational, infrastructure, and follow-up tasks where forcing a synthetic parent goal would create goal-creep. Note as MINOR with: "No `goals:` link; theme link covers strategic context. Consider linking a goal if/when one emerges that this task directly advances."
 
 ### 9. Scope Appropriateness
 - **Too small**: "Rename variable x to y" (just do it, no task needed)
@@ -171,10 +174,10 @@ Ask critical question: "Can this goal be marked complete WITHOUT this task?"
 **If shipping-class, require these THREE subtasks (or success criteria) explicitly:**
 
 1. **Merge / land the change** — PR merged, code on main/master
-2. **Release fired** — version tagged, artifact published (don't trust `autoRelease: true` config alone; the tag must actually exist)
-3. **End-to-end verification** — the shipped artifact actually runs in its real environment (not just unit-tested, not just audited, not "deferred to first use")
+2. **Release fired** — version tagged, artifact published. **Auto-release exception**: when the repo auto-releases on merge (CI workflow, dark-factory `autoRelease: true`, conventional-commits action), a separate "verify tag exists" subtask is bookkeeping. The merge subtask covers it as long as the released version is cited as evidence elsewhere (in `# Results`, `# Pull Requests`, the merge subtask body, or a referenced URL like `merged → v0.66.0`). Do NOT flag missing standalone release subtask as MAJOR when evidence of the tag is present.
+3. **End-to-end verification** — the shipped artifact actually runs in its real environment (not just unit-tested, not just audited, not "deferred to first use"). For multi-environment deploys (dev + prod), one verify subtask per environment is ideal but not required — a single end-to-end verify on the production environment is sufficient when dev was a smoke step and prod is the same binary.
 
-**Flag as MAJOR if any of the three is missing or marked `[x]` with an explicit defer note** (e.g. *"Test deferred — will validate on first use"*). A deferred verification is not a completed verification.
+**Flag as MAJOR if (1) merge subtask is missing, or (3) verification is missing or marked `[x]` with an explicit defer note** (e.g. *"Test deferred — will validate on first use"*). A deferred verification is not a completed verification. Missing standalone release subtask is MINOR when auto-release evidence is present, MAJOR otherwise.
 
 **Anti-pattern to flag explicitly** (case-insensitive substring match):
 
@@ -197,6 +200,7 @@ Normalize content to lowercase before comparison so case variants ("Trust CI", "
 - **Typed**: Items declare verification type (Automated/Manual/Artifact/Behavioral/Temporal/External)
 - **Actionable**: Clear verification action
 - **If simple task**: DoD section optional, don't penalize absence
+- **Self-verifying SCs carve-out**: when each success criterion already encodes its own verification (e.g. SC body contains a concrete command like `kubectl get … -o jsonpath=…` + expected result, or a specific URL/artifact + observable state), a per-criterion DoD section is redundant. A single blanket DoD sentence ("All success criteria checked; investigation resolved or follow-up task filed") is acceptable. Do NOT flag this as MAJOR. Only flag DoD weakness when SC items are aspirational and unverifiable on their own ("Code is clean", "Performance improved").
 
 ## Quick Fixes (Minor)
 

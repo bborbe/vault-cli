@@ -125,6 +125,46 @@ If `TASK_LIST` is available, list tasks with status `in_progress`. Each one repr
 
 Report: "X tasks still in_progress: …". Ask whether to mark complete, defer, or leave for next session.
 
+### Phase 4.5: Check session anchor task is complete
+
+The one-task-per-session contract: each Claude session anchors on a single vault task; closing the session is the routine bookend between two task sessions. If that anchor task is still `in_progress`, closing now means abandoning it mid-flight — exactly the failure mode `/vault-cli:complete-task` and `/vault-cli:sync-progress` closer panels are designed to prevent.
+
+**Scope this check to TOUCHED tasks only** (Phase 1's `Tasks` list). Vault tasks not touched in this session belong to OTHER sessions (running in sibling tabs OR queued for the orchestrator to pick up next) — they are NOT this session's responsibility and MUST NOT be flagged here.
+
+For each touched task `T`, capture status AND error state:
+
+```bash
+STATUS_OUT="$(vault-cli task get "$T" status --output json 2>&1)"
+STATUS_EXIT=$?
+```
+
+Interpret:
+
+- `STATUS_EXIT == 0` and parsed `value` field:
+  - `status: completed` → ✅ silent OK
+  - `status: in_progress` → ⚠ flag — the session anchored on this task but never completed it
+  - `status: hold` / `status: aborted` → ✅ silent OK (deliberate non-completion, owner already decided)
+  - `status: next` / `status: backlog` → ✅ silent OK (touched as a side-reference, not as an active anchor)
+- `STATUS_EXIT != 0` OR JSON parse failure → ⚠ surface as outstanding (do NOT silently skip — a failed check means the anchor-task gate is unverified, which is exactly the failure mode this phase guards against)
+
+For each `in_progress` task, surface in Phase 9 as outstanding:
+
+```
+N. Task [[<title>]] still in_progress — `/vault-cli:complete-task "<title>"` to finish, `/vault-cli:defer-task "<title>" <date>` to push out, or set status hold/aborted if abandoning
+```
+
+For each task whose status lookup FAILED, surface in Phase 9 as outstanding:
+
+```
+N. Anchor-task check unverified for [[<title>]] — `vault-cli task get` failed (exit <code>, stderr: <first-line>). Investigate before close: `vault-cli task get "<title>" status` or open the file directly. Closing now skips the in_progress safety gate for this task.
+```
+
+Do not collapse failures into a generic warning — each unverified task is its own outstanding line so the user sees scope explicitly.
+
+**Do NOT** check `[/]` items on the daily note here. Those represent the day's overall queue; items not touched by this session belong to other sessions and the orchestrator. Flagging them would force the user to clear unrelated work before closing — exactly the rule one-task-per-session is meant to avoid.
+
+**MIT exception:** if today's daily-note "Most important task" checkbox `- [ ] [[Task]]` references a task that IS in this session's touched list AND that task is still `in_progress`, the warning above already covers it — no extra rule needed. If the MIT was not touched, it's a separate session's concern.
+
 ### Phase 5: Check for orphaned background processes
 
 ```bash

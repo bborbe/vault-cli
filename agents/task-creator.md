@@ -111,7 +111,7 @@ If `task_template` is set but the file does not exist, fail with a clear error n
 
 Required fields:
 
-- `status: todo` (interactive default; tool mode may override via flag)
+- `status: in_progress` IF any of `planned_date`, `defer_date`, or `due_date` is being written to this task in step 8 (per spec 017: a calendar date is a commitment, so the task must be visible to the Kanban board); `status: next` OTHERWISE (canonical replacement for the legacy `todo` alias)
 - `priority: <1|2|3>`
 - `themes:` and/or `goals:` — only if confidently inferred or explicitly provided
 - `category: <category>` — if inferred

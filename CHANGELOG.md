@@ -8,6 +8,12 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat: Add `STATUS_DATE_MISMATCH` lint check in `pkg/ops/lint.go` — surfaces when `status: next` or `status: backlog` coexists with any of `planned_date`, `defer_date`, or `due_date` (calendar dates are commitments; only `in_progress` and terminal statuses are compatible with a date on an unstarted task). Detector powers both `vault-cli task lint` and `vault-cli task validate` through shared `collectLintIssues`. `lint --fix` auto-promotes `next`/`backlog` to `in_progress` and leaves the date field byte-identical.
+- feat: `vault-cli task defer` on a `next` or `backlog` task now also writes `status: in_progress` in the same file write — closing the create-side leak at write-time. Auto-promote is gated to `next` and `backlog` only; `in_progress`, `completed`, `aborted`, and `hold` are left untouched. `defer` on an already-`in_progress` task is idempotent (status line is not re-written — only `defer_date` is set). Existing defer semantics (past-date validation, planned_date clearing when before target, daily-note updates) continue to work unchanged.
+- feat: Enforce calendar-as-commitment rule on task status — tasks with any of `planned_date`, `defer_date`, or `due_date` must have `status: in_progress` (or terminal). Enforced at file creation (`task-creator` agent emits `in_progress` when a date field is set), at date assignment (`task defer` auto-promotes `next`/`backlog` to `in_progress` in the same write), and at audit (`task lint` reports `STATUS_DATE_MISMATCH`; `task lint --fix` promotes status, never strips the date). Lint and validate share a single detector.
+
 ## v0.77.0
 
 - feat: `/vault-cli:sync-progress` (new Phase 6) and `/vault-cli:complete-task` (MODE=interactive step 2e) now emit a `⚪ DONE` state-closer panel recommending `/vault-cli:session-close` after a task is completed in the session. Prevents the prior drift where Claude invented a closer pointing at `/vault-cli:next-task` — wrong for the one-task-per-session orchestrator workflow (queued daily-note items get fresh Claude sessions via the orchestrator, never appended to the current one). `complete-task` MODE=tool path is explicitly guarded — JSON output stays clean. PR-only / progress-only sync paths skip the closer.

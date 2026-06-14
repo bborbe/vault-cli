@@ -53,6 +53,7 @@ const (
 	IssueTypeStatusCheckboxMismatch IssueType = "STATUS_CHECKBOX_MISMATCH"
 	IssueTypeStatusPhaseMismatch    IssueType = "STATUS_PHASE_MISMATCH"
 	IssueTypeMissingTaskIdentifier  IssueType = "MISSING_TASK_IDENTIFIER"
+	IssueTypeStatusDateMismatch     IssueType = "STATUS_DATE_MISMATCH"
 )
 
 // LintIssue represents a single lint issue found in a file.
@@ -200,63 +201,51 @@ func (l *lintOperation) collectLintIssues(
 	content []byte,
 ) []LintIssue {
 	issues := make([]LintIssue, 0, 4)
+	add := func(issueType IssueType, desc string, fixable bool) {
+		issues = append(issues, LintIssue{
+			FilePath:    filePath,
+			IssueType:   issueType,
+			Description: desc,
+			Fixable:     fixable,
+			Fixed:       false,
+		})
+	}
 
 	// Check for duplicate keys
 	for _, key := range l.detectDuplicateKeys(frontmatterYAML) {
-		issues = append(issues, LintIssue{
-			FilePath:    filePath,
-			IssueType:   IssueTypeDuplicateKey,
-			Description: fmt.Sprintf("key %q defined multiple times", key),
-			Fixable:     true,
-			Fixed:       false,
-		})
+		add(IssueTypeDuplicateKey, fmt.Sprintf("key %q defined multiple times", key), true)
 	}
 
 	// Check for invalid priority
 	if priorityIssue, invalidPriorityValue := l.detectInvalidPriority(frontmatterYAML); priorityIssue {
-		issues = append(issues, LintIssue{
-			FilePath:    filePath,
-			IssueType:   IssueTypeInvalidPriority,
-			Description: fmt.Sprintf("priority is %q, expected int", invalidPriorityValue),
-			Fixable:     true,
-			Fixed:       false,
-		})
+		add(
+			IssueTypeInvalidPriority,
+			fmt.Sprintf("priority is %q, expected int", invalidPriorityValue),
+			true,
+		)
 	}
 
 	// Check for invalid status
 	if statusIssue, invalidStatusValue := l.detectInvalidStatus(frontmatterYAML); statusIssue {
-		issues = append(issues, LintIssue{
-			FilePath:  filePath,
-			IssueType: IssueTypeInvalidStatus,
-			Description: fmt.Sprintf(
-				"status is %q, expected one of: next, in_progress, backlog, completed, hold, aborted",
-				invalidStatusValue,
-			),
-			Fixable: false,
-			Fixed:   false,
-		})
+		add(IssueTypeInvalidStatus, fmt.Sprintf(
+			"status is %q, expected one of: next, in_progress, backlog, completed, hold, aborted",
+			invalidStatusValue,
+		), false)
 	}
 
 	// Check for status/phase mismatch
 	if mismatchIssue, mismatchDesc := l.detectStatusPhaseMismatch(frontmatterYAML); mismatchIssue {
-		issues = append(issues, LintIssue{
-			FilePath:    filePath,
-			IssueType:   IssueTypeStatusPhaseMismatch,
-			Description: mismatchDesc,
-			Fixable:     false,
-			Fixed:       false,
-		})
+		add(IssueTypeStatusPhaseMismatch, mismatchDesc, false)
+	}
+
+	// Check for status/date mismatch (calendar-as-commitment rule)
+	if mismatchIssue, mismatchDesc := l.detectStatusDateMismatch(frontmatterYAML); mismatchIssue {
+		add(IssueTypeStatusDateMismatch, mismatchDesc, true)
 	}
 
 	// Check for orphan goals
 	for _, goalName := range l.detectOrphanGoals(vaultPath, frontmatterYAML) {
-		issues = append(issues, LintIssue{
-			FilePath:    filePath,
-			IssueType:   IssueTypeOrphanGoal,
-			Description: fmt.Sprintf("goal not found: %s", goalName),
-			Fixable:     false,
-			Fixed:       false,
-		})
+		add(IssueTypeOrphanGoal, fmt.Sprintf("goal not found: %s", goalName), false)
 	}
 
 	// Check for status/checkbox mismatch
@@ -264,13 +253,7 @@ func (l *lintOperation) collectLintIssues(
 		frontmatterYAML,
 		string(content),
 	); mismatchIssue {
-		issues = append(issues, LintIssue{
-			FilePath:    filePath,
-			IssueType:   IssueTypeStatusCheckboxMismatch,
-			Description: mismatchDesc,
-			Fixable:     mismatchFixable,
-			Fixed:       false,
-		})
+		add(IssueTypeStatusCheckboxMismatch, mismatchDesc, mismatchFixable)
 	}
 
 	// Check for missing task_identifier
@@ -562,6 +545,42 @@ func (l *lintOperation) detectStatusPhaseMismatch(frontmatterYAML string) (bool,
 	return false, ""
 }
 
+// detectStatusDateMismatch detects tasks whose status is next or backlog
+// while any of planned_date, defer_date, or due_date is set.
+// Per spec 017: calendar dates are commitments; only in_progress and terminal
+// statuses are compatible with a date on an unstarted task.
+// Returns: (issueFound, description)
+func (l *lintOperation) detectStatusDateMismatch(frontmatterYAML string) (bool, string) {
+	// Parse status
+	statusRegex := regexp.MustCompile(`(?m)^status:\s*['"]?([a-z_]+)['"]?\s*$`)
+	statusMatches := statusRegex.FindStringSubmatch(frontmatterYAML)
+	if len(statusMatches) < 2 {
+		return false, ""
+	}
+	status := domain.TaskStatus(statusMatches[1])
+
+	// Only flag inactive statuses; completed/aborted/hold/in_progress are out of scope
+	if status != domain.TaskStatusNext && status != domain.TaskStatusBacklog {
+		return false, ""
+	}
+
+	// Check for any date field with a non-empty value
+	// Match: `field: <value>` where value is non-empty (not just whitespace, not empty)
+	dateRegex := regexp.MustCompile(
+		`(?m)^(planned_date|defer_date|due_date):\s*['"]?([^\s'"]+)?['"]?\s*$`,
+	)
+	matches := dateRegex.FindAllStringSubmatch(frontmatterYAML, -1)
+	for _, m := range matches {
+		if len(m) >= 3 && m[2] != "" {
+			return true, fmt.Sprintf(
+				"status is %s but %s is set (calendar dates are commitments; expected in_progress)",
+				status, m[1],
+			)
+		}
+	}
+	return false, ""
+}
+
 // missingTaskIdentifierIssues returns a lint issue if task_identifier is absent or empty.
 func (l *lintOperation) missingTaskIdentifierIssues(filePath, frontmatterYAML string) []LintIssue {
 	if !l.detectMissingTaskIdentifier(frontmatterYAML) {
@@ -597,47 +616,31 @@ func (l *lintOperation) fixIssues(
 	modified := false
 	updatedContent := content
 
+	apply := func(i int, fixFn func(string) (string, bool)) {
+		newContent, fixed := fixFn(updatedContent)
+		if !fixed {
+			return
+		}
+		updatedContent = newContent
+		issues[i].Fixed = true
+		modified = true
+	}
+
 	for i := range issues {
 		if !issues[i].Fixable {
 			continue
 		}
-
 		switch issues[i].IssueType {
 		case IssueTypeInvalidPriority:
-			// Fix invalid priority by converting string to int
-			newContent, fixed := l.fixInvalidPriority(updatedContent)
-			if fixed {
-				updatedContent = newContent
-				issues[i].Fixed = true
-				modified = true
-			}
-
+			apply(i, l.fixInvalidPriority)
 		case IssueTypeDuplicateKey:
-			// Fix duplicate keys by removing duplicates (keep first occurrence)
-			newContent, fixed := l.fixDuplicateKeys(updatedContent)
-			if fixed {
-				updatedContent = newContent
-				issues[i].Fixed = true
-				modified = true
-			}
-
+			apply(i, l.fixDuplicateKeys)
 		case IssueTypeInvalidStatus:
-			// Fix invalid status by migrating to new value
-			newContent, fixed := l.fixInvalidStatus(updatedContent)
-			if fixed {
-				updatedContent = newContent
-				issues[i].Fixed = true
-				modified = true
-			}
-
+			apply(i, l.fixInvalidStatus)
 		case IssueTypeStatusCheckboxMismatch:
-			// Fix status/checkbox mismatch by setting status to completed
-			newContent, fixed := l.fixStatusCheckboxMismatch(updatedContent)
-			if fixed {
-				updatedContent = newContent
-				issues[i].Fixed = true
-				modified = true
-			}
+			apply(i, l.fixStatusCheckboxMismatch)
+		case IssueTypeStatusDateMismatch:
+			apply(i, l.fixStatusDateMismatch)
 		}
 	}
 
@@ -753,6 +756,23 @@ func (l *lintOperation) fixStatusCheckboxMismatch(content string) (string, bool)
 		content,
 		"status: completed",
 	)
+	return newContent, true
+}
+
+// fixStatusDateMismatch promotes status from next/backlog to in_progress
+// when a date field is set. Per spec 017: calendar-as-commitment rule auto-fixes
+// the status, never strips the date. Idempotent on in_progress (no rewrite).
+func (l *lintOperation) fixStatusDateMismatch(content string) (string, bool) {
+	statusRegex := regexp.MustCompile(`(?m)^status:\s*['"]?([a-z_]+)['"]?\s*$`)
+	matches := statusRegex.FindStringSubmatch(content)
+	if len(matches) < 2 {
+		return content, false
+	}
+	current := matches[1]
+	if current != "next" && current != "backlog" {
+		return content, false
+	}
+	newContent := statusRegex.ReplaceAllString(content, "status: in_progress")
 	return newContent, true
 }
 

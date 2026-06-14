@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat: Add `STATUS_DATE_MISMATCH` lint check in `pkg/ops/lint.go` — surfaces when `status: next` or `status: backlog` coexists with any of `planned_date`, `defer_date`, or `due_date` (calendar dates are commitments; only `in_progress` and terminal statuses are compatible with a date on an unstarted task). Detector powers both `vault-cli task lint` and `vault-cli task validate` through shared `collectLintIssues`. `lint --fix` auto-promotes `next`/`backlog` to `in_progress` and leaves the date field byte-identical.
+
 ## v0.77.0
 
 - feat: `/vault-cli:sync-progress` (new Phase 6) and `/vault-cli:complete-task` (MODE=interactive step 2e) now emit a `⚪ DONE` state-closer panel recommending `/vault-cli:session-close` after a task is completed in the session. Prevents the prior drift where Claude invented a closer pointing at `/vault-cli:next-task` — wrong for the one-task-per-session orchestrator workflow (queued daily-note items get fresh Claude sessions via the orchestrator, never appended to the current one). `complete-task` MODE=tool path is explicitly guarded — JSON output stays clean. PR-only / progress-only sync paths skip the closer.

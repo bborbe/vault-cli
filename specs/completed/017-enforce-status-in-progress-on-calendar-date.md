@@ -1,5 +1,5 @@
 ---
-status: verifying
+status: completed
 tags:
     - dark-factory
     - spec
@@ -7,6 +7,7 @@ approved: "2026-06-14T14:27:11Z"
 generating: "2026-06-14T14:27:12Z"
 prompted: "2026-06-14T14:41:38Z"
 verifying: "2026-06-14T15:55:20Z"
+completed: "2026-06-14T19:27:28Z"
 branch: dark-factory/enforce-status-in-progress-on-calendar-date
 ---
 

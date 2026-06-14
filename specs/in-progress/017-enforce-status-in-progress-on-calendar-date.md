@@ -1,11 +1,12 @@
 ---
-status: prompted
+status: verifying
 tags:
     - dark-factory
     - spec
 approved: "2026-06-14T14:27:11Z"
 generating: "2026-06-14T14:27:12Z"
 prompted: "2026-06-14T14:41:38Z"
+verifying: "2026-06-14T15:55:20Z"
 branch: dark-factory/enforce-status-in-progress-on-calendar-date
 ---
 
@@ -116,3 +117,18 @@ Rationale: prompt 1 lands the detector (single source of truth for lint + valida
 ## Do-Nothing Option
 
 Status quo: the Kanban filter remains blind to `next` / `backlog` tasks with future dates. Three silent misses this quarter is the observed rate; one feeds a scale-up gate. Discipline-by-memory has already failed three times this quarter. Doing nothing means accepting that future cadence misses will continue at the same rate, with capital decisions made on stale evidence. Not acceptable.
+
+## Verification Result
+
+**Verified:** 2026-06-14T19:17:01Z (HEAD 8441e82)
+**Binary:** /tmp/new-vault-cli (built from worktree HEAD)
+**Scenario:** Built `vault-cli` from HEAD, ran fixture-based CLI replays for lint detection (4 status×date combos), lint --fix promotion (status flipped, date byte-identical), validate description parity, and defer on each of next/backlog/in_progress/completed/aborted/hold.
+**Evidence:**
+- `WARN Tasks/next-defer.md: STATUS_DATE_MISMATCH status is next but defer_date is set (calendar dates are commitments; expected in_progress)` (lint and validate emit byte-identical description)
+- After `task lint --fix`: `grep -c '^status: in_progress' next-defer.md` = 1, `grep -c '^status: next'` = 0, `defer_date: 2026-12-01` line byte-identical
+- After `task defer backlog-only 2026-12-25`: file has both `status: in_progress` and `defer_date: "2026-12-25"`; on `completed-defer` defer preserves `status: completed`; on `aborted-only` preserves aborted; on `hold-only` preserves hold; on `in_progress-defer` leaves status untouched
+- `completed-defer.md` (status: completed + defer_date) produced 0 `STATUS_DATE_MISMATCH` lines (terminal-status carve-out works)
+- `agents/task-creator.md:114` carries the conditional emit rule (`status: in_progress` IF any date field, `status: next` OTHERWISE)
+- `make precommit` exit 0; `go test ./pkg/ops` exit 0 with new `It(...)` blocks in `lint_test.go` (each date×status combo, terminal no-op, fix promotion) and `defer_test.go` (promote next/backlog, no-op in_progress/completed/aborted/hold)
+- `CHANGELOG.md` `## Unreleased` carries three bullets naming the rule, auto-fix direction, and `in_progress`; `docs/task-writing.md:182` "Calendar-as-commitment rule" lives under `## Lifecycle`
+**Verdict:** PASS

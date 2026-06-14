@@ -11,6 +11,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 ## Unreleased
 
 - feat: Add `STATUS_DATE_MISMATCH` lint check in `pkg/ops/lint.go` — surfaces when `status: next` or `status: backlog` coexists with any of `planned_date`, `defer_date`, or `due_date` (calendar dates are commitments; only `in_progress` and terminal statuses are compatible with a date on an unstarted task). Detector powers both `vault-cli task lint` and `vault-cli task validate` through shared `collectLintIssues`. `lint --fix` auto-promotes `next`/`backlog` to `in_progress` and leaves the date field byte-identical.
+- feat: `vault-cli task defer` on a `next` or `backlog` task now also writes `status: in_progress` in the same file write — closing the create-side leak at write-time. Auto-promote is gated to `next` and `backlog` only; `in_progress`, `completed`, `aborted`, and `hold` are left untouched. `defer` on an already-`in_progress` task is idempotent (status line is not re-written — only `defer_date` is set). Existing defer semantics (past-date validation, planned_date clearing when before target, daily-note updates) continue to work unchanged.
 
 ## v0.77.0
 

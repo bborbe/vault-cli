@@ -67,10 +67,10 @@ var _ = Describe("DeferOperation", func() {
 				Expect(err).To(BeNil())
 			})
 
-			It("does not change task status", func() {
+			It("promotes status from next (todo alias) to in_progress", func() {
 				Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 				_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-				Expect(writtenTask.Status()).To(Equal(domain.TaskStatusNext))
+				Expect(writtenTask.Status()).To(Equal(domain.TaskStatusInProgress))
 			})
 
 			It("sets defer_date to 7 days from now", func() {
@@ -211,6 +211,165 @@ var _ = Describe("DeferOperation", func() {
 				resultUTC := writtenTask.DeferDate().Time().UTC()
 				Expect(resultUTC.Hour()).To(Equal(0))
 				Expect(resultUTC.Minute()).To(Equal(0))
+			})
+		})
+
+		Context("status auto-promote on defer", func() {
+			expectedDeferDate := func() time.Time {
+				return libtimetest.ParseDateTime("2026-03-03T12:00:00Z").
+					Time().
+					AddDate(0, 0, 7).
+					Truncate(24 * time.Hour)
+			}
+
+			Context("when current status is next", func() {
+				BeforeEach(func() {
+					task = domain.NewTask(
+						map[string]any{"status": "next"},
+						domain.FileMetadata{Name: taskName},
+						domain.Content(""),
+					)
+					mockTaskStorage.FindTaskByNameReturns(task, nil)
+				})
+
+				It("writes status: in_progress", func() {
+					Expect(err).To(BeNil())
+					Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+					_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
+					Expect(writtenTask.Status()).To(Equal(domain.TaskStatusInProgress))
+				})
+
+				It("still writes defer_date", func() {
+					Expect(err).To(BeNil())
+					Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+					_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
+					Expect(writtenTask.DeferDate()).NotTo(BeNil())
+					Expect(writtenTask.DeferDate().Time()).To(Equal(expectedDeferDate()))
+				})
+
+				It("does not call WriteTask twice", func() {
+					Expect(err).To(BeNil())
+					Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+				})
+			})
+
+			Context("when current status is backlog", func() {
+				BeforeEach(func() {
+					task = domain.NewTask(
+						map[string]any{"status": "backlog"},
+						domain.FileMetadata{Name: taskName},
+						domain.Content(""),
+					)
+					mockTaskStorage.FindTaskByNameReturns(task, nil)
+				})
+
+				It("writes status: in_progress", func() {
+					Expect(err).To(BeNil())
+					Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+					_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
+					Expect(writtenTask.Status()).To(Equal(domain.TaskStatusInProgress))
+				})
+
+				It("still writes defer_date", func() {
+					Expect(err).To(BeNil())
+					Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+					_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
+					Expect(writtenTask.DeferDate()).NotTo(BeNil())
+					Expect(writtenTask.DeferDate().Time()).To(Equal(expectedDeferDate()))
+				})
+
+				It("does not call WriteTask twice", func() {
+					Expect(err).To(BeNil())
+					Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+				})
+			})
+
+			Context("when current status is in_progress", func() {
+				BeforeEach(func() {
+					task = domain.NewTask(
+						map[string]any{"status": "in_progress"},
+						domain.FileMetadata{Name: taskName},
+						domain.Content(""),
+					)
+					mockTaskStorage.FindTaskByNameReturns(task, nil)
+				})
+
+				It("leaves status as in_progress (idempotent)", func() {
+					Expect(err).To(BeNil())
+					Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+					_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
+					Expect(writtenTask.Status()).To(Equal(domain.TaskStatusInProgress))
+					// Byte-level check: raw frontmatter key is exactly "in_progress"
+					Expect(writtenTask.GetString("status")).To(Equal("in_progress"))
+				})
+
+				It("still writes defer_date", func() {
+					Expect(err).To(BeNil())
+					Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+					_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
+					Expect(writtenTask.DeferDate()).NotTo(BeNil())
+					Expect(writtenTask.DeferDate().Time()).To(Equal(expectedDeferDate()))
+				})
+			})
+
+			Context("when current status is completed", func() {
+				BeforeEach(func() {
+					task = domain.NewTask(
+						map[string]any{"status": "completed"},
+						domain.FileMetadata{Name: taskName},
+						domain.Content(""),
+					)
+					mockTaskStorage.FindTaskByNameReturns(task, nil)
+				})
+
+				It("leaves status as completed (terminal preserved)", func() {
+					Expect(err).To(BeNil())
+					Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+					_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
+					Expect(writtenTask.Status()).To(Equal(domain.TaskStatusCompleted))
+					// Byte-level check: raw frontmatter key is exactly "completed"
+					Expect(writtenTask.GetString("status")).To(Equal("completed"))
+				})
+			})
+
+			Context("when current status is aborted", func() {
+				BeforeEach(func() {
+					task = domain.NewTask(
+						map[string]any{"status": "aborted"},
+						domain.FileMetadata{Name: taskName},
+						domain.Content(""),
+					)
+					mockTaskStorage.FindTaskByNameReturns(task, nil)
+				})
+
+				It("leaves status as aborted (terminal preserved)", func() {
+					Expect(err).To(BeNil())
+					Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+					_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
+					Expect(writtenTask.Status()).To(Equal(domain.TaskStatusAborted))
+					// Byte-level check: raw frontmatter key is exactly "aborted"
+					Expect(writtenTask.GetString("status")).To(Equal("aborted"))
+				})
+			})
+
+			Context("when current status is hold", func() {
+				BeforeEach(func() {
+					task = domain.NewTask(
+						map[string]any{"status": "hold"},
+						domain.FileMetadata{Name: taskName},
+						domain.Content(""),
+					)
+					mockTaskStorage.FindTaskByNameReturns(task, nil)
+				})
+
+				It("leaves status as hold", func() {
+					Expect(err).To(BeNil())
+					Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+					_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
+					Expect(writtenTask.Status()).To(Equal(domain.TaskStatusHold))
+					// Byte-level check: raw frontmatter key is exactly "hold"
+					Expect(writtenTask.GetString("status")).To(Equal("hold"))
+				})
 			})
 		})
 

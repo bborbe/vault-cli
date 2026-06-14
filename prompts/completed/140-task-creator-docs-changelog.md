@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [017-enforce-status-in-progress-on-calendar-date]
+summary: 'Flipped Step 8 status rule to in_progress on date-field presence, added Calendar-as-commitment subsection in docs/task-writing.md, and appended feat: bullet to existing ## Unreleased in CHANGELOG.md (precommit exit 0, three markdown files changed, no Go edits).'
+container: vault-cli-status-date-exec-140-task-creator-docs-changelog
+dark-factory-version: v0.177.1
 created: "2026-06-14T14:30:00Z"
 queued: "2026-06-14T15:39:32Z"
+started: "2026-06-14T15:52:10Z"
+completed: "2026-06-14T15:55:20Z"
 branch: dark-factory/enforce-status-in-progress-on-calendar-date
 ---
 

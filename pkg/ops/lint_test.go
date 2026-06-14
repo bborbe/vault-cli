@@ -1771,3 +1771,332 @@ var _ = Describe("LintOperation - Missing Task Identifier", func() {
 		})
 	})
 })
+
+var _ = Describe("LintOperation - Status Date Mismatch", func() {
+	var (
+		ctx       context.Context
+		lintOp    ops.LintOperation
+		vaultPath string
+		tasksDir  string
+	)
+
+	BeforeEach(func() {
+		ctx = context.Background()
+		lintOp = ops.NewLintOperation()
+
+		var err error
+		vaultPath, err = os.MkdirTemp("", "vault-sdm-test-*")
+		Expect(err).To(BeNil())
+
+		tasksDir = "Tasks"
+		tasksDirPath := filepath.Join(vaultPath, tasksDir)
+		Expect(os.MkdirAll(tasksDirPath, 0755)).To(Succeed())
+	})
+
+	AfterEach(func() {
+		if vaultPath != "" {
+			_ = os.RemoveAll(vaultPath)
+		}
+	})
+
+	// writeSDM writes a task file with the given frontmatter body and returns
+	// the path. taskPath is per-call to keep tests independent.
+	writeSDM := func(vaultPath, tasksDir, fmBody, name string) string {
+		content := "---\n" + fmBody + "---\n# Test\n"
+		taskPath := filepath.Join(vaultPath, tasksDir, name)
+		Expect(os.WriteFile(taskPath, []byte(content), 0600)).To(Succeed())
+		return taskPath
+	}
+
+	countSDMIssues := func(issues []ops.LintIssue) int {
+		n := 0
+		for _, i := range issues {
+			if i.IssueType == ops.IssueTypeStatusDateMismatch {
+				n++
+			}
+		}
+		return n
+	}
+
+	Context("STATUS_DATE_MISMATCH — should trigger", func() {
+		It("detects status: next + defer_date", func() {
+			writeSDM(
+				vaultPath,
+				tasksDir,
+				"status: next\npage_type: task\ntask_identifier: sdm-next-defer\ndefer_date: 2026-12-01\n",
+				"next-defer.md",
+			)
+			issues, err := lintOp.Execute(ctx, vaultPath, tasksDir, false)
+			Expect(err).To(BeNil())
+			Expect(countSDMIssues(issues)).To(Equal(1))
+			for _, i := range issues {
+				if i.IssueType == ops.IssueTypeStatusDateMismatch {
+					Expect(i.Fixable).To(BeTrue())
+					Expect(i.Description).To(ContainSubstring("status is next"))
+					Expect(i.Description).To(ContainSubstring("defer_date"))
+				}
+			}
+		})
+
+		It("detects status: next + planned_date", func() {
+			writeSDM(
+				vaultPath,
+				tasksDir,
+				"status: next\npage_type: task\ntask_identifier: sdm-next-planned\nplanned_date: 2026-12-01\n",
+				"next-planned.md",
+			)
+			issues, err := lintOp.Execute(ctx, vaultPath, tasksDir, false)
+			Expect(err).To(BeNil())
+			Expect(countSDMIssues(issues)).To(Equal(1))
+			for _, i := range issues {
+				if i.IssueType == ops.IssueTypeStatusDateMismatch {
+					Expect(i.Description).To(ContainSubstring("planned_date"))
+				}
+			}
+		})
+
+		It("detects status: next + due_date", func() {
+			writeSDM(
+				vaultPath,
+				tasksDir,
+				"status: next\npage_type: task\ntask_identifier: sdm-next-due\ndue_date: 2026-12-01\n",
+				"next-due.md",
+			)
+			issues, err := lintOp.Execute(ctx, vaultPath, tasksDir, false)
+			Expect(err).To(BeNil())
+			Expect(countSDMIssues(issues)).To(Equal(1))
+			for _, i := range issues {
+				if i.IssueType == ops.IssueTypeStatusDateMismatch {
+					Expect(i.Description).To(ContainSubstring("due_date"))
+				}
+			}
+		})
+
+		It("detects status: backlog + defer_date", func() {
+			writeSDM(
+				vaultPath,
+				tasksDir,
+				"status: backlog\npage_type: task\ntask_identifier: sdm-backlog-defer\ndefer_date: 2026-12-01\n",
+				"backlog-defer.md",
+			)
+			issues, err := lintOp.Execute(ctx, vaultPath, tasksDir, false)
+			Expect(err).To(BeNil())
+			Expect(countSDMIssues(issues)).To(Equal(1))
+			for _, i := range issues {
+				if i.IssueType == ops.IssueTypeStatusDateMismatch {
+					Expect(i.Description).To(ContainSubstring("status is backlog"))
+					Expect(i.Description).To(ContainSubstring("defer_date"))
+				}
+			}
+		})
+
+		It("detects status: backlog + planned_date", func() {
+			writeSDM(
+				vaultPath,
+				tasksDir,
+				"status: backlog\npage_type: task\ntask_identifier: sdm-backlog-planned\nplanned_date: 2026-12-01\n",
+				"backlog-planned.md",
+			)
+			issues, err := lintOp.Execute(ctx, vaultPath, tasksDir, false)
+			Expect(err).To(BeNil())
+			Expect(countSDMIssues(issues)).To(Equal(1))
+			for _, i := range issues {
+				if i.IssueType == ops.IssueTypeStatusDateMismatch {
+					Expect(i.Description).To(ContainSubstring("planned_date"))
+				}
+			}
+		})
+
+		It("detects status: backlog + due_date", func() {
+			writeSDM(
+				vaultPath,
+				tasksDir,
+				"status: backlog\npage_type: task\ntask_identifier: sdm-backlog-due\ndue_date: 2026-12-01\n",
+				"backlog-due.md",
+			)
+			issues, err := lintOp.Execute(ctx, vaultPath, tasksDir, false)
+			Expect(err).To(BeNil())
+			Expect(countSDMIssues(issues)).To(Equal(1))
+			for _, i := range issues {
+				if i.IssueType == ops.IssueTypeStatusDateMismatch {
+					Expect(i.Description).To(ContainSubstring("due_date"))
+				}
+			}
+		})
+	})
+
+	Context("STATUS_DATE_MISMATCH — should NOT trigger", func() {
+		It("does not flag status: in_progress + defer_date", func() {
+			writeSDM(
+				vaultPath,
+				tasksDir,
+				"status: in_progress\npage_type: task\ntask_identifier: sdm-ip-defer\ndefer_date: 2026-12-01\n",
+				"ip-defer.md",
+			)
+			issues, err := lintOp.Execute(ctx, vaultPath, tasksDir, false)
+			Expect(err).To(BeNil())
+			Expect(countSDMIssues(issues)).To(Equal(0))
+		})
+
+		It("does not flag status: completed + defer_date", func() {
+			writeSDM(
+				vaultPath,
+				tasksDir,
+				"status: completed\npage_type: task\ntask_identifier: sdm-cmp-defer\ndefer_date: 2026-12-01\n",
+				"cmp-defer.md",
+			)
+			issues, err := lintOp.Execute(ctx, vaultPath, tasksDir, false)
+			Expect(err).To(BeNil())
+			Expect(countSDMIssues(issues)).To(Equal(0))
+		})
+
+		It("does not flag status: aborted + defer_date", func() {
+			writeSDM(
+				vaultPath,
+				tasksDir,
+				"status: aborted\npage_type: task\ntask_identifier: sdm-abort-defer\ndefer_date: 2026-12-01\n",
+				"abort-defer.md",
+			)
+			issues, err := lintOp.Execute(ctx, vaultPath, tasksDir, false)
+			Expect(err).To(BeNil())
+			Expect(countSDMIssues(issues)).To(Equal(0))
+		})
+
+		It("does not flag status: hold + defer_date", func() {
+			writeSDM(
+				vaultPath,
+				tasksDir,
+				"status: hold\npage_type: task\ntask_identifier: sdm-hold-defer\ndefer_date: 2026-12-01\n",
+				"hold-defer.md",
+			)
+			issues, err := lintOp.Execute(ctx, vaultPath, tasksDir, false)
+			Expect(err).To(BeNil())
+			Expect(countSDMIssues(issues)).To(Equal(0))
+		})
+
+		It("does not flag status: next + no date field", func() {
+			writeSDM(
+				vaultPath,
+				tasksDir,
+				"status: next\npage_type: task\ntask_identifier: sdm-next-nodate\n",
+				"next-nodate.md",
+			)
+			issues, err := lintOp.Execute(ctx, vaultPath, tasksDir, false)
+			Expect(err).To(BeNil())
+			Expect(countSDMIssues(issues)).To(Equal(0))
+		})
+
+		It("does not flag status: next + empty defer_date", func() {
+			writeSDM(
+				vaultPath,
+				tasksDir,
+				"status: next\npage_type: task\ntask_identifier: sdm-next-empty\ndefer_date:\n",
+				"next-empty.md",
+			)
+			issues, err := lintOp.Execute(ctx, vaultPath, tasksDir, false)
+			Expect(err).To(BeNil())
+			Expect(countSDMIssues(issues)).To(Equal(0))
+		})
+	})
+
+	Context("STATUS_DATE_MISMATCH — auto-fix", func() {
+		It("fixes status: next + defer_date by promoting to in_progress", func() {
+			taskPath := writeSDM(
+				vaultPath,
+				tasksDir,
+				"status: next\npage_type: task\ntask_identifier: sdm-fix-next-defer\ndefer_date: 2026-12-01\n",
+				"fix-next-defer.md",
+			)
+			_, err := lintOp.Execute(ctx, vaultPath, tasksDir, true)
+			Expect(err).To(BeNil())
+
+			content, err := os.ReadFile(taskPath) //#nosec G304 -- test file
+			Expect(err).To(BeNil())
+			Expect(string(content)).To(ContainSubstring("status: in_progress"))
+			Expect(string(content)).To(ContainSubstring("defer_date: 2026-12-01"))
+		})
+
+		It("fixes status: backlog + due_date by promoting to in_progress", func() {
+			taskPath := writeSDM(
+				vaultPath,
+				tasksDir,
+				"status: backlog\npage_type: task\ntask_identifier: sdm-fix-backlog-due\ndue_date: 2026-12-01\n",
+				"fix-backlog-due.md",
+			)
+			_, err := lintOp.Execute(ctx, vaultPath, tasksDir, true)
+			Expect(err).To(BeNil())
+
+			content, err := os.ReadFile(taskPath) //#nosec G304 -- test file
+			Expect(err).To(BeNil())
+			Expect(string(content)).To(ContainSubstring("status: in_progress"))
+			Expect(string(content)).To(ContainSubstring("due_date: 2026-12-01"))
+		})
+
+		It("leaves all other frontmatter fields byte-identical", func() {
+			original := "---\nstatus: next\npage_type: task\npriority: 1\nassignee: bborbe\ntask_identifier: sdm-fix-fields\ndefer_date: 2026-12-01\n---\n# Test\n"
+			taskPath := filepath.Join(vaultPath, tasksDir, "fix-fields.md")
+			Expect(os.WriteFile(taskPath, []byte(original), 0600)).To(Succeed())
+
+			_, err := lintOp.Execute(ctx, vaultPath, tasksDir, true)
+			Expect(err).To(BeNil())
+
+			content, err := os.ReadFile(taskPath) //#nosec G304 -- test file
+			Expect(err).To(BeNil())
+			s := string(content)
+			Expect(s).To(ContainSubstring("priority: 1"))
+			Expect(s).To(ContainSubstring("assignee: bborbe"))
+			Expect(s).To(ContainSubstring("task_identifier: sdm-fix-fields"))
+			Expect(s).To(ContainSubstring("defer_date: 2026-12-01"))
+			Expect(s).To(ContainSubstring("status: in_progress"))
+		})
+
+		It("does not touch terminal-status files", func() {
+			original := "---\nstatus: completed\npage_type: task\ntask_identifier: sdm-no-touch-completed\ndefer_date: 2026-12-01\n---\n# Test\n"
+			taskPath := filepath.Join(vaultPath, tasksDir, "no-touch-completed.md")
+			Expect(os.WriteFile(taskPath, []byte(original), 0600)).To(Succeed())
+
+			_, err := lintOp.Execute(ctx, vaultPath, tasksDir, true)
+			Expect(err).To(BeNil())
+
+			content, err := os.ReadFile(taskPath) //#nosec G304 -- test file
+			Expect(err).To(BeNil())
+			Expect(string(content)).To(Equal(original))
+		})
+	})
+
+	Context("STATUS_DATE_MISMATCH — lint and validate produce the same description", func() {
+		It("ExecuteFile surfaces STATUS_DATE_MISMATCH for the same fixture", func() {
+			fixture := "---\nstatus: next\npage_type: task\ntask_identifier: sdm-both-paths\ndefer_date: 2026-12-01\n---\n# Test\n"
+			taskPath := filepath.Join(vaultPath, tasksDir, "both-paths.md")
+			Expect(os.WriteFile(taskPath, []byte(fixture), 0600)).To(Succeed())
+
+			// lint path
+			lintIssues, err := lintOp.Execute(ctx, vaultPath, tasksDir, false)
+			Expect(err).To(BeNil())
+			var lintDesc string
+			foundLint := false
+			for _, i := range lintIssues {
+				if i.IssueType == ops.IssueTypeStatusDateMismatch {
+					lintDesc = i.Description
+					foundLint = true
+				}
+			}
+			Expect(foundLint).To(BeTrue(), "lint path should surface STATUS_DATE_MISMATCH")
+
+			// validate path (ExecuteFile)
+			validateIssues, err := lintOp.ExecuteFile(ctx, taskPath, "both-paths", "personal")
+			Expect(err).To(BeNil())
+			var validateDesc string
+			foundValidate := false
+			for _, i := range validateIssues {
+				if i.IssueType == ops.IssueTypeStatusDateMismatch {
+					validateDesc = i.Description
+					foundValidate = true
+				}
+			}
+			Expect(foundValidate).To(BeTrue(), "validate path should surface STATUS_DATE_MISMATCH")
+			Expect(validateDesc).To(Equal(lintDesc),
+				"lint and validate must produce the same description string")
+		})
+	})
+})

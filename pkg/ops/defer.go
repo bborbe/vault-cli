@@ -139,6 +139,18 @@ func (d *deferOperation) findAndDeferTask(
 ) (*domain.Task, error) {
 	task.SetDeferDate(targetDate.Ptr())
 
+	// Calendar-as-commitment: promote status when deferring a non-active task.
+	// Per spec 017: deferring to a future date is a commitment to work the task;
+	// next/backlog tasks are invisible to the Kanban board and miss cadence.
+	// Promote to in_progress so the board surfaces the task on its target day.
+	// Idempotent on in_progress; no-op on completed/aborted/hold (out of scope).
+	if status := task.Status(); status == domain.TaskStatusNext ||
+		status == domain.TaskStatusBacklog {
+		if err := task.SetStatus(domain.TaskStatusInProgress); err != nil {
+			return nil, errors.Wrap(ctx, err, "set status to in_progress")
+		}
+	}
+
 	// Clear planned_date if it's before the defer target date
 	if task.PlannedDate() != nil && task.PlannedDate().Before(targetDate) {
 		task.SetPlannedDate(nil)

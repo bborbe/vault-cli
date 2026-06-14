@@ -179,6 +179,10 @@ The auditor (`task-auditor` agent) checks structure, success-criteria binary-nes
 | `aborted` | Abandoned without completion | Operator sets manually with reason in body |
 | `backlog` | Not committed yet | Initial state before commitment |
 
+### Calendar-as-commitment rule
+
+Any task with a calendar date (`planned_date`, `defer_date`, or `due_date`) is a commitment, so its status must be `in_progress` (or terminal — `completed` / `aborted`). The rule is enforced at three points: file creation (`task-creator` agent emits `in_progress` when any date field is set), date assignment (`task defer` auto-promotes `next` / `backlog` to `in_progress` in the same write), and audit (`task lint` and `task validate` both surface `STATUS_DATE_MISMATCH`). `task lint --fix` promotes the status; the date is never stripped. Terminal status takes precedence — a `completed` task with a stale `defer_date` is out of scope. See spec 017.
+
 Recurring tasks reset on `complete` rather than archive — `recurring:` frontmatter drives the deferral cycle.
 
 ## Vault-Specific Examples

@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [017-enforce-status-in-progress-on-calendar-date]
+summary: Added status auto-promote in findAndDeferTask (next/backlog → in_progress) on the same single WriteTask call; updated default-status test and added Ginkgo coverage for all 6 status paths (next, backlog, in_progress, completed, aborted, hold); CHANGELOG entry under Unreleased.
+container: vault-cli-status-date-exec-139-defer-auto-promote-status
+dark-factory-version: v0.177.1
 created: "2026-06-14T14:30:00Z"
 queued: "2026-06-14T15:39:27Z"
+started: "2026-06-14T15:48:27Z"
+completed: "2026-06-14T15:52:09Z"
 branch: dark-factory/enforce-status-in-progress-on-calendar-date
 ---
 

@@ -3,6 +3,7 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/bborbe/vault-cli.svg)](https://pkg.go.dev/github.com/bborbe/vault-cli)
 [![CI](https://github.com/bborbe/vault-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/bborbe/vault-cli/actions/workflows/ci.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/bborbe/vault-cli)](https://goreportcard.com/report/github.com/bborbe/vault-cli)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/bborbe/vault-cli)
 
 Go CLI tool for managing Obsidian vault tasks, goals, themes, objectives, visions, and decisions.
 

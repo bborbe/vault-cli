@@ -10,6 +10,21 @@ Go CLI tool for managing Obsidian vault tasks, goals, themes, objectives, vision
 
 Fast CRUD operations for Obsidian markdown files (tasks, goals, themes, objectives, visions, decisions) without spawning full Claude Code sessions.
 
+Standalone-usable — pure local filesystem I/O against an Obsidian vault. No Kafka, no Kubernetes, no cluster. Works against any Obsidian vault that follows the bborbe frontmatter conventions.
+
+## Where this fits in the bigger picture
+
+vault-cli is the **operator-side surface** for the bborbe task / agent system:
+
+- Humans use it to CRUD vault tasks directly (`/vault-cli:create-task`, `/vault-cli:work-on-task`, `/vault-cli:sync-progress`, `…`)
+- [task-orchestrator](https://github.com/bborbe/task-orchestrator) wraps it as the backend of a Kanban / session-launcher UI
+- The reference AI agents in [bborbe/agent](https://github.com/bborbe/agent) import `vault-cli/pkg/domain` for the shared vault types
+- Manual `/vault-cli:create-task` is one of the ways a task enters the broader Kafka task pipeline
+
+vault-cli itself is **not** a pipeline participant: it never produces or consumes Kafka events. It reads and mutates the vault that the pipeline materializes.
+
+Full system map: [recurring-task-creator/docs/system-map.md](https://github.com/bborbe/recurring-task-creator/blob/master/docs/system-map.md).
+
 ## Installation
 
 ```bash

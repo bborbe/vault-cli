@@ -64,6 +64,16 @@ recurring: weekly                                # optional, for routine tasks
 
 `assignee` semantics: empty (`""`) means **unclaimed inbox** (anyone with vault access can pick up); an agent name means the executor should spawn that agent; a human name means that human is currently doing the work.
 
+`vault-cli task work-on` applies a three-case matrix to `assignee` (so one person picking up a task never silently overrides a teammate's assignment):
+
+| Existing `assignee` | Action |
+|---|---|
+| blank (`""`) | Set to `current_user` from `~/.vault-cli/config.yaml` |
+| equals `current_user` | No-op — file is not dirtied |
+| any other non-blank value | **Preserved.** A warning surfaces in `MutationResult.Warnings` (CLI prints `⚠️ assignee not updated: task owned by <other> (current user: <self>)`). The status mutation (`→ in_progress`) still proceeds. |
+
+To deliberately take over a task owned by someone else, use `vault-cli task set "<name>" assignee "<current_user>"` (or `task clear "<name>" assignee` first), then re-run `task work-on`.
+
 ### Required sections
 
 In order:

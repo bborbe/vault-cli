@@ -363,6 +363,9 @@ func formatWorkOnResult(
 		return PrintJSON(result)
 	}
 	fmt.Printf("✅ Now working on: %s (assigned to %s)\n", result.Name, currentUser)
+	for _, w := range result.Warnings {
+		fmt.Printf("⚠️  %s\n", w)
+	}
 	if result.SessionID != "" {
 		fmt.Printf("session_id: %s\n", result.SessionID)
 	}

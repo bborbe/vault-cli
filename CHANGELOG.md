@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: `vault-cli task work-on` no longer silently overrides a teammate's `assignee` on the task. New blank/equal/different matrix: blank → set to current user; already equals current user → no-op (file not dirtied); different non-blank user → preserved, warning emitted in `MutationResult.Warnings`. CLI surfaces the warning with a `⚠️` line; JSON output exposes it via the existing `Warnings` field — no struct change. Status mutation still proceeds independently. Documented in `README.md` and `docs/task-writing.md`. Implementation: `pkg/ops/workon.go` Execute matrix + 3 new Ginkgo contexts in `pkg/ops/workon_test.go`. Closes the root cause of the assignee-drift gap (was: `task.SetAssignee` called unconditionally).
+
 ## v0.78.0
 
 - feat: Add `STATUS_DATE_MISMATCH` lint check in `pkg/ops/lint.go` — surfaces when `status: next` or `status: backlog` coexists with any of `planned_date`, `defer_date`, or `due_date` (calendar dates are commitments; only `in_progress` and terminal statuses are compatible with a date on an unstarted task). Detector powers both `vault-cli task lint` and `vault-cli task validate` through shared `collectLintIssues`. `lint --fix` auto-promotes `next`/`backlog` to `in_progress` and leaves the date field byte-identical.

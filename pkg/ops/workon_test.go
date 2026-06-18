@@ -118,6 +118,66 @@ var _ = Describe("WorkOnOperation", func() {
 		})
 	})
 
+	Context("when assignee already equals current user", func() {
+		BeforeEach(func() {
+			task = domain.NewTask(
+				map[string]any{"status": "todo", "assignee": assignee},
+				domain.FileMetadata{Name: taskName, FilePath: "/path/to/vault/tasks/my-task.md"},
+				domain.Content(""),
+			)
+			mockTaskStorage.FindTaskByNameReturns(task, nil)
+		})
+
+		It("returns no error", func() {
+			Expect(err).To(BeNil())
+		})
+
+		It("preserves the existing assignee", func() {
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(BeNumerically(">=", 1))
+			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
+			Expect(writtenTask.Assignee()).To(Equal(assignee))
+		})
+
+		It("emits no assignee warning", func() {
+			Expect(result.Warnings).NotTo(ContainElement(ContainSubstring("assignee not updated")))
+		})
+	})
+
+	Context("when assignee is set to a different user", func() {
+		const otherUser = "alice@example.com"
+
+		BeforeEach(func() {
+			task = domain.NewTask(
+				map[string]any{"status": "todo", "assignee": otherUser},
+				domain.FileMetadata{Name: taskName, FilePath: "/path/to/vault/tasks/my-task.md"},
+				domain.Content(""),
+			)
+			mockTaskStorage.FindTaskByNameReturns(task, nil)
+		})
+
+		It("returns no error", func() {
+			Expect(err).To(BeNil())
+		})
+
+		It("preserves the other user's assignment", func() {
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(BeNumerically(">=", 1))
+			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
+			Expect(writtenTask.Assignee()).To(Equal(otherUser))
+		})
+
+		It("emits an assignee-not-updated warning naming both users", func() {
+			Expect(result.Warnings).To(ContainElement(ContainSubstring("assignee not updated")))
+			Expect(result.Warnings).To(ContainElement(ContainSubstring(otherUser)))
+			Expect(result.Warnings).To(ContainElement(ContainSubstring(assignee)))
+		})
+
+		It("still marks the task in_progress (status is independent of assignee)", func() {
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(BeNumerically(">=", 1))
+			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
+			Expect(writtenTask.Status()).To(Equal(domain.TaskStatusInProgress))
+		})
+	})
+
 	Context("custom work on command", func() {
 		BeforeEach(func() {
 			testVault.WorkOnCommand = "/custom-cmd"

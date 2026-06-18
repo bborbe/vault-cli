@@ -79,7 +79,7 @@ vault-cli task defer "Migrate TaskOrchestrator" +7d     # Defer by relative days
 vault-cli task defer "Migrate TaskOrchestrator" monday  # Defer to next weekday
 vault-cli task defer "Migrate TaskOrchestrator" 2026-03-01  # Defer to ISO date
 vault-cli task update "Build vault-cli Go Tool"    # Update progress from checkboxes
-vault-cli task work-on "Build vault-cli Go Tool"   # Mark in_progress and assign to current user
+vault-cli task work-on "Build vault-cli Go Tool"   # Mark in_progress; assignee: blank→current_user, equal→no-op, other→preserved+⚠️
 
 vault-cli task get "Build vault-cli Go Tool" status         # Get a frontmatter field
 vault-cli task set "Build vault-cli Go Tool" status done    # Set a frontmatter field

@@ -86,14 +86,12 @@ func (w *workOnOperation) Execute(
 	}
 
 	_ = task.SetStatus(domain.TaskStatusInProgress)
-	task.SetAssignee(assignee)
 
-	// Advance phase to planning only when entering the workflow.
-	// Resuming a mid-flight task (in_progress, ai_review, human_review, done, ...)
-	// must not reset progress backward.
-	if currentPhase := task.Phase(); currentPhase == nil || *currentPhase == domain.TaskPhaseTodo {
-		task.SetPhase(domain.TaskPhasePlanning.Ptr())
+	if w := applyAssigneeMatrix(task, assignee); w != "" {
+		warnings = append(warnings, w)
 	}
+
+	advancePhaseIfEntering(task)
 
 	if err := w.taskStorage.WriteTask(ctx, task); err != nil {
 		return MutationResult{
@@ -145,6 +143,37 @@ func (w *workOnOperation) Execute(
 		Warnings:  warnings,
 		SessionID: sessionID,
 	}, nil
+}
+
+// advancePhaseIfEntering moves a task into the planning phase only when entering
+// the workflow (current phase nil or "todo"). Resuming a mid-flight task
+// (in_progress, ai_review, human_review, done, ...) must not reset progress backward.
+func advancePhaseIfEntering(task *domain.Task) {
+	if currentPhase := task.Phase(); currentPhase == nil || *currentPhase == domain.TaskPhaseTodo {
+		task.SetPhase(domain.TaskPhasePlanning.Ptr())
+	}
+}
+
+// applyAssigneeMatrix updates the task's assignee per the blank/equal/different rule
+// so `task work-on` never silently overrides a teammate's assignment.
+//
+// Returns a warning string when the task already belongs to a different non-blank
+// user (and the assignee is left unchanged); returns "" for the blank and
+// already-self-assigned cases.
+func applyAssigneeMatrix(task *domain.Task, assignee string) string {
+	switch existing := task.Assignee(); existing {
+	case "":
+		task.SetAssignee(assignee)
+		return ""
+	case assignee:
+		return ""
+	default:
+		return fmt.Sprintf(
+			"assignee not updated: task owned by %s (current user: %s)",
+			existing,
+			assignee,
+		)
+	}
 }
 
 // handleClaudeSession starts or returns an existing Claude session for the task.

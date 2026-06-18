@@ -23,6 +23,7 @@ When `JIRA_MCP_AVAILABLE` AND input is a Jira ID:
 
 When Obsidian task file exists:
 3. Set frontmatter `status: in_progress` (if not already)
+4. Set frontmatter `assignee: <current_user>` (only if currently blank; skip if already set to a different user — see Phase 3)
 
 Mutations happen **before** guide discovery and report rendering. Verify after writing — see Phase 8.
 </critical_writes>
@@ -30,6 +31,7 @@ Mutations happen **before** guide discovery and report rendering. Verify after w
 <constraints>
 - AUTO: Jira tasks assigned to current user + transitioned to "In Progress" (no asking)
 - AUTO: Obsidian task status set to `in_progress` (no asking)
+- AUTO: Obsidian task assignee set to `current_user` if blank (no asking; skip if already set to a different user)
 - MANDATORY for code tasks: dispatch `Task(subagent_type='coding:pre-implementation-assistant', ...)` and read project Development Guide if present (replaces the prior `Skill: coding:check-guides` invocation — `Skill` is no longer in `tools:`)
 - READ-ONLY except: status frontmatter + daily-note tracking
 - ALLOWED `Task` subagent dispatch is restricted to: `coding:pre-implementation-assistant` (Phase 5), `vault-cli:task-manager-agent` (Phase 7). NEVER dispatch to a `*create-task*`, `*creator*`, or any subagent whose role is to create task files — the consent gate lives in the calling slash command (`vault-cli:work-on-task` Phase 4), not in a sibling agent. `Task` is a generic dispatch primitive; it does not grant create-task capability by itself, but routing through a creator-agent would defeat the architectural gate.
@@ -122,6 +124,20 @@ If found:
 - If `status != in_progress`: `vault-cli task work-on "{task_name}"`
 - Report: `✅ Status: {old} → in_progress`
 
+**Auto-assign assignee** (runs ONLY when the Obsidian task file was found — never in the `not_found` case):
+
+- Resolve `current_user` once and cache for the session:
+  - If `command -v yq` exits non-zero → current_user is unavailable.
+  - Else `current_user=$(yq e '.current_user' ~/.vault-cli/config.yaml 2>/dev/null)`.
+  - If the config file is missing, the command errors, or the value is empty/`null` → current_user is unavailable.
+- If current_user is unavailable: emit `ℹ️ current_user unavailable, skipping assignee` and continue (do NOT error, do NOT block later phases). Record this so Phase 8 skips its assignee assertion.
+- Otherwise read the task's current assignee: `vault-cli task get "{task_name}" assignee`.
+- Apply the matrix:
+  - **(a) blank/missing assignee** → write it: `vault-cli task set "{task_name}" assignee "{current_user}"`. On non-zero exit, retry ONCE. On success emit `✅ Assignee: set to {current_user}`. On failure after the retry emit `⚠️ Could not set assignee: <error>` — and in this failure case the report MUST NOT end with "Ready to work on this task." (this is a critical-write failure, same contract as the status write).
+  - **(b) assignee already equals current_user** → do NOT write; emit `ℹ️ Assignee: already set to {current_user}`.
+  - **(c) assignee is a different non-blank user** → do NOT write; emit `⚠️ Task assigned to \`<other>\`, not auto-overridden`.
+- `current_user` is opaque text (e.g. `bborbe`, `user@example.com`) — never parse or transform it.
+
 If not found AND task came from Jira:
 - The Jira issue exists but there is no local Obsidian task file. This is a `not_found` case for the Obsidian side — the calling slash command's Phase 4 owns task creation. Emit the `not_found:` verdict (see Phase 1 and `<output_format>`) including the Jira summary as the `Suggested task name:` value and STOP — do NOT call AskUserQuestion, do NOT invoke `Skill: vault-cli:create-task`. The slash command handles the consent gate.
 
@@ -201,6 +217,13 @@ If `JIRA_MCP_AVAILABLE` AND input was a Jira ID:
    - If still failing → record ⚠️ with explicit reason in the report
 4. NEVER emit "Ready to work on this task." while the Jira state is stale.
 
+**Obsidian assignee verification** (runs when an Obsidian task file was found):
+
+- If Phase 3 case (a) performed an assignee write: re-read with `vault-cli task get "{task_name}" assignee` and assert the value `== current_user`. On mismatch emit `⚠️ Assignee verification failed: expected {current_user}, got <value>`. (Do NOT retry beyond Phase 3's one-shot retry — a mismatch here means a concurrent edit; just warn.)
+- If Phase 3 case (b) (assignee already equalled current_user): perform the same re-read + assertion.
+- **Carve-out 1 — different-user case**: if Phase 3 case (c) (a different user was left in place), SKIP the assertion.
+- **Carve-out 2 — current_user-unavailable case**: if current_user was unavailable in Phase 3 (yq missing, config missing, value blank/null), SKIP the assertion.
+
 Then render the report (output_format below).
 </workflow>
 
@@ -218,6 +241,7 @@ Jira:
 
 [Obsidian:]
 ✅ Status: <old> → in_progress | ℹ️ Continuing Jira-only
+✅ Assignee: set to <current_user> | ℹ️ Assignee: already set to <current_user> | ⚠️ Task assigned to `<other>`, not auto-overridden | ℹ️ current_user unavailable, skipping assignee
 
 [Daily Note:]
 ✅ Tracked on today's page | ℹ️ Already tracked | ℹ️ Daily note missing
@@ -288,4 +312,5 @@ Suggested task name: <derived title — Jira summary if Jira ID input, else inpu
 6. Guides searched (semantic or fallback) — **FAIL if Phase 6 skipped; at least one `search_related` call required when MCP available**
 7. Phase 8 verification ran for Jira tasks; report includes verification line
 8. Report ends with "Ready to work on this task." — NEVER emitted while Jira state is stale
+9. Obsidian task assignee auto-set to `current_user` when blank, or report line explains why it was skipped (already-self / different-user / current_user-unavailable)
 </success_criteria>

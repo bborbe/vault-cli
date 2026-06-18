@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat: `work-on-task-assistant` agent now auto-assigns the Obsidian-side `assignee` frontmatter field, mirroring its existing Jira auto-assign. Behavior matrix: blank → set to `current_user` (from `~/.vault-cli/config.yaml`); already equals `current_user` → no-op; different non-blank user → leave alone, emit ⚠️ warning ("not auto-overridden"). Gated by `command -v yq` — skips gracefully with an ℹ️ line if yq absent or config unreadable. Added to `<critical_writes>`, `<constraints>`, Phase 3, Phase 8 verification, `<output_format>`, and `<success_criteria>` (criterion #9). Closes the ~53/195-task assignee-drift gap in the user's vault. Single-file edit (`agents/work-on-task-assistant.md`).
+
 ## v0.78.0
 
 - feat: Add `STATUS_DATE_MISMATCH` lint check in `pkg/ops/lint.go` — surfaces when `status: next` or `status: backlog` coexists with any of `planned_date`, `defer_date`, or `due_date` (calendar dates are commitments; only `in_progress` and terminal statuses are compatible with a date on an unstarted task). Detector powers both `vault-cli task lint` and `vault-cli task validate` through shared `collectLintIssues`. `lint --fix` auto-promotes `next`/`backlog` to `in_progress` and leaves the date field byte-identical.

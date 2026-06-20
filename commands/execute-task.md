@@ -1,5 +1,4 @@
 ---
-name: execute-task
 description: Gate planning → execution. Re-runs plan-task's hard non-negotiables; on pass, flips phase + prints first subtask + DoD reminder.
 argument-hint: "<task-file-path-or-name> (or detects from conversation)"
 allowed-tools: [Read, Edit, Glob, Bash, AskUserQuestion, Task]

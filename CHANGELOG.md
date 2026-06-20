@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.81.0
 
 - feat: Date fields on Task / Goal / Objective / Theme frontmatter now flow as typed `*libtime.DateOrDateTime` end-to-end — setters store the typed value (no pre-stringification), `FrontmatterMap.GetTime` handles `time.Time` / `libtime.DateOrDateTime` / `string` shapes, JSON projection uses the type's own `String()` / `MarshalJSON`. Both `formatDateOrDateTime` helpers removed (`pkg/domain/task_frontmatter.go` + `pkg/ops/frontmatter.go`); the type itself is now the single source of truth for on-disk + on-wire format. Closes the silent-divergence risk between two independently-maintained format helpers.
 - feat: **On-disk format change** for `completed_date` / `last_completed_date` (any field set via `time.Now()`). Previously emitted as RFC3339 (second precision); now emitted as RFC3339Nano (nanosecond precision) because `DateOrDateTime.String()` preserves the sub-second component. Date-only fields (`defer_date`, `planned_date`, `due_date`, `start_date`, `target_date`) are unchanged — still `YYYY-MM-DD`. Existing vault files re-write with longer precision on next mutation; expect one-time format-only diffs across vault repos. All parsers (vault-cli `ParseTime`, Obsidian YAML, `bborbe/time`) accept both formats — no functional break.

@@ -116,7 +116,7 @@ func (f *ThemeFrontmatter) SetStartDate(d *libtime.DateOrDateTime) {
 		f.Delete("start_date")
 		return
 	}
-	f.Set("start_date", formatDateOrDateTime(d))
+	f.Set("start_date", *d)
 }
 
 // SetTargetDate stores the target_date in the map. Deletes key if d is nil.
@@ -125,7 +125,7 @@ func (f *ThemeFrontmatter) SetTargetDate(d *libtime.DateOrDateTime) {
 		f.Delete("target_date")
 		return
 	}
-	f.Set("target_date", formatDateOrDateTime(d))
+	f.Set("target_date", *d)
 }
 
 // SetTags stores tags in the map. Deletes key if v is nil or empty.
@@ -153,9 +153,9 @@ func (f ThemeFrontmatter) GetField(key string) string {
 	case "assignee":
 		return f.Assignee()
 	case "start_date":
-		return formatDateOrDateTime(f.StartDate())
+		return dateFieldString(f.StartDate())
 	case "target_date":
-		return formatDateOrDateTime(f.TargetDate())
+		return dateFieldString(f.TargetDate())
 	case "tags":
 		return strings.Join(f.Tags(), ",")
 	default:

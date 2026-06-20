@@ -97,10 +97,18 @@ func (o *showOperation) Execute(
 		Vault:           vaultName,
 	}
 
-	detail.DeferDate = formatDateOrDateTime(task.DeferDate())
-	detail.PlannedDate = formatDateOrDateTime(task.PlannedDate())
-	detail.DueDate = formatDateOrDateTime(task.DueDate())
-	detail.CompletedDate = formatDateOrDateTime(task.CompletedDate())
+	if d := task.DeferDate(); d != nil {
+		detail.DeferDate = d.String()
+	}
+	if d := task.PlannedDate(); d != nil {
+		detail.PlannedDate = d.String()
+	}
+	if d := task.DueDate(); d != nil {
+		detail.DueDate = d.String()
+	}
+	if d := task.CompletedDate(); d != nil {
+		detail.CompletedDate = d.String()
+	}
 
 	// Extract description from body content
 	if matches := showFrontmatterRegex.FindStringSubmatch(string(task.Content)); len(matches) >= 2 {

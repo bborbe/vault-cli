@@ -52,6 +52,7 @@ func (f FrontmatterMap) GetString(key string) string {
 // GetTime returns the time.Time value stored for key.
 // Handles three shapes:
 //   - time.Time (YAML parses date/datetime literals into this automatically)
+//   - libtime.DateOrDateTime (in-memory typed value set by domain setters)
 //   - string (falls back to libtime.ParseTime for manually-authored values)
 //   - anything else → nil
 //
@@ -64,6 +65,9 @@ func (f FrontmatterMap) GetTime(key string) *time.Time {
 	switch t := v.(type) {
 	case time.Time:
 		tc := t
+		return &tc
+	case libtime.DateOrDateTime:
+		tc := t.Time()
 		return &tc
 	case string:
 		if t == "" {

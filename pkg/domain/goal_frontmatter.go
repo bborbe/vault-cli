@@ -154,7 +154,7 @@ func (f *GoalFrontmatter) SetStartDate(d *libtime.DateOrDateTime) {
 		f.Delete("start_date")
 		return
 	}
-	f.Set("start_date", formatDateOrDateTime(d))
+	f.Set("start_date", *d)
 }
 
 // SetTargetDate stores the target_date in the map. Deletes key if d is nil.
@@ -163,7 +163,7 @@ func (f *GoalFrontmatter) SetTargetDate(d *libtime.DateOrDateTime) {
 		f.Delete("target_date")
 		return
 	}
-	f.Set("target_date", formatDateOrDateTime(d))
+	f.Set("target_date", *d)
 }
 
 // SetTags stores tags in the map. Deletes key if v is nil or empty.
@@ -190,7 +190,7 @@ func (f *GoalFrontmatter) SetDeferDate(d *libtime.DateOrDateTime) {
 		f.Delete("defer_date")
 		return
 	}
-	f.Set("defer_date", formatDateOrDateTime(d))
+	f.Set("defer_date", *d)
 }
 
 // GetField returns the string representation of any frontmatter field by key.
@@ -211,9 +211,9 @@ func (f GoalFrontmatter) GetField(key string) string {
 	case "assignee":
 		return f.Assignee()
 	case "start_date":
-		return formatDateOrDateTime(f.StartDate())
+		return dateFieldString(f.StartDate())
 	case "target_date":
-		return formatDateOrDateTime(f.TargetDate())
+		return dateFieldString(f.TargetDate())
 	case "tags":
 		return strings.Join(f.Tags(), ",")
 	case "completed":
@@ -223,7 +223,7 @@ func (f GoalFrontmatter) GetField(key string) string {
 		}
 		return d.String()
 	case "defer_date":
-		return formatDateOrDateTime(f.DeferDate())
+		return dateFieldString(f.DeferDate())
 	default:
 		return f.GetString(key)
 	}

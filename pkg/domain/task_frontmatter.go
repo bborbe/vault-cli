@@ -119,7 +119,11 @@ func (f TaskFrontmatter) LastCompletedDate() *libtime.DateOrDateTime {
 // LastCompleted reads "last_completed" (legacy) or "last_completed_date" (canonical)
 // as a formatted date string. Kept for backward compatibility.
 func (f TaskFrontmatter) LastCompleted() string {
-	return formatDateOrDateTime(f.LastCompletedDate())
+	d := f.LastCompletedDate()
+	if d == nil {
+		return ""
+	}
+	return d.String()
 }
 
 // CompletedDate reads "completed_date" as *libtime.DateOrDateTime.
@@ -219,9 +223,8 @@ func (f *TaskFrontmatter) SetLastCompletedDate(d *libtime.DateOrDateTime) {
 		f.Delete("last_completed")
 		return
 	}
-	formatted := formatDateOrDateTime(d)
-	f.Set("last_completed_date", formatted)
-	f.Set("last_completed", formatted) // dual-write window
+	f.Set("last_completed_date", *d)
+	f.Set("last_completed", *d) // dual-write window
 }
 
 // SetLastCompleted stores the last_completed value. Kept for backward compatibility.
@@ -247,7 +250,7 @@ func (f *TaskFrontmatter) SetCompletedDate(d *libtime.DateOrDateTime) {
 		f.Delete("completed_date")
 		return
 	}
-	f.Set("completed_date", formatDateOrDateTime(d))
+	f.Set("completed_date", *d)
 }
 
 // SetCreatedDate stores the created_date in the map. Deletes the key if d is nil.
@@ -256,7 +259,7 @@ func (f *TaskFrontmatter) SetCreatedDate(d *libtime.DateOrDateTime) {
 		f.Delete("created_date")
 		return
 	}
-	f.Set("created_date", formatDateOrDateTime(d))
+	f.Set("created_date", *d)
 }
 
 // SetTaskIdentifier stores the task_identifier value in the map.
@@ -296,7 +299,7 @@ func (f *TaskFrontmatter) SetDeferDate(d *libtime.DateOrDateTime) {
 		f.Delete("defer_date")
 		return
 	}
-	f.Set("defer_date", formatDateOrDateTime(d))
+	f.Set("defer_date", *d)
 }
 
 // SetPlannedDate stores the planned_date in the map. Deletes the key if d is nil.
@@ -305,7 +308,7 @@ func (f *TaskFrontmatter) SetPlannedDate(d *libtime.DateOrDateTime) {
 		f.Delete("planned_date")
 		return
 	}
-	f.Set("planned_date", formatDateOrDateTime(d))
+	f.Set("planned_date", *d)
 }
 
 // SetDueDate stores the due_date in the map. Deletes the key if d is nil.
@@ -314,7 +317,7 @@ func (f *TaskFrontmatter) SetDueDate(d *libtime.DateOrDateTime) {
 		f.Delete("due_date")
 		return
 	}
-	f.Set("due_date", formatDateOrDateTime(d))
+	f.Set("due_date", *d)
 }
 
 // GetField returns the string representation of any frontmatter field by key.
@@ -337,7 +340,7 @@ func (f TaskFrontmatter) GetField(key string) string {
 	case "assignee":
 		return f.Assignee()
 	case "defer_date":
-		return formatDateOrDateTime(f.DeferDate())
+		return dateFieldString(f.DeferDate())
 	case "tags":
 		return strings.Join(f.Tags(), ",")
 	case "phase":
@@ -353,15 +356,15 @@ func (f TaskFrontmatter) GetField(key string) string {
 	case "last_completed":
 		return f.LastCompleted()
 	case "last_completed_date":
-		return formatDateOrDateTime(f.LastCompletedDate())
+		return dateFieldString(f.LastCompletedDate())
 	case "completed_date":
-		return formatDateOrDateTime(f.CompletedDate())
+		return dateFieldString(f.CompletedDate())
 	case "created_date":
-		return formatDateOrDateTime(f.CreatedDate())
+		return dateFieldString(f.CreatedDate())
 	case "planned_date":
-		return formatDateOrDateTime(f.PlannedDate())
+		return dateFieldString(f.PlannedDate())
 	case "due_date":
-		return formatDateOrDateTime(f.DueDate())
+		return dateFieldString(f.DueDate())
 	case "task_identifier":
 		return f.TaskIdentifier()
 	default:
@@ -475,23 +478,12 @@ func (f *TaskFrontmatter) ClearField(key string) {
 	f.Delete(key)
 }
 
-// formatTimeAsDate serializes a time.Time using the same rule as formatDateOrDateTime:
-// YYYY-MM-DD for midnight-UTC values, RFC3339 preserving timezone otherwise.
-func formatTimeAsDate(t time.Time) string {
-	tUTC := t.UTC()
-	if tUTC.Hour() == 0 && tUTC.Minute() == 0 && tUTC.Second() == 0 && tUTC.Nanosecond() == 0 {
-		return tUTC.Format(time.DateOnly)
-	}
-	return t.Format(time.RFC3339)
-}
-
-// formatDateOrDateTime serializes a libtime.DateOrDateTime to YYYY-MM-DD for date-only values
-// (midnight UTC) and RFC3339 preserving the original timezone for values with a time component.
-func formatDateOrDateTime(d *libtime.DateOrDateTime) string {
+// dateFieldString returns d.String() when d is non-nil, empty string otherwise.
+func dateFieldString(d *libtime.DateOrDateTime) string {
 	if d == nil {
 		return ""
 	}
-	return formatTimeAsDate(d.Time())
+	return d.String()
 }
 
 // stringSliceToAny converts []string to []any for map storage.
@@ -504,4 +496,22 @@ func stringSliceToAny(ss []string) []any {
 		result[i] = s
 	}
 	return result
+}
+
+// formatTimeAsDate serializes a time.Time to YYYY-MM-DD for midnight-UTC values,
+// RFC3339 preserving timezone otherwise.
+//
+// Kept (//keep) per spec 018 Non-goals: "Do NOT remove or modify
+// formatTimeAsDate(time.Time) string." Retained as a stable, type-agnostic
+// formatter for any future caller that needs to format a raw time.Time without
+// going through the libtime.DateOrDateTime wrapper. No current callers; this
+// is deliberate API surface preservation, not dead code.
+//
+//nolint:unused
+func formatTimeAsDate(t time.Time) string {
+	tUTC := t.UTC()
+	if tUTC.Hour() == 0 && tUTC.Minute() == 0 && tUTC.Second() == 0 && tUTC.Nanosecond() == 0 {
+		return tUTC.Format(time.DateOnly)
+	}
+	return t.Format(time.RFC3339)
 }

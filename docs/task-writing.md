@@ -223,6 +223,20 @@ The auditor (`task-auditor` agent) checks structure, success-criteria binary-nes
 | `aborted` | Abandoned without completion | Operator sets manually with reason in body |
 | `backlog` | Not committed yet | Initial state before commitment |
 
+### Phase transitions
+
+`status: in_progress` walks an inner `phase` lifecycle. Each transition is gated by a slash command:
+
+| Phase | Meaning | Trigger to enter |
+|-------|---------|------------------|
+| `todo` / empty | Just landed in `in_progress`, no planning done yet | `/vault-cli:work-on-task` (loads context + emits readiness nudge if SC missing) |
+| `planning` | Sharpening Success Criteria + subtasks against the goal | `/vault-cli:plan-task` (runs `task-auditor` + 5 hard non-negotiables loop; flips to `execution` on score ≥ 8 + gates pass) |
+| `execution` | Doing the work — the actual subtasks | `/vault-cli:execute-task` (re-runs plan-task's 4 hard non-negotiables; refuses on fail, flips on pass + prints first unchecked subtask + DoD) |
+| `ai_review` / `human_review` | Output ready for review | Agent-driven (out of vault-cli scope) |
+| `done` | Terminal | `/vault-cli:complete-task` (auto-promotes status → `completed` when all `# Success Criteria` `[x]`) |
+
+The split between `/work-on-task` (informational readiness nudge) and `/execute-task` (blocking hard gate) is deliberate — `work-on-task` is content-agnostic (status + guides only), `execute-task` is the gate that won't flip `phase: planning → execution` until the 4 hard non-negotiables pass.
+
 ### Calendar-as-commitment rule
 
 Any task with a calendar date (`planned_date`, `defer_date`, or `due_date`) is a commitment, so its status must be `in_progress` (or terminal — `completed` / `aborted`). The rule is enforced at three points: file creation (`task-creator` agent emits `in_progress` when any date field is set), date assignment (`task defer` auto-promotes `next` / `backlog` to `in_progress` in the same write), and audit (`task lint` and `task validate` both surface `STATUS_DATE_MISMATCH`). `task lint --fix` promotes the status; the date is never stripped. Terminal status takes precedence — a `completed` task with a stale `defer_date` is out of scope. See spec 017.

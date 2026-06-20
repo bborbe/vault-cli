@@ -17,7 +17,7 @@ Standalone-usable — pure local filesystem I/O against an Obsidian vault. No Ka
 
 vault-cli is the **operator-side surface** for the bborbe task / agent system:
 
-- Humans use it to CRUD vault tasks directly (`/vault-cli:create-task`, `/vault-cli:work-on-task`, `/vault-cli:sync-progress`, `…`)
+- Humans use it to CRUD vault tasks directly through the phase-gated lifecycle (`/vault-cli:create-task` → `/vault-cli:work-on-task` → `/vault-cli:plan-task` → `/vault-cli:execute-task` → `/vault-cli:sync-progress` → `/vault-cli:complete-task`)
 - [task-orchestrator](https://github.com/bborbe/task-orchestrator) wraps it as the backend of a Kanban / session-launcher UI
 - The reference AI agents in [bborbe/agent](https://github.com/bborbe/agent) import `vault-cli/pkg/domain` for the shared vault types
 - Manual `/vault-cli:create-task` is one of the ways a task enters the broader Kafka task pipeline
@@ -171,6 +171,7 @@ claude plugin update vault-cli@vault-cli
 | `/vault-cli:verify-task` | Quick task validation (status, goals, DoD) |
 | `/vault-cli:audit-task` | Full task audit against Task Writing Guide |
 | `/vault-cli:plan-task` | Validate Success Criteria + subtasks via task-auditor; conversationally fill gaps; on `phase: planning`, transition to `execution` |
+| `/vault-cli:execute-task` | Hard gate `phase: planning → execution` — re-runs plan-task's 4 hard non-negotiables, on pass flips phase + prints first unchecked subtask + DoD reminder. Idempotent on `phase: execution` |
 | `/vault-cli:verify-goal` | Quick goal validation (status, subtasks) |
 | `/vault-cli:audit-goal` | Full goal audit against Goal Writing Guide |
 | `/vault-cli:verify-theme` | Quick theme validation (structure, sections) |

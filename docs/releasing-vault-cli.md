@@ -75,9 +75,26 @@ bash scripts/check-versions.sh
 
 **NOT wired into `make precommit`** — see the "Version alignment" section above for why.
 
-## Binary release (automatic — but the operator owns the gate)
+## Binary release — two cooperating drivers
 
-Vault-cli runs against itself as a daemon with `autoRelease: true` (`.dark-factory.yaml`). Every successful prompt that touches `## Unreleased` triggers:
+Vault-cli is opted into **both** automatic release flows; either one is sufficient to ship a tag, and they are designed to be complementary, not duplicative.
+
+### Driver 1: `github-releaser-agent` (canonical, post-merge)
+
+`.maintainer.yaml: release.autoRelease: true` opts the repo in. After any commit lands on `master` carrying `## Unreleased` bullets in `CHANGELOG.md`, the watcher emits a `CreateTaskCommand` and the agent:
+
+1. Classifies the semver bump from the `## Unreleased` bullet prefixes (`feat:` → minor, `fix:` → patch, `BREAKING:` → major)
+2. Rewrites `## Unreleased` → `## vX.Y.Z`
+3. Bumps the four version strings (CHANGELOG + `.claude-plugin/plugin.json` + `.claude-plugin/marketplace.json` × 2) in lockstep
+4. Commits `release vX.Y.Z`, tags `vX.Y.Z`, pushes tag + commit
+
+Picks up changes within ~10 min of the merge (watcher poll interval). To force an immediate scan: trigger via the maintainer-watcher `/trigger` endpoint or the `/github-release-repo-trigger` runbook.
+
+**Operator's job in this flow**: keep `## Unreleased` bullets accurate, commit + push to master. **Do NOT** rename `## Unreleased` → `## vX.Y.Z`, **do NOT** bump version strings, **do NOT** create a local tag — the bot owns the entire release commit. Local versions of any of those steps race the bot.
+
+### Driver 2: dark-factory `autoRelease: true` (per-prompt, immediate)
+
+`.dark-factory.yaml: autoRelease: true` makes the dark-factory daemon (the one that runs prompts in YOLO containers) tag-and-push after every successful prompt that touched `## Unreleased`:
 
 1. Stage all changes (including the agent's `## Unreleased` entry)
 2. Determine bump (patch/minor) from changelog content
@@ -86,9 +103,20 @@ Vault-cli runs against itself as a daemon with `autoRelease: true` (`.dark-facto
 5. Tag `vX.Y.Z`, push tag and commit
 6. Move the prompt file to `prompts/completed/` and push that commit too
 
-The operator's responsibility is to **run the release gate before approving any prompt** that may produce a binary change. Once the prompt is approved, the daemon ships whatever the agent produced — there is no second checkpoint.
+Fires immediately on prompt completion — no merge to master required. Bypassed by direct PRs.
 
-To verify a release shipped:
+### When each driver fires
+
+| Scenario | dark-factory driver | github-releaser-agent driver |
+|---|---|---|
+| Daemon runs a prompt on a feature branch, prompt completes | fires (if branch-mode + `autoRelease=true`) — tag goes on the feature branch | does NOT fire (commits not on master yet) |
+| Daemon runs a prompt with `--set autoRelease=false` (typical feature-branch hygiene) | does NOT fire — commit pushed without tag | fires after the feature branch merges to master |
+| Direct PR + merge (no dark-factory at all) | does NOT fire (no daemon involvement) | fires |
+| Daemon runs on master directly with `autoRelease=true` | fires immediately on master | observes the tag already exists and no-ops |
+
+The two are **safety nets for each other**, not redundant. Use `--set autoRelease=false` on feature-branch daemon runs to keep release commits on master only; rely on github-releaser-agent post-merge for the actual tag.
+
+### Verifying a release shipped (either driver)
 
 ```bash
 git fetch --tags
@@ -96,7 +124,9 @@ git describe --tags --abbrev=0           # latest tag
 git log "$(git describe --tags --abbrev=0)"..HEAD --oneline   # any unpushed commits beyond it
 ```
 
-After a successful auto-release, both `git status` (clean) and `git rev-list @{u}..HEAD --count` (zero) should hold.
+After a successful release (by either driver), both `git status` (clean) and `git rev-list @{u}..HEAD --count` (zero) should hold.
+
+The operator's responsibility regardless of driver is the **release gate** (above): build `/tmp/new-vault-cli` and walk `scenarios/*.md` before every `make install` of the released tag. Neither driver runs the scenarios — that gate is operator-side.
 
 ## GitHub Release (manual — when to surface a milestone)
 

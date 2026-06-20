@@ -8,6 +8,7 @@ import (
 	"context"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/bborbe/errors"
 	libtime "github.com/bborbe/time"
@@ -495,4 +496,22 @@ func stringSliceToAny(ss []string) []any {
 		result[i] = s
 	}
 	return result
+}
+
+// formatTimeAsDate serializes a time.Time to YYYY-MM-DD for midnight-UTC values,
+// RFC3339 preserving timezone otherwise.
+//
+// Kept (//keep) per spec 018 Non-goals: "Do NOT remove or modify
+// formatTimeAsDate(time.Time) string." Retained as a stable, type-agnostic
+// formatter for any future caller that needs to format a raw time.Time without
+// going through the libtime.DateOrDateTime wrapper. No current callers; this
+// is deliberate API surface preservation, not dead code.
+//
+//nolint:unused
+func formatTimeAsDate(t time.Time) string {
+	tUTC := t.UTC()
+	if tUTC.Hour() == 0 && tUTC.Minute() == 0 && tUTC.Second() == 0 && tUTC.Nanosecond() == 0 {
+		return tUTC.Format(time.DateOnly)
+	}
+	return t.Format(time.RFC3339)
 }

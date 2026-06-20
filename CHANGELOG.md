@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.79.0
 
 - feat: Add `INVALID_TASK_IDENTIFIER` lint check in `pkg/ops/lint.go` — surfaces when `task_identifier` is present but does not parse as a UUID (catches the literal `<uuid>` placeholder from `90 Templates/Task Template.md`, typos, and truncated values). Closes the gap that let template placeholders ship as real values — `MISSING_TASK_IDENTIFIER` only fires on empty/absent values, so a forgotten `<uuid>` placeholder would otherwise pass lint and then get backfilled to a random UUID by the `WriteTask` fallback on the next write, reintroducing the concurrent-write merge-conflict race on legacy tasks. Non-fixable on purpose: operator must replace with a fresh UUIDv4 (auto-fix would itself become a hidden UUID creation site, defeating the rule's purpose).
 

@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.82.0
 
 - feat: `work-on-task-assistant` emits a one-line readiness nudge for Obsidian tasks (`✅ looks execution-ready` / `⚠ phase=planning / no Success Criteria / ... — run /vault-cli:plan-task first`). Shallow file-level check only — substance still belongs to `/vault-cli:plan-task`. Preserves work-on-task's content-agnostic core (no questions, no edits, no blocking) while closing the gap where a user starts work on a half-baked task without being nudged toward the planning gate.
 

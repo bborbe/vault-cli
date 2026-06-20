@@ -8,7 +8,6 @@ import (
 	"context"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/bborbe/errors"
 	libtime "github.com/bborbe/time"
@@ -484,18 +483,6 @@ func dateFieldString(d *libtime.DateOrDateTime) string {
 		return ""
 	}
 	return d.String()
-}
-
-// formatTimeAsDate serializes a time.Time to YYYY-MM-DD for midnight-UTC values,
-// RFC3339 preserving timezone otherwise.
-//
-//nolint:unused
-func formatTimeAsDate(t time.Time) string {
-	tUTC := t.UTC()
-	if tUTC.Hour() == 0 && tUTC.Minute() == 0 && tUTC.Second() == 0 && tUTC.Nanosecond() == 0 {
-		return tUTC.Format(time.DateOnly)
-	}
-	return t.Format(time.RFC3339)
 }
 
 // stringSliceToAny converts []string to []any for map storage.

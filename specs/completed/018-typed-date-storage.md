@@ -1,5 +1,5 @@
 ---
-status: verifying
+status: completed
 tags:
     - dark-factory
     - spec
@@ -7,6 +7,7 @@ approved: "2026-06-20T13:16:04Z"
 generating: "2026-06-20T13:16:05Z"
 prompted: "2026-06-20T13:31:17Z"
 verifying: "2026-06-20T14:05:39Z"
+completed: "2026-06-20T15:14:00Z"
 branch: dark-factory/typed-date-storage
 ---
 

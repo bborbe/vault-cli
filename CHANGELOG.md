@@ -8,6 +8,12 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat: Date fields on Task / Goal / Objective / Theme frontmatter now flow as typed `*libtime.DateOrDateTime` end-to-end — setters store the typed value (no pre-stringification), `FrontmatterMap.GetTime` handles `time.Time` / `libtime.DateOrDateTime` / `string` shapes, JSON projection uses the type's own `String()` / `MarshalJSON`. Both `formatDateOrDateTime` helpers removed (`pkg/domain/task_frontmatter.go` + `pkg/ops/frontmatter.go`); the type itself is now the single source of truth for on-disk + on-wire format. Closes the silent-divergence risk between two independently-maintained format helpers.
+- feat: **On-disk format change** for `completed_date` / `last_completed_date` (any field set via `time.Now()`). Previously emitted as RFC3339 (second precision); now emitted as RFC3339Nano (nanosecond precision) because `DateOrDateTime.String()` preserves the sub-second component. Date-only fields (`defer_date`, `planned_date`, `due_date`, `start_date`, `target_date`) are unchanged — still `YYYY-MM-DD`. Existing vault files re-write with longer precision on next mutation; expect one-time format-only diffs across vault repos. All parsers (vault-cli `ParseTime`, Obsidian YAML, `bborbe/time`) accept both formats — no functional break.
+- v0.80.0 byte-identical regression baseline checked in at `pkg/ops/testdata/v0.80.0-baseline/` (scenarios 002/003/004 + task list/show JSON) — future date-format drift gets caught immediately.
+
 ## v0.80.0
 
 - feat: Add `## Title & Filename` section to `docs/task-writing.md` codifying the **problem-vs-solution** title principle. Problem-framed titles (e.g. "Concurrent writes to legacy tasks cause merge conflicts") persist across plan-execute-review; solution-framed titles ("Make X deterministic") lock in a chosen approach and silently drift when the design pivots. Includes a 5-row before/after table, explicit carve-outs for routine ops / mandated solutions / action-IS-deliverable cases, and a "rename-on-pivot" sniff test. Scope Check and Preflight Checklist updated to match.

@@ -113,13 +113,21 @@ func (l *listOperation) Execute(
 				return ""
 			}(),
 		}
-		items[i].DeferDate = formatDateOrDateTime(task.DeferDate())
-		items[i].PlannedDate = formatDateOrDateTime(task.PlannedDate())
-		items[i].DueDate = formatDateOrDateTime(task.DueDate())
+		if d := task.DeferDate(); d != nil {
+			items[i].DeferDate = d.String()
+		}
+		if d := task.PlannedDate(); d != nil {
+			items[i].PlannedDate = d.String()
+		}
+		if d := task.DueDate(); d != nil {
+			items[i].DueDate = d.String()
+		}
 		if task.ModifiedDate != nil {
 			items[i].ModifiedDate = task.ModifiedDate.UTC().Format("2006-01-02T15:04:05Z")
 		}
-		items[i].CompletedDate = formatDateOrDateTime(task.CompletedDate())
+		if d := task.CompletedDate(); d != nil {
+			items[i].CompletedDate = d.String()
+		}
 		items[i].Goals = task.Goals()
 	}
 	return items, nil

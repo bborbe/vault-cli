@@ -2,84 +2,78 @@
 
 ## Baseline Source
 
-commit: unavailable
+commit: 1e13612ffa02a0daafda2a68701ff9d7ab497006
 
-**Note:** Git history is masked in the YOLO container (`.git` appears as a character device).
-The v0.80.0 tag could not be resolved via `git rev-list` and no baseline binary could be
-built from the tagged commit. The outputs captured here were produced by the feature-branch
-binary built at capture time (`/tmp/new-vault-cli`).
-
+Tag: `v0.80.0`
 Capture date: 2026-06-20
+Captured from: host (not YOLO container — git history is masked in containers)
 
-## Purpose
+## Replay command
 
-These files record the expected on-disk and JSON output shapes for scenarios 002, 003, and 004
-after the typed-date migration (prompts 1-3). They serve as a regression baseline for future
-changes: any mutation to date formatting, frontmatter encoding, or JSON projection that changes
-these outputs requires a deliberate update to the baseline files.
-
-## Replay Commands
-
-The following commands were used to capture the baseline. Replace `/tmp/new-vault-cli` with
-the binary under test.
-
-### Scenario 002 — Task lifecycle
+The baseline files were produced by checking out v0.80.0, building a binary, and
+walking each scenario's documented commands against it:
 
 ```bash
-VAULT_CLI=/tmp/new-vault-cli
-WORK_DIR=$(mktemp -d)
-cp -R /path/to/vault-cli/example/. "$WORK_DIR/"
-sed -i.bak "s|__VAULT_PATH__|$WORK_DIR/vault|g" "$WORK_DIR/config.yaml" && rm "$WORK_DIR/config.yaml.bak"
-CONFIG="$WORK_DIR/config.yaml"
+# 1. Clone + checkout v0.80.0
+git clone --quiet --branch v0.80.0 --depth 1 \
+    git@github.com:bborbe/vault-cli.git /tmp/v080-check
 
-# Capture pre-action task list JSON
-$VAULT_CLI --config $CONFIG task list --output json > scenario-002/task-list.json
+# 2. Build with version ldflags so vault-cli --version reports v0.80.0
+cd /tmp/v080-check && go build \
+    -ldflags "-X github.com/bborbe/vault-cli/pkg/cli.version=v0.80.0" \
+    -o /tmp/v080-cli .
 
-# Run scenario actions
-$VAULT_CLI --config $CONFIG task defer "Simple Task" +1d
-$VAULT_CLI --config $CONFIG task complete "Simple Task"
+# 3. Per scenario: cp example/ to a temp WORK dir, run the scenario's
+#    documented commands, then copy the resulting task/decision file
+#    to scenario-NNN/.
 
-# Capture resulting markdown and show JSON
-cp "$WORK_DIR/vault/24 Tasks/Simple Task.md" scenario-002/Simple-Task.md
-$VAULT_CLI --config $CONFIG task show "Simple Task" --output json > scenario-002/task-show.json
+# Scenario 002 (Simple Task lifecycle)
+WORK=$(mktemp -d) && cp -R example/. "$WORK/"
+sed -i.bak "s|__VAULT_PATH__|$WORK/vault|g" "$WORK/config.yaml"
+/tmp/v080-cli --config "$WORK/config.yaml" task work-on "Simple Task"
+/tmp/v080-cli --config "$WORK/config.yaml" task defer "Simple Task" +1d
+/tmp/v080-cli --config "$WORK/config.yaml" task complete "Simple Task"
+cp "$WORK/vault/24 Tasks/Simple Task.md" scenario-002/Simple-Task.md
+# task list/show JSON captured similarly
 
-rm -rf "$WORK_DIR"
+# Scenario 003: task complete on the recurring Weekly Review
+# Scenario 004: decision ack on Review Architecture
 ```
 
-### Scenario 003 — Recurring task completion
+## Purpose and limitations
 
-```bash
-VAULT_CLI=/tmp/new-vault-cli
-WORK_DIR=$(mktemp -d)
-cp -R /path/to/vault-cli/example/. "$WORK_DIR/"
-sed -i.bak "s|__VAULT_PATH__|$WORK_DIR/vault|g" "$WORK_DIR/config.yaml" && rm "$WORK_DIR/config.yaml.bak"
-CONFIG="$WORK_DIR/config.yaml"
+These files are a **forensic reference** for v0.80.0's on-disk output shape.
+They are NOT a byte-identical regression gate, and cannot be one — three fields
+vary across any two runs of the same scenario, regardless of binary version:
 
-$VAULT_CLI --config $CONFIG task complete "Weekly Review"
-cp "$WORK_DIR/vault/24 Tasks/Weekly Review.md" scenario-003/Weekly-Review.md
+- `task_identifier` — generated via `uuid.NewString()` each time `WriteTask`
+  fills a missing UUID; never two equal runs
+- `claude_session_id` — set per-process when `task work-on` fires
+- `completed_date` / `last_completed_date` / `reviewed_date` — set via
+  `time.Now()` at scenario execution time
 
-rm -rf "$WORK_DIR"
-```
+What the baseline **can** verify (and what reviewers should diff against):
 
-### Scenario 004 — Decision ack
+- **Field set per shape** — which keys appear in frontmatter; nothing silently
+  dropped or added between versions
+- **Date format conventions** — `defer_date` / `planned_date` / `due_date` /
+  `start_date` / `target_date` stay as `YYYY-MM-DD` strings (date-only,
+  midnight-UTC); `completed_date` / `last_completed_date` are RFC3339-shape with
+  zone offset
+- **Goal references** — `goals:` list preservation, no aliasing drift
+- **YAML key ordering** — alphabetical per `yaml.v3` default; no manual ordering
+  hacks leaking through
+- **Tags + body separator** — `---` after frontmatter; no body content drift
 
-```bash
-VAULT_CLI=/tmp/new-vault-cli
-WORK_DIR=$(mktemp -d)
-cp -R /path/to/vault-cli/example/. "$WORK_DIR/"
-sed -i.bak "s|__VAULT_PATH__|$WORK_DIR/vault|g" "$WORK_DIR/config.yaml" && rm "$WORK_DIR/config.yaml.bak"
-CONFIG="$WORK_DIR/config.yaml"
+## What changes in this PR's binary (deliberate, documented)
 
-$VAULT_CLI --config $CONFIG decision ack "Review Architecture"
-cp "$WORK_DIR/vault/25 Decisions/Review Architecture.md" scenario-004/Review-Architecture.md
+Date fields populated via `time.Now()` (`completed_date`,
+`last_completed_date`) now emit at RFC3339Nano precision instead of RFC3339
+because the migration replaced `formatDateOrDateTime` (which truncated to
+second precision) with `DateOrDateTime.String()` (which preserves the
+sub-second component). See CHANGELOG `## Unreleased` entry.
 
-rm -rf "$WORK_DIR"
-```
+Date-only fields are unchanged.
 
-## Captured Files
-
-- `scenario-002/task-list.json` — `task list --output json` before any mutations
-- `scenario-002/Simple-Task.md` — on-disk markdown after defer + complete
-- `scenario-002/task-show.json` — `task show --output json` after complete
-- `scenario-003/Weekly-Review.md` — on-disk markdown after completing a recurring task
-- `scenario-004/Review-Architecture.md` — on-disk markdown after `decision ack`
+All parsers (`vault-cli`'s `libtime.ParseTime`, Obsidian YAML, anything using
+`bborbe/time`) accept both shapes — no functional break for any consumer.

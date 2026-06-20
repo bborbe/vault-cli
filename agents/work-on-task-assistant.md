@@ -186,6 +186,27 @@ When the task description, a related log entry, or any retrieved file references
 - Optionally invoke `Task(subagent_type='vault-cli:task-manager-agent')` if more structured progress is needed
 - Show "Completed: …" and "Remaining: …" (max 10 items, truncate at 80 chars)
 
+## Phase 7.5: Readiness nudge (Obsidian tasks only)
+
+Shallow check — file-level presence/absence, not substance. Substance belongs to `/vault-cli:plan-task` (which runs `task-auditor` + 5 hard non-negotiable checks).
+
+Compute three booleans from the already-loaded task file:
+
+- `PHASE_OK` = frontmatter `phase` is one of `execution`, `ai_review`, `human_review`, `done` (NOT `planning` or empty / `todo`)
+- `SC_PRESENT` = task body contains a literal `# Success Criteria` heading
+- `SC_HAS_UNCHECKED` = ≥ 1 `- [ ]` checkbox under that heading
+
+If all three true → emit `✅ Readiness: looks execution-ready` in the report.
+
+Otherwise emit `⚠ Readiness: <reason>. Run /vault-cli:plan-task first.` where `<reason>` is the first failing check in this order:
+
+1. `phase=planning — gate not cleared`
+2. `phase=<empty>/todo — gate not run`
+3. `no \`# Success Criteria\` section`
+4. `all Success Criteria already ticked — task may be complete; run /vault-cli:complete-task`
+
+**Do NOT** ask, edit the file, or call `AskUserQuestion`. The nudge is informational — the owner is trusted to act on it. Skip silently for Jira-only tasks (no local Obsidian file) and for recurring tasks (frontmatter `recurring: true`, which intentionally have no Success Criteria).
+
 ## Phase 8: Verify mutations, then report
 
 **Verification gate — runs before rendering the report. Do NOT skip.**
@@ -252,6 +273,11 @@ Remaining:
 ○ <item>
 🎯 Next: <next item>
 
+[Always when Obsidian task file exists (non-recurring) — never silently skipped:]
+✅ Readiness: looks execution-ready
+[OR:]
+⚠ Readiness: <reason>. Run /vault-cli:plan-task first.
+
 ---
 Ready to work on this task.
 ```
@@ -288,4 +314,5 @@ Suggested task name: <derived title — Jira summary if Jira ID input, else inpu
 6. Guides searched (semantic or fallback) — **FAIL if Phase 6 skipped; at least one `search_related` call required when MCP available**
 7. Phase 8 verification ran for Jira tasks; report includes verification line
 8. Report ends with "Ready to work on this task." — NEVER emitted while Jira state is stale
+9. Readiness nudge emitted for Obsidian (non-recurring) tasks (one of ✅ / ⚠) — never silently skipped
 </success_criteria>

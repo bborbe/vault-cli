@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat: `work-on-task-assistant` emits a one-line readiness nudge for Obsidian tasks (`✅ looks execution-ready` / `⚠ phase=planning / no Success Criteria / ... — run /vault-cli:plan-task first`). Shallow file-level check only — substance still belongs to `/vault-cli:plan-task`. Preserves work-on-task's content-agnostic core (no questions, no edits, no blocking) while closing the gap where a user starts work on a half-baked task without being nudged toward the planning gate.
+
 ## v0.81.0
 
 - feat: Date fields on Task / Goal / Objective / Theme frontmatter now flow as typed `*libtime.DateOrDateTime` end-to-end — setters store the typed value (no pre-stringification), `FrontmatterMap.GetTime` handles `time.Time` / `libtime.DateOrDateTime` / `string` shapes, JSON projection uses the type's own `String()` / `MarshalJSON`. Both `formatDateOrDateTime` helpers removed (`pkg/domain/task_frontmatter.go` + `pkg/ops/frontmatter.go`); the type itself is now the single source of truth for on-disk + on-wire format. Closes the silent-divergence risk between two independently-maintained format helpers.

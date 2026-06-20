@@ -159,7 +159,7 @@ var _ = Describe("vault-cli integration tests", func() {
 				"roundtrip-task": `---
 status: todo
 priority: 2
-task_identifier: test-uuid-roundtrip
+task_identifier: 10101010-1010-4101-a010-101010101010
 ---
 # Roundtrip Task
 Body content here.
@@ -185,7 +185,9 @@ Body content here.
 			Expect(err).NotTo(HaveOccurred())
 			Expect(string(content)).To(ContainSubstring("status: in_progress"))
 			Expect(string(content)).To(ContainSubstring("priority: 2"))
-			Expect(string(content)).To(ContainSubstring("task_identifier: test-uuid-roundtrip"))
+			Expect(
+				string(content),
+			).To(ContainSubstring("task_identifier: 10101010-1010-4101-a010-101010101010"))
 			Expect(string(content)).To(ContainSubstring("Body content here."))
 		})
 
@@ -196,7 +198,7 @@ status: todo
 priority: 1
 custom_field: my-custom-value
 another_field: 42
-task_identifier: test-uuid-unknown
+task_identifier: 20202020-2020-4202-a020-202020202020
 ---
 # Task with unknown fields
 `,
@@ -232,7 +234,7 @@ task_identifier: test-uuid-unknown
 				"content-task": `---
 status: todo
 priority: 1
-task_identifier: test-uuid-content
+task_identifier: 30303030-3030-4303-a030-303030303030
 ---
 # Content Task
 
@@ -280,7 +282,7 @@ This has **bold** and _italic_ text.
 				"get-task": `---
 status: todo
 priority: 3
-task_identifier: test-uuid-get
+task_identifier: 40404040-4040-4404-a040-404040404040
 ---
 # Get Task
 `,
@@ -305,7 +307,7 @@ task_identifier: test-uuid-get
 				"set-task": `---
 status: todo
 priority: 1
-task_identifier: test-uuid-set
+task_identifier: 50505050-5050-4505-a050-505050505050
 ---
 # Set Task
 `,
@@ -427,7 +429,7 @@ This is a done task.
 					"valid-task": `---
 status: todo
 priority: 2
-task_identifier: test-uuid-valid
+task_identifier: 60606060-6060-4606-a060-606060606060
 ---
 # Valid Task
 This task has valid frontmatter.
@@ -462,7 +464,7 @@ This task has valid frontmatter.
 					"invalid-status-task": `---
 status: garbage
 priority: 2
-task_identifier: test-uuid-garbage
+task_identifier: 70707070-7070-4707-a070-707070707070
 ---
 # Task with invalid status
 `,
@@ -534,7 +536,7 @@ priority: high
 					"legacy-todo-task": `---
 status: todo
 priority: 2
-task_identifier: test-uuid-legacy
+task_identifier: 80808080-8080-4808-a080-808080808080
 ---
 # Task with legacy todo status
 `,
@@ -577,7 +579,7 @@ task_identifier: test-uuid-legacy
 					"high-priority-task": `---
 status: todo
 priority: high
-task_identifier: test-uuid-high
+task_identifier: 90909090-9090-4909-a090-909090909090
 ---
 # Task with string priority
 `,

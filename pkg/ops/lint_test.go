@@ -50,7 +50,7 @@ status: todo
 page_type: task
 priority: 1
 assignee: bborbe
-task_identifier: test-uuid-valid
+task_identifier: 11111111-1111-4111-a111-111111111111
 ---
 # Valid Task
 
@@ -107,7 +107,7 @@ status: todo
 page_type: task
 priority: high
 assignee: bborbe
-task_identifier: test-uuid-priority
+task_identifier: 22222222-2222-4222-a222-222222222222
 ---
 # Task With String Priority
 
@@ -175,7 +175,7 @@ page_type: task
 priority: 1
 assignee: bborbe
 assignee: alice
-task_identifier: test-uuid-duplicate
+task_identifier: 33333333-3333-4333-a333-333333333333
 ---
 # Task With Duplicate Key
 
@@ -223,7 +223,7 @@ status: invalid_status
 page_type: task
 priority: 1
 assignee: bborbe
-task_identifier: test-uuid-status
+task_identifier: 44444444-4444-4444-a444-444444444444
 ---
 # Task With Invalid Status
 
@@ -254,7 +254,7 @@ status: next
 page_type: task
 priority: 1
 assignee: bborbe
-task_identifier: test-uuid-next
+task_identifier: 55555555-5555-4555-a555-555555555555
 ---
 # Task With Next Status
 
@@ -281,7 +281,7 @@ status: current
 page_type: task
 priority: 1
 assignee: bborbe
-task_identifier: test-uuid-current
+task_identifier: 66666666-6666-4666-a666-666666666666
 ---
 # Task With Current Status
 
@@ -308,7 +308,7 @@ status: done
 page_type: task
 priority: 1
 assignee: bborbe
-task_identifier: test-uuid-done
+task_identifier: 77777777-7777-4777-a777-777777777777
 ---
 # Task With Done Status
 
@@ -335,7 +335,7 @@ status: foo
 page_type: task
 priority: 1
 assignee: bborbe
-task_identifier: test-uuid-foo
+task_identifier: 88888888-8888-4888-a888-888888888888
 ---
 # Task With Foo Status
 
@@ -373,7 +373,7 @@ page_type: task
 priority: high
 assignee: bborbe
 assignee: alice
-task_identifier: test-uuid-multi
+task_identifier: 99999999-9999-4999-a999-999999999999
 ---
 # Task With Multiple Issues
 
@@ -410,7 +410,7 @@ This task has multiple issues.
 status: todo
 page_type: task
 priority: high
-task_identifier: test-uuid-file1
+task_identifier: aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa
 ---
 # Task 1
 `
@@ -423,7 +423,7 @@ status: todo
 page_type: task
 assignee: bborbe
 assignee: alice
-task_identifier: test-uuid-file2
+task_identifier: bbbbbbbb-bbbb-4bbb-abbb-bbbbbbbbbbbb
 ---
 # Task 2
 `
@@ -717,7 +717,7 @@ priority: 1
 			invalidPriorityContent := `---
 status: todo
 priority: high
-task_identifier: test-uuid-fixable
+task_identifier: cccccccc-cccc-4ccc-accc-cccccccccccc
 ---
 # Task With Fixable Issue
 `
@@ -742,7 +742,7 @@ task_identifier: test-uuid-fixable
 			invalidStatusContent := `---
 status: invalid_status
 priority: 1
-task_identifier: test-uuid-nonfixable
+task_identifier: dddddddd-dddd-4ddd-addd-dddddddddddd
 ---
 # Task With Non-Fixable Issue
 `
@@ -770,7 +770,7 @@ status: invalid_status
 priority: high
 assignee: bob
 assignee: alice
-task_identifier: test-uuid-mixed
+task_identifier: eeeeeeee-eeee-4eee-aeee-eeeeeeeeeeee
 ---
 # Task With Mixed Issues
 `
@@ -804,7 +804,7 @@ task_identifier: test-uuid-mixed
 			validContent := `---
 status: todo
 priority: 1
-task_identifier: test-uuid-valid-multi
+task_identifier: ffffffff-ffff-4fff-afff-ffffffffffff
 ---
 # Valid
 `
@@ -815,7 +815,7 @@ task_identifier: test-uuid-valid-multi
 			issueContent := `---
 status: todo
 priority: high
-task_identifier: test-uuid-issue
+task_identifier: 12121212-1212-4121-a121-121212121212
 ---
 # Has Issue
 `
@@ -864,7 +864,7 @@ priority: 1
 			content := `---
 status: next
 priority: 1
-task_identifier: test-uuid-next
+task_identifier: 55555555-5555-4555-a555-555555555555
 ---
 # Next Status Task
 `
@@ -933,7 +933,7 @@ priority: 1
 			content := `---
 status: todo
 priority: "high"
-task_identifier: test-uuid-quoted
+task_identifier: 23232323-2323-4232-a232-232323232323
 ---
 # Task with Quoted Priority
 `
@@ -1039,7 +1039,7 @@ priority: 1
 			content := `---
 status: next
 priority: high
-task_identifier: test-uuid-write-error
+task_identifier: 34343434-3434-4343-a343-343434343434
 ---
 # Task
 `
@@ -1134,7 +1134,7 @@ priority: 1
 			content := `---
 status: todo
 priority: high
-task_identifier: test-uuid-json-enc
+task_identifier: 45454545-4545-4454-a454-454545454545
 ---
 # Task
 `
@@ -1204,7 +1204,7 @@ priority: 1
 			content := `---
 status: todo
 priority: 1
-task_identifier: test-uuid-legacy-status
+task_identifier: 56565656-5656-4565-a565-565656565656
 ---
 # Legacy Status Task
 `
@@ -1226,7 +1226,7 @@ task_identifier: test-uuid-legacy-status
 status: in_progress
 phase: in_progress
 priority: 1
-task_identifier: test-uuid-legacy-phase
+task_identifier: 67676767-6767-4676-a676-676767676767
 ---
 # Legacy Phase Task
 `
@@ -1383,7 +1383,7 @@ goals: ["[[My Goal]]"]
 status: todo
 page_type: task
 goals: ["[[Missing Goal]]"]
-task_identifier: test-uuid-orphan
+task_identifier: 78787878-7878-4787-a787-787878787878
 ---
 # Task with orphan goal
 `
@@ -1412,7 +1412,7 @@ page_type: task
 goals:
   - "[[Existing Goal]]"
   - "[[Missing Goal]]"
-task_identifier: test-uuid-multigoal
+task_identifier: 89898989-8989-4898-a898-898989898989
 ---
 # Task with multi-line goals
 `
@@ -1470,7 +1470,7 @@ var _ = Describe("LintOperation - Status Checkbox Mismatch", func() {
 			taskContent := `---
 status: completed
 page_type: task
-task_identifier: test-uuid-unchecked
+task_identifier: 90909090-9090-4909-a909-909090909090
 ---
 # Task with unchecked boxes
 
@@ -1500,7 +1500,7 @@ task_identifier: test-uuid-unchecked
 			taskContent := `---
 status: in_progress
 page_type: task
-task_identifier: test-uuid-allchecked
+task_identifier: 01010101-0101-4010-a101-010101010101
 ---
 # Task with all checked boxes
 
@@ -1625,9 +1625,9 @@ var _ = Describe("LintOperation - Status Phase Mismatch", func() {
 	writeTask := func(vaultPath, tasksDir, status, phase string) {
 		var content string
 		if phase == "" {
-			content = "---\nstatus: " + status + "\npage_type: task\ntask_identifier: test-uuid-phase\n---\n# Task\n"
+			content = "---\nstatus: " + status + "\npage_type: task\ntask_identifier: 13131313-1313-4131-a131-131313131313\n---\n# Task\n"
 		} else {
-			content = "---\nstatus: " + status + "\nphase: " + phase + "\npage_type: task\ntask_identifier: test-uuid-phase\n---\n# Task\n"
+			content = "---\nstatus: " + status + "\nphase: " + phase + "\npage_type: task\ntask_identifier: 13131313-1313-4131-a131-131313131313\n---\n# Task\n"
 		}
 		taskPath := filepath.Join(vaultPath, tasksDir, "Task.md")
 		Expect(os.WriteFile(taskPath, []byte(content), 0600)).To(Succeed())
@@ -1747,7 +1747,7 @@ var _ = Describe("LintOperation - Missing Task Identifier", func() {
 		})
 
 		It("does not report MISSING_TASK_IDENTIFIER when task_identifier is present", func() {
-			content := "---\nstatus: todo\npage_type: task\ntask_identifier: some-uuid\n---\n# Task With Identifier\n"
+			content := "---\nstatus: todo\npage_type: task\ntask_identifier: 24242424-2424-4242-a242-242424242424\n---\n# Task With Identifier\n"
 			taskPath := filepath.Join(vaultPath, tasksDir, "Task.md")
 			Expect(os.WriteFile(taskPath, []byte(content), 0600)).To(Succeed())
 
@@ -1769,6 +1769,112 @@ var _ = Describe("LintOperation - Missing Task Identifier", func() {
 				Expect(i.IssueType).NotTo(Equal(ops.IssueTypeMissingTaskIdentifier))
 			}
 		})
+	})
+
+	Context("INVALID_TASK_IDENTIFIER", func() {
+		It(
+			"does not report INVALID_TASK_IDENTIFIER when task_identifier is empty (MISSING covers it)",
+			func() {
+				content := "---\nstatus: in_progress\npage_type: task\ntask_identifier:\n---\n# Task With Empty Identifier\n"
+				taskPath := filepath.Join(vaultPath, tasksDir, "Empty.md")
+				Expect(os.WriteFile(taskPath, []byte(content), 0600)).To(Succeed())
+
+				issues, err := lintOp.Execute(ctx, vaultPath, tasksDir, false)
+				Expect(err).To(BeNil())
+				missingSeen, invalidSeen := false, false
+				for _, i := range issues {
+					if i.IssueType == ops.IssueTypeMissingTaskIdentifier {
+						missingSeen = true
+					}
+					if i.IssueType == ops.IssueTypeInvalidTaskIdentifier {
+						invalidSeen = true
+					}
+				}
+				Expect(
+					missingSeen,
+				).To(BeTrue(), "expected MISSING_TASK_IDENTIFIER to fire on empty value")
+				Expect(
+					invalidSeen,
+				).To(BeFalse(), "INVALID_TASK_IDENTIFIER must NOT fire on empty value")
+			},
+		)
+
+		It("does not report any task_identifier issue for a valid UUID", func() {
+			content := "---\nstatus: in_progress\npage_type: task\ntask_identifier: 4b54eec9-0a55-4b10-8487-ce78818d831e\n---\n# Task With Valid UUID\n"
+			taskPath := filepath.Join(vaultPath, tasksDir, "Valid.md")
+			Expect(os.WriteFile(taskPath, []byte(content), 0600)).To(Succeed())
+
+			issues, err := lintOp.Execute(ctx, vaultPath, tasksDir, false)
+			Expect(err).To(BeNil())
+			for _, i := range issues {
+				Expect(i.IssueType).NotTo(Equal(ops.IssueTypeMissingTaskIdentifier))
+				Expect(i.IssueType).NotTo(Equal(ops.IssueTypeInvalidTaskIdentifier))
+			}
+		})
+
+		It("detects literal <uuid> placeholder from the task template", func() {
+			content := "---\nstatus: in_progress\npage_type: task\ntask_identifier: <uuid>\n---\n# Task From Template\n"
+			taskPath := filepath.Join(vaultPath, tasksDir, "Placeholder.md")
+			Expect(os.WriteFile(taskPath, []byte(content), 0600)).To(Succeed())
+
+			issues, err := lintOp.Execute(ctx, vaultPath, tasksDir, false)
+			Expect(err).To(BeNil())
+			found := false
+			for _, i := range issues {
+				if i.IssueType == ops.IssueTypeInvalidTaskIdentifier {
+					found = true
+					Expect(i.Fixable).To(BeFalse())
+					Expect(i.Description).To(ContainSubstring("<uuid>"))
+					Expect(i.Description).To(ContainSubstring("not a valid UUID"))
+				}
+			}
+			Expect(found).To(BeTrue(), "expected INVALID_TASK_IDENTIFIER issue for <uuid>")
+		})
+
+		It("detects malformed task_identifier values", func() {
+			content := "---\nstatus: in_progress\npage_type: task\ntask_identifier: abc-123\n---\n# Task With Bad Identifier\n"
+			taskPath := filepath.Join(vaultPath, tasksDir, "Malformed.md")
+			Expect(os.WriteFile(taskPath, []byte(content), 0600)).To(Succeed())
+
+			issues, err := lintOp.Execute(ctx, vaultPath, tasksDir, false)
+			Expect(err).To(BeNil())
+			found := false
+			for _, i := range issues {
+				if i.IssueType == ops.IssueTypeInvalidTaskIdentifier {
+					found = true
+					Expect(i.Fixable).To(BeFalse())
+					Expect(i.Description).To(ContainSubstring("abc-123"))
+				}
+			}
+			Expect(found).To(BeTrue(), "expected INVALID_TASK_IDENTIFIER issue for abc-123")
+		})
+
+		It(
+			"does not report INVALID_TASK_IDENTIFIER when task_identifier key is missing entirely",
+			func() {
+				content := "---\nstatus: in_progress\npage_type: task\n---\n# Task Without Identifier Key\n"
+				taskPath := filepath.Join(vaultPath, tasksDir, "NoKey.md")
+				Expect(os.WriteFile(taskPath, []byte(content), 0600)).To(Succeed())
+
+				issues, err := lintOp.Execute(ctx, vaultPath, tasksDir, false)
+				Expect(err).To(BeNil())
+				missingSeen, invalidSeen := false, false
+				for _, i := range issues {
+					if i.IssueType == ops.IssueTypeMissingTaskIdentifier {
+						missingSeen = true
+					}
+					if i.IssueType == ops.IssueTypeInvalidTaskIdentifier {
+						invalidSeen = true
+					}
+				}
+				Expect(
+					missingSeen,
+				).To(BeTrue(), "expected MISSING_TASK_IDENTIFIER to fire on absent key")
+				Expect(
+					invalidSeen,
+				).To(BeFalse(), "INVALID_TASK_IDENTIFIER must NOT fire on absent key")
+			},
+		)
 	})
 })
 

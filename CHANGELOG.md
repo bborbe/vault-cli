@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat: Add `INVALID_TASK_IDENTIFIER` lint check in `pkg/ops/lint.go` — surfaces when `task_identifier` is present but does not parse as a UUID (catches the literal `<uuid>` placeholder from `90 Templates/Task Template.md`, typos, and truncated values). Closes the gap that let template placeholders ship as real values — `MISSING_TASK_IDENTIFIER` only fires on empty/absent values, so a forgotten `<uuid>` placeholder would otherwise pass lint and then get backfilled to a random UUID by the `WriteTask` fallback on the next write, reintroducing the concurrent-write merge-conflict race on legacy tasks. Non-fixable on purpose: operator must replace with a fresh UUIDv4 (auto-fix would itself become a hidden UUID creation site, defeating the rule's purpose).
+
 ## v0.78.1
 
 - fix: `vault-cli task work-on` no longer silently overrides a teammate's `assignee` on the task. New blank/equal/different matrix: blank → set to current user; already equals current user → no-op (file not dirtied); different non-blank user → preserved, warning emitted in `MutationResult.Warnings`. CLI surfaces the warning with a `⚠️` line; JSON output exposes it via the existing `Warnings` field — no struct change. Status mutation still proceeds independently. Documented in `README.md` and `docs/task-writing.md`. Implementation: `pkg/ops/workon.go` Execute matrix + 3 new Ginkgo contexts in `pkg/ops/workon_test.go`. Closes the root cause of the assignee-drift gap (was: `task.SetAssignee` called unconditionally).

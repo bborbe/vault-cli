@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/bborbe/errors"
+	"github.com/google/uuid"
 	"gopkg.in/yaml.v3"
 
 	"github.com/bborbe/vault-cli/pkg/domain"
@@ -54,6 +55,7 @@ const (
 	IssueTypeStatusPhaseMismatch    IssueType = "STATUS_PHASE_MISMATCH"
 	IssueTypeMissingTaskIdentifier  IssueType = "MISSING_TASK_IDENTIFIER"
 	IssueTypeStatusDateMismatch     IssueType = "STATUS_DATE_MISMATCH"
+	IssueTypeInvalidTaskIdentifier  IssueType = "INVALID_TASK_IDENTIFIER"
 )
 
 // LintIssue represents a single lint issue found in a file.
@@ -258,6 +260,9 @@ func (l *lintOperation) collectLintIssues(
 
 	// Check for missing task_identifier
 	issues = append(issues, l.missingTaskIdentifierIssues(filePath, frontmatterYAML)...)
+
+	// Check for invalid (non-UUID) task_identifier values
+	issues = append(issues, l.invalidTaskIdentifierIssues(filePath, frontmatterYAML)...)
 
 	return issues
 }
@@ -604,6 +609,37 @@ func (l *lintOperation) detectMissingTaskIdentifier(frontmatterYAML string) bool
 		return false // Cannot parse; other checks will surface the error
 	}
 	return fm.TaskIdentifier == ""
+}
+
+// invalidTaskIdentifierIssues returns a lint issue if task_identifier is set
+// to a value that does not parse as a UUID. Empty values are out of scope —
+// they are covered by IssueTypeMissingTaskIdentifier (see missingTaskIdentifierIssues).
+// Non-fixable on purpose: auto-fix would silently mint a fresh UUID, recreating
+// the hidden creation site that causes concurrent-write merge conflicts on
+// legacy tasks. Operator must replace the value with a real UUIDv4.
+func (l *lintOperation) invalidTaskIdentifierIssues(filePath, frontmatterYAML string) []LintIssue {
+	var fm struct {
+		TaskIdentifier string `yaml:"task_identifier"`
+	}
+	if err := yaml.Unmarshal([]byte(frontmatterYAML), &fm); err != nil {
+		return nil // Cannot parse; other checks will surface the error
+	}
+	if fm.TaskIdentifier == "" {
+		return nil // Empty value is covered by MISSING_TASK_IDENTIFIER
+	}
+	if _, err := uuid.Parse(fm.TaskIdentifier); err == nil {
+		return nil // Valid UUID — no issue
+	}
+	return []LintIssue{{
+		FilePath:  filePath,
+		IssueType: IssueTypeInvalidTaskIdentifier,
+		Description: fmt.Sprintf(
+			"task_identifier %q is not a valid UUID; replace with a fresh UUIDv4",
+			fm.TaskIdentifier,
+		),
+		Fixable: false,
+		Fixed:   false,
+	}}
 }
 
 // fixIssues fixes fixable issues in the file.

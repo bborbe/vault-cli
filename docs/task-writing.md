@@ -40,6 +40,40 @@ Use the slash command:
 
 The command invokes `task-creator`, which scaffolds a file in the configured vault's `tasks_dir` (typically `24 Tasks/`). The agent reads vault config via `vault-cli config list --output json` — never hardcode paths.
 
+## Title & Filename
+
+**Title = the problem being solved (or the outcome being produced), not the solution chosen.** Filename = title (Obsidian renders the filename as the page title — no separate H1 needed).
+
+Why problem-framed, not solution-framed: the title persists across plan-execute-review. The chosen solution often changes during the task (different library, different algorithm, different approach). If the title locks in a solution, you either rename the file every time the design pivots, or the title silently drifts from reality. Naming the *problem* keeps the file stable while the solution evolves.
+
+This is the task-level variant of the **outcome-vs-mechanism sniff test** in `goal-writing.md` — same principle, scoped to days-of-work surface.
+
+**Rules:**
+
+- Name the **problem** or the **observable outcome** — both are stable across design pivots
+- Avoid solution verbs like *Make / Implement / Refactor / Add / Use [tech]* as the first word — they encode a chosen approach
+- Avoid implementation detail (specific function name, library name, framework choice) — that lives in the body, not the title
+- Avoid status / phase / version suffixes (*v2*, *WIP*, *Phase 1*) — except for **legitimately recurring/scheduled** tasks where the cadence IS part of the identity (e.g. `Plan Week - 2026W25-sat`)
+- 5–10 words is the natural length; longer usually means the task is too big
+
+**Problem-framed vs solution-framed:**
+
+| ❌ Solution-framed | What's wrong | ✅ Problem-framed |
+|---|---|---|
+| "Make WriteTask UUID backfill deterministic" | Locks in UUIDv5; design could pivot to row-lock or precondition-check | "Concurrent writes to legacy tasks cause merge conflicts" |
+| "Add Redis caching layer to market data service" | Locks in Redis; problem is "market data lookup is slow", solution could be caching, denorm, in-process | "Market data lookups exceed 100ms p99" |
+| "Refactor task storage to use Bun ORM" | Tooling choice in the title; problem is the design constraint | "Task storage tightly couples filesystem and serialization" |
+| "Use launchctl instead of cron for the sync daemon" | Locks in launchctl | "Sync daemon doesn't restart after laptop reboot" |
+| "Add Title section to Task Writing Guide" | Implementation detail in title | "Task Writing Guide missing title/filename guidance" |
+
+**When solution-framed is OK** (the action IS the deliverable — no design pivot is possible):
+
+- The "solution" is the actual deliverable: `"Write Resolve Vault Conflict Runbook"` — the runbook IS what's wanted
+- Routine operational tasks where the action IS the outcome: `"Backup Database - 2026W25-sat"`, `"Renew OAuth Tokens"`
+- The chosen solution is unambiguous AND mandated by upstream (compliance, security policy): `"Disable TLS 1.0 on edge proxy"`
+
+**Sniff test:** if the task's design pivots during planning (different library, different algorithm), do you need to rename the file? If yes → title is too solution-shaped. Re-anchor on the problem or the observable outcome.
+
 ## Task Structure
 
 ### Frontmatter
@@ -153,7 +187,7 @@ Before committing to a task, verify these signals:
 - **Single mental model** — if the task touches multiple unrelated domains/repos, split
 - **Days-to-week effort** — if multi-week, it's a goal masquerading as a task
 - **Linked to a parent goal when one exists** — for operational/infra/follow-up tasks with no clean parent goal, a theme link is acceptable; forcing a synthetic parent goal is worse than no link
-- **Title is action-verb-led** — "Add X", "Fix Y", "Migrate Z"; not "Stuff about X"
+- **Title is problem-framed** (names the problem or observable outcome — see [[#Title & Filename]]). Action-verb-led titles are OK when the action IS the deliverable (e.g. "Write … runbook"), for routine operational tasks ("Backup Database - 2026W25-sat"), or when the solution is mandated. Always wrong: "Stuff about X"
 
 If 3+ smells fail → split or promote to a goal.
 
@@ -166,7 +200,7 @@ Before approving:
 - [ ] What's explicitly out of scope?
 - [ ] Are success criteria binary (yes/no, not "improve X")?
 - [ ] Is this 1-7 days of work, not weeks?
-- [ ] Is the title action-verb-led?
+- [ ] Is the title problem-framed (or action-verb-led only when the action IS the deliverable / routine ops / mandated solution)?
 
 ## Audit
 

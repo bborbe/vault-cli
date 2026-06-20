@@ -112,7 +112,7 @@ Count how many apply. **3+ smells → recommend splitting, promoting to a goal, 
 4. **`# Out of Scope` is missing or empty** — no forcing function; bloat unchecked. Critical signal.
 5. **Sub-task list is > 8 items** — operational decomposition belongs in a spec or sub-tasks, not in one task page.
 6. **Estimated effort > 7 days** — tasks are 1-7 days. Multi-week work is a goal.
-7. **Title is capability-shaped** ("Improve X System") rather than action-shaped ("Add Y to X").
+7. **Title is vague capability or abstract noun** ("Improve X System", "Stuff about Y") rather than naming a problem or concrete deliverable. Problem-framed titles ("X has Y bug" / "Component Z exceeds latency") AND action-verb titles when the action IS the deliverable ("Write … runbook") both pass; only vague-noun and goal-shaped capability titles fail.
 
 ### Signals the scope IS appropriate
 
@@ -120,7 +120,7 @@ Count how many apply. **3+ smells → recommend splitting, promoting to a goal, 
 - Binary, verifiable success criteria (count is guidance, not a cap)
 - Parent goal in `goals:` frontmatter when one exists; theme link acceptable for operational/follow-up work
 - `# Out of Scope` enumerates 2-5 concrete deferrals
-- Action-verb-led title
+- Problem-framed title (names problem or observable outcome — see `docs/task-writing.md` § Title & Filename). Action-verb-led titles are also accepted when the action IS the deliverable (e.g. "Write … runbook"), for routine operational tasks ("Backup … - 2026Wxx-sat"), or when the solution is mandated. Reject only "Stuff about X" / vague-noun shapes.
 
 ### When flagging:
 

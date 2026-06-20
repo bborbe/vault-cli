@@ -7,6 +7,7 @@ package domain_test
 import (
 	"time"
 
+	libtime "github.com/bborbe/time"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -214,6 +215,14 @@ var _ = Describe("FrontmatterMap", func() {
 		It("returns nil for unparseable string", func() {
 			fm := domain.NewFrontmatterMap(map[string]any{"d": "not-a-date"})
 			Expect(fm.GetTime("d")).To(BeNil())
+		})
+
+		It("returns non-nil for libtime.DateOrDateTime value", func() {
+			src := time.Date(2026, 12, 1, 0, 0, 0, 0, time.UTC)
+			fm := domain.NewFrontmatterMap(map[string]any{"d": libtime.DateOrDateTime(src)})
+			result := fm.GetTime("d")
+			Expect(result).NotTo(BeNil())
+			Expect(result.Equal(src)).To(BeTrue())
 		})
 	})
 })

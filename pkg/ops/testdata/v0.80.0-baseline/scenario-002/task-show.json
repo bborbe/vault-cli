@@ -1,0 +1,18 @@
+{
+  "name": "Simple Task",
+  "status": "completed",
+  "phase": "done",
+  "assignee": "alice",
+  "priority": 2,
+  "category": "task",
+  "defer_date": "2026-06-21",
+  "goals": [
+    "Example Goal"
+  ],
+  "description": "Tags: Example Goal --- A simple task for testing vault-cli commands.",
+  "content": "---\nassignee: alice\ncompleted_date: \"2026-06-20T16:01:10.631780677+02:00\"\ndefer_date: \"2026-06-21\"\ngoals:\n    - Example Goal\npage_type: task\nphase: done\npriority: 2\nstatus: completed\ntask_identifier: 633b9933-fda8-4f75-bb30-3f3721d98af1\n---\nTags: [[Example Goal]]\n\n---\n\nA simple task for testing vault-cli commands.\n",
+  "modified_date": "2026-06-20T14:01:10Z",
+  "completed_date": "2026-06-20T16:01:10.631780677+02:00",
+  "file_path": "/tmp/tmp.O1qfo2CKid/vault/24 Tasks/Simple Task.md",
+  "vault": "example"
+}

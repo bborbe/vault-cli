@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.80.0
 
 - feat: Add `## Title & Filename` section to `docs/task-writing.md` codifying the **problem-vs-solution** title principle. Problem-framed titles (e.g. "Concurrent writes to legacy tasks cause merge conflicts") persist across plan-execute-review; solution-framed titles ("Make X deterministic") lock in a chosen approach and silently drift when the design pivots. Includes a 5-row before/after table, explicit carve-outs for routine ops / mandated solutions / action-IS-deliverable cases, and a "rename-on-pivot" sniff test. Scope Check and Preflight Checklist updated to match.
 - feat: Add `## Title & Filename` section to `docs/goal-writing.md` codifying the **outcome-vs-mechanism** title principle (the goal-level form of the same idea — mechanism describes what you build; outcome describes what you get when done). Includes the 4-row sniff-test table and a "big collection goal" anti-pattern callout. Scope Check updated to match.

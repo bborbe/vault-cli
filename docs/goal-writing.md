@@ -40,6 +40,31 @@ Use the slash command:
 
 The command invokes `goal-creator`, which scaffolds a file in the configured vault's `goals_dir` (typically `23 Goals/`). The agent reads vault config via `vault-cli config list --output json` — never hardcode paths.
 
+## Title & Filename
+
+**Title = deliverable.** Filename = title (Obsidian renders the filename as the page title — no separate H1 needed).
+
+**Rules:**
+
+- State the outcome, not the activity ("Deploy automated trading system" beats "Work on trading system")
+- Be specific about what you're creating
+- Avoid ambiguous titles that could mean multiple things
+
+**Quick test:** can someone read just the title and know exactly what "done" looks like? If no, revise.
+
+**Title sniff test — outcome vs mechanism:** does the title describe the OUTCOME (what you get when done) or the MECHANISM (what you build)? Prefer outcome.
+
+| Mechanism (weak) | Outcome (strong) | Why |
+|---|---|---|
+| "PR Reviewer Operator UX" | "On-Demand PR Review Trigger" | "Operator UX" describes the surface; "On-Demand Trigger" names what you can now do |
+| "Release Agent - Extended" | (split into focused goals) | "Extended" describes phase, not outcome; can't pass the sniff test on its own |
+| "Release Agent" | "Release Agent - Base" | Adding "- Base" clarifies the goal owns MVP scope, not the perpetual hardening that follows |
+| "Phase-Gated Task Flow" | "Phase-Gated Task Flow" | Accepted — "phase-gated" *is* the outcome (predictable flow); mechanism and outcome coincide |
+
+When the title still describes a mechanism after one rewrite, the goal itself may be a "big collection goal" — split first, then title each split.
+
+This is the goal-level form of the **problem-vs-solution** principle from `task-writing.md` — same idea, scoped to weeks-of-work surface.
+
 ## Goal Structure
 
 ### Frontmatter
@@ -113,7 +138,7 @@ Before approving a goal, verify these signals:
 - **Tasks-to-criteria ratio ≤ 2.5×** (e.g. ≤ 8 tasks for 3 criteria)
 - **Non-goals enumerates 3-7 deferrals** — not vague disclaimers
 - **All tasks share one mental model** (one operator outcome, one domain)
-- **Goal title states an outcome**, not an activity or capability
+- **Goal title states an outcome**, not an activity or capability (passes the outcome-vs-mechanism sniff test — see [[#Title & Filename]])
 
 If 3+ smells fail → goal is over-scoped. Split into multiple goals or move items to Non-goals.
 

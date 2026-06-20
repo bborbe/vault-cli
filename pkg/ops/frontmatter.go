@@ -6,10 +6,8 @@ package ops
 
 import (
 	"context"
-	"time"
 
 	"github.com/bborbe/errors"
-	libtime "github.com/bborbe/time"
 
 	"github.com/bborbe/vault-cli/pkg/storage"
 )
@@ -113,17 +111,4 @@ func (o *frontmatterClearOperation) Execute(
 	}
 
 	return nil
-}
-
-// formatDateOrDateTime serializes a libtime.DateOrDateTime to YYYY-MM-DD for date-only values
-// (midnight UTC) and RFC3339 for values with a time component. Returns empty string for nil.
-func formatDateOrDateTime(d *libtime.DateOrDateTime) string {
-	if d == nil {
-		return ""
-	}
-	t := d.Time().UTC()
-	if t.Hour() == 0 && t.Minute() == 0 && t.Second() == 0 && t.Nanosecond() == 0 {
-		return d.Time().Format(time.DateOnly)
-	}
-	return d.Time().Format(time.RFC3339)
 }

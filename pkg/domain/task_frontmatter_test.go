@@ -6,6 +6,7 @@ package domain_test
 
 import (
 	"context"
+	"os"
 	"time"
 
 	errors "github.com/bborbe/errors"
@@ -13,6 +14,7 @@ import (
 	"github.com/bborbe/validation"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"gopkg.in/yaml.v3"
 
 	"github.com/bborbe/vault-cli/pkg/domain"
 )
@@ -619,5 +621,93 @@ var _ = Describe("TaskFrontmatter SetField alias normalization", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(errors.Is(err, validation.Error)).To(BeTrue())
 		})
+	})
+})
+
+var _ = Describe("TypedDateRoundTrip", func() {
+	var (
+		fixedTime time.Time
+		d         *libtime.DateOrDateTime
+		fm        domain.TaskFrontmatter
+	)
+
+	BeforeEach(func() {
+		fixedTime = time.Date(2026, 12, 1, 0, 0, 0, 0, time.UTC)
+		dv := libtime.DateOrDateTime(fixedTime)
+		d = dv.Ptr()
+		fm = domain.NewTaskFrontmatter(nil)
+	})
+
+	It("SetDeferDate then DeferDate returns equal value", func() {
+		fm.SetDeferDate(d)
+		got := fm.DeferDate()
+		Expect(got).NotTo(BeNil())
+		Expect(got.Time()).To(Equal(fixedTime))
+	})
+
+	It("SetPlannedDate then PlannedDate returns equal value", func() {
+		fm.SetPlannedDate(d)
+		got := fm.PlannedDate()
+		Expect(got).NotTo(BeNil())
+		Expect(got.Time()).To(Equal(fixedTime))
+	})
+
+	It("SetDueDate then DueDate returns equal value", func() {
+		fm.SetDueDate(d)
+		got := fm.DueDate()
+		Expect(got).NotTo(BeNil())
+		Expect(got.Time()).To(Equal(fixedTime))
+	})
+
+	It("SetCompletedDate then CompletedDate returns equal value", func() {
+		fm.SetCompletedDate(d)
+		got := fm.CompletedDate()
+		Expect(got).NotTo(BeNil())
+		Expect(got.Time()).To(Equal(fixedTime))
+	})
+
+	It("SetCreatedDate then CreatedDate returns equal value", func() {
+		fm.SetCreatedDate(d)
+		got := fm.CreatedDate()
+		Expect(got).NotTo(BeNil())
+		Expect(got.Time()).To(Equal(fixedTime))
+	})
+
+	It(
+		"SetLastCompletedDate then LastCompletedDate returns equal value and dual-writes last_completed",
+		func() {
+			fm.SetLastCompletedDate(d)
+			got := fm.LastCompletedDate()
+			Expect(got).NotTo(BeNil())
+			Expect(got.Time()).To(Equal(fixedTime))
+			raw := fm.RawMap()
+			Expect(raw["last_completed"]).NotTo(BeNil())
+		},
+	)
+})
+
+var _ = Describe("TaskFrontmatterGoldenYAML", func() {
+	It("serializes all date fields as YYYY-MM-DD", func() {
+		fixedTime := time.Date(2026, 12, 1, 0, 0, 0, 0, time.UTC)
+		dv := libtime.DateOrDateTime(fixedTime)
+		d := dv.Ptr()
+
+		fm := domain.NewTaskFrontmatter(nil)
+		Expect(fm.SetStatus(domain.TaskStatusNext)).To(Succeed())
+		fm.SetTaskIdentifier("TASK-001")
+		fm.SetDeferDate(d)
+		fm.SetPlannedDate(d)
+		fm.SetDueDate(d)
+		fm.SetCompletedDate(d)
+		fm.SetCreatedDate(d)
+		fm.SetLastCompletedDate(d)
+
+		got, err := yaml.Marshal(fm.RawMap())
+		Expect(err).NotTo(HaveOccurred())
+
+		want, err := os.ReadFile("testdata/task_frontmatter_golden.yaml")
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(string(got)).To(Equal(string(want)))
 	})
 })

@@ -68,13 +68,18 @@ func (d *decisionListOperation) Execute(
 	items := make([]DecisionListItem, 0, len(filtered))
 	for _, dec := range filtered {
 		items = append(items, DecisionListItem{
-			Name:         dec.Name,
-			Reviewed:     dec.Reviewed,
-			ReviewedDate: formatDateOrDateTime(dec.ReviewedDate),
-			Status:       dec.Status,
-			Type:         dec.Type,
-			PageType:     dec.PageType,
-			Vault:        vaultName,
+			Name:     dec.Name,
+			Reviewed: dec.Reviewed,
+			ReviewedDate: func() string {
+				if d := dec.ReviewedDate; d != nil {
+					return d.String()
+				}
+				return ""
+			}(),
+			Status:   dec.Status,
+			Type:     dec.Type,
+			PageType: dec.PageType,
+			Vault:    vaultName,
 		})
 	}
 	return items, nil

@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat: new `/vault-cli:execute-task` slash command — the **hard gate** between planning and execution. Re-runs `/vault-cli:plan-task`'s 4 hard non-negotiables (Success Criteria defined, subtasks reach goal, e2e verify subtask, subtask-goal alignment); on pass, flips `phase: planning → execution` and prints first unchecked `# Tasks` subtask + `# Definition of Done` reminder. Refuses on `phase: todo` (planning non-skippable), `phase: done`, `status: completed/aborted` (closed tasks need explicit reopen), or any hard check failure (points to `/vault-cli:plan-task`). Idempotent on `phase: execution` — re-prints work block + DoD without mutation. Closes the lifecycle's last operational gap: every transition (`create → plan → execute → complete`) now has an enforced command. Stronger sibling of `/vault-cli:work-on-task`'s informational readiness nudge.
+
 ## v0.82.0
 
 - feat: `work-on-task-assistant` emits a one-line readiness nudge for Obsidian tasks (`✅ looks execution-ready` / `⚠ phase=planning / no Success Criteria / ... — run /vault-cli:plan-task first`). Shallow file-level check only — substance still belongs to `/vault-cli:plan-task`. Preserves work-on-task's content-agnostic core (no questions, no edits, no blocking) while closing the gap where a user starts work on a half-baked task without being nudged toward the planning gate.

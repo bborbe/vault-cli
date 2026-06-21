@@ -17,7 +17,7 @@ Standalone-usable — pure local filesystem I/O against an Obsidian vault. No Ka
 
 vault-cli is the **operator-side surface** for the bborbe task / agent system:
 
-- Humans use it to CRUD vault tasks directly through the phase-gated lifecycle (`/vault-cli:create-task` → `/vault-cli:work-on-task` → `/vault-cli:plan-task` → `/vault-cli:execute-task` → `/vault-cli:sync-progress` → `/vault-cli:complete-task`)
+- Humans use it to CRUD vault tasks directly through the phase-gated lifecycle (`/vault-cli:create-task` → `/vault-cli:work-on-task` → `/vault-cli:plan-task` → `/vault-cli:execute-task` → *work — `/vault-cli:update-task` / `/vault-cli:task-status` / `/vault-cli:next-steps`* → `/vault-cli:sync-progress` → `/vault-cli:complete-task` → `/vault-cli:session-close`)
 - [task-orchestrator](https://github.com/bborbe/task-orchestrator) wraps it as the backend of a Kanban / session-launcher UI
 - The reference AI agents in [bborbe/agent](https://github.com/bborbe/agent) import `vault-cli/pkg/domain` for the shared vault types
 - Manual `/vault-cli:create-task` is one of the ways a task enters the broader Kafka task pipeline

@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.84.0
 
 - feat(work-on-task-assistant): green Readiness now recommends the next gate — `✅ Readiness: looks execution-ready. Run /vault-cli:execute-task to start.` (was just the bare green checkmark, no breadcrumb). Closes the gap where operators had to remember the next command after a clean readiness pass. Warning branch unchanged — still points to `/vault-cli:plan-task`.
 

@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.83.1
 
 - docs: sync `## Integration` section across `/vault-cli:work-on-task`, `/vault-cli:plan-task`, `/vault-cli:execute-task` to one canonical 8-step Task lifecycle. Plugs the missing-commands gap in `plan-task` (was missing `work-on-task` + `execute-task` entries). Adds explicit step 5 "Start work" with the three in-execution helpers (`update-task` / `task-status` / `next-steps`), plus `complete-task` (step 7) and `session-close` (step 8) as the proper end-of-flow bookends. All three command pages now show the same numbered list — only the bolded "this command" marker differs.
 - docs: README "Where this fits" pipeline updated to match the canonical 8-step lifecycle — adds the in-execution helper trio and `session-close` to the previously 6-step arrow chain.

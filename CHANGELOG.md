@@ -8,6 +8,13 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- docs(goal-writing): add `## Summary (First Sentence)` section with outcome-vs-mechanism sniff test and 3-example table (parallel to the existing Title section); cross-reference from `## Goal Structure` and `## Scope Check`; new Preflight Checklist item; closing-sentence logic now reads forward ("if title also fails, the goal is activity-shaped — split before rewriting either")
+- feat(goal-auditor): expand Section 5 "Summary Quality (First Sentence)" with outcome-vs-mechanism check + mechanism-leak anti-patterns + escalation rule; add 9th Goal Scope Fit smell (mechanism-shaped summary) with explicit escalation when combined with a title that also fails the sniff test; add matching positive-signal bullet; normalize mechanism-leak separator to `/` across all examples
+- feat(goal-creator): step 9 body composition now requires outcome-shaped first sentence (rephrase mechanism-phrased input BEFORE writing — applies in both interactive and tool mode, do not rely on step 12 audit which is interactive-only); step 12 audit checks expanded to ban verb-first openings ("Build X" / "Refactor Y" / "Set up Z" / "Migrate Y") in both title and summary
+- chore(commands): add `allowed-tools: [Task]` to `audit-goal.md` and `verify-goal.md` frontmatter (pure delegation commands; satisfies agent-cmd MUST rule)
+
 ## v0.84.0
 
 - feat(work-on-task-assistant): green Readiness now recommends the next gate — `✅ Readiness: looks execution-ready. Run /vault-cli:execute-task to start.` (was just the bare green checkmark, no breadcrumb). Closes the gap where operators had to remember the next command after a clean readiness pass. Warning branch unchanged — still points to `/vault-cli:plan-task`.

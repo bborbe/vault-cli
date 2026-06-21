@@ -1,6 +1,7 @@
 ---
 description: Quick validation of goal status, subtask existence, and status consistency
 argument-hint: <goal-file-path>
+allowed-tools: [Task]
 ---
 
 <objective>

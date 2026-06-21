@@ -1,6 +1,7 @@
 ---
 description: Audit goal file against Goal Writing Guide for quality and completeness
 argument-hint: <goal-file-path>
+allowed-tools: [Task]
 ---
 
 <objective>
@@ -13,7 +14,7 @@ Invoke the goal-auditor agent to audit the goal at $ARGUMENTS for compliance wit
    - If no `.md` extension, append it
 2. Invoke goal-auditor agent with the goal path
 3. Agent reads Goal Writing Guide and Goal Template first
-4. Agent evaluates structure, SMART criteria, theme linkage, impact, success criteria, tasks
+4. Agent evaluates structure, SMART criteria, theme linkage, impact, success criteria, tasks, and outcome-shaping of title + summary first sentence
 5. Review detailed findings with severity levels, scores, and recommendations
 </process>
 

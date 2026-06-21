@@ -129,8 +129,8 @@ If a template body was loaded in step 7, use it. Otherwise, generate the standar
 
 1. `Tags: [[Goal]]` (plus theme tags if set)
 2. `---` separator
-3. Short summary paragraph (1–2 sentences)
-4. `# Impact` — why this goal matters strategically
+3. Short summary paragraph (1–2 sentences). **First sentence MUST state the outcome** — what's true when the goal is done, not what work happens. E.g. "Reduce X from Y to Z" not "Build Z by doing W". **Before writing, rephrase any mechanism-phrased input into outcome form** — this rule applies in both interactive and tool mode; do NOT rely on step 12 audit to catch it (audit only runs in interactive mode). Avoid `via X` / `by doing Y` / `through Z` / `Split X / Build Y / Refactor Z / Set up Z` openings — these are mechanism leaks. Mechanism details belong in `# Impact` as an "Approach" lead paragraph. See `docs/goal-writing.md#summary-first-sentence` for the sniff test.
+4. `# Impact` — why this goal matters strategically. If a brief mechanism description is needed, lead with an "**Approach**:" paragraph before the strategic bullets.
 5. `# Status Summary` — Progress / Current / Next / Blockers placeholders
 6. `# Success Criteria` — measurable outcomes as checkboxes
 7. `# Non-goals` — explicit out-of-scope items (3–7 concrete deferrals; placeholder if author drafting). Forces scope articulation at write-time; mirrors dark-factory spec convention. See Goal Writing Guide section 7.
@@ -162,6 +162,8 @@ Run a light self-audit against the file:
 
 - Frontmatter has required fields (status, page_type)
 - Title file matches title-case rule
+- Title is outcome-shaped (no verb-first activity openings: "Build X" / "Refactor Y" / "Set up Z" / "Migrate Y")
+- Summary first sentence is outcome-shaped (no `via X` / `by doing Y` / `through Z`, AND no verb-first activity opening: "Build X" / "Refactor Y" / "Set up Z" / "Split X and build Y")
 - Body has Success Criteria + Tasks sections (or template body)
 - If `timeline` is set, validate it is ≤ 4 weeks
 - No accidental empty sections

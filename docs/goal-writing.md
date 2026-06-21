@@ -65,6 +65,27 @@ When the title still describes a mechanism after one rewrite, the goal itself ma
 
 This is the goal-level form of the **problem-vs-solution** principle from `task-writing.md` — same idea, scoped to weeks-of-work surface.
 
+## Summary (First Sentence)
+
+The first sentence of the goal body is the **outcome statement** — the same rule as Title & Filename, scoped to one sentence. Tells the reader what's true when the goal is done, in plain language. The *how* (mechanism, architecture, refactor steps) belongs in `# Impact` (as an "Approach" lead paragraph) or in linked design docs — never in the opening sentence.
+
+**Rules:**
+
+- Lead with the outcome, not the activity ("Reduce X from Y to Z" beats "Build Z by doing W")
+- One sentence is enough; second sentence adds quantification or scope, not mechanism
+- Avoid "via X" / "by doing Y" / "through Z" — these are mechanism leaks pretending to be outcome
+- Same problem-vs-solution principle as Title & Filename, just at sentence scope
+
+**Sniff test:** can the reader, after one sentence, picture the *world after the goal ships*? If they instead picture the *work happening*, rewrite.
+
+| Mechanism (weak) | Outcome (strong) | Why |
+|---|---|---|
+| "Split monorepo + build /launch-agent plugin for new-agent scaffolding." | "Reduce new-agent creation from multi-day setup to a ~30-minute slash-command flow." | Strong version names the new state of the world (creation time drops); weak version describes the build work. |
+| "Refactor the auth layer to use OAuth2 with PKCE." | "Make first-time user login work in one click instead of three forms." | "Refactor the auth layer" is mechanism; "first-time login in one click" is the user-visible outcome that motivates the refactor. |
+| "Set up Prometheus + Grafana for agent observability." | "Make per-pipeline agent token spend visible within 5 minutes of any run." | The mechanism (Prometheus + Grafana) is one of several stacks that could deliver the outcome. |
+
+When the summary still reads as activity after one rewrite, check whether the title also fails the sniff test — two failures signal an activity-shaped goal; split before rewriting either section.
+
 ## Goal Structure
 
 ### Frontmatter
@@ -89,7 +110,7 @@ themes:                                          # optional
 In order:
 
 1. `Tags: [[Goal]]` (after frontmatter, before content separator)
-2. **Summary** — first paragraph after the `---` separator. 1-2 sentences stating concrete outcome + benefit.
+2. **Summary** — first paragraph after the `---` separator. 1-2 sentences stating the **outcome** (what's true when done) + benefit. See [Summary (First Sentence)](#summary-first-sentence) for the outcome-vs-mechanism sniff test and examples.
 3. `# Impact` — strategic value, theme connection, quantified where possible
 4. `# Status Summary` — Progress / Current / Next / Blockers (one line each)
 5. `# Success Criteria` — 3-5 binary, measurable checkbox outcomes
@@ -139,6 +160,7 @@ Before approving a goal, verify these signals:
 - **Non-goals enumerates 3-7 deferrals** — not vague disclaimers
 - **All tasks share one mental model** (one operator outcome, one domain)
 - **Goal title states an outcome**, not an activity or capability (passes the outcome-vs-mechanism sniff test — see [[#Title & Filename]])
+- **Summary first sentence states an outcome**, same sniff test at sentence scope (see [[#Summary (First Sentence)]])
 
 If 3+ smells fail → goal is over-scoped. Split into multiple goals or move items to Non-goals.
 
@@ -151,6 +173,7 @@ Before approving:
 - [ ] What's NOT in scope (Non-goals enumerated)?
 - [ ] Does every task contribute to ≥ 1 success criterion?
 - [ ] Is the goal title outcome-shaped (not activity-shaped)?
+- [ ] Is the summary first sentence outcome-shaped (not activity-shaped)?
 - [ ] Are tasks weeks-to-months in aggregate (not days, not years)?
 
 ## Audit
@@ -161,7 +184,7 @@ Always audit before committing publicly:
 /vault-cli:audit-goal "<goal title or path>"
 ```
 
-The auditor (`goal-auditor` agent) checks structure, SMART criteria, Non-goals presence, Goal Scope Fit smells (8 indicators of over-scoping; 3+ → flag), and per-task alignment to success criteria.
+The auditor (`goal-auditor` agent) checks structure, SMART criteria, Non-goals presence, Goal Scope Fit smells (9 indicators of over-scoping; 3+ → flag), and per-task alignment to success criteria.
 
 ## Lifecycle
 

@@ -61,10 +61,14 @@ Expert Obsidian goal auditor specializing in evaluating goal pages against the G
 - **Outcome-focused**: Title states deliverable, not activity
 - **Specific**: Clear what "done" looks like from title alone
 
-### 5. Summary Quality
+### 5. Summary Quality (First Sentence)
+- **Outcome-shaped**: First sentence states what's true when the goal is done (the new state of the world), NOT what work is being done. Same sniff test as title, scoped to one sentence. See `docs/goal-writing.md#summary-first-sentence`.
+- **No mechanism leaks**: Watch for `via X` / `by doing Y` / `through Z` / `Split X / Build Y / Refactor Z` / `Refactor and ...` openings — these describe the *how*, not the *what*. The how belongs in `# Impact` as an "Approach" lead paragraph, never in the opening sentence.
 - **Specific**: States concrete deliverable or outcome
-- **Measurable**: Includes quantifiable target
-- **Length**: 1-2 sentences
+- **Measurable**: Includes quantifiable target where possible
+- **Length**: 1-2 sentences; second sentence adds quantification or scope, not mechanism
+
+**Sniff test**: after reading just the first sentence, can the reader picture the *world after the goal ships*? If they instead picture the *work happening*, flag as recommendation. If the title ALSO fails the outcome-vs-mechanism sniff test (see section 4), escalate to Goal Scope Fit (smell #9) — two failures suggests the goal itself is activity-shaped.
 
 ### 6. Impact Quality
 - **Quantified**: Dollar amounts, percentages, time savings
@@ -110,6 +114,7 @@ Count how many apply. **3+ smells → recommend splitting or moving items to fol
 6. **Non-goals section is large and concretely names follow-up goals** — paradoxically a *good* sign the author trimmed; **not a smell**, count as quality.
 7. **Sub-goal-like task titles** — e.g. "Build the Whole Notification System" as one task. That's a goal, not a task.
 8. **Filename describes a generic capability rather than an outcome** — "Improve Agent Platform" is theme-shaped; "Eliminate Agent Task Rot" is goal-shaped.
+9. **Summary first sentence is mechanism-shaped** — leads with "Split X / Build Y / Refactor Z" instead of the new state of the world. On its own → Summary Quality recommendation. Combined with title that also fails the outcome-vs-mechanism sniff test → strong signal the goal itself is activity-shaped, not just badly written. (This is a stricter condition than smell #8, which only catches generic-capability titles like "Improve Agent Platform" — a specific-but-activity-shaped title like "Migrate Auth to OAuth2" passes smell #8 but still triggers smell #9's escalation.)
 
 ### Signals that the goal scope IS appropriate
 
@@ -117,6 +122,7 @@ Count how many apply. **3+ smells → recommend splitting or moving items to fol
 - Non-goals section enumerates 3-7 concrete deferrals with linked follow-up tasks/goals
 - All tasks share a coherent narrative (one mental model, one operator outcome)
 - Goal title states an outcome (not an activity, not a capability)
+- Summary first sentence states an outcome, not a mechanism (same sniff test as title)
 
 ### When flagging:
 

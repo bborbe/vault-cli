@@ -134,10 +134,14 @@ Task lifecycle:
 1. `/vault-cli:create-task` — capture (lenient)
 2. `/vault-cli:work-on-task` — orient (status + guides + daily note)
 3. `/vault-cli:plan-task` — sharpen (5 hard gates; may flip phase if entry contract permits)
-4. **`/vault-cli:execute-task`** — gate + kick off (this command)
-5. *(execution: just code, no command)*
-6. `/vault-cli:sync-progress` / `/vault-cli:update-task` — log progress
-7. `/vault-cli:complete-task` — close
+4. **`/vault-cli:execute-task`** — gate planning → execution; flips phase + prints first subtask + DoD reminder — this command
+5. Start work — while working, use any of:
+   - `/vault-cli:update-task` — log completed work, sync to daily note / parent goal
+   - `/vault-cli:task-status` — grouped-checkbox status (Success Criteria / Tasks / DoD) + next step
+   - `/vault-cli:next-steps` — next actionable steps; offer defer if nothing left today
+6. `/vault-cli:sync-progress` — flush conversation to daily note + task pages
+7. `/vault-cli:complete-task` — close task
+8. `/vault-cli:session-close` — verify session is safe to end (synced, committed, no orphaned state)
 
 Output ends with one of:
 - `🎯 Start with: <subtask>` + `📋 When done, verify: <DoD>` (gate passed or idempotent re-entry)

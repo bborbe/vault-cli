@@ -72,13 +72,21 @@ The agent (dispatched in `## Process` step 2) emits a structured `not_found` ver
 
 ## Integration
 
-Task-first workflow:
-1. `/vault-cli:next-task` → pick task
-2. `/vault-cli:work-on-task <id>` → guides + context (this command)
-3. Start work
-4. `/vault-cli:sync-progress` → log progress when done
+Task lifecycle:
 
-**If the task isn't ready** (unclear DoD, vague subtasks, scope creep, goal-orphan): run `/vault-cli:plan-task <id>` first. `work-on-task` is content-agnostic by design — it sets status and finds guides, it does not question your task content. `plan-task` is the dedicated tool for sharpening substance and gating the phase transition to `execution`.
+1. `/vault-cli:create-task` — capture (lenient)
+2. **`/vault-cli:work-on-task`** — orient (status + guides + daily note) — this command
+3. `/vault-cli:plan-task` — sharpen (5 hard gates; may flip phase if entry contract permits)
+4. `/vault-cli:execute-task` — gate planning → execution; flips phase + prints first subtask + DoD reminder
+5. Start work — while working, use any of:
+   - `/vault-cli:update-task` — log completed work, sync to daily note / parent goal
+   - `/vault-cli:task-status` — grouped-checkbox status (Success Criteria / Tasks / DoD) + next step
+   - `/vault-cli:next-steps` — next actionable steps; offer defer if nothing left today
+6. `/vault-cli:sync-progress` — flush conversation to daily note + task pages
+7. `/vault-cli:complete-task` — close task
+8. `/vault-cli:session-close` — verify session is safe to end (synced, committed, no orphaned state)
+
+`work-on-task` is content-agnostic by design — it sets status and finds guides, it does not question your task content. `plan-task` is the dedicated tool for sharpening substance, and `execute-task` is the gate that flips the phase transition to `execution`.
 
 ## Notes
 

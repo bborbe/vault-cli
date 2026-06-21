@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat(work-on-task-assistant): green Readiness now recommends the next gate — `✅ Readiness: looks execution-ready. Run /vault-cli:execute-task to start.` (was just the bare green checkmark, no breadcrumb). Closes the gap where operators had to remember the next command after a clean readiness pass. Warning branch unchanged — still points to `/vault-cli:plan-task`.
+
 ## v0.83.1
 
 - docs: sync `## Integration` section across `/vault-cli:work-on-task`, `/vault-cli:plan-task`, `/vault-cli:execute-task` to one canonical 8-step Task lifecycle. Plugs the missing-commands gap in `plan-task` (was missing `work-on-task` + `execute-task` entries). Adds explicit step 5 "Start work" with the three in-execution helpers (`update-task` / `task-status` / `next-steps`), plus `complete-task` (step 7) and `session-close` (step 8) as the proper end-of-flow bookends. All three command pages now show the same numbered list — only the bolded "this command" marker differs.

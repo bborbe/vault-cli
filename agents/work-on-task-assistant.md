@@ -196,7 +196,7 @@ Compute three booleans from the already-loaded task file:
 - `SC_PRESENT` = task body contains a literal `# Success Criteria` heading
 - `SC_HAS_UNCHECKED` = ≥ 1 `- [ ]` checkbox under that heading
 
-If all three true → emit `✅ Readiness: looks execution-ready` in the report.
+If all three true → emit `✅ Readiness: looks execution-ready. Run /vault-cli:execute-task to start.` in the report.
 
 Otherwise emit `⚠ Readiness: <reason>. Run /vault-cli:plan-task first.` where `<reason>` is the first failing check in this order:
 
@@ -274,7 +274,7 @@ Remaining:
 🎯 Next: <next item>
 
 [Always when Obsidian task file exists (non-recurring) — never silently skipped:]
-✅ Readiness: looks execution-ready
+✅ Readiness: looks execution-ready. Run /vault-cli:execute-task to start.
 [OR:]
 ⚠ Readiness: <reason>. Run /vault-cli:plan-task first.
 

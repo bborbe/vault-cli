@@ -8,6 +8,11 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- chore(deps): bump ginkgo v2.29.0→v2.31.0, gomega v1.41.0→v1.42.0, golang.org/x/term v0.43.0→v0.44.0, sentry-go v0.46.2→v0.47.0, bborbe/math, parse, run, and assorted x/* transitive deps
+- chore(go.mod): drop obsolete `exclude (cloud.google.com/go v0.26.0)` directive
+
 ## v0.85.0
 
 - docs(goal-writing): add `## Summary (First Sentence)` section with outcome-vs-mechanism sniff test and 3-example table (parallel to the existing Title section); cross-reference from `## Goal Structure` and `## Scope Check`; new Preflight Checklist item; closing-sentence logic now reads forward ("if title also fails, the goal is activity-shaped — split before rewriting either")

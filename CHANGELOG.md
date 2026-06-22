@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.85.1
 
 - chore(deps): bump ginkgo v2.29.0→v2.31.0, gomega v1.41.0→v1.42.0, golang.org/x/term v0.43.0→v0.44.0, sentry-go v0.46.2→v0.47.0, bborbe/math, parse, run, and assorted x/* transitive deps
 - chore(go.mod): drop obsolete `exclude (cloud.google.com/go v0.26.0)` directive

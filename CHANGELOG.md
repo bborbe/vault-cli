@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.85.0
 
 - docs(goal-writing): add `## Summary (First Sentence)` section with outcome-vs-mechanism sniff test and 3-example table (parallel to the existing Title section); cross-reference from `## Goal Structure` and `## Scope Check`; new Preflight Checklist item; closing-sentence logic now reads forward ("if title also fails, the goal is activity-shaped — split before rewriting either")
 - feat(goal-auditor): expand Section 5 "Summary Quality (First Sentence)" with outcome-vs-mechanism check + mechanism-leak anti-patterns + escalation rule; add 9th Goal Scope Fit smell (mechanism-shaped summary) with explicit escalation when combined with a title that also fails the sniff test; add matching positive-signal bullet; normalize mechanism-leak separator to `/` across all examples

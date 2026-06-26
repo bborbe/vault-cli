@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.87.0
 
 - feat: Pass `-n "<task-name>"` to `claude` when `task work-on --mode headless` mints a session, so the session's custom-title and agent-name carry the task title from turn 1 (inherited by all later resumes)
 

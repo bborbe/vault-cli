@@ -203,13 +203,15 @@ The `# Definition of Done` section is the closure gate. Tasks that lack it (or h
 **Severity matrix (grandfathering):**
 
 - **MAJOR** when:
-  - Task is shipping-class OR complex AND `created` is `2026-06-26` or later AND DoD section absent
+  - Task is shipping-class OR complex AND `created` frontmatter is `DOD_REQUIRED_AS_OF` (`2026-06-26`) or later AND DoD section absent
   - DoD present but < 2 binary checkboxes (placeholder like "see closure patterns" with no concrete steps)
   - DoD missing `Tested on dev` AND/OR `Tested on prod` for multi-environment artifacts (per section 11 ladder)
   - DoD checkboxes contain any phrase from the dishonest-tick list in section 11
 - **WARN (not MAJOR)** when:
-  - Task `created` < `2026-06-26` AND DoD section absent (grandfathered)
+  - Task `created` < `DOD_REQUIRED_AS_OF` (`2026-06-26`) OR `created` is absent AND DoD section absent (grandfathered; trust the document's own metadata — no filesystem fallback)
   - DoD-style content embedded inside `# Success Criteria` (deprecated-but-accepted pattern)
+
+**DOD_REQUIRED_AS_OF constant:** `2026-06-26` — the date this enforcement landed. When the calendar advances substantially past this (e.g. > 6 months), revisit: either drop grandfathering entirely or move the cutoff forward.
 - **PASS** when:
   - DoD section present with ≥ 2 binary closure checkboxes
   - Each item maps to a success criterion OR closure step (PR / dev / prod / cleanup)

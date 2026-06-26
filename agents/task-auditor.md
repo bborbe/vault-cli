@@ -179,9 +179,16 @@ Ask critical question: "Can this goal be marked complete WITHOUT this task?"
 
 **Flag as MAJOR if (1) merge subtask is missing, or (3) verification is missing or marked `[x]` with an explicit defer note** (e.g. *"Test deferred — will validate on first use"*). A deferred verification is not a completed verification. Missing standalone release subtask is MINOR when auto-release evidence is present, MAJOR otherwise.
 
-**Flag as MAJOR for multi-environment artifacts** (detection: title/impact/subtasks mention `k8s`, `kubernetes`, `cluster`, `deploy`, `kubectl`, `<service>-dev`, `<service>-prod`, `make buca`) when EITHER:
+**Flag as MAJOR for multi-environment artifacts** when the task explicitly targets BOTH dev and prod environments. Detection requires evidence of multi-env scope, not just container/deploy terminology:
+- Co-occurrence of `dev` AND `prod` (case-insensitive) in title, impact, success criteria, OR subtasks, OR
+- Subtasks/SCs reference both `<service>-dev` AND `<service>-prod` worktrees (e.g. `trading-dev` + `trading-prod`), OR
+- Explicit `BRANCH=dev` AND `BRANCH=prod` mentions
+
+Bare keywords like `k8s` / `kubernetes` / `cluster` / `deploy` / `kubectl` / `make buca` alone do NOT trigger this — single-environment k8s tasks would be false-positives. Flag as MAJOR when multi-env scope is confirmed AND either:
 - "Tested on dev" subtask is missing or unticked, OR
 - "Tested on prod" subtask is missing or unticked
+
+(I.e. **either** missing triggers MAJOR — the dev → prod ladder requires BOTH to be present and ticked.)
 
 A `[x]` "Deployed to prod" with no separate "Verified on prod" subtask is also MAJOR — deploy succeeded ≠ behavior verified.
 
@@ -205,7 +212,7 @@ The `# Definition of Done` section is the closure gate. Tasks that lack it (or h
 - **MAJOR** when:
   - Task is shipping-class OR complex AND `created` frontmatter is `DOD_REQUIRED_AS_OF` (`2026-06-26`) or later AND DoD section absent
   - DoD present but < 2 binary checkboxes (placeholder like "see closure patterns" with no concrete steps)
-  - DoD missing `Tested on dev` AND/OR `Tested on prod` for multi-environment artifacts (per section 11 ladder)
+  - DoD missing EITHER `Tested on dev` OR `Tested on prod` for multi-environment artifacts (per section 11 ladder — both must be present and ticked; missing either is MAJOR)
   - DoD checkboxes contain any phrase from the dishonest-tick list in section 11
 - **WARN (not MAJOR)** when:
   - Task `created` < `DOD_REQUIRED_AS_OF` (`2026-06-26`) OR `created` is absent AND DoD section absent (grandfathered; trust the document's own metadata — no filesystem fallback)

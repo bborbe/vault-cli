@@ -190,20 +190,29 @@ When the task description, a related log entry, or any retrieved file references
 
 Shallow check — file-level presence/absence, not substance. Substance belongs to `/vault-cli:plan-task` (which runs `task-auditor` + 5 hard non-negotiable checks).
 
-Compute three booleans from the already-loaded task file:
+Branch by lifecycle position — `status` first (terminal states short-circuit), then `phase` (in-progress sub-stage), then `SC_*` checks (the planning-vs-execution gate).
 
-- `PHASE_OK` = frontmatter `phase` is one of `execution`, `ai_review`, `human_review`, `done` (NOT `planning` or empty / `todo`)
+Compute from the already-loaded task file:
+
+- `STATUS` = frontmatter `status` value (string)
+- `PHASE` = frontmatter `phase` value (empty string `""` if key absent)
 - `SC_PRESENT` = task body contains a literal `# Success Criteria` heading
+- `SC_HAS_CHECKBOXES` = ≥ 1 `- [ ]` or `- [x]` checkbox under that heading
 - `SC_HAS_UNCHECKED` = ≥ 1 `- [ ]` checkbox under that heading
 
-If all three true → emit `✅ Readiness: looks execution-ready. Run /vault-cli:execute-task to start.` in the report.
+Emit exactly ONE nudge from the table below — first match wins:
 
-Otherwise emit `⚠ Readiness: <reason>. Run /vault-cli:plan-task first.` where `<reason>` is the first failing check in this order:
-
-1. `phase=planning — gate not cleared`
-2. `phase=<empty>/todo — gate not run`
-3. `no \`# Success Criteria\` section`
-4. `all Success Criteria already ticked — task may be complete; run /vault-cli:complete-task`
+| Condition | Nudge |
+|---|---|
+| `STATUS in {"completed", "aborted"}` | `✅ Readiness: task is <status>. Run /vault-cli:sync-progress to flush conversation, then /vault-cli:session-close.` |
+| `PHASE in {"ai_review", "human_review"}` | `🔵 Readiness: phase=<phase> — review feedback drives next step. Address findings; re-run /vault-cli:execute-task when clean.` |
+| `PHASE == "done"` | `✅ Readiness: phase=done. Run /vault-cli:complete-task to close.` |
+| `PHASE == "planning"` | `⚠ Readiness: phase=planning — gate not cleared. Run /vault-cli:plan-task first.` |
+| `PHASE == "" or PHASE == "todo"` | `⚠ Readiness: phase not set (or todo) — gate not run. Run /vault-cli:plan-task first.` |
+| `not SC_PRESENT` | `⚠ Readiness: no \`# Success Criteria\` section. Run /vault-cli:plan-task first.` |
+| `SC_PRESENT and not SC_HAS_CHECKBOXES` | `⚠ Readiness: \`# Success Criteria\` section has no checkboxes. Run /vault-cli:plan-task first.` |
+| `SC_HAS_CHECKBOXES and not SC_HAS_UNCHECKED` | `⚠ Readiness: all Success Criteria already ticked — task may be complete. Run /vault-cli:complete-task.` |
+| (default — all checks pass) | `✅ Readiness: looks execution-ready. Run /vault-cli:execute-task to start.` |
 
 **Do NOT** ask, edit the file, or call `AskUserQuestion`. The nudge is informational — the owner is trusted to act on it. Skip silently for Jira-only tasks (no local Obsidian file) and for recurring tasks (frontmatter `recurring: true`, which intentionally have no Success Criteria).
 
@@ -273,10 +282,16 @@ Remaining:
 ○ <item>
 🎯 Next: <next item>
 
-[Always when Obsidian task file exists (non-recurring) — never silently skipped:]
+[Always when Obsidian task file exists (non-recurring) — never silently skipped. One of:]
 ✅ Readiness: looks execution-ready. Run /vault-cli:execute-task to start.
-[OR:]
-⚠ Readiness: <reason>. Run /vault-cli:plan-task first.
+✅ Readiness: task is <completed|aborted>. Run /vault-cli:sync-progress to flush conversation, then /vault-cli:session-close.
+✅ Readiness: phase=done. Run /vault-cli:complete-task to close.
+🔵 Readiness: phase=<ai_review|human_review> — review feedback drives next step. Address findings; re-run /vault-cli:execute-task when clean.
+⚠ Readiness: phase=planning — gate not cleared. Run /vault-cli:plan-task first.
+⚠ Readiness: phase not set (or todo) — gate not run. Run /vault-cli:plan-task first.
+⚠ Readiness: no `# Success Criteria` section. Run /vault-cli:plan-task first.
+⚠ Readiness: `# Success Criteria` section has no checkboxes. Run /vault-cli:plan-task first.
+⚠ Readiness: all Success Criteria already ticked — task may be complete. Run /vault-cli:complete-task.
 
 ---
 Ready to work on this task.
@@ -314,5 +329,5 @@ Suggested task name: <derived title — Jira summary if Jira ID input, else inpu
 6. Guides searched (semantic or fallback) — **FAIL if Phase 6 skipped; at least one `search_related` call required when MCP available**
 7. Phase 8 verification ran for Jira tasks; report includes verification line
 8. Report ends with "Ready to work on this task." — NEVER emitted while Jira state is stale
-9. Readiness nudge emitted for Obsidian (non-recurring) tasks (one of ✅ / ⚠) — never silently skipped
+9. Readiness nudge emitted for Obsidian (non-recurring) tasks (one of ✅ / 🔵 / ⚠) — never silently skipped
 </success_criteria>

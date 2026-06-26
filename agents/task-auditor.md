@@ -58,7 +58,7 @@ Expert Obsidian task auditor specializing in evaluating task pages against the T
 - **Required**: `# Success Criteria` section
 - **Required**: `# Out of Scope` section (parallels Non-goals on goals; catches scope creep at write-time)
 - **Recommended**: `# Tasks` section (for actionable subtasks)
-- **Required for complex tasks** when success criteria are aspirational ("Code is clean", "Performance improved"): `# Definition of Done`. When SC items already encode their own verification (e.g. specific kubectl/curl command + expected result), DoD is redundant — do NOT flag absence as MAJOR. Heuristic: if each SC line is independently checkable by a reader, no DoD section needed.
+- **Required for shipping-class tasks** AND for any task whose SC items are aspirational ("Code is clean", "Performance improved"): `# Definition of Done`. See section 12 for the full severity matrix. Shipping-class detection signals match section 11 (title/impact mentions PR/release/tag/ship/deploy/publish/plugin/agent/library, or subtasks reference a git repo / marketplace / registry). When the task is non-shipping AND every SC line is independently checkable by a reader (kubectl/curl/grep + expected result), DoD section is redundant — do NOT flag absence as MAJOR.
 
 ## Recommendations (Quality)
 
@@ -175,32 +175,49 @@ Ask critical question: "Can this goal be marked complete WITHOUT this task?"
 
 1. **Merge / land the change** — PR merged, code on main/master
 2. **Release fired** — version tagged, artifact published. **Auto-release exception**: when the repo auto-releases on merge (CI workflow, dark-factory `autoRelease: true`, conventional-commits action), a separate "verify tag exists" subtask is bookkeeping. The merge subtask covers it as long as the released version is cited as evidence elsewhere (in `# Results`, `# Pull Requests`, the merge subtask body, or a referenced URL like `merged → v0.66.0`). Do NOT flag missing standalone release subtask as MAJOR when evidence of the tag is present.
-3. **End-to-end verification** — the shipped artifact actually runs in its real environment (not just unit-tested, not just audited, not "deferred to first use"). For multi-environment deploys (dev + prod), one verify subtask per environment is ideal but not required — a single end-to-end verify on the production environment is sufficient when dev was a smoke step and prod is the same binary.
+3. **End-to-end verification** — the shipped artifact actually runs in its real environment. For multi-environment artifacts (k8s services, deployed daemons, anything with `<service>-dev/` and `<service>-prod/` worktrees), this splits into a **dev → prod ladder**: BOTH dev verification AND prod verification must exist as separate subtasks. Single-environment artifacts (CLI tools, libraries, docs) can use one end-to-end subtask.
 
 **Flag as MAJOR if (1) merge subtask is missing, or (3) verification is missing or marked `[x]` with an explicit defer note** (e.g. *"Test deferred — will validate on first use"*). A deferred verification is not a completed verification. Missing standalone release subtask is MINOR when auto-release evidence is present, MAJOR otherwise.
 
+**Flag as MAJOR for multi-environment artifacts** (detection: title/impact/subtasks mention `k8s`, `kubernetes`, `cluster`, `deploy`, `kubectl`, `<service>-dev`, `<service>-prod`, `make buca`) when EITHER:
+- "Tested on dev" subtask is missing or unticked, OR
+- "Tested on prod" subtask is missing or unticked
+
+A `[x]` "Deployed to prod" with no separate "Verified on prod" subtask is also MAJOR — deploy succeeded ≠ behavior verified.
+
 **Anti-pattern to flag explicitly** (case-insensitive substring match):
 
-> Ticked verification subtask with body containing any of: *"deferred to first use"*, *"deferred — will validate"*, *"will check next session"*, *"will verify on first use"*, *"first deployment will test"*, *"trust the audit"*, *"trust CI"*, *"trust the tests"*, *"will validate later"*. These are dishonest ticks. The subtask should stay open until evidence of real-environment execution exists.
+> Ticked verification subtask with body containing any of: *"deferred to first use"*, *"deferred — will validate"*, *"will check next session"*, *"will verify on first use"*, *"first deployment will test"*, *"trust the audit"*, *"trust CI"*, *"trust the tests"*, *"will validate later"*, *"tested on dev only"*, *"ci passed = tested"*, *"auto-release tagged ≠ shipped"*, *"deferred to follow-up goal"*. These are dishonest ticks. The subtask should stay open until evidence of real-environment execution exists.
 
 Normalize content to lowercase before comparison so case variants ("Trust CI", "DEFERRED to first use") don't slip through.
 
-### 12. Definition of Done Quality (Complex Tasks)
+### 12. Definition of Done Quality
 
-**First determine if task is complex** using these heuristics:
-- ≥5 subtasks OR multi-phase language
-- ≥4 success criteria
-- ≥3 days effort or ≥3 stakeholders
-- External dependency mentioned
-- Risk keywords (prod, production, rollback, migration, infra)
+The `# Definition of Done` section is the closure gate. Tasks that lack it (or have an empty placeholder) ship with PRs still open, prod never tested, branches dangling.
 
-**If complex, evaluate DoD section:**
-- **Present**: Has `# Definition of Done` section
-- **Mapped**: Each DoD item maps to a success criterion
-- **Typed**: Items declare verification type (Automated/Manual/Artifact/Behavioral/Temporal/External)
-- **Actionable**: Clear verification action
-- **If simple task**: DoD section optional, don't penalize absence
-- **Self-verifying SCs carve-out**: when each success criterion already encodes its own verification (e.g. SC body contains a concrete command like `kubectl get … -o jsonpath=…` + expected result, or a specific URL/artifact + observable state), a per-criterion DoD section is redundant. A single blanket DoD sentence ("All success criteria checked; investigation resolved or follow-up task filed") is acceptable. Do NOT flag this as MAJOR. Only flag DoD weakness when SC items are aspirational and unverifiable on their own ("Code is clean", "Performance improved").
+**First determine if task is shipping-class or complex**:
+- **Shipping-class** (matches section 11 detection): always requires DoD
+- **Complex** (≥5 subtasks OR multi-phase OR ≥4 success criteria OR ≥3 days effort OR external dependency OR risk keywords `prod`/`rollback`/`migration`/`infra`): requires DoD
+- **Simple non-shipping** with self-verifying SC lines (each SC encodes its own command + expected result): DoD optional
+
+**Severity matrix (grandfathering):**
+
+- **MAJOR** when:
+  - Task is shipping-class OR complex AND `created` is `2026-06-26` or later AND DoD section absent
+  - DoD present but < 2 binary checkboxes (placeholder like "see closure patterns" with no concrete steps)
+  - DoD missing `Tested on dev` AND/OR `Tested on prod` for multi-environment artifacts (per section 11 ladder)
+  - DoD checkboxes contain any phrase from the dishonest-tick list in section 11
+- **WARN (not MAJOR)** when:
+  - Task `created` < `2026-06-26` AND DoD section absent (grandfathered)
+  - DoD-style content embedded inside `# Success Criteria` (deprecated-but-accepted pattern)
+- **PASS** when:
+  - DoD section present with ≥ 2 binary closure checkboxes
+  - Each item maps to a success criterion OR closure step (PR / dev / prod / cleanup)
+  - For multi-environment artifacts: both `Tested on dev` and `Tested on prod` subtasks present
+
+**Self-verifying SCs carve-out** (non-shipping tasks only): when each success criterion already encodes its own verification (concrete command + expected result, or specific URL/artifact + observable state), a per-criterion DoD section is redundant. Do NOT flag this as MAJOR. This carve-out does NOT apply to shipping-class tasks — those always need a DoD section even with self-verifying SCs.
+
+**Reference checks:** The DoD section should reference `[[Closure Patterns]]` (per-artifact blocks) and/or `[[Goal Closure Checklist]]` (goal-level checklist) — recommend, don't require.
 
 ## Quick Fixes (Minor)
 

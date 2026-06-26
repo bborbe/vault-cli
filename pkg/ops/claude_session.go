@@ -19,7 +19,9 @@ import (
 // ClaudeSessionStarter starts a new headless Claude session.
 type ClaudeSessionStarter interface {
 	// StartSession runs claude in headless mode to create a session, returns session_id.
-	StartSession(ctx context.Context, prompt string, cwd string) (string, error)
+	// When name is non-empty, the session is created with -n <name> so its
+	// custom-title and agent-name are set from turn 1.
+	StartSession(ctx context.Context, prompt string, cwd string, name string) (string, error)
 }
 
 // NewClaudeSessionStarter creates a ClaudeSessionStarter using the given claude script.
@@ -68,6 +70,7 @@ func (c *claudeSessionStarter) StartSession(
 	ctx context.Context,
 	prompt string,
 	cwd string,
+	name string,
 ) (string, error) {
 	timeoutCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
@@ -75,11 +78,11 @@ func (c *claudeSessionStarter) StartSession(
 	args := []string{
 		c.claudePath,
 		"--print",
-		"-p",
-		prompt,
-		"--output-format",
-		"json",
 	}
+	if name != "" {
+		args = append(args, "-n", name)
+	}
+	args = append(args, "-p", prompt, "--output-format", "json")
 	if c.maxTurns > 0 {
 		args = append(args, "--max-turns", fmt.Sprintf("%d", c.maxTurns))
 	}

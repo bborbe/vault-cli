@@ -45,7 +45,7 @@ var _ = Describe("ClaudeSessionStarter", func() {
 		})
 
 		It("returns the session_id", func() {
-			sessionID, err := starter.StartSession(ctx, "/work-on-task \"my-task\"", "/vault")
+			sessionID, err := starter.StartSession(ctx, "/work-on-task \"my-task\"", "/vault", "")
 			Expect(err).To(BeNil())
 			Expect(sessionID).To(Equal("abc-123"))
 		})
@@ -57,7 +57,7 @@ var _ = Describe("ClaudeSessionStarter", func() {
 		})
 
 		It("returns error", func() {
-			_, err := starter.StartSession(ctx, "prompt", "/vault")
+			_, err := starter.StartSession(ctx, "prompt", "/vault", "")
 			Expect(err).NotTo(BeNil())
 		})
 	})
@@ -68,7 +68,7 @@ var _ = Describe("ClaudeSessionStarter", func() {
 		})
 
 		It("returns parse error", func() {
-			_, err := starter.StartSession(ctx, "prompt", "/vault")
+			_, err := starter.StartSession(ctx, "prompt", "/vault", "")
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(ContainSubstring("parse claude output"))
 		})
@@ -80,7 +80,7 @@ var _ = Describe("ClaudeSessionStarter", func() {
 		})
 
 		It("returns error about empty session_id", func() {
-			_, err := starter.StartSession(ctx, "prompt", "/vault")
+			_, err := starter.StartSession(ctx, "prompt", "/vault", "")
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(ContainSubstring("empty session_id"))
 		})
@@ -92,7 +92,7 @@ var _ = Describe("ClaudeSessionStarter", func() {
 		})
 
 		It("returns error about empty session_id", func() {
-			_, err := starter.StartSession(ctx, "prompt", "/vault")
+			_, err := starter.StartSession(ctx, "prompt", "/vault", "")
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(ContainSubstring("empty session_id"))
 		})
@@ -106,7 +106,7 @@ var _ = Describe("ClaudeSessionStarter", func() {
 		})
 
 		It("returns session_id and nil error", func() {
-			sessionID, err := starter.StartSession(ctx, "prompt", "/vault")
+			sessionID, err := starter.StartSession(ctx, "prompt", "/vault", "")
 			Expect(err).To(BeNil())
 			Expect(sessionID).To(Equal("happy-path-sid"))
 		})
@@ -120,7 +120,7 @@ var _ = Describe("ClaudeSessionStarter", func() {
 		})
 
 		It("returns error containing 0 turns and result", func() {
-			_, err := starter.StartSession(ctx, "prompt", "/vault")
+			_, err := starter.StartSession(ctx, "prompt", "/vault", "")
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(ContainSubstring("0 turns"))
 			Expect(err.Error()).To(ContainSubstring("Unknown command: /x"))
@@ -135,7 +135,7 @@ var _ = Describe("ClaudeSessionStarter", func() {
 		})
 
 		It("returns error containing error and result", func() {
-			_, err := starter.StartSession(ctx, "prompt", "/vault")
+			_, err := starter.StartSession(ctx, "prompt", "/vault", "")
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(ContainSubstring("error"))
 			Expect(err.Error()).To(ContainSubstring("something failed"))
@@ -159,13 +159,22 @@ var _ = Describe("ClaudeSessionStarter", func() {
 		})
 
 		It("passes correct args and cwd", func() {
-			_, err := starter.StartSession(ctx, "my prompt", "/my/vault")
+			_, err := starter.StartSession(ctx, "my prompt", "/my/vault", "")
 			Expect(err).To(BeNil())
 			Expect(capturedArgs).To(Equal([]string{
 				"/bin/claude", "--print", "-p", "my prompt",
 				"--output-format", "json",
 			}))
 			Expect(capturedDir).To(Equal("/my/vault"))
+		})
+
+		It("inserts -n <name> after --print when name is non-empty", func() {
+			_, err := starter.StartSession(ctx, "my prompt", "/my/vault", "My Task Title")
+			Expect(err).To(BeNil())
+			Expect(capturedArgs).To(Equal([]string{
+				"/bin/claude", "--print", "-n", "My Task Title", "-p", "my prompt",
+				"--output-format", "json",
+			}))
 		})
 	})
 
@@ -179,7 +188,7 @@ var _ = Describe("ClaudeSessionStarter", func() {
 					return []byte(`{"session_id":"sid-2","num_turns":1,"is_error":false}`), nil
 				},
 			)
-			_, err := customStarter.StartSession(ctx, "prompt", "/vault")
+			_, err := customStarter.StartSession(ctx, "prompt", "/vault", "")
 			Expect(err).To(BeNil())
 			Expect(capturedArgs[0]).To(Equal("/opt/custom-claude"))
 		})

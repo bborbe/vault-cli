@@ -191,7 +191,7 @@ func (w *workOnOperation) handleClaudeSession(
 	}
 	prompt := fmt.Sprintf(`%s "%s"`, vault.GetWorkOnCommand(), task.FilePath)
 	slog.Info("starting claude session", "task", task.Name)
-	sessionID, err := w.starter.StartSession(ctx, prompt, vaultPath)
+	sessionID, err := w.starter.StartSession(ctx, prompt, vaultPath, task.Name)
 	if err != nil {
 		return "", errors.Wrap(ctx, err, "start claude session")
 	}

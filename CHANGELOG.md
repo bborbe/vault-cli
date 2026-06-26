@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## v0.88.0
+
+- docs(task-writing): sharpen `hold` status — reserve for weeks-long blocks (external dependency, unresolved upstream); short waits (hours/days for doc, callback, review) stay `in_progress` with `[/]` subtask. Prevents premature `hold` hiding active work from rotations
+
 ## v0.87.0
 
 - feat: Pass `-n "<task-name>"` to `claude` when `task work-on --mode headless` mints a session, so the session's custom-title and agent-name carry the task title from turn 1 (inherited by all later resumes)

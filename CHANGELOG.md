@@ -10,6 +10,9 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 
 ## v0.88.0
 
+- feat(auditors): goal-auditor + task-auditor flag missing/empty `# Definition of Done` section as MAJOR; severity matrix uses `DOD_REQUIRED_AS_OF=2026-06-26` constant with grandfathering (pages `created` before cutoff → WARN, not MAJOR); task-auditor adds dev → prod ladder check for multi-environment shipping-class artifacts (detection requires explicit `dev` + `prod` co-occurrence, not container keywords); 4 new dishonest-tick phrases added to anti-pattern list (`tested on dev only`, `ci passed = tested`, `auto-release tagged ≠ shipped`, `deferred to follow-up goal`)
+- docs(task-writing): add `# Definition of Done` as required section for shipping-class tasks + tasks with aspirational SCs (peer to Success Criteria); split Shipping Checklist's end-to-end verification into explicit `Tested on dev` + `Tested on prod` ladder for multi-environment artifacts; references `[[Closure Patterns]]` for per-artifact copy-paste blocks
+- docs(goal-writing): add `# Definition of Done` as required section (peer to Success Criteria); new subsection explains two-sided framing (what we want vs how we verify); references `[[Goal Closure Checklist]]` + `[[Closure Patterns]]`; migration note accepts existing 'DoD under SC' pattern as WARN-grandfathered
 - docs(task-writing): sharpen `hold` status — reserve for weeks-long blocks (external dependency, unresolved upstream); short waits (hours/days for doc, callback, review) stay `in_progress` with `[/]` subtask. Prevents premature `hold` hiding active work from rotations
 
 ## v0.87.0

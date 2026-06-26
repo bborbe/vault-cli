@@ -9,12 +9,13 @@ import (
 )
 
 type ClaudeSessionStarter struct {
-	StartSessionStub        func(context.Context, string, string) (string, error)
+	StartSessionStub        func(context.Context, string, string, string) (string, error)
 	startSessionMutex       sync.RWMutex
 	startSessionArgsForCall []struct {
 		arg1 context.Context
 		arg2 string
 		arg3 string
+		arg4 string
 	}
 	startSessionReturns struct {
 		result1 string
@@ -28,20 +29,21 @@ type ClaudeSessionStarter struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *ClaudeSessionStarter) StartSession(arg1 context.Context, arg2 string, arg3 string) (string, error) {
+func (fake *ClaudeSessionStarter) StartSession(arg1 context.Context, arg2 string, arg3 string, arg4 string) (string, error) {
 	fake.startSessionMutex.Lock()
 	ret, specificReturn := fake.startSessionReturnsOnCall[len(fake.startSessionArgsForCall)]
 	fake.startSessionArgsForCall = append(fake.startSessionArgsForCall, struct {
 		arg1 context.Context
 		arg2 string
 		arg3 string
-	}{arg1, arg2, arg3})
+		arg4 string
+	}{arg1, arg2, arg3, arg4})
 	stub := fake.StartSessionStub
 	fakeReturns := fake.startSessionReturns
-	fake.recordInvocation("StartSession", []interface{}{arg1, arg2, arg3})
+	fake.recordInvocation("StartSession", []interface{}{arg1, arg2, arg3, arg4})
 	fake.startSessionMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2, arg3)
+		return stub(arg1, arg2, arg3, arg4)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
@@ -55,17 +57,17 @@ func (fake *ClaudeSessionStarter) StartSessionCallCount() int {
 	return len(fake.startSessionArgsForCall)
 }
 
-func (fake *ClaudeSessionStarter) StartSessionCalls(stub func(context.Context, string, string) (string, error)) {
+func (fake *ClaudeSessionStarter) StartSessionCalls(stub func(context.Context, string, string, string) (string, error)) {
 	fake.startSessionMutex.Lock()
 	defer fake.startSessionMutex.Unlock()
 	fake.StartSessionStub = stub
 }
 
-func (fake *ClaudeSessionStarter) StartSessionArgsForCall(i int) (context.Context, string, string) {
+func (fake *ClaudeSessionStarter) StartSessionArgsForCall(i int) (context.Context, string, string, string) {
 	fake.startSessionMutex.RLock()
 	defer fake.startSessionMutex.RUnlock()
 	argsForCall := fake.startSessionArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4
 }
 
 func (fake *ClaudeSessionStarter) StartSessionReturns(result1 string, result2 error) {

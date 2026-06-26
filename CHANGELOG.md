@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat: Pass `-n "<task-name>"` to `claude` when `task work-on --mode headless` mints a session, so the session's custom-title and agent-name carry the task title from turn 1 (inherited by all later resumes)
+
 ## v0.86.0
 
 - feat(work-on-task-assistant): extend Phase 7.5 readiness nudge with phase-aware decision table — covers terminal statuses (`completed`/`aborted` → `/vault-cli:sync-progress` + `/vault-cli:session-close`), review phases (`ai_review`/`human_review` → 🔵 review-feedback nudge with `/vault-cli:execute-task` re-run path), and `phase: done` (→ `/vault-cli:complete-task`). First-match-wins ordering; STATUS short-circuits PHASE which short-circuits SC checks. Adds `SC_HAS_CHECKBOXES` flag to disambiguate "all ticked" vs "section has no checkboxes at all" — the latter now correctly emits a planning nudge instead of a misleading complete-task nudge. Output format updated with all variants spelled out (no `<reason>` placeholder collapse). Success-criteria #9 now lists 🔵 alongside ✅/⚠.

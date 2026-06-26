@@ -116,6 +116,12 @@ var _ = Describe("WorkOnOperation", func() {
 		It("starts a claude session", func() {
 			Expect(mockStarter.StartSessionCallCount()).To(Equal(1))
 		})
+
+		It("passes task name to session starter", func() {
+			Expect(mockStarter.StartSessionCallCount()).To(Equal(1))
+			_, _, _, name := mockStarter.StartSessionArgsForCall(0)
+			Expect(name).To(Equal(taskName))
+		})
 	})
 
 	Context("when assignee already equals current user", func() {
@@ -185,7 +191,7 @@ var _ = Describe("WorkOnOperation", func() {
 
 		It("uses the configured work on command in the prompt", func() {
 			Expect(mockStarter.StartSessionCallCount()).To(Equal(1))
-			_, prompt, _ := mockStarter.StartSessionArgsForCall(0)
+			_, prompt, _, _ := mockStarter.StartSessionArgsForCall(0)
 			Expect(prompt).To(MatchRegexp(`^/custom-cmd "`))
 		})
 	})

@@ -113,10 +113,11 @@ In order:
 2. **Summary** — first paragraph after the `---` separator. 1-2 sentences stating the **outcome** (what's true when done) + benefit. See [Summary (First Sentence)](#summary-first-sentence) for the outcome-vs-mechanism sniff test and examples.
 3. `# Impact` — strategic value, theme connection, quantified where possible
 4. `# Status Summary` — Progress / Current / Next / Blockers (one line each)
-5. `# Success Criteria` — 3-5 binary, measurable checkbox outcomes
-6. `# Non-goals` — 3-7 concrete deferrals (what's out of scope; link follow-up tasks/goals)
-7. `# Tasks` — 4-8 linked task pages, logical order
-8. `# Related` — themes / sister goals / docs
+5. `# Success Criteria` — 3-5 binary, measurable checkbox outcomes — *what we want when done*
+6. `# Definition of Done` — closure steps that verify completion — *how we know we're done* (peer to Success Criteria; see [Definition of Done](#definition-of-done))
+7. `# Non-goals` — 3-7 concrete deferrals (what's out of scope; link follow-up tasks/goals)
+8. `# Tasks` — 4-8 linked task pages, logical order
+9. `# Related` — themes / sister goals / docs
 
 Optional: `# Risk Management` (appendix for high-stakes goals).
 
@@ -151,6 +152,52 @@ Adopted from dark-factory spec convention. Forces explicit articulation of what'
 
 When in doubt: if a reader might ask "does this goal include X?" and the answer is no, X belongs in Non-goals.
 
+## Definition of Done
+
+Every goal has TWO sides:
+
+| Section | Question | Example |
+|---------|----------|---------|
+| `# Success Criteria` | **What is true when this goal ships?** (outcome) | "All 5 must-fix items shipped — correctness + security restored" |
+| `# Definition of Done` | **How do we verify it actually shipped?** (closure) | "All PRs merged. Dev + prod tested. Goal page synced." |
+
+The Success Criteria side says *what we want*. The DoD side says *how we know we're done*. Both are required; they are NOT alternative phrasings of the same content. Conflating them is the failure mode that lets goals close with PRs still open or prod never tested.
+
+### Required content
+
+The DoD section MUST contain ≥2 binary checkboxes covering closure (`PR merged`, `branches deleted`, `tested on dev`, `tested on prod`, `goal page synced`, etc.). Placeholder like "see closure patterns" without concrete steps is rejected.
+
+### Use the canonical references
+
+Don't re-derive the checklist from scratch. Reference the shared guides + add project-specific extras inline:
+
+```markdown
+# Definition of Done
+
+See [[Goal Closure Checklist]] for the generic 6-section structure (Code shipped / Build+tests / Regression gate / Dev→Prod / Vault sync / Cleanup).
+
+For the artifact this goal ships, copy the matching block from [[Closure Patterns]]:
+- K8s-deployed service → use [[Closure Patterns#Pattern — K8s-Deployed Service]]
+- CLI tool / binary → use [[Closure Patterns#Pattern — CLI Tool / Binary]]
+- Docs / markdown → use [[Closure Patterns#Pattern — Docs / Markdown]]
+
+## Project-specific extras
+
+- [ ] (extras for this goal — e.g. "verify Hue lights still pair", "run TDR batch review")
+```
+
+### Migration note
+
+Goals authored before this section existed sometimes embed closure steps INSIDE `# Success Criteria` (e.g. an SC item like "PR merged + dev deployed"). That pattern is **deprecated but accepted** — the auditor flags it as WARN, not MAJOR, so existing goals don't break. New goals MUST use the peer `# Definition of Done` section.
+
+### What does NOT belong in DoD
+
+- The actual work (lives in `# Tasks`)
+- Outcome statements (lives in `# Success Criteria`)
+- Implementation choices (lives in linked task pages or specs)
+
+DoD is the gate, not the plan.
+
 ## Scope Check
 
 Before approving a goal, verify these signals:
@@ -168,8 +215,8 @@ If 3+ smells fail → goal is over-scoped. Split into multiple goals or move ite
 
 Before approving:
 
-- [ ] What strategic outcome are we achieving?
-- [ ] What does "done" look like (binary, measurable)?
+- [ ] What strategic outcome are we achieving? (Success Criteria)
+- [ ] How will we verify it actually shipped? (Definition of Done — ≥2 binary closure checkboxes)
 - [ ] What's NOT in scope (Non-goals enumerated)?
 - [ ] Does every task contribute to ≥ 1 success criterion?
 - [ ] Is the goal title outcome-shaped (not activity-shaped)?

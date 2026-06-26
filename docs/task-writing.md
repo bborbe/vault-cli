@@ -115,8 +115,8 @@ In order:
 1. `Tags: [[Task]]` (after frontmatter, before content separator)
 2. **Summary** — first paragraph after the `---` separator. Action-verb-led. 1-2 sentences.
 3. `# Impact` — why this matters; reference parent goal's success criteria explicitly when possible
-4. `# Success Criteria` — binary checkbox outcomes (done or not done). **Count guidance**: 2-4 is typical for focused tasks; shipping checklists naturally run 5-8 (PR → merge → release → deploy → verify per env). The cap isn't strict — what matters is that each item is binary-verifiable. Items can be marked `(optional)` when conditional (e.g. "set env IF non-default desired"); optional items don't block completion.
-5. `# Definition of Done` — required for complex tasks **only when success criteria are aspirational** ("Code is clean", "Performance improved"). When SC items already encode their own verification command/check (e.g. `kubectl get … -o jsonpath=…`), the SC line IS the DoD line and a separate per-criterion DoD section is redundant. Per-criterion verification when needed: `**Automated**: ...`, `**Behavioral**: ...`
+4. `# Success Criteria` — binary checkbox outcomes (done or not done) — *what we want when done*. **Count guidance**: 2-4 is typical for focused tasks; shipping checklists naturally run 5-8 (PR → merge → release → deploy → verify per env). The cap isn't strict — what matters is that each item is binary-verifiable. Items can be marked `(optional)` when conditional (e.g. "set env IF non-default desired"); optional items don't block completion.
+5. `# Definition of Done` — required for shipping-class tasks and any task whose SC items are aspirational ("Code is clean", "Performance improved") — *how we verify we're done* (closure). See [Definition of Done](#definition-of-done). When every SC item already encodes its own verification command (e.g. `kubectl get … -o jsonpath=…`) AND the task is not shipping-class, the SC line IS the DoD line and a separate per-criterion DoD section is redundant.
 6. `# Out of Scope` — recommended; explicit deferrals (parallels `# Non-goals` on goals)
 7. `# Tasks` — actionable subtask checkboxes (work-tracking; not parent-goal links). **Granularity rule:** session-sized work blocks, not CLI steps. Aim for 3-6 items. Collapse "write spec / audit / approve / generate prompts / precommit / open PR / merge" into one "ship the change through the pipeline" block. Each subtask should represent a meaningful unit a human can pick up, work on, and report back about — not a single command.
 8. `# Progress` — log of work done, dated entries; lives at bottom
@@ -151,6 +151,45 @@ Adopted by parallel with goals' Non-goals convention. Explicit deferrals prevent
 - Each item is a *concrete* deferral or alternative
 - Link a follow-up task if the deferred work is real
 
+## Definition of Done
+
+Every task has TWO sides:
+
+| Section | Question | Example |
+|---------|----------|---------|
+| `# Success Criteria` | **What is true when this task ships?** (outcome) | "ReconstructState chdirs into worktree; commit lands in branch" |
+| `# Definition of Done` | **How do we verify it actually shipped?** (closure) | "PR merged. Tested on dev. Tested on prod. Goal page synced." |
+
+Conflating them is the failure mode that lets tasks tick `[x]` while a PR is still open, prod is never tested, or "deferred to first use" stays unticked forever.
+
+### Required content
+
+The DoD section MUST contain ≥2 binary checkboxes covering closure. Placeholder like "see closure patterns" without concrete steps is rejected by the auditor.
+
+### Use the canonical patterns
+
+Don't re-derive the checklist from scratch. Copy the matching block from [[Closure Patterns]] into your DoD section, then edit the project-specific extras:
+
+- **K8s service** → `[[Closure Patterns#Pattern — K8s-Deployed Service]]`
+- **CLI tool / binary** → `[[Closure Patterns#Pattern — CLI Tool / Binary]]`
+- **Docs / markdown** → `[[Closure Patterns#Pattern — Docs / Markdown]]`
+- **Go library** → `[[Closure Patterns]]` § "Go library variant"
+- **Vault page** → `[[Closure Patterns]]` § "Vault-only variant"
+
+For goal-level closure (run alongside per-task DoD), see `[[Goal Closure Checklist]]`.
+
+### Migration note
+
+Tasks authored before this section was required sometimes embed closure steps INSIDE `# Success Criteria` (e.g. SC item "PR merged + dev deployed"). That pattern is **deprecated but accepted** — the auditor flags it as WARN, not MAJOR, so existing tasks don't break. New shipping-class tasks MUST use the peer `# Definition of Done` section.
+
+### What does NOT belong in DoD
+
+- The actual work (lives in `# Tasks`)
+- Outcome statements (lives in `# Success Criteria`)
+- Implementation choices (lives in linked specs / commits)
+
+DoD is the gate, not the plan.
+
 ## Shipping Checklist — required for shipping-class tasks
 
 A **shipping-class task** ships a real-world artifact: PR/release, plugin update, agent definition, deploy, library publish, binary, deployment manifest.
@@ -161,9 +200,24 @@ When the task is shipping-class, the `# Tasks` section **must explicitly enumera
 
 1. **Merge / land the change** — PR merged, code on default branch
 2. **Release fired** — version tagged, artifact published. When the repo auto-releases on merge (CI workflow, dark-factory `autoRelease: true`, conventional-commits action), a separate "verify tag exists" subtask is bookkeeping — the merge subtask covers it as long as the tag is cited in `# Results` or `# Pull Requests` (e.g. "merged → `v0.66.0`"). Only require a standalone release subtask when the repo does NOT auto-release. Verify with `git tag --sort=-creatordate | head` or `gh release list` if uncertain.
-3. **End-to-end verification** — the shipped artifact runs in its real environment (a real Claude Code session for a slash command, real cluster for a deploy, real install for a library). Audits and unit tests don't count; "deferred to first use" doesn't count.
+3. **End-to-end verification** — the shipped artifact runs in its real environment.
 
-**Anti-pattern:** ticking a verification subtask with body containing any of these dishonest-tick phrases (case-insensitive substring match):
+### End-to-end verification: dev → prod ladder
+
+For artifacts with multiple environments (k8s services, deployed daemons, anything with `<service>-dev/` and `<service>-prod/` worktrees), item 3 splits into TWO sub-items:
+
+- **Tested on dev** — deployed AND verified working AND watched for ≥15 min for new alerts AND symptom-specific check passes (the bug this task fixes is actually fixed)
+- **Tested on prod** — same ladder on prod; not "auto-deployed succeeded" — actually verify the symptom
+
+For single-environment artifacts (CLI tools, libraries, docs):
+
+- Substitute the dev/prod split with the equivalent staged verification (e.g. local install → smoke test → real-target invocation for CLIs; consumer CI green for libraries).
+
+**This is the most frequently missed step.** Dev passing does not mean prod will pass — different infra, different load, different secrets. Auto-deploy via CI verifies the deploy mechanic, NOT the new behavior on prod.
+
+### Anti-pattern: dishonest ticks
+
+Ticking a verification subtask with body containing any of these phrases (case-insensitive substring match) is rejected by `task-auditor` as MAJOR:
 
 - *"deferred to first use"*
 - *"deferred — will validate"*
@@ -174,8 +228,12 @@ When the task is shipping-class, the `# Tasks` section **must explicitly enumera
 - *"trust CI"*
 - *"trust the tests"*
 - *"will validate later"*
+- *"tested on dev only"* (and prod was forgotten — same failure mode the dev/prod ladder prevents)
+- *"ci passed = tested"* (CI verifies the deploy succeeded, not that the new behavior works)
+- *"auto-release tagged ≠ shipped"* (tagging is mechanical; shipping requires real-environment verification)
+- *"deferred to follow-up goal"* (then the current goal isn't done — change the scope or do the verification)
 
-The `task-auditor` flags any of these as MAJOR. Keep the subtask `[ ]` until real-environment execution evidence exists.
+Keep the subtask `[ ]` until real-environment execution evidence exists.
 
 **Why the third one matters most:** audit skills (`/coding:audit-slash-command`, `/coding:audit-agent`) catch structural issues; bot reviewers catch some runtime bugs. Neither catches *"my new slash command isn't actually installed in this session yet"*. Only running the command end-to-end does.
 

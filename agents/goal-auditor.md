@@ -106,12 +106,14 @@ The `# Definition of Done` section is the closure gate. Goals that lack it (or h
 **Severity matrix (grandfathering):**
 
 - **MAJOR** when:
-  - Goal `created` (frontmatter date OR file mtime fallback) is `2026-06-26` or later AND `# Definition of Done` section is absent
+  - Goal `created` frontmatter is `DOD_REQUIRED_AS_OF` (`2026-06-26`) or later AND `# Definition of Done` section is absent. If `created` frontmatter is absent, treat as grandfathered (do not infer from filesystem — agent has no `stat` tool by default; trust the document's own metadata)
   - DoD section is present but contains < 2 binary checkboxes (placeholder like "see closure patterns" with no concrete steps)
   - DoD checkboxes are dishonest (e.g. only "test" / "verify" with no environment, no command, no observable)
 - **WARN (not MAJOR)** when:
-  - Goal `created` < `2026-06-26` (existing pages) AND DoD section absent — grandfathered; recommend adding the section but don't block on it
+  - Goal `created` < `DOD_REQUIRED_AS_OF` (`2026-06-26`) OR `created` is absent — grandfathered; recommend adding the section but don't block on it
   - DoD-style content embedded inside `# Success Criteria` (deprecated-but-accepted pattern; recommend extracting to peer section)
+
+**DOD_REQUIRED_AS_OF constant:** `2026-06-26` — the date this enforcement landed. When the calendar advances substantially past this (e.g. > 6 months), revisit: either drop grandfathering entirely (all pages must have DoD; vault should be retrofitted by then) or move the cutoff forward.
 - **PASS** when:
   - DoD section present with ≥ 2 binary closure checkboxes covering at minimum: "PR / artifact landed" + "verified working in target environment"
 

@@ -276,10 +276,12 @@ The auditor (`task-auditor` agent) checks structure, success-criteria binary-nes
 |--------|---------|------------------|
 | `todo` | Defined, not started | Task file created with required sections filled |
 | `in_progress` | Actively working | `/vault-cli:work-on-task` or `assignee` set + first subtask started |
-| `hold` | Blocked | `blocked_by:` field populated, or operator sets manually |
+| `hold` | Blocked long-term (weeks+, external dependency, unresolved upstream) | `blocked_by:` field populated, or operator sets manually |
 | `completed` | All success criteria met | `/vault-cli:complete-task` — checks every `# Success Criteria` checkbox is `[x]` |
 | `aborted` | Abandoned without completion | Operator sets manually with reason in body |
 | `backlog` | Not committed yet | Initial state before commitment |
+
+**Hold vs in_progress + `[/]` subtask:** `hold` is for waits measured in weeks (vendor reply that may never come, partner-team backlog, dependency not yet built). Short waits (hours/days for a doc, callback, code review) stay `in_progress` with the in-flight subtask marked `[/]`. Default is `in_progress`; only escalate to `hold` when the block outlives the current week. Premature `hold` hides the task from active rotations and turns "waiting on Jana for invoices" into "forgot for three months."
 
 ### Phase transitions
 

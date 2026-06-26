@@ -1,9 +1,10 @@
 ---
-status: verifying
+status: completed
 approved: "2026-06-26T10:44:50Z"
 generating: "2026-06-26T10:45:28Z"
 prompted: "2026-06-26T10:53:39Z"
 verifying: "2026-06-26T11:05:37Z"
+completed: "2026-06-26T14:15:39Z"
 branch: dark-factory/set-claude-session-name-at-headless-create
 ---
 

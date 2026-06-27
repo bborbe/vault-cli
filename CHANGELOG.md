@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## v0.90.0
+## Unreleased
 
 - feat(goal): align `AvailableGoalStatuses` with task statuses — `next, in_progress, backlog, hold, aborted` accepted alongside legacy `active, completed, on_hold` (kept as backward-compat aliases). `goal set status in_progress` etc. now succeed; existing vault files using either set continue to validate. Unblocks task-orchestrator drag-and-drop on the Goals view (bborbe/task-orchestrator#19).
 

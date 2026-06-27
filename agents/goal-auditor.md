@@ -82,8 +82,10 @@ Expert Obsidian goal auditor specializing in evaluating goal pages against the G
 - **Comprehensive**: 3-5 criteria covering key outcomes
 
 ### 8. Tasks Quality
-- **Count**: 4-8 major tasks
-- **Linked**: Major tasks link to standalone task pages `[[Task Name]]`
+- **Count**: 1-8 major tasks. The 4-8 range is a soft cap, NOT a floor — small goals can have 1 task ("Implement the proxy"). Don't flag 1-3 tasks as under-count; only flag >8 as over-count. See `docs/goal-writing.md` § Tasks as Business-Value Milestones.
+- **Linked as wikilinks (WARN if not)**: tasks MUST render as `[[Wikilink Task Title]]`, NOT bold text + description. Detect with `grep -nE '^\s*[0-9]+\.\s+\*\*[^[]' <file>` in the `# Tasks` section — any match is bold-text-task and disables Obsidian auto-create-on-click. Recommendation: "Convert bold-text task entries to `[[Wikilinks]]` so clicking in Obsidian auto-creates the task file."
+- **Business-value milestones (WARN if WBS-shaped)**: each task delivers a *shippable improvement*, not a code-change slice. Detect WBS-shaped titles by leading-verb pattern: titles starting with `Implement`, `Define`, `Add` (when followed by a noun like "schema", "field", "adapter"), `Refactor`, `Migrate`, `Wire`, `Configure` are likely WBS rows. If ≥3 of the goal's tasks fit this pattern, flag as WARN with: "Tasks read as code-change slices, not business-value milestones. Consider collapsing into 1-3 shippable-milestone tasks; move the code-change breakdown to inline subtasks inside each task file (see `docs/goal-writing.md` § Tasks as Business-Value Milestones)."
+- **Foundation work allowed when explicitly framed**: tasks like "Set Up Project Skeleton" advance no SC by design. Don't flag as orphan if the task body explicitly says "foundation; enables iteration" or similar — accept the framing. Otherwise apply the orphan rule from Task-Goal Alignment below.
 - **Structured**: Logical order or phased approach
 
 ### 9. SMART Compliance
@@ -118,6 +120,30 @@ The `# Definition of Done` section is the closure gate. Goals that lack it (or h
   - DoD section present with ≥ 2 binary closure checkboxes covering at minimum: "PR / artifact landed" + "verified working in target environment"
 
 **Reference checks:** The DoD section should reference `[[Goal Closure Checklist]]` (generic 6-section structure) and/or `[[Closure Patterns]]` (per-artifact blocks) — recommend, don't require.
+
+**Soak-time DoD anti-pattern (WARN):** flag DoD checkboxes whose evidence is time-based bake. The check is **gated on category** and runs in two ordered steps — gate first, grep second.
+
+**Step 1 — category gate (apply ONLY if BOTH hold):**
+
+1. **Tooling category match** — frontmatter `category: tooling`, OR title/summary contains a personal-laptop-tool keyword (`slash command`, `CLI`, `script`, `daemon`, `plugin`, `extension`, `proxy`, `wrapper`, `helper`) — **case-insensitive substring match**.
+2. **No production signal** — title, summary, and DoD do NOT contain any of: `prod`, `production`, `k8s`, `kubernetes`, `multi-user`, `customers`, `tenants`, `trading hot path`, `live traffic`, `SLA`, `uptime` — **case-insensitive substring match**.
+
+If EITHER step-1 condition fails → do NOT scan; skip soak-time check entirely. Soak-time DoD is appropriate on production-service goals (k8s, multi-user, trading hot path) and on goals where prod-shape is named explicitly.
+
+**Step 2 — phrase grep (run only after step 1 passes):**
+
+Detect by phrase matching in the DoD section (case-insensitive):
+
+- `runs for N (hour|day|week)s? without (incident|regression|workaround)` and variants
+- `one (real )?(working )?day's? worth of`
+- `no regressions for a (week|day|N (hours|days|weeks))`
+- `runs unattended for N (hours|days|weeks)`
+- `runs reliably (over|for) N`
+- `stable for N (days|weeks)`
+
+On any hit, emit WARN with: "Soak-time DoD on a personal-laptop tool — the operator IS the runtime monitor and notices breakage immediately. Replace with exercise-now verification ('all paths reached in one session, evidence: log line per path'). See `docs/goal-writing.md` § Anti-pattern: soak-time DoD on personal-laptop tools."
+
+**Rationale for the two-step gate:** phrase-grep alone over-triggers — a k8s prod goal can legitimately say "runs for 24h without incident on prod" and that's correct DoD for that artifact type. The category gate enforces "this check applies ONLY when the artifact is a personal-laptop tool"; the prod-signal carve-out catches the edge case of a tooling-category goal that still has prod implications (e.g. a CLI used by a multi-user service).
 
 ## Goal Scope Fit (CRITICAL — flag at top of report if mismatch)
 

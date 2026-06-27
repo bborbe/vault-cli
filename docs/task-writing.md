@@ -151,6 +151,37 @@ Adopted by parallel with goals' Non-goals convention. Explicit deferrals prevent
 - Each item is a *concrete* deferral or alternative
 - Link a follow-up task if the deferred work is real
 
+### Subtask Hierarchy
+
+The decomposition hierarchy is explicit:
+
+```
+Goal (file) → linked Tasks (wikilinks, separate files) → inline Subtasks (checkboxes inside the task file)
+```
+
+- **Goal-level tasks** are `[[Wikilinks]]` to separate task files (see `goal-writing.md` § Tasks as Business-Value Milestones).
+- **Task-level subtasks** are checkboxes (`- [ ] …`) INSIDE this task file's `# Tasks` section. They are **atomic work units** — small, sequential, no independent identity, no separate files.
+- **Never** create sibling task files for subtask-shaped work. Don't recreate file-link hierarchy below the task level. If a subtask grows large enough to need its own file, it isn't a subtask anymore — promote it to a sibling task under the parent goal.
+
+**Decision rule** (same as the goal-writing side):
+
+> If each item could be a shippable milestone → N separate tasks under the parent goal.
+> If sequential steps within one milestone → N inline subtasks inside this task file.
+
+**What belongs as an inline subtask:**
+
+- A single command or short sequence the operator can run (`make precommit`, `gh pr merge`)
+- An implementation step inside one milestone (`define schema`, `wire route`, `add fallback`)
+- A verification step (`run scenario on dev`, `confirm `kubectl get pod` Running`)
+
+**What does NOT belong as an inline subtask:**
+
+- A separately-shippable improvement that has its own SC trace at the goal level → it's a sibling task under the goal
+- A months-long effort → it's a sibling goal, not a subtask
+- Implementation breakdown for code-heavy work — that lives in a dark-factory spec referenced from the task body, not as 15 inline checkboxes
+
+The granularity rule under "Required sections" item 7 still applies: subtasks are session-sized work blocks (3-6 items), not single-command steps unless the command IS the meaningful unit.
+
 ## Definition of Done
 
 Every task has TWO sides:

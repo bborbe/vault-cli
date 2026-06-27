@@ -147,7 +147,15 @@ Derive from the locked outcome + Phase 1 transcript + Phase 2 context bundle.
 **Do NOT render the full draft in chat.** Markdown walls in chat are unreadable, lose clickable wikilinks, and force the user to dictate edits back through chat. Write the file to disk with `status: draft` and let the user review in Obsidian's native rendering.
 
 1. **Resolve target vault** via `vault-cli config list --output json` (don't hardcode paths)
-2. **Write `<goals_dir>/<Title>.md`** with all Phase 4 content, frontmatter `status: draft` (NOT `in_progress` yet — flipped on audit PASS in Phase 6). Canonical section order from `docs/goal-writing.md` § Required sections:
+2. **Check for filename collision** via Glob `<vault.path>/<goals_dir>/<Title>.md`. If the file already exists, NEVER silently overwrite — present via AskUserQuestion:
+   - **1 (Recommended)** — Pick a different title (loops back to title generation in Phase 4 sharpen)
+   - **2** — Append disambiguating suffix (e.g. `- v2`, `- Base`, `- <year>`) and retry
+   - **3** — Open the existing goal (likely it's the goal you meant to extend — see Phase 2 duplicate gate)
+   - **4** — Abort
+
+   Mirrors `goal-creator` step 10 — collision guard is mandatory before any write.
+
+3. **Write `<goals_dir>/<Title>.md`** with all Phase 4 content, frontmatter `status: draft` (NOT `in_progress` yet — flipped on audit PASS in Phase 6). Canonical section order from `docs/goal-writing.md` § Required sections:
    - Frontmatter: `status: draft`, `page_type: goal`, `themes:` (confirmed in Phase 4), `objective:` (confirmed in Phase 4), `created: <today>`, optional `category`, `priority`, `timeline`
    - `Tags: [[Goal]]` (+ theme tags)
    - Summary paragraph (the Phase 3 locked sentence + one optional quantification sentence)
@@ -158,14 +166,14 @@ Derive from the locked outcome + Phase 1 transcript + Phase 2 context bundle.
    - `# Non-goals`
    - `# Tasks` (as `[[Wikilinks]]`, NOT bold text)
    - `# Related` (linked sibling goals from Phase 2)
-3. **Show the link inline** (single message, no chat-render of file content):
+4. **Show the link inline** (single message, no chat-render of file content):
 
    ```
    Draft written: [<Title>](obsidian://open?vault=<vault>&file=<encoded-path>)
    Review in Obsidian — edit any section directly. Say "go" to advance to verify + audit.
    ```
 
-4. **Wait for user "go"** before advancing.
+5. **Wait for user "go"** before advancing.
 
 **Hard gate to Phase 5**: file written on disk with `status: draft` + user said "go" (file may have been edited in Obsidian between draft-write and go — Phase 6 re-reads before audit).
 

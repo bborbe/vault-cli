@@ -121,7 +121,29 @@ The `# Definition of Done` section is the closure gate. Goals that lack it (or h
 
 **Reference checks:** The DoD section should reference `[[Goal Closure Checklist]]` (generic 6-section structure) and/or `[[Closure Patterns]]` (per-artifact blocks) — recommend, don't require.
 
-**Soak-time DoD anti-pattern (WARN):** for goals with `category: tooling` (or whose target artifact is clearly a personal-laptop tool — CLI command, slash command, single-user daemon, script), flag DoD checkboxes whose evidence is time-based bake. Detect by phrase matching in the DoD section: `runs for N (hour|day|week)s? without (incident|regression|workaround)`, `one (real )?(working )?day's? worth of`, `no regressions for a (week|day)`, `runs unattended for N`. Recommendation: "Soak-time DoD on a personal-laptop tool — the operator IS the runtime monitor and notices breakage immediately. Replace with exercise-now verification ('all paths reached in one session, evidence: log line per path'). See `docs/goal-writing.md` § Anti-pattern: soak-time DoD on personal-laptop tools." Don't flag on production-service goals (k8s, multi-user, trading hot path) — soak-time is appropriate there.
+**Soak-time DoD anti-pattern (WARN):** flag DoD checkboxes whose evidence is time-based bake. The check is **gated on category** and runs in two ordered steps — gate first, grep second.
+
+**Step 1 — category gate (apply ONLY if BOTH hold):**
+
+1. **Tooling category match** — frontmatter `category: tooling`, OR title/summary contains a personal-laptop-tool keyword (`slash command`, `CLI`, `script`, `daemon`, `plugin`, `extension`, `proxy`, `wrapper`, `helper`) — **case-insensitive substring match**.
+2. **No production signal** — title, summary, and DoD do NOT contain any of: `prod`, `production`, `k8s`, `kubernetes`, `multi-user`, `customers`, `tenants`, `trading hot path`, `live traffic`, `SLA`, `uptime` — **case-insensitive substring match**.
+
+If EITHER step-1 condition fails → do NOT scan; skip soak-time check entirely. Soak-time DoD is appropriate on production-service goals (k8s, multi-user, trading hot path) and on goals where prod-shape is named explicitly.
+
+**Step 2 — phrase grep (run only after step 1 passes):**
+
+Detect by phrase matching in the DoD section (case-insensitive):
+
+- `runs for N (hour|day|week)s? without (incident|regression|workaround)` and variants
+- `one (real )?(working )?day's? worth of`
+- `no regressions for a (week|day|N (hours|days|weeks))`
+- `runs unattended for N (hours|days|weeks)`
+- `runs reliably (over|for) N`
+- `stable for N (days|weeks)`
+
+On any hit, emit WARN with: "Soak-time DoD on a personal-laptop tool — the operator IS the runtime monitor and notices breakage immediately. Replace with exercise-now verification ('all paths reached in one session, evidence: log line per path'). See `docs/goal-writing.md` § Anti-pattern: soak-time DoD on personal-laptop tools."
+
+**Rationale for the two-step gate:** phrase-grep alone over-triggers — a k8s prod goal can legitimately say "runs for 24h without incident on prod" and that's correct DoD for that artifact type. The category gate enforces "this check applies ONLY when the artifact is a personal-laptop tool"; the prod-signal carve-out catches the edge case of a tooling-category goal that still has prod implications (e.g. a CLI used by a multi-user service).
 
 ## Goal Scope Fit (CRITICAL — flag at top of report if mismatch)
 

@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## v0.90.0
+
+- feat(goal): align `AvailableGoalStatuses` with task statuses — `next, in_progress, backlog, hold, aborted` accepted alongside legacy `active, completed, on_hold` (kept as backward-compat aliases). `goal set status in_progress` etc. now succeed; existing vault files using either set continue to validate. Unblocks task-orchestrator drag-and-drop on the Goals view (bborbe/task-orchestrator#19).
+
 ## v0.89.0
 
 - feat(launch-goal): add new `/vault-cli:launch-goal` interview-driven goal framing command — discovery → fan-out exploration (5 parallel semantic searches + duplicate-check gate) → 3-lens framing (parallel subagents → top-3 candidates) → sharpen → draft-to-disk with `status: draft` + Obsidian link → parallel verify (Adversarial Laziness Test + outcome traceability + hedge-word grep) → audit fan-out (goal-auditor + graph-auditor + late dup-check) → status flip on PASS. Resolves the "create-goal jumps straight to writing" failure mode by forcing an outcome-sentence confirmation gate before file creation. Mirrors `/launch-agent` shape; positions as the rigorous front door beside `create-goal`'s template fast-path

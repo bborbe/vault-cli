@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.89.0
 
 - feat(launch-goal): add new `/vault-cli:launch-goal` interview-driven goal framing command — discovery → fan-out exploration (5 parallel semantic searches + duplicate-check gate) → 3-lens framing (parallel subagents → top-3 candidates) → sharpen → draft-to-disk with `status: draft` + Obsidian link → parallel verify (Adversarial Laziness Test + outcome traceability + hedge-word grep) → audit fan-out (goal-auditor + graph-auditor + late dup-check) → status flip on PASS. Resolves the "create-goal jumps straight to writing" failure mode by forcing an outcome-sentence confirmation gate before file creation. Mirrors `/launch-agent` shape; positions as the rigorous front door beside `create-goal`'s template fast-path
 - docs(goal-writing): add § "Tooling-Category Exception" extending Title sniff test — artifact-shaped titles ("Multi-Provider Claude Code Proxy", "Goal-Writing Assistant") accepted for goals where the artifact IS the deliverable; rule: don't bounce tool-existence framings back to outcome-only

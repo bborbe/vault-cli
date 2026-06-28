@@ -10,6 +10,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 
 ## Unreleased
 
+- refactor: extract `expandVaultPaths` helper in `pkg/config/config.go` to deduplicate tilde expansion and template path resolution between `GetVault` and `GetAllVaults`
 - refactor: introduce `domain.Page` type to eliminate type contract violation where `PageStorage.ListPages` returned `[]*domain.Task` for all entity types; `ListPages` now returns `[]*domain.Page` and `ops/list.go` uses it directly
 
 ## v0.92.0

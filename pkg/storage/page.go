@@ -27,7 +27,7 @@ func (p *pageStorage) ListPages(
 	ctx context.Context,
 	vaultPath string,
 	pagesDir string,
-) ([]*domain.Task, error) {
+) ([]*domain.Page, error) {
 	targetDir := filepath.Join(vaultPath, pagesDir)
 
 	entries, err := os.ReadDir(targetDir)
@@ -39,7 +39,7 @@ func (p *pageStorage) ListPages(
 		return nil, errors.Wrap(ctx, err, fmt.Sprintf("read directory %s", targetDir))
 	}
 
-	tasks := make([]*domain.Task, 0, len(entries))
+	pages := make([]*domain.Page, 0, len(entries))
 	for _, entry := range entries {
 		if entry.IsDir() {
 			continue
@@ -51,15 +51,30 @@ func (p *pageStorage) ListPages(
 		fileName := strings.TrimSuffix(entry.Name(), ".md")
 		filePath := filepath.Join(targetDir, entry.Name())
 
-		task, err := p.readTaskFromPath(ctx, filePath, fileName, vaultPath)
+		page, err := p.readPageFromPath(ctx, filePath, fileName, vaultPath)
 		if err != nil {
-			// Log error but continue with other tasks
+			// Log error but continue with other pages
 			slog.Debug("skipping unreadable page", "file", fileName, "error", err)
 			continue
 		}
 
-		tasks = append(tasks, task)
+		pages = append(pages, page)
 	}
 
-	return tasks, nil
+	return pages, nil
+}
+
+// readPageFromPath reads a single page file and returns a *domain.Page.
+// It delegates to the shared readEntityComponentsFromPath helper.
+func (p *baseStorage) readPageFromPath(
+	ctx context.Context,
+	filePath string,
+	name string,
+	vaultPath string,
+) (*domain.Page, error) {
+	data, meta, content, err := p.readEntityComponentsFromPath(ctx, filePath, name, vaultPath)
+	if err != nil {
+		return nil, err
+	}
+	return domain.NewPage(data, meta, content), nil
 }

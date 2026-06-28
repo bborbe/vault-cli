@@ -135,13 +135,13 @@ func (l *listOperation) Execute(
 
 // filterTasks filters tasks by status, assignee, and goal.
 func filterTasks(
-	tasks []*domain.Task,
+	tasks []*domain.Page,
 	statusFilters []string,
 	showAll bool,
 	assigneeFilter string,
 	goalFilter string,
-) []*domain.Task {
-	filteredTasks := make([]*domain.Task, 0, len(tasks))
+) []*domain.Page {
+	filteredTasks := make([]*domain.Page, 0, len(tasks))
 	for _, task := range tasks {
 		if !shouldIncludeTask(task, statusFilters, showAll, assigneeFilter, goalFilter) {
 			continue
@@ -153,7 +153,7 @@ func filterTasks(
 
 // shouldIncludeTask determines if a task should be included based on filters.
 func shouldIncludeTask(
-	task *domain.Task,
+	task *domain.Page,
 	statusFilters []string,
 	showAll bool,
 	assigneeFilter string,

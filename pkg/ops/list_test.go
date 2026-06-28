@@ -29,7 +29,7 @@ var _ = Describe("ListOperation", func() {
 	var showAll bool
 	var assigneeFilter string
 	var goalFilter string
-	var tasks []*domain.Task
+	var tasks []*domain.Page
 
 	BeforeEach(func() {
 		ctx = context.Background()
@@ -43,23 +43,23 @@ var _ = Describe("ListOperation", func() {
 		goalFilter = ""
 
 		// Default: return some test tasks
-		tasks = []*domain.Task{
-			domain.NewTask(
+		tasks = []*domain.Page{
+			domain.NewPage(
 				map[string]any{"status": "todo"},
 				domain.FileMetadata{Name: "Task A"},
 				domain.Content(""),
 			),
-			domain.NewTask(
+			domain.NewPage(
 				map[string]any{"status": "in_progress"},
 				domain.FileMetadata{Name: "Task B"},
 				domain.Content(""),
 			),
-			domain.NewTask(
+			domain.NewPage(
 				map[string]any{"status": "completed"},
 				domain.FileMetadata{Name: "Task C"},
 				domain.Content(""),
 			),
-			domain.NewTask(
+			domain.NewPage(
 				map[string]any{"status": "hold"},
 				domain.FileMetadata{Name: "Task D"},
 				domain.Content(""),
@@ -143,43 +143,43 @@ var _ = Describe("ListOperation", func() {
 				"with tasks of all statuses including backlog, completed, hold, aborted",
 				func() {
 					BeforeEach(func() {
-						tasks = []*domain.Task{
-							domain.NewTask(
+						tasks = []*domain.Page{
+							domain.NewPage(
 								map[string]any{"status": "todo"},
 								domain.FileMetadata{Name: "Task Todo"},
 								domain.Content(""),
 							),
-							domain.NewTask(
+							domain.NewPage(
 								map[string]any{"status": "in_progress"},
 								domain.FileMetadata{Name: "Task InProgress"},
 								domain.Content(""),
 							),
-							domain.NewTask(
+							domain.NewPage(
 								map[string]any{"status": "completed"},
 								domain.FileMetadata{Name: "Task Done"},
 								domain.Content(""),
 							),
-							domain.NewTask(
+							domain.NewPage(
 								map[string]any{"status": "hold"},
 								domain.FileMetadata{Name: "Task Deferred"},
 								domain.Content(""),
 							),
-							domain.NewTask(
+							domain.NewPage(
 								map[string]any{"status": "backlog"},
 								domain.FileMetadata{Name: "Task Backlog"},
 								domain.Content(""),
 							),
-							domain.NewTask(
+							domain.NewPage(
 								map[string]any{"status": "completed"},
 								domain.FileMetadata{Name: "Task Completed"},
 								domain.Content(""),
 							),
-							domain.NewTask(
+							domain.NewPage(
 								map[string]any{"status": "hold"},
 								domain.FileMetadata{Name: "Task Hold"},
 								domain.Content(""),
 							),
-							domain.NewTask(
+							domain.NewPage(
 								map[string]any{"status": "aborted"},
 								domain.FileMetadata{Name: "Task Aborted"},
 								domain.Content(""),
@@ -209,22 +209,22 @@ var _ = Describe("ListOperation", func() {
 	Context("with --goal filter", func() {
 		BeforeEach(func() {
 			goalFilter = "Return to Live Trading"
-			taskWithGoal := domain.NewTask(
+			taskWithGoal := domain.NewPage(
 				map[string]any{"status": "todo"},
 				domain.FileMetadata{Name: "Task With Goal"},
 				domain.Content(""),
 			)
 			taskWithGoal.SetGoals([]string{"Return to Live Trading"})
-			taskWithOtherGoal := domain.NewTask(
+			taskWithOtherGoal := domain.NewPage(
 				map[string]any{"status": "todo"},
 				domain.FileMetadata{Name: "Task Without Goal"},
 				domain.Content(""),
 			)
 			taskWithOtherGoal.SetGoals([]string{"Other Goal"})
-			tasks = []*domain.Task{
+			tasks = []*domain.Page{
 				taskWithGoal,
 				taskWithOtherGoal,
-				domain.NewTask(
+				domain.NewPage(
 					map[string]any{"status": "todo"},
 					domain.FileMetadata{Name: "Task No Goals"},
 					domain.Content(""),
@@ -241,13 +241,13 @@ var _ = Describe("ListOperation", func() {
 	Context("with --goal filter and no matching tasks", func() {
 		BeforeEach(func() {
 			goalFilter = "Nonexistent Goal"
-			taskA := domain.NewTask(
+			taskA := domain.NewPage(
 				map[string]any{"status": "todo"},
 				domain.FileMetadata{Name: "Task A"},
 				domain.Content(""),
 			)
 			taskA.SetGoals([]string{"Some Goal"})
-			tasks = []*domain.Task{taskA}
+			tasks = []*domain.Page{taskA}
 			mockPageStorage.ListPagesReturns(tasks, nil)
 		})
 
@@ -259,22 +259,22 @@ var _ = Describe("ListOperation", func() {
 	Context("with --assignee filter (case-insensitive)", func() {
 		BeforeEach(func() {
 			assigneeFilter = "localclaw"
-			taskMatch := domain.NewTask(
+			taskMatch := domain.NewPage(
 				map[string]any{"status": "todo", "assignee": "LocalClaw"},
 				domain.FileMetadata{Name: "Task With Matching Assignee"},
 				domain.Content(""),
 			)
-			taskDiff := domain.NewTask(
+			taskDiff := domain.NewPage(
 				map[string]any{"status": "todo", "assignee": "alice"},
 				domain.FileMetadata{Name: "Task With Different Assignee"},
 				domain.Content(""),
 			)
-			taskNoAssignee := domain.NewTask(
+			taskNoAssignee := domain.NewPage(
 				map[string]any{"status": "todo"},
 				domain.FileMetadata{Name: "Task Without Assignee"},
 				domain.Content(""),
 			)
-			tasks = []*domain.Task{taskMatch, taskDiff, taskNoAssignee}
+			tasks = []*domain.Page{taskMatch, taskDiff, taskNoAssignee}
 			mockPageStorage.ListPagesReturns(tasks, nil)
 		})
 
@@ -286,12 +286,12 @@ var _ = Describe("ListOperation", func() {
 	Context("with --assignee filter matching lowercase stored value", func() {
 		BeforeEach(func() {
 			assigneeFilter = "LocalClaw"
-			taskLower := domain.NewTask(
+			taskLower := domain.NewPage(
 				map[string]any{"status": "todo", "assignee": "localclaw"},
 				domain.FileMetadata{Name: "Task With Lowercase Assignee"},
 				domain.Content(""),
 			)
-			tasks = []*domain.Task{taskLower}
+			tasks = []*domain.Page{taskLower}
 			mockPageStorage.ListPagesReturns(tasks, nil)
 		})
 
@@ -303,12 +303,12 @@ var _ = Describe("ListOperation", func() {
 	Context("with --assignee filter not matching different name", func() {
 		BeforeEach(func() {
 			assigneeFilter = "bob"
-			taskAlice := domain.NewTask(
+			taskAlice := domain.NewPage(
 				map[string]any{"status": "todo", "assignee": "alice"},
 				domain.FileMetadata{Name: "Task With Alice"},
 				domain.Content(""),
 			)
-			tasks = []*domain.Task{taskAlice}
+			tasks = []*domain.Page{taskAlice}
 			mockPageStorage.ListPagesReturns(tasks, nil)
 		})
 
@@ -321,25 +321,25 @@ var _ = Describe("ListOperation", func() {
 		BeforeEach(func() {
 			goalFilter = "My Goal"
 			statusFilters = []string{"in_progress"}
-			matchBoth := domain.NewTask(
+			matchBoth := domain.NewPage(
 				map[string]any{"status": "in_progress"},
 				domain.FileMetadata{Name: "Matching Both"},
 				domain.Content(""),
 			)
 			matchBoth.SetGoals([]string{"My Goal"})
-			goalMatchOnly := domain.NewTask(
+			goalMatchOnly := domain.NewPage(
 				map[string]any{"status": "todo"},
 				domain.FileMetadata{Name: "Goal Match Status Mismatch"},
 				domain.Content(""),
 			)
 			goalMatchOnly.SetGoals([]string{"My Goal"})
-			statusMatchOnly := domain.NewTask(
+			statusMatchOnly := domain.NewPage(
 				map[string]any{"status": "in_progress"},
 				domain.FileMetadata{Name: "Status Match Goal Mismatch"},
 				domain.Content(""),
 			)
 			statusMatchOnly.SetGoals([]string{"Other Goal"})
-			tasks = []*domain.Task{matchBoth, goalMatchOnly, statusMatchOnly}
+			tasks = []*domain.Page{matchBoth, goalMatchOnly, statusMatchOnly}
 			mockPageStorage.ListPagesReturns(tasks, nil)
 		})
 
@@ -351,13 +351,13 @@ var _ = Describe("ListOperation", func() {
 	Context("with --goal filter case sensitivity", func() {
 		BeforeEach(func() {
 			goalFilter = "my goal"
-			taskDiffCase := domain.NewTask(
+			taskDiffCase := domain.NewPage(
 				map[string]any{"status": "todo"},
 				domain.FileMetadata{Name: "Task With Different Case"},
 				domain.Content(""),
 			)
 			taskDiffCase.SetGoals([]string{"My Goal"})
-			tasks = []*domain.Task{taskDiffCase}
+			tasks = []*domain.Page{taskDiffCase}
 			mockPageStorage.ListPagesReturns(tasks, nil)
 		})
 
@@ -385,7 +385,7 @@ var _ = Describe("ListOperation JSON output", func() {
 			deferDate := libtime.DateOrDateTime(time.Date(2026, 3, 15, 0, 0, 0, 0, time.UTC))
 			plannedDate := libtime.DateOrDateTime(time.Date(2026, 3, 20, 0, 0, 0, 0, time.UTC))
 			dueDate := libtime.DateOrDateTime(time.Date(2026, 3, 25, 0, 0, 0, 0, time.UTC))
-			enrichedTask := domain.NewTask(
+			enrichedTask := domain.NewPage(
 				map[string]any{
 					"status":            "in_progress",
 					"assignee":          "alice",
@@ -401,7 +401,7 @@ var _ = Describe("ListOperation JSON output", func() {
 			enrichedTask.SetDeferDate(&deferDate)
 			enrichedTask.SetPlannedDate(&plannedDate)
 			enrichedTask.SetDueDate(&dueDate)
-			tasks := []*domain.Task{enrichedTask}
+			tasks := []*domain.Page{enrichedTask}
 			mockPageStorage.ListPagesReturns(tasks, nil)
 			items, execErr = listOp.Execute(ctx, "/vault", "my-vault", "Tasks", nil, true, "", "")
 		})
@@ -449,8 +449,8 @@ var _ = Describe("ListOperation JSON output", func() {
 
 	Context("with optional fields empty", func() {
 		BeforeEach(func() {
-			tasks := []*domain.Task{
-				domain.NewTask(
+			tasks := []*domain.Page{
+				domain.NewPage(
 					map[string]any{"status": "todo"},
 					domain.FileMetadata{Name: "Minimal Task"},
 					domain.Content(""),
@@ -483,19 +483,19 @@ var _ = Describe("ListOperation JSON output", func() {
 
 	Context("with --goal filter", func() {
 		BeforeEach(func() {
-			matchingTask := domain.NewTask(
+			matchingTask := domain.NewPage(
 				map[string]any{"status": "todo"},
 				domain.FileMetadata{Name: "Matching Task"},
 				domain.Content(""),
 			)
 			matchingTask.SetGoals([]string{"Target Goal", "Other Goal"})
-			nonMatchingTask := domain.NewTask(
+			nonMatchingTask := domain.NewPage(
 				map[string]any{"status": "todo"},
 				domain.FileMetadata{Name: "Non-matching Task"},
 				domain.Content(""),
 			)
 			nonMatchingTask.SetGoals([]string{"Different Goal"})
-			tasks := []*domain.Task{matchingTask, nonMatchingTask}
+			tasks := []*domain.Page{matchingTask, nonMatchingTask}
 			mockPageStorage.ListPagesReturns(tasks, nil)
 			items, execErr = listOp.Execute(
 				ctx,
@@ -522,7 +522,7 @@ var _ = Describe("ListOperation JSON output", func() {
 			deferDate := libtime.DateOrDateTime(time.Date(2026, 3, 18, 16, 0, 0, 0, loc))
 			plannedDate := libtime.DateOrDateTime(time.Date(2026, 3, 20, 9, 30, 0, 0, time.UTC))
 			dueDate := libtime.DateOrDateTime(time.Date(2026, 3, 25, 0, 0, 0, 0, time.UTC))
-			datetimeTask := domain.NewTask(
+			datetimeTask := domain.NewPage(
 				map[string]any{"status": "todo"},
 				domain.FileMetadata{Name: "Datetime Task"},
 				domain.Content(""),
@@ -530,7 +530,7 @@ var _ = Describe("ListOperation JSON output", func() {
 			datetimeTask.SetDeferDate(&deferDate)
 			datetimeTask.SetPlannedDate(&plannedDate)
 			datetimeTask.SetDueDate(&dueDate)
-			tasks := []*domain.Task{datetimeTask}
+			tasks := []*domain.Page{datetimeTask}
 			mockPageStorage.ListPagesReturns(tasks, nil)
 			items, execErr = listOp.Execute(ctx, "/vault", "my-vault", "Tasks", nil, true, "", "")
 		})
@@ -554,8 +554,8 @@ var _ = Describe("ListOperation JSON output", func() {
 	Context("with modified_date populated", func() {
 		BeforeEach(func() {
 			modTime := time.Date(2026, 3, 18, 12, 0, 0, 0, time.UTC)
-			tasks := []*domain.Task{
-				domain.NewTask(
+			tasks := []*domain.Page{
+				domain.NewPage(
 					map[string]any{"status": "todo"},
 					domain.FileMetadata{Name: "Modified Task", ModifiedDate: &modTime},
 					domain.Content(""),
@@ -574,12 +574,12 @@ var _ = Describe("ListOperation JSON output", func() {
 
 	Context("with completed_date populated", func() {
 		BeforeEach(func() {
-			completedTask := domain.NewTask(
+			completedTask := domain.NewPage(
 				map[string]any{"status": "completed", "completed_date": "2026-03-03T12:00:00Z"},
 				domain.FileMetadata{Name: "Completed Task"},
 				domain.Content(""),
 			)
-			tasks := []*domain.Task{completedTask}
+			tasks := []*domain.Page{completedTask}
 			mockPageStorage.ListPagesReturns(tasks, nil)
 			items, execErr = listOp.Execute(ctx, "/vault", "my-vault", "Tasks", nil, true, "", "")
 		})
@@ -593,8 +593,8 @@ var _ = Describe("ListOperation JSON output", func() {
 
 	Context("with nil date fields", func() {
 		BeforeEach(func() {
-			tasks := []*domain.Task{
-				domain.NewTask(
+			tasks := []*domain.Page{
+				domain.NewPage(
 					map[string]any{"status": "todo"},
 					domain.FileMetadata{Name: "No Dates Task"},
 					domain.Content(""),
@@ -614,23 +614,23 @@ var _ = Describe("ListOperation JSON output", func() {
 
 	Context("with multiple --status filters", func() {
 		BeforeEach(func() {
-			tasks := []*domain.Task{
-				domain.NewTask(
+			tasks := []*domain.Page{
+				domain.NewPage(
 					map[string]any{"status": "in_progress"},
 					domain.FileMetadata{Name: "IP Task"},
 					domain.Content(""),
 				),
-				domain.NewTask(
+				domain.NewPage(
 					map[string]any{"status": "completed"},
 					domain.FileMetadata{Name: "Done Task"},
 					domain.Content(""),
 				),
-				domain.NewTask(
+				domain.NewPage(
 					map[string]any{"status": "todo"},
 					domain.FileMetadata{Name: "Todo Task"},
 					domain.Content(""),
 				),
-				domain.NewTask(
+				domain.NewPage(
 					map[string]any{"status": "hold"},
 					domain.FileMetadata{Name: "Hold Task"},
 					domain.Content(""),
@@ -665,13 +665,13 @@ var _ = Describe("ListOperation JSON output", func() {
 
 	Context("Goals field in TaskListItem", func() {
 		It("emits goals verbatim with brackets preserved", func() {
-			taskWithGoals := domain.NewTask(
+			taskWithGoals := domain.NewPage(
 				map[string]any{"status": "todo"},
 				domain.FileMetadata{Name: "Task With Goals"},
 				domain.Content(""),
 			)
 			taskWithGoals.SetGoals([]string{"[[Goal A]]", "[[Goal B]]"})
-			mockPageStorage.ListPagesReturns([]*domain.Task{taskWithGoals}, nil)
+			mockPageStorage.ListPagesReturns([]*domain.Page{taskWithGoals}, nil)
 			items, execErr = listOp.Execute(ctx, "/vault", "my-vault", "Tasks", nil, true, "", "")
 			Expect(execErr).To(BeNil())
 			Expect(items).To(HaveLen(1))
@@ -679,12 +679,12 @@ var _ = Describe("ListOperation JSON output", func() {
 		})
 
 		It("yields nil Goals for tasks with no goals frontmatter", func() {
-			taskNoGoals := domain.NewTask(
+			taskNoGoals := domain.NewPage(
 				map[string]any{"status": "todo"},
 				domain.FileMetadata{Name: "Task No Goals"},
 				domain.Content(""),
 			)
-			mockPageStorage.ListPagesReturns([]*domain.Task{taskNoGoals}, nil)
+			mockPageStorage.ListPagesReturns([]*domain.Page{taskNoGoals}, nil)
 			items, execErr = listOp.Execute(ctx, "/vault", "my-vault", "Tasks", nil, true, "", "")
 			Expect(execErr).To(BeNil())
 			Expect(items[0].Goals).To(BeNil())
@@ -694,12 +694,12 @@ var _ = Describe("ListOperation JSON output", func() {
 			// GetStringSlice returns a non-nil empty []string for goals: []any{} because
 			// it allocates via make([]string, 0, len(s)) before iterating.
 			// encoding/json's omitempty treats empty slices as empty, so "goals" is still dropped.
-			taskEmptyGoals := domain.NewTask(
+			taskEmptyGoals := domain.NewPage(
 				map[string]any{"status": "todo", "goals": []any{}},
 				domain.FileMetadata{Name: "Task Empty Goals"},
 				domain.Content(""),
 			)
-			mockPageStorage.ListPagesReturns([]*domain.Task{taskEmptyGoals}, nil)
+			mockPageStorage.ListPagesReturns([]*domain.Page{taskEmptyGoals}, nil)
 			items, execErr = listOp.Execute(ctx, "/vault", "my-vault", "Tasks", nil, true, "", "")
 			Expect(execErr).To(BeNil())
 			Expect(items[0].Goals).To(BeEmpty())

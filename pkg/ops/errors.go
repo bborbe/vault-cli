@@ -5,16 +5,13 @@
 package ops
 
 import (
-	"context"
-
-	"github.com/bborbe/errors"
+	stderrors "errors"
 )
 
 // ErrStarterUnavailable indicates the claude session starter is nil
 // (typically because the configured claude script is not on PATH).
 // This is intentionally a soft failure — work-on still marks the task
 // in_progress on disk; the CLI exits 0 with the error recorded as a warning.
-var ErrStarterUnavailable = errors.New(
-	context.Background(),
+var ErrStarterUnavailable = stderrors.New(
 	"claude session starter unavailable — claude script not found in PATH",
 )

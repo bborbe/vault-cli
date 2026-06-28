@@ -10,6 +10,8 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 
 ## Unreleased
 
+- fix: use `stderrors.New` instead of `errors.New(context.Background(), ...)` for `ErrStarterUnavailable` sentinel in `pkg/ops/errors.go`
+- fix: replace `fmt.Errorf("%w: ...", validation.Error, ...)` with `errors.Wrapf(ctx, validation.Error, ...)` in `GoalStatus.Validate`, `ThemeStatus.Validate`, `VisionStatus.Validate`, `ObjectiveStatus.Validate`, and `TaskStatus.Validate` — enables proper stack-trace wrapping via `github.com/bborbe/errors`
 - refactor: extract `expandVaultPaths` helper in `pkg/config/config.go` to deduplicate tilde expansion and template path resolution between `GetVault` and `GetAllVaults`
 - refactor: introduce `domain.Page` type to eliminate type contract violation where `PageStorage.ListPages` returned `[]*domain.Task` for all entity types; `ListPages` now returns `[]*domain.Page` and `ops/list.go` uses it directly
 - refactor: move all `regexp.MustCompile` calls in `lint.go` to package-level `var` declarations — eliminates per-call regex recompilation when linting many files

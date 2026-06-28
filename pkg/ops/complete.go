@@ -269,7 +269,7 @@ func resetCheckboxes(content string) string {
 // countCheckboxStates counts checkbox states in content.
 func countCheckboxStates(content string) (completed, inProgress, pending int) {
 	lines := strings.Split(content, "\n")
-	checkboxRegex := regexp.MustCompile(`^(\s*)- \[([ x/])\] (.+)$`)
+	checkboxRegex := regexp.MustCompile(`^(\s*)[-*] \[([ x/])\] (.+)$`)
 
 	for _, line := range lines {
 		if matches := checkboxRegex.FindStringSubmatch(line); len(matches) == 4 {
@@ -354,14 +354,15 @@ func (c *completeOperation) updateDailyNote(
 	lines := strings.Split(content, "\n")
 	modified := false
 
-	checkboxRegex := regexp.MustCompile(`^(\s*)- \[([ x/])\] (.+)$`)
+	checkboxRegex := regexp.MustCompile(`^(\s*)[-*] \[([ x/])\] (.+)$`)
 	for i, line := range lines {
 		if matches := checkboxRegex.FindStringSubmatch(line); len(matches) == 4 { //nolint:nestif
 			taskText := matches[3]
 			if strings.Contains(strings.ToLower(taskText), strings.ToLower(taskName)) {
 				if checked {
 					// Replace any checkbox state with [x]
-					lines[i] = regexp.MustCompile(`- \[([ /])\]`).ReplaceAllString(line, "- [x]")
+					lines[i] = regexp.MustCompile(`([-*]) \[([ /])\]`).
+						ReplaceAllString(line, "$1 [x]")
 				} else {
 					// Replace [x] with [ ]
 					lines[i] = strings.Replace(line, "- [x]", "- [ ]", 1)

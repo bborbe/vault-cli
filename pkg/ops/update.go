@@ -148,7 +148,7 @@ func (u *updateOperation) syncGoals(
 func (u *updateOperation) parseCheckboxes(content string) []domain.CheckboxItem {
 	var items []domain.CheckboxItem
 	lines := strings.Split(content, "\n")
-	checkboxRegex := regexp.MustCompile(`^(\s*)- \[([ x/])\] (.+)$`)
+	checkboxRegex := regexp.MustCompile(`^(\s*)[-*] \[([ x/])\] (.+)$`)
 
 	for i, line := range lines {
 		if matches := checkboxRegex.FindStringSubmatch(line); len(matches) == 4 {

@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.91.0
 
 - feat(work-on-task): add Phase 5 auto-sharpen + auto-gate chain — after the assistant returns `Ready to work on this task.`, automatically invoke `Skill: vault-cli:plan-task` (sharpen), then read the resulting phase: if `execution`, invoke `Skill: vault-cli:execute-task` to print the kickoff (`🎯 Start with: …` + `📋 When done, verify: …`); if `planning`, stop with a nudge to re-run plan-task when the owner has answers; if past planning (`ai_review` / `human_review` / `done`), skip kickoff. End state after `/work-on-task` is always either `phase: planning` (gaps remain) or `phase: execution` (kickoff printed). Removes the operator step of manually chaining the three commands on routine recurring tasks whose plan is already clean.
 

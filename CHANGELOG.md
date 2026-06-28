@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.91.1
 
 - fix(checkbox): accept `*` as Markdown list marker alongside `-` in checkbox regex across storage and ops packages — vault files using `* [ ]`, `* [/]`, and `* [x]` are now correctly parsed and rewritten by goal-completion, task-completion, task-update, task-work-on, and task-defer operations
 

@@ -394,6 +394,42 @@ page_type: goal
 				Expect(goal.Tasks[2].InProgress).To(BeTrue())
 				Expect(goal.Tasks[2].Text).To(Equal("In-progress task"))
 			})
+
+			It("parses asterisk-prefixed checkboxes", func() {
+				goalContent := `---
+status: active
+page_type: goal
+---
+# Goal with Asterisk Checkboxes
+
+## Tasks
+* [ ] Pending task
+* [/] In-progress task
+* [x] Completed task
+`
+				goalPath := filepath.Join(goalsDir, "Asterisk Goal.md")
+				Expect(os.WriteFile(goalPath, []byte(goalContent), 0600)).To(Succeed())
+
+				goal, err := store.ReadGoal(ctx, vaultPath, "Asterisk Goal")
+				Expect(err).To(BeNil())
+				Expect(goal).NotTo(BeNil())
+				Expect(len(goal.Tasks)).To(Equal(3))
+
+				// First task: pending
+				Expect(goal.Tasks[0].Checked).To(BeFalse())
+				Expect(goal.Tasks[0].InProgress).To(BeFalse())
+				Expect(goal.Tasks[0].Text).To(Equal("Pending task"))
+
+				// Second task: in-progress
+				Expect(goal.Tasks[1].Checked).To(BeFalse())
+				Expect(goal.Tasks[1].InProgress).To(BeTrue())
+				Expect(goal.Tasks[1].Text).To(Equal("In-progress task"))
+
+				// Third task: completed
+				Expect(goal.Tasks[2].Checked).To(BeTrue())
+				Expect(goal.Tasks[2].InProgress).To(BeFalse())
+				Expect(goal.Tasks[2].Text).To(Equal("Completed task"))
+			})
 		})
 
 		Describe("WriteGoal and FindGoalByName", func() {

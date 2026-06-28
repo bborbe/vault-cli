@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- refactor: introduce `domain.Page` type to eliminate type contract violation where `PageStorage.ListPages` returned `[]*domain.Task` for all entity types; `ListPages` now returns `[]*domain.Page` and `ops/list.go` uses it directly
+
 ## v0.92.0
 
 - feat(work-on-task): Phase 5's past-planning branch (`phase: ai_review` / `human_review` / `done`) now points the operator at the close-out pair (`/vault-cli:sync-progress` then `/vault-cli:session-close`) instead of just printing "no kickoff needed". Surfaces the lifecycle's natural next step when work-on-task is invoked on a task whose work is already done.

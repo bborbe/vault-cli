@@ -90,7 +90,7 @@ type DailyNoteStorage interface {
 
 //counterfeiter:generate -o ../../mocks/page-storage.go --fake-name PageStorage . PageStorage
 type PageStorage interface {
-	ListPages(ctx context.Context, vaultPath string, pagesDir string) ([]*domain.Task, error)
+	ListPages(ctx context.Context, vaultPath string, pagesDir string) ([]*domain.Page, error)
 }
 
 //counterfeiter:generate -o ../../mocks/decision-storage.go --fake-name DecisionStorage . DecisionStorage

@@ -364,8 +364,9 @@ func (c *completeOperation) updateDailyNote(
 					lines[i] = regexp.MustCompile(`([-*]) \[([ /])\]`).
 						ReplaceAllString(line, "$1 [x]")
 				} else {
-					// Replace [x] with [ ]
-					lines[i] = strings.Replace(line, "- [x]", "- [ ]", 1)
+					// Replace [x] with [ ], preserving list marker
+					lines[i] = regexp.MustCompile(`([-*]) \[x\]`).
+						ReplaceAllString(line, "$1 [ ]")
 				}
 				modified = true
 				break

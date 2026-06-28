@@ -203,7 +203,7 @@ func (d *deferOperation) removeFromDailyNote(
 
 	lines := strings.Split(content, "\n")
 	filteredLines := make([]string, 0, len(lines))
-	checkboxRegex := regexp.MustCompile(`^(\s*)- \[([ x/])\] (.+)$`)
+	checkboxRegex := regexp.MustCompile(`^(\s*)[-*] \[([ x/])\] (.+)$`)
 
 	for _, line := range lines {
 		if matches := checkboxRegex.FindStringSubmatch(line); len(matches) == 4 {

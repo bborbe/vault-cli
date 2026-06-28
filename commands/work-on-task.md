@@ -1,7 +1,7 @@
 ---
-description: Find task details, transition Jira, set status, track on daily note, discover guides — delegates to work-on-task-assistant
-argument-hint: <jira-id-or-text>
-allowed-tools: [Task, AskUserQuestion, Skill]
+description: Find task details, transition Jira, set status, track on daily note, discover guides, then auto-sharpen and gate the planning → execution transition
+argument-hint: "<jira-id-or-text>"
+allowed-tools: [Task, AskUserQuestion, Skill, Bash(vault-cli *)]
 ---
 
 Find task details and relevant operational guides before starting work. Delegates to the `vault-cli:work-on-task-assistant` agent (which is the heavy lifter).
@@ -26,7 +26,9 @@ Find task details and relevant operational guides before starting work. Delegate
      prompt: 'Find details and guides for: {arguments}'
    ```
 
-3. **Done**
+3. **Auto-sharpen + auto-gate (Phase 5).** If the assistant's report ends with `Ready to work on this task.` (the `found` case), continue to Phase 5 below. If the report contains the `not_found:` marker, skip Phase 5 and run Phase 4 (Handle not_found) instead.
+
+4. **Done**
 
 The assistant handles all the work, detecting available integrations at runtime:
 
@@ -70,14 +72,36 @@ The agent (dispatched in `## Process` step 2) emits a structured `not_found` ver
    No task was created.
    ```
 
+## Phase 5 — Auto-sharpen + auto-gate
+
+Goal: by the time work-on-task returns, the resolved task is in `phase: planning` if its plan still has gaps, or `phase: execution` (with kickoff printed) if the plan already passes the gates. The owner sees an interactive sharpening loop only when the plan actually has gaps.
+
+Runs only after Phase 2 returned a `found` task — never on `not_found` (Phase 4 handles that branch).
+
+1. **Resolve the task name from the assistant's report.** The assistant prints `📋 Task: <name>` near the top of its `found` block; that line is the canonical identifier. Capture it verbatim.
+
+2. **Invoke `Skill: vault-cli:plan-task` with the captured name as a quoted argument.** plan-task owns its own entry contract, gate logic, and `AskUserQuestion` flow — do not intercept. Wait for it to return.
+
+3. **Read resulting phase** (after plan-task returns):
+   ```bash
+   vault-cli task get "<name>" phase --output json
+   ```
+
+4. **Conditional kickoff:**
+   - If `phase: execution` → invoke `Skill: vault-cli:execute-task "<name>"`. execute-task is idempotent on `execution` (re-runs the 4 hard gates as a safety check, then prints `🎯 Start with: <first unchecked subtask>` + `📋 When done, verify: <DoD>`). This is the work-block kickoff the owner needs.
+   - If `phase: planning` → STOP after plan-task. Print: `⏸️ Plan not yet ready — phase remains: planning. Re-run /vault-cli:plan-task when you have answers, or /vault-cli:execute-task to re-check the gate.` The owner is mid-conversation with plan-task or has deferred; never force execute-task on a task whose gates haven't passed.
+   - If `phase: ai_review` / `human_review` / `done` → STOP. Print: `ℹ️ Phase already past planning (phase: <value>). No kickoff needed.` The task is being shipped or has shipped; surfacing a "Start with" line here would be misleading.
+
+The Phase 5 chain is purely additive — it never overrides the assistant's report or plan-task's owner-question flow. Owner can always interrupt before any phase mutation.
+
 ## Integration
 
 Task lifecycle:
 
 1. `/vault-cli:create-task` — capture (lenient)
-2. **`/vault-cli:work-on-task`** — orient (status + guides + daily note) — this command
-3. `/vault-cli:plan-task` — sharpen (5 hard gates; may flip phase if entry contract permits)
-4. `/vault-cli:execute-task` — gate planning → execution; flips phase + prints first subtask + DoD reminder
+2. **`/vault-cli:work-on-task`** — orient (status + guides + daily note) + auto-chain to plan-task and (when gates pass cleanly) execute-task — this command
+3. `/vault-cli:plan-task` — sharpen (5 hard gates; may flip phase if entry contract permits); invoked automatically by Phase 5, or directly when re-entering sharpen mode
+4. `/vault-cli:execute-task` — gate planning → execution; flips phase + prints first subtask + DoD reminder; invoked automatically by Phase 5 on a clean plan, or directly to re-surface the kickoff line
 5. Start work — while working, use any of:
    - `/vault-cli:update-task` — log completed work, sync to daily note / parent goal
    - `/vault-cli:task-status` — grouped-checkbox status (Success Criteria / Tasks / DoD) + next step
@@ -86,7 +110,7 @@ Task lifecycle:
 7. `/vault-cli:complete-task` — close task
 8. `/vault-cli:session-close` — verify session is safe to end (synced, committed, no orphaned state)
 
-`work-on-task` is content-agnostic by design — it sets status and finds guides, it does not question your task content. `plan-task` is the dedicated tool for sharpening substance, and `execute-task` is the gate that flips the phase transition to `execution`.
+`work-on-task` chains `plan-task` (always) and `execute-task` (only when plan-task left phase = `execution`) — the operator gets one command for the full orient → sharpen → kickoff path when the plan is already clean, and an interactive sharpen loop (driven by plan-task's own owner-questions) when there are real gaps. The end state after `/work-on-task` is always either `phase: planning` (gaps remain) or `phase: execution` (kickoff printed) — the only two states the operator needs to reason about.
 
 ## Notes
 
@@ -94,3 +118,4 @@ Task lifecycle:
 - Works in Personal, Brogrammers, Trading, or any future vault registered with `vault-cli config`
 - Each vault session loads a single Atlassian MCP under the canonical name `atlassian` (see vault-specific `mcp-*.json` configs); the agent uses `mcp__atlassian__*` regardless of which Jira instance is active
 - The agent searches; the slash command asks before creating.
+- **Phase 5 is the auto-sharpen + auto-gate chain.** Phase 2 → Phase 5 covers the full "I want to work on this task" intent: orient (status, guides, daily note), then sharpen (via plan-task), then kick off execution (via execute-task) when the plan passes the 4 hard gates. Owner interaction is forced only when plan-task surfaces real gaps; a clean plan goes silently from `work-on-task` to a kickoff line. Phase 5 is skipped on the `not_found` branch (Phase 4 handles that).

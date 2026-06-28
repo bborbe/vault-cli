@@ -241,6 +241,34 @@ status: active
 		})
 	})
 
+	Context("updateDailyNote with asterisk-prefixed in-progress checkbox", func() {
+		BeforeEach(func() {
+			dailyContent := `# 2026-03-02
+
+## Tasks
+* [/] [[my-task]]
+`
+			mockDailyNoteStorage.ReadDailyNoteReturns(dailyContent, nil)
+			mockDailyNoteStorage.WriteDailyNoteReturns(nil)
+		})
+
+		It("updates daily note checkbox from in-progress to checked", func() {
+			Expect(err).To(BeNil())
+			Expect(mockDailyNoteStorage.ReadDailyNoteCallCount()).To(Equal(1))
+			Expect(mockDailyNoteStorage.WriteDailyNoteCallCount()).To(Equal(1))
+		})
+
+		It("changes [/] to [x] in daily note and preserves asterisk marker", func() {
+			Expect(err).To(BeNil())
+			if mockDailyNoteStorage.WriteDailyNoteCallCount() > 0 {
+				_, _, _, updatedContent := mockDailyNoteStorage.WriteDailyNoteArgsForCall(0)
+				Expect(updatedContent).To(ContainSubstring("* [x] [[my-task]]"))
+				Expect(updatedContent).NotTo(ContainSubstring("* [/]"))
+				Expect(updatedContent).NotTo(ContainSubstring("- [x]"))
+			}
+		})
+	})
+
 	Context("ReadDailyNote returns error", func() {
 		BeforeEach(func() {
 			mockDailyNoteStorage.ReadDailyNoteReturns("", ErrTest)

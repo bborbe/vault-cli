@@ -22,7 +22,7 @@ import (
 
 var (
 	frontmatterRegex = regexp.MustCompile(`(?s)^---\n(.*?)\n---\n(.*)$`)
-	checkboxRegex    = regexp.MustCompile(`^(\s*)- \[([ x/])\] (.+)$`)
+	checkboxRegex    = regexp.MustCompile(`^(\s*)[-*] \[([ x/])\] (.+)$`)
 )
 
 type baseStorage struct {

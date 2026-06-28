@@ -1,11 +1,13 @@
 ---
-status: prompted
+status: completed
 tags:
     - dark-factory
     - spec
 approved: "2026-06-28T10:51:17Z"
 generating: "2026-06-28T10:51:17Z"
 prompted: "2026-06-28T11:00:00Z"
+verifying: "2026-06-28T11:11:20Z"
+completed: "2026-06-28T13:12:00Z"
 branch: dark-factory/unify-checkbox-regex-accept-asterisk-prefix
 ---
 
@@ -34,13 +36,13 @@ Every vault-cli code path that reads or rewrites a Markdown checkbox line accept
 
 ## Acceptance Criteria
 
-- [ ] AC1: The seven occurrences of the dash-only checkbox regex are replaced. Evidence: `git grep -nE '\^\(\\s\*\)- \\\[' pkg/` returns zero matches inside the storage and ops files listed in Desired Behavior #1; `git grep -nE '\[-\*\] \\\[' pkg/storage/base.go pkg/ops/update.go pkg/ops/complete.go pkg/ops/defer.go pkg/ops/workon.go` returns the expected count of matches (one per updated site).
-- [ ] AC2: The single replacement site at `pkg/ops/complete.go` captures the list marker and reuses it in the replacement. Evidence: `git grep -nE '\(\[-\*\]\) \\\[\(\[ /\]\)\\\]' pkg/ops/complete.go` returns exactly one match, and `git grep -nE '"- \\\[x\\\]"' pkg/ops/complete.go` returns zero matches (the literal `- [x]` replacement string is gone).
-- [ ] AC3: Asterisk-prefixed checkboxes for all three states are parsed and round-tripped correctly. Evidence: new Ginkgo cases in `pkg/storage/markdown_test.go`, `pkg/ops/complete_test.go`, `pkg/ops/defer_test.go`, `pkg/ops/workon_test.go`, `pkg/ops/update_test.go` run and pass. `go test ./pkg/storage/... ./pkg/ops/...` exits 0.
-- [ ] AC4: Completing a `* [/]` line writes back `* [x]` (not `- [x]`). Evidence: a new test case in `pkg/ops/complete_test.go` asserts the exact post-write line content; the test passes.
-- [ ] AC5: Existing dash-prefixed behavior does not regress. Evidence: the pre-existing checkbox test cases in `pkg/storage/markdown_test.go` (including the `[/]` case) continue to pass without modification; `git diff` on those specific test assertions shows no semantic change to existing dash-form expectations.
-- [ ] AC6: `CHANGELOG.md` contains a new bullet under `## Unreleased` (creating the section if missing) prefixed `fix(parser):` that names the lint-vs-runtime mismatch. Evidence: `grep -nE '^- fix\(parser\):.*asterisk|^- fix\(parser\):.*list marker' CHANGELOG.md` returns at least one match under an `## Unreleased` heading.
-- [ ] AC7: `make precommit` exits 0. Evidence: exit code.
+- [x] AC1: The seven occurrences of the dash-only checkbox regex are replaced. Evidence: `git grep -nE '\^\(\\s\*\)- \\\[' pkg/` returns zero matches inside the storage and ops files listed in Desired Behavior #1; `git grep -nE '\[-\*\] \\\[' pkg/storage/base.go pkg/ops/update.go pkg/ops/complete.go pkg/ops/defer.go pkg/ops/workon.go` returns the expected count of matches (one per updated site).
+- [x] AC2: The single replacement site at `pkg/ops/complete.go` captures the list marker and reuses it in the replacement. Evidence: `git grep -nE '\(\[-\*\]\) \\\[\(\[ /\]\)\\\]' pkg/ops/complete.go` returns exactly one match, and `git grep -nE '"- \\\[x\\\]"' pkg/ops/complete.go` returns zero matches (the literal `- [x]` replacement string is gone).
+- [x] AC3: Asterisk-prefixed checkboxes for all three states are parsed and round-tripped correctly. Evidence: new Ginkgo cases in `pkg/storage/markdown_test.go`, `pkg/ops/complete_test.go`, `pkg/ops/defer_test.go`, `pkg/ops/workon_test.go`, `pkg/ops/update_test.go` run and pass. `go test ./pkg/storage/... ./pkg/ops/...` exits 0.
+- [x] AC4: Completing a `* [/]` line writes back `* [x]` (not `- [x]`). Evidence: a new test case in `pkg/ops/complete_test.go` asserts the exact post-write line content; the test passes.
+- [x] AC5: Existing dash-prefixed behavior does not regress. Evidence: the pre-existing checkbox test cases in `pkg/storage/markdown_test.go` (including the `[/]` case) continue to pass without modification; `git diff` on those specific test assertions shows no semantic change to existing dash-form expectations.
+- [x] AC6: `CHANGELOG.md` contains a new bullet under `## Unreleased` (creating the section if missing) prefixed `fix(parser):` that names the lint-vs-runtime mismatch. Evidence: `grep -nE '^- fix\(parser\):.*asterisk|^- fix\(parser\):.*list marker' CHANGELOG.md` returns at least one match under an `## Unreleased` heading.
+- [x] AC7: `make precommit` exits 0. Evidence: exit code.
 
 ## Verification
 

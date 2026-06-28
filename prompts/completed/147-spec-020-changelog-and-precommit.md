@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [020-unify-checkbox-regex-accept-asterisk-prefix]
+summary: 'CHANGELOG already contained spec-020 fix under ## Unreleased; verified all four version strings remain aligned at v0.91.0 and make precommit exits 0'
+execution_id: vault-cli-checkbox-asterisk-exec-147-spec-020-changelog-and-precommit
+dark-factory-version: v0.187.11
 created: "2026-06-28T10:51:17Z"
 queued: "2026-06-28T11:05:59Z"
+started: "2026-06-28T11:10:06Z"
+completed: "2026-06-28T11:11:20Z"
 branch: dark-factory/unify-checkbox-regex-accept-asterisk-prefix
 ---
 <summary>

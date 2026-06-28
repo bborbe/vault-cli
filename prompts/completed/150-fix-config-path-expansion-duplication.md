@@ -1,7 +1,12 @@
 ---
-status: approved
+status: completed
+summary: Extract expandVaultPaths helper in pkg/config/config.go to deduplicate tilde expansion and template path resolution between GetVault and GetAllVaults
+execution_id: vault-cli-exec-150-fix-config-path-expansion-duplication
+dark-factory-version: v0.188.1
 created: "2026-06-28T22:00:00Z"
 queued: "2026-06-28T20:59:31Z"
+started: "2026-06-28T21:07:06Z"
+completed: "2026-06-28T21:09:09Z"
 ---
 
 <summary>

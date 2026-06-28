@@ -211,6 +211,46 @@ func (c *configLoader) Load(ctx context.Context) (*Config, error) {
 	return &config, nil
 }
 
+// expandVaultPaths expands home directory references and resolves template paths in a vault copy.
+// It does not mutate the input vault.
+func expandVaultPaths(ctx context.Context, vault *Vault) (*Vault, error) {
+	result := *vault
+
+	// Expand home directory if path starts with ~
+	if len(result.Path) > 0 && result.Path[0] == '~' {
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			return nil, errors.Wrap(ctx, err, "get home directory")
+		}
+		result.Path = filepath.Join(homeDir, result.Path[1:])
+	}
+
+	if len(result.SessionProjectDir) > 0 && result.SessionProjectDir[0] == '~' {
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			return nil, errors.Wrap(ctx, err, "get home directory")
+		}
+		result.SessionProjectDir = filepath.Join(homeDir, result.SessionProjectDir[1:])
+	}
+
+	templateFields := []*string{
+		&result.TaskTemplate,
+		&result.GoalTemplate,
+		&result.ThemeTemplate,
+		&result.ObjectiveTemplate,
+		&result.VisionTemplate,
+	}
+	for _, f := range templateFields {
+		resolved, err := resolveTemplatePath(ctx, *f, result.Path)
+		if err != nil {
+			return nil, errors.Wrap(ctx, err, "resolve template path")
+		}
+		*f = resolved
+	}
+
+	return &result, nil
+}
+
 // GetVault returns the vault configuration for a given vault name or the default vault.
 func (c *configLoader) GetVault(ctx context.Context, vaultName string) (*Vault, error) {
 	config, err := c.Load(ctx)
@@ -230,39 +270,7 @@ func (c *configLoader) GetVault(ctx context.Context, vaultName string) (*Vault, 
 		return nil, errors.Errorf(ctx, "vault not found: %s", vaultName)
 	}
 
-	// Expand home directory if path starts with ~
-	if len(vault.Path) > 0 && vault.Path[0] == '~' {
-		homeDir, err := os.UserHomeDir()
-		if err != nil {
-			return nil, errors.Wrap(ctx, err, "get home directory")
-		}
-		vault.Path = filepath.Join(homeDir, vault.Path[1:])
-	}
-
-	if len(vault.SessionProjectDir) > 0 && vault.SessionProjectDir[0] == '~' {
-		homeDir, err := os.UserHomeDir()
-		if err != nil {
-			return nil, errors.Wrap(ctx, err, "get home directory")
-		}
-		vault.SessionProjectDir = filepath.Join(homeDir, vault.SessionProjectDir[1:])
-	}
-
-	templateFields := []*string{
-		&vault.TaskTemplate,
-		&vault.GoalTemplate,
-		&vault.ThemeTemplate,
-		&vault.ObjectiveTemplate,
-		&vault.VisionTemplate,
-	}
-	for _, f := range templateFields {
-		resolved, err := resolveTemplatePath(ctx, *f, vault.Path)
-		if err != nil {
-			return nil, errors.Wrap(ctx, err, "resolve template path")
-		}
-		*f = resolved
-	}
-
-	return &vault, nil
+	return expandVaultPaths(ctx, &vault)
 }
 
 // GetAllVaults returns all configured vaults with expanded paths.
@@ -275,36 +283,11 @@ func (c *configLoader) GetAllVaults(ctx context.Context) ([]*Vault, error) {
 	vaults := make([]*Vault, 0, len(config.Vaults))
 	for _, vault := range config.Vaults {
 		v := vault // Create a copy to avoid pointer issues
-		// Expand home directory if path starts with ~
-		if len(v.Path) > 0 && v.Path[0] == '~' {
-			homeDir, err := os.UserHomeDir()
-			if err != nil {
-				return nil, errors.Wrap(ctx, err, "get home directory")
-			}
-			v.Path = filepath.Join(homeDir, v.Path[1:])
+		expanded, err := expandVaultPaths(ctx, &v)
+		if err != nil {
+			return nil, errors.Wrap(ctx, err, "expand vault paths")
 		}
-		if len(v.SessionProjectDir) > 0 && v.SessionProjectDir[0] == '~' {
-			homeDir, err := os.UserHomeDir()
-			if err != nil {
-				return nil, errors.Wrap(ctx, err, "get home directory")
-			}
-			v.SessionProjectDir = filepath.Join(homeDir, v.SessionProjectDir[1:])
-		}
-		templateFields := []*string{
-			&v.TaskTemplate,
-			&v.GoalTemplate,
-			&v.ThemeTemplate,
-			&v.ObjectiveTemplate,
-			&v.VisionTemplate,
-		}
-		for _, f := range templateFields {
-			resolved, err := resolveTemplatePath(ctx, *f, v.Path)
-			if err != nil {
-				return nil, errors.Wrap(ctx, err, "resolve template path")
-			}
-			*f = resolved
-		}
-		vaults = append(vaults, &v)
+		vaults = append(vaults, expanded)
 	}
 
 	return vaults, nil

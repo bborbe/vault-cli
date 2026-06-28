@@ -8,7 +8,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"regexp"
 	"strings"
 
 	"github.com/bborbe/errors"
@@ -241,9 +240,10 @@ func (w *workOnOperation) updateDailyNote(
 
 // findAndUpdateTaskCheckbox searches for a task checkbox and updates it to in-progress if pending.
 func findAndUpdateTaskCheckbox(lines []string, taskName string) (found, modified bool) {
-	checkboxRegex := regexp.MustCompile(`^(\s*)[-*] \[([ x/])\] (.+)$`)
 	for i, line := range lines {
-		if matches := checkboxRegex.FindStringSubmatch(line); len(matches) == 4 { //nolint:nestif
+		if matches := storage.CheckboxRegex.FindStringSubmatch(line); len(
+			matches,
+		) == 4 { //nolint:nestif
 			taskText := matches[3]
 			if strings.Contains(strings.ToLower(taskText), strings.ToLower(taskName)) {
 				found = true

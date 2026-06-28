@@ -8,7 +8,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"regexp"
 	"strings"
 	"time"
 
@@ -269,10 +268,9 @@ func resetCheckboxes(content string) string {
 // countCheckboxStates counts checkbox states in content.
 func countCheckboxStates(content string) (completed, inProgress, pending int) {
 	lines := strings.Split(content, "\n")
-	checkboxRegex := regexp.MustCompile(`^(\s*)[-*] \[([ x/])\] (.+)$`)
 
 	for _, line := range lines {
-		if matches := checkboxRegex.FindStringSubmatch(line); len(matches) == 4 {
+		if matches := storage.CheckboxRegex.FindStringSubmatch(line); len(matches) == 4 {
 			state := matches[2]
 			switch state {
 			case "x":
@@ -354,19 +352,18 @@ func (c *completeOperation) updateDailyNote(
 	lines := strings.Split(content, "\n")
 	modified := false
 
-	checkboxRegex := regexp.MustCompile(`^(\s*)[-*] \[([ x/])\] (.+)$`)
 	for i, line := range lines {
-		if matches := checkboxRegex.FindStringSubmatch(line); len(matches) == 4 { //nolint:nestif
+		if matches := storage.CheckboxRegex.FindStringSubmatch(line); len( //nolint:nestif
+			matches,
+		) == 4 {
 			taskText := matches[3]
 			if strings.Contains(strings.ToLower(taskText), strings.ToLower(taskName)) {
 				if checked {
 					// Replace any checkbox state with [x]
-					lines[i] = regexp.MustCompile(`([-*]) \[([ /])\]`).
-						ReplaceAllString(line, "$1 [x]")
+					lines[i] = storage.CheckboxCompleteRegex.ReplaceAllString(line, "$1 [x]")
 				} else {
 					// Replace [x] with [ ], preserving list marker
-					lines[i] = regexp.MustCompile(`([-*]) \[x\]`).
-						ReplaceAllString(line, "$1 [ ]")
+					lines[i] = storage.CheckboxUncompleteRegex.ReplaceAllString(line, "$1 [ ]")
 				}
 				modified = true
 				break

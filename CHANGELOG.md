@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat(work-on-task): add Phase 5 auto-sharpen + auto-gate chain — after the assistant returns `Ready to work on this task.`, automatically invoke `Skill: vault-cli:plan-task` (sharpen), then read the resulting phase: if `execution`, invoke `Skill: vault-cli:execute-task` to print the kickoff (`🎯 Start with: …` + `📋 When done, verify: …`); if `planning`, stop with a nudge to re-run plan-task when the owner has answers; if past planning (`ai_review` / `human_review` / `done`), skip kickoff. End state after `/work-on-task` is always either `phase: planning` (gaps remain) or `phase: execution` (kickoff printed). Removes the operator step of manually chaining the three commands on routine recurring tasks whose plan is already clean.
+
 ## v0.90.0
 
 - feat(goal): align `AvailableGoalStatuses` with task statuses — `next, in_progress, backlog, hold, aborted` accepted alongside legacy `active, completed, on_hold` (kept as backward-compat aliases). `goal set status in_progress` etc. now succeed; existing vault files using either set continue to validate. Unblocks task-orchestrator drag-and-drop on the Goals view (bborbe/task-orchestrator#19).

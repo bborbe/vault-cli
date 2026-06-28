@@ -478,6 +478,7 @@ func createLintCommand(
 		vaultName,
 		"task",
 		func(c *storage.Config) string { return c.TasksDir },
+		func(c *storage.Config) string { return c.GoalsDir },
 		outputFormat,
 	)
 }
@@ -546,6 +547,7 @@ func createGenericLintCommand(
 	vaultName *string,
 	pageType string,
 	getDirFunc func(*storage.Config) string,
+	getGoalsDirFunc func(*storage.Config) string,
 	outputFormat *string,
 ) *cobra.Command {
 	var fix bool
@@ -567,7 +569,13 @@ func createGenericLintCommand(
 
 				storageConfig := storage.NewConfigFromVault(vault)
 				lintOp := ops.NewLintOperation()
-				issues, err := lintOp.Execute(ctx, vault.Path, getDirFunc(storageConfig), fix)
+				issues, err := lintOp.Execute(
+					ctx,
+					vault.Path,
+					getDirFunc(storageConfig),
+					getGoalsDirFunc(storageConfig),
+					fix,
+				)
 				if err != nil {
 					return err
 				}
@@ -1165,6 +1173,7 @@ func createGoalCommands(
 			vaultName,
 			"goal",
 			func(c *storage.Config) string { return c.GoalsDir },
+			func(c *storage.Config) string { return c.GoalsDir },
 			outputFormat,
 		),
 	)
@@ -1356,6 +1365,7 @@ func createThemeCommands(
 			vaultName,
 			"theme",
 			func(c *storage.Config) string { return c.ThemesDir },
+			func(c *storage.Config) string { return c.GoalsDir },
 			outputFormat,
 		),
 	)
@@ -1432,6 +1442,7 @@ func createObjectiveCommands(
 			vaultName,
 			"objective",
 			func(c *storage.Config) string { return c.ObjectivesDir },
+			func(c *storage.Config) string { return c.GoalsDir },
 			outputFormat,
 		),
 	)
@@ -1552,6 +1563,7 @@ func createVisionCommands(
 			vaultName,
 			"vision",
 			func(c *storage.Config) string { return c.VisionDir },
+			func(c *storage.Config) string { return c.GoalsDir },
 			outputFormat,
 		),
 	)

@@ -12,6 +12,8 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 
 - refactor: extract `expandVaultPaths` helper in `pkg/config/config.go` to deduplicate tilde expansion and template path resolution between `GetVault` and `GetAllVaults`
 - refactor: introduce `domain.Page` type to eliminate type contract violation where `PageStorage.ListPages` returned `[]*domain.Task` for all entity types; `ListPages` now returns `[]*domain.Page` and `ops/list.go` uses it directly
+- refactor: move all `regexp.MustCompile` calls in `lint.go` to package-level `var` declarations — eliminates per-call regex recompilation when linting many files
+- refactor: thread `goalsDir` through the lint pipeline (`Execute` → `lintFile` → `collectLintIssues` → `detectOrphanGoals`) instead of hardcoding `filepath.Join(vaultPath, "Goals")`; `LintOperation.Execute` now accepts a `goalsDir` parameter
 
 ## v0.92.0
 

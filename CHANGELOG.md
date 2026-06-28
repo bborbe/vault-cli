@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- refactor(checkbox): DRY out duplicated checkbox parser regex — promote `checkboxRegex` in `pkg/storage` to exported `CheckboxRegex`, add sibling `CheckboxCompleteRegex` and `CheckboxUncompleteRegex` for the force-complete / force-uncomplete rewriters, and replace seven inline `regexp.MustCompile` call sites across `pkg/ops/{update,complete,defer,workon}.go` with references to the shared vars. No behavior change; lint.go's intentionally-broader `[ xX]` regex shape is left untouched.
+
 ## v0.91.1
 
 - fix(checkbox): accept `*` as Markdown list marker alongside `-` in checkbox regex across storage and ops packages — vault files using `* [ ]`, `* [/]`, and `* [x]` are now correctly parsed and rewritten by goal-completion, task-completion, task-update, task-work-on, and task-defer operations

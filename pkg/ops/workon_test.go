@@ -371,6 +371,25 @@ var _ = Describe("WorkOnOperation", func() {
 			})
 		})
 
+		Context("when daily note exists with asterisk-prefixed pending task", func() {
+			BeforeEach(func() {
+				dailyContent := "## Must\n* [ ] [[my-task]]\n* [ ] other task"
+				mockDailyNoteStorage.ReadDailyNoteReturns(dailyContent, nil)
+				mockDailyNoteStorage.WriteDailyNoteReturns(nil)
+			})
+
+			It("updates checkbox to in-progress and preserves asterisk marker", func() {
+				Expect(mockDailyNoteStorage.WriteDailyNoteCallCount()).To(Equal(1))
+				_, _, _, content := mockDailyNoteStorage.WriteDailyNoteArgsForCall(0)
+				Expect(content).To(ContainSubstring("* [/] [[my-task]]"))
+				Expect(content).NotTo(ContainSubstring("* [ ] [[my-task]]"))
+			})
+
+			It("returns no error", func() {
+				Expect(err).To(BeNil())
+			})
+		})
+
 		Context("when daily note exists with in-progress task", func() {
 			BeforeEach(func() {
 				dailyContent := "## Must\n- [/] [[my-task]]\n"

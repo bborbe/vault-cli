@@ -8,7 +8,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"regexp"
 	"strings"
 
 	"github.com/bborbe/errors"
@@ -148,10 +147,8 @@ func (u *updateOperation) syncGoals(
 func (u *updateOperation) parseCheckboxes(content string) []domain.CheckboxItem {
 	var items []domain.CheckboxItem
 	lines := strings.Split(content, "\n")
-	checkboxRegex := regexp.MustCompile(`^(\s*)- \[([ x/])\] (.+)$`)
-
 	for i, line := range lines {
-		if matches := checkboxRegex.FindStringSubmatch(line); len(matches) == 4 {
+		if matches := storage.CheckboxRegex.FindStringSubmatch(line); len(matches) == 4 {
 			state := matches[2]
 			items = append(items, domain.CheckboxItem{
 				Line:    i,

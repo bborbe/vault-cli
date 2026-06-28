@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat(work-on-task): Phase 5's past-planning branch (`phase: ai_review` / `human_review` / `done`) now points the operator at the close-out pair (`/vault-cli:sync-progress` then `/vault-cli:session-close`) instead of just printing "no kickoff needed". Surfaces the lifecycle's natural next step when work-on-task is invoked on a task whose work is already done.
+
 ## v0.91.2
 
 - refactor(checkbox): DRY out duplicated checkbox parser regex — promote `checkboxRegex` in `pkg/storage` to exported `CheckboxRegex`, add sibling `CheckboxCompleteRegex` and `CheckboxUncompleteRegex` for the force-complete / force-uncomplete rewriters, and replace seven inline `regexp.MustCompile` call sites across `pkg/ops/{update,complete,defer,workon}.go` with references to the shared vars. No behavior change; lint.go's intentionally-broader `[ xX]` regex shape is left untouched.

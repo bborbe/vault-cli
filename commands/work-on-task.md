@@ -90,7 +90,7 @@ Runs only after Phase 2 returned a `found` task — never on `not_found` (Phase 
 4. **Conditional kickoff:**
    - If `phase: execution` → invoke `Skill: vault-cli:execute-task "<name>"`. execute-task is idempotent on `execution` (re-runs the 4 hard gates as a safety check, then prints `🎯 Start with: <first unchecked subtask>` + `📋 When done, verify: <DoD>`). This is the work-block kickoff the owner needs.
    - If `phase: planning` → STOP after plan-task. Print: `⏸️ Plan not yet ready — phase remains: planning. Re-run /vault-cli:plan-task when you have answers, or /vault-cli:execute-task to re-check the gate.` The owner is mid-conversation with plan-task or has deferred; never force execute-task on a task whose gates haven't passed.
-   - If `phase: ai_review` / `human_review` / `done` → STOP. Print: `ℹ️ Phase already past planning (phase: <value>). No kickoff needed.` The task is being shipped or has shipped; surfacing a "Start with" line here would be misleading.
+   - If `phase: ai_review` / `human_review` / `done` → STOP. Print: `ℹ️ Phase already past planning (phase: <value>). No kickoff needed.\n→ If the work is genuinely done: run /vault-cli:sync-progress to flush conversation state, then /vault-cli:session-close.` The task is being shipped or has shipped; surfacing a "Start with" line here would be misleading, and the operator's most likely next step is closing the lifecycle (the sync-progress + session-close pair the lifecycle was designed around).
 
 The Phase 5 chain is purely additive — it never overrides the assistant's report or plan-task's owner-question flow. Owner can always interrupt before any phase mutation.
 

@@ -63,7 +63,7 @@ func (u *updateOperation) Execute(
 			)
 	}
 
-	checkboxes := u.parseCheckboxes(string(task.Content))
+	checkboxes := storage.ParseCheckboxes(string(task.Content))
 	if len(checkboxes) == 0 {
 		warning := "No checkboxes found in task"
 		return MutationResult{
@@ -141,25 +141,6 @@ func (u *updateOperation) syncGoals(
 		}
 	}
 	return warnings
-}
-
-// parseCheckboxes extracts checkbox items from markdown content.
-func (u *updateOperation) parseCheckboxes(content string) []domain.CheckboxItem {
-	var items []domain.CheckboxItem
-	lines := strings.Split(content, "\n")
-	for i, line := range lines {
-		if matches := storage.CheckboxRegex.FindStringSubmatch(line); len(matches) == 4 {
-			state := matches[2]
-			items = append(items, domain.CheckboxItem{
-				Line:    i,
-				Checked: state == "x",
-				Text:    matches[3],
-				RawLine: line,
-			})
-		}
-	}
-
-	return items
 }
 
 // syncGoalCheckboxes updates checkboxes in the goal based on task progress.

@@ -145,7 +145,17 @@ func (c *completeOperation) checkSubtaskCompletion(
 	ctx context.Context,
 	task *domain.Task,
 ) (MutationResult, bool, error) {
-	completed, inProgress, pending := countCheckboxStates(string(task.Content))
+	var completed, inProgress, pending int
+	for _, item := range storage.ParseCheckboxes(string(task.Content)) {
+		switch {
+		case item.Checked:
+			completed++
+		case item.InProgress:
+			inProgress++
+		default:
+			pending++
+		}
+	}
 	total := completed + inProgress + pending
 
 	// If no checkboxes or all complete, proceed normally
@@ -263,27 +273,6 @@ func calculateNextDeferDate(recurring string, now time.Time) libtime.DateOrDateT
 func resetCheckboxes(content string) string {
 	// Replace all "- [x]" with "- [ ]"
 	return strings.ReplaceAll(content, "- [x]", "- [ ]")
-}
-
-// countCheckboxStates counts checkbox states in content.
-func countCheckboxStates(content string) (completed, inProgress, pending int) {
-	lines := strings.Split(content, "\n")
-
-	for _, line := range lines {
-		if matches := storage.CheckboxRegex.FindStringSubmatch(line); len(matches) == 4 {
-			state := matches[2]
-			switch state {
-			case "x":
-				completed++
-			case "/":
-				inProgress++
-			case " ":
-				pending++
-			}
-		}
-	}
-
-	return completed, inProgress, pending
 }
 
 // markGoalCheckbox marks the checkbox for a task in the goal file.

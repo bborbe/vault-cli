@@ -56,7 +56,7 @@ func (g *goalStorage) readGoalFromPath(
 
 	meta := domain.FileMetadata{Name: name, FilePath: filePath, ModifiedDate: modTime}
 	goal := domain.NewGoal(data, meta, domain.Content(content))
-	goal.Tasks = g.parseCheckboxes(string(content))
+	goal.Tasks = ParseCheckboxes(string(content))
 	return goal, nil
 }
 

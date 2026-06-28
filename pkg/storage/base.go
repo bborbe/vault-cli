@@ -141,7 +141,10 @@ func (b *baseStorage) findFileByName(
 	return "", "", errors.Errorf(ctx, "file not found: %s", name)
 }
 
-func (b *baseStorage) parseCheckboxes(content string) []domain.CheckboxItem {
+// ParseCheckboxes parses all Markdown checkbox lines in content and returns
+// one CheckboxItem per matched line. Recognises three states: checked ([x]),
+// unchecked ([ ]), and in-progress ([/]).
+func ParseCheckboxes(content string) []domain.CheckboxItem {
 	var items []domain.CheckboxItem
 	lines := strings.Split(content, "\n")
 

@@ -13,6 +13,58 @@ import (
 	"github.com/bborbe/vault-cli/pkg/storage"
 )
 
+var _ = Describe("ParseCheckboxes", func() {
+	It("returns empty slice for content with no checkboxes", func() {
+		items := storage.ParseCheckboxes("# Title\n\nJust prose.")
+		Expect(items).To(BeEmpty())
+	})
+
+	It("parses a checked checkbox", func() {
+		items := storage.ParseCheckboxes("- [x] Done item")
+		Expect(items).To(HaveLen(1))
+		Expect(items[0].Checked).To(BeTrue())
+		Expect(items[0].InProgress).To(BeFalse())
+		Expect(items[0].Text).To(Equal("Done item"))
+		Expect(items[0].Line).To(Equal(0))
+	})
+
+	It("parses an unchecked checkbox", func() {
+		items := storage.ParseCheckboxes("- [ ] Pending item")
+		Expect(items).To(HaveLen(1))
+		Expect(items[0].Checked).To(BeFalse())
+		Expect(items[0].InProgress).To(BeFalse())
+		Expect(items[0].Text).To(Equal("Pending item"))
+	})
+
+	It("parses an in-progress checkbox", func() {
+		items := storage.ParseCheckboxes("- [/] WIP item")
+		Expect(items).To(HaveLen(1))
+		Expect(items[0].Checked).To(BeFalse())
+		Expect(items[0].InProgress).To(BeTrue())
+		Expect(items[0].Text).To(Equal("WIP item"))
+	})
+
+	It("parses mixed states and returns correct line numbers", func() {
+		content := "- [x] Done\n- [ ] Pending\n- [/] WIP"
+		items := storage.ParseCheckboxes(content)
+		Expect(items).To(HaveLen(3))
+		Expect(items[0].Checked).To(BeTrue())
+		Expect(items[0].Line).To(Equal(0))
+		Expect(items[1].Checked).To(BeFalse())
+		Expect(items[1].InProgress).To(BeFalse())
+		Expect(items[1].Line).To(Equal(1))
+		Expect(items[2].InProgress).To(BeTrue())
+		Expect(items[2].Line).To(Equal(2))
+	})
+
+	It("preserves RawLine", func() {
+		raw := "- [x] My task"
+		items := storage.ParseCheckboxes(raw)
+		Expect(items).To(HaveLen(1))
+		Expect(items[0].RawLine).To(Equal(raw))
+	})
+})
+
 var _ = Describe("baseStorage map methods", func() {
 	var (
 		ctx context.Context

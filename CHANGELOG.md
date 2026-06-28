@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- **refactor: export `storage.ParseCheckboxes` and remove duplicates in `ops/`.** Three sites parsed `storage.CheckboxRegex` into checkbox state — `baseStorage.parseCheckboxes` (most complete, tracks `[/]` in-progress), `updateOperation.parseCheckboxes` (near-copy without `[/]`), and `countCheckboxStates` (third variation that counted but didn't return `[]CheckboxItem`). Promote the storage version to a package-level function, delete the `ops/` duplicates, inline the count. Any change to checkbox syntax now lives in one place. Per arch audit 2026-06-28.
+
 ## v0.92.0
 
 - feat(work-on-task): Phase 5's past-planning branch (`phase: ai_review` / `human_review` / `done`) now points the operator at the close-out pair (`/vault-cli:sync-progress` then `/vault-cli:session-close`) instead of just printing "no kickoff needed". Surfaces the lifecycle's natural next step when work-on-task is invoked on a task whose work is already done.

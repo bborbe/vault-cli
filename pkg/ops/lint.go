@@ -19,12 +19,30 @@ import (
 	"github.com/bborbe/vault-cli/pkg/domain"
 )
 
+// Package-level compiled regex patterns for performance.
+var (
+	frontmatterRegex      = regexp.MustCompile(`(?s)^---\n(.*?)\n---\n`)
+	fixDuplicateKeysRegex = regexp.MustCompile(`(?s)^(---\n)(.*?)(\n---\n)(.*)$`)
+	keyRegex              = regexp.MustCompile(`^([a-z_]+):\s*`)
+	priorityRegex         = regexp.MustCompile(`(?m)^priority:\s*['"]?([a-z]+)['"]?\s*$`)
+	statusRegex           = regexp.MustCompile(`(?m)^status:\s*['"]?([a-z_]+)['"]?\s*$`)
+	phaseRegex            = regexp.MustCompile(`(?m)^phase:\s*['"]?([a-z_]+)['"]?\s*$`)
+	checkboxRegex         = regexp.MustCompile(`(?m)^[\s]*[-*]\s+\[([ xX])\]`)
+	goalsInlineRegex      = regexp.MustCompile(`(?m)^goals:\s*\[(.*?)\]`)
+	goalsMultilineRegex   = regexp.MustCompile(`(?ms)^goals:\s*\n((?:\s*-\s*.+\n?)+)`)
+	goalItemRegex         = regexp.MustCompile(`(?m)^\s*-\s*['"]?(.+?)['"]?\s*$`)
+	dateRegex             = regexp.MustCompile(
+		`(?m)^(planned_date|defer_date|due_date):\s*['"]?([^\s'"]+)?['"]?\s*$`,
+	)
+)
+
 //counterfeiter:generate -o ../../mocks/lint-operation.go --fake-name LintOperation . LintOperation
 type LintOperation interface {
 	Execute(
 		ctx context.Context,
 		vaultPath string,
 		tasksDir string,
+		goalsDir string,
 		fix bool,
 	) ([]LintIssue, error)
 	ExecuteFile(
@@ -80,6 +98,7 @@ func (l *lintOperation) Execute(
 	ctx context.Context,
 	vaultPath string,
 	tasksDir string,
+	goalsDir string,
 	fix bool,
 ) ([]LintIssue, error) {
 	tasksDirPath := filepath.Join(vaultPath, tasksDir)
@@ -94,7 +113,7 @@ func (l *lintOperation) Execute(
 			return nil
 		}
 
-		fileIssues, err := l.lintFile(ctx, vaultPath, path, fix)
+		fileIssues, err := l.lintFile(ctx, vaultPath, goalsDir, path, fix)
 		if err != nil {
 			return errors.Wrap(ctx, err, fmt.Sprintf("lint file %s", path))
 		}
@@ -115,7 +134,7 @@ func (l *lintOperation) ExecuteFile(
 	taskName string,
 	vaultName string,
 ) ([]LintIssue, error) {
-	issues, err := l.lintFile(ctx, "", filePath, false)
+	issues, err := l.lintFile(ctx, "", "", filePath, false)
 	if err != nil {
 		return nil, errors.Wrap(ctx, err, fmt.Sprintf("lint file %s", filePath))
 	}
@@ -140,6 +159,7 @@ type ValidateResult struct {
 func (l *lintOperation) lintFile(
 	ctx context.Context,
 	vaultPath string,
+	goalsDir string,
 	filePath string,
 	fix bool,
 ) ([]LintIssue, error) {
@@ -149,14 +169,13 @@ func (l *lintOperation) lintFile(
 	}
 
 	// Handle missing frontmatter first
-	frontmatterRegex := regexp.MustCompile(`(?s)^---\n(.*?)\n---\n`)
 	matches := frontmatterRegex.FindSubmatch(content)
 	if len(matches) < 2 {
-		return l.handleMissingFrontmatterCase(filePath, content, fix)
+		return l.handleMissingFrontmatterCase(vaultPath, goalsDir, filePath, content, fix)
 	}
 
 	// Collect all lint issues from the frontmatter and content
-	issues := l.collectLintIssues(vaultPath, filePath, string(matches[1]), content)
+	issues := l.collectLintIssues(vaultPath, goalsDir, filePath, string(matches[1]), content)
 
 	// Fix issues if requested
 	if fix && len(issues) > 0 {
@@ -171,6 +190,8 @@ func (l *lintOperation) lintFile(
 
 // handleMissingFrontmatterCase handles files without frontmatter
 func (l *lintOperation) handleMissingFrontmatterCase(
+	vaultPath string,
+	goalsDir string,
 	filePath string,
 	content []byte,
 	fix bool,
@@ -184,20 +205,26 @@ func (l *lintOperation) handleMissingFrontmatterCase(
 	}
 
 	// After fixing frontmatter, re-parse and continue with other checks
-	frontmatterRegex := regexp.MustCompile(`(?s)^---\n(.*?)\n---\n`)
 	matches := frontmatterRegex.FindSubmatch(updatedContent)
 	if len(matches) < 2 {
 		return issues, nil
 	}
 
 	// Collect additional issues from the now-valid frontmatter
-	additionalIssues := l.collectLintIssues("", filePath, string(matches[1]), updatedContent)
+	additionalIssues := l.collectLintIssues(
+		vaultPath,
+		goalsDir,
+		filePath,
+		string(matches[1]),
+		updatedContent,
+	)
 	return append(issues, additionalIssues...), nil
 }
 
 // collectLintIssues runs all lint checks and returns found issues
 func (l *lintOperation) collectLintIssues(
 	vaultPath string,
+	goalsDir string,
 	filePath string,
 	frontmatterYAML string,
 	content []byte,
@@ -246,7 +273,7 @@ func (l *lintOperation) collectLintIssues(
 	}
 
 	// Check for orphan goals
-	for _, goalName := range l.detectOrphanGoals(vaultPath, frontmatterYAML) {
+	for _, goalName := range l.detectOrphanGoals(vaultPath, goalsDir, frontmatterYAML) {
 		add(IssueTypeOrphanGoal, fmt.Sprintf("goal not found: %s", goalName), false)
 	}
 
@@ -312,7 +339,6 @@ func (l *lintOperation) detectDuplicateKeys(frontmatterYAML string) []string {
 	keysSeen := make(map[string]int)
 	var duplicates []string
 
-	keyRegex := regexp.MustCompile(`^([a-z_]+):\s*`)
 	for _, line := range lines {
 		matches := keyRegex.FindStringSubmatch(line)
 		if len(matches) >= 2 {
@@ -329,7 +355,6 @@ func (l *lintOperation) detectDuplicateKeys(frontmatterYAML string) []string {
 
 // detectInvalidPriority detects if priority field is a string instead of int.
 func (l *lintOperation) detectInvalidPriority(frontmatterYAML string) (bool, string) {
-	priorityRegex := regexp.MustCompile(`(?m)^priority:\s*['"]?([a-z]+)['"]?\s*$`)
 	matches := priorityRegex.FindStringSubmatch(frontmatterYAML)
 	if len(matches) >= 2 {
 		priorityValue := matches[1]
@@ -347,7 +372,6 @@ func (l *lintOperation) detectInvalidPriority(frontmatterYAML string) (bool, str
 // detectInvalidStatus detects if status field has an invalid value.
 // Returns: (issueFound, invalidValue)
 func (l *lintOperation) detectInvalidStatus(frontmatterYAML string) (bool, string) {
-	statusRegex := regexp.MustCompile(`(?m)^status:\s*['"]?([a-z_]+)['"]?\s*$`)
 	matches := statusRegex.FindStringSubmatch(frontmatterYAML)
 	if len(matches) >= 2 {
 		statusValue := matches[1]
@@ -362,30 +386,36 @@ func (l *lintOperation) detectInvalidStatus(frontmatterYAML string) (bool, strin
 
 // detectOrphanGoals detects goals that reference non-existent goal files.
 // Returns list of missing goal names.
-func (l *lintOperation) detectOrphanGoals(vaultPath string, frontmatterYAML string) []string {
-	if vaultPath == "" {
-		return nil // Skip if no vault path (single file validation)
+func (l *lintOperation) detectOrphanGoals(
+	vaultPath string,
+	goalsDir string,
+	frontmatterYAML string,
+) []string {
+	if vaultPath == "" || goalsDir == "" {
+		return nil // Skip if no vault path or no goals dir (single file validation)
 	}
 
 	// Extract goals field (YAML list) - try inline format first
-	goalsRegex := regexp.MustCompile(`(?m)^goals:\s*\[(.*?)\]`)
-	matches := goalsRegex.FindStringSubmatch(frontmatterYAML)
+	matches := goalsInlineRegex.FindStringSubmatch(frontmatterYAML)
 	if len(matches) >= 2 {
-		return l.parseInlineGoalsList(vaultPath, matches[1])
+		return l.parseInlineGoalsList(vaultPath, goalsDir, matches[1])
 	}
 
 	// Try multi-line YAML list format
-	goalsRegex = regexp.MustCompile(`(?ms)^goals:\s*\n((?:\s*-\s*.+\n?)+)`)
-	matches = goalsRegex.FindStringSubmatch(frontmatterYAML)
+	matches = goalsMultilineRegex.FindStringSubmatch(frontmatterYAML)
 	if len(matches) >= 2 {
-		return l.parseMultilineGoalsList(vaultPath, matches[1])
+		return l.parseMultilineGoalsList(vaultPath, goalsDir, matches[1])
 	}
 
 	return nil
 }
 
 // parseInlineGoalsList parses inline goals list format: [goal1, goal2]
-func (l *lintOperation) parseInlineGoalsList(vaultPath string, goalsList string) []string {
+func (l *lintOperation) parseInlineGoalsList(
+	vaultPath string,
+	goalsDir string,
+	goalsList string,
+) []string {
 	var orphanGoals []string
 	for _, item := range strings.Split(goalsList, ",") {
 		item = strings.TrimSpace(item)
@@ -394,7 +424,7 @@ func (l *lintOperation) parseInlineGoalsList(vaultPath string, goalsList string)
 		if goalName == "" {
 			continue
 		}
-		if !l.goalFileExists(vaultPath, goalName) {
+		if !l.goalFileExists(vaultPath, goalsDir, goalName) {
 			orphanGoals = append(orphanGoals, goalName)
 		}
 	}
@@ -402,11 +432,14 @@ func (l *lintOperation) parseInlineGoalsList(vaultPath string, goalsList string)
 }
 
 // parseMultilineGoalsList parses multi-line goals list format
-func (l *lintOperation) parseMultilineGoalsList(vaultPath string, yamlList string) []string {
+func (l *lintOperation) parseMultilineGoalsList(
+	vaultPath string,
+	goalsDir string,
+	yamlList string,
+) []string {
 	var orphanGoals []string
-	itemRegex := regexp.MustCompile(`(?m)^\s*-\s*['"]?(.+?)['"]?\s*$`)
 	for _, line := range strings.Split(yamlList, "\n") {
-		itemMatches := itemRegex.FindStringSubmatch(line)
+		itemMatches := goalItemRegex.FindStringSubmatch(line)
 		if len(itemMatches) < 2 {
 			continue
 		}
@@ -414,7 +447,7 @@ func (l *lintOperation) parseMultilineGoalsList(vaultPath string, yamlList strin
 		if goalName == "" {
 			continue
 		}
-		if !l.goalFileExists(vaultPath, goalName) {
+		if !l.goalFileExists(vaultPath, goalsDir, goalName) {
 			orphanGoals = append(orphanGoals, goalName)
 		}
 	}
@@ -429,9 +462,8 @@ func (l *lintOperation) extractGoalName(raw string) string {
 }
 
 // goalFileExists checks if a goal file exists in the vault
-func (l *lintOperation) goalFileExists(vaultPath string, goalName string) bool {
-	goalsDir := filepath.Join(vaultPath, "Goals")
-	goalPath := filepath.Join(goalsDir, goalName+".md")
+func (l *lintOperation) goalFileExists(vaultPath string, goalsDir string, goalName string) bool {
+	goalPath := filepath.Join(vaultPath, goalsDir, goalName+".md")
 	//#nosec G304,G703 -- user-controlled vault path
 	_, err := os.Stat(goalPath)
 	return !os.IsNotExist(err)
@@ -449,7 +481,6 @@ func (l *lintOperation) detectStatusCheckboxMismatch(
 	}
 
 	// Extract status
-	statusRegex := regexp.MustCompile(`(?m)^status:\s*['"]?([a-z_]+)['"]?\s*$`)
 	statusMatches := statusRegex.FindStringSubmatch(frontmatterYAML)
 	if len(statusMatches) < 2 {
 		return false, "", false
@@ -457,7 +488,6 @@ func (l *lintOperation) detectStatusCheckboxMismatch(
 	status := statusMatches[1]
 
 	// Find all checkboxes in content
-	checkboxRegex := regexp.MustCompile(`(?m)^[\s]*[-*]\s+\[([ xX])\]`)
 	checkboxMatches := checkboxRegex.FindAllStringSubmatch(content, -1)
 
 	if len(checkboxMatches) == 0 {
@@ -498,7 +528,6 @@ func (l *lintOperation) detectStatusCheckboxMismatch(
 // Returns: (issueFound, description)
 func (l *lintOperation) detectStatusPhaseMismatch(frontmatterYAML string) (bool, string) {
 	// Parse phase
-	phaseRegex := regexp.MustCompile(`(?m)^phase:\s*['"]?([a-z_]+)['"]?\s*$`)
 	phaseMatches := phaseRegex.FindStringSubmatch(frontmatterYAML)
 	if len(phaseMatches) < 2 {
 		return false, "" // No phase key — no validation
@@ -506,7 +535,6 @@ func (l *lintOperation) detectStatusPhaseMismatch(frontmatterYAML string) (bool,
 	phase := domain.TaskPhase(phaseMatches[1])
 
 	// Parse status
-	statusRegex := regexp.MustCompile(`(?m)^status:\s*['"]?([a-z_]+)['"]?\s*$`)
 	statusMatches := statusRegex.FindStringSubmatch(frontmatterYAML)
 	if len(statusMatches) < 2 {
 		return false, ""
@@ -557,7 +585,6 @@ func (l *lintOperation) detectStatusPhaseMismatch(frontmatterYAML string) (bool,
 // Returns: (issueFound, description)
 func (l *lintOperation) detectStatusDateMismatch(frontmatterYAML string) (bool, string) {
 	// Parse status
-	statusRegex := regexp.MustCompile(`(?m)^status:\s*['"]?([a-z_]+)['"]?\s*$`)
 	statusMatches := statusRegex.FindStringSubmatch(frontmatterYAML)
 	if len(statusMatches) < 2 {
 		return false, ""
@@ -571,9 +598,6 @@ func (l *lintOperation) detectStatusDateMismatch(frontmatterYAML string) (bool, 
 
 	// Check for any date field with a non-empty value
 	// Match: `field: <value>` where value is non-empty (not just whitespace, not empty)
-	dateRegex := regexp.MustCompile(
-		`(?m)^(planned_date|defer_date|due_date):\s*['"]?([^\s'"]+)?['"]?\s*$`,
-	)
 	matches := dateRegex.FindAllStringSubmatch(frontmatterYAML, -1)
 	for _, m := range matches {
 		if len(m) >= 3 && m[2] != "" {
@@ -701,7 +725,6 @@ func (l *lintOperation) fixInvalidPriority(content string) (string, bool) {
 	}
 
 	// Match priority field with string value
-	priorityRegex := regexp.MustCompile(`(?m)^priority:\s*['"]?([a-z]+)['"]?\s*$`)
 	matches := priorityRegex.FindStringSubmatch(content)
 	if len(matches) >= 2 {
 		oldValue := matches[1]
@@ -720,7 +743,6 @@ func (l *lintOperation) fixInvalidPriority(content string) (string, bool) {
 // fixInvalidStatus migrates old status values to new ones.
 func (l *lintOperation) fixInvalidStatus(content string) (string, bool) {
 	// Match status field with any value
-	statusRegex := regexp.MustCompile(`(?m)^status:\s*['"]?([a-z_]+)['"]?\s*$`)
 	matches := statusRegex.FindStringSubmatch(content)
 	if len(matches) >= 2 {
 		oldValue := matches[1]
@@ -742,7 +764,6 @@ func (l *lintOperation) fixInvalidStatus(content string) (string, bool) {
 // fixStatusCheckboxMismatch sets status to completed when all checkboxes are checked.
 func (l *lintOperation) fixStatusCheckboxMismatch(content string) (string, bool) {
 	// Extract frontmatter
-	frontmatterRegex := regexp.MustCompile(`(?s)^---\n(.*?)\n---\n`)
 	matches := frontmatterRegex.FindSubmatch([]byte(content))
 	if len(matches) < 2 {
 		return content, false
@@ -756,7 +777,6 @@ func (l *lintOperation) fixStatusCheckboxMismatch(content string) (string, bool)
 	}
 
 	// Extract status
-	statusRegex := regexp.MustCompile(`(?m)^status:\s*['"]?([a-z_]+)['"]?\s*$`)
 	statusMatches := statusRegex.FindStringSubmatch(frontmatterYAML)
 	if len(statusMatches) < 2 {
 		return content, false
@@ -768,7 +788,6 @@ func (l *lintOperation) fixStatusCheckboxMismatch(content string) (string, bool)
 	}
 
 	// Check if all checkboxes are checked
-	checkboxRegex := regexp.MustCompile(`(?m)^[\s]*[-*]\s+\[([ xX])\]`)
 	checkboxMatches := checkboxRegex.FindAllStringSubmatch(content, -1)
 
 	if len(checkboxMatches) == 0 {
@@ -799,7 +818,6 @@ func (l *lintOperation) fixStatusCheckboxMismatch(content string) (string, bool)
 // when a date field is set. Per spec 017: calendar-as-commitment rule auto-fixes
 // the status, never strips the date. Idempotent on in_progress (no rewrite).
 func (l *lintOperation) fixStatusDateMismatch(content string) (string, bool) {
-	statusRegex := regexp.MustCompile(`(?m)^status:\s*['"]?([a-z_]+)['"]?\s*$`)
 	matches := statusRegex.FindStringSubmatch(content)
 	if len(matches) < 2 {
 		return content, false
@@ -822,8 +840,7 @@ func (l *lintOperation) fixMissingFrontmatter(content string) (string, bool) {
 // fixDuplicateKeys removes duplicate YAML keys, keeping the first occurrence.
 func (l *lintOperation) fixDuplicateKeys(content string) (string, bool) {
 	// Extract frontmatter
-	frontmatterRegex := regexp.MustCompile(`(?s)^(---\n)(.*?)(\n---\n)(.*)$`)
-	matches := frontmatterRegex.FindStringSubmatch(content)
+	matches := fixDuplicateKeysRegex.FindStringSubmatch(content)
 	if len(matches) < 5 {
 		return content, false
 	}
@@ -839,7 +856,6 @@ func (l *lintOperation) fixDuplicateKeys(content string) (string, bool) {
 	newLines := make([]string, 0, len(lines))
 	modified := false
 
-	keyRegex := regexp.MustCompile(`^([a-z_]+):\s*`)
 	for _, line := range lines {
 		matches := keyRegex.FindStringSubmatch(line)
 		if len(matches) >= 2 {

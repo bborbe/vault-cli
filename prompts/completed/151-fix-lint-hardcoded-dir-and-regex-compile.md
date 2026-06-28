@@ -1,7 +1,12 @@
 ---
-status: approved
+status: completed
+summary: Move regex compilation to package-level vars and thread goalsDir through lint pipeline
+execution_id: vault-cli-exec-151-fix-lint-hardcoded-dir-and-regex-compile
+dark-factory-version: v0.188.1
 created: "2026-06-28T22:00:00Z"
 queued: "2026-06-28T20:59:31Z"
+started: "2026-06-28T21:09:10Z"
+completed: "2026-06-28T21:17:24Z"
 ---
 
 <summary>

@@ -134,6 +134,31 @@ status: todo
 			})
 		})
 
+		Context("with asterisk-prefixed checkboxes", func() {
+			BeforeEach(func() {
+				task.Content = `---
+status: todo
+---
+
+# My Task
+
+* [x] First item
+* [ ] Second item
+* [ ] Third item
+`
+			})
+
+			It("returns no error", func() {
+				Expect(err).To(BeNil())
+			})
+
+			It("sets status to in_progress", func() {
+				Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+				_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
+				Expect(writtenTask.Status()).To(Equal(domain.TaskStatusInProgress))
+			})
+		})
+
 		Context("with no checkboxes in content", func() {
 			BeforeEach(func() {
 				task.Content = `---

@@ -22,7 +22,21 @@ import (
 
 var (
 	frontmatterRegex = regexp.MustCompile(`(?s)^---\n(.*?)\n---\n(.*)$`)
-	checkboxRegex    = regexp.MustCompile(`^(\s*)[-*] \[([ x/])\] (.+)$`)
+
+	// CheckboxRegex matches a Markdown checkbox line with either `-` or `*` as
+	// the list marker. Capture groups: 1=leading whitespace, 2=state (` `, `x`,
+	// or `/`), 3=task text. Shared across storage and ops packages to keep the
+	// parser shape in one place.
+	CheckboxRegex = regexp.MustCompile(`^(\s*)[-*] \[([ x/])\] (.+)$`)
+
+	// CheckboxCompleteRegex matches an unchecked or in-progress checkbox marker
+	// (` ` or `/`) and is used by rewriters that force a line to checked.
+	// Capture groups: 1=list marker (`-` or `*`), 2=state (` ` or `/`).
+	CheckboxCompleteRegex = regexp.MustCompile(`([-*]) \[([ /])\]`)
+
+	// CheckboxUncompleteRegex matches a checked checkbox marker and is used by
+	// rewriters that force a line to unchecked. Capture group 1=list marker.
+	CheckboxUncompleteRegex = regexp.MustCompile(`([-*]) \[x\]`)
 )
 
 type baseStorage struct {
@@ -132,7 +146,7 @@ func (b *baseStorage) parseCheckboxes(content string) []domain.CheckboxItem {
 	lines := strings.Split(content, "\n")
 
 	for i, line := range lines {
-		if matches := checkboxRegex.FindStringSubmatch(line); len(matches) == 4 {
+		if matches := CheckboxRegex.FindStringSubmatch(line); len(matches) == 4 {
 			state := matches[2]
 			items = append(items, domain.CheckboxItem{
 				Line:       i,

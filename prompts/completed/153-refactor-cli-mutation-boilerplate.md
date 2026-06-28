@@ -1,7 +1,12 @@
 ---
-status: approved
+status: completed
+summary: Extracted runMutation helper in pkg/cli/cli.go and refactored 7 mutation commands (complete, defer, update, goal-complete, goal-defer, objective-complete, decision-ack) to use it, eliminating ~100 lines of duplicated boilerplate and nolint:dupl suppressions
+execution_id: vault-cli-exec-153-refactor-cli-mutation-boilerplate
+dark-factory-version: v0.188.1
 created: "2026-06-28T22:00:00Z"
 queued: "2026-06-28T20:59:31Z"
+started: "2026-06-28T21:18:51Z"
+completed: "2026-06-28T21:24:48Z"
 ---
 
 <summary>

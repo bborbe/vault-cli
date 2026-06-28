@@ -6,9 +6,9 @@ package domain //nolint:dupl
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/bborbe/collection"
+	"github.com/bborbe/errors"
 	"github.com/bborbe/validation"
 )
 
@@ -58,7 +58,7 @@ func (v VisionStatuses) Contains(status VisionStatus) bool {
 // Validate returns an error if the status is not a valid canonical value.
 func (s VisionStatus) Validate(ctx context.Context) error {
 	if !AvailableVisionStatuses.Contains(s) {
-		return fmt.Errorf("%w: unknown vision status '%s'", validation.Error, s)
+		return errors.Wrapf(ctx, validation.Error, "unknown vision status '%s'", s)
 	}
 	return nil
 }

@@ -1,7 +1,12 @@
 ---
-status: approved
+status: completed
+summary: Replaced fmt.Errorf and errors.New(context.Background()) with errors.Wrapf and stderrors.New in domain Validate methods and ops sentinel
+execution_id: vault-cli-exec-152-fix-error-patterns-sentinel-and-fmterrorf
+dark-factory-version: v0.188.1
 created: "2026-06-28T22:00:00Z"
 queued: "2026-06-28T20:59:31Z"
+started: "2026-06-28T21:17:25Z"
+completed: "2026-06-28T21:18:49Z"
 ---
 
 <summary>

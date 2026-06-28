@@ -6,9 +6,9 @@ package domain
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/bborbe/collection"
+	"github.com/bborbe/errors"
 	"github.com/bborbe/validation"
 )
 
@@ -85,7 +85,7 @@ func (g GoalStatuses) Contains(status GoalStatus) bool {
 // Validate returns an error if the status is not a valid canonical value.
 func (s GoalStatus) Validate(ctx context.Context) error {
 	if !AvailableGoalStatuses.Contains(s) {
-		return fmt.Errorf("%w: unknown goal status '%s'", validation.Error, s)
+		return errors.Wrapf(ctx, validation.Error, "unknown goal status '%s'", s)
 	}
 	return nil
 }

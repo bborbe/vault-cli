@@ -1,7 +1,7 @@
 ---
 description: Find task details, transition Jira, set status, track on daily note, discover guides, then auto-sharpen and gate the planning → execution transition
-argument-hint: <jira-id-or-text>
-allowed-tools: [Task, AskUserQuestion, Skill, Bash]
+argument-hint: "<jira-id-or-text>"
+allowed-tools: [Task, AskUserQuestion, Skill, Bash(vault-cli *)]
 ---
 
 Find task details and relevant operational guides before starting work. Delegates to the `vault-cli:work-on-task-assistant` agent (which is the heavy lifter).
@@ -80,11 +80,7 @@ Runs only after Phase 2 returned a `found` task — never on `not_found` (Phase 
 
 1. **Resolve the task name from the assistant's report.** The assistant prints `📋 Task: <name>` near the top of its `found` block; that line is the canonical identifier. Capture it verbatim.
 
-2. **Invoke `Skill: vault-cli:plan-task` with the captured name as a quoted argument.** plan-task is conversational by design:
-   - On a fresh task (`phase: todo` / empty), plan-task flips to `planning` itself before the auditor runs (its own entry contract).
-   - On `phase: planning` with all 4 hard gates green AND auditor score ≥ 8, plan-task silently flips to `execution` and returns the `✅ Task ready. Score: X/10. Phase: planning → execution.` line.
-   - On any gap (failed gate or score < 8), plan-task surfaces targeted `AskUserQuestion` prompts to the owner. Do NOT intercept these — the owner answering plan-task's questions IS the sharpen step. Wait for plan-task to return.
-   - On any phase already past planning (`execution` / `ai_review` / `human_review` / `done`), plan-task is a pure sharpener and never moves phase backward.
+2. **Invoke `Skill: vault-cli:plan-task` with the captured name as a quoted argument.** plan-task owns its own entry contract, gate logic, and `AskUserQuestion` flow — do not intercept. Wait for it to return.
 
 3. **Read resulting phase** (after plan-task returns):
    ```bash

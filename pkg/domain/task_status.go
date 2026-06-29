@@ -6,9 +6,9 @@ package domain
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/bborbe/collection"
+	"github.com/bborbe/errors"
 	"github.com/bborbe/validation"
 )
 
@@ -61,7 +61,7 @@ func (s TaskStatus) String() string {
 // Validate returns an error if the status is not a valid canonical value.
 func (s TaskStatus) Validate(ctx context.Context) error {
 	if !AvailableTaskStatuses.Contains(s) {
-		return fmt.Errorf("%w: unknown task status '%s'", validation.Error, s)
+		return errors.Wrapf(ctx, validation.Error, "unknown task status '%s'", s)
 	}
 	return nil
 }

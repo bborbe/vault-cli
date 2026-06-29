@@ -8,6 +8,16 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: use `stderrors.New` instead of `errors.New(context.Background(), ...)` for `ErrStarterUnavailable` sentinel in `pkg/ops/errors.go`
+- fix: replace `fmt.Errorf("%w: ...", validation.Error, ...)` with `errors.Wrapf(ctx, validation.Error, ...)` in `GoalStatus.Validate`, `ThemeStatus.Validate`, `VisionStatus.Validate`, `ObjectiveStatus.Validate`, and `TaskStatus.Validate` — enables proper stack-trace wrapping via `github.com/bborbe/errors`
+- refactor: extract `expandVaultPaths` helper in `pkg/config/config.go` to deduplicate tilde expansion and template path resolution between `GetVault` and `GetAllVaults`
+- refactor: introduce `domain.Page` type to eliminate type contract violation where `PageStorage.ListPages` returned `[]*domain.Task` for all entity types; `ListPages` now returns `[]*domain.Page` and `ops/list.go` uses it directly
+- refactor: move all `regexp.MustCompile` calls in `lint.go` to package-level `var` declarations — eliminates per-call regex recompilation when linting many files
+- refactor: thread `goalsDir` through the lint pipeline (`Execute` → `lintFile` → `collectLintIssues` → `detectOrphanGoals`) instead of hardcoding `filepath.Join(vaultPath, "Goals")`; `LintOperation.Execute` now accepts a `goalsDir` parameter
+- refactor(cli): extract `runMutation` helper in `pkg/cli/cli.go` to deduplicate vault-iteration + dispatcher boilerplate across complete/defer/update mutation commands — eliminates ~100 lines of duplicated `//nolint:dupl` code
+
 ## v0.92.0
 
 - feat(work-on-task): Phase 5's past-planning branch (`phase: ai_review` / `human_review` / `done`) now points the operator at the close-out pair (`/vault-cli:sync-progress` then `/vault-cli:session-close`) instead of just printing "no kickoff needed". Surfaces the lifecycle's natural next step when work-on-task is invoked on a task whose work is already done.

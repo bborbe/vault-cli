@@ -43,6 +43,35 @@ func getVaults(
 	return (*configLoader).GetAllVaults(ctx)
 }
 
+// mutationRunner is the function signature for running a mutation on a single vault.
+type mutationRunner func(ctx context.Context, vault *config.Vault) (ops.MutationResult, error)
+
+// runMutation executes a mutation operation across vaults using first-match semantics.
+// The runner closure receives the vault and returns (result, error).
+// runMutation handles error JSON printing and success JSON formatting; the closure
+// handles all plain-text output formatting.
+func runMutation(
+	ctx context.Context,
+	vaults []*config.Vault,
+	outputFormat string,
+	runner mutationRunner,
+) error {
+	dispatcher := ops.NewVaultDispatcher()
+	return dispatcher.FirstSuccess(ctx, vaults, func(vault *config.Vault) error {
+		result, err := runner(ctx, vault)
+		if err != nil {
+			if outputFormat == OutputFormatJSON {
+				_ = PrintJSON(result)
+			}
+			return err
+		}
+		if outputFormat == OutputFormatJSON {
+			return PrintJSON(result)
+		}
+		return nil
+	})
+}
+
 // NewRootCommand builds and returns the root cobra command for vault-cli.
 // Callers can set args and I/O streams before calling ExecuteContext.
 func NewRootCommand(ctx context.Context) *cobra.Command {
@@ -108,7 +137,6 @@ func Run(ctx context.Context, args []string) error {
 	return rootCmd.ExecuteContext(ctx)
 }
 
-//nolint:dupl // Mutation commands have similar structure but different operations
 func createCompleteCommand(
 	ctx context.Context,
 	configLoader *config.Loader,
@@ -128,43 +156,42 @@ func createCompleteCommand(
 
 			currentDateTime := libtime.NewCurrentDateTime()
 
-			dispatcher := ops.NewVaultDispatcher()
-			return dispatcher.FirstSuccess(ctx, vaults, func(vault *config.Vault) error {
-				storageConfig := storage.NewConfigFromVault(vault)
-				taskStore := storage.NewTaskStorage(storageConfig)
-				goalStore := storage.NewGoalStorage(storageConfig)
-				dailyStore := storage.NewDailyNoteStorage(storageConfig)
-				completeOp := ops.NewCompleteOperation(
-					taskStore,
-					goalStore,
-					dailyStore,
-					currentDateTime,
-				)
-				result, err := completeOp.Execute(ctx, vault.Path, taskName, vault.Name)
-				if err != nil {
-					if *outputFormat == OutputFormatJSON {
-						_ = PrintJSON(result)
+			return runMutation(
+				ctx,
+				vaults,
+				*outputFormat,
+				func(ctx context.Context, vault *config.Vault) (ops.MutationResult, error) {
+					storageConfig := storage.NewConfigFromVault(vault)
+					taskStore := storage.NewTaskStorage(storageConfig)
+					goalStore := storage.NewGoalStorage(storageConfig)
+					dailyStore := storage.NewDailyNoteStorage(storageConfig)
+					completeOp := ops.NewCompleteOperation(
+						taskStore,
+						goalStore,
+						dailyStore,
+						currentDateTime,
+					)
+					result, err := completeOp.Execute(ctx, vault.Path, taskName, vault.Name)
+					if err != nil {
+						return result, err
 					}
-					return err
-				}
-				if *outputFormat == OutputFormatJSON {
-					return PrintJSON(result)
-				}
-				if result.Reason != "" {
-					fmt.Printf("⚠️  Cannot complete: %s\n", result.Reason)
-				} else {
-					fmt.Printf("✅ Task completed: %s\n", result.Name)
-				}
-				for _, w := range result.Warnings {
-					fmt.Printf("⚠️  %s\n", w)
-				}
-				return nil
-			})
+					if *outputFormat != OutputFormatJSON {
+						if result.Reason != "" {
+							fmt.Printf("⚠️  Cannot complete: %s\n", result.Reason)
+						} else {
+							fmt.Printf("✅ Task completed: %s\n", result.Name)
+						}
+						for _, w := range result.Warnings {
+							fmt.Printf("⚠️  %s\n", w)
+						}
+					}
+					return result, nil
+				},
+			)
 		},
 	}
 }
 
-//nolint:dupl // Mutation commands have similar structure but different operations
 func createDeferCommand(
 	ctx context.Context,
 	configLoader *config.Loader,
@@ -198,39 +225,38 @@ Date formats:
 
 			currentDateTime := libtime.NewCurrentDateTime()
 
-			dispatcher := ops.NewVaultDispatcher()
-			return dispatcher.FirstSuccess(ctx, vaults, func(vault *config.Vault) error {
-				storageConfig := storage.NewConfigFromVault(vault)
-				taskStore := storage.NewTaskStorage(storageConfig)
-				dailyStore := storage.NewDailyNoteStorage(storageConfig)
-				deferOp := ops.NewDeferOperation(taskStore, dailyStore, currentDateTime)
-				result, err := deferOp.Execute(
-					ctx,
-					vault.Path,
-					taskName,
-					dateStr,
-					vault.Name,
-				)
-				if err != nil {
-					if *outputFormat == OutputFormatJSON {
-						_ = PrintJSON(result)
+			return runMutation(
+				ctx,
+				vaults,
+				*outputFormat,
+				func(ctx context.Context, vault *config.Vault) (ops.MutationResult, error) {
+					storageConfig := storage.NewConfigFromVault(vault)
+					taskStore := storage.NewTaskStorage(storageConfig)
+					dailyStore := storage.NewDailyNoteStorage(storageConfig)
+					deferOp := ops.NewDeferOperation(taskStore, dailyStore, currentDateTime)
+					result, err := deferOp.Execute(
+						ctx,
+						vault.Path,
+						taskName,
+						dateStr,
+						vault.Name,
+					)
+					if err != nil {
+						return result, err
 					}
-					return err
-				}
-				if *outputFormat == OutputFormatJSON {
-					return PrintJSON(result)
-				}
-				fmt.Printf("📅 Task deferred to %s: %s\n", result.Message, result.Name)
-				for _, w := range result.Warnings {
-					fmt.Printf("⚠️  %s\n", w)
-				}
-				return nil
-			})
+					if *outputFormat != OutputFormatJSON {
+						fmt.Printf("📅 Task deferred to %s: %s\n", result.Message, result.Name)
+						for _, w := range result.Warnings {
+							fmt.Printf("⚠️  %s\n", w)
+						}
+					}
+					return result, nil
+				},
+			)
 		},
 	}
 }
 
-//nolint:dupl // Mutation commands have similar structure but different operations
 func createUpdateCommand(
 	ctx context.Context,
 	configLoader *config.Loader,
@@ -248,31 +274,31 @@ func createUpdateCommand(
 				return errors.Wrap(ctx, err, "get vaults")
 			}
 
-			dispatcher := ops.NewVaultDispatcher()
-			return dispatcher.FirstSuccess(ctx, vaults, func(vault *config.Vault) error {
-				storageConfig := storage.NewConfigFromVault(vault)
-				taskStore := storage.NewTaskStorage(storageConfig)
-				goalStore := storage.NewGoalStorage(storageConfig)
-				updateOp := ops.NewUpdateOperation(taskStore, goalStore)
-				result, err := updateOp.Execute(ctx, vault.Path, taskName, vault.Name)
-				if err != nil {
-					if *outputFormat == OutputFormatJSON {
-						_ = PrintJSON(result)
+			return runMutation(
+				ctx,
+				vaults,
+				*outputFormat,
+				func(ctx context.Context, vault *config.Vault) (ops.MutationResult, error) {
+					storageConfig := storage.NewConfigFromVault(vault)
+					taskStore := storage.NewTaskStorage(storageConfig)
+					goalStore := storage.NewGoalStorage(storageConfig)
+					updateOp := ops.NewUpdateOperation(taskStore, goalStore)
+					result, err := updateOp.Execute(ctx, vault.Path, taskName, vault.Name)
+					if err != nil {
+						return result, err
 					}
-					return err
-				}
-				if *outputFormat == OutputFormatJSON {
-					return PrintJSON(result)
-				}
-				if len(result.Warnings) > 0 {
-					for _, w := range result.Warnings {
-						fmt.Printf("⚠️  %s\n", w)
+					if *outputFormat != OutputFormatJSON {
+						if len(result.Warnings) > 0 {
+							for _, w := range result.Warnings {
+								fmt.Printf("⚠️  %s\n", w)
+							}
+						} else {
+							fmt.Printf("✅ Updated %s\n", result.Message)
+						}
 					}
-				} else {
-					fmt.Printf("✅ Updated %s\n", result.Message)
-				}
-				return nil
-			})
+					return result, nil
+				},
+			)
 		},
 	}
 }
@@ -478,6 +504,7 @@ func createLintCommand(
 		vaultName,
 		"task",
 		func(c *storage.Config) string { return c.TasksDir },
+		func(c *storage.Config) string { return c.GoalsDir },
 		outputFormat,
 	)
 }
@@ -546,6 +573,7 @@ func createGenericLintCommand(
 	vaultName *string,
 	pageType string,
 	getDirFunc func(*storage.Config) string,
+	getGoalsDirFunc func(*storage.Config) string,
 	outputFormat *string,
 ) *cobra.Command {
 	var fix bool
@@ -567,7 +595,13 @@ func createGenericLintCommand(
 
 				storageConfig := storage.NewConfigFromVault(vault)
 				lintOp := ops.NewLintOperation()
-				issues, err := lintOp.Execute(ctx, vault.Path, getDirFunc(storageConfig), fix)
+				issues, err := lintOp.Execute(
+					ctx,
+					vault.Path,
+					getDirFunc(storageConfig),
+					getGoalsDirFunc(storageConfig),
+					fix,
+				)
 				if err != nil {
 					return err
 				}
@@ -1165,6 +1199,7 @@ func createGoalCommands(
 			vaultName,
 			"goal",
 			func(c *storage.Config) string { return c.GoalsDir },
+			func(c *storage.Config) string { return c.GoalsDir },
 			outputFormat,
 		),
 	)
@@ -1234,31 +1269,35 @@ func createGoalCompleteCommand(
 
 			currentDateTime := libtime.NewCurrentDateTime()
 
-			dispatcher := ops.NewVaultDispatcher()
-			return dispatcher.FirstSuccess(ctx, vaults, func(vault *config.Vault) error {
-				storageConfig := storage.NewConfigFromVault(vault)
-				goalStore := storage.NewGoalStorage(storageConfig)
-				taskStore := storage.NewTaskStorage(storageConfig)
-				completeOp := ops.NewGoalCompleteOperation(goalStore, taskStore, currentDateTime)
-				result, err := completeOp.Execute(
-					ctx,
-					vault.Path,
-					goalName,
-					vault.Name,
-					force,
-				)
-				if err != nil {
-					if *outputFormat == OutputFormatJSON {
-						_ = PrintJSON(result)
+			return runMutation(
+				ctx,
+				vaults,
+				*outputFormat,
+				func(ctx context.Context, vault *config.Vault) (ops.MutationResult, error) {
+					storageConfig := storage.NewConfigFromVault(vault)
+					goalStore := storage.NewGoalStorage(storageConfig)
+					taskStore := storage.NewTaskStorage(storageConfig)
+					completeOp := ops.NewGoalCompleteOperation(
+						goalStore,
+						taskStore,
+						currentDateTime,
+					)
+					result, err := completeOp.Execute(
+						ctx,
+						vault.Path,
+						goalName,
+						vault.Name,
+						force,
+					)
+					if err != nil {
+						return result, err
 					}
-					return err
-				}
-				if *outputFormat == OutputFormatJSON {
-					return PrintJSON(result)
-				}
-				fmt.Printf("✅ Goal completed: %s\n", result.Name)
-				return nil
-			})
+					if *outputFormat != OutputFormatJSON {
+						fmt.Printf("✅ Goal completed: %s\n", result.Name)
+					}
+					return result, nil
+				},
+			)
 		},
 	}
 
@@ -1300,30 +1339,30 @@ Date formats:
 
 			currentDateTime := libtime.NewCurrentDateTime()
 
-			dispatcher := ops.NewVaultDispatcher()
-			return dispatcher.FirstSuccess(ctx, vaults, func(vault *config.Vault) error {
-				storageConfig := storage.NewConfigFromVault(vault)
-				goalStore := storage.NewGoalStorage(storageConfig)
-				deferOp := ops.NewGoalDeferOperation(goalStore, currentDateTime)
-				result, err := deferOp.Execute(
-					ctx,
-					vault.Path,
-					goalName,
-					dateStr,
-					vault.Name,
-				)
-				if err != nil {
-					if *outputFormat == OutputFormatJSON {
-						_ = PrintJSON(result)
+			return runMutation(
+				ctx,
+				vaults,
+				*outputFormat,
+				func(ctx context.Context, vault *config.Vault) (ops.MutationResult, error) {
+					storageConfig := storage.NewConfigFromVault(vault)
+					goalStore := storage.NewGoalStorage(storageConfig)
+					deferOp := ops.NewGoalDeferOperation(goalStore, currentDateTime)
+					result, err := deferOp.Execute(
+						ctx,
+						vault.Path,
+						goalName,
+						dateStr,
+						vault.Name,
+					)
+					if err != nil {
+						return result, err
 					}
-					return err
-				}
-				if *outputFormat == OutputFormatJSON {
-					return PrintJSON(result)
-				}
-				fmt.Printf("📅 Goal deferred to %s: %s\n", result.Message, result.Name)
-				return nil
-			})
+					if *outputFormat != OutputFormatJSON {
+						fmt.Printf("📅 Goal deferred to %s: %s\n", result.Message, result.Name)
+					}
+					return result, nil
+				},
+			)
 		},
 	}
 }
@@ -1356,6 +1395,7 @@ func createThemeCommands(
 			vaultName,
 			"theme",
 			func(c *storage.Config) string { return c.ThemesDir },
+			func(c *storage.Config) string { return c.GoalsDir },
 			outputFormat,
 		),
 	)
@@ -1432,6 +1472,7 @@ func createObjectiveCommands(
 			vaultName,
 			"objective",
 			func(c *storage.Config) string { return c.ObjectivesDir },
+			func(c *storage.Config) string { return c.GoalsDir },
 			outputFormat,
 		),
 	)
@@ -1502,24 +1543,24 @@ func createObjectiveCompleteCommand(
 
 			currentDateTime := libtime.NewCurrentDateTime()
 
-			dispatcher := ops.NewVaultDispatcher()
-			return dispatcher.FirstSuccess(ctx, vaults, func(vault *config.Vault) error {
-				storageConfig := storage.NewConfigFromVault(vault)
-				objectiveStore := storage.NewObjectiveStorage(storageConfig)
-				completeOp := ops.NewObjectiveCompleteOperation(objectiveStore, currentDateTime)
-				result, err := completeOp.Execute(ctx, vault.Path, objectiveName, vault.Name)
-				if err != nil {
-					if *outputFormat == OutputFormatJSON {
-						_ = PrintJSON(result)
+			return runMutation(
+				ctx,
+				vaults,
+				*outputFormat,
+				func(ctx context.Context, vault *config.Vault) (ops.MutationResult, error) {
+					storageConfig := storage.NewConfigFromVault(vault)
+					objectiveStore := storage.NewObjectiveStorage(storageConfig)
+					completeOp := ops.NewObjectiveCompleteOperation(objectiveStore, currentDateTime)
+					result, err := completeOp.Execute(ctx, vault.Path, objectiveName, vault.Name)
+					if err != nil {
+						return result, err
 					}
-					return err
-				}
-				if *outputFormat == OutputFormatJSON {
-					return PrintJSON(result)
-				}
-				fmt.Printf("✅ Objective completed: %s\n", result.Name)
-				return nil
-			})
+					if *outputFormat != OutputFormatJSON {
+						fmt.Printf("✅ Objective completed: %s\n", result.Name)
+					}
+					return result, nil
+				},
+			)
 		},
 	}
 }
@@ -1552,6 +1593,7 @@ func createVisionCommands(
 			vaultName,
 			"vision",
 			func(c *storage.Config) string { return c.VisionDir },
+			func(c *storage.Config) string { return c.GoalsDir },
 			outputFormat,
 		),
 	)
@@ -1688,30 +1730,30 @@ func createDecisionAckCommand(
 
 			currentDateTime := libtime.NewCurrentDateTime()
 
-			dispatcher := ops.NewVaultDispatcher()
-			return dispatcher.FirstSuccess(ctx, vaults, func(vault *config.Vault) error {
-				storageConfig := storage.NewConfigFromVault(vault)
-				decisionStore := storage.NewDecisionStorage(storageConfig)
-				ackOp := ops.NewDecisionAckOperation(decisionStore, currentDateTime)
-				result, err := ackOp.Execute(
-					ctx,
-					vault.Path,
-					vault.Name,
-					decisionName,
-					statusOverride,
-				)
-				if err != nil {
-					if *outputFormat == OutputFormatJSON {
-						_ = PrintJSON(result)
+			return runMutation(
+				ctx,
+				vaults,
+				*outputFormat,
+				func(ctx context.Context, vault *config.Vault) (ops.MutationResult, error) {
+					storageConfig := storage.NewConfigFromVault(vault)
+					decisionStore := storage.NewDecisionStorage(storageConfig)
+					ackOp := ops.NewDecisionAckOperation(decisionStore, currentDateTime)
+					result, err := ackOp.Execute(
+						ctx,
+						vault.Path,
+						vault.Name,
+						decisionName,
+						statusOverride,
+					)
+					if err != nil {
+						return result, err
 					}
-					return err
-				}
-				if *outputFormat == OutputFormatJSON {
-					return PrintJSON(result)
-				}
-				fmt.Printf("Acknowledged: %s\n", result.Name)
-				return nil
-			})
+					if *outputFormat != OutputFormatJSON {
+						fmt.Printf("Acknowledged: %s\n", result.Name)
+					}
+					return result, nil
+				},
+			)
 		},
 	}
 

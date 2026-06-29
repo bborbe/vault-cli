@@ -6,9 +6,9 @@ package domain //nolint:dupl
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/bborbe/collection"
+	"github.com/bborbe/errors"
 	"github.com/bborbe/validation"
 )
 
@@ -58,7 +58,7 @@ func (o ObjectiveStatuses) Contains(status ObjectiveStatus) bool {
 // Validate returns an error if the status is not a valid canonical value.
 func (s ObjectiveStatus) Validate(ctx context.Context) error {
 	if !AvailableObjectiveStatuses.Contains(s) {
-		return fmt.Errorf("%w: unknown objective status '%s'", validation.Error, s)
+		return errors.Wrapf(ctx, validation.Error, "unknown objective status '%s'", s)
 	}
 	return nil
 }

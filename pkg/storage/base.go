@@ -161,18 +161,29 @@ func (b *baseStorage) parseCheckboxes(content string) []domain.CheckboxItem {
 	return items
 }
 
-func (b *baseStorage) readTaskFromPath(
+// readEntityComponentsFromPath reads a vault file and returns its parsed frontmatter,
+// file metadata, and raw content. Both readTaskFromPath and readPageFromPath delegate
+// to this helper to avoid duplicating the file-reading and parsing logic.
+func (b *baseStorage) readEntityComponentsFromPath(
 	ctx context.Context,
 	filePath string,
 	name string,
 	vaultPath string,
-) (*domain.Task, error) {
+) (map[string]any, domain.FileMetadata, domain.Content, error) {
 	if isSymlinkOutsideVault(filePath, vaultPath) {
-		return nil, errors.Errorf(ctx, "symlink outside vault: %s", filePath)
+		return nil, domain.FileMetadata{}, "", errors.Errorf(
+			ctx,
+			"symlink outside vault: %s",
+			filePath,
+		)
 	}
 	content, err := os.ReadFile(filePath) //#nosec G304 -- user-controlled vault path
 	if err != nil {
-		return nil, errors.Wrap(ctx, err, fmt.Sprintf("read file %s", filePath))
+		return nil, domain.FileMetadata{}, "", errors.Wrap(
+			ctx,
+			err,
+			fmt.Sprintf("read file %s", filePath),
+		)
 	}
 
 	var modTime *time.Time
@@ -183,7 +194,7 @@ func (b *baseStorage) readTaskFromPath(
 
 	data, parseErr := b.parseToFrontmatterMap(ctx, content)
 	if parseErr != nil {
-		return nil, errors.Wrap(ctx, parseErr, "parse frontmatter")
+		return nil, domain.FileMetadata{}, "", errors.Wrap(ctx, parseErr, "parse frontmatter")
 	}
 
 	meta := domain.FileMetadata{
@@ -192,7 +203,20 @@ func (b *baseStorage) readTaskFromPath(
 		ModifiedDate: modTime,
 	}
 
-	return domain.NewTask(data, meta, domain.Content(content)), nil
+	return data, meta, domain.Content(content), nil
+}
+
+func (b *baseStorage) readTaskFromPath(
+	ctx context.Context,
+	filePath string,
+	name string,
+	vaultPath string,
+) (*domain.Task, error) {
+	data, meta, content, err := b.readEntityComponentsFromPath(ctx, filePath, name, vaultPath)
+	if err != nil {
+		return nil, err
+	}
+	return domain.NewTask(data, meta, content), nil
 }
 
 // isExcluded returns true when the given path falls under an excluded directory prefix.

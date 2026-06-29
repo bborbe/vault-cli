@@ -9,13 +9,14 @@ import (
 )
 
 type LintOperation struct {
-	ExecuteStub        func(context.Context, string, string, bool) ([]ops.LintIssue, error)
+	ExecuteStub        func(context.Context, string, string, string, bool) ([]ops.LintIssue, error)
 	executeMutex       sync.RWMutex
 	executeArgsForCall []struct {
 		arg1 context.Context
 		arg2 string
 		arg3 string
-		arg4 bool
+		arg4 string
+		arg5 bool
 	}
 	executeReturns struct {
 		result1 []ops.LintIssue
@@ -45,21 +46,22 @@ type LintOperation struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *LintOperation) Execute(arg1 context.Context, arg2 string, arg3 string, arg4 bool) ([]ops.LintIssue, error) {
+func (fake *LintOperation) Execute(arg1 context.Context, arg2 string, arg3 string, arg4 string, arg5 bool) ([]ops.LintIssue, error) {
 	fake.executeMutex.Lock()
 	ret, specificReturn := fake.executeReturnsOnCall[len(fake.executeArgsForCall)]
 	fake.executeArgsForCall = append(fake.executeArgsForCall, struct {
 		arg1 context.Context
 		arg2 string
 		arg3 string
-		arg4 bool
-	}{arg1, arg2, arg3, arg4})
+		arg4 string
+		arg5 bool
+	}{arg1, arg2, arg3, arg4, arg5})
 	stub := fake.ExecuteStub
 	fakeReturns := fake.executeReturns
-	fake.recordInvocation("Execute", []interface{}{arg1, arg2, arg3, arg4})
+	fake.recordInvocation("Execute", []interface{}{arg1, arg2, arg3, arg4, arg5})
 	fake.executeMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2, arg3, arg4)
+		return stub(arg1, arg2, arg3, arg4, arg5)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
@@ -73,17 +75,17 @@ func (fake *LintOperation) ExecuteCallCount() int {
 	return len(fake.executeArgsForCall)
 }
 
-func (fake *LintOperation) ExecuteCalls(stub func(context.Context, string, string, bool) ([]ops.LintIssue, error)) {
+func (fake *LintOperation) ExecuteCalls(stub func(context.Context, string, string, string, bool) ([]ops.LintIssue, error)) {
 	fake.executeMutex.Lock()
 	defer fake.executeMutex.Unlock()
 	fake.ExecuteStub = stub
 }
 
-func (fake *LintOperation) ExecuteArgsForCall(i int) (context.Context, string, string, bool) {
+func (fake *LintOperation) ExecuteArgsForCall(i int) (context.Context, string, string, string, bool) {
 	fake.executeMutex.RLock()
 	defer fake.executeMutex.RUnlock()
 	argsForCall := fake.executeArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4, argsForCall.arg5
 }
 
 func (fake *LintOperation) ExecuteReturns(result1 []ops.LintIssue, result2 error) {

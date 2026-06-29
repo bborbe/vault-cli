@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat(work-on-goal): `work-on-goal-assistant` now promotes a goal's `status` to `in_progress` when work starts (via `vault-cli goal set`), mirroring `work-on-task-assistant`. Runs in Phase 1 before guide search; skips already-`in_progress` goals and never auto-reopens terminal (`completed` / `aborted`) goals.
+
 ## v0.92.1
 
 - fix: use `stderrors.New` instead of `errors.New(context.Background(), ...)` for `ErrStarterUnavailable` sentinel in `pkg/ops/errors.go`

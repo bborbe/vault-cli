@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.92.1
 
 - fix: use `stderrors.New` instead of `errors.New(context.Background(), ...)` for `ErrStarterUnavailable` sentinel in `pkg/ops/errors.go`
 - fix: replace `fmt.Errorf("%w: ...", validation.Error, ...)` with `errors.Wrapf(ctx, validation.Error, ...)` in `GoalStatus.Validate`, `ThemeStatus.Validate`, `VisionStatus.Validate`, `ObjectiveStatus.Validate`, and `TaskStatus.Validate` — enables proper stack-trace wrapping via `github.com/bborbe/errors`

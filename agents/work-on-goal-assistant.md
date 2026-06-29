@@ -142,7 +142,7 @@ Format final output as goal-context block + `---` + work-on-task-assistant outpu
 📊 Goal: <name>
 Domain: <derived>
 Progress: X/Y completed [(Z deferred)]
-Status (before): <status>
+Status: <status>
 ✅ Goal status: <old> → in_progress | ℹ️ Already in_progress | ⚠️ Could not set status: <error>
 
 Summary: <1-3 sentences>

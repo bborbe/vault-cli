@@ -26,7 +26,7 @@ allowed-tools:
 
 End-of-session safety check. Verifies progress is documented, working trees are clean, and nothing important is still in flight. **Output is terse:** either `✅ Nothing to do — safe to close Claude :)` or a short numbered list of open items. Never prints a checklist table. Never asks yes/no. Never auto-closes anything.
 
-This command **must stay inline** — it analyzes the parent conversation (touched files, completion signals, reflect signals); a sub-agent cannot see the conversation.
+This command **must stay inline** — it analyzes the parent conversation (touched files, completion signals, reflect + self-improve signals); a sub-agent cannot see the conversation.
 
 Use before:
 
@@ -291,6 +291,24 @@ N. Link hygiene: [[<page>]] → [[<target>]] unresolved (broken wikilink / typo)
 N. Link hygiene: [[<hub>]] doesn't link back to [[<new page>]] — one-way (consider reciprocal link)
 ```
 
+### Phase 8.7: Detect self-improve-worthy signals
+
+Decide whether the session revealed enough **tooling friction** to warrant `/coding:self-improve` (reviews the session, proposes ≤2 durable improvements to commands / agents / rules). Like reflect, this is **suggest-only** — never auto-run; auto-invoking always erodes signal. Reflect captures durable *knowledge*; self-improve captures *friction in the tooling* — a different signal set, so score it separately.
+
+Score the session silently:
+
+| Signal | Detection | Weight |
+|---|---|---|
+| General correction to assistant behavior | User corrected a non-one-off behavior that generalizes beyond this task ("did u read…", "always X", "don't Y") | +2 |
+| Repeated instruction | Same instruction given 2+ times this session | +2 |
+| Command / agent / skill misfired | A slash command or agent gave wrong output, needed a retry, or was abandoned mid-run | +1 |
+| Documented rule violated | Assistant broke a rule in a `CLAUDE.md` it should have followed | +1 |
+| Manual multi-step workflow with no command | ≥3-step procedure reinvented by hand that no existing command/skill covers | +1 |
+
+If **total score ≥ 3** → flag as self-improve candidate. Otherwise skip silently.
+
+Do NOT run `/coding:self-improve` from here. Only surface the suggestion in Phase 9. The user decides whether to invoke it.
+
 ### Phase 9: Final status line — one of three modes
 
 **Do NOT print a checklist table. Do NOT ask a yes/no question.** The point of the command is a one-glance answer.
@@ -318,12 +336,14 @@ Omit any line with zero entries. If nothing was touched (e.g. talk-only session)
 ✅ Nothing to do — safe to close Claude :)
 ```
 
-**2. Clean + reflect signals fired** (all phases ✅, score ≥ 3):
+**2. Clean + reflect and/or self-improve signals fired** (all phases ✅, reflect score ≥ 3 and/or self-improve score ≥ 3):
 
 ```
 <summary block>
 
-✅ Nothing outstanding — but session has reflect-worthy moments (new knowledge files, decisions captured). Consider `/vault-cli:reflect` before closing.
+✅ Nothing outstanding — but the session has follow-up-worthy moments. Append whichever fired:
+- reflect (new knowledge files, decisions captured) → Consider `/vault-cli:reflect` before closing.
+- self-improve (tooling friction: corrections, retries, missing command) → Consider `/coding:self-improve` before closing.
 ```
 
 **3. Outstanding items** (any phase ⚠):
@@ -339,11 +359,12 @@ Omit any line with zero entries. If nothing was touched (e.g. talk-only session)
 4. dark-factory daemon (pid X) running in <project>
 5. Link hygiene: [[<new page>]] orphaned — add backlink from [[<hub>]]
 6. Consider /vault-cli:reflect — N knowledge file(s) created, org-level decisions captured
+7. Consider /coding:self-improve — N friction signal(s): general correction, command misfire
 ```
 
-Append reflect suggestion as the last numbered item only if signals fired. One line per item. No table, no tree, no asking. The user reads the list and decides what to do next.
+Append the reflect and/or self-improve suggestions as the last numbered item(s) only if their signals fired. One line per item. No table, no tree, no asking. The user reads the list and decides what to do next.
 
-Never auto-close, never auto-commit, never auto-kill, never auto-reflect. The command's only job is the one-line verdict or the numbered open list.
+Never auto-close, never auto-commit, never auto-kill, never auto-reflect, never auto-self-improve. The command's only job is the one-line verdict or the numbered open list.
 
 ## Integration
 

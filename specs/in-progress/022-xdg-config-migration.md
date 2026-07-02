@@ -1,11 +1,12 @@
 ---
-status: prompted
+status: verifying
 tags:
     - dark-factory
     - spec
 approved: "2026-07-02T11:43:30Z"
 generating: "2026-07-02T11:47:05Z"
 prompted: "2026-07-02T11:53:47Z"
+verifying: "2026-07-02T11:57:19Z"
 branch: dark-factory/xdg-config-migration
 ---
 
@@ -94,3 +95,15 @@ grep -n '\.config/vault-cli/config\.yaml' ~/Documents/Obsidian/Personal/50\ Know
 ## Do-Nothing Option
 
 Continue hardcoding `~/.vault-cli/config.yaml`. The tool works today. Cost: every new install places config in a non-standard location; the code accumulates a divergence from XDG that will be harder to fix later (more docs, more users with legacy paths). The change is low-risk (additive lookup, no migration) and the cost of delay is cumulative.
+
+## Verification Result
+
+**Verified:** 2026-07-02T12:03:36Z (HEAD 405c4e8)
+**Binary:** /Users/bborbe/Documents/workspaces/go/bin/dark-factory (dark-factory v0.191.0)
+**Scenario:** Spec declares inline verification — 67/67 config tests pass, `make precommit` clean (0 lint, 0 vuln), Personal vault doc updated
+**Evidence:**
+- `grep -n 'func FindConfigDir' pkg/config/config.go` → line 160 (exported, in pkg/config/)
+- `make test` → 67/67 config specs pass: XDG-first, legacy-fallback, neither-exists-default, both-exist-XDG-wins, file-not-dir-falls-through, Load-via-FindConfigDir
+- `make precommit` → all packages pass, 0 golangci-lint issues, 0 vulns (osv-scanner + trivy), ready to commit
+- `grep -n '\.config/vault-cli/config\.yaml' ~/Documents/Obsidian/Personal/50\ Knowledge\ Base/vault-cli.md` → line 53: XDG primary path with `~/.vault-cli/config.yaml` as legacy fallback
+**Verdict:** PASS

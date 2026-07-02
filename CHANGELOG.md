@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.96.1
 
 - refactor(plugin): rename orchestration-mode flag `--tool` → `--non-interactive` and internal label `MODE=tool` → `MODE=non_interactive` across create-task, create-goal, complete-task, complete-goal, defer-task, defer-goal commands and task-creator, goal-creator, goal-manager-agent agents; the command/agent instructions still accept `--tool` as a deprecated alias for one release. These flags are Claude Code slash-command arguments interpreted by the agent instructions — not vault-cli binary flags.
 

@@ -151,6 +151,28 @@ func (v *Vault) GetClaudeScript() string {
 	return "claude"
 }
 
+// FindConfigDir returns the config directory for the given tool, applying
+// XDG-first priority. If ~/.config/<toolName>/ exists it is returned.
+// Otherwise, if the legacy ~/.<toolName>/ directory exists, it is returned.
+// When neither exists, the XDG path ~/.config/<toolName>/ is returned as the
+// default for new installs. FindConfigDir never creates directories and never
+// writes to the filesystem; it only checks directory existence via os.Stat.
+func FindConfigDir(ctx context.Context, toolName string) (string, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", errors.Wrap(ctx, err, "get home directory")
+	}
+	xdgDir := filepath.Join(homeDir, ".config", toolName)
+	if info, statErr := os.Stat(xdgDir); statErr == nil && info.IsDir() {
+		return xdgDir, nil
+	}
+	legacyDir := filepath.Join(homeDir, "."+toolName)
+	if info, statErr := os.Stat(legacyDir); statErr == nil && info.IsDir() {
+		return legacyDir, nil
+	}
+	return xdgDir, nil
+}
+
 //counterfeiter:generate -o ../../mocks/config-loader.go --fake-name Loader . Loader
 type Loader interface {
 	Load(ctx context.Context) (*Config, error)
@@ -176,11 +198,11 @@ func (c *configLoader) Load(ctx context.Context) (*Config, error) {
 	// If config path is empty, use default location
 	configPath := c.configPath
 	if configPath == "" {
-		homeDir, err := os.UserHomeDir()
+		dir, err := FindConfigDir(ctx, "vault-cli")
 		if err != nil {
-			return nil, errors.Wrap(ctx, err, "get home directory")
+			return nil, errors.Wrap(ctx, err, "find config dir")
 		}
-		configPath = filepath.Join(homeDir, ".vault-cli", "config.yaml")
+		configPath = filepath.Join(dir, "config.yaml")
 	}
 
 	// If config file doesn't exist, return default config

@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: ["021"]
+summary: Added ResolveOperation in pkg/ops/resolve.go with task-first name resolution and full unit test coverage
+execution_id: vault-cli-resolve-exec-155-resolve-name-subcommand
+dark-factory-version: dev
 created: "2026-07-02T10:00:00Z"
 queued: "2026-07-02T09:46:53Z"
+started: "2026-07-02T09:48:28Z"
+completed: "2026-07-02T09:50:22Z"
 ---
 
 <summary>

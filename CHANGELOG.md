@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat(plugin): `/vault-cli:work-on-task` accepts `--non-interactive` (deprecated alias `--tool`) — skips the create-task prompt (Phase 4) and the plan-task/execute-task sharpening chain (Phase 5) so headless callers (e.g. `vault-cli work-on`'s `claude --print` bootstrap) orient and stop instead of hanging on `AskUserQuestion`
+
 ## v0.96.0
 
 - feat: Config loading follows XDG Base Directory spec — new FindConfigDir prefers ~/.config/vault-cli/ over legacy ~/.vault-cli/ with no forced migration

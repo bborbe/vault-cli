@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [022-xdg-config-migration]
+summary: Added Ginkgo/Gomega tests for FindConfigDir covering all four XDG-priority failure modes plus integration test for Load via XDG path, with coverage at 90% for FindConfigDir and 90.5% for Load
+execution_id: vault-cli-xdg-config-exec-158-spec-022-find-config-dir-tests
+dark-factory-version: v0.191.0
 created: "2026-07-02T12:00:00Z"
 queued: "2026-07-02T11:54:16Z"
+started: "2026-07-02T11:55:53Z"
+completed: "2026-07-02T11:57:19Z"
 branch: dark-factory/xdg-config-migration
 ---
 

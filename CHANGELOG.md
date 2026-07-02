@@ -10,7 +10,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 
 ## Unreleased
 
-- feat(plugin): `/vault-cli:work-on-task` accepts `--non-interactive` (deprecated alias `--tool`) — skips the create-task prompt (Phase 4) and the plan-task/execute-task sharpening chain (Phase 5) so headless callers (e.g. `vault-cli work-on`'s `claude --print` bootstrap) orient and stop instead of hanging on `AskUserQuestion`
+- feat(plugin): `/vault-cli:work-on-task` accepts `--non-interactive` — still orients the task (assistant sets status, tracks the daily note, discovers guides) but skips the create-task prompt (Phase 4) and the plan-task/execute-task sharpening chain (Phase 5), so headless callers (e.g. `vault-cli work-on`'s `claude --print` bootstrap) orient and stop instead of hanging on `AskUserQuestion`
 
 ## v0.96.0
 

@@ -1,6 +1,6 @@
 ---
 status: completed
-spec: ["021"]
+spec: [021-resolve-name-subcommand]
 summary: Added ResolveResult domain type in pkg/domain/resolve_result.go with JSON serialization tests covering task/goal/not-found cases
 execution_id: vault-cli-resolve-exec-154-resolve-name-subcommand
 dark-factory-version: dev

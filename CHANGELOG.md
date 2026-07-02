@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat: Config loading follows XDG Base Directory spec — new FindConfigDir prefers ~/.config/vault-cli/ over legacy ~/.vault-cli/ with no forced migration
+
 ## v0.95.0
 
 - feat(domain): add `ResolveResult` domain type for name-resolution probe outcomes, serializing to `{"type":"task|goal|","name":"...","found":true|false}` JSON contract

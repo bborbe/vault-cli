@@ -1,6 +1,6 @@
 ---
 status: completed
-spec: ["021"]
+spec: [021-resolve-name-subcommand]
 summary: Added ResolveOperation in pkg/ops/resolve.go with task-first name resolution and full unit test coverage
 execution_id: vault-cli-resolve-exec-155-resolve-name-subcommand
 dark-factory-version: dev

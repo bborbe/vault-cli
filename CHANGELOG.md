@@ -11,6 +11,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 ## v0.96.1
 
 - refactor(plugin): rename orchestration-mode flag `--tool` → `--non-interactive` and internal label `MODE=tool` → `MODE=non_interactive` across create-task, create-goal, complete-task, complete-goal, defer-task, defer-goal commands and task-creator, goal-creator, goal-manager-agent agents; the command/agent instructions still accept `--tool` as a deprecated alias for one release. These flags are Claude Code slash-command arguments interpreted by the agent instructions — not vault-cli binary flags.
+- feat(plugin): `/vault-cli:work-on-task` accepts `--non-interactive` — still orients the task (assistant sets status, tracks the daily note, discovers guides) but skips the create-task prompt (Phase 4) and the plan-task/execute-task sharpening chain (Phase 5), so headless callers (e.g. `vault-cli work-on`'s `claude --print` bootstrap) orient and stop instead of hanging on `AskUserQuestion`
 
 ## v0.96.0
 

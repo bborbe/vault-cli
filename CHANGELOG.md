@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.95.0
 
 - feat(domain): add `ResolveResult` domain type for name-resolution probe outcomes, serializing to `{"type":"task|goal|","name":"...","found":true|false}` JSON contract
 - feat(ops): add `ResolveOperation` in `pkg/ops/resolve.go` — probes task storage first, then goal storage, returning `ResolveResult` with task-first priority; miss returns `found:false` with no error

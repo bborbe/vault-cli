@@ -1,7 +1,8 @@
 ---
-spec: ["021"]
 status: draft
+spec: [021-resolve-name-subcommand]
 created: "2026-07-02T10:00:00Z"
+branch: dark-factory/resolve-name-subcommand
 ---
 
 <summary>

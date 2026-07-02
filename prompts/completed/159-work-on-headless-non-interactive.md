@@ -1,7 +1,12 @@
 ---
-status: approved
+status: completed
+summary: Appended `--non-interactive` to the headless bootstrap prompt in `handleClaudeSession` and added unit test verifying the flag is present and the task file path is preserved
+execution_id: vault-cli-exec-159-work-on-headless-non-interactive
+dark-factory-version: v0.191.0
 created: "2026-07-02T18:15:00Z"
 queued: "2026-07-02T17:51:16Z"
+started: "2026-07-02T17:54:37Z"
+completed: "2026-07-02T17:56:03Z"
 ---
 
 <summary>

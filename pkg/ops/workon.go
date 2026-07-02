@@ -188,7 +188,10 @@ func (w *workOnOperation) handleClaudeSession(
 	if w.starter == nil {
 		return "", ErrStarterUnavailable
 	}
-	prompt := fmt.Sprintf(`%s "%s"`, vault.GetWorkOnCommand(), task.FilePath)
+	// The bootstrap always runs headless `claude --print`, which cannot answer
+	// AskUserQuestion; --non-interactive tells the work-on command to take safe
+	// defaults instead of prompting (prevents the 5m headless hang).
+	prompt := fmt.Sprintf(`%s "%s" --non-interactive`, vault.GetWorkOnCommand(), task.FilePath)
 	slog.Info("starting claude session", "task", task.Name)
 	sessionID, err := w.starter.StartSession(ctx, prompt, vaultPath, task.Name)
 	if err != nil {

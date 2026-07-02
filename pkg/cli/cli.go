@@ -110,6 +110,8 @@ func NewRootCommand(ctx context.Context) *cobra.Command {
 	// Add root-level search command
 	rootCmd.AddCommand(createSearchCommand(ctx, &configLoader, &vaultName, &outputFormat))
 
+	rootCmd.AddCommand(createResolveCommand(ctx, &configLoader, &vaultName, &outputFormat))
+
 	rootCmd.AddCommand(createTaskCommands(ctx, &configLoader, &vaultName, &outputFormat))
 
 	rootCmd.AddCommand(createGoalCommands(ctx, &configLoader, &vaultName, &outputFormat))
@@ -1122,6 +1124,44 @@ func createEntityListRemoveCommand(
 			}
 			fmt.Printf("✅ Removed %s from %s on: %s\n", value, field, entityName)
 			return nil
+		},
+	}
+}
+
+func createResolveCommand(
+	ctx context.Context,
+	configLoader *config.Loader,
+	vaultName *string,
+	outputFormat *string,
+) *cobra.Command {
+	return &cobra.Command{
+		Use:   "resolve <name>",
+		Short: "Resolve a name to its entity type (task or goal)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			name := args[0]
+			vaults, err := getVaults(ctx, configLoader, vaultName)
+			if err != nil {
+				return errors.Wrap(ctx, err, "get vaults")
+			}
+
+			dispatcher := ops.NewVaultDispatcher()
+			return dispatcher.FirstSuccess(ctx, vaults, func(vault *config.Vault) error {
+				storageConfig := storage.NewConfigFromVault(vault)
+				taskStore := storage.NewTaskStorage(storageConfig)
+				goalStore := storage.NewGoalStorage(storageConfig)
+				resolveOp := ops.NewResolveOperation(taskStore, goalStore)
+				result, err := resolveOp.Execute(ctx, vault.Path, name)
+				// resolve always returns nil error under current contract; guard for future change
+				if err != nil {
+					return err
+				}
+				if *outputFormat == OutputFormatJSON {
+					return PrintJSON(result)
+				}
+				// plain mode: silent no-op — resolve is a machine contract
+				return nil
+			})
 		},
 	}
 }

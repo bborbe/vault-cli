@@ -17,9 +17,17 @@ import (
 	"github.com/onsi/gomega/gexec"
 )
 
-// createTempVault creates a temporary vault with tasks and config file
+// createTempVault creates a temporary vault with tasks, goals, and config file
 func createTempVault(
 	tasks map[string]string,
+) (vaultPath string, configPath string, cleanup func()) {
+	return createTempVaultWithGoals(tasks, nil)
+}
+
+// createTempVaultWithGoals creates a temporary vault with tasks, goals, and config file
+func createTempVaultWithGoals(
+	tasks map[string]string,
+	goals map[string]string,
 ) (vaultPath string, configPath string, cleanup func()) {
 	var err error
 	vaultPath, err = os.MkdirTemp("", "vault-*")
@@ -35,12 +43,25 @@ func createTempVault(
 		Expect(err).NotTo(HaveOccurred())
 	}
 
+	if goals != nil {
+		goalsDir := filepath.Join(vaultPath, "Goals")
+		err = os.MkdirAll(goalsDir, 0755)
+		Expect(err).NotTo(HaveOccurred())
+
+		for name, content := range goals {
+			goalPath := filepath.Join(goalsDir, name+".md")
+			err = os.WriteFile(goalPath, []byte(content), 0600)
+			Expect(err).NotTo(HaveOccurred())
+		}
+	}
+
 	configContent := fmt.Sprintf(`default_vault: test
 vaults:
   test:
     name: test
     path: %s
     tasks_dir: Tasks
+    goals_dir: Goals
 `, vaultPath)
 
 	configFile, err := os.CreateTemp("", "vault-config-*.yaml")
@@ -139,6 +160,7 @@ var _ = Describe("vault-cli integration tests", func() {
 			Entry("decision ack", "decision", "ack"),
 			// Root-level commands
 			Entry("search", "search"),
+			Entry("resolve", "resolve"),
 			Entry("watch", "watch"),
 			// Config subcommands
 			Entry("config list", "config", "list"),
@@ -910,6 +932,138 @@ priority: 2
 				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 				Expect(err).NotTo(HaveOccurred())
 				Eventually(session).Should(gexec.Exit(1))
+			})
+		})
+
+		})
+
+	Describe("vault-cli resolve", func() {
+		var configPath string
+		var cleanup func()
+
+		Context("with task and goal present", func() {
+			BeforeEach(func() {
+				_, configPath, cleanup = createTempVaultWithGoals(
+					map[string]string{
+						"my-task": `---
+status: todo
+priority: 2
+---
+# My Task
+`,
+					},
+					map[string]string{
+						"my-goal": `---
+status: todo
+page_type: goal
+---
+# My Goal
+`,
+					},
+				)
+			})
+
+			AfterEach(func() {
+				cleanup()
+			})
+
+			It("returns task match as JSON", func() {
+				cmd := exec.Command(
+					binPath,
+					"--config", configPath,
+					"--vault", "test",
+					"resolve", "my-task",
+					"--output", "json",
+				)
+				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+				Expect(err).NotTo(HaveOccurred())
+				Eventually(session).Should(gexec.Exit(0))
+
+				var result map[string]any
+				Expect(json.Unmarshal(session.Out.Contents(), &result)).To(Succeed())
+				Expect(result).To(HaveKeyWithValue("type", "task"))
+				Expect(result).To(HaveKeyWithValue("name", "my-task"))
+				Expect(result).To(HaveKeyWithValue("found", true))
+			})
+
+			It("returns goal match as JSON", func() {
+				cmd := exec.Command(
+					binPath,
+					"--config", configPath,
+					"--vault", "test",
+					"resolve", "my-goal",
+					"--output", "json",
+				)
+				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+				Expect(err).NotTo(HaveOccurred())
+				Eventually(session).Should(gexec.Exit(0))
+
+				var result map[string]any
+				Expect(json.Unmarshal(session.Out.Contents(), &result)).To(Succeed())
+				Expect(result).To(HaveKeyWithValue("type", "goal"))
+				Expect(result).To(HaveKeyWithValue("name", "my-goal"))
+				Expect(result).To(HaveKeyWithValue("found", true))
+			})
+
+			It("returns not found for unknown name", func() {
+				cmd := exec.Command(
+					binPath,
+					"--config", configPath,
+					"--vault", "test",
+					"resolve", "nonexistent",
+					"--output", "json",
+				)
+				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+				Expect(err).NotTo(HaveOccurred())
+				Eventually(session).Should(gexec.Exit(0))
+
+				var result map[string]any
+				Expect(json.Unmarshal(session.Out.Contents(), &result)).To(Succeed())
+				Expect(result).To(HaveKeyWithValue("type", ""))
+				Expect(result).To(HaveKeyWithValue("name", "nonexistent"))
+				Expect(result).To(HaveKeyWithValue("found", false))
+				// Verify empty-string type and false are serialized (not omitempty)
+				raw := string(session.Out.Contents())
+				Expect(raw).To(ContainSubstring(`"type": ""`))
+				Expect(raw).To(ContainSubstring(`"found": false`))
+			})
+
+			It("task-first priority when name matches both", func() {
+				_, configPath2, cleanup2 := createTempVaultWithGoals(
+					map[string]string{
+						"collision": `---
+status: todo
+priority: 1
+---
+# Collision Task
+`,
+					},
+					map[string]string{
+						"collision": `---
+status: todo
+page_type: goal
+---
+# Collision Goal
+`,
+					},
+				)
+				defer cleanup2()
+
+				cmd := exec.Command(
+					binPath,
+					"--config", configPath2,
+					"--vault", "test",
+					"resolve", "collision",
+					"--output", "json",
+				)
+				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+				Expect(err).NotTo(HaveOccurred())
+				Eventually(session).Should(gexec.Exit(0))
+
+				var result map[string]any
+				Expect(json.Unmarshal(session.Out.Contents(), &result)).To(Succeed())
+				Expect(result).To(HaveKeyWithValue("type", "task"))
+				Expect(result).To(HaveKeyWithValue("found", true))
 			})
 		})
 	})

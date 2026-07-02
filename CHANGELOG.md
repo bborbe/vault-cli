@@ -8,6 +8,12 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat(domain): add `ResolveResult` domain type for name-resolution probe outcomes, serializing to `{"type":"task|goal|","name":"...","found":true|false}` JSON contract
+- feat(ops): add `ResolveOperation` in `pkg/ops/resolve.go` — probes task storage first, then goal storage, returning `ResolveResult` with task-first priority; miss returns `found:false` with no error
+- feat(cli): add `vault-cli resolve <name>` top-level command — resolves a name to its entity type (task or goal) using `ResolveOperation`, JSON-only output via `--output json`, plain mode silent no-op; supports `--vault` flag and multi-vault first-success dispatch
+
 ## v0.94.0
 
 - feat(session-close): add **Phase 8.7 — detect self-improve-worthy signals**, the friction-scoring sibling of Phase 8's reflect detection. Scores general behavior corrections, repeated instructions, misfired commands/agents, documented-rule violations, and manual multi-step workflows with no command; at score ≥ 3 surfaces a suggest-only `/coding:self-improve` nudge in Phase 9 (mode 2 + outstanding list). Never auto-runs — mirrors the reflect contract. Reflect captures durable knowledge; self-improve captures tooling friction.

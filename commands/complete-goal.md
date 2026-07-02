@@ -1,6 +1,6 @@
 ---
 description: Mark goal as complete (checks subtasks and success criteria)
-argument-hint: "<goal-name-or-path> [--tool] [--force]"
+argument-hint: "<goal-name-or-path> [--non-interactive] [--force]"
 ---
 
 <objective>
@@ -9,7 +9,7 @@ Mark goal as complete using vault-cli. Verifies success criteria and linked subt
 
 <process>
 1. Parse arguments:
-   - If contains `--tool` → MODE=tool, remove flag from args
+   - If contains `--non-interactive` (or deprecated `--tool`) → MODE=non_interactive, remove flag from args
    - If contains `--force` → FORCE=true, remove flag from args
    - Otherwise → MODE=interactive
    - Extract goal name from remaining args
@@ -41,7 +41,7 @@ Mark goal as complete using vault-cli. Verifies success criteria and linked subt
       ```
       - If warnings in output, show them
 
-3. **MODE=tool (--tool flag):**
+3. **MODE=non_interactive (--non-interactive flag):**
 
    a. Read goal file to check completion state
    b. If incomplete success criteria or open subtasks (and FORCE not set):
@@ -60,7 +60,7 @@ Mark goal as complete using vault-cli. Verifies success criteria and linked subt
 
 <success_criteria>
 - vault-cli goal complete invoked (NOT Edit tool for frontmatter)
-- **MODE=tool**: Returns JSON only, never forces unless `--force` explicitly passed
+- **MODE=non_interactive**: Returns JSON only, never forces unless `--force` explicitly passed
 - **MODE=interactive**: Shows progress, asks if incomplete, reports result
 - Parent objective updated (by vault-cli)
 - `--force` only used when user explicitly approves or passes the flag

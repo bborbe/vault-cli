@@ -1,6 +1,7 @@
 ---
-status: draft
+status: approved
 created: "2026-07-02T18:15:00Z"
+queued: "2026-07-02T17:51:16Z"
 ---
 
 <summary>

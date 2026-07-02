@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- refactor(plugin): rename orchestration-mode flag `--tool` → `--non-interactive` and internal label `MODE=tool` → `MODE=non_interactive` across create-task, create-goal, complete-task, complete-goal, defer-task, defer-goal commands and task-creator, goal-creator, goal-manager-agent agents; `--tool` kept as a deprecated alias (parsers accept both) for one release
+
 ## v0.96.0
 
 - feat: Config loading follows XDG Base Directory spec — new FindConfigDir prefers ~/.config/vault-cli/ over legacy ~/.vault-cli/ with no forced migration

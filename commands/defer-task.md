@@ -1,6 +1,6 @@
 ---
 description: Defer task to specific date
-argument-hint: "<task-name> <YYYY-MM-DD|+Nd|weekday> [--tool]"
+argument-hint: "<task-name> <YYYY-MM-DD|+Nd|weekday> [--non-interactive]"
 allowed-tools: Bash(vault-cli task defer:*)
 ---
 
@@ -10,7 +10,7 @@ Defer task to specific date using vault-cli. Supports absolute (YYYY-MM-DD), rel
 
 <process>
 1. Parse arguments:
-   - If contains `--tool` → MODE=tool, remove flag from args
+   - If contains `--non-interactive` (or deprecated `--tool`) → MODE=non_interactive, remove flag from args
    - Otherwise → MODE=interactive
    - Split remaining args: task name = all but last, date = last word
 
@@ -30,7 +30,7 @@ Defer task to specific date using vault-cli. Supports absolute (YYYY-MM-DD), rel
       ```
       - If warnings in output, show them
 
-3. **MODE=tool (--tool flag):**
+3. **MODE=non_interactive (--non-interactive flag):**
 
    a. Run vault-cli:
       ```bash
@@ -53,6 +53,6 @@ Defer task to specific date using vault-cli. Supports absolute (YYYY-MM-DD), rel
 - Date parsed and validated (by vault-cli)
 - Task defer_date updated (by vault-cli)
 - Daily notes updated (by vault-cli)
-- MODE=tool: Returns JSON only
+- MODE=non_interactive: Returns JSON only
 - MODE=interactive: Full report
 </success_criteria>

@@ -139,6 +139,7 @@ var _ = Describe("vault-cli integration tests", func() {
 			Entry("decision ack", "decision", "ack"),
 			// Root-level commands
 			Entry("search", "search"),
+			Entry("resolve", "resolve"),
 			Entry("watch", "watch"),
 			// Config subcommands
 			Entry("config list", "config", "list"),

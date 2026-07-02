@@ -12,6 +12,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 
 - feat(domain): add `ResolveResult` domain type for name-resolution probe outcomes, serializing to `{"type":"task|goal|","name":"...","found":true|false}` JSON contract
 - feat(ops): add `ResolveOperation` in `pkg/ops/resolve.go` — probes task storage first, then goal storage, returning `ResolveResult` with task-first priority; miss returns `found:false` with no error
+- feat(cli): add `vault-cli resolve <name>` top-level command — resolves a name to its entity type (task or goal) using `ResolveOperation`, JSON-only output via `--output json`, plain mode silent no-op; supports `--vault` flag and multi-vault first-success dispatch
 
 ## v0.94.0
 

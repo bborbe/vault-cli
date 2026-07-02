@@ -29,7 +29,7 @@ Read these files before implementing:
 
 Design note (resolved for this prompt):
 - The append is UNCONDITIONAL. `StartSession` always runs headless `claude --print` to CREATE the session; that turn cannot answer `AskUserQuestion` even when vault-cli is in interactive mode (interactive sharpening happens afterward in `ResumeSession`, the sibling path in `pkg/ops/claude_resume.go`, which is correctly left alone). So the bootstrap must always be non-interactive.
-- The default work-on command `/vault-cli:work-on-task` honors `--non-interactive`; passing it to a custom `work_on_command` that ignores it is harmless (extra prompt text).
+- The default work-on command `/vault-cli:work-on-task` honors `--non-interactive` as of the plugin change that added non-interactive Phase 4 / Phase 5 gating (already merged to master). This Go change ONLY makes vault-cli *pass* the flag; the runtime contract — the command actually skipping its `AskUserQuestion` gates — lives in the slash-command definition and cannot be unit-tested from Go. Passing the flag to a custom `work_on_command` that ignores it is harmless (extra prompt text).
 </context>
 
 <requirements>
@@ -62,4 +62,6 @@ Run `make precommit` — must pass.
 Run `make test` — unit suite passes.
 Run `grep -n "non-interactive" pkg/ops/workon.go` — ≥1 line.
 Run `grep -n "non-interactive" pkg/ops/workon_test.go` — ≥1 line (new assertion).
+
+Note: `make precommit` / `make test` only prove the flag string is appended and tests compile. The end-to-end no-hang behavior depends on the deployed plugin's `/vault-cli:work-on-task` honoring `--non-interactive` (that handling is on master already). This Go-only prompt cannot exercise that boundary — confirm it at deploy time, where the slash-command runs.
 </verification>

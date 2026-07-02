@@ -17,7 +17,7 @@ Find task details and relevant operational guides before starting work. Delegate
 ## Process
 
 1. **Parse input**
-   - Parse `$ARGUMENTS`: if it contains `--non-interactive` (or deprecated `--tool`) → set `MODE=non_interactive` and strip that flag token from the arguments; otherwise `MODE=interactive`. Use the stripped arguments as the task identifier everywhere below — NEVER pass the flag token into the assistant prompt or task search.
+   - Parse `$ARGUMENTS`: if it contains `--non-interactive` → set `MODE=non_interactive` and strip that flag token from the arguments; otherwise `MODE=interactive`. Parsing is self-contained here — it does not depend on any other command. Use the stripped arguments as the task identifier everywhere below — NEVER pass the flag token into the assistant prompt or task search.
    - If no argument remains after stripping: `❌ Pass a task identifier or description.` and STOP
 
    **`MODE=non_interactive`** exists for headless callers — e.g. `vault-cli work-on`'s Claude bootstrap runs `claude --print`, which cannot answer `AskUserQuestion`, so an interactive gate would block until the session-start timeout. In this mode the command NEVER calls `AskUserQuestion` and NEVER runs the interactive sharpening chain (Phase 5): it orients (via the assistant) and stops. Interactive sharpening resumes later when the session is opened in a real terminal.

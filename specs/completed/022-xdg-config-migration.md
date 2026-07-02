@@ -1,5 +1,5 @@
 ---
-status: verifying
+status: completed
 tags:
     - dark-factory
     - spec
@@ -7,6 +7,7 @@ approved: "2026-07-02T11:43:30Z"
 generating: "2026-07-02T11:47:05Z"
 prompted: "2026-07-02T11:53:47Z"
 verifying: "2026-07-02T11:57:19Z"
+completed: "2026-07-02T12:04:11Z"
 branch: dark-factory/xdg-config-migration
 ---
 

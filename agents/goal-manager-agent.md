@@ -83,7 +83,7 @@ Show goal status. Accepts an explicit goal name/path, or detects from conversati
      - MODE=interactive: parse conversation for file paths, wiki links, goal mentions
        - 0 matches → error "No active goal detected; pass a goal name explicitly"
        - >1 matches → AskUserQuestion to select
-     - MODE=tool: return `{"success": false, "error": "goal name required in tool mode"}` and STOP
+     - MODE=non_interactive: return `{"success": false, "error": "goal name required in tool mode"}` and STOP
 
 2. **Find goal file:**
    ```

@@ -29,9 +29,9 @@ You create one goal file in the configured vault. You read the vault config via 
 
 ## 1. Parse arguments
 
-Input form: `[goal description] [--tool] [--vault NAME] [--objective NAME]`.
+Input form: `[goal description] [--non-interactive] [--vault NAME] [--objective NAME]`.
 
-- `--tool` → MODE = `tool` (machine-readable JSON output, no AskUserQuestion calls, no audit, hard-fail on collision)
+- `--non-interactive` (deprecated alias: `--tool`) → MODE = `non_interactive` (machine-readable JSON output, no AskUserQuestion calls, no audit, hard-fail on collision)
 - `--vault NAME` → target vault override
 - `--objective NAME` → parent objective name (string match against objectives_dir)
 - Remaining tokens → goal description / title
@@ -52,7 +52,7 @@ Find the vault entry matching the requested vault name (or `default_vault` from 
 - `objectives_dir` — parent objective lookup folder (or empty)
 - `themes_dir` — theme folder (or empty)
 
-If the vault is not found, report the error and stop. In MODE=tool, return `{"success": false, "error": "..."}`.
+If the vault is not found, report the error and stop. In MODE=non_interactive, return `{"success": false, "error": "..."}`.
 
 ## 3. Compose the title
 
@@ -68,8 +68,8 @@ Final filename: `{Title}.md` (no Jira prefix; goals are higher-level than tasks)
 If `--objective NAME` was provided:
 
 - Glob `{vault.path}/{objectives_dir}/*.md` and find a name match (case-insensitive, partial OK)
-- If 0 matches → MODE=tool fails with `objective not found`; MODE=interactive AskUserQuestion to pick from list or skip
-- If >1 matches → MODE=tool fails; MODE=interactive AskUserQuestion to pick
+- If 0 matches → MODE=non_interactive fails with `objective not found`; MODE=interactive AskUserQuestion to pick from list or skip
+- If >1 matches → MODE=non_interactive fails; MODE=interactive AskUserQuestion to pick
 - Store as `OBJECTIVE_LINK` (e.g. `[[Objective Name]]`)
 
 If `--objective` not provided, leave `OBJECTIVE_LINK` empty. Do not auto-detect.
@@ -86,14 +86,14 @@ In MODE=interactive, AskUserQuestion for timeline:
 
 If the user picks a duration, compute `start_date = today` and `end_date = today + N weeks`. Store as `TIMELINE = "{start_date} to {end_date}"`.
 
-In MODE=tool, leave timeline empty.
+In MODE=non_interactive, leave timeline empty.
 
 ## 6. Determine category and priority
 
 - **Category**: infer from keywords or description (e.g. `trading`, `health`, `learning`, `personal`); leave empty if unclear
 - **Priority**: default 3; raise to 2 if user description signals importance; 1 reserved for top-priority goals
 
-In MODE=tool, default to category=`""` and priority=3, do not block.
+In MODE=non_interactive, default to category=`""` and priority=3, do not block.
 
 ## 7. Resolve template body
 
@@ -129,7 +129,7 @@ If a template body was loaded in step 7, use it. Otherwise, generate the standar
 
 1. `Tags: [[Goal]]` (plus theme tags if set)
 2. `---` separator
-3. Short summary paragraph (1–2 sentences). **First sentence MUST state the outcome** — what's true when the goal is done, not what work happens. E.g. "Reduce X from Y to Z" not "Build Z by doing W". **Before writing, rephrase any mechanism-phrased input into outcome form** — this rule applies in both interactive and tool mode; do NOT rely on step 12 audit to catch it (audit only runs in interactive mode). Avoid `via X` / `by doing Y` / `through Z` / `Split X / Build Y / Refactor Z / Set up Z` openings — these are mechanism leaks. Mechanism details belong in `# Impact` as an "Approach" lead paragraph. See `docs/goal-writing.md#summary-first-sentence` for the sniff test.
+3. Short summary paragraph (1–2 sentences). **First sentence MUST state the outcome** — what's true when the goal is done, not what work happens. E.g. "Reduce X from Y to Z" not "Build Z by doing W". **Before writing, rephrase any mechanism-phrased input into outcome form** — this rule applies in both interactive and non_interactive mode; do NOT rely on step 12 audit to catch it (audit only runs in interactive mode). Avoid `via X` / `by doing Y` / `through Z` / `Split X / Build Y / Refactor Z / Set up Z` openings — these are mechanism leaks. Mechanism details belong in `# Impact` as an "Approach" lead paragraph. See `docs/goal-writing.md#summary-first-sentence` for the sniff test.
 4. `# Impact` — why this goal matters strategically. If a brief mechanism description is needed, lead with an "**Approach**:" paragraph before the strategic bullets.
 5. `# Status Summary` — Progress / Current / Next / Blockers placeholders
 6. `# Success Criteria` — measurable outcomes as checkboxes
@@ -145,7 +145,7 @@ Glob: {vault.path}/{goals_dir}/{filename}
 
 If the file already exists:
 
-- MODE=tool → return `{"success": false, "error": "goal file already exists: ..."}`
+- MODE=non_interactive → return `{"success": false, "error": "goal file already exists: ..."}`
 - MODE=interactive → AskUserQuestion: 1. Pick a different name  2. Cancel
 
 ## 11. Write the file
@@ -170,7 +170,7 @@ Run a light self-audit against the file:
 - If `timeline` is set, validate it is ≤ 4 weeks
 - No accidental empty sections
 
-Skip in MODE=tool.
+Skip in MODE=non_interactive.
 
 ## 13. Return
 
@@ -187,13 +187,13 @@ Next steps:
 3. Verify: /vault-cli:verify-goal "{title}"
 ```
 
-MODE=tool output (single JSON object on stdout, nothing else):
+MODE=non_interactive output (single JSON object on stdout, nothing else):
 
 ```json
 {"success": true, "path": "{absolute_path}", "filename": "{filename}"}
 ```
 
-On error in MODE=tool:
+On error in MODE=non_interactive:
 
 ```json
 {"success": false, "error": "<message>"}
@@ -205,7 +205,7 @@ On error in MODE=tool:
 - Vault not found → fail with the requested vault name in the error
 - `goals_dir` directory does not exist on disk → create it (`mkdir -p`) before writing
 - `goal_template` configured but file missing → fail with "template not found: {path}"
-- `--objective` not resolvable → MODE=tool fails; MODE=interactive prompts
+- `--objective` not resolvable → MODE=non_interactive fails; MODE=interactive prompts
 - Filename collision → see step 10
 - Timeline > 4 weeks → fail with "goals must be ≤ 4 weeks; use an objective for longer horizons"
 </error_handling>

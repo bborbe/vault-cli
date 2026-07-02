@@ -1,8 +1,9 @@
 ---
-status: prompted
+status: verifying
 approved: "2026-07-02T09:43:09Z"
 generating: "2026-07-02T09:43:10Z"
 prompted: "2026-07-02T09:50:09Z"
+verifying: "2026-07-02T09:52:15Z"
 branch: dark-factory/resolve-name-subcommand
 ---
 

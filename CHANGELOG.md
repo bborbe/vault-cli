@@ -1,9 +1,5 @@
 # Changelog
 
-## v0.96.2
-
-- fix(workon): append `--non-interactive` to the headless `claude --print` bootstrap prompt in `handleClaudeSession` to prevent the 5-minute hang when `work-on` command needs input that cannot be answered headlessly
-
 All notable changes to this project will be documented in this file.
 
 Please choose versions by [Semantic Versioning](http://semver.org/).
@@ -11,6 +7,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MAJOR version when you make incompatible API changes,
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
+
+## v0.96.2
+
+- fix(workon): append `--non-interactive` to the headless `claude --print` bootstrap prompt in `handleClaudeSession` to prevent the 5-minute hang when `work-on` command needs input that cannot be answered headlessly
 
 ## v0.96.1
 

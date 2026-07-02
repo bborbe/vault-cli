@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.96.3
 
 - docs(dod): specify `## Unreleased` placement in the Definition of Done — must sit below the preamble and above the newest version section, never above the preamble (prevents the malformed-CHANGELOG class of error a dark-factory prompt can otherwise introduce)
 

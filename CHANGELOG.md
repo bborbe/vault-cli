@@ -10,7 +10,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 
 ## Unreleased
 
-- refactor(plugin): rename orchestration-mode flag `--tool` → `--non-interactive` and internal label `MODE=tool` → `MODE=non_interactive` across create-task, create-goal, complete-task, complete-goal, defer-task, defer-goal commands and task-creator, goal-creator, goal-manager-agent agents; `--tool` kept as a deprecated alias (parsers accept both) for one release
+- refactor(plugin): rename orchestration-mode flag `--tool` → `--non-interactive` and internal label `MODE=tool` → `MODE=non_interactive` across create-task, create-goal, complete-task, complete-goal, defer-task, defer-goal commands and task-creator, goal-creator, goal-manager-agent agents; the command/agent instructions still accept `--tool` as a deprecated alias for one release. These flags are Claude Code slash-command arguments interpreted by the agent instructions — not vault-cli binary flags.
 
 ## v0.96.0
 

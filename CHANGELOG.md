@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- docs(dod): specify `## Unreleased` placement in the Definition of Done — must sit below the preamble and above the newest version section, never above the preamble (prevents the malformed-CHANGELOG class of error a dark-factory prompt can otherwise introduce)
+
 ## v0.96.2
 
 - fix(workon): append `--non-interactive` to the headless `claude --print` bootstrap prompt in `handleClaudeSession` to prevent the 5-minute hang when `work-on` command needs input that cannot be answered headlessly

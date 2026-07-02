@@ -90,7 +90,7 @@ Final filename: `{JIRA_KEY }{Title}.md` (Jira key prefix only when detected).
 
 ## 6. Determine category and priority
 
-- **Category**: infer from keywords or task content (e.g. `octopus`, `trading`, `personal`); if unclear, leave empty in tool mode or AskUserQuestion in interactive mode
+- **Category**: infer from keywords or task content (e.g. `octopus`, `trading`, `personal`); if unclear, leave empty in non_interactive mode or AskUserQuestion in interactive mode
 - **Priority**: default 3 (low/normal); raise to 2 if SEV-2/3 incident or if user description signals urgency; 1 only on SEV-1
 
 ## 7. Resolve template body

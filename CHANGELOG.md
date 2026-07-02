@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat(domain): add `ResolveResult` domain type for name-resolution probe outcomes, serializing to `{"type":"task|goal|","name":"...","found":true|false}` JSON contract
+
 ## v0.94.0
 
 - feat(session-close): add **Phase 8.7 — detect self-improve-worthy signals**, the friction-scoring sibling of Phase 8's reflect detection. Scores general behavior corrections, repeated instructions, misfired commands/agents, documented-rule violations, and manual multi-step workflows with no command; at score ≥ 3 surfaces a suggest-only `/coding:self-improve` nudge in Phase 9 (mode 2 + outstanding list). Never auto-runs — mirrors the reflect contract. Reflect captures durable knowledge; self-improve captures tooling friction.

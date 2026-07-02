@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.96.2
 
 - fix(workon): append `--non-interactive` to the headless `claude --print` bootstrap prompt in `handleClaudeSession` to prevent the 5-minute hang when `work-on` command needs input that cannot be answered headlessly
 

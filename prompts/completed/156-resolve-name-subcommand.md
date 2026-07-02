@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: ["021"]
+summary: Added vault-cli resolve top-level command wiring ResolveOperation into CLI with JSON-only output and silent plain mode, plus integration test entry
+execution_id: vault-cli-resolve-exec-156-resolve-name-subcommand
+dark-factory-version: dev
 created: "2026-07-02T10:00:00Z"
 queued: "2026-07-02T09:46:53Z"
+started: "2026-07-02T09:50:24Z"
+completed: "2026-07-02T09:52:14Z"
 ---
 
 <summary>

@@ -935,7 +935,7 @@ priority: 2
 			})
 		})
 
-		})
+	})
 
 	Describe("vault-cli resolve", func() {
 		var configPath string

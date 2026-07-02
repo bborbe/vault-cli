@@ -30,9 +30,9 @@ You create one task file in the configured vault. You read the vault config via 
 
 ## 1. Parse arguments
 
-Input form: `[task description] [--tool] [--vault NAME]`.
+Input form: `[task description] [--non-interactive] [--vault NAME]`.
 
-- `--tool` → MODE = `tool` (machine-readable JSON output, no AskUserQuestion calls, no audit, hard-fail on collision)
+- `--non-interactive` (deprecated alias: `--tool`) → MODE = `non_interactive` (machine-readable JSON output, no AskUserQuestion calls, no audit, hard-fail on collision)
 - `--vault NAME` → target vault override
 - Remaining tokens → task description / title
 
@@ -51,7 +51,7 @@ Find the vault entry matching the requested vault name (or `default_vault` from 
 - `task_template` — absolute path to the task template (or empty/absent)
 - `goals_dir` — for optional parent-goal linking (or empty)
 
-If the vault is not found, report the error and stop. In MODE=tool, return `{"success": false, "error": "..."}`.
+If the vault is not found, report the error and stop. In MODE=non_interactive, return `{"success": false, "error": "..."}`.
 
 ## 3. Detect Jira / issue key in the description
 
@@ -60,7 +60,7 @@ Scan the description for patterns like `BRO-18665`, `TRADE-4304`, `OC-2042`, etc
 - If found, store as `JIRA_KEY` and remove from the title text.
 - If a single key is found, prepend it to the final filename: `{JIRA_KEY} {Title}.md`.
 
-In MODE=interactive, optionally fetch the Jira issue details via `mcp__atlassian__getJiraIssue` to enrich the title and description (only if a Jira key was detected and the MCP tool is available). Skip in MODE=tool.
+In MODE=interactive, optionally fetch the Jira issue details via `mcp__atlassian__getJiraIssue` to enrich the title and description (only if a Jira key was detected and the MCP tool is available). Skip in MODE=non_interactive.
 
 ## 4. Detect incident-shaped task (interactive only)
 
@@ -77,7 +77,7 @@ If matched, AskUserQuestion with a SEV-1..SEV-4 picker:
 
 If the user picks a severity, store as `SEVERITY` for inclusion in frontmatter.
 
-Skip this step entirely in MODE=tool.
+Skip this step entirely in MODE=non_interactive.
 
 ## 5. Compose the title
 
@@ -90,7 +90,7 @@ Final filename: `{JIRA_KEY }{Title}.md` (Jira key prefix only when detected).
 
 ## 6. Determine category and priority
 
-- **Category**: infer from keywords or task content (e.g. `octopus`, `trading`, `personal`); if unclear, leave empty in tool mode or AskUserQuestion in interactive mode
+- **Category**: infer from keywords or task content (e.g. `octopus`, `trading`, `personal`); if unclear, leave empty in non_interactive mode or AskUserQuestion in interactive mode
 - **Priority**: default 3 (low/normal); raise to 2 if SEV-2/3 incident or if user description signals urgency; 1 only on SEV-1
 
 ## 7. Resolve template body
@@ -145,7 +145,7 @@ Glob: {vault.path}/{tasks_dir}/{filename}
 
 If the file already exists:
 
-- MODE=tool → return `{"success": false, "error": "task file already exists: ..."}`
+- MODE=non_interactive → return `{"success": false, "error": "task file already exists: ..."}`
 - MODE=interactive → AskUserQuestion: 1. Pick a different name  2. Cancel
 
 ## 11. Write the file
@@ -165,7 +165,7 @@ Run a light self-audit against the file:
 - Body has Success Criteria + Tasks sections (or template body)
 - No accidental empty sections
 
-Skip in MODE=tool.
+Skip in MODE=non_interactive.
 
 ## 13. Return
 
@@ -182,13 +182,13 @@ Next steps:
 3. Defer: /defer-task "{title}" <date>
 ```
 
-MODE=tool output (single JSON object on stdout, nothing else):
+MODE=non_interactive output (single JSON object on stdout, nothing else):
 
 ```json
 {"success": true, "path": "{absolute_path}", "filename": "{filename}"}
 ```
 
-On error in MODE=tool:
+On error in MODE=non_interactive:
 
 ```json
 {"success": false, "error": "<message>"}
@@ -201,5 +201,5 @@ On error in MODE=tool:
 - `tasks_dir` directory does not exist on disk → create it (`mkdir -p`) before writing
 - `task_template` configured but file missing → fail with "template not found: {path}"
 - Filename collision → see step 10
-- Unable to detect category/priority and MODE=tool → use category=`""` and priority=3, do not block
+- Unable to detect category/priority and MODE=non_interactive → use category=`""` and priority=3, do not block
 </error_handling>

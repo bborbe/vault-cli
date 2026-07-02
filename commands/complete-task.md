@@ -1,6 +1,6 @@
 ---
 description: Mark task as complete (normal or recurring)
-argument-hint: "<task-name-or-path> [--tool] [--force]"
+argument-hint: "<task-name-or-path> [--non-interactive] [--force]"
 allowed-tools:
   - Bash(vault-cli:*)
   - Read
@@ -12,9 +12,9 @@ Mark task as complete using vault-cli. Handles normal and recurring tasks approp
 
 <process>
 1. Parse arguments:
-   - If contains `--tool` → MODE=tool, remove flag from args
+   - If contains `--non-interactive` (or deprecated `--tool`) → MODE=non_interactive, remove flag from args
    - Otherwise → MODE=interactive
-   - If contains `--force` → FORCE=true, remove flag from args (interactive mode only — `--tool` overrides as defined in step 3)
+   - If contains `--force` → FORCE=true, remove flag from args (interactive mode only — `--non-interactive` overrides as defined in step 3)
    - Extract task name from remaining args
 
 2. **MODE=interactive (default):**
@@ -49,9 +49,9 @@ Mark task as complete using vault-cli. Handles normal and recurring tasks approp
 
       Rationale for this closer (one-task-per-session contract, why never `/vault-cli:next-task` here, why the "no end-of-day suggestions" global rule does NOT override): see [`sync-progress.md` Phase 6](sync-progress.md) — same contract applies. Single source of truth lives there to prevent drift.
 
-      MODE=tool MUST NOT emit this panel (see step 3 — JSON only).
+      MODE=non_interactive MUST NOT emit this panel (see step 3 — JSON only).
 
-3. **MODE=tool (--tool flag):**
+3. **MODE=non_interactive (--non-interactive flag):**
 
    a. Read task file to check completion state
    b. If incomplete items:
@@ -70,7 +70,7 @@ Mark task as complete using vault-cli. Handles normal and recurring tasks approp
 
    d. Never ask questions, never prompt.
 
-   e. **Never emit the `⚪ DONE` closer panel** — MODE=tool output is JSON only. The closer panel from step 2e is interactive-mode only.
+   e. **Never emit the `⚪ DONE` closer panel** — MODE=non_interactive output is JSON only. The closer panel from step 2e is interactive-mode only.
 
 4. Task types (handled by vault-cli internally):
    - Normal tasks: status→completed, goals updated, daily note checked
@@ -79,7 +79,7 @@ Mark task as complete using vault-cli. Handles normal and recurring tasks approp
 
 <success_criteria>
 - vault-cli task complete invoked (NOT Edit tool for frontmatter)
-- **MODE=tool**: Returns JSON only, sets phase=human_review if incomplete
+- **MODE=non_interactive**: Returns JSON only, sets phase=human_review if incomplete
 - **MODE=interactive**: Shows completion %, aborts with `--force` hint if incomplete (no prompts), reports result on success
 - Goal files updated (by vault-cli)
 - Daily note updated (by vault-cli)

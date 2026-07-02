@@ -194,6 +194,13 @@ var _ = Describe("WorkOnOperation", func() {
 			_, prompt, _, _ := mockStarter.StartSessionArgsForCall(0)
 			Expect(prompt).To(MatchRegexp(`^/custom-cmd "`))
 		})
+
+		It("appends --non-interactive to the bootstrap prompt", func() {
+			Expect(mockStarter.StartSessionCallCount()).To(Equal(1))
+			_, prompt, _, _ := mockStarter.StartSessionArgsForCall(0)
+			Expect(prompt).To(MatchRegexp(` --non-interactive$`))
+			Expect(prompt).To(MatchRegexp(`/path/to/vault/tasks/my-task\.md`))
+		})
 	})
 
 	Context("when starter is nil and task has no cached session ID", func() {

@@ -26,4 +26,4 @@ After completing your implementation, review your own changes against each crite
 ## Documentation
 
 - README.md is updated if the change affects usage, configuration, or setup
-- CHANGELOG.md has an entry under `## Unreleased`
+- CHANGELOG.md has an entry under `## Unreleased`. If that section does not exist yet, create it **below** the preamble block (the `All notable changes…` line and the `* MAJOR / MINOR / PATCH` lines) and **above** the newest `## vX.Y.Z` section — never between the `# Changelog` title and the preamble. The final order is always: `# Changelog` → preamble → `## Unreleased` → `## vX.Y.Z` (newest first).

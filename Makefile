@@ -27,6 +27,10 @@ precommit: ensure format generate test check addlicense
 check-versions:
 	@bash scripts/check-versions.sh
 
+.PHONY: check-changelog
+check-changelog:
+	@bash scripts/check-changelog.sh
+
 .PHONY: release-check
 release-check: precommit check-versions
 	@echo "ready to release"
@@ -64,7 +68,7 @@ test:
 	go test -mod=mod -count=1 -p=$${GO_TEST_PARALLEL:-1} -cover $(TESTFLAGS_RACE) $(shell go list -mod=mod ./... | grep -v /vendor/)
 
 .PHONY: check
-check: lint vet vulncheck osv-scanner trivy
+check: lint vet vulncheck osv-scanner trivy check-changelog
 
 .PHONY: lint
 lint:

@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.96.4
 
 - build: add `scripts/check-changelog.sh` (wired into `make check` → `precommit`) that fails the build when a `##` section is placed above the CHANGELOG preamble — guards against the malformed-CHANGELOG class of error a changelog edit can otherwise introduce undetected
 

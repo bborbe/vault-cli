@@ -1,16 +1,16 @@
 ---
-description: Validate that a task has Success Criteria and the subtasks needed to reach its goal; conversationally fill gaps; on phase=planning, transition to execution.
+description: Validate that a task has Success Criteria and the subtasks needed to reach its goal; conversationally fill gaps; leaves the task at phase=planning and hands off to execute-task (never flips phase itself).
 argument-hint: <task-file-path-or-name> (or detects from conversation)
 allowed-tools: [Task, Read, Edit, Glob, Bash, AskUserQuestion]
 ---
 
-Drive a task to *execution-ready* through conversation. Checks that the task has Success Criteria defined and subtasks that lead from now to the goal. Runs `task-auditor` for findings, asks targeted questions, applies answers, loops until ready. On a task in `phase: planning`, flips to `phase: execution` as the final step.
+Drive a task to *execution-ready* through conversation. Checks that the task has Success Criteria defined and subtasks that lead from now to the goal. Runs `task-auditor` for findings, asks targeted questions, applies answers, loops until ready. Leaves the task at `phase: planning` and points to `/vault-cli:execute-task` to begin — **plan-task never flips the phase itself**; `execute-task` owns the `planning → execution` transition.
 
 This command **must stay inline** — it analyzes the parent conversation when no argument is given; a sub-agent cannot see the conversation.
 
 ## When to use
 
-Right after `/vault-cli:create-task` (capture lenient → plan strict), or any time a task feels incomplete. Replaces `/vault-cli:refine-task` — same workflow plus a phase-aware tail.
+Right after `/vault-cli:create-task` (capture lenient → plan strict), or any time a task feels incomplete. Replaces `/vault-cli:refine-task` — same workflow plus an `execute-task` handoff.
 
 ```bash
 /vault-cli:plan-task                              # detects from conversation (e.g. just after /create-task)
@@ -109,23 +109,21 @@ Translate findings (auditor + non-negotiable checks) into questions. Rules:
 
 Apply each answer via `Edit`. Re-run auditor after each batch. Print delta `Score: X → Y`. Loop until score ≥ 8 AND all four hard non-negotiables pass OR owner says "good enough."
 
-### 7. Exit / phase transition
+### 7. Exit — hand off to execute-task (no phase flip)
 
-**Phase was `planning` AND score ≥ 8 AND hard non-negotiables pass:**
+**plan-task never flips the phase.** It validates and reports; `/vault-cli:execute-task` owns the `planning → execution` transition. This keeps each lifecycle command to one job and makes "start executing" a deliberate operator action.
 
-```bash
-vault-cli task set "<name>" phase execution
-```
+**Phase is `planning` AND score ≥ 8 AND hard non-negotiables pass:**
 
-Print: `✅ Task ready. Score: X/10. Phase: planning → execution. Next: <first unchecked SC>`
+Print: `✅ Plan ready. Score: X/10. Phase stays: planning. → Run /vault-cli:execute-task to begin execution.`
 
-**Phase is anything else (execution / ai_review / human_review / done):**
+**Phase is already past planning (execution / ai_review / human_review / done):**
 
 Print: `✅ Task sharpened. Score: X/10. Phase unchanged (was <phase>).`
 
 **Owner abort OR score < 8 after loop:**
 
-Print: `⚠ Task improved to X/10. Phase unchanged. Remaining: <bullets>. Re-run when ready.`
+Print: `⚠ Task improved to X/10. Phase unchanged. Remaining: <bullets>. Re-run /vault-cli:plan-task when ready.`
 
 ## Notes
 
@@ -135,7 +133,7 @@ Print: `⚠ Task improved to X/10. Phase unchanged. Remaining: <bullets>. Re-run
 - **Reads `~/.claude/plugins/marketplaces/vault-cli/docs/task-writing.md` as the canonical rule source** — same rules `task-auditor` enforces.
 - **Conversational on purpose.** Owner is the judge of substance. Plan-task never silently rewrites; every change comes from an explicit answer.
 - **Entry contract.** On a fresh task (`status: next, phase: todo`), plan-task flips to `in_progress, planning` itself. No `/work-on-task` prerequisite.
-- **Phase-aware tail.** Phase transition only fires on `phase: planning`. At any other phase, plan-task is a pure sharpener.
+- **No phase flip.** plan-task never transitions phase; it validates and hands off to `/vault-cli:execute-task`, which owns the `planning → execution` flip. Entry-contract flips (`next` → `in_progress` + `planning`) still happen in step 3.
 - **Mechanical fixes stay in `/audit-task`.** This command is for substance (SC, subtasks, goal alignment), not formatting.
 
 ## Integration
@@ -144,7 +142,7 @@ Task lifecycle:
 
 1. `/vault-cli:create-task` — capture (lenient)
 2. `/vault-cli:work-on-task` — orient (status + guides + daily note)
-3. **`/vault-cli:plan-task`** — sharpen (5 hard gates; may flip phase if entry contract permits) — this command
+3. **`/vault-cli:plan-task`** — sharpen (5 hard gates); never flips `planning → execution` — this command
 4. `/vault-cli:execute-task` — gate planning → execution; flips phase + prints first subtask + DoD reminder
 5. Start work — while working, use any of:
    - `/vault-cli:update-task` — log completed work, sync to daily note / parent goal
@@ -155,7 +153,7 @@ Task lifecycle:
 8. `/vault-cli:session-close` — verify session is safe to end (synced, committed, no orphaned state)
 
 Output ends with one of:
-- `✅ Task ready. Score: X/10. Phase: planning → execution.` (planning success)
+- `✅ Plan ready. Score: X/10. Phase stays: planning. → Run /vault-cli:execute-task.` (planning success)
 - `✅ Task sharpened. Score: X/10. Phase unchanged (was <phase>).` (non-planning success)
 - `⚠ Task improved to X/10. Phase unchanged. Remaining: <bullets>. Re-run when ready.` (partial)
 - `❌ Task not found.` / `❌ Pass a task identifier or name.` (input error)

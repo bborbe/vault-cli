@@ -1,5 +1,5 @@
 ---
-description: Work on a goal — see context, pick task, get guides via work-on-goal-assistant
+description: Work on a goal — see context, pick task, get guides via work-on-goal-assistant, then signal the plan → execute → complete next steps
 argument-hint: <goal-name>
 allowed-tools: Task
 ---
@@ -26,7 +26,17 @@ The goal name is **required** — pass it as a quoted string. (Focus-page auto-d
      prompt: 'Find goal: {goal_name} and prepare work context'
    ```
 
-3. **Done**
+3. **Signal next steps**
+
+   After the assistant returns (ends with `Ready to work on this task.`), resolve the selected task name from its `📋 Task: <name>` line and print the next-step signal — identical to `commands/work-on-task.md` Phase 5:
+   ```
+   ✅ Oriented: <name>. Next:
+   → /vault-cli:plan-task "<name>"     — validate the plan (Success Criteria + subtasks)
+   → /vault-cli:execute-task "<name>"  — begin executing (flips planning → execution)
+   → /vault-cli:complete-task "<name>" — close when done
+   ```
+
+   Do NOT auto-invoke `plan-task` or `execute-task` — the operator runs each deliberately.
 
 The assistant returns:
 - Goal summary and domain

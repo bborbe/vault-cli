@@ -1,5 +1,5 @@
 ---
-description: Find task details, transition Jira, set status, track on daily note, discover guides, then auto-sharpen and gate the planning → execution transition
+description: Find task details, transition Jira, set status, track on daily note, discover guides, then signal the plan → execute → complete next steps
 argument-hint: "<jira-id-or-text> [--non-interactive]"
 allowed-tools: [Task, AskUserQuestion, Skill, Bash(vault-cli *)]
 ---
@@ -20,7 +20,7 @@ Find task details and relevant operational guides before starting work. Delegate
    - Parse `$ARGUMENTS`: if it contains `--non-interactive` → set `MODE=non_interactive` and strip that flag token from the arguments; otherwise `MODE=interactive`. Parsing is self-contained here — it does not depend on any other command. Use the stripped arguments as the task identifier everywhere below — NEVER pass the flag token into the assistant prompt or task search.
    - If no argument remains after stripping: `❌ Pass a task identifier or description.` and STOP
 
-   **`MODE=non_interactive`** exists for headless callers — e.g. `vault-cli work-on`'s Claude bootstrap runs `claude --print`, which cannot answer `AskUserQuestion`, so an interactive gate would block until the session-start timeout. In this mode the command NEVER calls `AskUserQuestion` and NEVER runs the interactive sharpening chain (Phase 5): it orients (via the assistant) and stops. Interactive sharpening resumes later when the session is opened in a real terminal.
+   **`MODE=non_interactive`** exists for headless callers — e.g. `vault-cli work-on`'s Claude bootstrap runs `claude --print`, which cannot answer `AskUserQuestion`, so an interactive gate would block until the session-start timeout. In this mode the command NEVER calls `AskUserQuestion` — Phase 4's create-task gate is skipped. Phase 5 only prints the next-step signal (no interactive commands), so it runs identically in both modes.
 
 2. **Invoke work-on-task-assistant**
    ```
@@ -29,7 +29,7 @@ Find task details and relevant operational guides before starting work. Delegate
      prompt: 'Find details and guides for: {stripped arguments}'
    ```
 
-3. **Auto-sharpen + auto-gate (Phase 5).** If the assistant's report ends with `Ready to work on this task.` (the `found` case), continue to Phase 5 below. If the report contains the `not_found:` marker, skip Phase 5 and run Phase 4 (Handle not_found) instead.
+3. **Next-step signal (Phase 5).** If the assistant's report ends with `Ready to work on this task.` (the `found` case), continue to Phase 5 below. If the report contains the `not_found:` marker, skip Phase 5 and run Phase 4 (Handle not_found) instead.
 
 4. **Done**
 
@@ -77,38 +77,32 @@ The agent (dispatched in `## Process` step 2) emits a structured `not_found` ver
    No task was created.
    ```
 
-## Phase 5 — Auto-sharpen + auto-gate
+## Phase 5 — Signal next steps
 
-Goal: by the time work-on-task returns, the resolved task is in `phase: planning` if its plan still has gaps, or `phase: execution` (with kickoff printed) if the plan already passes the gates. The owner sees an interactive sharpening loop only when the plan actually has gaps.
+`work-on-task` **orients only**. It does NOT sharpen or gate — the operator drives those with explicit commands, so each lifecycle step stays a deliberate action. After the assistant returns a `found` task, print the next-step signal so the operator knows exactly what to run.
 
-Runs only after Phase 2 returned a `found` task — never on `not_found` (Phase 4 handles that branch).
+Runs only after Phase 2 returned a `found` task — never on `not_found` (Phase 4 handles that branch). Text-only, so it is safe in `MODE=non_interactive`.
 
-**Non-interactive gate (checked first):** If `MODE=non_interactive`, SKIP Phase 5 entirely — do NOT invoke `plan-task` or `execute-task`. Both own `AskUserQuestion` flows and would hang a headless caller. The assistant's orient (status, daily note, guides) already ran in `## Process` step 2 and IS the complete non-interactive result. Print `✅ Oriented (non-interactive). Run /vault-cli:plan-task in a terminal to sharpen and gate execution.` and STOP.
+1. **Resolve the task name** from the assistant's `📋 Task: <name>` line (verbatim).
 
-1. **Resolve the task name from the assistant's report.** The assistant prints `📋 Task: <name>` near the top of its `found` block; that line is the canonical identifier. Capture it verbatim.
-
-2. **Invoke `Skill: vault-cli:plan-task` with the captured name as a quoted argument.** plan-task owns its own entry contract, gate logic, and `AskUserQuestion` flow — do not intercept. Wait for it to return.
-
-3. **Read resulting phase** (after plan-task returns):
-   ```bash
-   vault-cli task get "<name>" phase --output json
+2. **Print the signal** (substitute `<name>`):
+   ```
+   ✅ Oriented: <name>. Next:
+   → /vault-cli:plan-task "<name>"     — validate the plan (Success Criteria + subtasks)
+   → /vault-cli:execute-task "<name>"  — begin executing (flips planning → execution)
+   → /vault-cli:complete-task "<name>" — close when done
    ```
 
-4. **Conditional kickoff:**
-   - If `phase: execution` → invoke `Skill: vault-cli:execute-task "<name>"`. execute-task is idempotent on `execution` (re-runs the 4 hard gates as a safety check, then prints `🎯 Start with: <first unchecked subtask>` + `📋 When done, verify: <DoD>`). This is the work-block kickoff the owner needs.
-   - If `phase: planning` → STOP after plan-task. Print: `⏸️ Plan not yet ready — phase remains: planning. Re-run /vault-cli:plan-task when you have answers, or /vault-cli:execute-task to re-check the gate.` The owner is mid-conversation with plan-task or has deferred; never force execute-task on a task whose gates haven't passed.
-   - If `phase: ai_review` / `human_review` / `done` → STOP. Print: `ℹ️ Phase already past planning (phase: <value>). No kickoff needed.\n→ If the work is genuinely done: run /vault-cli:sync-progress to flush conversation state, then /vault-cli:session-close.` The task is being shipped or has shipped; surfacing a "Start with" line here would be misleading, and the operator's most likely next step is closing the lifecycle (the sync-progress + session-close pair the lifecycle was designed around).
-
-The Phase 5 chain is purely additive — it never overrides the assistant's report or plan-task's owner-question flow. Owner can always interrupt before any phase mutation.
+`work-on-task` never mutates phase beyond the assistant's orient (`status → in_progress`, `phase → planning`). Plan → execute → complete are deliberate operator actions, each run when the operator is ready.
 
 ## Integration
 
 Task lifecycle:
 
 1. `/vault-cli:create-task` — capture (lenient)
-2. **`/vault-cli:work-on-task`** — orient (status + guides + daily note) + auto-chain to plan-task and (when gates pass cleanly) execute-task — this command
-3. `/vault-cli:plan-task` — sharpen (5 hard gates; may flip phase if entry contract permits); invoked automatically by Phase 5, or directly when re-entering sharpen mode
-4. `/vault-cli:execute-task` — gate planning → execution; flips phase + prints first subtask + DoD reminder; invoked automatically by Phase 5 on a clean plan, or directly to re-surface the kickoff line
+2. **`/vault-cli:work-on-task`** — orient (status + guides + daily note) + signal plan → execute → complete — this command
+3. `/vault-cli:plan-task` — sharpen (5 hard gates); never flips phase; run directly after work-on-task
+4. `/vault-cli:execute-task` — gate planning → execution; flips phase + prints first subtask + DoD reminder; run directly after plan-task
 5. Start work — while working, use any of:
    - `/vault-cli:update-task` — log completed work, sync to daily note / parent goal
    - `/vault-cli:task-status` — grouped-checkbox status (Success Criteria / Tasks / DoD) + next step
@@ -117,7 +111,7 @@ Task lifecycle:
 7. `/vault-cli:complete-task` — close task
 8. `/vault-cli:session-close` — verify session is safe to end (synced, committed, no orphaned state)
 
-`work-on-task` chains `plan-task` (always) and `execute-task` (only when plan-task left phase = `execution`) — the operator gets one command for the full orient → sharpen → kickoff path when the plan is already clean, and an interactive sharpen loop (driven by plan-task's own owner-questions) when there are real gaps. The end state after `/work-on-task` is always either `phase: planning` (gaps remain) or `phase: execution` (kickoff printed) — the only two states the operator needs to reason about.
+`work-on-task` orients and stops, printing the next-step signal. The operator then runs `/plan-task`, `/execute-task`, and `/complete-task` as deliberate steps. The end state after `/work-on-task` is always `phase: planning` — the operator decides when to sharpen and when to start executing.
 
 ## Notes
 
@@ -125,4 +119,4 @@ Task lifecycle:
 - Works in Personal, Brogrammers, Trading, or any future vault registered with `vault-cli config`
 - Each vault session loads a single Atlassian MCP under the canonical name `atlassian` (see vault-specific `mcp-*.json` configs); the agent uses `mcp__atlassian__*` regardless of which Jira instance is active
 - The agent searches; the slash command asks before creating.
-- **Phase 5 is the auto-sharpen + auto-gate chain.** Phase 2 → Phase 5 covers the full "I want to work on this task" intent: orient (status, guides, daily note), then sharpen (via plan-task), then kick off execution (via execute-task) when the plan passes the 4 hard gates. Owner interaction is forced only when plan-task surfaces real gaps; a clean plan goes silently from `work-on-task` to a kickoff line. Phase 5 is skipped on the `not_found` branch (Phase 4 handles that).
+- **Phase 5 is the next-step signal, not an auto-chain.** Phase 2 → Phase 5 covers the "I want to work on this task" intent by orienting (status, guides, daily note) and then printing the plan → execute → complete signal. `work-on-task` never invokes `plan-task` or `execute-task` — the operator runs each deliberately. This keeps every phase transition an explicit action and stops `execute-task` from being a silent no-op. Phase 5 is skipped on the `not_found` branch (Phase 4 handles that).

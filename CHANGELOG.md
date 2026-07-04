@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- change(lifecycle): decouple the `planning → execution` flip so each lifecycle command has one job — `plan-task` now validates and hands off without flipping phase; `execute-task` is the sole command that flips `planning → execution`; `work-on`, `work-on-task`, and `work-on-goal` stop auto-chaining `plan-task`/`execute-task` and instead print an explicit plan → execute → complete next-step signal. Fixes `execute-task` running as a silent no-op in the auto-chain. Updated `docs/task-writing.md` phase table and `README.md` accordingly
+
 ## v0.96.4
 
 - build: add `scripts/check-changelog.sh` (wired into `make check` → `precommit`) that fails the build when a `##` section is placed above the CHANGELOG preamble — guards against the malformed-CHANGELOG class of error a changelog edit can otherwise introduce undetected

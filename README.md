@@ -170,7 +170,7 @@ claude plugin update vault-cli@vault-cli
 | `/vault-cli:task-status` | Show task progress and next step |
 | `/vault-cli:verify-task` | Quick task validation (status, goals, DoD) |
 | `/vault-cli:audit-task` | Full task audit against Task Writing Guide |
-| `/vault-cli:plan-task` | Validate Success Criteria + subtasks via task-auditor; conversationally fill gaps; on `phase: planning`, transition to `execution` |
+| `/vault-cli:plan-task` | Validate Success Criteria + subtasks via task-auditor; conversationally fill gaps; leaves `phase: planning` and hands off to `/execute-task` (never flips phase itself) |
 | `/vault-cli:execute-task` | Hard gate `phase: planning → execution` — re-runs plan-task's 4 hard non-negotiables, on pass flips phase + prints first unchecked subtask + DoD reminder. Idempotent on `phase: execution` |
 | `/vault-cli:verify-goal` | Quick goal validation (status, subtasks) |
 | `/vault-cli:audit-goal` | Full goal audit against Goal Writing Guide |

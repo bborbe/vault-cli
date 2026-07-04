@@ -36,7 +36,7 @@ Auto-detects whether `<name-or-jira-id>` is a task or goal, then dispatches to t
      subagent_type: 'vault-cli:work-on-task-assistant'
      prompt: 'Find details and guides for: {argument}'
    ```
-   Then continue with Phase 3 (auto-sharpen + auto-gate), identical to `commands/work-on-task.md` Phase 5.
+   Then continue with Phase 3 (next-step signal), identical to `commands/work-on-task.md` Phase 5.
 
 5. **If `goal`**: invoke the `vault-cli:work-on-goal-assistant` agent:
    ```
@@ -48,9 +48,9 @@ Auto-detects whether `<name-or-jira-id>` is a task or goal, then dispatches to t
 
 6. **If `not_found`**: run Phase 4 (Handle not_found).
 
-### Phase 3 — Auto-sharpen + auto-gate (task route only)
+### Phase 3 — Next-step signal
 
-When the `work-on-task-assistant` report ends with `Ready to work on this task.`, chain into `vault-cli:plan-task` → `vault-cli:execute-task` exactly as `commands/work-on-task.md` Phase 5. The goal route delegates this to the goal assistant, which handles it internally.
+When the `work-on-task-assistant` (task route) or `work-on-goal-assistant` (goal route) report ends with `Ready to work on this task.`, print the plan → execute → complete signal exactly as `commands/work-on-task.md` Phase 5 — resolve `<name>` from the `📋 Task: <name>` line. Do NOT auto-invoke `plan-task` or `execute-task`; the operator runs each deliberately.
 
 ### Phase 4 — Handle not_found
 
@@ -67,9 +67,9 @@ Follow `commands/work-on-task.md` Phase 4 (Handle not_found) verbatim, with one 
 Task lifecycle (extends `commands/work-on-task.md` Integration section):
 
 1. `/vault-cli:create-task` / `/vault-cli:create-goal` — capture
-2. **`/vault-cli:work-on`** — orient + auto-detect type + dispatch — this command
-3. `/vault-cli:plan-task` — sharpen (auto-chained for task route)
-4. `/vault-cli:execute-task` — gate planning → execution (auto-chained when plan passes)
+2. **`/vault-cli:work-on`** — orient + auto-detect type + dispatch + signal next steps — this command
+3. `/vault-cli:plan-task` — sharpen (run directly after work-on)
+4. `/vault-cli:execute-task` — gate planning → execution (run directly after plan-task)
 5. Work → `/vault-cli:update-task` / `/vault-cli:task-status`
 6. `/vault-cli:sync-progress` → `/vault-cli:complete-task`
 7. `/vault-cli:session-close`

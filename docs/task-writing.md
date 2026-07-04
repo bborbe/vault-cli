@@ -321,12 +321,12 @@ The auditor (`task-auditor` agent) checks structure, success-criteria binary-nes
 | Phase | Meaning | Trigger to enter |
 |-------|---------|------------------|
 | `todo` / empty | Just landed in `in_progress`, no planning done yet | `/vault-cli:work-on-task` (loads context + emits readiness nudge if SC missing) |
-| `planning` | Sharpening Success Criteria + subtasks against the goal | `/vault-cli:plan-task` (runs `task-auditor` + 5 hard non-negotiables loop; flips to `execution` on score ≥ 8 + gates pass) |
-| `execution` | Doing the work — the actual subtasks | `/vault-cli:execute-task` (re-runs plan-task's 4 hard non-negotiables; refuses on fail, flips on pass + prints first unchecked subtask + DoD) |
+| `planning` | Sharpening Success Criteria + subtasks against the goal | `/vault-cli:plan-task` (runs `task-auditor` + 5 hard non-negotiables loop; on score ≥ 8 + gates pass, reports ready and hands off to `/execute-task` — **never flips phase itself**) |
+| `execution` | Doing the work — the actual subtasks | `/vault-cli:execute-task` (**the sole command that flips `planning → execution`**; re-runs plan-task's 4 hard non-negotiables; refuses on fail, flips on pass + prints first unchecked subtask + DoD) |
 | `ai_review` / `human_review` | Output ready for review | Agent-driven (out of vault-cli scope) |
 | `done` | Terminal | `/vault-cli:complete-task` (auto-promotes status → `completed` when all `# Success Criteria` `[x]`) |
 
-The split between `/work-on-task` (informational readiness nudge) and `/execute-task` (blocking hard gate) is deliberate — `work-on-task` is content-agnostic (status + guides only), `execute-task` is the gate that won't flip `phase: planning → execution` until the 4 hard non-negotiables pass.
+The split between `/work-on-task` (orient + next-step signal), `/plan-task` (sharpening, no phase flip), and `/execute-task` (the sole blocking gate) is deliberate — `work-on-task` is content-agnostic (status + guides + signal), `plan-task` validates without flipping, and `execute-task` is the one command that won't flip `phase: planning → execution` until the 4 hard non-negotiables pass. Each lifecycle step is a deliberate operator action; nothing auto-chains into execution.
 
 ### Calendar-as-commitment rule
 

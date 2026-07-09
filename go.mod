@@ -1,26 +1,26 @@
 module github.com/bborbe/vault-cli
 
-go 1.26.4
+go 1.26.5
 
 require (
-	github.com/bborbe/collection v1.20.13
-	github.com/bborbe/errors v1.5.13
-	github.com/bborbe/time v1.27.1
-	github.com/bborbe/validation v1.4.14
+	github.com/bborbe/collection v1.20.17
+	github.com/bborbe/errors v1.5.15
+	github.com/bborbe/time v1.27.5
+	github.com/bborbe/validation v1.4.16
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/google/uuid v1.6.0
-	github.com/onsi/ginkgo/v2 v2.31.0
-	github.com/onsi/gomega v1.42.0
+	github.com/onsi/ginkgo/v2 v2.32.0
+	github.com/onsi/gomega v1.42.1
 	github.com/spf13/cobra v1.10.2
-	golang.org/x/term v0.44.0
+	golang.org/x/term v0.45.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
 	github.com/Masterminds/semver/v3 v3.4.0 // indirect
-	github.com/bborbe/math v1.3.11 // indirect
-	github.com/bborbe/parse v1.10.13 // indirect
-	github.com/bborbe/run v1.9.28 // indirect
+	github.com/bborbe/math v1.3.12 // indirect
+	github.com/bborbe/parse v1.10.16 // indirect
+	github.com/bborbe/run v1.9.30 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/getsentry/sentry-go v0.47.0 // indirect
@@ -42,8 +42,12 @@ require (
 	golang.org/x/mod v0.37.0 // indirect
 	golang.org/x/net v0.56.0 // indirect
 	golang.org/x/sync v0.21.0 // indirect
-	golang.org/x/sys v0.46.0 // indirect
+	golang.org/x/sys v0.47.0 // indirect
 	golang.org/x/text v0.38.0 // indirect
 	golang.org/x/tools v0.46.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
+)
+
+exclude (
+	cloud.google.com/go v0.26.0
 )

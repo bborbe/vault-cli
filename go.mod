@@ -3,10 +3,10 @@ module github.com/bborbe/vault-cli
 go 1.26.5
 
 require (
-	github.com/bborbe/collection v1.20.17
-	github.com/bborbe/errors v1.5.15
-	github.com/bborbe/time v1.27.5
-	github.com/bborbe/validation v1.4.16
+	github.com/bborbe/collection v1.20.18
+	github.com/bborbe/errors v1.5.16
+	github.com/bborbe/time v1.27.6
+	github.com/bborbe/validation v1.4.17
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/google/uuid v1.6.0
 	github.com/onsi/ginkgo/v2 v2.32.0
@@ -18,8 +18,8 @@ require (
 
 require (
 	github.com/Masterminds/semver/v3 v3.4.0 // indirect
-	github.com/bborbe/math v1.3.12 // indirect
-	github.com/bborbe/parse v1.10.16 // indirect
+	github.com/bborbe/math v1.3.13 // indirect
+	github.com/bborbe/parse v1.10.17 // indirect
 	github.com/bborbe/run v1.9.30 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect

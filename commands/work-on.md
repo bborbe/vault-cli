@@ -12,7 +12,7 @@ Auto-detects whether `<name-or-jira-id>` is a task or goal, then dispatches to t
 /vault-cli:work-on BRO-12345                          # Jira-ID → task (regex match, zero CLI calls)
 /vault-cli:work-on "Existing Task Name"               # probe vault → task → work-on-task-assistant
 /vault-cli:work-on "Existing Goal Name"               # probe vault → goal → work-on-goal-assistant
-/vault-cli:work-on "Not Found"                        # not found → AskUserQuestion (create task or goal)
+/vault-cli:work-on "Not Found"                        # not found → always create (free text → pick task/goal; Jira ID → task)
 ```
 
 ## Process
@@ -52,15 +52,20 @@ Auto-detects whether `<name-or-jira-id>` is a task or goal, then dispatches to t
 
 When the `work-on-task-assistant` (task route) or `work-on-goal-assistant` (goal route) report ends with `Ready to work on this task.`, print the plan → execute → complete signal exactly as `commands/work-on-task.md` Phase 5 — resolve `<name>` from the `📋 Task: <name>` line. Do NOT auto-invoke `plan-task` or `execute-task`; the operator runs each deliberately.
 
-### Phase 4 — Handle not_found
+### Phase 4 — Handle not_found (always create)
 
-Follow `commands/work-on-task.md` Phase 4 (Handle not_found) verbatim, with one extension:
+`work-on` **always creates a file** on `not_found` — never a "create it?" consent prompt. The only question is *which type*, and that depends on how Phase 1 classified the input.
 
-- The `AskUserQuestion` gains a third option: **`Goal`** — description: `Run vault-cli:create-goal with "<SUGGESTED_NAME>" as the seed title`. The two existing options (`Yes, create it` for task, `No, stop here`) remain.
-- The options are now:
-  1. `Yes, create task` — invoke `Skill: vault-cli:create-task "<SUGGESTED_NAME>"`, then re-invoke work-on-task-assistant
-  2. `Create goal` — invoke `Skill: vault-cli:create-goal "<SUGGESTED_NAME>"`, then re-invoke work-on-goal-assistant
-  3. `No, stop here` — print manual search tips and STOP
+**Headless gate (checked first):** if this command was invoked headlessly — the calling context cannot answer `AskUserQuestion` (e.g. the `vault-cli work-on` CLI bootstrap runs `claude --print` and passes `--non-interactive`) — create nothing, since the interactive create skills cannot run under `claude --print`. Print the `not_found:` report and STOP. (The Jira-ID branch below also inherits `commands/work-on-task.md` Phase 4's own non-interactive gate.)
+
+Branch on the Phase 1 classification path:
+
+- **Jira-ID input** (Phase 1 step 2 fast-path → `task`): delegate to `commands/work-on-task.md` Phase 4 verbatim — it auto-creates the task (no prompt), then re-invokes `work-on-task-assistant`. A Jira ID is unambiguously a task.
+- **Free-text input** (Phase 1 step 3 `resolve` returned `found: false` → type genuinely unknown): the file type cannot be inferred, so ask **only which type** via `AskUserQuestion` — two options, **no "stop / don't create" escape** (this is type disambiguation, not a consent gate):
+  1. `Task` — invoke `Skill: vault-cli:create-task "<SUGGESTED_NAME>"`, then on success re-invoke `work-on-task-assistant` (`prompt: 'Find details and guides for: <new task title>'`)
+  2. `Goal` — invoke `Skill: vault-cli:create-goal "<SUGGESTED_NAME>"`, then on success re-invoke `work-on-goal-assistant` (`prompt: 'Find goal: <new goal title> and prepare work context'`)
+
+  `SUGGESTED_NAME` is the input string verbatim (free text has no Jira summary to derive from). On create failure or user cancel inside the create skill, print `❌ Create failed or was cancelled. No file created; no follow-up invocation.` and STOP.
 
 ## Integration
 

@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- change(workon): `/vault-cli:work-on-task` and `/vault-cli:work-on` now always create the local task file on `not_found` instead of prompting first. `work-on-task` creates a task unconditionally (Jira tickets with no matching Obsidian file included); `work-on` free text asks only task-vs-goal with no "don't create" escape, and Jira IDs go straight to task. Non-interactive mode still creates nothing. Softened the "consent gate" wording in `work-on-task-assistant` accordingly (agent behavior unchanged — it still emits the `not_found:` verdict and never creates)
+
 ## v0.96.7
 
 - bump bborbe/collection, errors, time, validation deps

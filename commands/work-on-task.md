@@ -20,7 +20,7 @@ Find task details and relevant operational guides before starting work. Delegate
    - Parse `$ARGUMENTS`: if it contains `--non-interactive` → set `MODE=non_interactive` and strip that flag token from the arguments; otherwise `MODE=interactive`. Parsing is self-contained here — it does not depend on any other command. Use the stripped arguments as the task identifier everywhere below — NEVER pass the flag token into the assistant prompt or task search.
    - If no argument remains after stripping: `❌ Pass a task identifier or description.` and STOP
 
-   **`MODE=non_interactive`** exists for headless callers — e.g. `vault-cli work-on`'s Claude bootstrap runs `claude --print`, which cannot answer `AskUserQuestion`, so an interactive gate would block until the session-start timeout. In this mode the command NEVER calls `AskUserQuestion` — Phase 4's create-task gate is skipped. Phase 5 only prints the next-step signal (no interactive commands), so it runs identically in both modes.
+   **`MODE=non_interactive`** exists for headless callers — e.g. `vault-cli work-on`'s Claude bootstrap runs `claude --print`, which cannot answer `AskUserQuestion`, so an interactive gate would block until the session-start timeout. In this mode the command NEVER calls `AskUserQuestion` and Phase 4's auto-create is skipped (the interactive create-task skill cannot run headlessly). Phase 5 only prints the next-step signal (no interactive commands), so it runs identically in both modes.
 
 2. **Invoke work-on-task-assistant**
    ```
@@ -44,38 +44,17 @@ The assistant handles all the work, detecting available integrations at runtime:
 
 Output ends with `Ready to work on this task.`
 
-## Phase 4 — Handle not_found
+## Phase 4 — Handle not_found (always create)
 
-The agent (dispatched in `## Process` step 2) emits a structured `not_found` verdict from its own Phase 1 (`Find task`) when the requested task cannot be found in any source. This phase parses that verdict and asks the user before any file is created.
+The agent (dispatched in `## Process` step 2) emits a structured `not_found` verdict from its own Phase 1 (`Find task`) when the requested task cannot be found in any source. This phase parses that verdict and **always creates the local task file** (via the interactive create-task skill) before continuing. There is no "create it?" consent prompt — a `work-on-task` invocation is an intent to work on a task, so a missing local file is created, not queried. (The create-task skill's own interactive flow is still where the operator can back out.)
 
-**Non-interactive gate (checked first):** If `MODE=non_interactive`, do NOT call `AskUserQuestion` and do NOT create anything. Print the `not_found:` report — the `Searched:` block from the verdict, then `❌ Task not found: "<input>"` — followed by `ℹ️ Non-interactive mode: no task created. Re-run in a terminal to create one.` and STOP. Skip steps 1–7 below (they are the interactive create-gate).
+**Non-interactive gate (checked first):** If `MODE=non_interactive`, do NOT create anything — the interactive create-task skill cannot run under headless `claude --print`. Print the `not_found:` report — the `Searched:` block from the verdict, then `❌ Task not found: "<input>"` — followed by `ℹ️ Non-interactive mode: no task created. Re-run in a terminal to create one.` and STOP. Skip steps 1–4 below.
 
-1. **Parse the agent's report** for the `not_found:` marker AND capture the verdict body into variables. The agent's `<output_format>` defines two separate fenced markdown blocks — one for the `found` case (ends with `Ready to work on this task.`) and one for the `not_found:` case (literal `not_found:` header on its own line). Look for the `not_found:` block specifically; if the report ends with `Ready to work on this task.` and contains no `not_found:` block, Phase 4 is a no-op and you are done. When the `not_found:` block IS present, match on the `not_found:` token, then extract:
-   - `SEARCHED_BLOCK` — the bullet list under the `Searched:` line (verbatim, line-by-line, until the next blank line or `Suggested task name:` line)
-   - `SUGGESTED_NAME` — the value after `Suggested task name:` (verbatim, trimmed)
+1. **Parse the agent's report** for the `not_found:` marker and capture `SUGGESTED_NAME`. The agent's `<output_format>` defines two separate fenced markdown blocks — one for the `found` case (ends with `Ready to work on this task.`) and one for the `not_found:` case (literal `not_found:` header on its own line). Look for the `not_found:` block specifically; if the report ends with `Ready to work on this task.` and contains no `not_found:` block, Phase 4 is a no-op and you are done. When the `not_found:` block IS present, match on the `not_found:` token, then extract `SUGGESTED_NAME` — the value after `Suggested task name:` (verbatim, trimmed).
 2. **Use `SUGGESTED_NAME` as the seed.** (If the input was a Jira ID and the Jira lookup returned a summary, the agent supplied that summary; otherwise the agent supplied the input string verbatim. Either way, `SUGGESTED_NAME` is what you pass on.)
-3. **Ask the user via `AskUserQuestion`** with the `vault-cli` main-session UX channel:
-   - `header`: `Create new task?`
-   - `question`: `Create new Obsidian task "<SUGGESTED_NAME>"?` (substitute the captured value)
-   - `options`: two entries — `Yes, create it` (description: `Run vault-cli:create-task with "<SUGGESTED_NAME>" as the seed title, then re-invoke work-on-task-assistant`) and `No, stop here` (description: `Print manual search tips and stop — no task is created`)
-4. **On `Yes, create it`**: invoke `Skill: vault-cli:create-task "<SUGGESTED_NAME>"` (use the same argument form as `commands/create-task.md` — pass the captured suggested name as a quoted argument). The create-task skill has its own interactive flow that asks for parent goal, priority, category, defer date, etc. — do not duplicate those asks.
-5. **On create success** (create-task skill returns the new task file path or reports success): re-invoke `Task tool with subagent_type: 'vault-cli:work-on-task-assistant' prompt: 'Find details and guides for: <new task title>'` — same form as the Phase 2 invocation, but with the new task title. The agent's standard Phase 2–8 prep mutations then run against the just-created task.
-6. **On create failure or user cancel inside `vault-cli:create-task`** (the skill returns a non-success status, errors out, or the user aborts midway through its interactive prompts): print `❌ Task creation failed or was cancelled. No task created; no follow-up invocation.` and STOP — do NOT re-invoke `vault-cli:work-on-task-assistant`, do NOT retry the create.
-7. **On `No, stop here`**: print the manual search tips and STOP. Substitute `SEARCHED_BLOCK` (captured in step 1) where indicated; resolve `{daily_dir}` from `vault-cli config list --output json` for the active vault before printing:
-   ```
-   ❌ Task not found: "<input>"
-
-   Searched:
-   <SEARCHED_BLOCK>
-
-   Manual search tips:
-   - Check the active vault's tasks dir (`vault-cli config list` → `tasks_dir`)
-   - Grep across vaults: `grep -rln "<keyword>" ~/Documents/Obsidian/`
-   - Check today's daily note (`<resolved daily_dir>/YYYY-MM-DD.md`)
-   - If input looked like a Jira ID, confirm the issue exists in the Atlassian project
-
-   No task was created.
-   ```
+3. **Always create the task** — invoke `Skill: vault-cli:create-task "<SUGGESTED_NAME>"` (use the same argument form as `commands/create-task.md` — pass the captured suggested name as a quoted argument). No `AskUserQuestion` gate, and no task-vs-goal prompt: `work-on-task` is unambiguously a task path. The create-task skill has its own interactive flow that asks for parent goal, priority, category, defer date, etc. — do not duplicate those asks.
+4. **On create success** (create-task skill returns the new task file path or reports success): re-invoke `Task tool with subagent_type: 'vault-cli:work-on-task-assistant' prompt: 'Find details and guides for: <new task title>'` — same form as the Phase 2 invocation, but with the new task title. The agent's standard Phase 2–8 prep mutations then run against the just-created task.
+   **On create failure or user cancel inside `vault-cli:create-task`** (the skill returns a non-success status, errors out, or the user aborts midway through its interactive prompts): print `❌ Task creation failed or was cancelled. No task created; no follow-up invocation.` and STOP — do NOT re-invoke `vault-cli:work-on-task-assistant`, do NOT retry the create.
 
 ## Phase 5 — Signal next steps
 
@@ -118,5 +97,5 @@ Task lifecycle:
 - No hardcoded Jira hostname, project key, or vault path — everything detected at runtime
 - Works in Personal, Brogrammers, Trading, or any future vault registered with `vault-cli config`
 - Each vault session loads a single Atlassian MCP under the canonical name `atlassian` (see vault-specific `mcp-*.json` configs); the agent uses `mcp__atlassian__*` regardless of which Jira instance is active
-- The agent searches; the slash command asks before creating.
+- The agent searches; the slash command auto-creates the task file on `not_found` (interactive mode).
 - **Phase 5 is the next-step signal, not an auto-chain.** Phase 2 → Phase 5 covers the "I want to work on this task" intent by orienting (status, guides, daily note) and then printing the plan → execute → complete signal. `work-on-task` never invokes `plan-task` or `execute-task` — the operator runs each deliberately. This keeps every phase transition an explicit action and stops `execute-task` from being a silent no-op. Phase 5 is skipped on the `not_found` branch (Phase 4 handles that).

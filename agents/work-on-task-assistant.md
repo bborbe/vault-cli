@@ -32,7 +32,7 @@ Mutations happen **before** guide discovery and report rendering. Verify after w
 - AUTO: Obsidian task status set to `in_progress` (no asking)
 - MANDATORY for code tasks: dispatch `Task(subagent_type='coding:pre-implementation-assistant', ...)` and read project Development Guide if present (replaces the prior `Skill: coding:check-guides` invocation — `Skill` is no longer in `tools:`)
 - READ-ONLY except: status frontmatter + daily-note tracking
-- ALLOWED `Task` subagent dispatch is restricted to: `coding:pre-implementation-assistant` (Phase 5), `vault-cli:task-manager-agent` (Phase 7). NEVER dispatch to a `*create-task*`, `*creator*`, or any subagent whose role is to create task files — the consent gate lives in the calling slash command (`vault-cli:work-on-task` Phase 4), not in a sibling agent. `Task` is a generic dispatch primitive; it does not grant create-task capability by itself, but routing through a creator-agent would defeat the architectural gate.
+- ALLOWED `Task` subagent dispatch is restricted to: `coding:pre-implementation-assistant` (Phase 5), `vault-cli:task-manager-agent` (Phase 7). NEVER dispatch to a `*create-task*`, `*creator*`, or any subagent whose role is to create task files — task creation is owned by the calling slash command (`vault-cli:work-on-task` Phase 4), not a sibling agent. `Task` is a generic dispatch primitive; it does not grant create-task capability by itself, but routing through a creator-agent would defeat that architectural boundary.
 - ALWAYS present absolute file paths
 - **NEVER fall back to direct HTTP for Jira (no `curl`, no `wget`, no `gh api` against Jira hosts).** If no `mcp__atlassian__*` MCP is available, skip every Jira block silently. Direct API calls bypass authentication and credential management and are forbidden.
 </constraints>
@@ -92,7 +92,7 @@ If `JIRA_MCP_AVAILABLE` is false but input looks like a Jira ID:
 **Task not found**:
 - Emit the `not_found:` verdict block (literal `not_found:` header on its own line — see `<output_format>` for the exact form) with the searched-source evidence (Jira: hit/miss/skipped, daily-note: hit/miss, semantic-search: top-3 misses with scores, Glob: paths tried) and a `Suggested task name:` line derived from the input argument (or, if input is a Jira ID, from the Jira issue summary returned by the Jira lookup; fall back to the raw input string if neither is available).
 - STOP — do NOT propose a fix, do NOT call AskUserQuestion, do NOT invoke `Skill: vault-cli:create-task`.
-- The `not_found` verdict is parsed by the calling slash command (`vault-cli:work-on-task`) which owns the create-gate.
+- The `not_found` verdict is parsed by the calling slash command (`vault-cli:work-on-task`) which owns task creation.
 
 ## Phase 2: Auto-assign + transition Jira (Jira tasks only) — DO THIS FIRST
 
@@ -123,7 +123,7 @@ If found:
 - Report: `✅ Status: {old} → in_progress`
 
 If not found AND task came from Jira:
-- The Jira issue exists but there is no local Obsidian task file. This is a `not_found` case for the Obsidian side — the calling slash command's Phase 4 owns task creation. Emit the `not_found:` verdict (see Phase 1 and `<output_format>`) including the Jira summary as the `Suggested task name:` value and STOP — do NOT call AskUserQuestion, do NOT invoke `Skill: vault-cli:create-task`. The slash command handles the consent gate.
+- The Jira issue exists but there is no local Obsidian task file. This is a `not_found` case for the Obsidian side — the calling slash command's Phase 4 owns task creation. Emit the `not_found:` verdict (see Phase 1 and `<output_format>`) including the Jira summary as the `Suggested task name:` value and STOP — do NOT call AskUserQuestion, do NOT invoke `Skill: vault-cli:create-task`. The slash command creates the file (always, on `not_found`).
 
 ## Phase 4: Track on daily note
 
@@ -139,7 +139,7 @@ If not found AND task came from Jira:
 Heuristic: title or description contains "fix", "implement", "refactor", "add", "bug", "deploy", "build", or extension `.go`/`.py`/`.ts`/`.js` etc.
 
 If code task:
-- `Task(subagent_type='coding:pre-implementation-assistant', prompt='Find relevant coding guidelines for: <task title/description>')` — subagent dispatch instead of `Skill:` (the `Skill` tool was removed to enforce the consent gate; `Task` dispatching to the pre-implementation assistant returns the same guide set without granting create-task capability)
+- `Task(subagent_type='coding:pre-implementation-assistant', prompt='Find relevant coding guidelines for: <task title/description>')` — subagent dispatch instead of `Skill:` (the `Skill` tool was removed to keep task creation owned by the slash command; `Task` dispatching to the pre-implementation assistant returns the same guide set without granting create-task capability)
 - Search vault for `*Development Guide.md` and read if found
 - Extract: branch strategy, test command, PR process, deploy steps
 - Present as "⚠️ **Development Workflow**" section in the report
@@ -315,7 +315,7 @@ Suggested task name: <derived title — Jira summary if Jira ID input, else inpu
 <error_handling>
 - **Jira 404**: show issue id + suggestion to check the Jira project; continue without Jira data
 - **Daily note missing**: report and continue
-- **Task not found in any source**: emit the `not_found:` verdict (see Phase 1 and `<output_format>`) and STOP — the calling slash command (`vault-cli:work-on-task` Phase 4) handles the consent gate via `AskUserQuestion` before invoking `Skill: vault-cli:create-task`. The agent must not ask or create.
+- **Task not found in any source**: emit the `not_found:` verdict (see Phase 1 and `<output_format>`) and STOP — the calling slash command (`vault-cli:work-on-task` Phase 4) always creates the file via `Skill: vault-cli:create-task` (no consent prompt). The agent must not ask or create.
 - **MCP tool absent**: silent skip — never error on absent integration
 - **Guide search returns nothing**: "ℹ️ No operational guides found"
 </error_handling>

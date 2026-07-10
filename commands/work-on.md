@@ -56,7 +56,7 @@ When the `work-on-task-assistant` (task route) or `work-on-goal-assistant` (goal
 
 `work-on` **always creates a file** on `not_found` — never a "create it?" consent prompt. The only question is *which type*, and that depends on how Phase 1 classified the input.
 
-**Non-interactive gate (checked first):** if `MODE=non_interactive` (inherited from a headless caller), create nothing — the interactive create skills cannot run under `claude --print`. Print the `not_found:` report and STOP, exactly as `commands/work-on-task.md` Phase 4's non-interactive gate.
+**Headless gate (checked first):** if this command was invoked headlessly — the calling context cannot answer `AskUserQuestion` (e.g. the `vault-cli work-on` CLI bootstrap runs `claude --print` and passes `--non-interactive`) — create nothing, since the interactive create skills cannot run under `claude --print`. Print the `not_found:` report and STOP. (The Jira-ID branch below also inherits `commands/work-on-task.md` Phase 4's own non-interactive gate.)
 
 Branch on the Phase 1 classification path:
 

@@ -102,9 +102,11 @@ When the daemon's `autoRelease` ships a new binary version, the prompt that trig
 
 ## Plugin Release Checklist
 
+> **This repo is `autoRelease: true` (`.maintainer.yaml`).** The `github-releaser` owns version bumps + tags. For a normal change, add a `## Unreleased` bullet and let the releaser convert it → `## vX.Y.Z`, bump all four version strings, and tag **post-merge** — do NOT hand-bump the manifests or `git tag` (that races the releaser). The manual checklist below is the **FALLBACK** only (releaser down / `autoRelease: false`). See [[GitHub Auto-Release Guide]] and the [[Development Guide]] Library/Tool release section.
+
 **When to release:** Any change to `commands/`, `agents/`, `docs/`, or `skills/` requires a plugin version bump — these files ship as part of the plugin.
 
-**How to release:**
+**How to release (manual fallback):**
 
 1. Pick the next version: increment minor from the latest `CHANGELOG.md` entry (e.g. v0.58.3 → v0.59.0)
 2. Update **all four files** — version string must be identical everywhere (without `v` prefix in JSON):

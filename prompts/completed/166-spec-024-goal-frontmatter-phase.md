@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [024-goal-phase-field]
+summary: Wire GoalPhase into goal frontmatter with Phase()/SetPhase() getters/setters, case phase in GetField/SetField, private setPhaseField validator, plus tests and CHANGELOG entry
+execution_id: vault-cli-goal-phase-exec-166-spec-024-goal-frontmatter-phase
+dark-factory-version: v0.191.4
 created: "2026-07-11T21:30:00Z"
 queued: "2026-07-11T21:28:32Z"
+started: "2026-07-11T21:30:53Z"
+completed: "2026-07-11T21:34:15Z"
 branch: dark-factory/goal-phase-field
 ---
 

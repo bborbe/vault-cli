@@ -292,6 +292,96 @@ var _ = Describe("GoalFrontmatter", func() {
 		})
 	})
 
+	Describe("Phase", func() {
+		It("returns nil for missing key", func() {
+			Expect(domain.NewGoalFrontmatter(nil).Phase()).To(BeNil())
+		})
+
+		It("returns pointer for canonical value", func() {
+			fm := domain.NewGoalFrontmatter(map[string]any{"phase": "execution"})
+			Expect(fm.Phase()).NotTo(BeNil())
+			Expect(*fm.Phase()).To(Equal(domain.GoalPhaseExecution))
+		})
+
+		It("returns pointer for legacy hand-typed value without validation", func() {
+			fm := domain.NewGoalFrontmatter(map[string]any{"phase": "in_progress"})
+			Expect(fm.Phase()).NotTo(BeNil())
+			Expect(*fm.Phase()).To(Equal(domain.GoalPhase("in_progress")))
+		})
+	})
+
+	Describe("SetPhase", func() {
+		It("stores the phase string via pointer", func() {
+			fm := domain.NewGoalFrontmatter(nil)
+			fm.SetPhase(domain.GoalPhaseDone.Ptr())
+			Expect(fm.GetField("phase")).To(Equal("done"))
+		})
+
+		It("nil pointer deletes the key", func() {
+			fm := domain.NewGoalFrontmatter(map[string]any{"phase": "todo"})
+			fm.SetPhase(nil)
+			Expect(fm.GetField("phase")).To(Equal(""))
+			Expect(fm.Keys()).NotTo(ContainElement("phase"))
+		})
+	})
+
+	Describe("SetField phase", func() {
+		DescribeTable("accepts canonical values",
+			func(value string) {
+				fm := domain.NewGoalFrontmatter(nil)
+				Expect(fm.SetField(ctx, "phase", value)).To(Succeed())
+				Expect(fm.GetField("phase")).To(Equal(value))
+			},
+			Entry("todo", "todo"),
+			Entry("planning", "planning"),
+			Entry("execution", "execution"),
+			Entry("done", "done"),
+		)
+
+		It("rejects invalid value with named error", func() {
+			fm := domain.NewGoalFrontmatter(nil)
+			err := fm.SetField(ctx, "phase", "bogus")
+			Expect(err).NotTo(BeNil())
+			Expect(err.Error()).To(ContainSubstring("unknown goal phase"))
+			Expect(err.Error()).To(ContainSubstring("bogus"))
+			Expect(fm.GetField("phase")).To(Equal(""))
+		})
+
+		It("rejects legacy alias on explicit re-set", func() {
+			fm := domain.NewGoalFrontmatter(nil)
+			err := fm.SetField(ctx, "phase", "in_progress")
+			Expect(err).NotTo(BeNil())
+			Expect(err.Error()).To(ContainSubstring("unknown goal phase"))
+		})
+
+		It("clears phase on empty value", func() {
+			fm := domain.NewGoalFrontmatter(map[string]any{"phase": "execution"})
+			Expect(fm.SetField(ctx, "phase", "")).To(Succeed())
+			Expect(fm.GetField("phase")).To(Equal(""))
+		})
+	})
+
+	Describe("GetField phase", func() {
+		It("returns value when present", func() {
+			fm := domain.NewGoalFrontmatter(map[string]any{"phase": "planning"})
+			Expect(fm.GetField("phase")).To(Equal("planning"))
+		})
+
+		It("returns empty when absent", func() {
+			Expect(domain.NewGoalFrontmatter(nil).GetField("phase")).To(Equal(""))
+		})
+	})
+
+	Describe("legacy goal round-trip", func() {
+		It("does not inject phase on unrelated mutation", func() {
+			fm := domain.NewGoalFrontmatter(map[string]any{"status": "active", "theme": "x"})
+			Expect(fm.GetField("phase")).To(Equal(""))
+			Expect(fm.SetField(ctx, "theme", "y")).To(Succeed())
+			Expect(fm.GetField("phase")).To(Equal(""))
+			Expect(fm.Keys()).NotTo(ContainElement("phase"))
+		})
+	})
+
 	Describe("DeferDate", func() {
 		It("returns nil for missing key", func() {
 			Expect(fm.DeferDate()).To(BeNil())

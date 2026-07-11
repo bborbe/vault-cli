@@ -12,6 +12,7 @@ import (
 
 	"github.com/bborbe/errors"
 	libtime "github.com/bborbe/time"
+	"github.com/bborbe/validation"
 )
 
 // GoalFrontmatter holds the YAML frontmatter for a Goal.
@@ -62,6 +63,18 @@ func (f GoalFrontmatter) Priority() Priority {
 
 // Assignee reads "assignee" key.
 func (f GoalFrontmatter) Assignee() string { return f.GetString("assignee") }
+
+// Phase reads "phase" key as string, returns *GoalPhase.
+// Returns nil when the key is absent. The raw value is returned as-is
+// (no validation, no default substitution) so legacy/hand-typed values survive display.
+func (f GoalFrontmatter) Phase() *GoalPhase {
+	raw := f.GetString("phase")
+	if raw == "" {
+		return nil
+	}
+	p := GoalPhase(raw)
+	return &p
+}
 
 // ClaudeSessionID reads "claude_session_id" key as string.
 func (f GoalFrontmatter) ClaudeSessionID() string { return f.GetString("claude_session_id") }
@@ -151,6 +164,15 @@ func (f *GoalFrontmatter) SetPriority(ctx context.Context, p Priority) error {
 // SetAssignee stores the assignee in the map.
 func (f *GoalFrontmatter) SetAssignee(v string) { f.Set("assignee", v) }
 
+// SetPhase stores the phase pointer in the map. Deletes the key if p is nil.
+func (f *GoalFrontmatter) SetPhase(p *GoalPhase) {
+	if p == nil {
+		f.Delete("phase")
+		return
+	}
+	f.Set("phase", string(*p))
+}
+
 // SetClaudeSessionID stores the claude_session_id in the map.
 func (f *GoalFrontmatter) SetClaudeSessionID(v string) { f.Set("claude_session_id", v) }
 
@@ -219,6 +241,12 @@ func (f GoalFrontmatter) GetField(key string) string {
 		return strconv.Itoa(int(p))
 	case "assignee":
 		return f.Assignee()
+	case "phase":
+		ph := f.Phase()
+		if ph == nil {
+			return ""
+		}
+		return string(*ph)
 	case "start_date":
 		return dateFieldString(f.StartDate())
 	case "target_date":
@@ -253,6 +281,8 @@ func (f *GoalFrontmatter) SetField(ctx context.Context, key, value string) error
 		return f.setPriorityFromString(ctx, value)
 	case "assignee":
 		f.SetAssignee(value)
+	case "phase":
+		return f.setPhaseField(ctx, value)
 	case "start_date":
 		return setDateField(ctx, f.SetStartDate, value)
 	case "target_date":
@@ -301,6 +331,21 @@ func (f *GoalFrontmatter) setCompletedFromString(ctx context.Context, value stri
 		return errors.Wrap(ctx, err, "invalid date format (expected YYYY-MM-DD)")
 	}
 	f.SetCompleted(d)
+	return nil
+}
+
+// setPhaseField validates the value against the goal phase enum and stores it,
+// or clears the key on empty. Goal phases have no aliases — a non-canonical value is rejected.
+func (f *GoalFrontmatter) setPhaseField(ctx context.Context, value string) error {
+	if value == "" {
+		f.SetPhase(nil)
+		return nil
+	}
+	phase := GoalPhase(value)
+	if err := phase.Validate(ctx); err != nil {
+		return errors.Wrapf(ctx, validation.Error, "unknown goal phase '%s'", value)
+	}
+	f.SetPhase(&phase)
 	return nil
 }
 

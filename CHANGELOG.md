@@ -10,7 +10,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 
 ## Unreleased
 
-- docs(help): document XDG config path (~/.config/vault-cli/config.yaml, legacy fallback ~/.vault-cli/config.yaml) in vault-cli --help output
+- docs(help): document XDG config path (~/.config/vault-cli/config.yaml, legacy fallback ~/.vault-cli/config.yaml) in vault-cli --help output and README
 
 ## v0.99.1
 

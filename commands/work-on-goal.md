@@ -26,17 +26,19 @@ The goal name is **required** — pass it as a quoted string. (Focus-page auto-d
      prompt: 'Find goal: {goal_name} and prepare work context'
    ```
 
-3. **Signal next steps**
+3. **Drive to execution**
 
-   After the assistant returns (ends with `Ready to work on this task.`), resolve the selected task name from its `📋 Task: <name>` line and print the next-step signal — identical to `commands/work-on-task.md` Phase 5:
+   After the assistant returns (ends with `Ready to work on this task.`), resolve the selected task name from its `📋 Task: <name>` line and follow `commands/work-on-task.md` Phase 5 exactly.
+
+   **Interactive mode — auto-chain the selected task:** invoke `Skill: vault-cli:plan-task "<name>"`, then on either success line — `✅ Plan ready` (phase still `planning`) or `✅ Task sharpened` (task already past planning) — invoke `Skill: vault-cli:execute-task "<name>"` (idempotent: flips `planning → execution` and prints first subtask + DoD, or re-surfaces the work block if already in execution, or refuses if done). If plan-task reports unresolved gaps (`⚠ …` / score < 8), stop at planning and print what remains — never force-execute. On a plan-task `❌ …` hard error, relay it verbatim.
+
+   **Non-interactive / headless mode — signal only** (no chaining, since `plan-task` / `execute-task` may call `AskUserQuestion`):
    ```
    ✅ Oriented: <name>. Next:
    → /vault-cli:plan-task "<name>"     — validate the plan (Success Criteria + subtasks)
    → /vault-cli:execute-task "<name>"  — begin executing (flips planning → execution)
    → /vault-cli:complete-task "<name>" — close when done
    ```
-
-   Do NOT auto-invoke `plan-task` or `execute-task` — the operator runs each deliberately.
 
 The assistant returns:
 - Goal summary and domain
@@ -52,7 +54,7 @@ The assistant returns:
 
 Goal-first workflow:
 1. Pick goal name (from your notes, focus page, etc.)
-2. `/vault-cli:work-on-goal "<name>"` → context + task selection
+2. `/vault-cli:work-on-goal "<name>"` → context + task selection, then auto-chain the selected task plan → execute (interactive)
 3. Start work with full context
 
 Sibling commands:

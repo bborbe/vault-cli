@@ -85,6 +85,9 @@ var _ = Describe("vault-cli integration tests", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Eventually(session).Should(gexec.Exit(0))
 			Expect(session.Out).To(gbytes.Say("vault-cli"))
+			Expect(
+				string(session.Out.Contents()),
+			).To(ContainSubstring("/.config/vault-cli/config.yaml"))
 		})
 	})
 

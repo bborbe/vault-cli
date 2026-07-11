@@ -84,7 +84,7 @@ func NewRootCommand(ctx context.Context) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:          "vault-cli",
 		Short:        "Obsidian vault task management CLI",
-		Long:         "Fast CRUD operations for Obsidian markdown files (tasks, goals, themes).",
+		Long:         "Fast CRUD operations for Obsidian markdown files (tasks, goals, themes).\n\nConfiguration: reads ~/.config/vault-cli/config.yaml (XDG), falling back to ~/.vault-cli/config.yaml (legacy). Override with --config.",
 		Version:      version,
 		SilenceUsage: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {

@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.98.0
 
 - feat(ops): add `GoalWorkOnOperation` in `pkg/ops` — marks a goal `in_progress`, applies the assignee-ownership matrix, and starts or resumes a Claude session; mirrors `WorkOnOperation` minus daily-note updates and phase advancement
 - add(goal): goals carry a `claude_session_id` frontmatter field and vaults accept a `work_on_goal_command` (default `/vault-cli:work-on-goal`)

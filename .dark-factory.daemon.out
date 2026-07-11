@@ -299,3 +299,188 @@ DARK-FACTORY-REPORT -->
 time=2026-07-11T10:36:49.947+02:00 level=INFO msg="docker container exited" prompt_id=161-spec-023-goal-session-domain-config spec_id=023-goal-work-on container="" workflow_type=direct container=vault-cli-exec-161-spec-023-goal-session-domain-config exit_code=0 workflow_step=run_claude
 time=2026-07-11T10:36:49.948+02:00 level=INFO msg="completion report" status=success summary="Added claude_session_id accessor trio to GoalFrontmatter and work_on_goal_command config field with /vault-cli:work-on-goal default"
 time=2026-07-11T10:36:49.958+02:00 level=INFO msg="moved to completed" prompt_id=161-spec-023-goal-session-domain-config spec_id=023-goal-work-on container="" workflow_type=direct container=vault-cli-exec-161-spec-023-goal-session-domain-config
+time=2026-07-11T10:36:50.102+02:00 level=INFO msg="committed changes (autoRelease disabled, skipping tag)" prompt_id=161-spec-023-goal-session-domain-config spec_id=023-goal-work-on container="" workflow_type=direct container=vault-cli-exec-161-spec-023-goal-session-domain-config workflow_step=commit
+time=2026-07-11T10:36:50.102+02:00 level=INFO msg="watching for queued prompts" dir=prompts/in-progress
+time=2026-07-11T10:36:50.224+02:00 level=INFO msg="lock acquired" prompt_id=162-spec-023-goal-workon-operation.md
+time=2026-07-11T10:36:50.224+02:00 level=INFO msg="found queued prompt" prompt_id=162-spec-023-goal-workon-operation.md
+time=2026-07-11T10:36:50.225+02:00 level=INFO msg="executing prompt" prompt_id=162-spec-023-goal-workon-operation spec_id=023-goal-work-on container="" workflow_type=direct title=162-spec-023-goal-workon-operation
+time=2026-07-11T10:36:50.225+02:00 level=INFO msg="syncing with remote default branch" prompt_id=162-spec-023-goal-workon-operation spec_id=023-goal-work-on container="" workflow_type=direct
+time=2026-07-11T10:36:51.248+02:00 level=INFO msg="container assigned" prompt_id=162-spec-023-goal-workon-operation spec_id=023-goal-work-on container="" workflow_type=direct container_old="" container=vault-cli-exec-162-spec-023-goal-workon-operation workflow_step=acquire_container
+[10:36:52] Starting headless session...
+[10:36:52] [init] session=5eed652a model=MiniMax-M2.7-highspeed cwd=/workspace tools=29
+[10:36:56] [system: thinking_tokens]
+[10:36:56] [system: thinking_tokens]
+[10:36:56] 💭 Let me start by reading the relevant files mentioned in the context to understand the codebase and patterns before implementing.
+[10:36:57] [read] /workspace/pkg/ops/workon.go
+[10:36:57] [read] /workspace/pkg/ops/workon_test.go
+[10:36:57]   → 287 lines read
+[10:36:57] ⚠ rate-limit:  0% status=allowed
+[10:36:57]   → 594 lines read
+[10:37:00] [system: thinking_tokens]
+[10:37:00] [system: thinking_tokens]
+[10:37:00] 💭 Now let me read the other referenced files to understand the full context.
+[10:37:00] [read] /workspace/pkg/ops/complete.go
+[10:37:01]   → 385 lines read
+[10:37:01] [read] /workspace/pkg/ops/errors.go
+[10:37:01] [read] /workspace/pkg/ops/claude_session.go
+[10:37:01]   → 17 lines read
+[10:37:01]   → 120 lines read
+[10:37:01] [read] /workspace/pkg/ops/claude_resume.go
+[10:37:01]   → 64 lines read
+[10:37:07] [system: thinking_tokens]
+[10:37:07] [system: thinking_tokens]
+[10:37:07] 💭 Now let me read the domain and storage files.
+[10:37:07] [read] /workspace/pkg/domain/goal_frontmatter.go
+[10:37:08]   → 324 lines read
+[10:37:08] [read] /workspace/pkg/domain/goal.go
+[10:37:08]   → 107 lines read
+[10:37:08] [read] /workspace/pkg/storage/storage.go (offset=50, limit=30)
+[10:37:08] [read] /workspace/pkg/config/config.go (offset=100, limit=40)
+[10:37:08]   → 29 lines read
+[10:37:08]   → 39 lines read
+[10:37:12] [system: thinking_tokens]
+[10:37:12] [system: thinking_tokens]
+[10:37:12] 💭 Now I have all the information I need. Let me also check the existing mocks to understand what's available.
+[10:37:13] $ ls /workspace/mocks/ | grep -E "goal|workon"
+[10:37:13] $ grep -n "ErrTest" /workspace/pkg/ops/workon_test.go | head -5
+[10:37:14] [system: thinking_tokens]
+[10:37:15] [system: thinking_tokens]
+[10:37:15] 💭 Let me find where ErrTest is defined in the ops_test package.
+[10:37:15] $ grep -rn "ErrTest" /workspace/pkg/ops/ --include="*.go" | head -10
+[10:37:15] ⚠ [bash output]
+/workspace/pkg/ops/decision_ack_test.go:130:			mockDecisionStorage.FindDecisionByNameReturns(nil, ErrTest)
+/workspace/pkg/ops/decision_ack_test.go:145:			mockDecisionStorage.WriteDecisionReturns(ErrTest)
+/workspace/pkg/ops/decision_list_test.go:135:			mockDecisionStorage.ListDecisionsReturns(nil, ErrTest)
+/workspace/pkg/ops/ops_suite_test.go:17:var ErrTest = errors.New("test error")
+/workspace/pkg/ops/objective_complete_test.go:59:			mockObjectiveStorage.FindObjectiveByNameReturns(nil, ErrTest)
+/workspace/pkg/ops/objective_complete_test.go:108:			mockObjectiveStorage.WriteObjectiveReturns(ErrTest)
+/workspace/pkg/ops/update_test.go:196:			mockTaskStorage.FindTaskByNameReturns(nil, ErrTest)
+/workspace/pkg/ops/update_test.go:210:			mockTaskStorage.WriteTaskReturns(ErrTest)
+/workspace/pkg/ops/update_test.go:262:			mockGoalStorage.FindGoalByNameReturns(nil, ErrTest)
+/workspace/pkg/ops/workon_test.go:285:			mockStarter.StartSessionReturns("", ErrTest)
+[10:37:16] [system: thinking_tokens]
+[10:37:17] [system: thinking_tokens]
+[10:37:17] [system: thinking_tokens]
+[10:37:17] 💭 Good, `ErrTest` is defined in `ops_suite_test.go`. Now let me create the implementation and tests.
+
+Let me write the `goal_workon.go` and `goal_workon_test.go` files.
+[10:37:17] Now I have everything I need. Let me write the implementation and tests.
+
+[10:37:29] [write] /workspace/pkg/ops/goal_workon.go (5258 chars)
+[10:37:29]   → File created successfully at: /workspace/pkg/ops/goal_workon.go (file state is current in your context — no need to Rea…
+[10:37:31] [system: thinking_tokens]
+[10:37:31] [system: thinking_tokens]
+[10:37:31] [system: thinking_tokens]
+[10:37:31] 💭 Now let me write the test file.
+[10:37:52] [write] /workspace/pkg/ops/goal_workon_test.go (9216 chars)
+[10:37:52]   → File created successfully at: /workspace/pkg/ops/goal_workon_test.go (file state is current in your context — no need t…
+[10:37:54] [system: thinking_tokens]
+[10:37:54] [system: thinking_tokens]
+[10:37:54] 💭 Now let me generate the mocks and run tests.
+[10:37:54] Now let's generate the mocks and run tests:
+
+[10:37:55] $ go generate ./...
+[10:37:58] [system: task_started]
+[10:37:59] [system: task_notification]
+[10:38:00] [system: thinking_tokens]
+[10:38:01] [system: thinking_tokens]
+[10:38:01] 💭 The mock was generated. Now let's run the tests.
+[10:38:01] $ go test ./pkg/ops/ -v 2>&1 | tail -60
+[10:38:04] [system: task_started]
+[10:38:07] [system: task_notification]
+[10:38:07] ⚠ [bash output]
+[38;5;10m•[0m2026/07/11 08:38:07 WARN workon warning warning="claude session: claude session starter unavailable — claude script not found in PATH"
+[38;5;10m•[0m2026/07/11 08:38:07 WARN workon warning warning="claude session: claude session starter unavailable — claude script not found in PATH"
+[38;5;10m•[0m2026/07/11 08:38:07 WARN workon warning warning="claude session: claude session starter unavailable — claude script not found in PATH"
+[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m2026/07/11 08:38:07 INFO starting claude session goal=my-goal
+2026/07/11 08:38:07 WARN workon session error error="test error\nstart claude session\ngithub.com/bborbe/errors.Wrap\n\t/home/node/go/pkg/mod/github.com/bborbe/errors@v1.5.16/errors_wrap.go:17\ngithub.com/bborbe/vault-cli/pkg/ops.(*goalWorkOnOperation).handleClaudeSession\n\t/workspace/pkg/ops/goal_workon.go:180\ngithub.com/bborbe/vault-cli/pkg/ops.(*goalWorkOnOperation).Execute\n\t/workspace/pkg/ops/goal_workon.go:104\ngithub.com/bborbe/vault-cli/pkg/ops_test.init.func31.2\n\t/workspace/pkg/ops/goal_workon_test.go:69\ngithub.com/onsi/ginkgo/v2/internal.extractBodyFunction.func3\n\t/home/node/go/pkg/mod/github.com/onsi/ginkgo/v2@v2.32.0/internal/node.go:585\ngithub.com/onsi/ginkgo/v2/internal.(*Suite).runNode.func3\n\t/home/node/go/pkg/mod/github.com/onsi/ginkgo/v2@v2.32.0/internal/suite.go:946\nruntime.goexit\n\t/home/node/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.5.linux-arm64/src/runtime/asm_arm64.s:1447\n"
+[38;5;10m•[0m2026/07/11 08:38:07 INFO starting claude session goal=my-goal
+2026/07/11 08:38:07 WARN workon session error error="test error\nstart claude session\ngithub.com/bborbe/errors.Wrap\n\t/home/node/go/pkg/mod/github.com/bborbe/errors@v1.5.16/errors_wrap.go:17\ngithub.com/bborbe/vault-cli/pkg/ops.(*goalWorkOnOperation).handleClaudeSession\n\t/workspace/pkg/ops/goal_workon.go:180\ngithub.com/bborbe/vault-cli/pkg/ops.(*goalWorkOnOperation).Execute\n\t/workspace/pkg/ops/goal_workon.go:104\ngithub.com/bborbe/vault-cli/pkg/ops_test.init.func31.2\n\t/workspace/pkg/ops/goal_workon_test.go:69\ngithub.com/onsi/ginkgo/v2/internal.extractBodyFunction.func3\n\t/home/node/go/pkg/mod/github.com/onsi/ginkgo/v2@v2.32.0/internal/node.go:585\ngithub.com/onsi/ginkgo/v2/internal.(*Suite).runNode.func3\n\t/home/node/go/pkg/mod/github.com/onsi/ginkgo/v2@v2.32.0/internal/suite.go:946\nruntime.goexit\n\t/home/node/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.5.linux-arm64/src/runtime/asm_arm64.s:1447\n"
+[38;5;10m•[0m2026/07/11 08:38:07 INFO starting claude session goal=my-goal
+2026/07/11 08:38:07 WARN workon session error error="claude returned 0 turns: Unknown command: /x\ngithub.com/bborbe/errors.New\n\t/home/node/go/pkg/mod/github.com/bborbe/errors@v1.5.16/errors_new.go:14\ngithub.com/bborbe/vault-cli/pkg/ops_test.init.func31.10.1\n\t/workspace/pkg/ops/goal_workon_test.go:261\ngithub.com/onsi/ginkgo/v2/internal.extractBodyFunction.func3\n\t/home/node/go/pkg/mod/github.com/onsi/ginkgo/v2@v2.32.0/internal/node.go:585\ngithub.com/onsi/ginkgo/v2/internal.(*Suite).runNode.func3\n\t/home/node/go/pkg/mod/github.com/onsi/ginkgo/v2@v2.32.0/internal/suite.go:946\nruntime.goexit\n\t/home/node/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.5.linux-arm64/src/runtime/asm_arm64.s:1447\n\nstart claude session\ngithub.com/bborbe/errors.Wrap\n\t/home/node/go/pkg/mod/github.com/bborbe/errors@v1.5.16/errors_wrap.go:17\ngithub.com/bborbe/vault-cli/pkg/ops.(*goalWorkOnOperation).handleClaudeSession\n\t/workspace/pkg/ops/goal_workon.go:180\ngithub.com/bborbe/vault-cli/pkg/ops.(*goalWorkOnOperation).Execute\n\t/workspace/pkg/ops/goal_workon.go:104\ngithub.com/bborbe/vault-cli/pkg/ops_test.init.func31.2\n\t/workspace/pkg/ops/goal_workon_test.go:69\ngithub.com/onsi/ginkgo/v2/internal.extractBodyFunction.func3\n\t/home/node/go/pkg/mod/github.com/onsi/ginkgo/v2@v2.32.0/internal/node.go:585\ngithub.com/onsi/ginkgo/v2/internal.(*Suite).runNode.func3\n\t/home/node/go/pkg/mod/github.com/onsi/ginkgo/v2@v2.32.0/internal/suite.go:946\nruntime.goexit\n\t/home/node/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.5.linux-arm64/src/runtime/asm_arm64.s:1447\n"
+[38;5;10m•[0m2026/07/11 08:38:07 INFO starting claude session goal=my-goal
+2026/07/11 08:38:07 WARN workon session error error="claude returned 0 turns: Unknown command: /x\ngithub.com/bborbe/errors.New\n\t/home/node/go/pkg/mod/github.com/bborbe/errors@v1.5.16/errors_new.go:14\ngithub.com/bborbe/vault-cli/pkg/ops_test.init.func31.10.1\n\t/workspace/pkg/ops/goal_workon_test.go:261\ngithub.com/onsi/ginkgo/v2/internal.extractBodyFunction.func3\n\t/home/node/go/pkg/mod/github.com/onsi/ginkgo/v2@v2.32.0/internal/node.go:585\ngithub.com/onsi/ginkgo/v2/internal.(*Suite).runNode.func3\n\t/home/node/go/pkg/mod/github.com/onsi/ginkgo/v2@v2.32.0/internal/suite.go:946\nruntime.goexit\n\t/home/node/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.5.linux-arm64/src/runtime/asm_arm64.s:1447\n\nstart claude session\ngithub.com/bborbe/errors.Wrap\n\t/home/node/go/pkg/mod/github.com/bborbe/errors@v1.5.16/errors_wrap.go:17\ngithub.com/bborbe/vault-cli/pkg/ops.(*goalWorkOnOperation).handleClaudeSession\n\t/workspace/pkg/ops/goal_workon.go:180\ngithub.com/bborbe/vault-cli/pkg/ops.(*goalWorkOnOperation).Execute\n\t/workspace/pkg/ops/goal_workon.go:104\ngithub.com/bborbe/vault-cli/pkg/ops_test.init.func31.2\n\t/workspace/pkg/ops/goal_workon_test.go:69\ngithub.com/onsi/ginkgo/v2/internal.extractBodyFunction.func3\n\t/home/node/go/pkg/mod/github.com/onsi/ginkgo/v2@v2.32.0/internal/node.go:585\ngithub.com/onsi/ginkgo/v2/internal.(*Suite).runNode.func3\n\t/home/node/go/pkg/mod/github.com/onsi/ginkgo/v2@v2.32.0/internal/suite.go:946\nruntime.goexit\n\t/home/node/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.5.linux-arm64/src/runtime/asm_arm64.s:1447\n"
+[38;5;10m•[0m2026/07/11 08:38:07 INFO starting claude session goal=my-goal
+[38;5;10m•[0m2026/07/11 08:38:07 INFO starting claude session goal=my-goal
+[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m
+
+[38;5;10m[1mRan 656 of 658 Specs in 4.359 seconds[0m
+[38;5;10m[1mSUCCESS![0m -- [38;5;10m[1m656 Passed[0m | [38;5;9m[1m0 Failed[0m | [38;5;11m[1m0 Pending[0m | [38;5;14m[1m2 Skipped[0m
+--- PASS: TestSuite (4.37s)
+PASS
+ok  	github.com/bborbe/vault-cli/pkg/ops	4.375s
+[10:38:10] [system: thinking_tokens]
+[10:38:10] [system: thinking_tokens]
+[10:38:11] [system: thinking_tokens]
+[10:38:11] 💭 All tests pass. Now let me verify the specific checks:
+1. `grep -n "GetWorkOnGoalCommand\|--non-interactive" pkg/ops/goal_workon.go` — ≥2 lines
+2. `grep -n "dailyNote\|Phase\|currentDateTime" pkg/ops/goal_workon.go` — 0 lines
+[10:38:11] All tests pass. Let me verify the specific checks:
+
+[10:38:12] $ grep -n "GetWorkOnGoalCommand\|--non-interactive" /workspace/pkg/ops/goal_workon.go && echo "---" && grep -n "dailyNote\|Phase\|currentDateTime" /workspace/pkg/ops/goal_workon.go && echo "FOUND EXCLU…
+[10:38:16] [system: thinking_tokens]
+[10:38:17] [system: thinking_tokens]
+[10:38:17] 💭 Now let me run `make precommit` for the final validation.
+[10:38:17] $ make precommit 2>&1
+[10:38:20] [system: task_started]
+[10:38:58] [system: task_notification]
+[10:39:02] [system: thinking_tokens]
+[10:39:02] [system: thinking_tokens]
+[10:39:02] 💭 `make precommit` passed with exit code 0. Now I need to update the CHANGELOG.md. Let me read it first to find where to add the entry.
+[10:39:02] `make precommit` passed. Now let me update the CHANGELOG:
+
+[10:39:03] [read] /workspace/CHANGELOG.md (offset=, limit=30)
+[10:39:03]   → 29 lines read
+[10:39:04] [system: thinking_tokens]
+[10:39:05] [system: thinking_tokens]
+[10:39:05] [system: thinking_tokens]
+[10:39:06] [system: thinking_tokens]
+[10:39:06] [system: thinking_tokens]
+[10:39:07] [system: thinking_tokens]
+[10:39:07] [system: thinking_tokens]
+[10:39:08] [system: thinking_tokens]
+[10:39:08] [system: thinking_tokens]
+[10:39:09] [system: thinking_tokens]
+[10:39:10] 💭 The `## Unreleased` section already exists. I just need to add an entry for the new `GoalWorkOnOperation`. The entry should be a `feat:` prefix since it's new functionality. Let me add it.
+
+Looking at the existing unreleased entries:
+- `add(goal): ...` - for adding claude_session_id and work_on_goal_command
+- `change(workon): ...` - for the auto-chain feature
+
+This new feature is adding `GoalWorkOnOperation` which is part of the goal work-on feature. It seems related to the first bullet about go…
+[10:39:11] [edit] /workspace/CHANGELOG.md
+    - ## Unreleased\n\n- add(goal): goals carry a `claude_session…
+    + ## Unreleased\n\n- feat(ops): add `GoalWorkOnOperation` in …
+[10:39:11]   → The file /workspace/CHANGELOG.md has been updated successfully. (file state is current in your context — no need to Rea…
+[10:39:13] [system: thinking_tokens]
+[10:39:13] [system: thinking_tokens]
+[10:39:13] 💭 Now let me run make precommit one final time to make sure everything still passes.
+[10:39:13] Now let me do a final `make precommit` to confirm everything is clean:
+
+[10:39:14] $ make precommit 2>&1 | tail -20
+[10:39:17] [system: task_started]
+[10:39:39] [system: task_notification]
+[10:39:41] [system: thinking_tokens]
+[10:39:41] [system: thinking_tokens]
+[10:39:41] 💭 All checks pass. Let me verify the mocks file exists.
+[10:39:42] $ test -f mocks/goal-workon-operation.go && echo OK
+[10:39:43] [system: thinking_tokens]
+[10:39:44] [system: thinking_tokens]
+[10:39:44] 💭 All verification checks pass. Let me now write the completion report.
+[10:39:45] <!-- DARK-FACTORY-REPORT
+{"status":"success","summary":"Created GoalWorkOnOperation in pkg/ops (interface + implementation + Counterfeiter mock + Ginkgo test suite), mirroring WorkOnOperation minus daily-note and phase steps","blockers":[],"verification":{"command":"make precommit","exitCode":0}}
+DARK-FACTORY-REPORT -->
+
+## Improvements
+
+- None
+[10:39:45] result: <!-- DARK-FACTORY-REPORT
+{"status":"success","summary":"Created GoalWorkOnOperation in pkg/ops (interface + implementation + Counterfeiter mock + Ginkgo test suite), mirroring WorkOnOperation minus daily-note and phase steps","blockers":[],"verification":{"command":"make precommit","exitCode":0}}
+DARK-FACTORY-REPORT -->
+
+## Improvements
+
+- None | duration: 172798ms | cost: $3.6319 | tokens: 635711 in / 5757 out
+time=2026-07-11T10:39:45.735+02:00 level=INFO msg="docker container exited" prompt_id=162-spec-023-goal-workon-operation spec_id=023-goal-work-on container="" workflow_type=direct container=vault-cli-exec-162-spec-023-goal-workon-operation exit_code=0 workflow_step=run_claude
+time=2026-07-11T10:39:45.735+02:00 level=INFO msg="completion report" status=success summary="Created GoalWorkOnOperation in pkg/ops (interface + implementation + Counterfeiter mock + Ginkgo test suite), mirroring WorkOnOperation minus daily-note and phase steps"
+time=2026-07-11T10:39:45.746+02:00 level=INFO msg="moved to completed" prompt_id=162-spec-023-goal-workon-operation spec_id=023-goal-work-on container="" workflow_type=direct container=vault-cli-exec-162-spec-023-goal-workon-operation

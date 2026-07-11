@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.99.0
 
 - add(goal): `vault-cli goal work-on <goal-name>` marks a goal `in_progress`, applies the assignee-ownership rule, and starts/resumes a Claude session recorded in `claude_session_id` (mirrors `task work-on`, minus daily-note and phase steps)
 

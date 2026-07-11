@@ -22,3 +22,4 @@ gha-creds-*.json
 /specs/log
 /bin/
 /CLAUDE.md
+/.dark-factory.daemon.out

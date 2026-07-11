@@ -692,3 +692,11 @@ DARK-FACTORY-REPORT -->
 time=2026-07-11T10:42:03.736+02:00 level=INFO msg="docker container exited" prompt_id=163-spec-023-goal-workon-cli spec_id=023-goal-work-on container="" workflow_type=direct container=vault-cli-exec-163-spec-023-goal-workon-cli exit_code=0 workflow_step=run_claude
 time=2026-07-11T10:42:03.736+02:00 level=INFO msg="completion report" status=success summary="Added vault-cli goal work-on command wiring GoalWorkOnOperation into the goal command group, with integration test entry and CHANGELOG"
 time=2026-07-11T10:42:03.744+02:00 level=INFO msg="moved to completed" prompt_id=163-spec-023-goal-workon-cli spec_id=023-goal-work-on container="" workflow_type=direct container=vault-cli-exec-163-spec-023-goal-workon-cli
+time=2026-07-11T10:42:03.871+02:00 level=INFO msg="committed changes (autoRelease disabled, skipping tag)" prompt_id=163-spec-023-goal-workon-cli spec_id=023-goal-work-on container="" workflow_type=direct container=vault-cli-exec-163-spec-023-goal-workon-cli workflow_step=commit
+time=2026-07-11T10:42:03.889+02:00 level=INFO msg="spec awaiting verification" spec=023-goal-work-on
+time=2026-07-11T10:42:03.889+02:00 level=INFO msg="watching for queued prompts" dir=prompts/in-progress
+time=2026-07-11T10:42:03.917+02:00 level=INFO msg="nothing to do, waiting for changes"
+time=2026-07-11T10:43:03.919+02:00 level=INFO msg="nothing to do, waiting for changes"
+time=2026-07-11T10:43:58.753+02:00 level=INFO msg="watcher shutting down"
+time=2026-07-11T10:43:58.753+02:00 level=INFO msg="processor shutting down"
+time=2026-07-11T10:43:58.753+02:00 level=INFO msg="spec watcher shutting down"

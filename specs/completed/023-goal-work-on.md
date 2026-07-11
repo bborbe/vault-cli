@@ -1,11 +1,13 @@
 ---
-status: prompted
+status: completed
 tags:
     - dark-factory
     - spec
 approved: "2026-07-11T08:19:17Z"
 generating: "2026-07-11T08:27:38Z"
 prompted: "2026-07-11T08:27:38Z"
+verifying: "2026-07-11T08:42:03Z"
+completed: "2026-07-11T08:52:35Z"
 branch: dark-factory/goal-work-on
 ---
 

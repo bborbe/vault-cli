@@ -10,7 +10,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 
 ## Unreleased
 
-- feat(domain): add `GoalPhase` string-enum type with four canonical values (`todo`/`planning`/`execution`/`done`), mirroring `TaskPhase` but with no aliases — foundation for goal-phase validation in a later prompt
+- feat(domain): add `GoalPhase` string-enum type with four canonical values (`todo`/`planning`/`execution`/`done`), mirroring `TaskPhase` but with no aliases — foundation for goal phase validation in a later prompt
 - feat(goal): goals carry a validated `phase` frontmatter field (`todo` / `planning` / `execution` / `done`); set via `goal set <name> phase <value>`, surfaced by `goal show` (plain + `--output json`). Legacy goals without a phase are untouched; non-canonical values are rejected on write. Mirrors the task-phase shape without touching the task-phase type.
 
 ## v0.99.2

@@ -9,6 +9,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"gopkg.in/yaml.v3"
 
 	"github.com/bborbe/vault-cli/pkg/config"
 )
@@ -122,6 +123,18 @@ var _ = Describe("Vault", func() {
 		})
 	})
 
+	Describe("GetWorkOnGoalCommand", func() {
+		It("returns custom work on goal command when set", func() {
+			vault := &config.Vault{WorkOnGoalCommand: "/my-goal:work-on"}
+			Expect(vault.GetWorkOnGoalCommand()).To(Equal("/my-goal:work-on"))
+		})
+
+		It("returns default /vault-cli:work-on-goal when empty", func() {
+			vault := &config.Vault{}
+			Expect(vault.GetWorkOnGoalCommand()).To(Equal("/vault-cli:work-on-goal"))
+		})
+	})
+
 	Describe("GetWorkOnCommand", func() {
 		It("returns custom work on command when set", func() {
 			vault := &config.Vault{WorkOnCommand: "/my-custom:work-on"}
@@ -161,6 +174,36 @@ var _ = Describe("Vault", func() {
 			data, err := json.Marshal(vault)
 			Expect(err).To(BeNil())
 			Expect(string(data)).NotTo(ContainSubstring("work_on_command"))
+		})
+
+		It("includes work_on_goal_command in JSON when set", func() {
+			vault := config.Vault{Name: "main", Path: "/vault", WorkOnGoalCommand: "/cmd"}
+			data, err := json.Marshal(vault)
+			Expect(err).To(BeNil())
+			Expect(string(data)).To(ContainSubstring(`"work_on_goal_command":"/cmd"`))
+		})
+
+		It("omits work_on_goal_command from JSON when empty", func() {
+			vault := config.Vault{Name: "main", Path: "/vault"}
+			data, err := json.Marshal(vault)
+			Expect(err).To(BeNil())
+			Expect(string(data)).NotTo(ContainSubstring("work_on_goal_command"))
+		})
+	})
+
+	Describe("YAML marshalling", func() {
+		It("includes work_on_goal_command in YAML when set", func() {
+			vault := config.Vault{Name: "main", Path: "/vault", WorkOnGoalCommand: "/cmd"}
+			data, err := yaml.Marshal(vault)
+			Expect(err).To(BeNil())
+			Expect(string(data)).To(ContainSubstring("work_on_goal_command: /cmd"))
+		})
+
+		It("omits work_on_goal_command from YAML when empty", func() {
+			vault := config.Vault{Name: "main", Path: "/vault"}
+			data, err := yaml.Marshal(vault)
+			Expect(err).To(BeNil())
+			Expect(string(data)).NotTo(ContainSubstring("work_on_goal_command"))
 		})
 	})
 })

@@ -1,0 +1,301 @@
+time=2026-07-11T10:32:29.497+02:00 level=INFO msg="dark-factory starting" version=v0.191.0
+time=2026-07-11T10:32:29.497+02:00 level=WARN msg="config file is world-readable, consider: chmod 600" path=.dark-factory.yaml
+time=2026-07-11T10:32:29.529+02:00 level=INFO msg="acquired lock" file=.dark-factory.lock
+time=2026-07-11T10:32:29.529+02:00 level=INFO msg="effective config" maxContainers=8 maxContainersSource=project containerImage=docker.io/bborbe/claude-yolo:v0.12.0 model=MiniMax-M2.7-highspeed modelSource=global workflow=direct workflowSource=project pr=false prSource=project autoRelease=false autoReleaseSource=project autoMerge=false autoMergeSource=default verificationGate=false validationCommand="make precommit" testCommand="make test" debounceMs=500 hideGit=false hideGitSource=default autoApprovePrompts=false autoApprovePromptsSource=default autoGeneratePrompts=true autoGeneratePromptsSource=project dirtyFileThreshold=0 dirtyFileThresholdSource=default promptsInboxDir=prompts promptsInProgressDir=prompts/in-progress promptsCompletedDir=prompts/completed promptsLogDir=prompts/log preflightCommand="make precommit" preflightInterval=8h healthcheckEnabled=true healthcheckEnabledSource=default healthcheckInterval=8h healthcheckIntervalSource=default envFromGlobal=[] envProjectOverrides=[ANTHROPIC_BASE_URL] envProjectOnly="[GOCACHE GOFLAGS GOLANGCI_LINT_CACHE GOPATH GO_TEST_PARALLEL]"
+time=2026-07-11T10:32:29.529+02:00 level=INFO msg="watching for queued prompts" dir=prompts/in-progress
+time=2026-07-11T10:32:29.569+02:00 level=WARN msg="spec slug not found, leaving bare ref" ref=044 file=prompts/completed/044-config-list-command.md
+time=2026-07-11T10:32:29.599+02:00 level=INFO msg="preflight: running baseline check" command="make precommit"
+time=2026-07-11T10:32:51.706+02:00 level=INFO msg="preflight: baseline check passed"
+time=2026-07-11T10:32:51.706+02:00 level=INFO msg="healthcheck skipped via --skip-healthcheck"
+time=2026-07-11T10:32:51.706+02:00 level=INFO msg="processor started"
+time=2026-07-11T10:32:51.707+02:00 level=INFO msg="spec watcher started" dir=/Users/bborbe/Documents/workspaces/vault-cli/specs/in-progress
+time=2026-07-11T10:32:51.707+02:00 level=INFO msg="watcher started" dir=/Users/bborbe/Documents/workspaces/vault-cli/prompts/in-progress
+time=2026-07-11T10:32:51.711+02:00 level=INFO msg="startup: checking prompted spec" spec=023-goal-work-on
+time=2026-07-11T10:32:51.827+02:00 level=INFO msg="lock acquired" prompt_id=161-spec-023-goal-session-domain-config.md
+time=2026-07-11T10:32:51.827+02:00 level=INFO msg="found queued prompt" prompt_id=161-spec-023-goal-session-domain-config.md
+time=2026-07-11T10:32:51.832+02:00 level=INFO msg="executing prompt" prompt_id=161-spec-023-goal-session-domain-config spec_id=023-goal-work-on container="" workflow_type=direct title=161-spec-023-goal-session-domain-config
+time=2026-07-11T10:32:51.832+02:00 level=INFO msg="syncing with remote default branch" prompt_id=161-spec-023-goal-session-domain-config spec_id=023-goal-work-on container="" workflow_type=direct
+time=2026-07-11T10:32:53.002+02:00 level=INFO msg="container assigned" prompt_id=161-spec-023-goal-session-domain-config spec_id=023-goal-work-on container="" workflow_type=direct container_old="" container=vault-cli-exec-161-spec-023-goal-session-domain-config workflow_step=acquire_container
+[10:32:54] Starting headless session...
+[10:32:54] [init] session=9f8edccd model=MiniMax-M2.7-highspeed cwd=/workspace tools=29
+[10:32:59] [system: thinking_tokens]
+[10:33:00] [system: thinking_tokens]
+[10:33:00] 💭 Let me start by reading the relevant files to understand the patterns I need to mirror.
+[10:33:00] [read] /workspace/pkg/domain/task_frontmatter.go
+[10:33:00] [read] /workspace/pkg/domain/goal_frontmatter.go
+[10:33:00]   → 517 lines read
+[10:33:00]   → 311 lines read
+[10:33:00] [read] /workspace/pkg/config/config.go
+[10:33:00] ⚠ rate-limit:  0% status=allowed
+[10:33:00]   → 377 lines read
+[10:33:04] [system: thinking_tokens]
+[10:33:04] [system: thinking_tokens]
+[10:33:04] 💭 Now let me read the test files to understand the patterns.
+[10:33:04] Now let me read the test files:
+
+[10:33:05] [read] /workspace/pkg/domain/goal_frontmatter_test.go
+[10:33:05] [read] /workspace/pkg/config/vault_test.go
+[10:33:05]   → 275 lines read
+[10:33:05]   → 166 lines read
+[10:33:09] [system: thinking_tokens]
+[10:33:09] [system: thinking_tokens]
+[10:33:09] 💭 Now I have a clear picture. Let me also read the CHANGELOG.md to know where to add the entry.
+[10:33:10] Let me check the CHANGELOG:
+
+[10:33:10] [read] /workspace/CHANGELOG.md (offset=, limit=30)
+[10:33:10]   → 29 lines read
+[10:33:11] [system: thinking_tokens]
+[10:33:12] [system: thinking_tokens]
+[10:33:12] [system: thinking_tokens]
+[10:33:13] [system: thinking_tokens]
+[10:33:13] [system: thinking_tokens]
+[10:33:14] [system: thinking_tokens]
+[10:33:14] [system: thinking_tokens]
+[10:33:15] [system: thinking_tokens]
+[10:33:15] [system: thinking_tokens]
+[10:33:15] [system: thinking_tokens]
+[10:33:16] [system: thinking_tokens]
+[10:33:16] [system: thinking_tokens]
+[10:33:17] [system: thinking_tokens]
+[10:33:17] [system: thinking_tokens]
+[10:33:18] [system: thinking_tokens]
+[10:33:18] [system: thinking_tokens]
+[10:33:19] [system: thinking_tokens]
+[10:33:19] [system: thinking_tokens]
+[10:33:19] 💭 Now I have everything I need. Let me implement the changes:
+
+1. **goal_frontmatter.go**: Add `ClaudeSessionID()`, `SetClaudeSessionID()`, `ClearClaudeSessionID()` methods, and update `GetField` and `SetField` switches.
+
+2. **config.go**: Add `WorkOnGoalCommand` field to `Vault` struct and add `GetWorkOnGoalCommand()` accessor.
+
+3. **goal_frontmatter_test.go**: Add specs for the new methods.
+
+4. **vault_test.go**: Add specs for the new config field.
+
+5. **CHANGELOG.md**: Add entry under `## Unrel…
+[10:33:20] Now I have all the context. Let me implement the changes:
+
+[10:33:21] [edit] /workspace/pkg/domain/goal_frontmatter.go
+    - // Assignee reads "assignee" key.\nfunc (f GoalFrontmatter)…
+    + // Assignee reads "assignee" key.\nfunc (f GoalFrontmatter)…
+[10:33:21]   → The file /workspace/pkg/domain/goal_frontmatter.go has been updated successfully. (file state is current in your contex…
+[10:33:24] [system: thinking_tokens]
+[10:33:24] [system: thinking_tokens]
+[10:33:25] [system: thinking_tokens]
+[10:33:25] 💭 Let me continue with the edits. I need to:
+1. Add SetClaudeSessionID after SetAssignee
+2. Add the GetField case for claude_session_id
+3. Add the SetField case for claude_session_id
+4. Add the field to config.go
+5. Add the accessor to config.go
+6. Add tests
+7. Update CHANGELOG
+[10:33:27] [edit] /workspace/pkg/domain/goal_frontmatter.go
+    - // SetAssignee stores the assignee in the map.\nfunc (f *Go…
+    + // SetAssignee stores the assignee in the map.\nfunc (f *Go…
+[10:33:27]   → The file /workspace/pkg/domain/goal_frontmatter.go has been updated successfully. (file state is current in your contex…
+[10:33:28] [system: thinking_tokens]
+[10:33:29] [system: thinking_tokens]
+[10:33:29] 💭 Now I need to add the GetField case. Let me add it before the default case.
+[10:33:30] [edit] /workspace/pkg/domain/goal_frontmatter.go
+    - 	case "defer_date":\n		return dateFieldString(f.DeferDate()…
+    + 	case "defer_date":\n		return dateFieldString(f.DeferDate()…
+[10:33:30]   → The file /workspace/pkg/domain/goal_frontmatter.go has been updated successfully. (file state is current in your contex…
+[10:33:31] [system: thinking_tokens]
+[10:33:32] [system: thinking_tokens]
+[10:33:32] 💭 Now I need to add the SetField case. Let me add it before the default case.
+[10:33:33] [edit] /workspace/pkg/domain/goal_frontmatter.go
+    - 	case "defer_date":\n		return f.setDeferDateFromString(ctx,…
+    + 	case "defer_date":\n		return f.setDeferDateFromString(ctx,…
+[10:33:33]   → The file /workspace/pkg/domain/goal_frontmatter.go has been updated successfully. (file state is current in your contex…
+[10:33:35] [system: thinking_tokens]
+[10:33:35] [system: thinking_tokens]
+[10:33:36] [system: thinking_tokens]
+[10:33:36] 💭 Now I need to add the field to the Vault struct in config.go. Looking at the struct, I need to add `WorkOnGoalCommand` after `WorkOnCommand`. The struct tags need to be column-aligned.
+[10:33:36] Now add the field to the Vault struct in config.go:
+
+[10:33:38] [edit] /workspace/pkg/config/config.go
+    - 	WorkOnCommand     string   `yaml:"work_on_command,omitempt…
+    + 	WorkOnCommand     string   `yaml:"work_on_command,omitempt…
+[10:33:38]   → The file /workspace/pkg/config/config.go has been updated successfully. (file state is current in your context — no nee…
+[10:33:40] [system: thinking_tokens]
+[10:33:40] [system: thinking_tokens]
+[10:33:40] 💭 Now I need to add the GetWorkOnGoalCommand accessor after GetWorkOnCommand. Let me add it.
+[10:33:40] Now add the accessor after GetWorkOnCommand:
+
+[10:33:42] [edit] /workspace/pkg/config/config.go
+    - // GetWorkOnCommand returns the Claude slash command for st…
+    + // GetWorkOnCommand returns the Claude slash command for st…
+[10:33:42]   → The file /workspace/pkg/config/config.go has been updated successfully. (file state is current in your context — no nee…
+[10:33:44] [system: thinking_tokens]
+[10:33:44] [system: thinking_tokens]
+[10:33:44] 💭 Now let me run `make test` to check if the code compiles and tests pass.
+[10:33:45] Now let me run the tests to check for compilation:
+
+[10:33:45] $ go test ./pkg/domain/ ./pkg/config/ 2>&1 | head -50
+[10:33:48] [system: task_started]
+[10:34:04] [system: task_notification]
+[10:34:05] [system: thinking_tokens]
+[10:34:06] [system: thinking_tokens]
+[10:34:06] 💭 Tests pass. Now let me add the tests for goal_frontmatter_test.go and vault_test.go. Let me add the test for goal_frontmatter first.
+[10:34:06] Tests pass. Now let me add the test specs:
+
+[10:34:10] [edit] /workspace/pkg/domain/goal_frontmatter_test.go
+    - 	Describe("DeferDate", func() {
+    + 	Describe("ClaudeSessionID", func() {\n		It("returns empty …
+[10:34:10]   → The file /workspace/pkg/domain/goal_frontmatter_test.go has been updated successfully. (file state is current in your c…
+[10:34:12] [system: thinking_tokens]
+[10:34:13] [system: thinking_tokens]
+[10:34:13] 💭 Now let me add the config tests to vault_test.go for GetWorkOnGoalCommand and the YAML marshalling.
+[10:34:13] Now add config tests for the new field:
+
+[10:34:15] [edit] /workspace/pkg/config/vault_test.go
+    - 	Describe("GetWorkOnCommand", func() {
+    + 	Describe("GetWorkOnGoalCommand", func() {\n		It("returns c…
+[10:34:15]   → The file /workspace/pkg/config/vault_test.go has been updated successfully. (file state is current in your context — no…
+[10:34:16] [system: thinking_tokens]
+[10:34:17] [system: thinking_tokens]
+[10:34:18] [system: thinking_tokens]
+[10:34:18] 💭 Now I need to add the YAML round-trip test for work_on_goal_command. Let me also add JSON marshalling test. Let me read the vault_test.go to see where to add YAML test.
+[10:34:18] Now add the JSON and YAML marshalling tests:
+
+[10:34:23] [edit] /workspace/pkg/config/vault_test.go
+    - 		It("omits work_on_command from JSON when empty", func() {…
+    + 		It("omits work_on_command from JSON when empty", func() {…
+[10:34:23]   → The file /workspace/pkg/config/vault_test.go has been updated successfully. (file state is current in your context — no…
+[10:34:24] [system: thinking_tokens]
+[10:34:25] [system: thinking_tokens]
+[10:34:25] [system: thinking_tokens]
+[10:34:26] [system: thinking_tokens]
+[10:34:26] [system: thinking_tokens]
+[10:34:27] [system: thinking_tokens]
+[10:34:27] [system: thinking_tokens]
+[10:34:28] [system: thinking_tokens]
+[10:34:28] [system: thinking_tokens]
+[10:34:29] [system: thinking_tokens]
+[10:34:29] [system: thinking_tokens]
+[10:34:30] [system: thinking_tokens]
+[10:34:31] [system: thinking_tokens]
+[10:34:32] [system: thinking_tokens]
+[10:34:32] [system: thinking_tokens]
+[10:34:33] [system: thinking_tokens]
+[10:34:33] [system: thinking_tokens]
+[10:34:33] [system: thinking_tokens]
+[10:34:34] [system: thinking_tokens]
+[10:34:34] 💭 Wait, the YAML marshalling test I wrote actually just tests JSON again. Let me think about this...
+
+The requirement says:
+> YAML round-trip (the real production boundary — vault config loads from `.yaml` on disk, so the yaml tag must be exercised, not just json): marshal a `Vault{WorkOnGoalCommand:"/cmd"}` and assert the output contains `work_on_goal_command: /cmd`; marshal an empty one and assert `work_on_goal_command` is absent (omitempty). This closes a gap the existing `work_on_command` test…
+[10:34:34] 
+The YAML test needs `yaml.v3`. Let me add the import and fix the YAML test:
+
+[10:34:36] [edit] /workspace/pkg/config/vault_test.go
+    - package config_test\n\nimport (\n	"encoding/json"\n\n	. "gi…
+    + package config_test\n\nimport (\n	"encoding/json"\n\n	"gopk…
+[10:34:36]   → The file /workspace/pkg/config/vault_test.go has been updated successfully. (file state is current in your context — no…
+[10:34:38] [system: thinking_tokens]
+[10:34:38] [system: thinking_tokens]
+[10:34:38] 💭 Wait, the YAML marshalling test I added uses json.Marshal, not yaml.Marshal. Let me fix it to use yaml.Marshal.
+[10:34:39] Now fix the YAML marshalling test to actually use yaml.Marshal:
+
+[10:34:42] [edit] /workspace/pkg/config/vault_test.go
+    - 	Describe("YAML marshalling", func() {\n		It("includes work…
+    + 	Describe("YAML marshalling", func() {\n		It("includes work…
+[10:34:42]   → The file /workspace/pkg/config/vault_test.go has been updated successfully. (file state is current in your context — no…
+[10:34:44] [system: thinking_tokens]
+[10:34:44] [system: thinking_tokens]
+[10:34:45] [system: thinking_tokens]
+[10:34:45] [system: thinking_tokens]
+[10:34:46] [system: thinking_tokens]
+[10:34:46] [system: thinking_tokens]
+[10:34:46] 💭 Wait, I need to be careful about the import order. The imports should be grouped - standard library first, then third-party. Let me check the current state and fix the import order.
+
+Actually the current import is:
+```go
+import (
+	"encoding/json"
+
+	"gopkg.in/yaml.v3"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
+	"github.com/bborbe/vault-cli/pkg/config"
+)
+```
+
+This is fine - standard lib (encoding/json) comes first, then third-party alphabetically (gopkg, github). Let me run the te…
+[10:34:46] Let me run the tests to verify:
+
+[10:34:46] $ go test ./pkg/domain/ ./pkg/config/ 2>&1
+[10:34:50] [system: thinking_tokens]
+[10:34:50] [system: thinking_tokens]
+[10:34:50] 💭 Good, tests pass. Now let me add the CHANGELOG entry and then run `make precommit`.
+[10:34:50] Now add the CHANGELOG entry:
+
+[10:34:52] [edit] /workspace/CHANGELOG.md
+    - ## Unreleased\n\n- change(workon): `/vault-cli:work-on-task…
+    + ## Unreleased\n\n- add(goal): goals carry a `claude_session…
+[10:34:52]   → The file /workspace/CHANGELOG.md has been updated successfully. (file state is current in your context — no need to Rea…
+[10:34:54] [system: thinking_tokens]
+[10:34:54] [system: thinking_tokens]
+[10:34:54] 💭 Now let me run `make precommit` to verify everything passes.
+[10:34:54] Now run the full precommit:
+
+[10:34:55] $ make precommit 2>&1
+[10:34:58] [system: task_started]
+[10:35:33] [system: task_notification]
+[10:35:33] ⚠ [Bash] error: Exit code 2\ngo mod tidy -e\ngo mod verify\nall modules verified\nrm -rf vendor\nfind . -type f -name 'go.mod' -not -path './vendor/*' -exec go run github.com/shoenig/go-modtool@v0.7.1 -w fmt "{}" \;\nfind . -type f -name '*.go' -not -path './vendor/*' -exec gofmt -w "{}" +\ngo run github.com/incu6us/goimports-reviser/v3@v3.12.6 -project-name github.com/bborbe/vault-cli -format -excludes vendor .…
+[10:35:35] [system: thinking_tokens]
+[10:35:36] [system: thinking_tokens]
+[10:35:36] [system: thinking_tokens]
+[10:35:37] [system: thinking_tokens]
+[10:35:37] 💭 The linter found unchecked error returns in the test file. I need to fix the test that ignores the return value of `SetField`. Let me look at the test again.
+
+The issue is in the "preserves unknown field alongside session id" test where I'm calling `fm.SetField` without checking the error. I need to add `Expect(...).To(Succeed())` before the subsequent assertions.
+[10:35:38] Fix the unchecked error return in the test:
+
+[10:35:38] [read] /workspace/pkg/domain/goal_frontmatter_test.go (offset=285, limit=10)
+[10:35:38]   → 9 lines read
+[10:35:39] [system: thinking_tokens]
+[10:35:40] [system: thinking_tokens]
+[10:35:40] 💭 I need to add `Expect(...).To(Succeed())` for the SetField calls in that test.
+[10:35:42] [edit] /workspace/pkg/domain/goal_frontmatter_test.go
+    - 		It("preserves unknown field alongside session id", func()…
+    + 		It("preserves unknown field alongside session id", func()…
+[10:35:42]   → The file /workspace/pkg/domain/goal_frontmatter_test.go has been updated successfully. (file state is current in your c…
+[10:35:43] [system: thinking_tokens]
+[10:35:44] [system: thinking_tokens]
+[10:35:44] 💭 Now let me re-run precommit to verify everything passes.
+[10:35:44] $ make precommit 2>&1
+[10:35:47] [system: task_started]
+[10:36:41] [system: task_notification]
+[10:36:43] [system: thinking_tokens]
+[10:36:44] [system: thinking_tokens]
+[10:36:44] 💭 All checks pass. Let me now verify the grep commands from the verification section:
+[10:36:45] All checks pass. Let me verify the grep commands from the verification section:
+
+[10:36:45] $ grep -n "ClaudeSessionID" /workspace/pkg/domain/goal_frontmatter.go && echo "---" && grep -n "GetWorkOnGoalCommand\|work_on_goal_command" /workspace/pkg/config/config.go
+[10:36:48] [system: thinking_tokens]
+[10:36:48] [system: thinking_tokens]
+[10:36:48] 💭 All verification checks pass. Now I need to write the completion report.
+[10:36:49] All verification checks pass. `make precommit` exited 0.
+
+<!-- DARK-FACTORY-REPORT
+{"status":"success","summary":"Added claude_session_id accessor trio to GoalFrontmatter and work_on_goal_command config field with /vault-cli:work-on-goal default","blockers":[],"verification":{"command":"make precommit","exitCode":0}}
+DARK-FACTORY-REPORT -->
+
+## Improvements
+
+- None
+[10:36:49] result: All verification checks pass. `make precommit` exited 0.
+
+<!-- DARK-FACTORY-REPORT
+{"status":"success","summary":"Added claude_session_id accessor trio to GoalFrontmatter and work_on_goal_command config field with /vault-cli:work-on-goal default","blockers":[],"verification":{"command":"make precommit","exitCode":0}}
+DARK-FACTORY-REPORT -->
+
+## Improvements
+
+- None | duration: 234661ms | cost: $4.5225 | tokens: 774546 in / 5814 out
+time=2026-07-11T10:36:49.947+02:00 level=INFO msg="docker container exited" prompt_id=161-spec-023-goal-session-domain-config spec_id=023-goal-work-on container="" workflow_type=direct container=vault-cli-exec-161-spec-023-goal-session-domain-config exit_code=0 workflow_step=run_claude
+time=2026-07-11T10:36:49.948+02:00 level=INFO msg="completion report" status=success summary="Added claude_session_id accessor trio to GoalFrontmatter and work_on_goal_command config field with /vault-cli:work-on-goal default"
+time=2026-07-11T10:36:49.958+02:00 level=INFO msg="moved to completed" prompt_id=161-spec-023-goal-session-domain-config spec_id=023-goal-work-on container="" workflow_type=direct container=vault-cli-exec-161-spec-023-goal-session-domain-config

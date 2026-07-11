@@ -34,7 +34,7 @@ go install github.com/bborbe/vault-cli@latest
 
 ## Configuration
 
-Create `~/.vault-cli/config.yaml`:
+Create `~/.config/vault-cli/config.yaml` (XDG-first location; the legacy path `~/.vault-cli/config.yaml` is still read as a fallback when the XDG file is absent):
 
 ```yaml
 default_vault: personal

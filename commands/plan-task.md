@@ -141,7 +141,7 @@ Print: `⚠ Task improved to X/10. Phase unchanged. Remaining: <bullets>. Re-run
 Task lifecycle:
 
 1. `/vault-cli:create-task` — capture (lenient)
-2. `/vault-cli:work-on-task` — orient (status + guides + daily note)
+2. `/vault-cli:work-on-task` — orient (status + guides + daily note), then auto-chain into this command (interactive)
 3. **`/vault-cli:plan-task`** — sharpen (5 hard gates); never flips `planning → execution` — this command
 4. `/vault-cli:execute-task` — gate planning → execution; flips phase + prints first subtask + DoD reminder
 5. Start work — while working, use any of:

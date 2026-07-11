@@ -36,7 +36,7 @@ Auto-detects whether `<name-or-jira-id>` is a task or goal, then dispatches to t
      subagent_type: 'vault-cli:work-on-task-assistant'
      prompt: 'Find details and guides for: {argument}'
    ```
-   Then continue with Phase 3 (next-step signal), identical to `commands/work-on-task.md` Phase 5.
+   Then continue with Phase 3 (drive to execution), identical to `commands/work-on-task.md` Phase 5.
 
 5. **If `goal`**: invoke the `vault-cli:work-on-goal-assistant` agent:
    ```
@@ -48,9 +48,9 @@ Auto-detects whether `<name-or-jira-id>` is a task or goal, then dispatches to t
 
 6. **If `not_found`**: run Phase 4 (Handle not_found).
 
-### Phase 3 — Next-step signal
+### Phase 3 — Drive to execution
 
-When the `work-on-task-assistant` (task route) or `work-on-goal-assistant` (goal route) report ends with `Ready to work on this task.`, print the plan → execute → complete signal exactly as `commands/work-on-task.md` Phase 5 — resolve `<name>` from the `📋 Task: <name>` line. Do NOT auto-invoke `plan-task` or `execute-task`; the operator runs each deliberately.
+When the `work-on-task-assistant` (task route) or `work-on-goal-assistant` (goal route) report ends with `Ready to work on this task.`, resolve `<name>` from the `📋 Task: <name>` line and follow `commands/work-on-task.md` Phase 5 exactly: **interactive mode auto-chains** `Skill: vault-cli:plan-task "<name>"` → (on `✅ Plan ready`) `Skill: vault-cli:execute-task "<name>"`, stopping at planning if plan-task reports unresolved gaps; **non-interactive / headless mode prints the plan → execute → complete signal only** (no chaining — `plan-task` / `execute-task` may call `AskUserQuestion`). This applies to both the task route and the goal route (the goal route auto-chains the selected task once `work-on-goal-assistant` surfaces it).
 
 ### Phase 4 — Handle not_found (always create)
 
@@ -72,9 +72,9 @@ Branch on the Phase 1 classification path:
 Task lifecycle (extends `commands/work-on-task.md` Integration section):
 
 1. `/vault-cli:create-task` / `/vault-cli:create-goal` — capture
-2. **`/vault-cli:work-on`** — orient + auto-detect type + dispatch + signal next steps — this command
-3. `/vault-cli:plan-task` — sharpen (run directly after work-on)
-4. `/vault-cli:execute-task` — gate planning → execution (run directly after plan-task)
+2. **`/vault-cli:work-on`** — orient + auto-detect type + dispatch, then auto-chain plan → execute (interactive) or signal (non-interactive) — this command
+3. `/vault-cli:plan-task` — sharpen; auto-invoked by work-on (interactive), or run directly
+4. `/vault-cli:execute-task` — gate planning → execution; auto-invoked by work-on when the plan is clean, or run directly
 5. Work → `/vault-cli:update-task` / `/vault-cli:task-status`
 6. `/vault-cli:sync-progress` → `/vault-cli:complete-task`
 7. `/vault-cli:session-close`

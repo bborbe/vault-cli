@@ -30,7 +30,7 @@ The goal name is **required** — pass it as a quoted string. (Focus-page auto-d
 
    After the assistant returns (ends with `Ready to work on this task.`), resolve the selected task name from its `📋 Task: <name>` line and follow `commands/work-on-task.md` Phase 5 exactly.
 
-   **Interactive mode — auto-chain the selected task:** invoke `Skill: vault-cli:plan-task "<name>"`, then on `✅ Plan ready` invoke `Skill: vault-cli:execute-task "<name>"` (flips `planning → execution`, prints first subtask + DoD). If plan-task reports unresolved gaps, stop at planning and print what remains — never force-execute.
+   **Interactive mode — auto-chain the selected task:** invoke `Skill: vault-cli:plan-task "<name>"`, then on either success line — `✅ Plan ready` (phase still `planning`) or `✅ Task sharpened` (task already past planning) — invoke `Skill: vault-cli:execute-task "<name>"` (idempotent: flips `planning → execution` and prints first subtask + DoD, or re-surfaces the work block if already in execution, or refuses if done). If plan-task reports unresolved gaps (`⚠ …` / score < 8), stop at planning and print what remains — never force-execute. On a plan-task `❌ …` hard error, relay it verbatim.
 
    **Non-interactive / headless mode — signal only** (no chaining, since `plan-task` / `execute-task` may call `AskUserQuestion`):
    ```

@@ -77,13 +77,13 @@ Runs only after Phase 2 returned a `found` task — never on `not_found` (Phase 
    a. **Plan.** Invoke `Skill: vault-cli:plan-task "<name>"`. It runs the planning gates itself — passes clean with no questions when the task already has Success Criteria + goal-reaching subtasks (e.g. recurring / runbook tasks), or asks its normal targeted questions when there are real gaps. Let it run its own fix loop.
 
    b. **Branch on plan-task's terminal line:**
-      - `✅ Plan ready` → invoke `Skill: vault-cli:execute-task "<name>"`. That re-checks the hard gates, flips `planning → execution`, and prints the first subtask + DoD reminder. The combined plan-task + execute-task output IS the final output — do NOT re-print the signal.
-      - `⚠ Task improved …` / score < 8 / gaps the operator left unresolved → do NOT execute. Print:
+      - **Plan is good → proceed to execute-task.** Two success lines both qualify: `✅ Plan ready` (plan just passed, phase still `planning`) OR `✅ Task sharpened` (the task was already past planning — plan-task validated but didn't move phase). In both cases invoke `Skill: vault-cli:execute-task "<name>"`. execute-task owns the phase logic and is idempotent: it flips `planning → execution` and prints the first subtask + DoD; or, when the task is already in `execution` / `ai_review` / `human_review`, re-surfaces the first unchecked subtask + DoD ("where was I?"); or, when the task is `done` / closed, prints its own refusal. The combined plan-task + execute-task output IS the final output — do NOT re-print the signal.
+      - `⚠ Task improved …` / score < 8 / gaps the operator left unresolved → do NOT execute (planning gate not cleared). Print:
         ```
         ⚠ Stopped at planning — plan not ready. Remaining: <bullets from plan-task>.
         → Re-run /vault-cli:plan-task "<name>" when ready, then /vault-cli:execute-task "<name>".
         ```
-      - Any other terminal line (task closed, phase already past planning, `❌ …`) → relay plan-task's output verbatim; do NOT force execute.
+      - `❌ …` (plan-task hard error — task not found, input error) → relay plan-task's output verbatim; do NOT invoke execute-task.
 
 `work-on-task` orients, then drives. In interactive mode a task with an already-complete plan lands in `phase: execution` with its first subtask surfaced, in one command. A task with real planning gaps stops at `planning` after plan-task's questions — the gate is enforced, not skipped. Non-interactive callers keep the deliberate signal (no chaining).
 

@@ -10,7 +10,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 
 ## Unreleased
 
-- change(workon): `/vault-cli:work-on-task`, `/vault-cli:work-on`, and `/vault-cli:work-on-goal` now auto-chain into planning → execution in interactive mode instead of only printing the next-step signal. After orienting, they run `plan-task` and — when it reports `✅ Plan ready` — `execute-task`, landing the task in `phase: execution` with its first subtask surfaced. The planning gate stays enforced: if `plan-task` finds real gaps the chain stops at `planning` (never force-executes an unready plan). Non-interactive / headless invocations keep the signal-only behavior (no chaining, since `plan-task` / `execute-task` may call `AskUserQuestion`)
+- change(workon): `/vault-cli:work-on-task`, `/vault-cli:work-on`, and `/vault-cli:work-on-goal` now auto-chain into planning → execution in interactive mode instead of only printing the next-step signal. After orienting, they run `plan-task` and — when the plan is good (`✅ Plan ready`, or `✅ Task sharpened` for a task already past planning) — `execute-task`, landing the task in `phase: execution` (or re-surfacing the work block if already there) with its first subtask shown. The planning gate stays enforced: if `plan-task` finds real gaps the chain stops at `planning` (never force-executes an unready plan). Non-interactive / headless invocations keep the signal-only behavior (no chaining, since `plan-task` / `execute-task` may call `AskUserQuestion`)
 
 ## v0.97.0
 

@@ -50,7 +50,7 @@ Auto-detects whether `<name-or-jira-id>` is a task or goal, then dispatches to t
 
 ### Phase 3 — Drive to execution
 
-When the `work-on-task-assistant` (task route) or `work-on-goal-assistant` (goal route) report ends with `Ready to work on this task.`, resolve `<name>` from the `📋 Task: <name>` line and follow `commands/work-on-task.md` Phase 5 exactly: **interactive mode auto-chains** `Skill: vault-cli:plan-task "<name>"` → (on `✅ Plan ready`) `Skill: vault-cli:execute-task "<name>"`, stopping at planning if plan-task reports unresolved gaps; **non-interactive / headless mode prints the plan → execute → complete signal only** (no chaining — `plan-task` / `execute-task` may call `AskUserQuestion`). This applies to both the task route and the goal route (the goal route auto-chains the selected task once `work-on-goal-assistant` surfaces it).
+When the `work-on-task-assistant` (task route) or `work-on-goal-assistant` (goal route) report ends with `Ready to work on this task.`, resolve `<name>` from the `📋 Task: <name>` line and follow `commands/work-on-task.md` Phase 5 exactly: **interactive mode auto-chains** `Skill: vault-cli:plan-task "<name>"` → (on `✅ Plan ready`) `Skill: vault-cli:execute-task "<name>"`, stopping at planning if plan-task reports unresolved gaps; **non-interactive / headless mode prints the plan → execute → complete signal only** (no chaining — `plan-task` / `execute-task` may call `AskUserQuestion`). This applies to both the task route and the goal route. The goal route does NOT re-invoke `work-on-goal-assistant` — it takes the selected task name from the assistant's already-returned `📋 Task: <name>` line and auto-chains that task's plan → execute.
 
 ### Phase 4 — Handle not_found (always create)
 

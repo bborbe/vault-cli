@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.99.1
 
 - docs(task-writing): require a human browser end-to-end test for front-end/UI features before their success criteria are met — backend/API round-trips (`curl`), static JS assertions, and code review do NOT satisfy UI verification (they never exercise rendering or interaction). Adds matching dishonest-tick phrases so `task-auditor` / `plan-task` / `execute-task` flag UI tasks that claim "verified" on backend/static evidence alone.
 

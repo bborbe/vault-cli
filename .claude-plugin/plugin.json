@@ -1,7 +1,7 @@
 {
   "name": "vault-cli",
   "description": "Task management commands for Obsidian vaults using vault-cli",
-  "version": "0.99.0",
+  "version": "0.99.1",
   "author": {
     "name": "Benjamin Borbe"
   },

@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.99.2
 
 - docs(help): document XDG config path (~/.config/vault-cli/config.yaml, legacy fallback ~/.vault-cli/config.yaml) in vault-cli --help output and README
 

@@ -124,6 +124,7 @@ var _ = Describe("vault-cli integration tests", func() {
 			Entry("goal complete", "goal", "complete"),
 			Entry("goal add", "goal", "add"),
 			Entry("goal remove", "goal", "remove"),
+			Entry("goal work-on", "goal", "work-on"),
 			// Theme subcommands
 			Entry("theme list", "theme", "list"),
 			Entry("theme lint", "theme", "lint"),

@@ -1285,6 +1285,7 @@ func createGoalCommands(
 	))
 	cmd.AddCommand(createGoalCompleteCommand(ctx, configLoader, vaultName, outputFormat))
 	cmd.AddCommand(createGoalDeferCommand(ctx, configLoader, vaultName, outputFormat))
+	cmd.AddCommand(createWorkOnGoalCommand(ctx, configLoader, vaultName, outputFormat))
 	return cmd
 }
 
@@ -1405,6 +1406,66 @@ Date formats:
 			)
 		},
 	}
+}
+
+func createWorkOnGoalCommand(
+	ctx context.Context,
+	configLoader *config.Loader,
+	vaultName *string,
+	outputFormat *string,
+) *cobra.Command {
+	var mode string
+
+	cmd := &cobra.Command{
+		Use:   "work-on <goal-name>",
+		Short: "Mark a goal as in_progress and start a Claude session",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			goalName := args[0]
+
+			isInteractive, err := resolveSessionMode(mode)
+			if err != nil {
+				return err
+			}
+
+			currentUser, err := (*configLoader).GetCurrentUser(ctx)
+			if err != nil {
+				return errors.Wrap(ctx, err, "get current user")
+			}
+
+			vaults, err := getVaults(ctx, configLoader, vaultName)
+			if err != nil {
+				return errors.Wrap(ctx, err, "get vaults")
+			}
+
+			dispatcher := ops.NewVaultDispatcher()
+			return dispatcher.FirstSuccess(ctx, vaults, func(vault *config.Vault) error {
+				starter := ops.NewClaudeSessionStarter(vault.GetClaudeScript())
+				resumer := ops.NewClaudeResumer(vault.GetClaudeScript())
+				storageConfig := storage.NewConfigFromVault(vault)
+				goalStore := storage.NewGoalStorage(storageConfig)
+				workOnOp := ops.NewGoalWorkOnOperation(goalStore, starter, resumer)
+				sessionDir := vault.Path
+				if dir := vault.GetSessionProjectDir(); dir != "" {
+					sessionDir = dir
+				}
+				result, err := workOnOp.Execute(
+					ctx,
+					vault.Path,
+					goalName,
+					currentUser,
+					vault.Name,
+					isInteractive,
+					sessionDir,
+					vault,
+				)
+				return formatWorkOnResult(result, err, currentUser, *outputFormat)
+			})
+		},
+	}
+
+	cmd.Flags().StringVar(&mode, "mode", "auto", "Session mode: auto, interactive, or headless")
+	return cmd
 }
 
 //nolint:dupl // Command groups are structurally similar but manage distinct entity types

@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [023-goal-work-on]
+summary: Added vault-cli goal work-on command wiring GoalWorkOnOperation into the goal command group, with integration test entry and CHANGELOG
+execution_id: vault-cli-exec-163-spec-023-goal-workon-cli
+dark-factory-version: v0.191.0
 created: "2026-07-11T08:42:00Z"
 queued: "2026-07-11T08:29:33Z"
+started: "2026-07-11T08:39:47Z"
+completed: "2026-07-11T08:42:03Z"
 ---
 
 <summary>

@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [023-goal-work-on]
+summary: Created GoalWorkOnOperation in pkg/ops (interface + implementation + Counterfeiter mock + Ginkgo test suite), mirroring WorkOnOperation minus daily-note and phase steps
+execution_id: vault-cli-exec-162-spec-023-goal-workon-operation
+dark-factory-version: v0.191.0
 created: "2026-07-11T08:41:00Z"
 queued: "2026-07-11T08:29:33Z"
+started: "2026-07-11T08:36:51Z"
+completed: "2026-07-11T08:39:45Z"
 ---
 
 <summary>

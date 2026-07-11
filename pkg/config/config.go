@@ -23,24 +23,25 @@ type Config struct {
 
 // Vault represents a single vault configuration.
 type Vault struct {
-	Path              string   `yaml:"path"                          json:"path"`
-	Name              string   `yaml:"name"                          json:"name"`
-	TasksDir          string   `yaml:"tasks_dir,omitempty"           json:"tasks_dir,omitempty"`
-	GoalsDir          string   `yaml:"goals_dir,omitempty"           json:"goals_dir,omitempty"`
-	ThemesDir         string   `yaml:"themes_dir,omitempty"          json:"themes_dir,omitempty"`
-	ObjectivesDir     string   `yaml:"objectives_dir,omitempty"      json:"objectives_dir,omitempty"`
-	VisionDir         string   `yaml:"vision_dir,omitempty"          json:"vision_dir,omitempty"`
-	DailyDir          string   `yaml:"daily_dir,omitempty"           json:"daily_dir,omitempty"`
-	KnowledgeDir      string   `yaml:"knowledge_dir,omitempty"       json:"knowledge_dir,omitempty"`
-	ClaudeScript      string   `yaml:"claude_script,omitempty"       json:"claude_script,omitempty"`
-	SessionProjectDir string   `yaml:"session_project_dir,omitempty" json:"session_project_dir,omitempty"`
-	WorkOnCommand     string   `yaml:"work_on_command,omitempty"     json:"work_on_command,omitempty"`
-	TaskTemplate      string   `yaml:"task_template,omitempty"       json:"task_template,omitempty"`
-	GoalTemplate      string   `yaml:"goal_template,omitempty"       json:"goal_template,omitempty"`
-	ThemeTemplate     string   `yaml:"theme_template,omitempty"      json:"theme_template,omitempty"`
-	ObjectiveTemplate string   `yaml:"objective_template,omitempty"  json:"objective_template,omitempty"`
-	VisionTemplate    string   `yaml:"vision_template,omitempty"     json:"vision_template,omitempty"`
-	Excludes          []string `yaml:"excludes,omitempty"            json:"excludes,omitempty"`
+	Path              string   `yaml:"path"                           json:"path"`
+	Name              string   `yaml:"name"                           json:"name"`
+	TasksDir          string   `yaml:"tasks_dir,omitempty"            json:"tasks_dir,omitempty"`
+	GoalsDir          string   `yaml:"goals_dir,omitempty"            json:"goals_dir,omitempty"`
+	ThemesDir         string   `yaml:"themes_dir,omitempty"           json:"themes_dir,omitempty"`
+	ObjectivesDir     string   `yaml:"objectives_dir,omitempty"       json:"objectives_dir,omitempty"`
+	VisionDir         string   `yaml:"vision_dir,omitempty"           json:"vision_dir,omitempty"`
+	DailyDir          string   `yaml:"daily_dir,omitempty"            json:"daily_dir,omitempty"`
+	KnowledgeDir      string   `yaml:"knowledge_dir,omitempty"        json:"knowledge_dir,omitempty"`
+	ClaudeScript      string   `yaml:"claude_script,omitempty"        json:"claude_script,omitempty"`
+	SessionProjectDir string   `yaml:"session_project_dir,omitempty"  json:"session_project_dir,omitempty"`
+	WorkOnCommand     string   `yaml:"work_on_command,omitempty"      json:"work_on_command,omitempty"`
+	WorkOnGoalCommand string   `yaml:"work_on_goal_command,omitempty" json:"work_on_goal_command,omitempty"`
+	TaskTemplate      string   `yaml:"task_template,omitempty"        json:"task_template,omitempty"`
+	GoalTemplate      string   `yaml:"goal_template,omitempty"        json:"goal_template,omitempty"`
+	ThemeTemplate     string   `yaml:"theme_template,omitempty"       json:"theme_template,omitempty"`
+	ObjectiveTemplate string   `yaml:"objective_template,omitempty"   json:"objective_template,omitempty"`
+	VisionTemplate    string   `yaml:"vision_template,omitempty"      json:"vision_template,omitempty"`
+	Excludes          []string `yaml:"excludes,omitempty"             json:"excludes,omitempty"`
 }
 
 // GetTasksDir returns the tasks directory, defaulting to "Tasks" if not set.
@@ -116,6 +117,15 @@ func (v *Vault) GetWorkOnCommand() string {
 		return v.WorkOnCommand
 	}
 	return "/vault-cli:work-on-task"
+}
+
+// GetWorkOnGoalCommand returns the Claude slash command for starting goal work-on
+// sessions, defaulting to /vault-cli:work-on-goal if not configured.
+func (v *Vault) GetWorkOnGoalCommand() string {
+	if v.WorkOnGoalCommand != "" {
+		return v.WorkOnGoalCommand
+	}
+	return "/vault-cli:work-on-goal"
 }
 
 // GetTaskTemplate returns the resolved absolute path to the task template, or empty string if not set.

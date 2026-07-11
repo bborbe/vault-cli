@@ -63,6 +63,9 @@ func (f GoalFrontmatter) Priority() Priority {
 // Assignee reads "assignee" key.
 func (f GoalFrontmatter) Assignee() string { return f.GetString("assignee") }
 
+// ClaudeSessionID reads "claude_session_id" key as string.
+func (f GoalFrontmatter) ClaudeSessionID() string { return f.GetString("claude_session_id") }
+
 // StartDate reads "start_date" as *libtime.DateOrDateTime.
 // Handles both time.Time (YAML-parsed) and string (hand-authored) forms.
 // Returns nil on missing or unparseable value.
@@ -148,6 +151,12 @@ func (f *GoalFrontmatter) SetPriority(ctx context.Context, p Priority) error {
 // SetAssignee stores the assignee in the map.
 func (f *GoalFrontmatter) SetAssignee(v string) { f.Set("assignee", v) }
 
+// SetClaudeSessionID stores the claude_session_id in the map.
+func (f *GoalFrontmatter) SetClaudeSessionID(v string) { f.Set("claude_session_id", v) }
+
+// ClearClaudeSessionID removes the claude_session_id key from the map.
+func (f *GoalFrontmatter) ClearClaudeSessionID() { f.Delete("claude_session_id") }
+
 // SetStartDate stores the start_date in the map. Deletes key if d is nil.
 func (f *GoalFrontmatter) SetStartDate(d *libtime.DateOrDateTime) {
 	if d == nil {
@@ -224,6 +233,8 @@ func (f GoalFrontmatter) GetField(key string) string {
 		return d.String()
 	case "defer_date":
 		return dateFieldString(f.DeferDate())
+	case "claude_session_id":
+		return f.ClaudeSessionID()
 	default:
 		return f.GetString(key)
 	}
@@ -252,6 +263,8 @@ func (f *GoalFrontmatter) SetField(ctx context.Context, key, value string) error
 		return f.setCompletedFromString(ctx, value)
 	case "defer_date":
 		return f.setDeferDateFromString(ctx, value)
+	case "claude_session_id":
+		f.SetClaudeSessionID(value)
 	default:
 		f.Set(key, value)
 	}

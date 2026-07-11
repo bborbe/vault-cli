@@ -251,6 +251,47 @@ var _ = Describe("GoalFrontmatter", func() {
 		})
 	})
 
+	Describe("ClaudeSessionID", func() {
+		It("returns empty for missing key", func() {
+			Expect(fm.ClaudeSessionID()).To(Equal(""))
+		})
+
+		It("returns value when set", func() {
+			fm = domain.NewGoalFrontmatter(map[string]any{"claude_session_id": "sess-abc"})
+			Expect(fm.ClaudeSessionID()).To(Equal("sess-abc"))
+		})
+	})
+
+	Describe("SetClaudeSessionID", func() {
+		It("stores the value", func() {
+			fm.SetClaudeSessionID("sess-xyz")
+			Expect(fm.ClaudeSessionID()).To(Equal("sess-xyz"))
+		})
+	})
+
+	Describe("ClearClaudeSessionID", func() {
+		It("removes the key", func() {
+			fm.SetClaudeSessionID("sess-abc")
+			fm.ClearClaudeSessionID()
+			Expect(fm.Get("claude_session_id")).To(BeNil())
+		})
+	})
+
+	Describe("SetField / GetField - claude_session_id", func() {
+		It("round-trips via SetField and GetField", func() {
+			Expect(fm.SetField(ctx, "claude_session_id", "sess-abc")).To(Succeed())
+			Expect(fm.GetField("claude_session_id")).To(Equal("sess-abc"))
+			Expect(fm.ClaudeSessionID()).To(Equal("sess-abc"))
+		})
+
+		It("preserves unknown field alongside session id", func() {
+			Expect(fm.SetField(ctx, "custom_note", "hello")).To(Succeed())
+			Expect(fm.SetField(ctx, "claude_session_id", "sess-abc")).To(Succeed())
+			Expect(fm.GetField("custom_note")).To(Equal("hello"))
+			Expect(fm.GetField("claude_session_id")).To(Equal("sess-abc"))
+		})
+	})
+
 	Describe("DeferDate", func() {
 		It("returns nil for missing key", func() {
 			Expect(fm.DeferDate()).To(BeNil())

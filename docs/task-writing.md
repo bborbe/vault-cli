@@ -246,6 +246,10 @@ For single-environment artifacts (CLI tools, libraries, docs):
 
 **This is the most frequently missed step.** Dev passing does not mean prod will pass — different infra, different load, different secrets. Auto-deploy via CI verifies the deploy mechanic, NOT the new behavior on prod.
 
+### Front-end / UI features: a human must click it
+
+For any artifact with a **rendered UI** (web frontend, button, modal, card, list, form), end-to-end verification means **a human clicks through the actual rendered interface in the browser**: the control appears, the click works, the modal opens, the card/list/state updates. Backend/API round-trips (`curl`, endpoint tests), static string assertions on the JS, and code review **do NOT satisfy the UI verification** — they never exercise rendering or interaction, which is exactly where UI bugs live. Deploy to a test or prod instance, hand the user a concrete click-through checklist, and **wait for their confirmation** before ticking any UI success criterion or marking the task complete. The agent cannot self-satisfy this item — it requires the human operator's browser test.
+
 ### Anti-pattern: dishonest ticks
 
 Ticking a verification subtask with body containing any of these phrases (case-insensitive substring match) is rejected by `task-auditor` as MAJOR:
@@ -263,6 +267,8 @@ Ticking a verification subtask with body containing any of these phrases (case-i
 - *"ci passed = tested"* (CI verifies the deploy succeeded, not that the new behavior works)
 - *"auto-release tagged ≠ shipped"* (tagging is mechanical; shipping requires real-environment verification)
 - *"deferred to follow-up goal"* (then the current goal isn't done — change the scope or do the verification)
+- *"verified via curl / api / endpoint test"* on a UI feature (backend round-trips never exercise the rendered UI — a human must click it)
+- *"static tests pass = ui works"* / *"code review confirms the ui"* (neither renders or clicks the interface)
 
 Keep the subtask `[ ]` until real-environment execution evidence exists.
 

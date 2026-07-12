@@ -174,6 +174,8 @@ claude plugin update vault-cli@vault-cli
 | `/vault-cli:execute-task` | Hard gate `phase: planning → execution` — re-runs plan-task's 4 hard non-negotiables, on pass flips phase + prints first unchecked subtask + DoD reminder. Idempotent on `phase: execution` |
 | `/vault-cli:verify-goal` | Quick goal validation (status, subtasks) |
 | `/vault-cli:audit-goal` | Full goal audit against Goal Writing Guide |
+| `/vault-cli:plan-goal` | Validate required sections + that every `# Tasks` wikilink resolves to an existing task file, via goal-auditor; conversationally fill gaps; leaves `phase: planning` and hands off to `/execute-goal` (never flips phase itself) |
+| `/vault-cli:execute-goal` | Gate `phase: planning → execution` — re-runs plan-goal's 3 hard checks, on pass flips phase + recommends the next open task one at a time until the goal drains, then points to `/verify-goal` → `/complete-goal`. Recommends only, never runs the task |
 | `/vault-cli:verify-theme` | Quick theme validation (structure, sections) |
 | `/vault-cli:audit-theme` | Full theme audit against Theme Writing Guide |
 | `/vault-cli:audit-objective` | Full objective audit against Objective Writing Guide |

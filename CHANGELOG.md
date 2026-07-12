@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix(command): `plan-goal` and `execute-goal` now treat only the **leading** `[[...]]` of each `# Tasks` list item as the task — wikilinks in a task item's trailing description (cross-references to a guide, Success Criterion, or another goal) are no longer mis-read as phantom missing tasks. Found by dogfooding against a real goal whose Task 4 line references `[[Task Lifecycle Guide]]` in prose
+
 ## v0.101.0
 
 - feat(command): add `/vault-cli:plan-goal` slash command — goal-side planning gate mirroring `plan-task`; validates the required decision sections (`# Success Criteria` / `# Definition of Done` / `# Non-goals`) and that every `# Tasks` wikilink resolves to an existing task file (skipping inline-code spans), runs `goal-auditor`, leaves the goal at `phase: planning`, and hands off to `execute-goal` (never flips phase itself)

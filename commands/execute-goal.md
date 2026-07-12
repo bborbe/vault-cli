@@ -67,7 +67,7 @@ Check (in order, collect ALL failures — don't short-circuit):
 
 1. **Required sections present** — each of `# Success Criteria`, `# Definition of Done`, `# Non-goals` exists as a heading. Report each missing section by name.
 2. **Success Criteria binary** — `# Success Criteria` has ≥ 2 binary checkboxes (`- [ ]` / `- [x]`).
-3. **Every `# Tasks` wikilink resolves** — each `[[Task Title]]` in the `# Tasks` section resolves to an existing `<tasks_dir>/<Task Title>.md` (skip `[[...]]` inside inline-code spans; strip `|alias` display text). Report each unresolved task by name.
+3. **Every `# Tasks` wikilink resolves** — for each `# Tasks` list item, its task file `<tasks_dir>/<Task Title>.md` exists. The task is the **leading `[[...]]` of each list item only** — wikilinks later in the same item (trailing description after `—`: cross-references to a guide / Success Criterion / other goal) are references, not tasks; ignore them. Also skip `[[...]]` inside inline-code spans and strip `|alias` display text. Report each unresolved task by name.
 
 ### 6. Phase transition or refusal
 
@@ -96,7 +96,7 @@ Continue to step 7.
 
 ### 7. Recommend the next open task (or signal drain-complete) — final output
 
-Walk the `# Tasks` section's wikilinks **in listed order**. For each `[[Task Title]]` (inline-code spans skipped, `|alias` stripped), resolve to `<tasks_dir>/<Task Title>.md` and read its status:
+Walk the `# Tasks` section's list items **in listed order**. Each item's task is its **leading `[[...]]` only** (wikilinks later in the item's description — guide / SC / goal cross-references — are ignored; inline-code spans skipped, `|alias` stripped). For each task, resolve to `<tasks_dir>/<Task Title>.md` and read its status:
 
 ```bash
 vault-cli task get "<Task Title>" status --output json

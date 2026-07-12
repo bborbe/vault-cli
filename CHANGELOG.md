@@ -8,6 +8,11 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat(command): add `/vault-cli:plan-goal` slash command — goal-side planning gate mirroring `plan-task`; validates the required decision sections (`# Success Criteria` / `# Definition of Done` / `# Non-goals`) and that every `# Tasks` wikilink resolves to an existing task file (skipping inline-code spans), runs `goal-auditor`, leaves the goal at `phase: planning`, and hands off to `execute-goal` (never flips phase itself)
+- feat(command): add `/vault-cli:execute-goal` slash command — goal-side execution gate + task-drain driver mirroring `execute-task`; re-runs plan-goal's hard checks, flips `phase: planning → execution` on a clean plan, then recommends the next open task (first `# Tasks` wikilink whose task file is not `completed`/`aborted`) one at a time until the goal drains, then points to `verify-goal` → `complete-goal`. Recommends only — never runs the task
+
 ## v0.100.0
 
 - feat(domain): add `GoalPhase` string-enum type with four canonical values (`todo`/`planning`/`execution`/`done`), mirroring `TaskPhase` but with no aliases — foundation for goal phase validation in a later prompt

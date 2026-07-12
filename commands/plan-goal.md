@@ -65,9 +65,10 @@ Three checks beyond the auditor's general scoring — all hard (any failure → 
 
 - **Required sections present** — each of `# Success Criteria`, `# Definition of Done`, `# Non-goals` exists as a heading. Report each missing section **by name**.
 - **Success Criteria binary** — `# Success Criteria` section has ≥ 2 binary checkboxes (`- [ ]` / `- [x]`).
-- **Every `# Tasks` wikilink resolves** — extract each `[[Task Title]]` from the `# Tasks` section and confirm a file `<tasks_dir>/<Task Title>.md` exists (vault-cli config `tasks_dir`; use `Glob`). Report each **unresolved task by name**. Two rules on extraction:
-    1. **Skip inline-code spans** — a `[[wikilink]]` inside backticks (e.g. a literal example in prose) is NOT a task reference; exclude it. Only bare `[[...]]` in the `# Tasks` list counts.
-    2. **Strip display aliases** — `[[Real Title|shown]]` resolves against `Real Title`.
+- **Every `# Tasks` wikilink resolves** — for each `# Tasks` list item, confirm its task file `<tasks_dir>/<Task Title>.md` exists (vault-cli config `tasks_dir`; use `Glob`). Report each **unresolved task by name**. Three rules on extraction:
+    1. **One task per list item — the leading wikilink only.** Each `# Tasks` entry is a list item (`- ` or `N.`); the task is the **first** `[[...]]` on that item. Wikilinks appearing *later* in the same item — in the trailing description after `—`, e.g. a cross-reference to a guide, a Success Criterion, or another goal — are references, NOT tasks; ignore them. (Example: `4. [[Write Goal Lifecycle Guide]] — grid mirroring [[Task Lifecycle Guide]]` names exactly one task, `Write Goal Lifecycle Guide`; `[[Task Lifecycle Guide]]` is a reference, not a phantom missing task.)
+    2. **Skip inline-code spans** — a `[[wikilink]]` inside backticks (a literal example in prose) is NOT a task reference; exclude it.
+    3. **Strip display aliases** — `[[Real Title|shown]]` resolves against `Real Title`.
 
     An unresolved wikilink is the goal-side equivalent of a missing subtask: the goal names work that has no home yet. The owner creates it (`/vault-cli:create-task "<title>"` or clicking the wikilink in Obsidian) before the goal is execution-ready.
 

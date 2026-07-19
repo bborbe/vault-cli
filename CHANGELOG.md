@@ -12,6 +12,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 
 - fix(command): `plan-goal` and `execute-goal` now treat only the **leading** `[[...]]` of each `# Tasks` list item as the task — wikilinks in a task item's trailing description (cross-references to a guide, Success Criterion, or another goal) are no longer mis-read as phantom missing tasks. Found by dogfooding against a real goal whose Task 4 line references `[[Task Lifecycle Guide]]` in prose
 
+## Unreleased
+
+- Bump `golang.org/x/text` to v0.39.0 (CVE-2026-56852)
+
 ## v0.101.0
 
 - feat(command): add `/vault-cli:plan-goal` slash command — goal-side planning gate mirroring `plan-task`; validates the required decision sections (`# Success Criteria` / `# Definition of Done` / `# Non-goals`) and that every `# Tasks` wikilink resolves to an existing task file (skipping inline-code spans), runs `goal-auditor`, leaves the goal at `phase: planning`, and hands off to `execute-goal` (never flips phase itself)

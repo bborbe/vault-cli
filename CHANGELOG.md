@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: `task complete` in a multi-vault config now surfaces the real precondition error (e.g. `incomplete subtasks: N pending`) instead of masking it as `not found in any vault`; not-found is now a typed `storage.ErrNotFound` sentinel and the dispatcher short-circuits non-not-found errors.
+
 ## v0.101.2
 
 - fix(command): `plan-goal` and `execute-goal` now treat only the **leading** `[[...]]` of each `# Tasks` list item as the task — wikilinks in a task item's trailing description (cross-references to a guide, Success Criterion, or another goal) are no longer mis-read as phantom missing tasks. Found by dogfooding against a real goal whose Task 4 line references `[[Task Lifecycle Guide]]` in prose

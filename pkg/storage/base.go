@@ -138,7 +138,7 @@ func (b *baseStorage) findFileByName(
 		return matchedPath, matchedName, nil
 	}
 
-	return "", "", errors.Errorf(ctx, "file not found: %s", name)
+	return "", "", errors.Wrapf(ctx, ErrNotFound, "%s", name)
 }
 
 func (b *baseStorage) parseCheckboxes(content string) []domain.CheckboxItem {

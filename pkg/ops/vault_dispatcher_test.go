@@ -7,12 +7,14 @@ package ops_test
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	"github.com/bborbe/vault-cli/pkg/config"
 	"github.com/bborbe/vault-cli/pkg/ops"
+	"github.com/bborbe/vault-cli/pkg/storage"
 )
 
 var _ = Describe("VaultDispatcher", func() {
@@ -136,7 +138,8 @@ var _ = Describe("VaultDispatcher", func() {
 				if vault.Name == "vault-b" {
 					return nil
 				}
-				return errors.New("not in this vault")
+				// "not in this vault" is a not-found-class error so the loop continues
+				return fmt.Errorf("find task: %w", storage.ErrNotFound)
 			})
 		})
 
@@ -160,7 +163,7 @@ var _ = Describe("VaultDispatcher", func() {
 		JustBeforeEach(func() {
 			err = dispatcher.FirstSuccess(ctx, vaults, func(vault *config.Vault) error {
 				callCount++
-				return errors.New("not found")
+				return fmt.Errorf("find task: %w", storage.ErrNotFound)
 			})
 		})
 
@@ -169,6 +172,67 @@ var _ = Describe("VaultDispatcher", func() {
 		})
 
 		It("calls fn for all vaults", func() {
+			Expect(callCount).To(Equal(2))
+		})
+
+		It("the returned error satisfies errors.Is for storage.ErrNotFound", func() {
+			Expect(errors.Is(err, storage.ErrNotFound)).To(BeTrue())
+		})
+	})
+
+	Context("multiple vaults, non-not-found error in first vault", func() {
+		BeforeEach(func() {
+			vaults = []*config.Vault{
+				{Name: "vault-a", Path: "/a"},
+				{Name: "vault-b", Path: "/b"},
+			}
+		})
+
+		JustBeforeEach(func() {
+			err = dispatcher.FirstSuccess(ctx, vaults, func(vault *config.Vault) error {
+				callCount++
+				return errors.New("incomplete subtasks: 3 pending")
+			})
+		})
+
+		It("returns the error directly without wrapping it", func() {
+			Expect(err).To(MatchError(ContainSubstring("incomplete subtasks: 3 pending")))
+			Expect(err).NotTo(MatchError(ContainSubstring("not found in any vault")))
+		})
+
+		It("does not fall through to the second vault", func() {
+			Expect(callCount).To(Equal(1))
+		})
+
+		It("the error does not satisfy errors.Is for storage.ErrNotFound", func() {
+			Expect(errors.Is(err, storage.ErrNotFound)).To(BeFalse())
+		})
+	})
+
+	Context("multiple vaults, precondition error when owning vault is not last", func() {
+		BeforeEach(func() {
+			vaults = []*config.Vault{
+				{Name: "vault-a", Path: "/a"},
+				{Name: "vault-b", Path: "/b"},
+			}
+		})
+
+		JustBeforeEach(func() {
+			err = dispatcher.FirstSuccess(ctx, vaults, func(vault *config.Vault) error {
+				callCount++
+				if vault.Name == "vault-a" {
+					return fmt.Errorf("find task: %w", storage.ErrNotFound)
+				}
+				return errors.New("incomplete subtasks: 7 pending")
+			})
+		})
+
+		It("returns the precondition error from the owning vault", func() {
+			Expect(err).To(MatchError(ContainSubstring("incomplete subtasks: 7 pending")))
+			Expect(err).NotTo(MatchError(ContainSubstring("not found in any vault")))
+		})
+
+		It("called fn for both vaults", func() {
 			Expect(callCount).To(Equal(2))
 		})
 	})

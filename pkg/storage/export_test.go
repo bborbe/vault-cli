@@ -35,3 +35,13 @@ func SerializeMapAsFrontmatterForTest(
 ) (string, error) {
 	return b.serializeMapAsFrontmatter(ctx, data, orig)
 }
+
+// FindFileByNameForTest exposes findFileByName for testing.
+func FindFileByNameForTest(
+	ctx context.Context,
+	b *BaseStorageForTest,
+	dir string,
+	name string,
+) (string, string, error) {
+	return b.findFileByName(ctx, dir, name)
+}

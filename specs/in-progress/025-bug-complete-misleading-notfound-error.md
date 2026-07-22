@@ -1,11 +1,12 @@
 ---
-status: prompted
+status: verifying
 tags:
     - dark-factory
     - spec
 approved: "2026-07-22T20:01:14Z"
 generating: "2026-07-22T20:01:48Z"
 prompted: "2026-07-22T20:06:13Z"
+verifying: "2026-07-22T20:42:14Z"
 branch: dark-factory/bug-complete-misleading-notfound-error
 ---
 

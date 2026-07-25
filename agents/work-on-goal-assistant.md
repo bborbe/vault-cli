@@ -99,8 +99,17 @@ Extract task references from the goal file:
 
 For each task ref:
 - Resolve to a file across active + sibling vaults
-- Read frontmatter: `status`, `defer_date`, `priority`
 - Scan content for blocker patterns (`Blocker:`, `Blocked by:`, `⚠️ Blocked by:`)
+
+Fetch `status`, `defer_date`, and `priority` for ALL child tasks in one call — never read them from frontmatter directly:
+
+```bash
+vault-cli task list --goal "{goal_name}" --all --output json
+```
+
+Use the returned values for the defer filter, the grouping, the progress line, and the recommendation. For any task ref the call does not return, resolve it individually via `vault-cli task get "<name>" status --output json`; if that errors, render the task as `status: unverified` rather than guessing.
+
+These values drive which task gets recommended and the `X/Y completed` count, so a wrong read is silent — it changes the recommendation with no visible symptom. The CLI is authoritative; one call is also cheaper than N file reads.
 
 Defer filter: if `defer_date > today`, exclude from active lists; track as "deferred".
 

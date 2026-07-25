@@ -125,6 +125,17 @@ If found:
 If not found AND task came from Jira:
 - The Jira issue exists but there is no local Obsidian task file. This is a `not_found` case for the Obsidian side — the calling slash command's Phase 4 owns task creation. Emit the `not_found:` verdict (see Phase 1 and `<output_format>`) including the Jira summary as the `Suggested task name:` value and STOP — do NOT call AskUserQuestion, do NOT invoke `Skill: vault-cli:create-task`. The slash command creates the file (always, on `not_found`).
 
+### Prerequisite tasks (BLOCKING)
+
+If the task file has a `# Prerequisites` section naming `[[Other Task]]` as blocking:
+
+1. Resolve each via CLI — never by reading the file or its frontmatter:
+   `vault-cli task get "<Other Task>" status --output json`
+2. Report the parsed `value` verbatim. On error, report `unverified` — never infer status from prose, checkbox state, or an earlier read.
+3. Report as blocking only when `value` is not `completed`.
+
+A prerequisite's status is the single fact that decides whether work can start. Reading it out of frontmatter has produced a false `in_progress` on an already-`completed` task; the CLI is authoritative, so use it.
+
 ## Phase 4: Track on daily note
 
 - `date +%Y-%m-%d` → today

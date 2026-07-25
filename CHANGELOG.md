@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix(agent): `work-on-task-assistant` and `work-on-goal-assistant` now resolve task status through the CLI instead of reading it out of frontmatter. Both already used the CLI for writes; only reads bypassed it. `work-on-task-assistant` had no `# Prerequisites` handling at all, so the check was improvised per-run and reported an already-`completed` blocking task as `in_progress`. `work-on-goal-assistant` free-read `status` / `defer_date` / `priority` for every child task, silently feeding the grouping, the `X/Y completed` count, and the task recommendation — it now fetches all of them in one `task list --goal ... --all --output json` call, which is also cheaper than N file reads. Unresolvable tasks render as `unverified` rather than guessed.
+
 ## v0.102.0
 
 - feat(command): `session-close` now specs a verbatim closer panel for its Phase 9 verdicts. It is the terminal lifecycle command but defined no closer, so the trailing "name a concrete next action" convention got improvised — reliably producing a next-task recommendation, which the one-task-per-session contract forbids. Mirrors the fix already present in `sync-progress.md` Phase 6.

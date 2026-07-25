@@ -104,8 +104,12 @@ For each task ref:
 Fetch `status`, `defer_date`, and `priority` for ALL child tasks in one call — never read them from frontmatter directly:
 
 ```bash
-vault-cli task list --goal "{goal_name}" --all --output json
+vault-cli task list --goal "[[{goal_name}]]" --all --output json
 ```
+
+⚠️ `--goal` matches the task's `goals:` frontmatter value verbatim, so it needs the **wikilink form** — `"[[Some Goal]]"`, not `"Some Goal"`. This is the opposite of `vault-cli goal set "{goal_name}"` above, which takes the bare name. Passing the bare name here returns `null`, not an error, so a wrong form looks exactly like "this goal has no tasks."
+
+If the call returns `null` or `[]` while the goal file does list task refs, treat that as a failed call — not as an empty goal — and fall through to the per-task path below.
 
 Use the returned values for the defer filter, the grouping, the progress line, and the recommendation. For any task ref the call does not return, resolve it individually via `vault-cli task get "<name>" status --output json`; if that errors, render the task as `status: unverified` rather than guessing.
 

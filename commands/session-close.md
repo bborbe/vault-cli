@@ -366,6 +366,22 @@ Append the reflect and/or self-improve suggestions as the last numbered item(s) 
 
 Never auto-close, never auto-commit, never auto-kill, never auto-reflect, never auto-self-improve. The command's only job is the one-line verdict or the numbered open list.
 
+### Closer panel — verbatim, no rewording
+
+Append below the verdict. This command is terminal; without a fixed closer the trailing "name a concrete next action" convention gets improvised, and improvisation reliably produces a next-task recommendation — the exact thing the one-task-per-session contract forbids.
+
+**Clean verdict (mode 1 or 2):**
+
+```
+⚪ DONE
+👤 You: nothing — session closed
+⏰ Next: you open a new session; the orchestrator picks the next anchor
+```
+
+**Outstanding items (mode 3):** `🔵 READY`, with `👤 You: approve:` naming exactly ONE item from the numbered list.
+
+**Never name a specific next task. Never recommend `/vault-cli:next-task`.** Next-session anchor selection belongs to the orchestrator (or to the user opening a fresh session), not to this command. Same rationale as `sync-progress.md` Phase 6 — and note that closing one task's session is the routine bookend between two task sessions, so the global "no end-of-day suggestions" rule does not apply here.
+
 ## Integration
 
 End-of-session bookend of the per-session lifecycle:

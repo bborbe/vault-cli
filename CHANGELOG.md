@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat(command): `session-close` now specs a verbatim closer panel for its Phase 9 verdicts. It is the terminal lifecycle command but defined no closer, so the trailing "name a concrete next action" convention got improvised — reliably producing a next-task recommendation, which the one-task-per-session contract forbids. Mirrors the fix already present in `sync-progress.md` Phase 6.
+
 ## v0.101.3
 
 - fix: `task complete` in a multi-vault config now surfaces the real precondition error (e.g. `incomplete subtasks: N pending`) instead of masking it as `not found in any vault`; not-found is now a typed `storage.ErrNotFound` sentinel and the dispatcher short-circuits non-not-found errors.

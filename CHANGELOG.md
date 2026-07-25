@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.102.2
 
 - fix(agent): `work-on-goal-assistant`'s batch status call now passes the goal in wikilink form (`--goal "[[Name]]"`). `task list --goal` matches the task's `goals:` frontmatter verbatim, so the bare name shipped in v0.102.1 returned `null` for every real goal — silently, since `null` is not an error. Correctness was preserved by the per-task fallback, but the batch path never fired, so the "one call instead of N reads" claim in v0.102.1 did not hold. Also documents the asymmetry with `goal set`, which takes the bare name, and tells the agent to treat `null` on a goal that lists task refs as a failed call rather than an empty goal.
 

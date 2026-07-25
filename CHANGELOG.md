@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.102.1
 
 - fix(agent): `work-on-task-assistant` and `work-on-goal-assistant` now resolve task status through the CLI instead of reading it out of frontmatter. Both already used the CLI for writes; only reads bypassed it. `work-on-task-assistant` had no `# Prerequisites` handling at all, so the check was improvised per-run and reported an already-`completed` blocking task as `in_progress`. `work-on-goal-assistant` free-read `status` / `defer_date` / `priority` for every child task, silently feeding the grouping, the `X/Y completed` count, and the task recommendation — it now fetches all of them in one `task list --goal ... --all --output json` call, which is also cheaper than N file reads. Unresolvable tasks render as `unverified` rather than guessed.
 

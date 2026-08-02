@@ -167,16 +167,31 @@ Do not collapse failures into a generic warning — each unverified task is its 
 
 ### Phase 5: Check for orphaned background processes
 
+**Scope: THIS session's processes only.** Build the candidate list from the conversation, not from the process table — a machine-wide `ps` scan cannot tell a sibling session's daemon from your own, and flagging someone else's is a false positive that makes the verdict untrustworthy.
+
+Enumerate background work **this session started**:
+
+- Bash calls made with `run_in_background: true` in this conversation
+- `Monitor` watches armed in this conversation
+- Long-running foreground commands this session backgrounded explicitly
+
+If that list is empty → **skip this phase silently. Do NOT run `ps aux`.**
+
+Only for PIDs already on that list, confirm liveness:
+
 ```bash
-jobs -l 2>/dev/null
-ps aux | grep -E '(dark-factory|daemon|watch)' | grep -v grep | head
+ps -p <pid> -o pid=,etime=,command= 2>/dev/null
 ```
 
-If anything is still running that the user spawned this session, call it out. Don't kill anything without confirmation.
+Report only those that are still alive. Don't kill anything without confirmation.
+
+**Never flag a process this session didn't spawn** — including `dark-factory daemon`, watchers, or dev servers belonging to sibling Claude sessions. Each session cleans up its own; another session's daemon is that session's business, and its `session-close` will handle it.
 
 ### Phase 6: Check for in-flight dark-factory work
 
 If `DARK_FACTORY` is absent OR no project in scope has a `.dark-factory.lock` file → skip silently.
+
+"In scope" means a repo **this session touched** (Phase 1's `Repos` list). A dark-factory project this session never edited belongs to another session — skip it, even if its daemon is running.
 
 Otherwise, check daemon status:
 
@@ -356,7 +371,7 @@ Omit any line with zero entries. If nothing was touched (e.g. talk-only session)
 1. <repo>: N uncommitted file(s) — <first path>
 2. ~/.claude: untracked <file>
 3. Orphan worktree: ~/Documents/workspaces/<name> (branch <feat>, deleted from remote) — `git worktree remove ../<name>`
-4. dark-factory daemon (pid X) running in <project>
+4. dark-factory daemon (pid X) — spawned by THIS session, still running in <project>
 5. Link hygiene: [[<new page>]] orphaned — add backlink from [[<hub>]]
 6. Consider /vault-cli:reflect — N knowledge file(s) created, org-level decisions captured
 7. Consider /coding:self-improve — N friction signal(s): general correction, command misfire

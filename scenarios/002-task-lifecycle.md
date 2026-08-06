@@ -40,7 +40,7 @@ TOMORROW=$(date -v+1d +%Y-%m-%d 2>/dev/null || date -d '+1 day' +%Y-%m-%d)
 
 - [ ] `grep "status: completed" "$TASK_FILE"` succeeds
 - [ ] `grep "assignee: alice" "$TASK_FILE"` succeeds
-- [ ] `grep "defer_date: $TOMORROW" "$TASK_FILE"` succeeds
+- [ ] `grep -E "^defer_date: \"?$TOMORROW\"?\$" "$TASK_FILE"` succeeds (YAML may quote the date)
 
 ## Cleanup
 

@@ -8,9 +8,11 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"gopkg.in/yaml.v3"
 
 	"github.com/bborbe/vault-cli/pkg/ops"
 )
@@ -191,28 +193,260 @@ This task has duplicate assignee key.
 			Expect(issues).To(HaveLen(1))
 		})
 
-		It("fixes duplicate keys by keeping first occurrence", func() {
+		It("fixes duplicate keys by keeping the last occurrence", func() {
 			_, err := lintOp.Execute(ctx, vaultPath, tasksDir, "", true)
 			Expect(err).To(BeNil())
 
-			// Verify file was fixed
 			taskPath := filepath.Join(vaultPath, tasksDir, "Duplicate Key.md")
 			content, err := os.ReadFile(taskPath) //#nosec G304 -- test file
 			Expect(err).To(BeNil())
-			// Should have only one assignee line
-			Expect(string(content)).To(ContainSubstring("assignee: bborbe"))
-			// Second assignee should be removed
-			lines := 0
-			for _, line := range []byte(string(content)) {
-				if line == 'a' {
-					lines++
+			contentStr := string(content)
+
+			Expect(strings.Count(contentStr, "assignee:")).To(Equal(1))
+			Expect(contentStr).To(ContainSubstring("assignee: alice"))
+			Expect(contentStr).NotTo(ContainSubstring("assignee: bborbe"))
+		})
+	})
+
+	Context("DUPLICATE_KEY task_identifier (git-rest prepend race)", func() {
+		const prependedUUID = "e1bc4321-7570-41f9-bfc6-a783d7aa4371"
+		const sortedUUID = "9fba815b-e1bb-442d-bc3e-87722f767a1f"
+
+		var taskPath string
+		var originalContent string
+
+		BeforeEach(func() {
+			originalContent = `---
+task_identifier: ` + prependedUUID + `
+assignee: bborbe
+page_type: task
+priority: 3
+status: completed
+task_identifier: ` + sortedUUID + `
+themes:
+    - '[[Administration]]'
+---
+# Order CR2450 Batteries for Kitchen Switch
+
+Body text.
+`
+			taskPath = filepath.Join(
+				vaultPath,
+				tasksDir,
+				"Order CR2450 Batteries for Kitchen Switch.md",
+			)
+			Expect(os.WriteFile(taskPath, []byte(originalContent), 0600)).To(Succeed())
+		})
+
+		It("detects it", func() {
+			issues, err := lintOp.Execute(ctx, vaultPath, tasksDir, "", false)
+			Expect(err).To(BeNil())
+			var dupIssues []ops.LintIssue
+			for _, issue := range issues {
+				if issue.IssueType == ops.IssueTypeDuplicateKey {
+					dupIssues = append(dupIssues, issue)
 				}
 			}
-			// Count occurrences more precisely
+			Expect(dupIssues).To(HaveLen(1))
+			Expect(
+				dupIssues[0].Description,
+			).To(Equal(`key "task_identifier" defined multiple times`))
+			Expect(dupIssues[0].Fixable).To(BeTrue())
+		})
+
+		It("keeps the sorted-position value", func() {
+			_, err := lintOp.Execute(ctx, vaultPath, tasksDir, "", true)
+			Expect(err).To(BeNil())
+
+			content, err := os.ReadFile(taskPath) //#nosec G304 -- test file
+			Expect(err).To(BeNil())
 			contentStr := string(content)
-			firstIdx := indexOf(contentStr, "assignee: bborbe")
-			secondIdx := indexOf(contentStr[firstIdx+1:], "assignee:")
-			Expect(secondIdx).To(Equal(-1), "Should not have second assignee line")
+
+			Expect(strings.Count(contentStr, "task_identifier:")).To(Equal(1))
+			Expect(contentStr).To(ContainSubstring(sortedUUID))
+			Expect(contentStr).NotTo(ContainSubstring(prependedUUID))
+		})
+
+		It("touches only the surplus line", func() {
+			_, err := lintOp.Execute(ctx, vaultPath, tasksDir, "", true)
+			Expect(err).To(BeNil())
+
+			content, err := os.ReadFile(taskPath) //#nosec G304 -- test file
+			Expect(err).To(BeNil())
+			contentStr := string(content)
+
+			expected := strings.Replace(
+				originalContent,
+				"task_identifier: "+prependedUUID+"\n",
+				"",
+				1,
+			)
+			Expect(contentStr).To(Equal(expected))
+		})
+
+		It("repaired frontmatter parses", func() {
+			_, err := lintOp.Execute(ctx, vaultPath, tasksDir, "", true)
+			Expect(err).To(BeNil())
+
+			content, err := os.ReadFile(taskPath) //#nosec G304 -- test file
+			Expect(err).To(BeNil())
+			contentStr := string(content)
+
+			// Extract frontmatter between the leading ---\n and the following \n---
+			start := strings.Index(contentStr, "---\n")
+			end := strings.Index(contentStr[start+4:], "\n---")
+			fm := contentStr[start+4 : start+4+end]
+
+			var m map[string]any
+			Expect(yaml.Unmarshal([]byte(fm), &m)).To(Succeed())
+			Expect(m["task_identifier"]).To(Equal(sortedUUID))
+		})
+	})
+
+	Context("DUPLICATE_KEY with a non-identifier key", func() {
+		BeforeEach(func() {
+			content := `---
+assignee: bborbe
+page_type: task
+priority: 1
+status: todo
+assignee: alice
+task_identifier: 55555555-5555-4555-a555-555555555555
+---
+# Task With Duplicate Assignee
+
+This task has duplicate assignee key.
+`
+			taskPath := filepath.Join(vaultPath, tasksDir, "Duplicate Assignee.md")
+			Expect(os.WriteFile(taskPath, []byte(content), 0600)).To(Succeed())
+		})
+
+		It("detects duplicate assignee", func() {
+			issues, err := lintOp.Execute(ctx, vaultPath, tasksDir, "", false)
+			Expect(err).To(BeNil())
+			var dupIssues []ops.LintIssue
+			for _, issue := range issues {
+				if issue.IssueType == ops.IssueTypeDuplicateKey {
+					dupIssues = append(dupIssues, issue)
+				}
+			}
+			Expect(dupIssues).To(HaveLen(1))
+			Expect(dupIssues[0].Description).To(Equal(`key "assignee" defined multiple times`))
+		})
+	})
+
+	Context("no DUPLICATE_KEY when every top-level key is unique", func() {
+		BeforeEach(func() {
+			content := `---
+assignee: bborbe
+page_type: task
+priority: 1
+status: todo
+task_identifier: 66666666-6666-4666-a666-666666666666
+---
+# Task With Unique Keys
+
+All keys are unique.
+`
+			taskPath := filepath.Join(vaultPath, tasksDir, "Unique Keys.md")
+			Expect(os.WriteFile(taskPath, []byte(content), 0600)).To(Succeed())
+		})
+
+		It("finds no duplicate key issues", func() {
+			issues, err := lintOp.Execute(ctx, vaultPath, tasksDir, "", false)
+			Expect(err).To(BeNil())
+			var dupIssues []ops.LintIssue
+			for _, issue := range issues {
+				if issue.IssueType == ops.IssueTypeDuplicateKey {
+					dupIssues = append(dupIssues, issue)
+				}
+			}
+			Expect(dupIssues).To(BeEmpty())
+		})
+	})
+
+	Context("no DUPLICATE_KEY for nested mapping keys or list entries", func() {
+		BeforeEach(func() {
+			content := `---
+status: completed
+page_type: task
+priority: 1
+assignee: bborbe
+metadata:
+    status: nested
+    assignee: nested_person
+tags:
+    - status
+    - assignee
+    - page_type
+task_identifier: 22222222-2222-4222-a222-222222222222
+---
+# Nested Keys Task
+
+Body text.
+`
+			taskPath := filepath.Join(vaultPath, tasksDir, "Nested Keys Task.md")
+			Expect(os.WriteFile(taskPath, []byte(content), 0600)).To(Succeed())
+		})
+
+		It("finds no duplicate key issues", func() {
+			issues, err := lintOp.Execute(ctx, vaultPath, tasksDir, "", false)
+			Expect(err).To(BeNil())
+			var dupIssues []ops.LintIssue
+			for _, issue := range issues {
+				if issue.IssueType == ops.IssueTypeDuplicateKey {
+					dupIssues = append(dupIssues, issue)
+				}
+			}
+			Expect(dupIssues).To(BeEmpty())
+		})
+
+		It("fix does not modify the file", func() {
+			_, err := lintOp.Execute(ctx, vaultPath, tasksDir, "", true)
+			Expect(err).To(BeNil())
+
+			taskPath := filepath.Join(vaultPath, tasksDir, "Nested Keys Task.md")
+			content, err := os.ReadFile(taskPath) //#nosec G304 -- test file
+			Expect(err).To(BeNil())
+
+			Expect(string(content)).To(ContainSubstring("status: completed"))
+			Expect(string(content)).To(ContainSubstring("metadata:"))
+			Expect(string(content)).To(ContainSubstring("tags:"))
+		})
+	})
+
+	Context("DUPLICATE_KEY with three or more occurrences", func() {
+		BeforeEach(func() {
+			content := `---
+status: todo
+page_type: task
+priority: 1
+assignee: bborbe
+assignee: alice
+assignee: charlie
+task_identifier: 77777777-7777-4777-a777-777777777777
+---
+# Task With Three Duplicate Keys
+
+This task has three duplicate assignee keys.
+`
+			taskPath := filepath.Join(vaultPath, tasksDir, "Three Duplicate Keys.md")
+			Expect(os.WriteFile(taskPath, []byte(content), 0600)).To(Succeed())
+		})
+
+		It("keeps only the last occurrence", func() {
+			_, err := lintOp.Execute(ctx, vaultPath, tasksDir, "", true)
+			Expect(err).To(BeNil())
+
+			taskPath := filepath.Join(vaultPath, tasksDir, "Three Duplicate Keys.md")
+			content, err := os.ReadFile(taskPath) //#nosec G304 -- test file
+			Expect(err).To(BeNil())
+			contentStr := string(content)
+
+			Expect(strings.Count(contentStr, "assignee:")).To(Equal(1))
+			Expect(contentStr).To(ContainSubstring("assignee: charlie"))
+			Expect(contentStr).NotTo(ContainSubstring("assignee: bborbe"))
+			Expect(contentStr).NotTo(ContainSubstring("assignee: alice"))
 		})
 	})
 
@@ -471,16 +705,6 @@ priority: 1
 		})
 	})
 })
-
-// Helper function to find substring index
-func indexOf(s, substr string) int {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return i
-		}
-	}
-	return -1
-}
 
 var _ = Describe("ExecuteFile", func() {
 	var (

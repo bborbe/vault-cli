@@ -837,7 +837,10 @@ func (l *lintOperation) fixMissingFrontmatter(content string) (string, bool) {
 	return newContent, true
 }
 
-// fixDuplicateKeys removes duplicate YAML keys, keeping the first occurrence.
+// fixDuplicateKeys removes duplicate top-level YAML keys from frontmatter,
+// keeping the last occurrence. The last occurrence is the value vault-cli
+// itself writes at the key's alphabetically sorted position; earlier
+// occurrences come from external writers that prepend at line 1.
 func (l *lintOperation) fixDuplicateKeys(content string) (string, bool) {
 	// Extract frontmatter
 	matches := fixDuplicateKeysRegex.FindStringSubmatch(content)
@@ -850,22 +853,27 @@ func (l *lintOperation) fixDuplicateKeys(content string) (string, bool) {
 	frontmatterEnd := matches[3]
 	body := matches[4]
 
-	// Parse frontmatter line by line, keeping only first occurrence of each key
+	// Count occurrences per key so the last one can be kept.
 	lines := strings.Split(frontmatterYAML, "\n")
-	keysSeen := make(map[string]bool)
+	remaining := make(map[string]int)
+	for _, line := range lines {
+		if lineMatches := keyRegex.FindStringSubmatch(line); len(lineMatches) >= 2 {
+			remaining[lineMatches[1]]++
+		}
+	}
+
+	// Keep only the last occurrence of each key: drop a key line while more
+	// occurrences of that key still follow.
 	newLines := make([]string, 0, len(lines))
 	modified := false
-
 	for _, line := range lines {
-		matches := keyRegex.FindStringSubmatch(line)
-		if len(matches) >= 2 {
-			key := matches[1]
-			if keysSeen[key] {
-				// Skip duplicate key
+		if lineMatches := keyRegex.FindStringSubmatch(line); len(lineMatches) >= 2 {
+			key := lineMatches[1]
+			if remaining[key] > 1 {
+				remaining[key]--
 				modified = true
 				continue
 			}
-			keysSeen[key] = true
 		}
 		newLines = append(newLines, line)
 	}

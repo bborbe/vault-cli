@@ -72,6 +72,9 @@ var _ = Describe("pageStorage.ListPages diagnostics", func() {
 		Expect(log).To(ContainSubstring(filepath.Join(pagesDir, "Broken.md")))
 		Expect(log).To(ContainSubstring("already defined"))
 		Expect(log).ToNot(ContainSubstring("Healthy.md"))
+		Expect(log).ToNot(ContainSubstring("github.com/bborbe/errors.Wrap"))
+		Expect(log).ToNot(ContainSubstring("errors_wrap.go"))
+		Expect(log).ToNot(ContainSubstring("runtime.goexit"))
 	})
 
 	It("produces no warning for a directory with only parseable pages", func() {

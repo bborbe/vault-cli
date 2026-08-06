@@ -8,6 +8,12 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: `task lint --fix` now keeps the last occurrence when a top-level frontmatter key is defined more than once, so a duplicated `task_identifier` resolves to the value vault-cli wrote at its sorted position instead of the one prepended at line 1 by an external writer
+- fix: `task list` now warns on stderr with the file's full path and the parse error when it skips an unreadable page, instead of hiding the skip behind a debug log — a corrupted task no longer vanishes from a listing that reports success
+- fix: the `skipping unreadable page` warning now logs the root cause instead of the fully-wrapped error, shrinking the diagnostic from a ~2 KB single-line stack dump to a readable two-line message
+
 ## v0.102.3
 
 - fix: session-close Phase 5 no longer flags background processes from sibling sessions — candidates come from this conversation's `run_in_background` / `Monitor` calls, not a machine-wide `ps aux` scan; each session cleans up only its own daemons

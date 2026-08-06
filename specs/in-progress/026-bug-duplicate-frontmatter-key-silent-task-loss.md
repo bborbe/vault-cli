@@ -254,3 +254,16 @@ Not acceptable. Doing nothing leaves two live defects. First, any future git-res
 ## Workaround (until the fix ships)
 
 Run `vault-cli task lint` (without `--fix`) across each vault and hand-edit any file reporting `DUPLICATE_KEY key "task_identifier"`: delete the occurrence at frontmatter line 1, keep the one at the alphabetically sorted position. Do not use `--fix` on `task_identifier` duplicates before this spec lands — it keeps the wrong value.
+
+## Verification Result
+
+**Verified:** 2026-08-06T19:45:32Z (HEAD 0bec2f6)
+**Binary:** /Users/bborbe/Documents/workspaces/go/bin/vault-cli (`v0.102.4-1-g0bec2f6`; `git diff v0.102.4..HEAD` = scenarios/002 only, zero Go delta)
+**Scenario:** scratch vault replaying the 2026-08-05 corruption, run through the installed binary and against a rebuilt v0.101.3 for before/after contrast; plus all four release-gate scenarios (70/70 checks) and a three-vault lint sweep.
+**Evidence:**
+- `task list` stderr: `level=WARN msg="skipping unreadable page" file=".../Order CR2450 Batteries for Kitchen Switch.md" error="yaml: unmarshal errors:\n  line 8: mapping key \"task_identifier\" already defined at line 1"` — exit 0, stdout `[in_progress] Healthy`, `--output json` parses (`jq -e` exit 0)
+- `task lint --fix` → `FIXED ... DUPLICATE_KEY key "task_identifier"`; surviving line `task_identifier: 9fba815b-e1bb-442d-bc3e-87722f767a1f` (v0.101.3 kept `e1bc4321…`); `git diff --numstat` = `0	1`
+- `task get "Order CR2450 Batteries for Kitchen Switch" status` → `completed`, exit 0 (exit 1 before repair)
+- `grep -rni "first occurrence" pkg/` → 0 lines; `make precommit` exit 0; `.claude-plugin/` untouched by 32df4c2/474e815/62cc97e/0bec2f6
+- Sweep with installed binary: Personal 0 DUPLICATE_KEY / 0 unreadable, Trading 0/0, OpenBrain 0/0 — matches the `# Results` table in the source task note
+**Verdict:** PASS (AC 13 deviation: `vault-cli --version` reports `v0.102.4-1-g0bec2f6`, not a bare `v0.102.4`; the extra commit is doc-only and the installed binary demonstrably carries the fix, so the check's intent — no stale install — holds)

@@ -11,6 +11,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 ## Unreleased
 
 - fix: `task lint --fix` now keeps the last occurrence when a top-level frontmatter key is defined more than once, so a duplicated `task_identifier` resolves to the value vault-cli wrote at its sorted position instead of the one prepended at line 1 by an external writer
+- fix: `task list` now warns on stderr with the file's full path and the parse error when it skips an unreadable page, instead of hiding the skip behind a debug log — a corrupted task no longer vanishes from a listing that reports success
 
 ## v0.102.3
 

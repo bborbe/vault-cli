@@ -53,8 +53,9 @@ func (p *pageStorage) ListPages(
 
 		page, err := p.readPageFromPath(ctx, filePath, fileName, vaultPath)
 		if err != nil {
-			// Log error but continue with other pages
-			slog.Debug("skipping unreadable page", "file", fileName, "error", err)
+			// Warn and continue: the operator must be told the file was skipped,
+			// otherwise the page silently disappears from listings that still exit 0.
+			slog.Warn("skipping unreadable page", "file", filePath, "error", err)
 			continue
 		}
 

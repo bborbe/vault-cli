@@ -1,7 +1,13 @@
 ---
-status: draft
+status: completed
 spec: [026-bug-duplicate-frontmatter-key-silent-task-loss]
+summary: Raised ListPages skip log from Debug to Warn and added full file path; added page_test.go with three Ginkgo specs covering corrupt-file warning, healthy-directory silence, and missing-directory non-fatal behavior; appended changelog entry
+execution_id: vault-cli-dup-frontmatter-lint-exec-169-spec-026-listpages-warn-unreadable-file
+dark-factory-version: v0.192.9
 created: "2026-08-06T17:05:00Z"
+queued: "2026-08-06T18:24:58Z"
+started: "2026-08-06T18:25:00Z"
+completed: "2026-08-06T18:27:42Z"
 branch: dark-factory/bug-duplicate-frontmatter-key-silent-task-loss
 ---
 

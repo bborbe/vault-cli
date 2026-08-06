@@ -1,5 +1,5 @@
 ---
-status: verifying
+status: completed
 tags:
     - dark-factory
     - spec
@@ -7,6 +7,7 @@ approved: "2026-08-06T16:49:17Z"
 generating: "2026-08-06T16:51:54Z"
 prompted: "2026-08-06T17:03:41Z"
 verifying: "2026-08-06T17:51:15Z"
+completed: "2026-08-06T19:45:50Z"
 branch: dark-factory/bug-duplicate-frontmatter-key-silent-task-loss
 ---
 

@@ -1,9 +1,10 @@
 ---
-status: verifying
+status: completed
 approved: "2026-08-08T11:09:51Z"
 generating: "2026-08-08T11:10:57Z"
 prompted: "2026-08-08T11:26:37Z"
 verifying: "2026-08-08T11:47:34Z"
+completed: "2026-08-08T12:03:23Z"
 branch: dark-factory/bug-daily-note-substring-shadowing
 ---
 

@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [027-bug-daily-note-substring-shadowing]
+summary: Replaced substring containment in updateDailyNote and removeFromDailyNote with IsOwnDailyNoteEntry matcher, removed break in complete to update all own entries, added regression tests for mention vs own-entry discrimination
+execution_id: vault-cli-exec-172-spec-027-complete-defer-own-entry
+dark-factory-version: v0.192.9
 created: "2026-08-08T11:20:00Z"
 queued: "2026-08-08T11:39:42Z"
+started: "2026-08-08T11:42:30Z"
+completed: "2026-08-08T11:45:26Z"
 branch: dark-factory/bug-daily-note-substring-shadowing
 ---
 

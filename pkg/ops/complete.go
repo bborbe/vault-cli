@@ -357,7 +357,7 @@ func (c *completeOperation) updateDailyNote(
 			matches,
 		) == 4 {
 			taskText := matches[3]
-			if strings.Contains(strings.ToLower(taskText), strings.ToLower(taskName)) {
+			if IsOwnDailyNoteEntry(taskText, taskName) {
 				if checked {
 					// Replace any checkbox state with [x]
 					lines[i] = storage.CheckboxCompleteRegex.ReplaceAllString(line, "$1 [x]")
@@ -366,7 +366,6 @@ func (c *completeOperation) updateDailyNote(
 					lines[i] = storage.CheckboxUncompleteRegex.ReplaceAllString(line, "$1 [ ]")
 				}
 				modified = true
-				break
 			}
 		}
 	}

@@ -207,8 +207,8 @@ func (d *deferOperation) removeFromDailyNote(
 	for _, line := range lines {
 		if matches := storage.CheckboxRegex.FindStringSubmatch(line); len(matches) == 4 {
 			taskText := matches[3]
-			if strings.Contains(strings.ToLower(taskText), strings.ToLower(taskName)) {
-				continue // Skip this line
+			if IsOwnDailyNoteEntry(taskText, taskName) {
+				continue // Skip this line — it is the task's own entry
 			}
 		}
 		filteredLines = append(filteredLines, line)

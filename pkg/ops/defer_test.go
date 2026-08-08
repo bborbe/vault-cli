@@ -846,4 +846,84 @@ No section headings.
 			})
 		})
 	})
+
+	Context("removeFromDailyNote with a mention line and duplicate own entries", func() {
+		BeforeEach(func() {
+			taskName = "Turn on hell - 2026W32-sat"
+			task = domain.NewTask(
+				map[string]any{"status": "todo"},
+				domain.FileMetadata{Name: taskName},
+				domain.Content(""),
+			)
+			mockTaskStorage.FindTaskByNameReturns(task, nil)
+
+			todayContent := "# 2026-03-03\n\n## Must\n" +
+				"- [x] 🔧 Nuke-reboot chain — [[Shutdown K3s - 2026W32-sat]] → [[Turn on hell - 2026W32-sat]].\n" +
+				"- [/] [[Turn on hell - 2026W32-sat]] — nuke-reboot chain, due today\n" +
+				"- [ ] [[Turn on hell - 2026W32-sat]]\n"
+			targetContent := "# 2026-12-31\n"
+			mockDailyNoteStorage.ReadDailyNoteReturnsOnCall(0, todayContent, nil)
+			mockDailyNoteStorage.ReadDailyNoteReturnsOnCall(1, targetContent, nil)
+			mockDailyNoteStorage.WriteDailyNoteReturns(nil)
+			dateStr = "2026-12-31"
+		})
+
+		It("keeps the mention line byte-identical", func() {
+			Expect(err).To(BeNil())
+			Expect(mockDailyNoteStorage.WriteDailyNoteCallCount()).To(Equal(2))
+			_, _, date, updatedContent := mockDailyNoteStorage.WriteDailyNoteArgsForCall(0)
+			Expect(date).To(ContainSubstring("2026-03-03"))
+			Expect(
+				updatedContent,
+			).To(ContainSubstring("- [x] 🔧 Nuke-reboot chain — [[Shutdown K3s - 2026W32-sat]] → [[Turn on hell - 2026W32-sat]]."))
+		})
+
+		It("removes every own entry", func() {
+			Expect(err).To(BeNil())
+			Expect(mockDailyNoteStorage.WriteDailyNoteCallCount()).To(Equal(2))
+			_, _, date, updatedContent := mockDailyNoteStorage.WriteDailyNoteArgsForCall(0)
+			Expect(date).To(ContainSubstring("2026-03-03"))
+			Expect(updatedContent).NotTo(ContainSubstring("- [/] [[Turn on hell"))
+			Expect(updatedContent).NotTo(ContainSubstring("- [ ] [[Turn on hell"))
+			Expect(strings.Count(updatedContent, "[[Turn on hell - 2026W32-sat]]")).To(Equal(1))
+		})
+
+		It("still succeeds", func() {
+			Expect(err).To(BeNil())
+		})
+	})
+
+	Context("removeFromDailyNote with only a mention and no own entry", func() {
+		BeforeEach(func() {
+			taskName = "Turn on hell - 2026W32-sat"
+			task = domain.NewTask(
+				map[string]any{"status": "todo"},
+				domain.FileMetadata{Name: taskName},
+				domain.Content(""),
+			)
+			mockTaskStorage.FindTaskByNameReturns(task, nil)
+
+			todayContent := "# 2026-03-03\n\n## Must\n" +
+				"- [x] 🔧 Nuke-reboot chain — [[Shutdown K3s - 2026W32-sat]] → [[Turn on hell - 2026W32-sat]].\n"
+			targetContent := "# 2026-12-31\n"
+			mockDailyNoteStorage.ReadDailyNoteReturnsOnCall(0, todayContent, nil)
+			mockDailyNoteStorage.ReadDailyNoteReturnsOnCall(1, targetContent, nil)
+			mockDailyNoteStorage.WriteDailyNoteReturns(nil)
+			dateStr = "2026-12-31"
+		})
+
+		It("leaves the mention line byte-identical", func() {
+			Expect(err).To(BeNil())
+			Expect(mockDailyNoteStorage.WriteDailyNoteCallCount()).To(Equal(2))
+			_, _, date, updatedContent := mockDailyNoteStorage.WriteDailyNoteArgsForCall(0)
+			Expect(date).To(ContainSubstring("2026-03-03"))
+			Expect(
+				updatedContent,
+			).To(ContainSubstring("- [x] 🔧 Nuke-reboot chain — [[Shutdown K3s - 2026W32-sat]] → [[Turn on hell - 2026W32-sat]]."))
+		})
+
+		It("still succeeds", func() {
+			Expect(err).To(BeNil())
+		})
+	})
 })

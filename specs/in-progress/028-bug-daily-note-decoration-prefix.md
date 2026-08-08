@@ -1,8 +1,9 @@
 ---
-status: prompted
+status: verifying
 approved: "2026-08-08T12:25:23Z"
 generating: "2026-08-08T12:25:58Z"
 prompted: "2026-08-08T12:41:14Z"
+verifying: "2026-08-08T12:57:24Z"
 branch: dark-factory/bug-daily-note-decoration-prefix
 ---
 
@@ -236,3 +237,19 @@ Single-layer change: one matcher function plus tests at four sites and two docs.
 Kept as one prompt: a single function in a single package, whose three consumers already share it via spec 027's matcher. Splitting would force a second prompt to re-derive the same identity rule — the drift 027 exists to prevent.
 
 The DB × AC product (6 × 12 = 72) is above the usual 50 budget. Recorded as a knowing exception, same as spec 027: the change touches one function plus its tests and two docs, the decomposition is a single prompt, and the AC count is inflated by enumerating decoration classes rather than by conceptual surface. The load-bearing AC is the generality one — it is what stops a hardcoded emoji cutset from passing.
+
+## Verification Result
+
+**Verified:** 2026-08-08T13:07:00Z (HEAD 2c860d7)
+**Binary:** `vc-new-2c860d7` built from 2c860d7, compared against `vc-old-3feb43d` (pre-fix 3feb43d)
+**Scenario:** All three Reproductions replayed on a throwaway vault seeded from `example/` with a `Daily Notes/` dir and a stub `claude_script` — each run twice, old binary then new, same fixture, `diff` before/after; then all three of spec 027's Reproductions replayed against the new binary.
+**Evidence:**
+- A (`complete` on `- [/] 🐟 [[Feed Worms]]`) — old: empty diff; new: `2c2 - [/] 🐟 [[Feed Worms]] → - [x] 🐟 [[Feed Worms]]`, emoji preserved, mention line byte-identical
+- B (`defer`) — old: empty diff; new: `2d1` (own entry only; decorated chain-summary mention survives)
+- C (`work-on` on `- [ ] 🐟 …`) — old: `1a2 > - [/] [[Feed Worms]]` (duplicate, 2 links); new: `2c2 → - [/] 🐟 [[Feed Worms]]`, `grep -c '[[Feed Worms]]'` = 1
+- 027 regression, new binary: A `3c3` own entry flips, decorated mention left `[/]`; B `3d2` own entry only; C `1a2 > - [/] [[Turn on hell - 2026W32-sat]]` added — all three still pass
+- Runtime matcher matrix via `complete` (23 lines, one pass): all 6 top emoji + `⚠️`/`🛡️` + `**`/`🎯 **` + `§`/`❖`/`‡` + alias/heading flipped to `[x]`; `作業`, `Задача по`, `Working on`, `🔧 Nuke-reboot chain —`, `🔧 [[Shutdown K3s]] → `, `1️⃣`, bare `🐟 ` all stayed `[/]`
+- Mutation test: ASCII-only variant (`r < utf8.RuneSelf && isASCIIAlnum(r)`) in a throwaway worktree fails **exactly** `CJK leading prose is a mention` and `Cyrillic leading prose is a mention` (730 passed / 2 failed) — the AC-3 fixtures are load-bearing
+- `grep -cE '🐟|🔄|🔧|🏠|📈|🔒|⚠️' pkg/ops/daily_note_entry.go` → `0`; `git diff -w --numstat 3feb43d HEAD` on the four test files → `34/0`, `132/0`, `44/0`, `37/0` (insertions only)
+- `make test` exit 0; `make precommit` exit 0 ("ready to commit"); `go test -count=1 ./pkg/ops/... -v -ginkgo.v` exit 0, 732/734, all 23 required named entries present; scenario 002 passes on the new binary
+**Verdict:** PASS

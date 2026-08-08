@@ -10,24 +10,33 @@ A daily note is a markdown file named `YYYY-MM-DD.md` in the vault's `daily_dir`
 
 ## Task Entry Contract
 
-A task's **own entry** on a daily note is a checkbox line whose text begins with `[[<taskName>]]`, with either `-` or `*` as the list marker. Trailing prose after the wikilink is allowed, so the following line is a valid own entry:
+A task's **own entry** on a daily note is a checkbox line whose text begins with `[[<taskName>]]`, optionally preceded by decoration — a category emoji, a symbol, or markdown emphasis such as `**`. The following lines are all own entries:
 
 ```markdown
-- [/] [[Turn on hell - 2026W32-sat]] — nuke-reboot chain, due today
+- [/] [[Feed Worms]]
+- [/] 🐟 [[Feed Worms]]
+- [/] **[[Feed Worms]]**
+- [/] 🚨 [[Feed Worms]] — analysis done
 ```
 
-A wikilink to the task appearing **anywhere else** on the line is a **mention**, not an own entry. A mention is never rewritten, never deleted, and is not counted as "the task is already tracked" by `task complete`, `task defer`, or `task work-on`.
+**Decoration rule:** everything before the wikilink is skipped as decoration as long as it contains no letter and no digit. The first letter or digit ends the decoration run and makes the rest prose. Because the test is Unicode-aware, letters in **any script** end the run — `作業 [[Feed Worms]]` (Japanese) and `Задача по [[Feed Worms]]` (Russian) are mentions, not own entries. A digit also ends the run, so a keycap prefix such as `1️⃣ [[Feed Worms]]` is not recognised.
+
+The character-class test means decoration is matched by rule, not by an enumerated list. Category emoji, symbols such as section-sign (`§`) or double-dagger (`‡`), and markdown emphasis markers (`**`, `__`) are all decoration because none are letters or digits.
+
+Decoation is **preserved** when a command rewrites the line: `task complete` on `- [/] 🐟 [[Feed Worms]]` produces `- [x] 🐟 [[Feed Worms]]`.
+
+A wikilink to the task appearing **anywhere else** on the line — after prose — is a **mention**, not an own entry. A mention is never rewritten, never deleted, and is not counted as "the task is already tracked" by `task complete`, `task defer`, or `task work-on`.
 
 ### Own Entry vs Mention
 
 Given these two lines in a daily note:
 
 ```markdown
-- [x] 🔧 Nuke-reboot chain — [[Shutdown K3s - 2026W32-sat]] → [[Turn on hell - 2026W32-sat]].
-- [/] [[Turn on hell - 2026W32-sat]] — nuke-reboot chain, due today
+- [x] 🔧 Nuke-reboot chain — [[Shutdown K3s - 2026W32-sat]] → [[Feed Worms]].
+- [/] 🐟 [[Feed Worms]]
 ```
 
-The first line is a **mention** of `Turn on hell - 2026W32-sat` (the wikilink appears after prose, not at the start). The second line is the **own entry** (the wikilink leads the text).
+The first line is a **mention** of `Feed Worms` (the wikilink appears after prose, not at the start — the word `Nuke-reboot` is prose). The second line is the **own entry** (the wikilink is at the start after decoration).
 
 ### Wikilink Forms
 

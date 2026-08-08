@@ -629,6 +629,43 @@ var _ = Describe("WorkOnOperation", func() {
 				})
 			},
 		)
+
+		Context("updateDailyNote with a decorated pending own entry", func() {
+			BeforeEach(func() {
+				taskName = "Feed Worms"
+				task = domain.NewTask(
+					map[string]any{"status": "todo"},
+					domain.FileMetadata{
+						Name:     taskName,
+						FilePath: "/path/to/vault/tasks/Feed Worms.md",
+					},
+					domain.Content(""),
+				)
+				mockTaskStorage.FindTaskByNameReturns(task, nil)
+
+				dailyContent := "## Must\n- [ ] 🐟 [[Feed Worms]]\n"
+				mockDailyNoteStorage.ReadDailyNoteReturns(dailyContent, nil)
+				mockDailyNoteStorage.WriteDailyNoteReturns(nil)
+			})
+
+			It("promotes the decorated pending entry in place", func() {
+				Expect(mockDailyNoteStorage.WriteDailyNoteCallCount()).To(Equal(1))
+				_, _, _, content := mockDailyNoteStorage.WriteDailyNoteArgsForCall(0)
+				Expect(content).To(ContainSubstring("- [/] 🐟 [[Feed Worms]]"))
+			})
+
+			It("appends no duplicate entry", func() {
+				Expect(mockDailyNoteStorage.WriteDailyNoteCallCount()).To(Equal(1))
+				_, _, _, content := mockDailyNoteStorage.WriteDailyNoteArgsForCall(0)
+				Expect(strings.Count(content, "[[Feed Worms]]")).To(Equal(1))
+			})
+
+			It("writes no undecorated duplicate", func() {
+				Expect(mockDailyNoteStorage.WriteDailyNoteCallCount()).To(Equal(1))
+				_, _, _, content := mockDailyNoteStorage.WriteDailyNoteArgsForCall(0)
+				Expect(content).NotTo(ContainSubstring("- [/] [[Feed Worms]]"))
+			})
+		})
 	})
 
 	Context("phase advancement", func() {

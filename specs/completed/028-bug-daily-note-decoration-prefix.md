@@ -1,9 +1,10 @@
 ---
-status: verifying
+status: completed
 approved: "2026-08-08T12:25:23Z"
 generating: "2026-08-08T12:25:58Z"
 prompted: "2026-08-08T12:41:14Z"
 verifying: "2026-08-08T12:57:24Z"
+completed: "2026-08-08T20:13:58Z"
 branch: dark-factory/bug-daily-note-decoration-prefix
 ---
 

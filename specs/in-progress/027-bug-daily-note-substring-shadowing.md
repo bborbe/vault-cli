@@ -1,8 +1,9 @@
 ---
-status: prompted
+status: verifying
 approved: "2026-08-08T11:09:51Z"
 generating: "2026-08-08T11:10:57Z"
 prompted: "2026-08-08T11:26:37Z"
+verifying: "2026-08-08T11:47:34Z"
 branch: dark-factory/bug-daily-note-substring-shadowing
 ---
 
@@ -209,3 +210,18 @@ Every fixture below uses these two verbatim lines from the Reproduction — the 
 Rationale: prompt 1 establishes the single identity rule, locks it with direct unit tests, and writes the contract doc that outlives this spec. Prompts 2–4 are independent consumers, each carrying the regression test for its own path. AC5's zero-containment grep sits on prompt 4 because it cannot pass until the last call site is converted — putting it earlier would fail that prompt's own gate.
 
 Kept as one spec rather than split: the whole point is that the three paths share one identity rule, and splitting the call sites across specs would recreate exactly the drift this fixes. The DB × AC product is above the usual budget, but the change touches a single package plus its tests, and each prompt stays small.
+
+## Verification Result
+
+**Verified:** 2026-08-08T12:03:18Z (HEAD 741f1ad)
+**Binary:** `/tmp/vc-verify-741f1ad` (built from 741f1ad), compared against `/tmp/vc-old-aa43847` (pre-fix aa43847)
+**Scenario:** All three Reproduction repros replayed against a throwaway vault seeded from `example/` with a `Daily Notes/` dir — each run twice, old binary then new, same fixture, `diff` before/after.
+**Evidence:**
+- A (`complete`), mention line seeded `[/]` so a false match is visible — old: `4c4 - [/] 🔧 Nuke-reboot chain … → - [x] 🔧 Nuke-reboot chain …` (mention rewritten, own entry left `[/]`); new: `5c5 - [/] [[Turn on hell - 2026W32-sat]] — nuke-reboot chain, due today → - [x] …` (own entry only, mention byte-identical)
+- B (`defer`) — old: `4,5d3` (both lines deleted); new: `5d4` (own entry only, chain-summary line survives)
+- C (`work-on`) — old: empty diff (no entry added); new: `3a4 > - [/] [[Turn on hell - 2026W32-sat]]`
+- Duplicate own entry + `complete` — new flips both (`5,6c5,6`), old flips neither; `complete`/`defer` on a mention-only note are byte-identical; alias/heading/lowercase forms all flip; `*` marker preserved
+- `go test ./pkg/ops/... -v -ginkgo.v`: 702/704 passed, all 8 AC6 named assertions present incl. `prefix task name does not match a longer task` and `regex metacharacters are not treated as a pattern`
+- `grep -rn 'strings.Contains(strings.ToLower(taskText)' pkg/ops/` → 0 hits; `IsOwnDailyNoteEntry` at complete.go:360, defer.go:210, workon.go:251; `break` removed from `updateDailyNote`
+- `make test` exit 0; `make precommit` exit 0 ("ready to commit"); scenario 002 passes identically on both binaries
+**Verdict:** PASS

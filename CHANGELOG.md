@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.102.5
 
 - docs: document the daily-note task-entry contract in `docs/daily-notes.md` — a task's own entry is a checkbox line beginning with `[[<taskName>]]`, while a wikilink elsewhere on the line is a mention
 - fix: `task complete`, `task defer`, and `task work-on` now act on a task's own daily-note entry — a checkbox line whose text begins with `[[<taskName>]]` — instead of any line whose text merely contains the task name. `complete` updates every own entry rather than stopping at the first, `defer` no longer deletes a chain-summary line that only mentions the task, and `work-on` now adds an entry when the note only mentions the task

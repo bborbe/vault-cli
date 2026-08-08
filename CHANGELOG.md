@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- docs: document the daily-note task-entry contract in `docs/daily-notes.md` — a task's own entry is a checkbox line beginning with `[[<taskName>]]`, while a wikilink elsewhere on the line is a mention
+
 ## v0.102.4
 
 - fix: `task lint --fix` now keeps the last occurrence when a top-level frontmatter key is defined more than once, so a duplicated `task_identifier` resolves to the value vault-cli wrote at its sorted position instead of the one prepended at line 1 by an external writer

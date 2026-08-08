@@ -248,7 +248,7 @@ func findAndUpdateTaskCheckbox(lines []string, taskName string) (found, modified
 			matches,
 		) == 4 { //nolint:nestif
 			taskText := matches[3]
-			if strings.Contains(strings.ToLower(taskText), strings.ToLower(taskName)) {
+			if IsOwnDailyNoteEntry(taskText, taskName) {
 				found = true
 				state := matches[2]
 				// Only update if currently [ ] (pending)

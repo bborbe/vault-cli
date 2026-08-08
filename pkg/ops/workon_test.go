@@ -6,6 +6,7 @@ package ops_test
 
 import (
 	"context"
+	"strings"
 
 	"github.com/bborbe/errors"
 	libtime "github.com/bborbe/time"
@@ -516,6 +517,118 @@ var _ = Describe("WorkOnOperation", func() {
 				Expect(writtenTask.Status()).To(Equal(domain.TaskStatusInProgress))
 			})
 		})
+
+		Context("updateDailyNote when the note holds only a mention", func() {
+			BeforeEach(func() {
+				taskName = "Turn on hell - 2026W32-sat"
+				task = domain.NewTask(
+					map[string]any{"status": "todo"},
+					domain.FileMetadata{
+						Name:     taskName,
+						FilePath: "/path/to/vault/tasks/Turn on hell - 2026W32-sat.md",
+					},
+					domain.Content(""),
+				)
+				mockTaskStorage.FindTaskByNameReturns(task, nil)
+
+				dailyContent := "## Must\n" +
+					"- [x] 🔧 Nuke-reboot chain — [[Shutdown K3s - 2026W32-sat]] → [[Turn on hell - 2026W32-sat]].\n"
+				mockDailyNoteStorage.ReadDailyNoteReturns(dailyContent, nil)
+				mockDailyNoteStorage.WriteDailyNoteReturns(nil)
+			})
+
+			It("adds the task's own entry", func() {
+				Expect(mockDailyNoteStorage.WriteDailyNoteCallCount()).To(Equal(1))
+				_, _, _, content := mockDailyNoteStorage.WriteDailyNoteArgsForCall(0)
+				Expect(content).To(ContainSubstring("- [/] [[Turn on hell - 2026W32-sat]]"))
+			})
+
+			It("leaves the mention line byte-identical", func() {
+				Expect(mockDailyNoteStorage.WriteDailyNoteCallCount()).To(Equal(1))
+				_, _, _, content := mockDailyNoteStorage.WriteDailyNoteArgsForCall(0)
+				Expect(
+					content,
+				).To(ContainSubstring("- [x] 🔧 Nuke-reboot chain — [[Shutdown K3s - 2026W32-sat]] → [[Turn on hell - 2026W32-sat]]."))
+			})
+
+			It("adds exactly one entry", func() {
+				Expect(mockDailyNoteStorage.WriteDailyNoteCallCount()).To(Equal(1))
+				_, _, _, content := mockDailyNoteStorage.WriteDailyNoteArgsForCall(0)
+				Expect(strings.Count(content, "[[Turn on hell - 2026W32-sat]]")).To(Equal(2))
+			})
+		})
+
+		Context("updateDailyNote with a mention line above a pending own entry", func() {
+			BeforeEach(func() {
+				taskName = "Turn on hell - 2026W32-sat"
+				task = domain.NewTask(
+					map[string]any{"status": "todo"},
+					domain.FileMetadata{
+						Name:     taskName,
+						FilePath: "/path/to/vault/tasks/Turn on hell - 2026W32-sat.md",
+					},
+					domain.Content(""),
+				)
+				mockTaskStorage.FindTaskByNameReturns(task, nil)
+
+				dailyContent := "## Must\n" +
+					"- [x] 🔧 Nuke-reboot chain — [[Shutdown K3s - 2026W32-sat]] → [[Turn on hell - 2026W32-sat]].\n" +
+					"- [ ] [[Turn on hell - 2026W32-sat]] — nuke-reboot chain, due today\n"
+				mockDailyNoteStorage.ReadDailyNoteReturns(dailyContent, nil)
+				mockDailyNoteStorage.WriteDailyNoteReturns(nil)
+			})
+
+			It("promotes the own entry to in-progress", func() {
+				Expect(mockDailyNoteStorage.WriteDailyNoteCallCount()).To(Equal(1))
+				_, _, _, content := mockDailyNoteStorage.WriteDailyNoteArgsForCall(0)
+				Expect(
+					content,
+				).To(ContainSubstring("- [/] [[Turn on hell - 2026W32-sat]] — nuke-reboot chain, due today"))
+			})
+
+			It("leaves the mention line byte-identical", func() {
+				Expect(mockDailyNoteStorage.WriteDailyNoteCallCount()).To(Equal(1))
+				_, _, _, content := mockDailyNoteStorage.WriteDailyNoteArgsForCall(0)
+				Expect(
+					content,
+				).To(ContainSubstring("- [x] 🔧 Nuke-reboot chain — [[Shutdown K3s - 2026W32-sat]] → [[Turn on hell - 2026W32-sat]]."))
+			})
+
+			It("does not append a second entry", func() {
+				Expect(mockDailyNoteStorage.WriteDailyNoteCallCount()).To(Equal(1))
+				_, _, _, content := mockDailyNoteStorage.WriteDailyNoteArgsForCall(0)
+				Expect(strings.Count(content, "[[Turn on hell - 2026W32-sat]]")).To(Equal(2))
+			})
+		})
+
+		Context(
+			"updateDailyNote with a mention line above an already in-progress own entry",
+			func() {
+				BeforeEach(func() {
+					taskName = "Turn on hell - 2026W32-sat"
+					task = domain.NewTask(
+						map[string]any{"status": "todo"},
+						domain.FileMetadata{
+							Name:     taskName,
+							FilePath: "/path/to/vault/tasks/Turn on hell - 2026W32-sat.md",
+						},
+						domain.Content(""),
+					)
+					mockTaskStorage.FindTaskByNameReturns(task, nil)
+
+					dailyContent := "## Must\n" +
+						"- [x] 🔧 Nuke-reboot chain — [[Shutdown K3s - 2026W32-sat]] → [[Turn on hell - 2026W32-sat]].\n" +
+						"- [/] [[Turn on hell - 2026W32-sat]]\n"
+					mockDailyNoteStorage.ReadDailyNoteReturns(dailyContent, nil)
+					mockDailyNoteStorage.WriteDailyNoteReturns(nil)
+				})
+
+				It("leaves the note untouched", func() {
+					Expect(err).To(BeNil())
+					Expect(mockDailyNoteStorage.WriteDailyNoteCallCount()).To(Equal(0))
+				})
+			},
+		)
 	})
 
 	Context("phase advancement", func() {

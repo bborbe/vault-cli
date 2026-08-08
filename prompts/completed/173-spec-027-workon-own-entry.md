@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [027-bug-daily-note-substring-shadowing]
+summary: Replaced last substring-containment matcher in findAndUpdateTaskCheckbox with IsOwnDailyNoteEntry, wiring task work-on through the shared own-entry matcher shared with complete and defer; added three regression test contexts covering mention-only notes, mention above pending own entry, and mention above already-in-progress own entry; consolidated changelog bullet to name all three fixed commands
+execution_id: vault-cli-exec-173-spec-027-workon-own-entry
+dark-factory-version: v0.192.9
 created: "2026-08-08T11:20:00Z"
 queued: "2026-08-08T11:39:42Z"
+started: "2026-08-08T11:45:27Z"
+completed: "2026-08-08T11:47:34Z"
 branch: dark-factory/bug-daily-note-substring-shadowing
 ---
 

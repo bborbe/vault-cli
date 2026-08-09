@@ -1,10 +1,10 @@
 ---
-status: verifying
-kind: bug
+status: completed
 approved: "2026-08-09T09:08:40Z"
 generating: "2026-08-09T09:20:36Z"
 prompted: "2026-08-09T09:20:36Z"
 verifying: "2026-08-09T09:49:27Z"
+completed: "2026-08-09T19:18:11Z"
 branch: dark-factory/bug-workon-resume-drops-operator-into-headless-tail
 ---
 

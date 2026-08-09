@@ -191,6 +191,17 @@ When the task description, a related log entry, or any retrieved file references
 
 **Forbidden phrasing** when semantic search has NOT been run on the wikilink title: "the file doesn't appear to exist", "runbook not created yet", "only the log exists". These phrases imply a definitive negative search that did not happen.
 
+**Command conflict — the task wins by default (MANDATORY)**:
+
+When a retrieved runbook/guide names a different command than the task's own `# Tasks` section, do NOT rank the doc above the task. A doc reached through a supersession banner ("promoted to runbook", "see X instead") is the **least** trustworthy source in the chain, not the most — each hop is locally correct while the endpoint answers a different question.
+
+1. **Read the actual source of both commands** before saying anything about which is current — `cat` the scripts, or read the Makefile target. What a command *does* settles the conflict; what a doc *says about it* does not.
+2. **Report what each one does**, not which is "current" / "the documented path" / "now the graceful path". Those phrases assert a recency judgement the search score cannot support.
+3. If the two commands differ in blast radius (one stops a service, the other powers off a host / deletes data), **say so explicitly and recommend nothing** — hand the operator the difference and let them choose.
+4. Never attach doubt to the task while leaving the doc unqualified (e.g. "per task text — verify it still does the right thing first"). If either side needs verifying, both do.
+
+**Forbidden phrasing** for an unverified doc-vs-task conflict: "current documented path", "the runbook supersedes", "task text may be stale". State the conflict; don't resolve it from search results alone.
+
 ## Phase 7: Progress (Obsidian tasks only)
 
 - Parse the task file for `[x]` / `[/]` / `[ ]` checkboxes

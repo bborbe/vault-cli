@@ -82,7 +82,7 @@ func (b *baseStorage) parseToFrontmatterMap(
 	}
 
 	var m map[string]any
-	if err := yaml.Unmarshal(quoteBareWikilinks(matches[1]), &m); err != nil {
+	if err := yaml.Unmarshal(quoteBareWikilinks(ctx, matches[1]), &m); err != nil {
 		return nil, errors.Wrap(ctx, err, "unmarshal yaml frontmatter")
 	}
 	if m == nil {
@@ -115,7 +115,11 @@ func (b *baseStorage) parseToFrontmatterMap(
 // nested list. The pass is a pure text transform and cannot introduce a parse
 // error it did not receive; it is also idempotent, because a quoted value no
 // longer starts with `[[`.
-func quoteBareWikilinks(frontmatter []byte) []byte {
+//
+// The line loop honours ctx cancellation: on cancel it returns the frontmatter
+// unmodified, so a cancelled parse degrades to pre-fix behaviour rather than
+// emitting a half-rewritten block.
+func quoteBareWikilinks(ctx context.Context, frontmatter []byte) []byte {
 	if !bytes.Contains(frontmatter, []byte("[[")) {
 		return frontmatter
 	}
@@ -123,6 +127,11 @@ func quoteBareWikilinks(frontmatter []byte) []byte {
 	changed := false
 	blockScalarIndent := -1
 	for i, line := range lines {
+		select {
+		case <-ctx.Done():
+			return frontmatter
+		default:
+		}
 		if blockScalarIndent >= 0 && isBlockScalarBody(line, blockScalarIndent) {
 			continue
 		}

@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: an unquoted Obsidian wikilink in frontmatter (`related_task: [[Some Task]]`) is no longer destroyed by a write. `[[X]]` is valid YAML flow-sequence syntax, so every vault-cli write path silently re-emitted it as the nested block sequence `- - X`, removing the link and its backlink with no error and no exit-code change. `parseToFrontmatterMap` now quotes a value that is exactly a bare wikilink before `yaml.Unmarshal` sees it, so it round-trips as `related_task: '[[Some Task]]'` — a working link — for Task, Goal, Theme, Objective, Vision, and Decision alike. Already-quoted wikilinks, quoted list forms, values that merely contain a wikilink, and block-scalar bodies are untouched; aliases (`[[X|alias]]`), heading anchors (`[[X#Section]]`), and apostrophes in titles survive intact. A wikilink carrying a trailing YAML comment is knowingly not rewritten. The rewrite loop honours context cancellation, returning the frontmatter unmodified on cancel rather than emitting a half-rewritten block
+
 ## v0.104.1
 
 - fix: remove the `exclude cloud.google.com/go v0.26.0` directive from `go.mod`, which made `go install github.com/bborbe/vault-cli@<version>` fail with "the go.mod file for the module providing named packages contains one or more exclude directives". The directive was injected fleet-wide by an old version of the `updater` tool and never reflected a real dependency — `go mod tidy` after removal is zero-churn. Remote install now works from a clean module cache, and the repo no longer violates its own `docs/dod.md`

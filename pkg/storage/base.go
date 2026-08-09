@@ -37,6 +37,30 @@ var (
 	// CheckboxUncompleteRegex matches a checked checkbox marker and is used by
 	// rewriters that force a line to unchecked. Capture group 1=list marker.
 	CheckboxUncompleteRegex = regexp.MustCompile(`([-*]) \[x\]`)
+
+	// bareWikilinkMappingRegex matches a frontmatter mapping line whose value is
+	// exactly a bare Obsidian wikilink, at any indentation: `related_task: [[X]]`.
+	// Capture groups: 1=indentation plus the `key: ` prefix, 2=the wikilink value.
+	// A trailing YAML comment defeats the match by design — see quoteBareWikilinks.
+	bareWikilinkMappingRegex = regexp.MustCompile(
+		`^( *[A-Za-z0-9_][A-Za-z0-9_.-]*:[ \t]+)(\[\[.+\]\])[ \t]*$`,
+	)
+
+	// bareWikilinkSequenceRegex matches a block-sequence entry whose value is
+	// exactly a bare Obsidian wikilink, at any indentation: `    - [[A Theme]]`.
+	// Capture groups: 1=indentation plus the `- ` marker, 2=the wikilink value.
+	bareWikilinkSequenceRegex = regexp.MustCompile(
+		`^( *-[ \t]+)(\[\[.+\]\])[ \t]*$`,
+	)
+
+	// blockScalarStartRegex matches a mapping or sequence line that opens a block
+	// scalar (`|` or `>`, with optional chomping and indentation indicators).
+	// Capture group 1 is the introducing line's indentation, used to find where the
+	// scalar's body ends. Lines inside a block scalar are literal text, never YAML,
+	// so the quoting pass must leave them alone.
+	blockScalarStartRegex = regexp.MustCompile(
+		`^( *)(?:[A-Za-z0-9_][A-Za-z0-9_.-]*:|-)[ \t]+[|>][+-]?[0-9]*[ \t]*$`,
+	)
 )
 
 type baseStorage struct {
@@ -46,6 +70,8 @@ type baseStorage struct {
 // parseToFrontmatterMap parses the YAML frontmatter block from content into a
 // map[string]any, preserving all fields including unknown ones.
 // Returns an error if no frontmatter block is found or YAML is invalid.
+// A bare Obsidian wikilink value is quoted before unmarshal — see
+// quoteBareWikilinks — so it is read as a string rather than a nested list.
 func (b *baseStorage) parseToFrontmatterMap(
 	ctx context.Context,
 	content []byte,
@@ -56,13 +82,110 @@ func (b *baseStorage) parseToFrontmatterMap(
 	}
 
 	var m map[string]any
-	if err := yaml.Unmarshal(matches[1], &m); err != nil {
+	if err := yaml.Unmarshal(quoteBareWikilinks(ctx, matches[1]), &m); err != nil {
 		return nil, errors.Wrap(ctx, err, "unmarshal yaml frontmatter")
 	}
 	if m == nil {
 		m = make(map[string]any)
 	}
 	return m, nil
+}
+
+// quoteBareWikilinks rewrites frontmatter lines whose value is exactly a bare
+// Obsidian wikilink into a single-quoted YAML scalar, and returns the rewritten
+// frontmatter block.
+//
+// A bare wikilink is well-formed YAML flow-sequence syntax: `k: [[X]]` unmarshals
+// to []any{[]any{"X"}} and marshals back as the nested block sequence `k:\n - - X`,
+// silently destroying the link and its backlink. Neither yaml.Unmarshal nor
+// yaml.Marshal is wrong on its own terms — the corruption emerges only from the
+// round-trip, which is why nothing detects it. Quoting the value before
+// yaml.Unmarshal ever sees it keeps the in-memory value a plain string, so the
+// existing serializer writes it back as a working wikilink with no change to
+// serializeMapAsFrontmatter.
+//
+// Only quoting changes; YAML shape never does. A bare wikilink under a
+// conventionally-list key (`themes: [[A Theme]]`) becomes the quoted *scalar*
+// `themes: '[[A Theme]]'`, not a one-element sequence — the authored form is
+// preserved as authored.
+//
+// Left byte-identical: an already-quoted value, a value that merely contains a
+// wikilink among other text, a value carrying a trailing YAML comment, a value
+// spanning multiple lines, the body of a block scalar, and an already-destroyed
+// nested list. The pass is a pure text transform and cannot introduce a parse
+// error it did not receive; it is also idempotent, because a quoted value no
+// longer starts with `[[`.
+//
+// The line loop honours ctx cancellation: on cancel it returns the frontmatter
+// unmodified, so a cancelled parse degrades to pre-fix behaviour rather than
+// emitting a half-rewritten block.
+func quoteBareWikilinks(ctx context.Context, frontmatter []byte) []byte {
+	if !bytes.Contains(frontmatter, []byte("[[")) {
+		return frontmatter
+	}
+	lines := strings.Split(string(frontmatter), "\n")
+	changed := false
+	blockScalarIndent := -1
+	for i, line := range lines {
+		select {
+		case <-ctx.Done():
+			return frontmatter
+		default:
+		}
+		if blockScalarIndent >= 0 && isBlockScalarBody(line, blockScalarIndent) {
+			continue
+		}
+		blockScalarIndent = -1
+		if m := blockScalarStartRegex.FindStringSubmatch(line); len(m) == 2 {
+			blockScalarIndent = len(m[1])
+			continue
+		}
+		rewritten, ok := quoteBareWikilinkLine(line)
+		if !ok {
+			continue
+		}
+		lines[i] = rewritten
+		changed = true
+	}
+	if !changed {
+		return frontmatter
+	}
+	return []byte(strings.Join(lines, "\n"))
+}
+
+// isBlockScalarBody reports whether line belongs to the body of a block scalar
+// whose introducing key is indented by keyIndent spaces. A blank line and any
+// line indented deeper than the key are part of the body; the first line at or
+// left of the key's indentation ends it.
+func isBlockScalarBody(line string, keyIndent int) bool {
+	if strings.TrimSpace(line) == "" {
+		return true
+	}
+	return len(line)-len(strings.TrimLeft(line, " ")) > keyIndent
+}
+
+// quoteBareWikilinkLine returns the single-quoted rewrite of line and true when
+// line's value is exactly one bare wikilink; otherwise it returns line unchanged
+// and false.
+//
+// Single quotes inside the title are escaped by doubling, so `[[Ben's Task]]`
+// emits '[[Ben”s Task]]' and re-parses to the original title. A line holding
+// more than one wikilink (`k: [[A]] and [[B]]`) is rejected: its value is not
+// exactly a wikilink, and it is not valid YAML today either, so the pass leaves
+// the pre-existing parse error intact rather than silently making it parse.
+func quoteBareWikilinkLine(line string) (string, bool) {
+	matches := bareWikilinkMappingRegex.FindStringSubmatch(line)
+	if len(matches) != 3 {
+		matches = bareWikilinkSequenceRegex.FindStringSubmatch(line)
+	}
+	if len(matches) != 3 {
+		return line, false
+	}
+	value := matches[2]
+	if strings.Contains(value[2:len(value)-2], "]]") {
+		return line, false
+	}
+	return matches[1] + "'" + strings.ReplaceAll(value, "'", "''") + "'", true
 }
 
 // serializeMapAsFrontmatter serializes data as YAML frontmatter, replacing the

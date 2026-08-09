@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [031-bug-unquoted-wikilink-mangled-on-frontmatter-write]
+summary: Added wikilink round-trip regression suite covering all six entity types
+execution_id: vault-cli-exec-181-spec-031-entity-roundtrip-tests
+dark-factory-version: v0.192.9
 created: "2026-08-09T15:45:00Z"
 queued: "2026-08-09T14:33:20Z"
+started: "2026-08-09T14:37:34Z"
+completed: "2026-08-09T14:40:25Z"
 ---
 
 # Prove the wikilink fix reaches all six entity types

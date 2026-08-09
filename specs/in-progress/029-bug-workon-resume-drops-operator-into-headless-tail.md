@@ -187,3 +187,16 @@ The Rung-3 repro-replay AC (AC1) and `make precommit` (AC9) are cross-cutting �
 ## Workaround
 
 Until this ships: after `vault-cli task work-on` drops you into the resumed session, type the slash command the task names. The task file already records it — the fix removes the retyping, not the information.
+
+## Verification Result
+
+**Verified:** 2026-08-09T19:17:29Z (HEAD 9be94a1)
+**Binary:** installed `vault-cli` v0.105.0 (`/opt/homebrew/bin/vault-cli`) + plugin `vault-cli@vault-cli` 0.105.0; `git diff v0.105.0 HEAD -- pkg/ cmd/ commands/ main.go go.mod` is empty, and the loaded `cache/vault-cli/vault-cli/0.105.0/commands/execute-task.md` is byte-identical to HEAD's, so the deployed artifacts are code-identical to HEAD despite the v0.106.0 tag (v0.105.0..HEAD is docs-only). AC1's `deploy_target` keyed on the latest tag rather than the installed version — the same tag-vs-installed false negative HEAD's `## Unreleased` entry fixes in scenario 005.
+**Scenario:** `scenarios/005-work-on-resume-auto-invokes-subtask.md` walked from a real TTY on 2026-08-09 against fixture `24 Tasks/Verify Spec 029 Auto-Invoke Fixture.md` (sole unchecked subtask ``- [ ] Run `/vault-cli:next-task` ``).
+**Evidence:**
+- Turn 1 prompt `/vault-cli:work-on-task "<abs path>" --non-interactive` — produced only by `workon.go:199`; turn 2 prompt `/vault-cli:work-on-task "<abs path>"` (no flag) — produced only by the continuation at `workon.go:133`. Neither string is producible by a human keystroke sequence or by an in-session chain: no command markdown re-invokes `work-on-task`, and `next-task.md:112`'s re-entry is gated behind `AskUserQuestion` and ran *after* the auto-invoke.
+- Post-continuation output: `Interactive mode → chaining` → `Skill(vault-cli:plan-task)` → `Skill(vault-cli:execute-task)` → DoD block → `🚀 Running: /vault-cli:next-task` → `Skill(vault-cli:next-task)` → `📋 Today's Tasks: 2026-08-09`. The `🚀 Running:` + `Skill:` form is prescribed only by `commands/execute-task.md:159`, so the *loaded* plugin carried the classification rule. No `🎯 Start with:`, no fresh `✅ Oriented:`/`Next: →`, no approval turn (the replayed `✅ Oriented:` block is turn 1, reprinted by `claude --resume`).
+- On-disk durable proof, vault git history of the fixture: no `claude_session_id` at 20:54 → `claude_session_id: f045e800-1695-4533-aefc-645c9b1c4d80` at 21:09, matching the transcript's session. Written only by `workon.go:205`, reachable only on a fresh bootstrap.
+- Negative control, same fixture and binary: the 20:53 attempt through a non-TTY shell took the `workon.go:128` fall-through, persisted `84f1fe1a-…` and never resumed — no turn 2. Deploy ordering holds: binary 17:37, plugin 18:30, run 21:07.
+- ACs 2-4 unit argv/continuation assertions in `pkg/ops/claude_resume_test.go` + `workon_test.go`; AC5 `grep -c` = 1; AC6 `md5 pkg/ops/claude_session.go` = `6fd7090f033d6c3156d74dd2cde041f0` and `git diff v0.102.7 v0.103.0 -- pkg/ops/claude_session.go commands/work-on-task.md` empty; ACs 7-10 greps 1/1/1/1/3/1; AC11 `make precommit` exit 0.
+**Verdict:** PASS

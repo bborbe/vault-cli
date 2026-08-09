@@ -1,5 +1,6 @@
 ---
 status: verifying
+kind: bug
 approved: "2026-08-09T09:08:40Z"
 generating: "2026-08-09T09:20:36Z"
 prompted: "2026-08-09T09:20:36Z"
@@ -95,6 +96,12 @@ Observe: "🎯 Start with: Run /start-day"  — the command is printed, never in
 - [ ] **Post-Deploy (Rung-3):** the Reproduction no longer reproduces — evidence: on a task whose sole `# Tasks` entry is a bare slash-command call, `vault-cli task work-on "<task>"` yields a resumed session whose first action is the invocation of that command, with zero approval turns between resume and invocation.
   - `deploy_check:` `vault-cli --version | awk '{print $NF}'`
   - `deploy_target:` `$(git fetch --tags -q; git describe --tags --abbrev=0)`
+  - `deploy_check:` `claude plugin list | grep -A1 'vault-cli@vault-cli' | awk '/Version/{print "v"$2}'`
+  - `deploy_target:` `$(git describe --tags --abbrev=0)`
+  - `deploy_check:` `grep -c '^### Subtask classification' ~/.claude/plugins/cache/vault-cli/vault-cli/$(git describe --tags --abbrev=0 | tr -d v)/commands/execute-task.md`
+  - `deploy_target:` `1`
+
+  Three checks, not one: this fix ships through two independently-versioned channels. The continuation-prompt half lives in the **binary** (`pkg/ops/`), gated by check 1. The classification / auto-invoke half lives in the **plugin** (`commands/execute-task.md`), which `vault-cli --version` says nothing about — checks 2 and 3 gate that. Check 3 greps the load path directly because `claude plugin list` reports the *pinned* version while the *running* process has whatever it loaded at startup; note the path is doubly nested (`cache/vault-cli/vault-cli/<version>/`), and a singly-nested path silently returns 0 and reads as a stale-deploy FAIL. A restart is still a Setup precondition — no command observes the loaded-vs-pinned gap.
 - [ ] `ResumeSession` takes a prompt and appends it to argv — evidence: unit test asserts argv is exactly `["claude","--resume",<id>,<prompt>]` for a non-empty prompt.
 - [ ] An empty prompt changes nothing — evidence: unit test asserts argv is exactly `["claude","--resume",<id>]` when prompt is `""` (negative evidence: no trailing empty-string arg).
 - [ ] The continuation prompt re-invokes the work-on command **interactively** — evidence: unit test asserts the string `workon.go` passes to `ResumeSession` equals `<GetWorkOnCommand()> "<task.FilePath>"`, and that `strings.Contains(prompt, "--non-interactive")` is false.

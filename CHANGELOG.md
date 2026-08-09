@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat: add `scenarios/005-work-on-resume-auto-invokes-subtask.md`, locking the `task work-on` resume path end-to-end. This is the one behaviour in the repo that neither unit nor integration tests can reach: the classification rule lives in `commands/execute-task.md` (a markdown command with no test harness) and only executes behind `term.IsTerminal` → `syscall.Exec` → a live Claude session. Deliberately not sandboxed — `StartSession`/`ResumeSession` pass only cwd and `os.Environ()`, so the spawned session uses the installed binary and default config regardless; a temp-vault sandbox would test nothing while appearing to. Runs against the live vault with a named throwaway fixture and documents what it mutates. Must be walked from a real TTY (a non-TTY caller skips the resume branch and exits 0 having tested nothing) and re-walked after every *plugin* bump, since `commands/` ships on a channel `vault-cli --version` does not track.
+
 ## v0.105.0
 
 - feat: publish a Homebrew cask to `bborbe/homebrew-tap` so the CLI installs with `brew install bborbe/tap/vault-cli`. Adds `.goreleaser.yaml` and `.github/workflows/release.yml`, triggered on `release: published` rather than tag push — `autoRelease` tags every merge, so a tag-triggered build would ship a cask per merge and bypass the scenario gate. Publishing a GitHub Release (the existing manual milestone step) is now also the promotion to brew; a tag alone does not reach it.

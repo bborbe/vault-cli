@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [029-bug-workon-resume-drops-operator-into-headless-tail]
+summary: task work-on now passes a continuation prompt to ResumeSession that re-invokes the work-on command interactively (without --non-interactive), so turn 2 continues the plan → execute chain instead of idling on turn 1's stop signal
+execution_id: vault-cli-resume-gate-exec-176-spec-029-workon-continuation-prompt
+dark-factory-version: v0.192.9
 created: "2026-08-09T09:15:00Z"
 queued: "2026-08-09T09:36:21Z"
+started: "2026-08-09T09:45:43Z"
+completed: "2026-08-09T09:47:29Z"
 ---
 
 <summary>

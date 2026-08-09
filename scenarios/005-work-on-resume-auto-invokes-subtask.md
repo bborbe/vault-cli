@@ -1,5 +1,5 @@
 ---
-status: draft
+status: active
 ---
 
 # Scenario 005: work-on resume auto-invokes a bare slash-command subtask

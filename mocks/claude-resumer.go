@@ -9,12 +9,13 @@ import (
 )
 
 type ClaudeResumer struct {
-	ResumeSessionStub        func(context.Context, string, string) error
+	ResumeSessionStub        func(context.Context, string, string, string) error
 	resumeSessionMutex       sync.RWMutex
 	resumeSessionArgsForCall []struct {
 		arg1 context.Context
 		arg2 string
 		arg3 string
+		arg4 string
 	}
 	resumeSessionReturns struct {
 		result1 error
@@ -26,20 +27,21 @@ type ClaudeResumer struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *ClaudeResumer) ResumeSession(arg1 context.Context, arg2 string, arg3 string) error {
+func (fake *ClaudeResumer) ResumeSession(arg1 context.Context, arg2 string, arg3 string, arg4 string) error {
 	fake.resumeSessionMutex.Lock()
 	ret, specificReturn := fake.resumeSessionReturnsOnCall[len(fake.resumeSessionArgsForCall)]
 	fake.resumeSessionArgsForCall = append(fake.resumeSessionArgsForCall, struct {
 		arg1 context.Context
 		arg2 string
 		arg3 string
-	}{arg1, arg2, arg3})
+		arg4 string
+	}{arg1, arg2, arg3, arg4})
 	stub := fake.ResumeSessionStub
 	fakeReturns := fake.resumeSessionReturns
-	fake.recordInvocation("ResumeSession", []interface{}{arg1, arg2, arg3})
+	fake.recordInvocation("ResumeSession", []interface{}{arg1, arg2, arg3, arg4})
 	fake.resumeSessionMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2, arg3)
+		return stub(arg1, arg2, arg3, arg4)
 	}
 	if specificReturn {
 		return ret.result1
@@ -53,17 +55,17 @@ func (fake *ClaudeResumer) ResumeSessionCallCount() int {
 	return len(fake.resumeSessionArgsForCall)
 }
 
-func (fake *ClaudeResumer) ResumeSessionCalls(stub func(context.Context, string, string) error) {
+func (fake *ClaudeResumer) ResumeSessionCalls(stub func(context.Context, string, string, string) error) {
 	fake.resumeSessionMutex.Lock()
 	defer fake.resumeSessionMutex.Unlock()
 	fake.ResumeSessionStub = stub
 }
 
-func (fake *ClaudeResumer) ResumeSessionArgsForCall(i int) (context.Context, string, string) {
+func (fake *ClaudeResumer) ResumeSessionArgsForCall(i int) (context.Context, string, string, string) {
 	fake.resumeSessionMutex.RLock()
 	defer fake.resumeSessionMutex.RUnlock()
 	argsForCall := fake.resumeSessionArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4
 }
 
 func (fake *ClaudeResumer) ResumeSessionReturns(result1 error) {

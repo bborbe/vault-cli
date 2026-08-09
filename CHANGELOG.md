@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: `task work-on` now resumes into a session that continues the work-on chain interactively, instead of dropping the operator on the tail of the headless bootstrap turn — which had been told to print the next-steps signal and stop. `goal work-on` is unchanged
+
 ## v0.102.6
 
 - fix: `work-on-task-assistant` no longer ranks a retrieved runbook above the task's own `# Tasks` command when the two conflict. It must read both commands' actual source before characterising either, report what each does rather than which is "current", and recommend nothing when the two differ in blast radius. A doc reached via a supersession banner is the least trustworthy source in the chain; ranking one first led to a production shutdown being run in place of a service stop

@@ -132,7 +132,7 @@ func (w *workOnOperation) Execute(
 			Vault:     vaultName,
 			Warnings:  warnings,
 			SessionID: sessionID,
-		}, w.resumer.ResumeSession(ctx, sessionID, sessionDir)
+		}, w.resumer.ResumeSession(ctx, sessionID, sessionDir, "")
 	}
 
 	return MutationResult{

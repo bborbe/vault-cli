@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [030-bug-decision-ack-destroys-frontmatter]
+summary: Embedded FrontmatterMap in domain.Decision and rewrote WriteDecision to preserve all non-managed frontmatter keys
+execution_id: vault-cli-decision-frontmatter-exec-179-spec-030-decision-preserve-frontmatter
+dark-factory-version: v0.192.9
 created: "2026-08-09T11:15:00Z"
 queued: "2026-08-09T11:51:18Z"
+started: "2026-08-09T11:53:50Z"
+completed: "2026-08-09T12:00:48Z"
 ---
 
 # Stop decision writes from destroying non-managed frontmatter

@@ -8,12 +8,15 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	libtime "github.com/bborbe/time"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"gopkg.in/yaml.v3"
 
+	"github.com/bborbe/vault-cli/pkg/domain"
 	"github.com/bborbe/vault-cli/pkg/storage"
 )
 
@@ -439,6 +442,244 @@ Some important context.
 			Expect(rawContent).To(ContainSubstring("needs_review: false"))
 			Expect(rawContent).To(ContainSubstring("reviewed: true"))
 			Expect(rawContent).To(ContainSubstring("reviewed_date: \"2026-03-16\""))
+		})
+	})
+
+	Describe("frontmatter preservation", func() {
+		// splitDecisionFrontmatter returns the YAML frontmatter block and the markdown
+		// body of a decision file's content.
+		splitDecisionFrontmatter := func(content string) (string, string) {
+			parts := strings.SplitN(content, "---\n", 3)
+			Expect(parts).To(HaveLen(3))
+			return parts[1], parts[2]
+		}
+		Context("after an ack-style write", func() {
+			var (
+				writtenContent  string
+				parsed          map[string]any
+				originalContent string
+			)
+
+			BeforeEach(func() {
+				parsed = nil
+				originalContent = `---
+date: 2026-08-09
+decision_confidence: high
+decision_status: proposed
+needs_review: true
+page_type: decision
+related:
+    - '[[Some Page]]'
+    - '[[Another Page]]'
+related_task: '[[Some Task]]'
+review_date: 2026-08-15
+selected_option: B
+status: proposed
+supersedes: '[[Older TDR]]'
+type: Trading Decision Record
+unknown_count: 7
+unknown_flag: true
+---
+# TDR 2026-08-09 - GBPJPY V6 Pause Continuation
+
+Body text here.
+
+## Options
+
+Option A, Option B.
+`
+				filePath := filepath.Join(vaultPath, "TDR.md")
+				Expect(os.WriteFile(filePath, []byte(originalContent), 0600)).To(Succeed())
+
+				decisions, err := store.ListDecisions(ctx, vaultPath)
+				Expect(err).To(BeNil())
+				Expect(decisions).To(HaveLen(1))
+
+				d := decisions[0]
+				d.Reviewed = true
+				reviewedDate := libtime.DateOrDateTime(time.Date(2026, 8, 9, 0, 0, 0, 0, time.UTC))
+				d.ReviewedDate = &reviewedDate
+				d.NeedsReview = false
+				Expect(store.WriteDecision(ctx, d)).To(Succeed())
+
+				rawBytes, err := os.ReadFile(filePath)
+				Expect(err).To(BeNil())
+				writtenContent = string(rawBytes)
+
+				fmYAML, _ := splitDecisionFrontmatter(writtenContent)
+				Expect(yaml.Unmarshal([]byte(fmYAML), &parsed)).To(Succeed())
+			})
+
+			It("preserves every non-managed frontmatter key", func() {
+				Expect(parsed).To(HaveKeyWithValue("decision_confidence", "high"))
+				Expect(parsed).To(HaveKeyWithValue("decision_status", "proposed"))
+				Expect(parsed).To(HaveKeyWithValue("selected_option", "B"))
+				Expect(parsed).To(HaveKeyWithValue("related_task", "[[Some Task]]"))
+				Expect(parsed).To(HaveKeyWithValue("supersedes", "[[Older TDR]]"))
+				Expect(parsed).To(HaveKey("date"))
+				Expect(parsed).To(HaveKey("review_date"))
+				Expect(parsed).To(HaveKey("related"))
+			})
+
+			It("preserves date-valued keys as the same instant", func() {
+				reviewVal, ok := parsed["review_date"].(time.Time)
+				Expect(ok).To(BeTrue(), "review_date must stay a YAML timestamp")
+				Expect(reviewVal.UTC()).To(Equal(time.Date(2026, 8, 15, 0, 0, 0, 0, time.UTC)))
+
+				dateVal, ok := parsed["date"].(time.Time)
+				Expect(ok).To(BeTrue(), "date must stay a YAML timestamp")
+				Expect(dateVal.UTC()).To(Equal(time.Date(2026, 8, 9, 0, 0, 0, 0, time.UTC)))
+			})
+
+			It("re-renders a bare date in RFC3339 form without changing the instant", func() {
+				Expect(writtenContent).To(ContainSubstring("\nreview_date: 2026-08-15T00:00:00Z\n"))
+				Expect(writtenContent).NotTo(ContainSubstring("review_date: \"2026-08-15\""))
+			})
+
+			It("round-trips a list-valued key as a list", func() {
+				relatedVal, ok := parsed["related"].([]any)
+				Expect(
+					ok,
+				).To(BeTrue(), "related must round-trip as a sequence, not a flattened string")
+				Expect(relatedVal).To(HaveLen(2))
+				Expect(relatedVal[0]).To(Equal("[[Some Page]]"))
+				Expect(relatedVal[1]).To(Equal("[[Another Page]]"))
+			})
+
+			It("does not coerce an unknown key to a different YAML type", func() {
+				countVal, ok := parsed["unknown_count"].(int)
+				Expect(ok).To(BeTrue(), "unknown_count must round-trip as int, not string")
+				Expect(countVal).To(Equal(7))
+
+				flagVal, ok := parsed["unknown_flag"].(bool)
+				Expect(ok).To(BeTrue(), "unknown_flag must round-trip as bool, not string")
+				Expect(flagVal).To(BeTrue())
+			})
+
+			It("updates the six managed fields", func() {
+				Expect(parsed).To(HaveKeyWithValue("needs_review", false))
+				Expect(parsed).To(HaveKeyWithValue("reviewed", true))
+				Expect(parsed).To(HaveKeyWithValue("reviewed_date", "2026-08-09"))
+				Expect(parsed).To(HaveKeyWithValue("status", "proposed"))
+				Expect(parsed).To(HaveKeyWithValue("type", "Trading Decision Record"))
+				Expect(parsed).To(HaveKeyWithValue("page_type", "decision"))
+			})
+
+			It("leaves the markdown body byte-identical", func() {
+				_, originalBody := splitDecisionFrontmatter(originalContent)
+				_, writtenBody := splitDecisionFrontmatter(writtenContent)
+				Expect(writtenBody).To(Equal(originalBody))
+			})
+
+			It("loses no frontmatter key", func() {
+				Expect(parsed).To(HaveLen(16))
+			})
+		})
+
+		Context("managed-value precedence", func() {
+			var writtenContent string
+			var parsed map[string]any
+
+			BeforeEach(func() {
+				parsed = nil
+				originalContent := `---
+needs_review: true
+status: proposed
+---
+# Test
+`
+				filePath := filepath.Join(vaultPath, "Precedence.md")
+				Expect(os.WriteFile(filePath, []byte(originalContent), 0600)).To(Succeed())
+
+				decisions, err := store.ListDecisions(ctx, vaultPath)
+				Expect(err).To(BeNil())
+				Expect(decisions).To(HaveLen(1))
+
+				d := decisions[0]
+				d.Status = "accepted"
+				Expect(store.WriteDecision(ctx, d)).To(Succeed())
+
+				rawBytes, err := os.ReadFile(filePath)
+				Expect(err).To(BeNil())
+				writtenContent = string(rawBytes)
+
+				fmYAML, _ := splitDecisionFrontmatter(writtenContent)
+				Expect(yaml.Unmarshal([]byte(fmYAML), &parsed)).To(Succeed())
+			})
+
+			It("lets a managed value win over the preserved key of the same name", func() {
+				Expect(parsed).To(HaveKeyWithValue("status", "accepted"))
+				Expect(strings.Count(writtenContent, "\nstatus:")).To(Equal(1))
+			})
+		})
+
+		Context("empty preserved map", func() {
+			It("writes the managed keys when the preserved map is empty", func() {
+				d := &domain.Decision{
+					NeedsReview: true,
+					Status:      "proposed",
+					Name:        "Empty",
+					Content:     "---\nneeds_review: true\n---\n# Empty\n\nBody.\n",
+					FilePath:    filepath.Join(vaultPath, "Empty.md"),
+				}
+				Expect(d.RawMap()).To(BeNil())
+				Expect(store.WriteDecision(ctx, d)).To(Succeed())
+
+				rawBytes, err := os.ReadFile(d.FilePath)
+				Expect(err).To(BeNil())
+
+				fmYAML, body := splitDecisionFrontmatter(string(rawBytes))
+				Expect(body).To(Equal("# Empty\n\nBody.\n"))
+
+				var parsed map[string]any
+				Expect(yaml.Unmarshal([]byte(fmYAML), &parsed)).To(Succeed())
+				Expect(parsed).To(HaveLen(2))
+				Expect(parsed).To(HaveKeyWithValue("needs_review", true))
+				Expect(parsed).To(HaveKeyWithValue("status", "proposed"))
+			})
+		})
+
+		Context("unparseable frontmatter", func() {
+			It("skips a file with unparseable frontmatter and leaves it byte-identical", func() {
+				malformedContent := `---
+needs_review: true
+  bad: [unclosed
+---
+# Malformed
+`
+				filePath := filepath.Join(vaultPath, "Malformed.md")
+				Expect(os.WriteFile(filePath, []byte(malformedContent), 0600)).To(Succeed())
+
+				decisions, err := store.ListDecisions(ctx, vaultPath)
+				Expect(err).To(BeNil())
+
+				var found bool
+				for _, d := range decisions {
+					if d.Name == "Malformed" {
+						found = true
+						break
+					}
+				}
+				Expect(found).To(BeFalse())
+
+				rawBytes, err := os.ReadFile(filePath)
+				Expect(err).To(BeNil())
+				Expect(string(rawBytes)).To(Equal(malformedContent))
+			})
+		})
+
+		Context("unwritable path", func() {
+			It("returns a wrapped error when the file cannot be written", func() {
+				d := &domain.Decision{
+					NeedsReview: true,
+					Name:        "X",
+					Content:     "---\nneeds_review: true\n---\n# X\n",
+					FilePath:    filepath.Join(vaultPath, "no-such-dir", "X.md"),
+				}
+				err := store.WriteDecision(ctx, d)
+				Expect(err).NotTo(BeNil())
+				Expect(err.Error()).To(ContainSubstring("write file"))
+			})
 		})
 	})
 })

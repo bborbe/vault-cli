@@ -55,10 +55,14 @@ Each entity (Task, Goal, Theme, Objective, Vision) cleanly separates three conce
 - The full markdown file content including the frontmatter block
 - Used by the storage layer to extract the body on write
 
+**Decision — the one hybrid**
+- `domain.Decision` embeds `FrontmatterMap` directly (tagged `yaml:"-"`) rather than a `DecisionFrontmatter` wrapper, and keeps typed struct fields for its six managed keys — `needs_review`, `reviewed`, `reviewed_date`, `status`, `type`, `page_type` — because those fields are the mutation surface `pkg/ops/decision_ack.go` writes. `WriteDecision` copies the preserved map and overlays those six last, so a managed value wins on a name collision and every other key round-trips untouched.
+
 **Storage** (`pkg/storage/`)
 - `parseToFrontmatterMap` parses the YAML frontmatter block into `map[string]any`
 - `serializeMapAsFrontmatter` marshals the map back to YAML; unknown fields are preserved
 - Entity-specific read helpers call `NewXxx(data, meta, content)` constructors
+- **Rendering caveat**: a bare YAML date (`review_date: 2026-08-15`) parses to `time.Time` and re-serializes as RFC3339 (`review_date: 2026-08-15T00:00:00Z`). The instant is preserved; only the rendering is normalized. This applies to every entity — `WriteGoal` behaves the same way today.
 
 **Operations** (`pkg/ops/`)
 - Inject `XxxStorage` interfaces (never file I/O directly)

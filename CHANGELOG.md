@@ -11,6 +11,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 ## Unreleased
 
 - feat: Add `FrontmatterMap.GetBool` — a coercing bool accessor that reads a YAML bool as-is and the case-insensitive strings `true` / `yes` / `false` / `no`, returning `false` for a missing key or an unrecognised value
+- fix: `vault-cli decision ack` no longer deletes frontmatter fields it does not manage. `domain.Decision` now carries the full parsed frontmatter map and `WriteDecision` overlays only `needs_review`, `reviewed`, `reviewed_date`, `status`, `type`, and `page_type` onto it, so a Trading Decision Record keeps `selected_option`, `decision_status`, `review_date`, `related_task`, `related`, and `supersedes` — with list, integer, and boolean values keeping their YAML types
 
 ## v0.103.0
 

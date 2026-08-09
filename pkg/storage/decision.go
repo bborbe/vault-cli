@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io/fs"
 	"log/slog"
+	"maps"
 	"os"
 	"path/filepath"
 	"strings"
@@ -40,42 +41,7 @@ func (d *decisionStorage) readDecisionFromPath(
 		return nil, errors.Wrap(ctx, parseErr, "parse frontmatter")
 	}
 
-	decision := &domain.Decision{
-		Name:     name,
-		Content:  string(content),
-		FilePath: filePath,
-	}
-	if v, ok := data["needs_review"].(bool); ok {
-		decision.NeedsReview = v
-	}
-	if v, ok := data["reviewed"].(bool); ok {
-		decision.Reviewed = v
-	}
-	if raw := data["reviewed_date"]; raw != nil {
-		switch v := raw.(type) {
-		case time.Time:
-			d := libtime.DateOrDateTime(v)
-			decision.ReviewedDate = &d
-		case string:
-			if v != "" {
-				if t, err := libtime.ParseTime(ctx, v); err == nil {
-					d := libtime.DateOrDateTime(*t)
-					decision.ReviewedDate = &d
-				}
-			}
-		}
-	}
-	if v, ok := data["status"].(string); ok {
-		decision.Status = v
-	}
-	if v, ok := data["type"].(string); ok {
-		decision.Type = v
-	}
-	if v, ok := data["page_type"].(string); ok {
-		decision.PageType = v
-	}
-
-	return decision, nil
+	return domain.NewDecision(data, name, string(content), filePath), nil
 }
 
 // ListDecisions scans the entire vault recursively and returns all decisions with needs_review: true.
@@ -214,11 +180,18 @@ func (d *decisionStorage) FindDecisionByName(
 	}
 }
 
-// WriteDecision writes a decision to its markdown file, preserving the body content.
+// WriteDecision writes a decision to its markdown file, preserving both the body
+// content and every frontmatter key that was parsed from the file.
+//
+// The preserved map is written first and the six managed keys are overlaid last,
+// so a managed value always wins over a preserved key of the same name.
 func (d *decisionStorage) WriteDecision(ctx context.Context, decision *domain.Decision) error {
-	data := map[string]any{
-		"needs_review": decision.NeedsReview,
-	}
+	preserved := decision.RawMap()
+	data := make(map[string]any, len(preserved)+6)
+	maps.Copy(data, preserved)
+
+	// Managed overlay — applied last so managed values win over preserved ones.
+	data["needs_review"] = decision.NeedsReview
 	if decision.Reviewed {
 		data["reviewed"] = decision.Reviewed
 	}

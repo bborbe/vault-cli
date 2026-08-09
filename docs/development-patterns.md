@@ -36,6 +36,10 @@ Each entity (Task, Goal, Theme, Objective, Vision) cleanly separates three conce
 
 **Frontmatter** (`pkg/domain/<entity>_frontmatter.go`)
 - Embeds `FrontmatterMap` (a `map[string]any` wrapper)
+- `FrontmatterMap` provides the raw accessor family: `Get`, `GetString`, `GetBool`, `GetTime`,
+  `GetStringSlice`, `Set`, `Delete`, `Keys`, `RawMap`. Getters **coerce** rather than type-assert —
+  `GetBool` accepts a YAML bool and the strings `true` / `yes` / `false` / `no` (case-insensitive),
+  returning `false` for a missing key or an unrecognised value.
 - Typed getter methods for known fields (e.g., `Status() TaskStatus`, `Priority() Priority`)
 - Typed setter methods that validate known fields (e.g., `SetStatus(TaskStatus) error`)
 - Generic `GetField(key) string` / `SetField(ctx, key, value) error` / `ClearField(key)` for
@@ -51,10 +55,14 @@ Each entity (Task, Goal, Theme, Objective, Vision) cleanly separates three conce
 - The full markdown file content including the frontmatter block
 - Used by the storage layer to extract the body on write
 
+**Decision — the one hybrid**
+- `domain.Decision` embeds `FrontmatterMap` directly (tagged `yaml:"-"`) rather than a `DecisionFrontmatter` wrapper, and keeps typed struct fields for its six managed keys — `needs_review`, `reviewed`, `reviewed_date`, `status`, `type`, `page_type` — because those fields are the mutation surface `pkg/ops/decision_ack.go` writes. `WriteDecision` copies the preserved map and overlays those six last, so a managed value wins on a name collision and every other key round-trips untouched.
+
 **Storage** (`pkg/storage/`)
 - `parseToFrontmatterMap` parses the YAML frontmatter block into `map[string]any`
 - `serializeMapAsFrontmatter` marshals the map back to YAML; unknown fields are preserved
 - Entity-specific read helpers call `NewXxx(data, meta, content)` constructors
+- **Rendering caveat**: a bare YAML date (`review_date: 2026-08-15`) parses to `time.Time` and re-serializes as RFC3339 (`review_date: 2026-08-15T00:00:00Z`). The instant is preserved; only the rendering is normalized. This applies to every entity — `WriteGoal` behaves the same way today.
 
 **Operations** (`pkg/ops/`)
 - Inject `XxxStorage` interfaces (never file I/O directly)

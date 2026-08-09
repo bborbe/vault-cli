@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io/fs"
 	"log/slog"
+	"maps"
 	"os"
 	"path/filepath"
 	"strings"
@@ -40,42 +41,7 @@ func (d *decisionStorage) readDecisionFromPath(
 		return nil, errors.Wrap(ctx, parseErr, "parse frontmatter")
 	}
 
-	decision := &domain.Decision{
-		Name:     name,
-		Content:  string(content),
-		FilePath: filePath,
-	}
-	if v, ok := data["needs_review"].(bool); ok {
-		decision.NeedsReview = v
-	}
-	if v, ok := data["reviewed"].(bool); ok {
-		decision.Reviewed = v
-	}
-	if raw := data["reviewed_date"]; raw != nil {
-		switch v := raw.(type) {
-		case time.Time:
-			d := libtime.DateOrDateTime(v)
-			decision.ReviewedDate = &d
-		case string:
-			if v != "" {
-				if t, err := libtime.ParseTime(ctx, v); err == nil {
-					d := libtime.DateOrDateTime(*t)
-					decision.ReviewedDate = &d
-				}
-			}
-		}
-	}
-	if v, ok := data["status"].(string); ok {
-		decision.Status = v
-	}
-	if v, ok := data["type"].(string); ok {
-		decision.Type = v
-	}
-	if v, ok := data["page_type"].(string); ok {
-		decision.PageType = v
-	}
-
-	return decision, nil
+	return domain.NewDecision(data, name, string(content), filePath), nil
 }
 
 // ListDecisions scans the entire vault recursively and returns all decisions with needs_review: true.
@@ -135,10 +101,20 @@ func (d *decisionStorage) ListDecisions(
 
 // findByPathMatch searches decisions using path prefix/suffix matching (case-insensitive).
 // Returns the single matching decision, or nil if zero or multiple match.
-func findByPathMatch(decisions []*domain.Decision, normalizedName string) *domain.Decision {
+// Returns nil early when ctx is cancelled — a large vault scan must not outlive its caller.
+func findByPathMatch(
+	ctx context.Context,
+	decisions []*domain.Decision,
+	normalizedName string,
+) *domain.Decision {
 	lowerNorm := strings.ToLower(normalizedName)
 	var matches []*domain.Decision
 	for _, dec := range decisions {
+		select {
+		case <-ctx.Done():
+			return nil
+		default:
+		}
 		lowerDec := strings.ToLower(filepath.ToSlash(dec.Name))
 		if strings.HasSuffix(lowerDec, lowerNorm) || strings.HasPrefix(lowerDec, lowerNorm) {
 			matches = append(matches, dec)
@@ -179,16 +155,31 @@ func (d *decisionStorage) FindDecisionByName(
 
 	// Path-suffix/prefix match: when identifier contains '/', try matching against the decision path.
 	if strings.Contains(normalizedName, "/") {
-		if dec := findByPathMatch(decisions, normalizedName); dec != nil {
+		if dec := findByPathMatch(ctx, decisions, normalizedName); dec != nil {
 			return dec, nil
 		}
 		// Zero or multiple path matches — fall through to substring match
 	}
 
-	// Partial match
+	return findByPartialMatch(ctx, decisions, name)
+}
+
+// findByPartialMatch resolves a decision by case-insensitive substring match on its name.
+// Returns an error when zero decisions match, or when the name is ambiguous across several.
+// Returns early when ctx is cancelled — a large vault scan must not outlive its caller.
+func findByPartialMatch(
+	ctx context.Context,
+	decisions []*domain.Decision,
+	name string,
+) (*domain.Decision, error) {
 	var matches []*domain.Decision
 	lowerName := strings.ToLower(name)
 	for _, dec := range decisions {
+		select {
+		case <-ctx.Done():
+			return nil, errors.Wrap(ctx, ctx.Err(), "find decision by name")
+		default:
+		}
 		if strings.Contains(strings.ToLower(dec.Name), lowerName) {
 			matches = append(matches, dec)
 		}
@@ -214,11 +205,18 @@ func (d *decisionStorage) FindDecisionByName(
 	}
 }
 
-// WriteDecision writes a decision to its markdown file, preserving the body content.
+// WriteDecision writes a decision to its markdown file, preserving both the body
+// content and every frontmatter key that was parsed from the file.
+//
+// The preserved map is written first and the six managed keys are overlaid last,
+// so a managed value always wins over a preserved key of the same name.
 func (d *decisionStorage) WriteDecision(ctx context.Context, decision *domain.Decision) error {
-	data := map[string]any{
-		"needs_review": decision.NeedsReview,
-	}
+	preserved := decision.RawMap()
+	data := make(map[string]any, len(preserved)+6)
+	maps.Copy(data, preserved)
+
+	// Managed overlay — applied last so managed values win over preserved ones.
+	data["needs_review"] = decision.NeedsReview
 	if decision.Reviewed {
 		data["reviewed"] = decision.Reviewed
 	}

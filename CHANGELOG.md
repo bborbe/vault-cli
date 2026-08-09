@@ -8,6 +8,12 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat: Add `FrontmatterMap.GetBool` — a coercing bool accessor that reads a YAML bool as-is and the case-insensitive strings `true` / `yes` / `false` / `no`, returning `false` for a missing key or an unrecognised value
+- fix: `vault-cli decision ack` no longer deletes frontmatter fields it does not manage. `domain.Decision` now carries the full parsed frontmatter map and `WriteDecision` overlays only `needs_review`, `reviewed`, `reviewed_date`, `status`, `type`, and `page_type` onto it, so a Trading Decision Record keeps `selected_option`, `decision_status`, `review_date`, `related_task`, `related`, and `supersedes` — with list, integer, and boolean values keeping their YAML types
+- fix: decision name lookup now honours context cancellation — the path-match, substring-match, and ambiguity-reporting loops return early instead of scanning a large vault to completion after the caller has gone away
+
 ## v0.103.0
 
 - fix: `task work-on` now resumes into a session that continues the work-on chain interactively, instead of dropping the operator on the tail of the headless bootstrap turn — which had been told to print the next-steps signal and stop. `goal work-on` is unchanged

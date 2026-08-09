@@ -5,6 +5,8 @@
 package domain_test
 
 import (
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"gopkg.in/yaml.v3"
@@ -105,6 +107,77 @@ var _ = Describe("Decision", func() {
 		It("returns the string representation", func() {
 			id := domain.DecisionID("10 Decisions/Some Page Name")
 			Expect(id.String()).To(Equal("10 Decisions/Some Page Name"))
+		})
+	})
+
+	Describe("NewDecision", func() {
+		It("projects the six managed keys onto struct fields", func() {
+			d := domain.NewDecision(
+				map[string]any{
+					"needs_review": true,
+					"reviewed":     false,
+					"status":       "proposed",
+					"type":         "Trading Decision Record",
+					"page_type":    "decision",
+				},
+				"TDR",
+				"content",
+				"/vault/TDR.md",
+			)
+			Expect(d.NeedsReview).To(BeTrue())
+			Expect(d.Reviewed).To(BeFalse())
+			Expect(d.Status).To(Equal("proposed"))
+			Expect(d.Type).To(Equal("Trading Decision Record"))
+			Expect(d.PageType).To(Equal("decision"))
+			Expect(d.Name).To(Equal("TDR"))
+			Expect(d.Content).To(Equal("content"))
+			Expect(d.FilePath).To(Equal("/vault/TDR.md"))
+		})
+
+		It("retains keys it has no field for", func() {
+			d := domain.NewDecision(
+				map[string]any{"selected_option": "B", "decision_confidence": "high"},
+				"n",
+				"c",
+				"p",
+			)
+			Expect(d.Get("selected_option")).To(Equal("B"))
+			Expect(d.RawMap()).To(HaveLen(2))
+		})
+
+		It("reads a hand-quoted reviewed value as true", func() {
+			d := domain.NewDecision(map[string]any{"reviewed": "true"}, "n", "c", "p")
+			Expect(d.Reviewed).To(BeTrue())
+		})
+
+		It("parses reviewed_date from a YAML date value", func() {
+			d := domain.NewDecision(
+				map[string]any{"reviewed_date": time.Date(2026, 8, 9, 0, 0, 0, 0, time.UTC)},
+				"n",
+				"c",
+				"p",
+			)
+			Expect(d.ReviewedDate).NotTo(BeNil())
+			Expect(
+				d.ReviewedDate.Time().UTC(),
+			).To(Equal(time.Date(2026, 8, 9, 0, 0, 0, 0, time.UTC)))
+		})
+
+		It("leaves ReviewedDate nil when the key is absent", func() {
+			d := domain.NewDecision(map[string]any{}, "n", "c", "p")
+			Expect(d.ReviewedDate).To(BeNil())
+		})
+
+		It("does not emit the embedded map when the struct is marshaled", func() {
+			data, err := yaml.Marshal(*domain.NewDecision(
+				map[string]any{"needs_review": true, "selected_option": "B"},
+				"n",
+				"c",
+				"p",
+			))
+			Expect(err).To(BeNil())
+			Expect(string(data)).NotTo(ContainSubstring("frontmattermap"))
+			Expect(string(data)).NotTo(ContainSubstring("selected_option"))
 		})
 	})
 })

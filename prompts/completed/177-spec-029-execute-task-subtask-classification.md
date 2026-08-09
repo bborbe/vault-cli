@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [029-bug-workon-resume-drops-operator-into-headless-tail]
+summary: Added bare slash-command auto-invoke classification to /vault-cli:execute-task with allowlist boundary and explicit disqualifiers; updated CHANGELOG.md
+execution_id: vault-cli-resume-gate-exec-177-spec-029-execute-task-subtask-classification
+dark-factory-version: v0.192.9
 created: "2026-08-09T09:15:00Z"
 queued: "2026-08-09T09:36:21Z"
+started: "2026-08-09T09:47:31Z"
+completed: "2026-08-09T09:49:27Z"
 ---
 
 <summary>

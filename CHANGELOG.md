@@ -11,6 +11,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 ## Unreleased
 
 - fix: `task work-on` now resumes into a session that continues the work-on chain interactively, instead of dropping the operator on the tail of the headless bootstrap turn — which had been told to print the next-steps signal and stop. `goal work-on` is unchanged
+- feat: `/vault-cli:execute-task` now invokes the first unchecked subtask when it is a bare first-party slash-command call (e.g. ``Run `/start-day` ``) instead of printing it and waiting for an approval turn. Auto-invoke is bounded by an allowlist — shell commands, file paths, URLs, mixed prose, and multi-command lines are always printed, never run
 
 ## v0.102.6
 

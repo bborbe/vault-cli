@@ -127,14 +127,18 @@ If not found AND task came from Jira:
 
 ### Prerequisite tasks (BLOCKING)
 
-If the task file has a `# Prerequisites` section naming `[[Other Task]]` as blocking:
+Prerequisites come from **two** sources. The task file's `# Prerequisites` is a snapshot of the gate, copied when the task (or its Schedule CR) was authored — it drifts. A retrieved runbook states the live gate.
 
-1. Resolve each via CLI — never by reading the file or its frontmatter:
+1. Collect from the task file's `# Prerequisites` — every `[[Other Task]]` named.
+2. Collect from the runbook, if Phase 6 retrieves one — see *Runbook prerequisites* below. Union the two sets.
+3. Resolve each via CLI — never by reading the file or its frontmatter:
    `vault-cli task get "<Other Task>" status --output json`
-2. Report the parsed `value` verbatim. On error, report `unverified` — never infer status from prose, checkbox state, or an earlier read.
-3. Report as blocking only when `value` is not `completed`.
+4. Report the parsed `value` verbatim, **and which source named it**. On error, report `unverified` — never infer status from prose, checkbox state, or an earlier read.
+5. Report as blocking only when `value` is not `completed`.
 
 A prerequisite's status is the single fact that decides whether work can start. Reading it out of frontmatter has produced a false `in_progress` on an already-`completed` task; the CLI is authoritative, so use it.
+
+**Never report the gate as cleared while any prerequisite from either source is unresolved.** When the runbook names prerequisites the task file omits, that gap IS the headline finding — state it first, not as a footnote. Observed 2026-08-09: a `Turn off sun` task file named 1 prerequisite, its runbook named 3, and the omitted one (a cluster rebuild for which the host is the build machine) was the only one actually blocking. Reporting the task file's single prerequisite as "the" gate would have powered off a build host mid-cycle.
 
 ## Phase 4: Track on daily note
 
@@ -201,6 +205,30 @@ When a retrieved runbook/guide names a different command than the task's own `# 
 4. Never attach doubt to the task while leaving the doc unqualified (e.g. "per task text — verify it still does the right thing first"). If either side needs verifying, both do.
 
 **Forbidden phrasing** for an unverified doc-vs-task conflict: "current documented path", "the runbook supersedes", "task text may be stale". State the conflict; don't resolve it from search results alone.
+
+**Runbook prerequisites — the runbook wins (MANDATORY)**:
+
+A deliberate carve-out from the rule above. That rule is about **which command to run** (the task wins — a doc reached via supersession is the least trustworthy hop). This one is about **whether work may start at all**, where the trust runs the other way: the task file's prerequisite list is a copy that goes stale, most of all for CR-generated recurring tasks that regenerate weekly from a template nobody revisits.
+
+For every runbook retrieved at score ≥ 0.5, extract its gating conditions and feed them back into the Phase 3 prerequisite check.
+
+**Do not key on a heading.** Runbooks have no schema — `## Prerequisites` exists in only a small minority of them. Gates appear as any of:
+
+- a `## Prerequisites` section
+- a bold block inside a completion checklist (`**Prerequisites (… must be Done):**`)
+- a `## Pre-Shutdown Checks` / `## Pre-Flight` / `## Before You Start` section
+- inline prose — "complete X first", "do NOT run until Y", "requires Z to be Done"
+
+Read for **meaning**, not structure: anything the runbook says must be true *before* the procedure starts is a prerequisite, wherever it sits.
+
+Two kinds, report both, don't conflate:
+
+| Kind | Example | How to resolve |
+|---|---|---|
+| **Task prerequisite** — names another vault task | "Rebuild Trading Dev+Prod must be Done" | `vault-cli task get "<name>" status`; match by meaning, since runbook wording lags task titles |
+| **State pre-check** — a condition on the live system | "no active builds", "no other SSH sessions" | Do NOT run these. Report that they exist and that the operator runs them at execution time. |
+
+If the runbook names an **escape path** for a prerequisite ("skippable when…"), report the prerequisite as blocking *and* quote the escape path. Never apply an escape path unilaterally — it is the operator's call.
 
 ## Phase 7: Progress (Obsidian tasks only)
 
@@ -273,6 +301,14 @@ Jira:
 
 [Daily Note:]
 ✅ Tracked on today's page | ℹ️ Already tracked | ℹ️ Daily note missing
+
+[Prerequisites — REQUIRED whenever the task file OR a retrieved runbook names any. Never report a subset:]
+Prerequisites (N, verified via CLI):
+✅ <name> — completed [source: task file | runbook <name> | both]
+🔴 <name> — <status> — BLOCKING [source: …] [escape path: "<quote>"]
+⚠️ <name> — unverified (<error>) [source: …]
+⚠️ Runbook names N prerequisite(s) the task file omits: <names> ← state this before the verdict
+🔍 State pre-checks (operator runs at execution time, not here): <count> — <short list>
 
 [If code task:]
 ---

@@ -8,6 +8,11 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat: publish a Homebrew cask to `bborbe/homebrew-tap` so the CLI installs with `brew install bborbe/tap/vault-cli`. Adds `.goreleaser.yaml` and `.github/workflows/release.yml`, triggered on `release: published` rather than tag push — `autoRelease` tags every merge, so a tag-triggered build would ship a cask per merge and bypass the scenario gate. Publishing a GitHub Release (the existing manual milestone step) is now also the promotion to brew; a tag alone does not reach it.
+- fix: the `gh release create` notes command in `docs/releasing-vault-cli.md` produced **empty** notes. `awk "/^## $TAG/,/^## v/"` is a range whose END pattern is evaluated on the same record the START matched, and `## vX.Y.Z` matches `^## v` itself — so it emitted only the heading, which `| head -n -1` then stripped. Replaced with a flag-based form and documented the pitfall inline. Same bug was fixed in `dark-factory` (PR #74); the doc had been copied between repos.
+
 ## v0.104.1
 
 - fix: remove the `exclude cloud.google.com/go v0.26.0` directive from `go.mod`, which made `go install github.com/bborbe/vault-cli@<version>` fail with "the go.mod file for the module providing named packages contains one or more exclude directives". The directive was injected fleet-wide by an old version of the `updater` tool and never reflected a real dependency — `go mod tidy` after removal is zero-churn. Remote install now works from a clean module cache, and the repo no longer violates its own `docs/dod.md`

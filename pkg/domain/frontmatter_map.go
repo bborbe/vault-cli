@@ -104,6 +104,12 @@ func (f FrontmatterMap) GetTime(key string) *time.Time {
 		if t == "" {
 			return nil
 		}
+		// context.Background() here is pre-existing and deliberately left alone by this
+		// change. Threading a ctx into GetTime means adding a parameter to an accessor
+		// with 19 non-test call sites across all six entity types — a repo-wide API
+		// refactor, not part of a decision-frontmatter bug fix. ParseTime does no I/O
+		// and cannot block, so the missing ctx carries no cancellation risk today.
+		// Tracked for a follow-up that changes the accessor family as a unit.
 		parsed, err := libtime.ParseTime(context.Background(), t)
 		if err != nil {
 			return nil

@@ -101,10 +101,20 @@ func (d *decisionStorage) ListDecisions(
 
 // findByPathMatch searches decisions using path prefix/suffix matching (case-insensitive).
 // Returns the single matching decision, or nil if zero or multiple match.
-func findByPathMatch(decisions []*domain.Decision, normalizedName string) *domain.Decision {
+// Returns nil early when ctx is cancelled — a large vault scan must not outlive its caller.
+func findByPathMatch(
+	ctx context.Context,
+	decisions []*domain.Decision,
+	normalizedName string,
+) *domain.Decision {
 	lowerNorm := strings.ToLower(normalizedName)
 	var matches []*domain.Decision
 	for _, dec := range decisions {
+		select {
+		case <-ctx.Done():
+			return nil
+		default:
+		}
 		lowerDec := strings.ToLower(filepath.ToSlash(dec.Name))
 		if strings.HasSuffix(lowerDec, lowerNorm) || strings.HasPrefix(lowerDec, lowerNorm) {
 			matches = append(matches, dec)
@@ -145,16 +155,31 @@ func (d *decisionStorage) FindDecisionByName(
 
 	// Path-suffix/prefix match: when identifier contains '/', try matching against the decision path.
 	if strings.Contains(normalizedName, "/") {
-		if dec := findByPathMatch(decisions, normalizedName); dec != nil {
+		if dec := findByPathMatch(ctx, decisions, normalizedName); dec != nil {
 			return dec, nil
 		}
 		// Zero or multiple path matches — fall through to substring match
 	}
 
-	// Partial match
+	return findByPartialMatch(ctx, decisions, name)
+}
+
+// findByPartialMatch resolves a decision by case-insensitive substring match on its name.
+// Returns an error when zero decisions match, or when the name is ambiguous across several.
+// Returns early when ctx is cancelled — a large vault scan must not outlive its caller.
+func findByPartialMatch(
+	ctx context.Context,
+	decisions []*domain.Decision,
+	name string,
+) (*domain.Decision, error) {
 	var matches []*domain.Decision
 	lowerName := strings.ToLower(name)
 	for _, dec := range decisions {
+		select {
+		case <-ctx.Done():
+			return nil, errors.Wrap(ctx, ctx.Err(), "find decision by name")
+		default:
+		}
 		if strings.Contains(strings.ToLower(dec.Name), lowerName) {
 			matches = append(matches, dec)
 		}

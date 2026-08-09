@@ -60,6 +60,15 @@ Each entity (Task, Goal, Theme, Objective, Vision) cleanly separates three conce
 
 **Storage** (`pkg/storage/`)
 - `parseToFrontmatterMap` parses the YAML frontmatter block into `map[string]any`
+- **Bare-wikilink invariant**: `[[X]]` is valid YAML *flow sequence* syntax, so an unquoted
+  frontmatter wikilink (`related_task: [[X]]`) unmarshals to a nested list and marshals back as
+  `- - X`, silently destroying the link. `parseToFrontmatterMap` therefore runs a raw-text quoting
+  pass (`quoteBareWikilinks`) before `yaml.Unmarshal`, rewriting a value that is *exactly* a bare
+  wikilink — as a mapping value or as a block-sequence entry — into a single-quoted scalar. Only
+  quoting changes, never YAML shape. Already-quoted values, values that merely contain a wikilink,
+  values with a trailing YAML comment, and block-scalar bodies are left byte-identical. All six
+  entity types inherit this from the one shared chokepoint; a new read path that bypasses
+  `parseToFrontmatterMap` reintroduces the bug.
 - `serializeMapAsFrontmatter` marshals the map back to YAML; unknown fields are preserved
 - Entity-specific read helpers call `NewXxx(data, meta, content)` constructors
 - **Rendering caveat**: a bare YAML date (`review_date: 2026-08-15`) parses to `time.Time` and re-serializes as RFC3339 (`review_date: 2026-08-15T00:00:00Z`). The instant is preserved; only the rendering is normalized. This applies to every entity — `WriteGoal` behaves the same way today.

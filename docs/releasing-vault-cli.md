@@ -132,7 +132,15 @@ The operator's responsibility regardless of driver is the **release gate** (abov
 
 `autoRelease` creates a `vX.Y.Z` git tag after every approved prompt. Tags are sufficient for `go install github.com/bborbe/vault-cli@vX.Y.Z`, `git describe`, and any tag-aware consumer.
 
-A **GitHub Release** is a separate, deliberate act — distinct from the tag. It adds release notes, an entry on the repo's Releases tab, an RSS/atom feed for subscribers, and optional binary assets. Create one **only after**:
+A **GitHub Release** is a separate, deliberate act — distinct from the tag. It adds release notes, an entry on the repo's Releases tab, an RSS/atom feed for subscribers, and optional binary assets.
+
+**Publishing a Release also ships the Homebrew cask.** `.github/workflows/release.yml` triggers on `release: published` and runs goreleaser, which builds darwin/linux archives, attaches them to this Release, and pushes the cask to [`bborbe/homebrew-tap`](https://github.com/bborbe/homebrew-tap). So publishing here is what makes `brew install bborbe/tap/vault-cli` serve the new version.
+
+**A tag alone never reaches brew.** This is deliberate: `autoRelease` tags every merge, and publishing a cask per tag would bypass the scenario gate. The gate below is the only thing between a merge and a Homebrew user.
+
+The corollary of "skip the Release for internal refactors" (below) is that brew users stay on the last promoted version until you promote again. That is the intended trade: `go install @latest` is the fast track, brew is the verified one.
+
+Create a Release **only after**:
 
 1. All `scenarios/` pass against the current source tree.
 2. Plugin JSONs are aligned (if `commands/`, `agents/`, `docs/`, or `skills/` changed since the last plugin release).
@@ -147,10 +155,36 @@ TAG=$(git describe --tags --abbrev=0)
 gh release create "$TAG" \
   --target master \
   --title "$TAG" \
-  --notes "$(awk "/^## $TAG/,/^## v/" CHANGELOG.md | head -n -1)"
+  --notes "$(awk -v tag="## $TAG" '$0 == tag {f=1; next} /^## v/ {f=0} f' CHANGELOG.md)"
 ```
 
+Do not "simplify" that `awk` into a range like `awk "/^## $TAG/,/^## v/"`. A range
+evaluates its END pattern on the same record where the START matched, and the
+`## vX.Y.Z` heading matches `^## v` itself — so the range opens and closes on that
+one line, and the old `| head -n -1` then stripped it, yielding **empty notes**.
+That is why earlier releases carry no hand-written notes. The flag form above
+skips the heading and stops at the next one.
+
 Verify on github.com → Releases tab. The Release object can be edited (notes, draft state) without retagging.
+
+Then confirm the cask actually shipped — publishing the Release only *starts* the workflow:
+
+```bash
+# 1. The release workflow ran and succeeded
+gh run list --workflow=release.yml --limit 1
+
+# 2. goreleaser attached archives to THIS release
+gh release view "$TAG" --json assets --jq '.assets[].name'
+
+# 3. The cask landed in the tap at the new version
+gh api repos/bborbe/homebrew-tap/contents/Casks/vault-cli.rb --jq '.content' \
+  | base64 -d | grep -E '^\s*version'
+
+# 4. End-to-end: brew actually serves it
+brew update && brew install bborbe/tap/vault-cli && vault-cli --version
+```
+
+If step 1 shows no run, the Release was created as a **draft** — drafts do not fire `release: published`. Publish it (`gh release edit "$TAG" --draft=false`) and the workflow will trigger.
 
 ## Plugin release (manual)
 

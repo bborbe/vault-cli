@@ -1,8 +1,9 @@
 ---
-status: prompted
+status: verifying
 approved: "2026-08-09T11:40:53Z"
 generating: "2026-08-09T11:51:26Z"
 prompted: "2026-08-09T11:51:26Z"
+verifying: "2026-08-09T12:00:49Z"
 branch: dark-factory/bug-decision-ack-destroys-frontmatter
 ---
 

@@ -1,8 +1,9 @@
 ---
-status: prompted
+status: verifying
 approved: "2026-08-09T09:08:40Z"
 generating: "2026-08-09T09:20:36Z"
 prompted: "2026-08-09T09:20:36Z"
+verifying: "2026-08-09T09:49:27Z"
 branch: dark-factory/bug-workon-resume-drops-operator-into-headless-tail
 ---
 
@@ -98,7 +99,7 @@ Observe: "🎯 Start with: Run /start-day"  — the command is printed, never in
 - [ ] An empty prompt changes nothing — evidence: unit test asserts argv is exactly `["claude","--resume",<id>]` when prompt is `""` (negative evidence: no trailing empty-string arg).
 - [ ] The continuation prompt re-invokes the work-on command **interactively** — evidence: unit test asserts the string `workon.go` passes to `ResumeSession` equals `<GetWorkOnCommand()> "<task.FilePath>"`, and that `strings.Contains(prompt, "--non-interactive")` is false.
 - [ ] `goal_workon.go` compiles and is behaviour-neutral — evidence: `grep -c 'ResumeSession(ctx, sessionID, sessionDir, "")' pkg/ops/goal_workon.go` returns exactly 1.
-- [ ] Turn-1 behaviour is unchanged — container-side evidence (git is masked under `hideGit`, so this is content-based, not diff-based): `grep -c -- '--non-interactive' pkg/ops/workon.go` returns ≥1 for the bootstrap line; `grep -c '"--print"' pkg/ops/claude_session.go` returns ≥1; `grep -c 'prompt string' pkg/ops/claude_session.go` returns 0. Host-side diff confirmation is in the operator rung.
+- [ ] Turn-1 behaviour is unchanged — container-side evidence (git is masked under `hideGit`, so this is content-based, not diff-based): `grep -c -- '--non-interactive' pkg/ops/workon.go` returns ≥1 for the bootstrap line, and `md5sum pkg/ops/claude_session.go` equals `6fd7090f033d6c3156d74dd2cde041f0`. Host-side diff confirmation is in the operator rung. (Do **not** assert `grep -c 'prompt string' pkg/ops/claude_session.go` is 0 — `StartSession` already takes a `prompt string` parameter, so it is 2 on unmodified code.)
 - [ ] `commands/execute-task.md` carries an executable classification rule — evidence: `grep -n '^### Subtask classification' commands/execute-task.md` returns 1 line, and within that section `grep -c 'bare slash-command call → invoke'` and `grep -c 'anything else → print'` each return ≥1.
 - [ ] Auto-invoke is bounded to an allowlist — evidence: the same section names the permitted command prefixes, and `grep -c 'never auto-invoke' commands/execute-task.md` returns ≥1.
 - [ ] Step 7 actually consumes the classification rule rather than only defining it — evidence: `grep -c 'Subtask classification' commands/execute-task.md` returns ≥2 (the section heading plus a reference from the step that currently prints `🎯 Start with:`).
@@ -112,7 +113,7 @@ Observe: "🎯 Start with: Run /start-day"  — the command is printed, never in
 - `make precommit` — lint + format + generate + test + version checks, exits 0
 - `make test` — unit tests pass, including the new `ResumeSession` argv tests
 - `grep -n 'prompt string' pkg/ops/claude_resume.go` — signature change landed
-- `grep -c 'prompt string' pkg/ops/claude_session.go` — returns 0, turn 1 untouched
+- `md5sum pkg/ops/claude_session.go` — equals `6fd7090f033d6c3156d74dd2cde041f0`, turn 1 untouched
 
 **No git commands in this rung.** Worktree runs require `hideGit=true`, which masks `/workspace/.git` as a character device — every `git diff` / `git rev-list` / `git describe` fails container-side while passing on the host. See [[HideGit Containers Break Git-Dependent Tests]]. Diff-based regression locks belong in the operator rung below.
 

@@ -36,6 +36,10 @@ Each entity (Task, Goal, Theme, Objective, Vision) cleanly separates three conce
 
 **Frontmatter** (`pkg/domain/<entity>_frontmatter.go`)
 - Embeds `FrontmatterMap` (a `map[string]any` wrapper)
+- `FrontmatterMap` provides the raw accessor family: `Get`, `GetString`, `GetBool`, `GetTime`,
+  `GetStringSlice`, `Set`, `Delete`, `Keys`, `RawMap`. Getters **coerce** rather than type-assert —
+  `GetBool` accepts a YAML bool and the strings `true` / `yes` / `false` / `no` (case-insensitive),
+  returning `false` for a missing key or an unrecognised value.
 - Typed getter methods for known fields (e.g., `Status() TaskStatus`, `Priority() Priority`)
 - Typed setter methods that validate known fields (e.g., `SetStatus(TaskStatus) error`)
 - Generic `GetField(key) string` / `SetField(ctx, key, value) error` / `ClearField(key)` for

@@ -49,6 +49,37 @@ func (f FrontmatterMap) GetString(key string) string {
 	}
 }
 
+// GetBool returns the bool value stored for key.
+//
+// A bool value passes through unchanged. A string value is matched
+// case-insensitively after trimming surrounding whitespace: "true" and "yes"
+// yield true, everything else yields false. A missing key, a nil value, or any
+// other type also yields false.
+//
+// Coercion rather than a bare type assertion is deliberate: YAML 1.2 leaves a
+// hand-quoted reviewed: "true" as a string, and a .(bool) assertion would read
+// that as false — "not reviewed" — silently resurfacing an already-acknowledged
+// page.
+func (f FrontmatterMap) GetBool(key string) bool {
+	v := f.data[key]
+	if v == nil {
+		return false
+	}
+	switch b := v.(type) {
+	case bool:
+		return b
+	case string:
+		switch strings.ToLower(strings.TrimSpace(b)) {
+		case "true", "yes":
+			return true
+		default:
+			return false
+		}
+	default:
+		return false
+	}
+}
+
 // GetTime returns the time.Time value stored for key.
 // Handles three shapes:
 //   - time.Time (YAML parses date/datetime literals into this automatically)

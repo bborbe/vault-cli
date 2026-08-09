@@ -167,6 +167,39 @@ var _ = Describe("FrontmatterMap", func() {
 		})
 	})
 
+	Describe("GetBool", func() {
+		DescribeTable("coerces the stored value",
+			func(stored any, expected bool) {
+				fm := domain.NewFrontmatterMap(map[string]any{"reviewed": stored})
+				Expect(fm.GetBool("reviewed")).To(Equal(expected))
+			},
+			Entry("bool true", true, true),
+			Entry("bool false", false, false),
+			Entry("string true", "true", true),
+			Entry("string yes", "yes", true),
+			Entry("string TRUE uppercase", "TRUE", true),
+			Entry("string Yes mixed case", "Yes", true),
+			Entry("string false", "false", false),
+			Entry("string no", "no", false),
+			Entry("string FALSE uppercase", "FALSE", false),
+			Entry("string with surrounding whitespace", "  true  ", true),
+			Entry("empty string", "", false),
+			Entry("unparseable string", "maybe", false),
+			Entry("int is not coerced", 1, false),
+			Entry("nil value", nil, false),
+		)
+
+		It("returns false for a missing key", func() {
+			fm := domain.NewFrontmatterMap(map[string]any{"status": "proposed"})
+			Expect(fm.GetBool("reviewed")).To(BeFalse())
+		})
+
+		It("returns false on a nil-constructed map", func() {
+			fm := domain.NewFrontmatterMap(nil)
+			Expect(fm.GetBool("reviewed")).To(BeFalse())
+		})
+	})
+
 	Describe("GetTime", func() {
 		It("returns non-nil for time.Time value", func() {
 			t := time.Date(2026, 4, 13, 0, 0, 0, 0, time.UTC)

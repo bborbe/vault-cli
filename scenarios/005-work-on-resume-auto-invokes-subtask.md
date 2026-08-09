@@ -23,7 +23,7 @@ Two consequences for whoever walks this:
 VAULT_NAME=personal   # pinned explicitly; config list exposes no default marker
 VAULT=$(vault-cli config list --output json | python3 -c "import json,sys; print(next(v['path'] for v in json.load(sys.stdin) if v['name']=='$VAULT_NAME'))")
 FIXTURE="$VAULT/24 Tasks/Scenario 005 Fixture.md"
-TAG=$(git -C ~/Documents/workspaces/vault-cli describe --tags --abbrev=0)
+PLUGIN_VER=$(claude plugin list | grep -A1 'vault-cli@vault-cli' | awk '/Version/{print $2}')
 
 cat > "$FIXTURE" <<'EOF'
 ---
@@ -56,7 +56,7 @@ echo "FIXTURE=$FIXTURE"   # note this path; you need it after the session exits
 - [ ] `test -t 0 && echo TTY` prints `TTY`
 - [ ] `command -v claude` resolves — otherwise `NewClaudeSessionStarter` returns nil, `work-on` downgrades to a warning and exits 0 with no session at all
 - [ ] `grep -c 'claude_session_id' "$FIXTURE"` returns `0`
-- [ ] `grep -c '^### Subtask classification' ~/.claude/plugins/cache/vault-cli/vault-cli/${TAG#v}/commands/execute-task.md` returns `1` — greps the load path directly; `claude plugin list` reports the *pinned* version, not the loaded one, and the path is doubly nested (`cache/vault-cli/vault-cli/`) so a singly-nested guess silently returns 0
+- [ ] `grep -c '^### Subtask classification' ~/.claude/plugins/cache/vault-cli/vault-cli/$PLUGIN_VER/commands/execute-task.md` returns `1` — resolve the path from the **installed** version, never from the latest git tag. `autoRelease` tags on every merge, so the tag routinely runs ahead of what is installed while `commands/execute-task.md` is unchanged; keying on the tag fails a walk that would have passed. Note the path is doubly nested (`cache/vault-cli/vault-cli/`) — a singly-nested guess silently returns 0 and reads as a stale plugin
 - [ ] The vault directory is already trusted by Claude Code — otherwise the first-run "Do you trust the files in this folder?" gate is itself an approval turn and breaks the assertion below
 
 ## Action

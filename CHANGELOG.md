@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.104.2
 
 - fix: an unquoted Obsidian wikilink in frontmatter (`related_task: [[Some Task]]`) is no longer destroyed by a write. `[[X]]` is valid YAML flow-sequence syntax, so every vault-cli write path silently re-emitted it as the nested block sequence `- - X`, removing the link and its backlink with no error and no exit-code change. `parseToFrontmatterMap` now quotes a value that is exactly a bare wikilink before `yaml.Unmarshal` sees it, so it round-trips as `related_task: '[[Some Task]]'` — a working link — for Task, Goal, Theme, Objective, Vision, and Decision alike. Already-quoted wikilinks, quoted list forms, values that merely contain a wikilink, and block-scalar bodies are untouched; aliases (`[[X|alias]]`), heading anchors (`[[X#Section]]`), and apostrophes in titles survive intact. A wikilink carrying a trailing YAML comment is knowingly not rewritten. The rewrite loop honours context cancellation, returning the frontmatter unmodified on cancel rather than emitting a half-rewritten block
 

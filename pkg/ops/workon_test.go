@@ -325,9 +325,41 @@ var _ = Describe("WorkOnOperation", func() {
 
 		It("calls ResumeSession", func() {
 			Expect(mockResumer.ResumeSessionCallCount()).To(Equal(1))
-			_, sessionID, cwd := mockResumer.ResumeSessionArgsForCall(0)
+			_, sessionID, cwd, _ := mockResumer.ResumeSessionArgsForCall(0)
 			Expect(sessionID).To(Equal("session-123"))
 			Expect(cwd).To(Equal(vaultPath))
+		})
+
+		It("passes a continuation prompt that re-invokes the work-on command", func() {
+			Expect(mockResumer.ResumeSessionCallCount()).To(Equal(1))
+			_, _, _, continuation := mockResumer.ResumeSessionArgsForCall(0)
+			Expect(
+				continuation,
+			).To(Equal(`/vault-cli:work-on-task "/path/to/vault/tasks/my-task.md"`))
+		})
+
+		It("does not pass --non-interactive in the continuation prompt", func() {
+			_, _, _, continuation := mockResumer.ResumeSessionArgsForCall(0)
+			Expect(strings.Contains(continuation, "--non-interactive")).To(BeFalse())
+		})
+
+		Context("with a custom work on command", func() {
+			BeforeEach(func() {
+				testVault.WorkOnCommand = "/custom-cmd"
+			})
+
+			It("uses the configured command in the continuation prompt", func() {
+				_, _, _, continuation := mockResumer.ResumeSessionArgsForCall(0)
+				Expect(continuation).To(Equal(`/custom-cmd "/path/to/vault/tasks/my-task.md"`))
+			})
+		})
+
+		It("leaves the turn-1 bootstrap prompt non-interactive", func() {
+			Expect(mockStarter.StartSessionCallCount()).To(Equal(1))
+			_, bootstrap, _, _ := mockStarter.StartSessionArgsForCall(0)
+			Expect(bootstrap).To(Equal(
+				`/vault-cli:work-on-task "/path/to/vault/tasks/my-task.md" --non-interactive`,
+			))
 		})
 
 		It("returns no error", func() {

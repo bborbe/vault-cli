@@ -1,7 +1,7 @@
 ---
-description: Gate planning → execution. Re-runs plan-task's hard non-negotiables; on pass, flips phase + prints first subtask + DoD reminder.
+description: Gate planning → execution. Re-runs plan-task's hard non-negotiables; on pass, flips phase + prints first subtask + DoD reminder; auto-invokes a bare allowlisted slash-command subtask.
 argument-hint: "<task-file-path-or-name> (or detects from conversation)"
-allowed-tools: [Read, Edit, Glob, Bash, AskUserQuestion, Task]
+allowed-tools: [Read, Edit, Glob, Bash, AskUserQuestion, Task, Skill]
 ---
 
 The **hard gate** between planning and execution. Refuses to flip `phase: planning → execution` unless plan-task's 4 hard non-negotiables pass. Idempotent on `phase: execution` — re-prints first subtask + DoD as a session-start reminder. Closes the lifecycle's final operational gap: every phase transition now has an enforced command.
@@ -104,6 +104,8 @@ Parse the task file:
 - First unchecked `- [ ]` checkbox under `# Tasks` (or equivalent section) → "Start with"
 - All `# Definition of Done` items → "When done, verify"
 
+Apply **Subtask classification** (next section) to the first unchecked subtask. If it classifies as a bare slash-command call, print the DoD block, then `🚀 Running: <command>`, then invoke the command and stop — the invoked command's output is the final output. Otherwise fall through to the print form below.
+
 Print:
 ```
 🎯 Start with: <first unchecked subtask text, truncated to ~120 chars>
@@ -118,6 +120,44 @@ If `# Tasks` has zero unchecked items: print `✅ All subtasks complete — run 
 
 If `# Definition of Done` is absent or empty: omit the "When done, verify" block (no warning — some non-shipping-class tasks legitimately have no DoD).
 
+### Subtask classification
+
+Step 7 classifies the first unchecked subtask before it decides what to do with it. Exactly two outcomes, and printing is the default:
+
+- **bare slash-command call → invoke** — run the command in this session, immediately, with no approval turn and no `AskUserQuestion` gate.
+- **anything else → print** — emit the `🎯 Start with:` line and stop, exactly as before.
+
+**Normalization.** Before classifying, take the subtask text (everything after the `- [ ] ` marker), then: trim whitespace; strip an optional leading `Run ` or `Invoke ` verb (case-insensitive); strip surrounding backticks. So `` Run `/start-day` `` and `/start-day` normalize to the same token. Nothing else is stripped — this list is exhaustive by design, and matches the spec's Security / Abuse section verbatim.
+
+Residue after normalization means print, not invoke. `` Run `/start-day`. `` keeps a trailing `.`, fails the single-token check, and is printed. That fallback is deliberate: erring toward print is always safe, erring toward invoke is not.
+
+**Bare slash-command call.** The normalized text is a bare slash-command call when *all* of these hold:
+
+1. It starts with `/`.
+2. It is a single command token, optionally followed by arguments.
+3. The command token matches the allowlist below.
+4. Every argument is plain text or a double-quoted string containing no shell metacharacters.
+
+**Allowlist** — first-party Claude Code commands only:
+
+- `/vault-cli:*`
+- `/dark-factory:*`
+- `/coding:*`
+- bare-name commands and skills shipped by those same plugins (for example `/start-day`, `/update-task`)
+
+Everything else is outside the boundary and is **never auto-invoke**d — print it instead. That includes shell commands, `make` targets, `bash …`, file paths, URLs, and commands from any other plugin or marketplace. The allowlist is what bounds blast radius, not the reader's attention: task files are not always operator-authored (`recurring-task-creator` generates them from YAML, and vaults sync across machines).
+
+**Disqualifiers.** Any one of the following disqualifies a subtask from auto-invoke — print it instead:
+
+- prose surrounding the command beyond the stripped `Run `/`Invoke ` verb, e.g. `Run /start-day and check the output` or `Before standup, /start-day`
+- shell metacharacters in an argument: `` ` ``, `$`, `|`, `&`, `;`, `>`, `<`, `(`, `)`, newline
+- a second command on the same line, e.g. `/plan-task then /execute-task`
+- a command token that does not resolve when invoked — an unknown name is printed, never guessed at or approximated
+
+When in doubt, print. A printed subtask costs the operator one keystroke; a wrongly invoked one costs a command execution they did not choose.
+
+**How to invoke.** Print the DoD block first (so the destination stays visible), then print `🚀 Running: <normalized command>` and invoke it with `Skill: <command without the leading slash> "<args, if any>"` — the same form `/vault-cli:work-on-task` Phase 5 uses. The invoked command's own output becomes the tail of this command's output; do NOT re-print `🎯 Start with:` afterwards.
+
 ## Notes
 
 - **Idempotent re-entry.** Safe to re-run on `phase: execution` — no mutation, just re-prints the work block + destination. Useful as a session-start "where was I?" command.
@@ -126,6 +166,7 @@ If `# Definition of Done` is absent or empty: omit the "When done, verify" block
 - **Status flips happen, phase flips don't (when planning gates fail).** Resume-from-paused is a separate concern from "is planning complete" — flipping `hold → in_progress` is always safe; flipping `planning → execution` requires the gates.
 - **No daily-note tracking, no guide search.** Those belong to `/vault-cli:work-on-task`. This command is purely the gate + work-block kickoff.
 - **Reads `~/.claude/plugins/marketplaces/vault-cli/docs/task-writing.md`** as the canonical rule source for the 4 hard checks — same source `/plan-task` and `task-auditor` use.
+- **Auto-invoke is allowlist-bounded, not heuristic.** A subtask that is nothing but a first-party slash command is executed; everything else is printed. The rule converts a string from a markdown file into an executed command, so the boundary is a fixed allowlist plus explicit disqualifiers — see § Subtask classification. Sandboxing what an allowlisted command does once invoked is the existing permission model's job and is unchanged here.
 
 ## Integration
 
@@ -144,6 +185,7 @@ Task lifecycle:
 8. `/vault-cli:session-close` — verify session is safe to end (synced, committed, no orphaned state)
 
 Output ends with one of:
+- `🚀 Running: <command>` followed by that command's own output (first unchecked subtask was a bare allowlisted slash-command call)
 - `🎯 Start with: <subtask>` + `📋 When done, verify: <DoD>` (gate passed or idempotent re-entry)
 - `❌ Plan not ready. Run /vault-cli:plan-task first.` (hard checks failed)
 - `❌ Task closed (...). Run reopen if you need to continue work.` (status/phase terminal)

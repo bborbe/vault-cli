@@ -126,13 +126,18 @@ func (w *workOnOperation) Execute(
 	}
 
 	if isInteractive && w.resumer != nil && sessionID != "" {
+		// Turn 1 ran headless with --non-interactive, which told the work-on
+		// command to print the next-step signal and STOP. Turn 2 is interactive,
+		// so re-invoke the same command WITHOUT the flag — otherwise the operator
+		// lands on the tail of a turn that was instructed to stop.
+		continuation := fmt.Sprintf(`%s "%s"`, vault.GetWorkOnCommand(), task.FilePath)
 		return MutationResult{
 			Success:   true,
 			Name:      task.Name,
 			Vault:     vaultName,
 			Warnings:  warnings,
 			SessionID: sessionID,
-		}, w.resumer.ResumeSession(ctx, sessionID, sessionDir)
+		}, w.resumer.ResumeSession(ctx, sessionID, sessionDir, continuation)
 	}
 
 	return MutationResult{

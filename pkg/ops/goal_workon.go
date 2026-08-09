@@ -123,7 +123,10 @@ func (g *goalWorkOnOperation) Execute(
 			Vault:     vaultName,
 			Warnings:  warnings,
 			SessionID: sessionID,
-		}, g.resumer.ResumeSession(ctx, sessionID, sessionDir)
+			// Goal work-on carries the same resumed-turn defect as task work-on, but
+			// fixing it is a separate spec (029 § Constraints). Passing "" keeps argv
+			// byte-identical to today's `claude --resume <id>`.
+		}, g.resumer.ResumeSession(ctx, sessionID, sessionDir, "")
 	}
 
 	return MutationResult{

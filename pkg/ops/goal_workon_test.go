@@ -285,9 +285,10 @@ var _ = Describe("GoalWorkOnOperation", func() {
 
 		It("calls ResumeSession", func() {
 			Expect(mockResumer.ResumeSessionCallCount()).To(Equal(1))
-			_, sessionID, cwd := mockResumer.ResumeSessionArgsForCall(0)
+			_, sessionID, cwd, prompt := mockResumer.ResumeSessionArgsForCall(0)
 			Expect(sessionID).To(Equal("session-123"))
 			Expect(cwd).To(Equal(vaultPath))
+			Expect(prompt).To(BeEmpty())
 		})
 
 		It("returns no error", func() {

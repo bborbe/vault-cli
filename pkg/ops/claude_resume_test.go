@@ -51,14 +51,14 @@ var _ = Describe("ClaudeResumer", func() {
 
 	Context("successful resume", func() {
 		It("calls exec with correct args", func() {
-			err := resumer.ResumeSession(context.Background(), "session-abc", "/vault/path")
+			err := resumer.ResumeSession(context.Background(), "session-abc", "/vault/path", "")
 			Expect(err).To(BeNil())
 			Expect(capturedArgv0).To(Equal("/usr/local/bin/claude"))
 			Expect(capturedArgv).To(Equal([]string{"claude", "--resume", "session-abc"}))
 		})
 
 		It("changes to cwd before exec", func() {
-			_ = resumer.ResumeSession(context.Background(), "session-abc", "/vault/path")
+			_ = resumer.ResumeSession(context.Background(), "session-abc", "/vault/path", "")
 			Expect(capturedChdirDir).To(Equal("/vault/path"))
 		})
 	})
@@ -69,7 +69,7 @@ var _ = Describe("ClaudeResumer", func() {
 		})
 
 		It("returns error without calling exec", func() {
-			err := resumer.ResumeSession(context.Background(), "session-abc", "/vault/path")
+			err := resumer.ResumeSession(context.Background(), "session-abc", "/vault/path", "")
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(ContainSubstring("change directory"))
 			Expect(capturedArgv0).To(BeEmpty())
@@ -82,9 +82,55 @@ var _ = Describe("ClaudeResumer", func() {
 		})
 
 		It("returns exec error", func() {
-			err := resumer.ResumeSession(context.Background(), "session-abc", "/vault/path")
+			err := resumer.ResumeSession(context.Background(), "session-abc", "/vault/path", "")
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(ContainSubstring("exec failed"))
+		})
+
+		It("returns the exec error when a continuation prompt was passed", func() {
+			err := resumer.ResumeSession(
+				context.Background(),
+				"session-abc",
+				"/vault/path",
+				"/vault-cli:work-on-task \"24 Tasks/T.md\"",
+			)
+			Expect(err).NotTo(BeNil())
+			Expect(err.Error()).To(ContainSubstring("exec failed"))
+		})
+	})
+
+	Context("continuation prompt", func() {
+		It("appends a non-empty prompt as the last argv element", func() {
+			continuation := `/vault-cli:work-on-task "24 Tasks/Start Day - 2026-08-09.md"`
+			err := resumer.ResumeSession(
+				context.Background(),
+				"session-abc",
+				"/vault/path",
+				continuation,
+			)
+			Expect(err).To(BeNil())
+			Expect(capturedArgv).To(Equal([]string{
+				"claude", "--resume", "session-abc", continuation,
+			}))
+		})
+
+		It("omits an empty prompt from argv", func() {
+			err := resumer.ResumeSession(context.Background(), "session-abc", "/vault/path", "")
+			Expect(err).To(BeNil())
+			Expect(capturedArgv).To(Equal([]string{"claude", "--resume", "session-abc"}))
+			Expect(capturedArgv).To(HaveLen(3))
+		})
+
+		It("omits a whitespace-only prompt from argv", func() {
+			err := resumer.ResumeSession(
+				context.Background(),
+				"session-abc",
+				"/vault/path",
+				"  \t ",
+			)
+			Expect(err).To(BeNil())
+			Expect(capturedArgv).To(Equal([]string{"claude", "--resume", "session-abc"}))
+			Expect(capturedArgv).To(HaveLen(3))
 		})
 	})
 
@@ -99,7 +145,7 @@ var _ = Describe("ClaudeResumer", func() {
 					return nil
 				},
 			)
-			err := customResumer.ResumeSession(context.Background(), "session-xyz", "/vault")
+			err := customResumer.ResumeSession(context.Background(), "session-xyz", "/vault", "")
 			Expect(err).To(BeNil())
 			Expect(capturedArgv0).To(Equal("/opt/custom-claude"))
 		})

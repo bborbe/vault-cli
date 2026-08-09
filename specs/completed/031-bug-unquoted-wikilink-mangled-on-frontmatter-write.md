@@ -1,8 +1,10 @@
 ---
-status: prompted
+status: completed
 approved: "2026-08-09T14:01:08Z"
 generating: "2026-08-09T14:31:07Z"
 prompted: "2026-08-09T14:31:07Z"
+verifying: "2026-08-09T15:17:07Z"
+completed: "2026-08-09T15:17:17Z"
 branch: dark-factory/bug-unquoted-wikilink-mangled-on-frontmatter-write
 ---
 

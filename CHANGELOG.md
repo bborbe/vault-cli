@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.104.1
 
 - fix: remove the `exclude cloud.google.com/go v0.26.0` directive from `go.mod`, which made `go install github.com/bborbe/vault-cli@<version>` fail with "the go.mod file for the module providing named packages contains one or more exclude directives". The directive was injected fleet-wide by an old version of the `updater` tool and never reflected a real dependency — `go mod tidy` after removal is zero-churn. Remote install now works from a clean module cache, and the repo no longer violates its own `docs/dod.md`
 

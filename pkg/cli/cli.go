@@ -320,7 +320,7 @@ func createWorkOnCommand(
 		RunE: func(cmd *cobra.Command, args []string) error {
 			taskName := args[0]
 
-			isInteractive, err := resolveSessionMode(mode)
+			isInteractive, err := resolveSessionMode(ctx, mode)
 			if err != nil {
 				return err
 			}
@@ -401,7 +401,7 @@ func formatWorkOnResult(
 }
 
 // resolveSessionMode converts a mode string to an isInteractive bool.
-func resolveSessionMode(mode string) (bool, error) {
+func resolveSessionMode(ctx context.Context, mode string) (bool, error) {
 	switch mode {
 	case "interactive":
 		return true, nil
@@ -411,7 +411,8 @@ func resolveSessionMode(mode string) (bool, error) {
 		fd := int(os.Stdin.Fd()) //#nosec G115 -- fd value fits in int on all supported platforms
 		return term.IsTerminal(fd), nil
 	default:
-		return false, fmt.Errorf(
+		return false, errors.Errorf(
+			ctx,
 			"invalid --mode value: %s (must be auto, interactive, or headless)",
 			mode,
 		)
@@ -1423,7 +1424,7 @@ func createWorkOnGoalCommand(
 		RunE: func(cmd *cobra.Command, args []string) error {
 			goalName := args[0]
 
-			isInteractive, err := resolveSessionMode(mode)
+			isInteractive, err := resolveSessionMode(ctx, mode)
 			if err != nil {
 				return err
 			}

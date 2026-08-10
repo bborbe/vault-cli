@@ -1,7 +1,12 @@
 ---
-status: approved
+status: completed
+summary: Replaced fmt.Errorf with github.com/bborbe/errors in ParseRecurringInterval and resolveSessionMode, added ParseRecurringIntervalDefault, threaded ctx through calculateNextDeferDate
+execution_id: repo-exec-183-repo-review-errors-and-parse
+dark-factory-version: v0.193.0
 created: "2026-08-10T12:36:04Z"
 queued: "2026-08-10T12:36:04Z"
+started: "2026-08-10T12:39:32Z"
+completed: "2026-08-10T12:43:10Z"
 ---
 
 <summary>

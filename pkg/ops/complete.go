@@ -187,7 +187,7 @@ func (c *completeOperation) handleRecurringTask(
 	task.SetLastCompletedDate(&lastCompletedD)
 
 	// 3. Bump defer_date based on recurring interval
-	newDeferDate := calculateNextDeferDate(task.Recurring(), now)
+	newDeferDate := calculateNextDeferDate(ctx, task.Recurring(), now)
 	task.SetDeferDate(newDeferDate.Ptr())
 
 	// 4. If planned_date exists and < new defer_date, clear it
@@ -232,7 +232,11 @@ func (c *completeOperation) handleRecurringTask(
 }
 
 // calculateNextDeferDate calculates the next defer date based on recurring interval.
-func calculateNextDeferDate(recurring string, now time.Time) libtime.DateOrDateTime {
+func calculateNextDeferDate(
+	ctx context.Context,
+	recurring string,
+	now time.Time,
+) libtime.DateOrDateTime {
 	// weekdays is a special case: check before ParseRecurringInterval
 	if recurring == "weekdays" {
 		next := now.AddDate(0, 0, 1) // tomorrow
@@ -250,11 +254,14 @@ func calculateNextDeferDate(recurring string, now time.Time) libtime.DateOrDateT
 		}
 	}
 
-	interval, err := domain.ParseRecurringInterval(recurring)
-	if err != nil {
-		// Unknown recurring type, treat as daily
+	interval := domain.ParseRecurringIntervalDefault(
+		ctx,
+		recurring,
+		domain.RecurringInterval{Days: 1},
+	)
+	// Log warning when falling back to daily due to invalid interval
+	if _, err := domain.ParseRecurringInterval(ctx, recurring); err != nil {
 		slog.Warn("unknown recurring interval, treating as daily", "interval", recurring)
-		return libtime.DateOrDateTime(libtime.ToDate(now.AddDate(0, 0, 1)).Time())
 	}
 	return libtime.DateOrDateTime(libtime.ToDate(interval.AddTo(now)).Time())
 }

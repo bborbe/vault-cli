@@ -60,12 +60,12 @@ func runMutation(
 	return dispatcher.FirstSuccess(ctx, vaults, func(vault *config.Vault) error {
 		result, err := runner(ctx, vault)
 		if err != nil {
-			if outputFormat == OutputFormatJSON {
+			if OutputFormat(outputFormat).IsJSON() {
 				_ = PrintJSON(result)
 			}
 			return err
 		}
-		if outputFormat == OutputFormatJSON {
+		if OutputFormat(outputFormat).IsJSON() {
 			return PrintJSON(result)
 		}
 		return nil
@@ -96,6 +96,9 @@ func NewRootCommand(ctx context.Context) *cobra.Command {
 				slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: level})),
 			)
 			configLoader = config.NewLoader(configPath)
+			if err := OutputFormat(outputFormat).Validate(ctx); err != nil {
+				return err
+			}
 			return nil
 		},
 	}
@@ -104,7 +107,7 @@ func NewRootCommand(ctx context.Context) *cobra.Command {
 		StringVar(&vaultName, "vault", "", "Vault name (uses default if not specified)")
 	rootCmd.PersistentFlags().StringVar(&configPath, "config", "", "Config file path")
 	rootCmd.PersistentFlags().
-		StringVar(&outputFormat, "output", OutputFormatPlain, "Output format: plain or json")
+		StringVar(&outputFormat, "output", string(OutputFormatPlain), "Output format: plain or json")
 	rootCmd.PersistentFlags().BoolVar(&verbose, "verbose", false, "Enable verbose logging")
 
 	// Add root-level search command
@@ -177,7 +180,7 @@ func createCompleteCommand(
 					if err != nil {
 						return result, err
 					}
-					if *outputFormat != OutputFormatJSON {
+					if !OutputFormat(*outputFormat).IsJSON() {
 						if result.Reason != "" {
 							fmt.Printf("⚠️  Cannot complete: %s\n", result.Reason)
 						} else {
@@ -246,7 +249,7 @@ Date formats:
 					if err != nil {
 						return result, err
 					}
-					if *outputFormat != OutputFormatJSON {
+					if !OutputFormat(*outputFormat).IsJSON() {
 						fmt.Printf("📅 Task deferred to %s: %s\n", result.Message, result.Name)
 						for _, w := range result.Warnings {
 							fmt.Printf("⚠️  %s\n", w)
@@ -289,7 +292,7 @@ func createUpdateCommand(
 					if err != nil {
 						return result, err
 					}
-					if *outputFormat != OutputFormatJSON {
+					if !OutputFormat(*outputFormat).IsJSON() {
 						if len(result.Warnings) > 0 {
 							for _, w := range result.Warnings {
 								fmt.Printf("⚠️  %s\n", w)
@@ -382,12 +385,12 @@ func formatWorkOnResult(
 	outputFormat string,
 ) error {
 	if err != nil {
-		if outputFormat == OutputFormatJSON {
+		if OutputFormat(outputFormat).IsJSON() {
 			_ = PrintJSON(result)
 		}
 		return err
 	}
-	if outputFormat == OutputFormatJSON {
+	if OutputFormat(outputFormat).IsJSON() {
 		return PrintJSON(result)
 	}
 	fmt.Printf("✅ Now working on: %s (assigned to %s)\n", result.Name, currentUser)
@@ -448,7 +451,7 @@ Use --goal to filter by goal name.`,
 
 			var allItems []ops.TaskListItem
 			for _, vault := range vaults {
-				if len(vaults) > 1 && *outputFormat == OutputFormatPlain {
+				if len(vaults) > 1 && OutputFormat(*outputFormat).IsPlain() {
 					fmt.Printf("=== %s ===\n", vault.Name)
 				}
 
@@ -469,7 +472,7 @@ Use --goal to filter by goal name.`,
 				if err != nil {
 					return err
 				}
-				if *outputFormat == OutputFormatJSON {
+				if OutputFormat(*outputFormat).IsJSON() {
 					allItems = append(allItems, items...)
 				} else {
 					for _, item := range items {
@@ -478,7 +481,7 @@ Use --goal to filter by goal name.`,
 				}
 			}
 
-			if *outputFormat == OutputFormatJSON {
+			if OutputFormat(*outputFormat).IsJSON() {
 				return PrintJSON(allItems)
 			}
 			return nil
@@ -548,7 +551,7 @@ func createValidateCommand(
 
 			// Task not found in any vault
 			if foundInVault == nil {
-				if *outputFormat == OutputFormatJSON {
+				if OutputFormat(*outputFormat).IsJSON() {
 					result := map[string]any{
 						"success": false,
 						"error":   "task not found",
@@ -592,7 +595,7 @@ func createGenericLintCommand(
 			}
 
 			for _, vault := range vaults {
-				if len(vaults) > 1 && *outputFormat == OutputFormatPlain {
+				if len(vaults) > 1 && OutputFormat(*outputFormat).IsPlain() {
 					fmt.Printf("=== %s ===\n", vault.Name)
 				}
 
@@ -640,7 +643,7 @@ func printLintIssues(
 	fix bool,
 	outputFormat string,
 ) error {
-	if outputFormat == OutputFormatJSON {
+	if OutputFormat(outputFormat).IsJSON() {
 		return printLintIssuesJSON(vaultPath, issues, fix)
 	}
 	return printLintIssuesPlain(ctx, vaultPath, issues, fix)
@@ -694,7 +697,7 @@ func printValidateResult(
 	issues []ops.LintIssue,
 	outputFormat string,
 ) error {
-	if outputFormat == OutputFormatJSON {
+	if OutputFormat(outputFormat).IsJSON() {
 		return printValidateResultJSON(taskName, vaultName, issues)
 	}
 	return printValidateResultPlain(ctx, taskName, issues)
@@ -762,7 +765,7 @@ func createGenericListCommand(
 
 			var allItems []ops.TaskListItem
 			for _, vault := range vaults {
-				if len(vaults) > 1 && *outputFormat == OutputFormatPlain {
+				if len(vaults) > 1 && OutputFormat(*outputFormat).IsPlain() {
 					fmt.Printf("=== %s ===\n", vault.Name)
 				}
 
@@ -783,7 +786,7 @@ func createGenericListCommand(
 				if err != nil {
 					return err
 				}
-				if *outputFormat == OutputFormatJSON {
+				if OutputFormat(*outputFormat).IsJSON() {
 					allItems = append(allItems, items...)
 				} else {
 					for _, item := range items {
@@ -792,7 +795,7 @@ func createGenericListCommand(
 				}
 			}
 
-			if *outputFormat == OutputFormatJSON {
+			if OutputFormat(*outputFormat).IsJSON() {
 				return PrintJSON(allItems)
 			}
 			return nil
@@ -851,7 +854,7 @@ func createEntityGetCommand(
 				if err != nil {
 					return err
 				}
-				if *outputFormat == OutputFormatJSON {
+				if OutputFormat(*outputFormat).IsJSON() {
 					return PrintJSON(map[string]any{
 						"key":   key,
 						"value": value,
@@ -862,7 +865,7 @@ func createEntityGetCommand(
 				return nil
 			})
 			if err != nil {
-				if *outputFormat == OutputFormatJSON {
+				if OutputFormat(*outputFormat).IsJSON() {
 					return PrintJSON(map[string]any{
 						"success": false,
 						"error":   err.Error(),
@@ -905,7 +908,7 @@ func createEntitySetCommand(
 				if err := setOp.Execute(ctx, vault.Path, entityName, key, value); err != nil {
 					return err
 				}
-				if *outputFormat == OutputFormatJSON {
+				if OutputFormat(*outputFormat).IsJSON() {
 					return PrintJSON(map[string]any{
 						"success": true,
 						"key":     key,
@@ -917,7 +920,7 @@ func createEntitySetCommand(
 				return nil
 			})
 			if err != nil {
-				if *outputFormat == OutputFormatJSON {
+				if OutputFormat(*outputFormat).IsJSON() {
 					return PrintJSON(map[string]any{
 						"success": false,
 						"error":   err.Error(),
@@ -959,7 +962,7 @@ func createEntityClearCommand(
 				if err := clearOp.Execute(ctx, vault.Path, entityName, key); err != nil {
 					return err
 				}
-				if *outputFormat == OutputFormatJSON {
+				if OutputFormat(*outputFormat).IsJSON() {
 					return PrintJSON(map[string]any{
 						"success": true,
 						"key":     key,
@@ -970,7 +973,7 @@ func createEntityClearCommand(
 				return nil
 			})
 			if err != nil {
-				if *outputFormat == OutputFormatJSON {
+				if OutputFormat(*outputFormat).IsJSON() {
 					return PrintJSON(map[string]any{
 						"success": false,
 						"error":   err.Error(),
@@ -1010,7 +1013,7 @@ func createEntityShowCommand(
 				if err != nil {
 					return err
 				}
-				if *outputFormat == OutputFormatJSON {
+				if OutputFormat(*outputFormat).IsJSON() {
 					return PrintJSON(result)
 				}
 				fmt.Printf("%s: %s\n", entityType, result.Name)
@@ -1055,7 +1058,7 @@ func createEntityListAddCommand(
 				return addOp.Execute(ctx, vault.Path, entityName, field, value)
 			})
 			if err != nil {
-				if *outputFormat == OutputFormatJSON {
+				if OutputFormat(*outputFormat).IsJSON() {
 					return PrintJSON(map[string]any{
 						"success": false,
 						"error":   err.Error(),
@@ -1063,7 +1066,7 @@ func createEntityListAddCommand(
 				}
 				return err
 			}
-			if *outputFormat == OutputFormatJSON {
+			if OutputFormat(*outputFormat).IsJSON() {
 				return PrintJSON(map[string]any{
 					"success": true,
 					"field":   field,
@@ -1107,7 +1110,7 @@ func createEntityListRemoveCommand(
 				return removeOp.Execute(ctx, vault.Path, entityName, field, value)
 			})
 			if err != nil {
-				if *outputFormat == OutputFormatJSON {
+				if OutputFormat(*outputFormat).IsJSON() {
 					return PrintJSON(map[string]any{
 						"success": false,
 						"error":   err.Error(),
@@ -1115,7 +1118,7 @@ func createEntityListRemoveCommand(
 				}
 				return err
 			}
-			if *outputFormat == OutputFormatJSON {
+			if OutputFormat(*outputFormat).IsJSON() {
 				return PrintJSON(map[string]any{
 					"success": true,
 					"field":   field,
@@ -1157,7 +1160,7 @@ func createResolveCommand(
 				if err != nil {
 					return err
 				}
-				if *outputFormat == OutputFormatJSON {
+				if OutputFormat(*outputFormat).IsJSON() {
 					return PrintJSON(result)
 				}
 				// plain mode: silent no-op — resolve is a machine contract
@@ -1334,7 +1337,7 @@ func createGoalCompleteCommand(
 					if err != nil {
 						return result, err
 					}
-					if *outputFormat != OutputFormatJSON {
+					if !OutputFormat(*outputFormat).IsJSON() {
 						fmt.Printf("✅ Goal completed: %s\n", result.Name)
 					}
 					return result, nil
@@ -1399,7 +1402,7 @@ Date formats:
 					if err != nil {
 						return result, err
 					}
-					if *outputFormat != OutputFormatJSON {
+					if !OutputFormat(*outputFormat).IsJSON() {
 						fmt.Printf("📅 Goal deferred to %s: %s\n", result.Message, result.Name)
 					}
 					return result, nil
@@ -1657,7 +1660,7 @@ func createObjectiveCompleteCommand(
 					if err != nil {
 						return result, err
 					}
-					if *outputFormat != OutputFormatJSON {
+					if !OutputFormat(*outputFormat).IsJSON() {
 						fmt.Printf("✅ Objective completed: %s\n", result.Name)
 					}
 					return result, nil
@@ -1787,7 +1790,7 @@ func createDecisionListCommand(
 					slog.Warn("vault error", "vault", vault.Name, "error", err)
 					continue
 				}
-				if *outputFormat == OutputFormatJSON {
+				if OutputFormat(*outputFormat).IsJSON() {
 					allItems = append(allItems, items...)
 				} else {
 					for _, item := range items {
@@ -1799,7 +1802,7 @@ func createDecisionListCommand(
 					}
 				}
 			}
-			if *outputFormat == OutputFormatJSON {
+			if OutputFormat(*outputFormat).IsJSON() {
 				return PrintJSON(allItems)
 			}
 			return nil
@@ -1850,7 +1853,7 @@ func createDecisionAckCommand(
 					if err != nil {
 						return result, err
 					}
-					if *outputFormat != OutputFormatJSON {
+					if !OutputFormat(*outputFormat).IsJSON() {
 						fmt.Printf("Acknowledged: %s\n", result.Name)
 					}
 					return result, nil
@@ -1883,7 +1886,7 @@ func createSearchCommand(
 			}
 
 			for _, vault := range vaults {
-				if len(vaults) > 1 && *outputFormat == OutputFormatPlain {
+				if len(vaults) > 1 && OutputFormat(*outputFormat).IsPlain() {
 					fmt.Printf("=== %s ===\n", vault.Name)
 				}
 
@@ -1892,7 +1895,7 @@ func createSearchCommand(
 				if err != nil {
 					return err
 				}
-				if *outputFormat == OutputFormatJSON {
+				if OutputFormat(*outputFormat).IsJSON() {
 					return PrintJSON(results)
 				}
 				fmt.Println(strings.Join(results, "\n"))
@@ -1930,7 +1933,7 @@ func createGenericSearchCommand(
 			}
 
 			for _, vault := range vaults {
-				if len(vaults) > 1 && *outputFormat == OutputFormatPlain {
+				if len(vaults) > 1 && OutputFormat(*outputFormat).IsPlain() {
 					fmt.Printf("=== %s ===\n", vault.Name)
 				}
 
@@ -1942,7 +1945,7 @@ func createGenericSearchCommand(
 				if err != nil {
 					return err
 				}
-				if *outputFormat == OutputFormatJSON {
+				if OutputFormat(*outputFormat).IsJSON() {
 					return PrintJSON(results)
 				}
 				fmt.Println(strings.Join(results, "\n"))
@@ -1986,7 +1989,7 @@ func createTaskGetCommand(
 				if err != nil {
 					return err
 				}
-				if *outputFormat == OutputFormatJSON {
+				if OutputFormat(*outputFormat).IsJSON() {
 					result := map[string]any{
 						"key":   key,
 						"value": value,
@@ -1998,7 +2001,7 @@ func createTaskGetCommand(
 				return nil
 			})
 			if err != nil {
-				if *outputFormat == OutputFormatJSON {
+				if OutputFormat(*outputFormat).IsJSON() {
 					result := map[string]any{
 						"success": false,
 						"error":   err.Error(),
@@ -2041,7 +2044,7 @@ func createTaskSetCommand(
 				if err := setOp.Execute(ctx, vault.Path, taskName, key, value); err != nil {
 					return err
 				}
-				if *outputFormat == OutputFormatJSON {
+				if OutputFormat(*outputFormat).IsJSON() {
 					result := map[string]any{
 						"success": true,
 						"key":     key,
@@ -2054,7 +2057,7 @@ func createTaskSetCommand(
 				return nil
 			})
 			if err != nil {
-				if *outputFormat == OutputFormatJSON {
+				if OutputFormat(*outputFormat).IsJSON() {
 					result := map[string]any{
 						"success": false,
 						"error":   err.Error(),
@@ -2096,7 +2099,7 @@ func createTaskClearCommand(
 				if err := clearOp.Execute(ctx, vault.Path, taskName, key); err != nil {
 					return err
 				}
-				if *outputFormat == OutputFormatJSON {
+				if OutputFormat(*outputFormat).IsJSON() {
 					result := map[string]any{
 						"success": true,
 						"key":     key,
@@ -2108,7 +2111,7 @@ func createTaskClearCommand(
 				return nil
 			})
 			if err != nil {
-				if *outputFormat == OutputFormatJSON {
+				if OutputFormat(*outputFormat).IsJSON() {
 					result := map[string]any{
 						"success": false,
 						"error":   err.Error(),
@@ -2148,7 +2151,7 @@ func createTaskShowCommand(
 				if err != nil {
 					return errors.Wrap(ctx, err, "show task")
 				}
-				if *outputFormat == OutputFormatJSON {
+				if OutputFormat(*outputFormat).IsJSON() {
 					return PrintJSON(detail)
 				}
 				fmt.Printf("Task: %s\n", detail.Name)
@@ -2330,7 +2333,7 @@ func createConfigListCommand(
 				return errors.Wrap(ctx, err, "get vaults")
 			}
 
-			if *outputFormat == OutputFormatJSON {
+			if OutputFormat(*outputFormat).IsJSON() {
 				return PrintJSON(vaults)
 			}
 

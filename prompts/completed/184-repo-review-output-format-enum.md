@@ -1,8 +1,12 @@
 ---
-status: approved
-summary: Make the output format a validated typed enum so an invalid --output value errors instead of silently printing plain
+status: completed
+summary: Typed OutputFormat with Validate/IsJSON/IsPlain methods, added validation to PersistentPreRunE, replaced all 48 constant comparisons with helper method calls
+execution_id: repo-exec-184-repo-review-output-format-enum
+dark-factory-version: v0.193.0
 created: "2026-08-10T12:36:04Z"
 queued: "2026-08-10T12:36:04Z"
+started: "2026-08-10T12:43:11Z"
+completed: "2026-08-10T12:47:15Z"
 ---
 
 <summary>

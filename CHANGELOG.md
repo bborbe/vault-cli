@@ -10,6 +10,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 
 ## Unreleased
 
+- fix: an invalid `--output` value now produces a clear error listing the valid options instead of silently falling back to plain output. `OutputFormat` is now a typed `string` with `Validate`, `IsJSON`, and `IsPlain` methods
 - fix: `ParseRecurringInterval` now uses `github.com/bborbe/errors` with context instead of `fmt.Errorf`
 - feat: add `ParseRecurringIntervalDefault` as a parsing-then-fallback helper replacing hand-rolled fallback logic in `complete.go`
 - fix: `calculateNextDeferDate` now takes `context.Context` and `resolveSessionMode` uses `errors.Errorf` with context

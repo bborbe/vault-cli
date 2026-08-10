@@ -252,9 +252,23 @@ ls "$DAILY"
 Instead, take Phase 1's touched `Tasks` + `Goals` list and require that at least one `###` entry under `## What happened today` references at least one of them by `[[wikilink]]`:
 
 ```bash
-# For each touched task/goal title T, does any line under the section mention [[T]]?
-awk '/^## What happened today/,0' "$DAILY" | grep -F "[[$T]]"
+# For each touched task/goal title T, does any entry under the section link to it?
+# T_RE = T with regex metacharacters escaped.
+awk '/^## What happened today/,0' "$DAILY" \
+  | grep -E "\[\[([^]|#]*/)?${T_RE}([|#][^]]*)?\]\]"
 ```
+
+**Match every wikilink form, not just the bare one.** A naive `grep -F "[[$T]]"` misses three variants this vault uses routinely, and each miss is a false flag:
+
+| Form | Example |
+|---|---|
+| aliased | `[[Trading - IBKR Swing Trading Daily\|runbook]]` |
+| heading | `[[Rebuild Dev and Prod#Fallback when sun is off]]` |
+| path-prefixed | `[[22 Goals/90 Completed/Become profitable…\|Grid Trading Strategy Goal]]` |
+
+The path-prefixed form is the nastiest: the link does not even *begin* with the title, so anchoring on `[[$T` fails too. The pattern above allows an optional folder path before the title and an optional `|alias` / `#heading` after it.
+
+Erring toward over-matching is correct here. A false pass silently reinstates the original bug (close reports clean, record is missing); a false flag costs one glance.
 
 - Match found → ✅ silent OK.
 - No touched task/goal appears → ⚠ flag as outstanding. The near-certain cause is a skipped or aborted Phase 2.

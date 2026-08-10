@@ -249,14 +249,16 @@ ls "$DAILY"
 
 **"Populated" is not the test — representation is.** Checking only that *some* `###` heading exists under "What happened today" passes trivially on any day earlier sessions already wrote entries, which is most days after the first. Observed failing 2026-08-10: the section held four entries from prior sessions, so the check went green while the current session's work was entirely absent, and the entry had to be written by hand afterwards.
 
-Instead, take Phase 1's touched `Tasks` + `Goals` list and require that at least one `###` entry under `## What happened today` references at least one of them by `[[wikilink]]`:
+Instead, take Phase 1's touched `Tasks` + `Goals` list and require that at least one `###` entry under the "What happened today" section references at least one of them by `[[wikilink]]`:
 
 ```bash
 # For each touched task/goal title T, does any entry under the section link to it?
 # T_RE = T with regex metacharacters escaped.
-awk '/^## What happened today/,0' "$DAILY" \
+awk '/^#+ What happened today/,0' "$DAILY" \
   | grep -E "\[\[([^]|#]*/)?${T_RE}([|#][^]]*)?\]\]"
 ```
+
+**Do not hardcode the heading level.** Daily-note templates differ across vaults — the Personal vault uses `# What happened today` (h1), while this command's own prose and `sync-progress.md` both say `##`. An `awk` range anchored on `^## ` never matches there, so the range stays empty, the grep receives no input, and the check returns 0 **unconditionally** — it flags on every run regardless of content. The direction is fail-safe but the check is useless: crying wolf every time trains the reader to ignore it, which is precisely the failure Phase 7 exists to prevent. Caught by the v0.106.3 end-to-end run — which is the argument for exercising a check rather than reasoning about it.
 
 **Match every wikilink form, not just the bare one.** A naive `grep -F "[[$T]]"` misses three variants this vault uses routinely, and each miss is a false flag:
 

@@ -8,6 +8,14 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: `session-close` Phase 7 now verifies THIS session's work is represented in the daily note, instead of only checking that "What happened today" is non-empty. The old test passed trivially on any day earlier sessions had written entries — observed going green while the current session's work was entirely absent. It now requires a `###` entry referencing a Phase-1-touched task or goal, falling back to the weaker test only when the session touched neither. The match covers aliased (`[[T|alias]]`), heading (`[[T#sec]]`) and path-prefixed (`[[Folder/T|alias]]`) wikilinks — all three occur in real daily notes, and a bare `[[T]]` match would false-flag on each
+- fix: `session-close` Phase 4.5 now checks touched **goals** as well as touched tasks. Phase 1 already detected goals for the summary block, but nothing verified their status, so a goal left `in_progress` sailed through close while the equivalent task was flagged
+- fix: `session-close` Phase 2 and `task-status` Phase 1 now name the explicit `Skill: vault-cli:sync-progress` invocation instead of describing it as "run the sync-progress logic". The prose form was read as licence to reimplement the steps by hand, which skipped the daily-note write in both commands
+- fix: `task-status` Phase 1 no longer restates sync-progress's phase list — it points at `commands/sync-progress.md` as the single source of truth, since a duplicated list drifts on the first change to that command
+- fix: `session-close` Phase 7's flag text no longer attributes a missing daily-note entry solely to a skipped Phase 2. Skill abort ("No vault context detected") and a legitimate nothing-to-write both produce the identical symptom, and naming only one cause sends the reader to debug the wrong thing
+
 ## v0.106.2
 
 - fix: an invalid `--output` value now produces a clear error listing the valid options instead of silently falling back to plain output. `OutputFormat` is now a typed `string` with `Validate`, `IsJSON`, and `IsPlain` methods

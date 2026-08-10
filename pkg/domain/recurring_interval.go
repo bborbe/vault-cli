@@ -5,10 +5,12 @@
 package domain
 
 import (
-	"fmt"
+	"context"
 	"regexp"
 	"strconv"
 	"time"
+
+	"github.com/bborbe/errors"
 )
 
 // RecurringInterval represents a time interval for recurring tasks.
@@ -29,7 +31,7 @@ var recurringShorthandRegex = regexp.MustCompile(`^([1-9]\d*)([dwmqy])$`)
 // Named aliases: daily, weekly, monthly, quarterly, yearly.
 // Numeric shorthand: <N><unit> where unit is d, w, m, q, or y.
 // Note: "weekdays" is NOT handled here — check for it before calling this function.
-func ParseRecurringInterval(s string) (RecurringInterval, error) {
+func ParseRecurringInterval(ctx context.Context, s string) (RecurringInterval, error) {
 	switch s {
 	case "daily":
 		return RecurringInterval{Days: 1}, nil
@@ -45,15 +47,16 @@ func ParseRecurringInterval(s string) (RecurringInterval, error) {
 
 	matches := recurringShorthandRegex.FindStringSubmatch(s)
 	if matches == nil {
-		return RecurringInterval{}, fmt.Errorf("unknown recurring interval: %q", s)
+		return RecurringInterval{}, errors.Errorf(ctx, "unknown recurring interval: %q", s)
 	}
 
 	n, err := strconv.Atoi(matches[1])
 	if err != nil {
-		return RecurringInterval{}, fmt.Errorf(
-			"invalid recurring interval number in %q: %w",
-			s,
+		return RecurringInterval{}, errors.Wrapf(
+			ctx,
 			err,
+			"invalid recurring interval number in %q",
+			s,
 		)
 	}
 
@@ -69,10 +72,26 @@ func ParseRecurringInterval(s string) (RecurringInterval, error) {
 	case "y":
 		return RecurringInterval{Years: n}, nil
 	default:
-		return RecurringInterval{}, fmt.Errorf(
+		return RecurringInterval{}, errors.Errorf(
+			ctx,
 			"unknown unit %q in recurring interval %q",
 			matches[2],
 			s,
 		)
 	}
+}
+
+// ParseRecurringIntervalDefault parses s and returns def when s cannot be parsed.
+// The second return value reports whether s parsed successfully, so callers can
+// report the fallback without parsing a second time.
+func ParseRecurringIntervalDefault(
+	ctx context.Context,
+	s string,
+	def RecurringInterval,
+) (RecurringInterval, bool) {
+	interval, err := ParseRecurringInterval(ctx, s)
+	if err != nil {
+		return def, false
+	}
+	return interval, true
 }

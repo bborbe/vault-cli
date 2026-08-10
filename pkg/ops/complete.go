@@ -120,6 +120,19 @@ func (c *completeOperation) Execute(
 
 	// Update associated goals
 	for _, goalName := range task.Goals() {
+		select {
+		case <-ctx.Done():
+			// The task file is already written and some goals may already be
+			// updated; carry the warnings so far rather than reporting nothing.
+			return MutationResult{
+				Success:  false,
+				Name:     task.Name,
+				Error:    ctx.Err().Error(),
+				Warnings: warnings,
+			}, errors.Wrap(ctx, ctx.Err(), "context cancelled")
+		default:
+		}
+
 		if err := c.markGoalCheckbox(ctx, vaultPath, goalName, task.Name); err != nil {
 			warning := fmt.Sprintf("failed to update goal %s: %v", goalName, err)
 			warnings = append(warnings, warning)
@@ -187,7 +200,7 @@ func (c *completeOperation) handleRecurringTask(
 	task.SetLastCompletedDate(&lastCompletedD)
 
 	// 3. Bump defer_date based on recurring interval
-	newDeferDate := calculateNextDeferDate(task.Recurring(), now)
+	newDeferDate := calculateNextDeferDate(ctx, task.Recurring(), now)
 	task.SetDeferDate(newDeferDate.Ptr())
 
 	// 4. If planned_date exists and < new defer_date, clear it
@@ -232,7 +245,11 @@ func (c *completeOperation) handleRecurringTask(
 }
 
 // calculateNextDeferDate calculates the next defer date based on recurring interval.
-func calculateNextDeferDate(recurring string, now time.Time) libtime.DateOrDateTime {
+func calculateNextDeferDate(
+	ctx context.Context,
+	recurring string,
+	now time.Time,
+) libtime.DateOrDateTime {
 	// weekdays is a special case: check before ParseRecurringInterval
 	if recurring == "weekdays" {
 		next := now.AddDate(0, 0, 1) // tomorrow
@@ -250,11 +267,13 @@ func calculateNextDeferDate(recurring string, now time.Time) libtime.DateOrDateT
 		}
 	}
 
-	interval, err := domain.ParseRecurringInterval(recurring)
-	if err != nil {
-		// Unknown recurring type, treat as daily
+	interval, ok := domain.ParseRecurringIntervalDefault(
+		ctx,
+		recurring,
+		domain.RecurringInterval{Days: 1},
+	)
+	if !ok {
 		slog.Warn("unknown recurring interval, treating as daily", "interval", recurring)
-		return libtime.DateOrDateTime(libtime.ToDate(now.AddDate(0, 0, 1)).Time())
 	}
 	return libtime.DateOrDateTime(libtime.ToDate(interval.AddTo(now)).Time())
 }

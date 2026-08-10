@@ -5,6 +5,7 @@
 package domain_test
 
 import (
+	"context"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -15,13 +16,18 @@ import (
 
 var _ = Describe("ParseRecurringInterval", func() {
 	var (
+		ctx    context.Context
 		result domain.RecurringInterval
 		err    error
 	)
 
+	BeforeEach(func() {
+		ctx = context.Background()
+	})
+
 	DescribeTable("named aliases",
 		func(input string, expected domain.RecurringInterval) {
-			result, err = domain.ParseRecurringInterval(input)
+			result, err = domain.ParseRecurringInterval(ctx, input)
 			Expect(err).To(BeNil())
 			Expect(result).To(Equal(expected))
 		},
@@ -34,7 +40,7 @@ var _ = Describe("ParseRecurringInterval", func() {
 
 	DescribeTable("numeric shorthand",
 		func(input string, expected domain.RecurringInterval) {
-			result, err = domain.ParseRecurringInterval(input)
+			result, err = domain.ParseRecurringInterval(ctx, input)
 			Expect(err).To(BeNil())
 			Expect(result).To(Equal(expected))
 		},
@@ -50,7 +56,7 @@ var _ = Describe("ParseRecurringInterval", func() {
 
 	DescribeTable("invalid input returns error",
 		func(input string) {
-			result, err = domain.ParseRecurringInterval(input)
+			result, err = domain.ParseRecurringInterval(ctx, input)
 			Expect(err).NotTo(BeNil())
 			Expect(result).To(Equal(domain.RecurringInterval{}))
 		},
@@ -59,6 +65,36 @@ var _ = Describe("ParseRecurringInterval", func() {
 		Entry("zero days", "0d"),
 		Entry("weekdays", "weekdays"),
 	)
+})
+
+var _ = Describe("ParseRecurringIntervalDefault", func() {
+	var (
+		ctx context.Context
+	)
+
+	BeforeEach(func() {
+		ctx = context.Background()
+	})
+
+	It("returns parsed interval and ok when parsing succeeds", func() {
+		result, ok := domain.ParseRecurringIntervalDefault(
+			ctx,
+			"daily",
+			domain.RecurringInterval{Days: 99},
+		)
+		Expect(result).To(Equal(domain.RecurringInterval{Days: 1}))
+		Expect(ok).To(BeTrue())
+	})
+
+	It("returns default and not-ok when parsing fails", func() {
+		result, ok := domain.ParseRecurringIntervalDefault(
+			ctx,
+			"invalid",
+			domain.RecurringInterval{Days: 99},
+		)
+		Expect(result).To(Equal(domain.RecurringInterval{Days: 99}))
+		Expect(ok).To(BeFalse())
+	})
 })
 
 var _ = Describe("RecurringInterval AddTo", func() {

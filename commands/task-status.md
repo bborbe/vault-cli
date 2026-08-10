@@ -20,7 +20,15 @@ Quick "where was I?" recovery tool. Detects active task from the parent conversa
 
 ## Phase 1: Sync progress from conversation
 
-Inline. Run the `/vault-cli:sync-progress` logic against the parent conversation:
+Invoke the skill. Literally this call, not an inlined equivalent:
+
+```
+Skill: vault-cli:sync-progress
+```
+
+**"Run the sync-progress logic" is not a licence to reimplement it here.** Observed 2026-08-10: the agent hand-rolled the steps below, checked the daily note directly, and skipped writing the session entry — the same misread that hit `/vault-cli:session-close` Phase 2 minutes earlier. The skill is the implementation; this list documents what it does, not a recipe to follow by hand.
+
+What the skill covers:
 
 1. Detect vault context (cwd or wiki-link evidence).
 2. Analyze conversation for completion signals (PRs opened, files committed, tests passing, releases shipped).

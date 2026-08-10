@@ -65,9 +65,15 @@ If multiple vaults touched, group goals/tasks per vault. Cap each list at 5 (sho
 
 ### Phase 2: Sync progress to vault (delegate to skill)
 
-Invoke `/vault-cli:sync-progress` to flush conversation-tracked work into the daily note + task pages. If the skill aborts ("No vault context detected", "No completion or PR detected"), report that briefly and continue — not all sessions produce vault-tracked work.
+Invoke the skill. Literally this call, not an inlined equivalent:
 
-Do NOT skip this step. Even sessions that "just talked" can include decisions worth recording.
+```
+Skill: vault-cli:sync-progress
+```
+
+If the skill aborts ("No vault context detected", "No completion or PR detected"), report that briefly and continue — not all sessions produce vault-tracked work.
+
+**Do NOT skip this step, and do NOT reimplement it inline.** "Run the sync-progress logic yourself" is not a valid reading — observed 2026-08-10, where the agent hand-checked the daily note instead of invoking the skill, skipped writing the session's entry, and then reported the session clean. Phase 7 is the backstop for exactly this, but it only catches the omission if it is written as specified below. Even sessions that "just talked" can include decisions worth recording.
 
 ### Phase 3: Check git state for each touched repo
 
@@ -165,6 +171,29 @@ Do not collapse failures into a generic warning — each unverified task is its 
 
 **MIT exception:** if today's daily-note "Most important task" checkbox `- [ ] [[Task]]` references a task that IS in this session's touched list AND that task is still `in_progress`, the warning above already covers it — no extra rule needed. If the MIT was not touched, it's a separate session's concern.
 
+**Goals get the same check.** Phase 1 already detects touched goals, but until 2026-08-10 nothing verified their status — a goal left `in_progress` with every subtask done sailed through close unflagged, while the equivalent task was caught. Run the identical check against Phase 1's `Goals` list:
+
+```bash
+STATUS_OUT="$(vault-cli goal get "$G" status --output json 2>&1)"
+STATUS_EXIT=$?
+```
+
+Interpretation is identical to the task branch above — `completed` / `hold` / `aborted` / `next` / `backlog` are silent OK, `in_progress` flags, a non-zero exit or parse failure surfaces as its own outstanding line rather than being skipped. Same scoping rule too: **touched goals only**. A goal this session never edited belongs to another session.
+
+For each `in_progress` goal, surface in Phase 9 as outstanding:
+
+```
+N. Goal [[<title>]] still in_progress — `/vault-cli:complete-goal "<title>"` to close, `/vault-cli:defer-goal "<title>" <date>` to push out, or set status hold/aborted if abandoning
+```
+
+For each goal whose status lookup FAILED:
+
+```
+N. Goal check unverified for [[<title>]] — `vault-cli goal get` failed (exit <code>, stderr: <first-line>). Investigate before close.
+```
+
+A goal legitimately outliving the session is common — goals span 1–4 weeks, sessions do not. The flag is a prompt to confirm that's deliberate, not an assertion the goal should be closed.
+
 ### Phase 5: Check for orphaned background processes
 
 **Scope: THIS session's processes only.** Build the candidate list from the conversation, not from the process table — a machine-wide `ps` scan cannot tell a sibling session's daemon from your own, and flagging someone else's is a false positive that makes the verdict untrustworthy.
@@ -209,15 +238,35 @@ If a spec is in `verifying`, ASK whether to verify+complete it now or leave for 
 
 ### Phase 7: Check daily note
 
-For each vault matching cwd (or the unambiguous vault if all session work was in one), read its `daily_dir` from `VAULT_CONFIG` and check that today's daily note exists with a populated "What happened today" section.
+For each vault matching cwd (or the unambiguous vault if all session work was in one), read its `daily_dir` from `VAULT_CONFIG` and check that today's daily note exists **and that THIS session's work is represented in it**.
 
 ```bash
 TODAY="$(date +%Y-%m-%d)"
 DAILY_DIR="$(vault-cli config list --output json | jq -r --arg p "$(pwd)" '.[] | select($p | startswith(.path)) | .path + "/" + .daily_dir')"
-ls "$DAILY_DIR/$TODAY.md"
+DAILY="$DAILY_DIR/$TODAY.md"
+ls "$DAILY"
 ```
 
-If the file exists but has no `###` heading under `## What happened today`, flag and continue — likely `/vault-cli:sync-progress` was skipped.
+**"Populated" is not the test — representation is.** Checking only that *some* `###` heading exists under "What happened today" passes trivially on any day earlier sessions already wrote entries, which is most days after the first. Observed failing 2026-08-10: the section held four entries from prior sessions, so the check went green while the current session's work was entirely absent, and the entry had to be written by hand afterwards.
+
+Instead, take Phase 1's touched `Tasks` + `Goals` list and require that at least one `###` entry under `## What happened today` references at least one of them by `[[wikilink]]`:
+
+```bash
+# For each touched task/goal title T, does any line under the section mention [[T]]?
+awk '/^## What happened today/,0' "$DAILY" | grep -F "[[$T]]"
+```
+
+- Match found → ✅ silent OK.
+- No touched task/goal appears → ⚠ flag as outstanding. The near-certain cause is a skipped or aborted Phase 2.
+- Phase 1 touched no tasks or goals at all (pure repo work, talk-only session) → fall back to the old weaker test (section exists and is non-empty), and do not flag on absence — there is nothing to match against.
+
+Flag text for Phase 9:
+
+```
+N. Daily note has no entry for this session's work ([[<touched task/goal>]] not referenced) — Phase 2 sync likely skipped; run `/vault-cli:sync-progress` before closing
+```
+
+This is deliberately a flag, not an auto-fix: writing the entry is `sync-progress`'s job, and silently generating one here would hide that Phase 2 failed.
 
 ### Phase 8: Detect reflect-worthy signals
 

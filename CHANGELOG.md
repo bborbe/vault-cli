@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.106.3
 
 - fix: `session-close` Phase 7 now verifies THIS session's work is represented in the daily note, instead of only checking that "What happened today" is non-empty. The old test passed trivially on any day earlier sessions had written entries — observed going green while the current session's work was entirely absent. It now requires a `###` entry referencing a Phase-1-touched task or goal, falling back to the weaker test only when the session touched neither. The match covers aliased (`[[T|alias]]`), heading (`[[T#sec]]`) and path-prefixed (`[[Folder/T|alias]]`) wikilinks — all three occur in real daily notes, and a bare `[[T]]` match would false-flag on each
 - fix: `session-close` Phase 4.5 now checks touched **goals** as well as touched tasks. Phase 1 already detected goals for the summary block, but nothing verified their status, so a goal left `in_progress` sailed through close while the equivalent task was flagged

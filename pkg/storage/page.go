@@ -43,7 +43,9 @@ func (p *pageStorage) ListPages(
 	for _, entry := range entries {
 		select {
 		case <-ctx.Done():
-			return nil, errors.Wrap(ctx, ctx.Err(), "context cancelled")
+			// Return the pages read so far rather than nil, so a cancelled listing
+			// still reports what it managed to read.
+			return pages, errors.Wrap(ctx, ctx.Err(), "context cancelled")
 		default:
 		}
 

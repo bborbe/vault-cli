@@ -55,7 +55,10 @@ func (e *ensureAllTaskIdentifiersOperation) Execute(
 	for _, task := range tasks {
 		select {
 		case <-ctx.Done():
-			return BackfillResult{}, errors.Wrap(ctx, ctx.Err(), "context cancelled")
+			// Return the partial result: WriteTask has already modified the files in
+			// result.ModifiedFiles on disk, so discarding it would leave the caller
+			// unable to tell "nothing processed" from "some processed then cancelled".
+			return result, errors.Wrap(ctx, ctx.Err(), "context cancelled")
 		default:
 		}
 

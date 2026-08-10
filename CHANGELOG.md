@@ -15,8 +15,8 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 - feat: add `ParseRecurringIntervalDefault` as a parsing-then-fallback helper replacing hand-rolled fallback logic in `complete.go`
 - fix: `calculateNextDeferDate` now takes `context.Context` and `resolveSessionMode` uses `errors.Errorf` with context
 - fix: Justify `#nosec G204` suppression in `pkg/ops/search.go` — arguments are passed via `Cmd.Args`, never through a shell, so shell metacharacters in the search query are not interpreted
-- fix: Add context cancellation guard to `EnsureAllTaskIdentifiersOperation.Execute` loop so long-running backfills can be interrupted
-- fix: Add context cancellation guard to `pageStorage.ListPages` loop so vault page walks can be interrupted
+- fix: Add context cancellation guard to `EnsureAllTaskIdentifiersOperation.Execute` loop so long-running backfills can be interrupted. On cancellation it returns the partial `BackfillResult` — the files in `ModifiedFiles` are already written to disk, so discarding it would hide completed work from the caller
+- fix: Add context cancellation guard to `pageStorage.ListPages` loop so vault page walks can be interrupted. On cancellation it returns the pages read so far rather than `nil`
 - fix: Add `log/slog` diagnostics around the external `semantic-search-mcp` subprocess call so failed searches are diagnosable
 - fix: `VaultDispatcher.FirstSuccess` error message now includes which vaults were tried
 

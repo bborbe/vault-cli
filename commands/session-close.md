@@ -271,16 +271,18 @@ The path-prefixed form is the nastiest: the link does not even *begin* with the 
 Erring toward over-matching is correct here. A false pass silently reinstates the original bug (close reports clean, record is missing); a false flag costs one glance.
 
 - Match found → ✅ silent OK.
-- No touched task/goal appears → ⚠ flag as outstanding. The near-certain cause is a skipped or aborted Phase 2.
+- No touched task/goal appears → ⚠ flag as outstanding.
 - Phase 1 touched no tasks or goals at all (pure repo work, talk-only session) → fall back to the old weaker test (section exists and is non-empty), and do not flag on absence — there is nothing to match against.
+
+**Report the symptom, not a guessed cause.** A missing entry has at least three causes that look identical from here: Phase 2 was skipped or inlined, the skill ran but aborted ("No vault context detected" / "No completion or PR detected"), or it ran and legitimately found nothing worth writing. Naming only the first sends the reader to debug the wrong thing.
 
 Flag text for Phase 9:
 
 ```
-N. Daily note has no entry for this session's work ([[<touched task/goal>]] not referenced) — Phase 2 sync likely skipped; run `/vault-cli:sync-progress` before closing
+N. Daily note has no entry for this session's work ([[<touched task/goal>]] not referenced) — Phase 2 was skipped, aborted, or found nothing to write. Check its output above, then run `/vault-cli:sync-progress` before closing
 ```
 
-This is deliberately a flag, not an auto-fix: writing the entry is `sync-progress`'s job, and silently generating one here would hide that Phase 2 failed.
+This is deliberately a flag, not an auto-fix: writing the entry is `sync-progress`'s job, and silently generating one here would hide that Phase 2 produced nothing.
 
 ### Phase 8: Detect reflect-worthy signals
 

@@ -26,16 +26,11 @@ Invoke the skill. Literally this call, not an inlined equivalent:
 Skill: vault-cli:sync-progress
 ```
 
-**"Run the sync-progress logic" is not a licence to reimplement it here.** Observed 2026-08-10: the agent hand-rolled the steps below, checked the daily note directly, and skipped writing the session entry — the same misread that hit `/vault-cli:session-close` Phase 2 minutes earlier. The skill is the implementation; this list documents what it does, not a recipe to follow by hand.
+**"Run the sync-progress logic" is not a licence to reimplement it here.** Observed 2026-08-10: the agent hand-rolled the steps, checked the daily note directly, and skipped writing the session entry — the same misread that hit `/vault-cli:session-close` Phase 2 minutes earlier.
 
-What the skill covers:
+**`commands/sync-progress.md` is the single source of truth for what this does.** Deliberately not restated here: a copy of its phase list would drift the first time that command changes, and a stale copy is exactly what invites hand-rolling it again. Read the command if you need the detail.
 
-1. Detect vault context (cwd or wiki-link evidence).
-2. Analyze conversation for completion signals (PRs opened, files committed, tests passing, releases shipped).
-3. Update daily note + task page + task-page `## Pull Requests` / `## Results` sections.
-4. Run Phase 4 auto-complete check (strict 4-criteria objective gate from `commands/sync-progress.md`).
-5. If sync produced no changes, log `(sync: no-op — disk already fresh)` and continue.
-6. If sync produced changes, log a one-line summary of what was written (`(sync: wrote {N} sections; {task} ticked {M} checkboxes)`).
+Log its outcome in one line before continuing — `(sync: no-op — disk already fresh)` or `(sync: wrote {N} sections; {task} ticked {M} checkboxes)`.
 
 This phase MUST run before Phase 3 — the status report reads disk, so disk must be fresh.
 

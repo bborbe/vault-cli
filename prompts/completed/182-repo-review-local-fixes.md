@@ -1,7 +1,12 @@
 ---
-status: approved
+status: completed
+summary: 'Applied five code-review fixes: justified #nosec G204 suppression, added ctx.Done() guards in two loops, added slog logging around external search subprocess, and included tried vault names in dispatcher error message'
+execution_id: repo-exec-182-repo-review-local-fixes
+dark-factory-version: v0.193.0
 created: "2026-08-10T12:36:04Z"
 queued: "2026-08-10T12:36:04Z"
+started: "2026-08-10T12:37:10Z"
+completed: "2026-08-10T12:39:31Z"
 ---
 
 <summary>

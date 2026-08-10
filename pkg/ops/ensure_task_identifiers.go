@@ -53,6 +53,12 @@ func (e *ensureAllTaskIdentifiersOperation) Execute(
 
 	var result BackfillResult
 	for _, task := range tasks {
+		select {
+		case <-ctx.Done():
+			return BackfillResult{}, errors.Wrap(ctx, ctx.Err(), "context cancelled")
+		default:
+		}
+
 		if task.TaskIdentifier() != "" {
 			continue // Already has an identifier, skip
 		}

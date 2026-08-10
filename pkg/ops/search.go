@@ -7,6 +7,7 @@ package ops
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -54,7 +55,12 @@ func (s *searchOperation) Execute(
 	}
 
 	// Build command
-	cmd := exec.CommandContext(ctx, "semantic-search-mcp", "search", query) // #nosec G204
+	cmd := exec.CommandContext(
+		ctx,
+		"semantic-search-mcp",
+		"search",
+		query,
+	) // #nosec G204 -- args are passed via Cmd.Args, never through a shell; query is a plain string, not a shell expression
 	cmd.Env = append(os.Environ(), fmt.Sprintf("CONTENT_PATH=%s", contentPath))
 
 	// Add top-k parameter if specified
@@ -65,12 +71,20 @@ func (s *searchOperation) Execute(
 	// Capture output
 	output, err := cmd.CombinedOutput()
 	if err != nil {
+		slog.Error("semantic-search-mcp failed", "vault", vaultPath, "error", err)
 		return nil, errors.Wrap(
 			ctx,
 			err,
 			fmt.Sprintf("semantic-search-mcp failed\nOutput: %s", string(output)),
 		)
 	}
+	slog.Info(
+		"semantic-search-mcp completed",
+		"vault",
+		vaultPath,
+		"results",
+		len(strings.Split(strings.TrimSpace(string(output)), "\n")),
+	)
 
 	result := strings.TrimSpace(string(output))
 	if result == "" {

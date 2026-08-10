@@ -8,6 +8,14 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: Justify `#nosec G204` suppression in `pkg/ops/search.go` — arguments are passed via `Cmd.Args`, never through a shell, so shell metacharacters in the search query are not interpreted
+- fix: Add context cancellation guard to `EnsureAllTaskIdentifiersOperation.Execute` loop so long-running backfills can be interrupted
+- fix: Add context cancellation guard to `pageStorage.ListPages` loop so vault page walks can be interrupted
+- fix: Add `log/slog` diagnostics around the external `semantic-search-mcp` subprocess call so failed searches are diagnosable
+- fix: `VaultDispatcher.FirstSuccess` error message now includes which vaults were tried
+
 ## v0.106.1
 
 - fix: scenario 005's plugin precondition resolved the load path from the latest git tag instead of the installed plugin version. `autoRelease` tags on every merge, so the tag routinely runs ahead of what is installed while `commands/execute-task.md` is unchanged — the check failed walks that should have passed, which is the same tag-vs-installed confusion the check exists to catch. Now resolves from `claude plugin list`.

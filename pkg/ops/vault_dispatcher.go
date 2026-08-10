@@ -6,6 +6,7 @@ package ops
 
 import (
 	"context"
+	"strings"
 
 	"github.com/bborbe/errors"
 
@@ -48,7 +49,9 @@ func (d *vaultDispatcher) FirstSuccess(
 		return fn(vaults[0])
 	}
 	var lastErr error
+	var names []string
 	for _, vault := range vaults {
+		names = append(names, vault.Name)
 		err := fn(vault)
 		if err == nil {
 			return nil
@@ -58,5 +61,10 @@ func (d *vaultDispatcher) FirstSuccess(
 		}
 		lastErr = err
 	}
-	return errors.Wrap(ctx, lastErr, "not found in any vault")
+	return errors.Wrapf(
+		ctx,
+		lastErr,
+		"not found in any vault (tried: %s)",
+		strings.Join(names, ", "),
+	)
 }

@@ -41,6 +41,12 @@ func (p *pageStorage) ListPages(
 
 	pages := make([]*domain.Page, 0, len(entries))
 	for _, entry := range entries {
+		select {
+		case <-ctx.Done():
+			return nil, errors.Wrap(ctx, ctx.Err(), "context cancelled")
+		default:
+		}
+
 		if entry.IsDir() {
 			continue
 		}

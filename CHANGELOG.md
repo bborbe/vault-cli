@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: `session-close` Phase 7 now ships the concrete `T_RE` escaping snippet instead of only asserting "with regex metacharacters escaped". Task titles routinely contain parentheses (`Cleanup Email Inbox (Personal) - <date>`, `(Work)`, `(Recurrence)`); unescaped, `grep -E` reads them as a capture group and never matches the literal title, so the check false-flags even though the entry is present — the same always-flag failure class as the heading-level bug, reached differently
+
 ## v0.106.4
 
 - fix: `session-close` Phase 7's section range no longer hardcodes the `##` heading level. The Personal vault's daily notes use `# What happened today` (h1), so the `awk` range never matched, the grep received empty input, and the check returned 0 unconditionally — flagging on every run regardless of content. Fail-safe in direction but useless in practice, since a check that always fires trains the reader to ignore it. Now matches `^#+ What happened today`

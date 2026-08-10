@@ -253,10 +253,13 @@ Instead, take Phase 1's touched `Tasks` + `Goals` list and require that at least
 
 ```bash
 # For each touched task/goal title T, does any entry under the section link to it?
-# T_RE = T with regex metacharacters escaped.
+# T_RE = T with regex metacharacters escaped — see below, do not skip this.
+T_RE=$(printf '%s' "$T" | sed 's/[][\.^$*+?(){}|\/]/\\&/g')
 awk '/^#+ What happened today/,0' "$DAILY" \
   | grep -E "\[\[([^]|#]*/)?${T_RE}([|#][^]]*)?\]\]"
 ```
+
+**Escaping `T` is mandatory, not a nicety.** Task titles routinely contain regex metacharacters — this vault alone has `Cleanup Email Inbox (Personal) - <date>`, `(Work)`, `(Recurrence)`. Unescaped, `(Personal)` is parsed as a capture group, so `grep -E` looks for the title *without* the literal parentheses and never matches. The entry is present, the check returns 0, and Phase 7 false-flags — the same always-flag failure class as the heading-level bug below, reached by a different route. Verified both ways: unescaped → 0, escaped → 1, same file and same entry.
 
 **Do not hardcode the heading level.** Daily-note templates differ across vaults — the Personal vault uses `# What happened today` (h1), while this command's own prose and `sync-progress.md` both say `##`. An `awk` range anchored on `^## ` never matches there, so the range stays empty, the grep receives no input, and the check returns 0 **unconditionally** — it flags on every run regardless of content. The direction is fail-safe but the check is useless: crying wolf every time trains the reader to ignore it, which is precisely the failure Phase 7 exists to prevent. Caught by the v0.106.3 end-to-end run — which is the argument for exercising a check rather than reasoning about it.
 

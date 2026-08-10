@@ -51,6 +51,12 @@ func (d *vaultDispatcher) FirstSuccess(
 	var lastErr error
 	var names []string
 	for _, vault := range vaults {
+		select {
+		case <-ctx.Done():
+			return errors.Wrap(ctx, ctx.Err(), "context cancelled")
+		default:
+		}
+
 		names = append(names, vault.Name)
 		err := fn(vault)
 		if err == nil {

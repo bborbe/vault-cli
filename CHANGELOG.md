@@ -17,7 +17,9 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 - fix: Justify `#nosec G204` suppression in `pkg/ops/search.go` — arguments are passed via `Cmd.Args`, never through a shell, so shell metacharacters in the search query are not interpreted
 - fix: Add context cancellation guard to `EnsureAllTaskIdentifiersOperation.Execute` loop so long-running backfills can be interrupted. On cancellation it returns the partial `BackfillResult` — the files in `ModifiedFiles` are already written to disk, so discarding it would hide completed work from the caller
 - fix: Add context cancellation guard to `pageStorage.ListPages` loop so vault page walks can be interrupted. On cancellation it returns the pages read so far rather than `nil`
-- fix: Add `log/slog` diagnostics around the external `semantic-search-mcp` subprocess call so failed searches are diagnosable
+- fix: Add `log/slog` diagnostics around the external `semantic-search-mcp` subprocess call so failed searches are diagnosable. The failure path returns the wrapped error without also logging it — the caller logs, so doing both duplicated every failure
+- fix: Add context cancellation guards to the `VaultDispatcher.FirstSuccess` vault loop and the goal-update loop in `Complete`, both of which do file I/O per iteration
+- fix: `ParseRecurringIntervalDefault` now returns `(RecurringInterval, bool)`, so `calculateNextDeferDate` can report the fallback without parsing the interval a second time
 - fix: `VaultDispatcher.FirstSuccess` error message now includes which vaults were tried
 
 ## v0.106.1

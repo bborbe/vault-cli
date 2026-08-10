@@ -71,7 +71,8 @@ func (s *searchOperation) Execute(
 	// Capture output
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		slog.Error("semantic-search-mcp failed", "vault", vaultPath, "error", err)
+		// Return without logging: the wrapped error already carries the command
+		// output, and the caller logs it. Doing both duplicates every failure.
 		return nil, errors.Wrap(
 			ctx,
 			err,

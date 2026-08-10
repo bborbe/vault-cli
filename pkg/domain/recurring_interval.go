@@ -82,14 +82,16 @@ func ParseRecurringInterval(ctx context.Context, s string) (RecurringInterval, e
 }
 
 // ParseRecurringIntervalDefault parses s and returns def when s cannot be parsed.
+// The second return value reports whether s parsed successfully, so callers can
+// report the fallback without parsing a second time.
 func ParseRecurringIntervalDefault(
 	ctx context.Context,
 	s string,
 	def RecurringInterval,
-) RecurringInterval {
+) (RecurringInterval, bool) {
 	interval, err := ParseRecurringInterval(ctx, s)
 	if err != nil {
-		return def
+		return def, false
 	}
-	return interval
+	return interval, true
 }

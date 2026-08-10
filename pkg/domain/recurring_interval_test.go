@@ -76,22 +76,24 @@ var _ = Describe("ParseRecurringIntervalDefault", func() {
 		ctx = context.Background()
 	})
 
-	It("returns parsed interval when parsing succeeds", func() {
-		result := domain.ParseRecurringIntervalDefault(
+	It("returns parsed interval and ok when parsing succeeds", func() {
+		result, ok := domain.ParseRecurringIntervalDefault(
 			ctx,
 			"daily",
 			domain.RecurringInterval{Days: 99},
 		)
 		Expect(result).To(Equal(domain.RecurringInterval{Days: 1}))
+		Expect(ok).To(BeTrue())
 	})
 
-	It("returns default when parsing fails", func() {
-		result := domain.ParseRecurringIntervalDefault(
+	It("returns default and not-ok when parsing fails", func() {
+		result, ok := domain.ParseRecurringIntervalDefault(
 			ctx,
 			"invalid",
 			domain.RecurringInterval{Days: 99},
 		)
 		Expect(result).To(Equal(domain.RecurringInterval{Days: 99}))
+		Expect(ok).To(BeFalse())
 	})
 })
 

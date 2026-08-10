@@ -120,6 +120,19 @@ func (c *completeOperation) Execute(
 
 	// Update associated goals
 	for _, goalName := range task.Goals() {
+		select {
+		case <-ctx.Done():
+			// The task file is already written and some goals may already be
+			// updated; carry the warnings so far rather than reporting nothing.
+			return MutationResult{
+				Success:  false,
+				Name:     task.Name,
+				Error:    ctx.Err().Error(),
+				Warnings: warnings,
+			}, errors.Wrap(ctx, ctx.Err(), "context cancelled")
+		default:
+		}
+
 		if err := c.markGoalCheckbox(ctx, vaultPath, goalName, task.Name); err != nil {
 			warning := fmt.Sprintf("failed to update goal %s: %v", goalName, err)
 			warnings = append(warnings, warning)
@@ -254,13 +267,12 @@ func calculateNextDeferDate(
 		}
 	}
 
-	interval := domain.ParseRecurringIntervalDefault(
+	interval, ok := domain.ParseRecurringIntervalDefault(
 		ctx,
 		recurring,
 		domain.RecurringInterval{Days: 1},
 	)
-	// Log warning when falling back to daily due to invalid interval
-	if _, err := domain.ParseRecurringInterval(ctx, recurring); err != nil {
+	if !ok {
 		slog.Warn("unknown recurring interval, treating as daily", "interval", recurring)
 	}
 	return libtime.DateOrDateTime(libtime.ToDate(interval.AddTo(now)).Time())

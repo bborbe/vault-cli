@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.106.2
 
 - fix: an invalid `--output` value now produces a clear error listing the valid options instead of silently falling back to plain output. `OutputFormat` is now a typed `string` with `Validate`, `IsJSON`, and `IsPlain` methods
 - fix: `ParseRecurringInterval` now uses `github.com/bborbe/errors` with context instead of `fmt.Errorf`

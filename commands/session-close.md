@@ -42,6 +42,8 @@ GH_AVAILABLE     = `command -v gh` exits 0
 SEMSEARCH_MCP    = `mcp__semantic-search__search_related` present in session tools
 DARK_FACTORY     = `command -v dark-factory` exits 0
 TASK_LIST        = TaskList tool present in session
+CLOSER_SWEEP     = a task-sweep skill/command is present in session (name ends in
+                   `close-obsolete-tasks`); absent → Phase 4.6 names files only
 ```
 
 If any integration is absent, skip its phase silently — never error. Folder paths come from `VAULT_CONFIG` per vault; never hardcode `24 Tasks/`, `23 Goals/`, etc.
@@ -193,6 +195,34 @@ N. Goal check unverified for [[<title>]] — `vault-cli goal get` failed (exit <
 ```
 
 A goal legitimately outliving the session is common — goals span 1–4 weeks, sessions do not. The flag is a prompt to confirm that's deliberate, not an assertion the goal should be closed.
+
+### Phase 4.6: Check tasks this session CAUSED (not just touched)
+
+Every phase above asks *"what did this session edit?"* — Phase 4.5 says so explicitly ("Scope this check to TOUCHED tasks only"), and that scoping is correct: it stops the command nagging about work belonging to sibling sessions. But it leaves a gap.
+
+A session can also **cause** tasks it never edits. It fires a trigger, or merges a PR, and an external producer writes a task file into some vault. That task is neither touched-by-this-session nor another session's business — so nothing looks at it, and the session that set the work in motion reports clean while the work sits open.
+
+Observed 2026-08-12: a session triggered a PR review, the producer wrote a review task, the PR then merged (making the review moot), and close reported `nothing queued`. The user had to ask "what about this task?" — it was still `in_progress`. Phase 4.5 could not have caught it: the session never opened that file.
+
+**Skip silently** if Phase 1 recorded no repos AND no PRs — with no session artifacts to match against, there is nothing this phase can attribute.
+
+For each vault in `VAULT_CONFIG`, scan `<vault.path>/<vault.tasks_dir>` for files meeting ALL of:
+
+- non-terminal `status` (anything except `completed` / `aborted`), AND
+- references a repo or PR URL from Phase 1's `Repos` / PR list, AND
+- NOT touched this session (if touched, Phase 4.5 already owns it — never double-flag)
+
+Each match is work this session set in motion and walked away from. Surface in Phase 9 as outstanding, one line per task:
+
+```
+N. Task caused by this session still open: <title> (<vault>) — <why it may be moot>
+```
+
+If `CLOSER_SWEEP` is available, append its invocation as the suggested fix. If not, name the file path and let the operator decide.
+
+**Never auto-close.** The producing pipeline may still legitimately own the task — a merged PR makes a *review* moot, but says nothing about, say, a follow-up task the same producer created. Flag and suggest; the close decision is the operator's.
+
+**Stay producer-agnostic.** Do not hardcode task types, producer names, vault names, or sweep-script paths — this command ships to installs with one vault, no pipelines, and no sweep skill, where the phase must skip in silence rather than error.
 
 ### Phase 5: Check for orphaned background processes
 

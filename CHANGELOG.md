@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.107.0
 
 - feat: `session-close` gains Phase 4.6, which checks tasks the session CAUSED rather than touched. Every prior phase asks "what did this session edit?" — Phase 4.5 scopes to touched tasks by design, so a task an external producer writes in response to a trigger (PR-review, release, build-fix) is invisible: the session that set the work in motion reports clean while the work sits open. Observed 2026-08-12, where a review task stayed `in_progress` after its PR merged and close still reported `nothing queued`. Matches non-terminal tasks in any configured vault against the session's repos/PRs, excludes anything Phase 4.5 already owns, and never auto-closes. Producer-agnostic: no hardcoded task types, vault names, or sweep-script paths, and gated behind a new `CLOSER_SWEEP` runtime detection so installs with one vault and no pipelines skip it silently
 

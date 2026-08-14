@@ -32,7 +32,7 @@ var _ = Describe("ErrNotFound sentinel", func() {
 	})
 
 	AfterEach(func() {
-		os.RemoveAll(tmpDir)
+		Expect(os.RemoveAll(tmpDir)).To(Succeed())
 	})
 
 	Describe("findFileByName with non-existent name", func() {

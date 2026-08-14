@@ -8,6 +8,12 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: clear two pre-existing advisory blockers that failed `make precommit` and prevented any commit to this repo — Go 1.26.5 → 1.26.6 in `go.mod` and CI (GO-2026-5972, GO-2026-6090), and `golang.org/x/mod` v0.37.0 → v0.40.0 (CVE-2026-56864, CVE-2026-56865), which pulled `x/net`, `x/sync`, `x/text` and `x/tools` forward with it
+
+- fix: a vault whose configured directory does not exist no longer aborts a cross-vault lookup. `ops.VaultDispatcher.FirstSuccess` continues to the next vault only when the error satisfies `errors.Is(err, storage.ErrNotFound)`, but `findFileByName` wrapped `filepath.WalkDir`'s ENOENT on a missing walk root as `"walk directory"` — so one vault configured with a `goals_dir` that was never created failed the entire search, and the error named a vault the caller never queried. Vault iteration order is randomized, so it presented as flaky rather than deterministic: measured 9 of 20 `goal get` runs failing against a config with three such vaults. `findFileByName` now reports a non-existent directory as `ErrNotFound`, which fixes goal, task, theme, objective and vision lookups in one place — tasks never surfaced it only because every configured vault happened to have a valid `tasks_dir`
+
 ## v0.107.0
 
 - feat: `session-close` gains Phase 4.6, which checks tasks the session CAUSED rather than touched. Every prior phase asks "what did this session edit?" — Phase 4.5 scopes to touched tasks by design, so a task an external producer writes in response to a trigger (PR-review, release, build-fix) is invisible: the session that set the work in motion reports clean while the work sits open. Observed 2026-08-12, where a review task stayed `in_progress` after its PR merged and close still reported `nothing queued`. Matches non-terminal tasks in any configured vault against the session's repos/PRs, excludes anything Phase 4.5 already owns, and never auto-closes. Producer-agnostic: no hardcoded task types, vault names, or sweep-script paths, and gated behind a new `CLOSER_SWEEP` runtime detection so installs with one vault and no pipelines skip it silently

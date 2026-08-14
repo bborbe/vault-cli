@@ -32,7 +32,7 @@ var _ = Describe("ErrNotFound sentinel", func() {
 	})
 
 	AfterEach(func() {
-		os.RemoveAll(tmpDir)
+		Expect(os.RemoveAll(tmpDir)).To(Succeed())
 	})
 
 	Describe("findFileByName with non-existent name", func() {
@@ -46,6 +46,29 @@ var _ = Describe("ErrNotFound sentinel", func() {
 			_, _, err := storage.FindFileByNameForTest(ctx, b, tmpDir, "nonexistent-task")
 			Expect(err).NotTo(BeNil())
 			Expect(errors.Is(err, storage.ErrNotFound)).To(BeTrue())
+		})
+	})
+
+	Describe("findFileByName with a non-existent directory", func() {
+		var missingDir string
+
+		BeforeEach(func() {
+			missingDir = filepath.Join(tmpDir, "does-not-exist")
+		})
+
+		// A vault configured with a goals_dir that was never created must look like
+		// "not here" rather than a hard failure — ops.VaultDispatcher.FirstSuccess only
+		// continues to the next vault when the error satisfies errors.Is(err, ErrNotFound).
+		It("the error satisfies errors.Is for storage.ErrNotFound", func() {
+			_, _, err := storage.FindFileByNameForTest(ctx, b, missingDir, "some-goal")
+			Expect(err).NotTo(BeNil())
+			Expect(errors.Is(err, storage.ErrNotFound)).To(BeTrue())
+		})
+
+		It("does not surface the missing directory path as a walk error", func() {
+			_, _, err := storage.FindFileByNameForTest(ctx, b, missingDir, "some-goal")
+			Expect(err).NotTo(BeNil())
+			Expect(err.Error()).NotTo(ContainSubstring("walk directory"))
 		})
 	})
 

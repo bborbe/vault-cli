@@ -125,15 +125,27 @@ Do NOT set `assignee`. Do NOT set fields the user did not ask for.
 
 Order:
 
+**This order is not a suggestion — it mirrors `docs/task-writing.md` § Required sections, which `task-auditor` enforces.** Diverging here means every task this agent writes is flagged Critical on creation and hand-fixed afterwards.
+
 1. `Tags: [[Task]] [[<Theme>]]` (if a theme is set)
 2. `---` separator
 3. Short summary paragraph (1–2 sentences)
 4. `# Impact` — why this task matters
-5. `# Success Criteria` — checkboxes the task must meet
-6. `# Out of Scope` — explicit deferrals (2–5 concrete items; placeholder if author drafting). Forces scope articulation; parallels `# Non-goals` on goals. See `vault-cli/docs/task-writing.md`.
-7. `# Tasks` — actionable subtasks as checkboxes
-8. `# Verification` — how to verify completion
-9. `# Definition of Done` — final acceptance bar
+5. `# Success Criteria` — binary checkbox outcomes; *what we want when done*
+6. `# Definition of Done` — **`- [ ]` checkboxes**, ≥2, covering closure ("PR merged", "verified on prod"); *how we verify we're done*. Required for shipping-class tasks and any task whose SC items are aspirational. Sits HERE, directly after Success Criteria — not at the end.
+7. `# Out of Scope` — explicit deferrals (2–5 concrete items; placeholder if author drafting). Forces scope articulation; parallels `# Non-goals` on goals.
+8. `# Tasks` — actionable subtasks as checkboxes
+9. `# Progress` — dated log of work done; lives at the bottom
+
+**Do NOT emit `# Verification`.** It is not one of the canonical sections and `task-auditor` flags it as a Critical Issue duplicating `# Definition of Done`. Verification content belongs inside the DoD items or inside the relevant `# Tasks` subtask, where a reader encounters it in context.
+
+**Write `themes:` and `goals:` as YAML lists, never as a scalar.** `themes: [[A]] [[B]]` is a single string and does not parse as two links:
+
+```yaml
+themes:
+    - '[[Advance AI Autonomy]]'
+    - '[[Leverage Autonomous Agents]]'
+```
 
 If a template body was loaded in step 7, use it instead of generating these sections from scratch — but still write the frontmatter computed in step 8.
 

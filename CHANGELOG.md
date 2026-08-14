@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.107.2
 
 - fix: align `task-creator`'s body-section order with `docs/task-writing.md`, which `task-auditor` enforces — the agent emitted a non-canonical `# Verification` section, placed `# Definition of Done` last instead of after `# Success Criteria`, wrote DoD items as plain bullets rather than `- [ ]` checkboxes, and never emitted `# Progress`. Every task it created was therefore flagged Critical by the auditor on creation and hand-fixed afterwards. Also documents `themes:`/`goals:` as YAML lists — the scalar form `themes: [[A]] [[B]]` is one string, not two links.
 

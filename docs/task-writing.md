@@ -266,6 +266,8 @@ Ticking a verification subtask with body containing any of these phrases (case-i
 - *"tested on dev only"* (and prod was forgotten — same failure mode the dev/prod ladder prevents)
 - *"ci passed = tested"* (CI verifies the deploy succeeded, not that the new behavior works)
 - *"auto-release tagged ≠ shipped"* (tagging is mechanical; shipping requires real-environment verification)
+- *"handed to the pipeline"* / *"dispatched to the agent"* / *"queued for the agent"* (dispatch is not completion — tick on the landed output, not the handoff)
+- *"tasks emitted ≠ work landed"* (emitting N producer tasks says nothing about whether any produced a merged result)
 - *"deferred to follow-up goal"* (then the current goal isn't done — change the scope or do the verification)
 - *"verified via curl / api / endpoint test"* on a UI feature (backend round-trips never exercise the rendered UI — a human must click it)
 - *"static tests pass = ui works"* / *"code review confirms the ui"* (neither renders or clicks the interface)

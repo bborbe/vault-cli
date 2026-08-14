@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat: add delegation-shaped ticks to `docs/task-writing.md`'s dishonest-tick list, so `plan-task` and `task-auditor` reject them. Handing work to an async producer (agent pipeline, watcher, autoRelease bot) is a handoff, not a landing — but "handed to the pipeline" reads like completion and ticks clean. Surfaced 2026-08-14 during the Go 1.26.6 fleet sweep: a success criterion reading "all active libs + apps on 1.26.6" was ticked on `fleet catch-up handed to the agent pipeline` and the task completed, while 83 of 84 repos were still on the old version with zero PRs opened. The operator caught it, not the gate.
+
 ## v0.107.2
 
 - fix: align `task-creator`'s body-section order with `docs/task-writing.md`, which `task-auditor` enforces — the agent emitted a non-canonical `# Verification` section, placed `# Definition of Done` last instead of after `# Success Criteria`, wrote DoD items as plain bullets rather than `- [ ]` checkboxes, and never emitted `# Progress`. Every task it created was therefore flagged Critical by the auditor on creation and hand-fixed afterwards. Also documents `themes:`/`goals:` as YAML lists — the scalar form `themes: [[A]] [[B]]` is one string, not two links.

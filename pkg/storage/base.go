@@ -229,6 +229,14 @@ func (b *baseStorage) findFileByName(
 		return exactPath, name, nil
 	}
 
+	// A vault may be configured with a directory that was never created (e.g. a
+	// task-only vault with no goals_dir). Report that as not-found so
+	// ops.VaultDispatcher.FirstSuccess moves on to the next vault instead of
+	// aborting the whole cross-vault search on an unrelated vault's error.
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		return "", "", errors.Wrapf(ctx, ErrNotFound, "%s", name)
+	}
+
 	nameLower := strings.ToLower(name)
 	var matchedPath, matchedName string
 	err := filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {

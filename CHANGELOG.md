@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.109.0
 
 - feat: `--non-interactive` work-on commands now auto-chain plan → execute instead of stopping at the next-step signal. `work-on-task`, `work-on`, and `work-on-goal` run the same chain in both modes, under a NO-ASK contract when headless: no `AskUserQuestion` anywhere in the chain, and a gate that would ask prints the unresolved gaps and stops at `phase: planning` instead. `plan-task` and `execute-task` gained matching `--non-interactive` contracts. Reverses the "non-interactive chaining is out of scope" call from v0.98.0, which assumed headless callers always get a second interactive turn — they do not: the Vault UI Start button runs the headless turn and then hands the operator a bare `--resume` with no prompt argument (`vault_ui/api/tasks.py` `_build_resume_command`), so vault-cli's own turn-2 continuation (`pkg/ops/workon.go`) never fires on that path. Every dashboard-started task therefore stopped at the signal and needed a manual confirmation plus two manual commands.
 

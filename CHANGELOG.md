@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.109.3
 
 - fix: make `session-close` Phase 2 idempotent. It mandated invoking `/vault-cli:sync-progress` with no guard for having already run in the same conversation — but the command's own Integration section lists `sync-progress` as the mid-session checkpoint, so running it and then closing is the expected path, and the second invocation appends duplicate "What happened today" entries. Phase 2 now documents the skip and requires stating it in the Phase 9 output, so Phase 7's representation check still has something to verify against.
 - fix: document scenario 002's real runtime. The `task work-on` step spawns a headless `claude --print` turn that produces no output for ~2-3 minutes (measured 2m49s); nothing said so, and a walk using `timeout 10` reported the resulting exit 124 as a broken `work-on`. The step now states the expected silence, the ≥300s budget, and that a short timeout is a false FAIL.

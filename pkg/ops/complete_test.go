@@ -31,6 +31,7 @@ var _ = Describe("CompleteOperation", func() {
 		vaultPath            string
 		taskName             string
 		task                 *domain.Task
+		force                bool
 	)
 
 	BeforeEach(func() {
@@ -57,10 +58,11 @@ var _ = Describe("CompleteOperation", func() {
 		)
 		mockTaskStorage.FindTaskByNameReturns(task, nil)
 		mockTaskStorage.WriteTaskReturns(nil)
+		force = false
 	})
 
 	JustBeforeEach(func() {
-		result, err = completeOp.Execute(ctx, vaultPath, taskName, "test-vault")
+		result, err = completeOp.Execute(ctx, vaultPath, taskName, "test-vault", force)
 	})
 
 	Context("success", func() {
@@ -113,6 +115,57 @@ var _ = Describe("CompleteOperation", func() {
 
 		It("returns error", func() {
 			Expect(err).NotTo(BeNil())
+		})
+	})
+
+	Context("task with incomplete checkboxes", func() {
+		BeforeEach(func() {
+			task = domain.NewTask(
+				map[string]any{"status": "todo"},
+				domain.FileMetadata{Name: taskName},
+				domain.Content("# Tasks\n\n- [x] done\n- [ ] still open\n"),
+			)
+			mockTaskStorage.FindTaskByNameReturns(task, nil)
+		})
+
+		Context("without force", func() {
+			BeforeEach(func() {
+				force = false
+			})
+
+			It("returns error", func() {
+				Expect(err).NotTo(BeNil())
+			})
+
+			It("reports the pending count", func() {
+				Expect(err.Error()).To(ContainSubstring("incomplete subtasks: 1 pending"))
+			})
+
+			It("does not write the task", func() {
+				Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(0))
+			})
+
+			It("reports incomplete_items as the reason", func() {
+				Expect(result.Reason).To(Equal("incomplete_items"))
+			})
+		})
+
+		Context("force bypasses the incomplete-checkbox check", func() {
+			BeforeEach(func() {
+				force = true
+			})
+
+			It("returns no error", func() {
+				Expect(err).To(BeNil())
+			})
+
+			It("writes the task", func() {
+				Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+			})
+
+			It("marks the task completed", func() {
+				Expect(task.Status()).To(Equal(domain.TaskStatusCompleted))
+			})
 		})
 	})
 

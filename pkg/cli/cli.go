@@ -148,7 +148,8 @@ func createCompleteCommand(
 	vaultName *string,
 	outputFormat *string,
 ) *cobra.Command {
-	return &cobra.Command{
+	var force bool
+	cmd := &cobra.Command{
 		Use:   "complete <task-name>",
 		Short: "Mark a task as complete",
 		Args:  cobra.ExactArgs(1),
@@ -176,7 +177,7 @@ func createCompleteCommand(
 						dailyStore,
 						currentDateTime,
 					)
-					result, err := completeOp.Execute(ctx, vault.Path, taskName, vault.Name)
+					result, err := completeOp.Execute(ctx, vault.Path, taskName, vault.Name, force)
 					if err != nil {
 						return result, err
 					}
@@ -195,6 +196,10 @@ func createCompleteCommand(
 			)
 		},
 	}
+
+	cmd.Flags().
+		BoolVar(&force, "force", false, "Complete even if the task has incomplete checkboxes")
+	return cmd
 }
 
 func createDeferCommand(

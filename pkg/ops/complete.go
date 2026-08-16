@@ -20,11 +20,14 @@ import (
 
 //counterfeiter:generate -o ../../mocks/complete-operation.go --fake-name CompleteOperation . CompleteOperation
 type CompleteOperation interface {
+	// Execute marks a task as complete. When force is true the incomplete-subtask
+	// guard is bypassed, mirroring the --force flag on goal complete.
 	Execute(
 		ctx context.Context,
 		vaultPath string,
 		taskName string,
 		vaultName string,
+		force bool,
 	) (MutationResult, error)
 }
 
@@ -73,6 +76,7 @@ func (c *completeOperation) Execute(
 	vaultPath string,
 	taskName string,
 	vaultName string,
+	force bool,
 ) (MutationResult, error) {
 	var warnings []string
 
@@ -94,9 +98,11 @@ func (c *completeOperation) Execute(
 		return c.handleRecurringTask(ctx, task, vaultPath, vaultName, warnings)
 	}
 
-	// Check subtask completion for non-recurring tasks
-	if result, shouldBlock, blockErr := c.checkSubtaskCompletion(ctx, task); shouldBlock {
-		return result, blockErr
+	// Check subtask completion for non-recurring tasks, unless forced
+	if !force {
+		if result, shouldBlock, blockErr := c.checkSubtaskCompletion(ctx, task); shouldBlock {
+			return result, blockErr
+		}
 	}
 
 	// Update task status to completed

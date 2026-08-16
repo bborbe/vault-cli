@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.111.1
 
 - fix: the permission-mode precheck added in v0.110.0 never fired for ops tasks. It sat inside Phase 5, which is gated on the code-task heuristic (`fix|implement|refactor|add|bug|deploy|build`), so a task whose entire body is `kubectl delete` skipped Phase 5 wholesale and the precheck with it — every `decommission` / `renew` / `rebuild` / `migrate` task was silently excluded, which is exactly the ops work that needs the switch. Moved to its own Phase 5.5 that runs for all tasks and keys on the task's own commands. Caught by exercising v0.110.0 on "Decommission MinIO on Hell" the same day it shipped.
 

@@ -8,6 +8,11 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: make `session-close` Phase 2 idempotent. It mandated invoking `/vault-cli:sync-progress` with no guard for having already run in the same conversation — but the command's own Integration section lists `sync-progress` as the mid-session checkpoint, so running it and then closing is the expected path, and the second invocation appends duplicate "What happened today" entries. Phase 2 now documents the skip and requires stating it in the Phase 9 output, so Phase 7's representation check still has something to verify against.
+- fix: document scenario 002's real runtime. The `task work-on` step spawns a headless `claude --print` turn that produces no output for ~2-3 minutes (measured 2m49s); nothing said so, and a walk using `timeout 10` reported the resulting exit 124 as a broken `work-on`. The step now states the expected silence, the ≥300s budget, and that a short timeout is a false FAIL.
+
 ## v0.109.2
 
 - fix: `task work-on` and `goal work-on` no longer revert frontmatter written by their own headless bootstrap session. `StartSession` blocks for the entire `claude --print` turn (~3 min measured), and since v0.109.0 that turn auto-chains `plan-task` → `execute-task` and writes `phase: execution` to the entity file. Both operations then wrote back the in-memory copy loaded *before* the session ran, silently reverting `phase` and any other field the turn changed while adding only `claude_session_id`. Both now re-read the entity from disk once the session returns and apply `claude_session_id` to that fresh copy. Also corrects the stale comment in `pkg/ops/workon.go` claiming the non-interactive turn prints the next-step signal and stops

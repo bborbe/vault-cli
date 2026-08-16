@@ -168,6 +168,29 @@ Compose the full file content (frontmatter + body) and write it via the `Write` 
 {vault.path}/{tasks_dir}/{filename}
 ```
 
+## 11b. Link the parent goal back
+
+`goals:` in the task's frontmatter is only half the link. `vault-cli task complete` ticks
+the task's checkbox **in the goal file** and warns when it cannot find one, so the creator
+must write that side too.
+
+For each entry in `goals:`, resolve `{vault.path}/{goals_dir}/{goal title}.md` and append
+to its `# Tasks` section (create the section above `# Related` if absent):
+
+```
+- [ ] [[{task title}]]
+```
+
+Skip silently when the task has no parent goal, when the goal file does not exist, or when
+a checkbox for this task is already present (re-runs must not duplicate).
+
+**Why.** Observed 2026-08-16: `Decommission MinIO on Hell` was created with
+`goals: ['[[Eliminate MinIO EOL Risk]]']` and the goal was never touched. Completing it
+emitted `failed to update goal [[Eliminate MinIO EOL Risk]]: checkbox not found for task
+Decommission MinIO on Hell`, and the line had to be added by hand. Every goal-linked task
+created by this agent hits the same warning, and a goal whose task list silently omits its
+own tasks under-reports its own progress.
+
 ## 12. Audit (interactive only)
 
 Run a light self-audit against the file:
@@ -176,6 +199,7 @@ Run a light self-audit against the file:
 - Title file matches title-case rule
 - Body has Success Criteria + Tasks sections (or template body)
 - No accidental empty sections
+- Every `goals:` entry has a matching `- [ ] [[{task title}]]` checkbox in the goal file (step 11b)
 
 Skip in MODE=non_interactive.
 

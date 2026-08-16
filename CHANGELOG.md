@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.110.0
 
 - feat: `work-on-task-assistant` Phase 5 now prompts the `accept edits` permission-mode switch when the extracted workflow assigns cluster/deploy mutations to the operator. Stating the operator/agent split was not enough on its own — observed 2026-08-16, the block correctly said "the **operator** runs the cluster mutations" and the session still spent ~40 minutes handing back command blocks until the owner interrupted. The split says who may run the command; the new line makes the switch that lets the agent run it in-session.
 

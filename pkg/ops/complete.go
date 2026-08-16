@@ -180,7 +180,12 @@ func (c *completeOperation) checkSubtaskCompletion(
 		Completed:  completed,
 		Total:      total,
 	}
-	return result, true, errors.Errorf(ctx, "incomplete subtasks: %d pending", pending)
+	return result, true, errors.Errorf(
+		ctx,
+		"incomplete subtasks: %d pending, %d in-progress",
+		pending,
+		inProgress,
+	)
 }
 
 // handleRecurringTask handles completion of a recurring task.

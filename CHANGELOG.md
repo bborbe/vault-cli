@@ -12,6 +12,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 
 - feat: `task complete` gains `--force`, bypassing the incomplete-checkbox guard. `commands/complete-task.md` has advertised the flag since it was written — `argument-hint` lists `[--force]`, and the abort path tells the operator to "re-run with `--force` to complete anyway" — but only `goal complete` implemented it (`cli.go`, "Complete even if open tasks are linked to this goal"). On the task path the advice was a dead end: the run failed with `incomplete subtasks: N pending` and the only way through was editing the task file to remove the checkboxes, which is lossy — out-of-scope follow-up items have to be relabelled as prose to satisfy a gate that was never meant to be absolute. Hit twice in one session on 2026-08-16, and first reported 2026-08-11.
 
+## v0.110.0
+
+- feat: `work-on-task-assistant` Phase 5 now prompts the `accept edits` permission-mode switch when the extracted workflow assigns cluster/deploy mutations to the operator. Stating the operator/agent split was not enough on its own — observed 2026-08-16, the block correctly said "the **operator** runs the cluster mutations" and the session still spent ~40 minutes handing back command blocks until the owner interrupted. The split says who may run the command; the new line makes the switch that lets the agent run it in-session.
+
 ## v0.109.3
 
 - fix: make `session-close` Phase 2 idempotent. It mandated invoking `/vault-cli:sync-progress` with no guard for having already run in the same conversation — but the command's own Integration section lists `sync-progress` as the mid-session checkpoint, so running it and then closing is the expected path, and the second invocation appends duplicate "What happened today" entries. Phase 2 now documents the skip and requires stating it in the Phase 9 output, so Phase 7's representation check still has something to verify against.

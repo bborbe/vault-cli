@@ -1,12 +1,22 @@
 ---
 description: Gate planning → execution. Re-runs plan-task's hard non-negotiables; on pass, flips phase + prints first subtask + DoD reminder; auto-invokes a bare allowlisted slash-command subtask.
-argument-hint: "<task-file-path-or-name> (or detects from conversation)"
+argument-hint: "<task-file-path-or-name> [--non-interactive] (or detects from conversation)"
 allowed-tools: [Read, Edit, Glob, Bash, AskUserQuestion, Task, Skill]
 ---
 
 The **hard gate** between planning and execution. Refuses to flip `phase: planning → execution` unless plan-task's 4 hard non-negotiables pass. Idempotent on `phase: execution` — re-prints first subtask + DoD as a session-start reminder. Closes the lifecycle's final operational gap: every phase transition now has an enforced command.
 
 This command **must stay inline** — it analyzes the parent conversation when no argument is given; a sub-agent cannot see the conversation.
+
+## Non-interactive contract
+
+If the arguments contain `--non-interactive`, strip that token and run under **NO-ASK**: never call `AskUserQuestion`. The caller is headless and cannot answer.
+
+- **Step 1 ambiguity** (multiple `Glob` matches) → print the candidates and `❌ Ambiguous task identifier — pass an exact path.` STOP.
+- **Steps 3–6** (refusals, entry contract, the 4 hard non-negotiables, the phase flip) are unchanged — none of them ask; they check and decide. A task that passes the gate flips to `execution` headlessly, exactly as it would interactively.
+- **Step 7's subtask classification** — the "bare slash-command call → invoke" branch already runs with no approval turn, so it is unchanged. Any branch that would otherwise seek approval is downgraded to printing the subtask for the operator instead of acting on it.
+
+The phase flip is deliberately allowed headlessly: it is the whole point of chaining, it is reversible (`vault-cli task set <name> phase planning`), and it is gated by the same hard checks in both modes.
 
 ## When to use
 

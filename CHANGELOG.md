@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat: `--non-interactive` work-on commands now auto-chain plan → execute instead of stopping at the next-step signal. `work-on-task`, `work-on`, and `work-on-goal` run the same chain in both modes, under a NO-ASK contract when headless: no `AskUserQuestion` anywhere in the chain, and a gate that would ask prints the unresolved gaps and stops at `phase: planning` instead. `plan-task` and `execute-task` gained matching `--non-interactive` contracts. Reverses the "non-interactive chaining is out of scope" call from v0.98.0, which assumed headless callers always get a second interactive turn — they do not: the Vault UI Start button runs the headless turn and then hands the operator a bare `--resume` with no prompt argument (`vault_ui/api/tasks.py` `_build_resume_command`), so vault-cli's own turn-2 continuation (`pkg/ops/workon.go`) never fires on that path. Every dashboard-started task therefore stopped at the signal and needed a manual confirmation plus two manual commands.
+
 ## v0.108.0
 
 - feat: add delegation-shaped ticks to `docs/task-writing.md`'s dishonest-tick list, so `plan-task` and `task-auditor` reject them. Handing work to an async producer (agent pipeline, watcher, autoRelease bot) is a handoff, not a landing — but "handed to the pipeline" reads like completion and ticks clean. Surfaced 2026-08-14 during the Go 1.26.6 fleet sweep: a success criterion reading "all active libs + apps on 1.26.6" was ticked on `fleet catch-up handed to the agent pipeline` and the task completed, while 83 of 84 repos were still on the old version with zero PRs opened. The operator caught it, not the gate.

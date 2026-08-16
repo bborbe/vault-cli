@@ -1,12 +1,24 @@
 ---
 description: Validate that a task has Success Criteria and the subtasks needed to reach its goal; conversationally fill gaps; leaves the task at phase=planning and hands off to execute-task (never flips phase itself).
-argument-hint: <task-file-path-or-name> (or detects from conversation)
+argument-hint: <task-file-path-or-name> [--non-interactive] (or detects from conversation)
 allowed-tools: [Task, Read, Edit, Glob, Bash, AskUserQuestion]
 ---
 
 Drive a task to *execution-ready* through conversation. Checks that the task has Success Criteria defined and subtasks that lead from now to the goal. Runs `task-auditor` for findings, asks targeted questions, applies answers, loops until ready. Leaves the task at `phase: planning` and points to `/vault-cli:execute-task` to begin — **plan-task never flips the phase itself**; `execute-task` owns the `planning → execution` transition.
 
 This command **must stay inline** — it analyzes the parent conversation when no argument is given; a sub-agent cannot see the conversation.
+
+## Non-interactive contract
+
+If the arguments contain `--non-interactive`, strip that token and run under **NO-ASK**: never call `AskUserQuestion` — not for the ambiguous-match prompt in step 1, not for the gap questions in step 6, not anywhere. The caller is headless (`claude --print` via `vault-cli work-on`, or the Vault UI Start button) and cannot answer; an ask is a hang, not a question.
+
+Under NO-ASK, every point that would ask instead **reports and stops**:
+
+- **Step 1 ambiguity** (multiple `Glob` matches) → print the candidates and `❌ Ambiguous task identifier — pass an exact path.` STOP.
+- **Step 6 gaps** → do not enter the fix loop, do not `Edit` the task from assumed answers. Skip to step 7 and exit on the `⚠` branch, listing each unresolved gap as a bullet phrased as the question you would have asked, so the operator can answer it on resume.
+- **Step 5 soft KISS warning** → print it as a note; it never blocks exit on its own.
+
+Everything else is unchanged: entry-contract flips (step 3), the auditor run (step 4), and the five gate checks (step 5) all behave identically. A task whose gates pass clean produces the same `✅ Plan ready` in both modes — NO-ASK only changes what happens to a task that has real gaps.
 
 ## When to use
 
@@ -99,6 +111,8 @@ Any hard check failing → mandatory question in step 6; can't exit on auditor s
 
 ### 6. Surface gaps + fix loop
 
+**NO-ASK short-circuit:** under `--non-interactive` this whole step is skipped — no questions, no fix loop, no `Edit`. Carry the gaps forward to step 7's `⚠` branch as bullets. The rest of this step applies to ASK mode only.
+
 Translate findings (auditor + non-negotiable checks) into questions. Rules:
 
 - Max 3 questions per turn
@@ -121,9 +135,11 @@ Print: `✅ Plan ready. Score: X/10. Phase stays: planning. → Run /vault-cli:e
 
 Print: `✅ Task sharpened. Score: X/10. Phase unchanged (was <phase>).`
 
-**Owner abort OR score < 8 after loop:**
+**Owner abort OR score < 8 after loop (ASK mode) — OR any unresolved gap (NO-ASK mode):**
 
 Print: `⚠ Task improved to X/10. Phase unchanged. Remaining: <bullets>. Re-run /vault-cli:plan-task when ready.`
+
+Under NO-ASK the score is whatever the auditor returned (nothing was fixed, so there is no "improved to"); print `⚠ Plan not ready. Score: X/10. Phase unchanged. Remaining: <bullets>. Answer these on resume, then re-run /vault-cli:plan-task.` Each bullet is the question that would have been asked, so the operator can answer it directly.
 
 ## Notes
 
@@ -131,7 +147,7 @@ Print: `⚠ Task improved to X/10. Phase unchanged. Remaining: <bullets>. Re-run
 - **Questions stay tight, with consequence visible.** 2-3 lines of setup → short options. "Tight" doesn't mean stripping context — owner must see what each answer *changes*. Quote the offending line, name the trade-off, then options.
 - **Subtask granularity = session-sized.** When proposing or sharpening `# Tasks` items, target *work-block size* (a session's worth of work), not CLI-step size. Aim for 3-6 items per task. Reject auditor-suggested over-decomposition like "run precommit / open PR / merge PR" as separate subtasks — those collapse into one "ship the change" block.
 - **Reads `~/.claude/plugins/marketplaces/vault-cli/docs/task-writing.md` as the canonical rule source** — same rules `task-auditor` enforces.
-- **Conversational on purpose.** Owner is the judge of substance. Plan-task never silently rewrites; every change comes from an explicit answer.
+- **Conversational on purpose.** Owner is the judge of substance. Plan-task never silently rewrites; every change comes from an explicit answer. This is exactly why `--non-interactive` refuses to guess: with no owner to answer, the honest move is to stop and list the gaps, never to invent answers and edit the task.
 - **Entry contract.** On a fresh task (`status: next, phase: todo`), plan-task flips to `in_progress, planning` itself. No `/work-on-task` prerequisite.
 - **No phase flip.** plan-task never transitions phase; it validates and hands off to `/vault-cli:execute-task`, which owns the `planning → execution` flip. Entry-contract flips (`next` → `in_progress` + `planning`) still happen in step 3.
 - **Mechanical fixes stay in `/audit-task`.** This command is for substance (SC, subtasks, goal alignment), not formatting.
@@ -141,7 +157,7 @@ Print: `⚠ Task improved to X/10. Phase unchanged. Remaining: <bullets>. Re-run
 Task lifecycle:
 
 1. `/vault-cli:create-task` — capture (lenient)
-2. `/vault-cli:work-on-task` — orient (status + guides + daily note), then auto-chain into this command (interactive)
+2. `/vault-cli:work-on-task` — orient (status + guides + daily note), then auto-chain into this command (both modes; headless callers pass `--non-interactive` through)
 3. **`/vault-cli:plan-task`** — sharpen (5 hard gates); never flips `planning → execution` — this command
 4. `/vault-cli:execute-task` — gate planning → execution; flips phase + prints first subtask + DoD reminder
 5. Start work — while working, use any of:
@@ -155,5 +171,6 @@ Task lifecycle:
 Output ends with one of:
 - `✅ Plan ready. Score: X/10. Phase stays: planning. → Run /vault-cli:execute-task.` (planning success)
 - `✅ Task sharpened. Score: X/10. Phase unchanged (was <phase>).` (non-planning success)
-- `⚠ Task improved to X/10. Phase unchanged. Remaining: <bullets>. Re-run when ready.` (partial)
-- `❌ Task not found.` / `❌ Pass a task identifier or name.` (input error)
+- `⚠ Task improved to X/10. Phase unchanged. Remaining: <bullets>. Re-run when ready.` (partial, ASK mode)
+- `⚠ Plan not ready. Score: X/10. Phase unchanged. Remaining: <bullets>. Answer these on resume, then re-run /vault-cli:plan-task.` (partial, NO-ASK mode)
+- `❌ Task not found.` / `❌ Pass a task identifier or name.` / `❌ Ambiguous task identifier — pass an exact path.` (input error)

@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.109.2
 
 - fix: `task work-on` and `goal work-on` no longer revert frontmatter written by their own headless bootstrap session. `StartSession` blocks for the entire `claude --print` turn (~3 min measured), and since v0.109.0 that turn auto-chains `plan-task` → `execute-task` and writes `phase: execution` to the entity file. Both operations then wrote back the in-memory copy loaded *before* the session ran, silently reverting `phase` and any other field the turn changed while adding only `claude_session_id`. Both now re-read the entity from disk once the session returns and apply `claude_session_id` to that fresh copy. Also corrects the stale comment in `pkg/ops/workon.go` claiming the non-interactive turn prints the next-step signal and stops
 

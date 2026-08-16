@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat: `work-on-task-assistant` Phase 5 now prompts the `accept edits` permission-mode switch when the extracted workflow assigns cluster/deploy mutations to the operator. Stating the operator/agent split was not enough on its own — observed 2026-08-16, the block correctly said "the **operator** runs the cluster mutations" and the session still spent ~40 minutes handing back command blocks until the owner interrupted. The split says who may run the command; the new line makes the switch that lets the agent run it in-session.
+
 ## v0.109.3
 
 - fix: make `session-close` Phase 2 idempotent. It mandated invoking `/vault-cli:sync-progress` with no guard for having already run in the same conversation — but the command's own Integration section lists `sync-progress` as the mid-session checkpoint, so running it and then closing is the expected path, and the second invocation appends duplicate "What happened today" entries. Phase 2 now documents the skip and requires stating it in the Phase 9 output, so Phase 7's representation check still has something to verify against.

@@ -93,13 +93,22 @@ var _ = Describe("WorkOnOperation", func() {
 		})
 
 		It("calls FindTaskByName", func() {
-			Expect(mockTaskStorage.FindTaskByNameCallCount()).To(Equal(1))
+			// Twice: once to load the task, once to re-read it after the blocking
+			// session returns so the session's own frontmatter writes survive.
+			Expect(mockTaskStorage.FindTaskByNameCallCount()).To(Equal(2))
 			actualCtx, actualVaultPath, actualTaskName := mockTaskStorage.FindTaskByNameArgsForCall(
 				0,
 			)
 			Expect(actualCtx).To(Equal(ctx))
 			Expect(actualVaultPath).To(Equal(vaultPath))
 			Expect(actualTaskName).To(Equal(taskName))
+		})
+
+		It("re-reads the task from the vault path after the session", func() {
+			Expect(mockTaskStorage.FindTaskByNameCallCount()).To(Equal(2))
+			_, reReadVaultPath, reReadTaskName := mockTaskStorage.FindTaskByNameArgsForCall(1)
+			Expect(reReadVaultPath).To(Equal(vaultPath))
+			Expect(reReadTaskName).To(Equal(taskName))
 		})
 
 		It("marks task as in_progress", func() {
@@ -771,6 +780,27 @@ var _ = Describe("WorkOnOperation", func() {
 				Expect(writtenTask.Phase()).NotTo(BeNil())
 				Expect(*writtenTask.Phase()).To(Equal(domain.TaskPhaseInProgress))
 			})
+		})
+	})
+
+	Context("when the post-session re-read fails", func() {
+		BeforeEach(func() {
+			mockTaskStorage.FindTaskByNameReturnsOnCall(0, task, nil)
+			mockTaskStorage.FindTaskByNameReturnsOnCall(1, nil, ErrTest)
+		})
+
+		It("returns a wrapped error and Success=false", func() {
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("re-read task after claude session"))
+			Expect(result.Success).To(BeFalse())
+		})
+
+		It("still reports the session id so the session is not orphaned silently", func() {
+			Expect(result.SessionID).To(Equal("session-123"))
+		})
+
+		It("does not write a second time with the stale in-memory task", func() {
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 		})
 	})
 })

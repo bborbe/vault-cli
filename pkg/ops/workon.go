@@ -110,7 +110,7 @@ func (w *workOnOperation) Execute(
 		slog.Warn("workon warning", "warning", warning)
 	}
 
-	sessionID, sessionErr := w.handleClaudeSession(ctx, task, sessionDir, vault)
+	sessionID, sessionErr := w.handleClaudeSession(ctx, task, vaultPath, sessionDir, vault)
 	if sessionErr != nil {
 		if errors.Is(sessionErr, ErrStarterUnavailable) {
 			// Soft failure — claude binary missing. Spec 014 Failure Modes table:
@@ -126,10 +126,12 @@ func (w *workOnOperation) Execute(
 	}
 
 	if isInteractive && w.resumer != nil && sessionID != "" {
-		// Turn 1 ran headless with --non-interactive, which told the work-on
-		// command to print the next-step signal and STOP. Turn 2 is interactive,
-		// so re-invoke the same command WITHOUT the flag — otherwise the operator
-		// lands on the tail of a turn that was instructed to stop.
+		// Turn 1 ran headless with --non-interactive. Since v0.109.0 that turn
+		// auto-chains plan-task -> execute-task under a NO-ASK contract, so it can
+		// end anywhere from phase: planning (a gate needed an answer it could not
+		// ask for) to phase: execution. Turn 2 is interactive, so re-invoke the same
+		// command WITHOUT the flag: it resumes the chain from whatever phase turn 1
+		// left on disk and can ask the questions turn 1 had to skip.
 		continuation := fmt.Sprintf(`%s "%s"`, vault.GetWorkOnCommand(), task.FilePath)
 		return MutationResult{
 			Success:   true,
@@ -180,11 +182,35 @@ func applyAssigneeMatrix(task *domain.Task, assignee string) string {
 	}
 }
 
+// persistTaskSessionID re-reads the task from disk and writes back only the session id.
+// Used after StartSession blocks so that frontmatter the headless turn wrote is not
+// reverted by writing the stale in-memory copy.
+func persistTaskSessionID(
+	ctx context.Context,
+	vaultPath string,
+	taskName string,
+	sessionID string,
+	taskStorage storage.TaskStorage,
+) (string, error) {
+	refreshed, err := taskStorage.FindTaskByName(ctx, vaultPath, taskName)
+	if err != nil {
+		return sessionID, errors.Wrap(ctx, err, "re-read task after claude session")
+	}
+	refreshed.SetClaudeSessionID(sessionID)
+	if err := taskStorage.WriteTask(ctx, refreshed); err != nil {
+		return sessionID, errors.Wrap(ctx, err, "save session id to task")
+	}
+	return sessionID, nil
+}
+
 // handleClaudeSession starts or returns an existing Claude session for the task.
+// On a fresh start it re-reads the task from disk after the session returns, so
+// frontmatter the session itself wrote during the blocking turn survives.
 func (w *workOnOperation) handleClaudeSession(
 	ctx context.Context,
 	task *domain.Task,
 	vaultPath string,
+	sessionDir string,
 	vault *config.Vault,
 ) (string, error) {
 	if existing := task.ClaudeSessionID(); existing != "" {
@@ -198,15 +224,11 @@ func (w *workOnOperation) handleClaudeSession(
 	// defaults instead of prompting (prevents the 5m headless hang).
 	prompt := fmt.Sprintf(`%s "%s" --non-interactive`, vault.GetWorkOnCommand(), task.FilePath)
 	slog.Info("starting claude session", "task", task.Name)
-	sessionID, err := w.starter.StartSession(ctx, prompt, vaultPath, task.Name)
+	sessionID, err := w.starter.StartSession(ctx, prompt, sessionDir, task.Name)
 	if err != nil {
 		return "", errors.Wrap(ctx, err, "start claude session")
 	}
-	task.SetClaudeSessionID(sessionID)
-	if err := w.taskStorage.WriteTask(ctx, task); err != nil {
-		return sessionID, errors.Wrap(ctx, err, "save session id to task")
-	}
-	return sessionID, nil
+	return persistTaskSessionID(ctx, vaultPath, task.Name, sessionID, w.taskStorage)
 }
 
 // updateDailyNote updates the daily note to mark the task as in-progress.

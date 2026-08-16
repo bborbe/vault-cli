@@ -84,13 +84,22 @@ var _ = Describe("GoalWorkOnOperation", func() {
 		})
 
 		It("calls FindGoalByName", func() {
-			Expect(mockGoalStorage.FindGoalByNameCallCount()).To(Equal(1))
+			// Twice: once to load the goal, once to re-read it after the blocking
+			// session returns so the session's own frontmatter writes survive.
+			Expect(mockGoalStorage.FindGoalByNameCallCount()).To(Equal(2))
 			actualCtx, actualVaultPath, actualGoalName := mockGoalStorage.FindGoalByNameArgsForCall(
 				0,
 			)
 			Expect(actualCtx).To(Equal(ctx))
 			Expect(actualVaultPath).To(Equal(vaultPath))
 			Expect(actualGoalName).To(Equal(goalName))
+		})
+
+		It("re-reads the goal from the vault path after the session", func() {
+			Expect(mockGoalStorage.FindGoalByNameCallCount()).To(Equal(2))
+			_, reReadVaultPath, reReadGoalName := mockGoalStorage.FindGoalByNameArgsForCall(1)
+			Expect(reReadVaultPath).To(Equal(vaultPath))
+			Expect(reReadGoalName).To(Equal(goalName))
 		})
 
 		It("marks goal as in_progress", func() {

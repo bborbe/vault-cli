@@ -388,13 +388,24 @@ For each touched vault page (cap 5):
 **1. Orphan check (HIGH)** — does any *other* vault page link to it?
 
 ```bash
+# Search EVERY vault path in VAULT_CONFIG, not just the one owning the file.
+# Read into an ARRAY — the shell here is often zsh, which does NOT word-split an
+# unquoted "$paths" string. A bare `grep ... $ALL_VAULT_PATHS` passes all paths as
+# ONE argument, grep fails, stderr is swallowed, and every link reads UNRESOLVED —
+# a false flag indistinguishable from a real one. Verified 2026-08-16.
+ALL_VAULT_PATHS=("${(@f)$(vault-cli config list --output json | jq -r '.[].path')}")  # zsh
+# bash equivalent: mapfile -t ALL_VAULT_PATHS < <(vault-cli config list --output json | jq -r '.[].path')
 # basename without .md, matched as a [[wikilink]] (with or without alias/heading)
-grep -rlF "[[$BASENAME" "$VAULT_PATH" --include='*.md' | grep -vF "$FILE" | head -1
+grep -rlF "[[$BASENAME" "${ALL_VAULT_PATHS[@]}" --include='*.md' | grep -vF "$FILE" | head -1
 ```
+
+**Sanity-check the search before trusting a negative.** `echo "${#ALL_VAULT_PATHS[@]}"` must be ≥1, and a known-good link must resolve. An empty result from a broken search looks exactly like a clean result from a working one — see [[Checks That Report False Green]].
 
 Zero inbound links on a **newly created** page = orphan. Flag HIGH — it won't be found again.
 
-**2. Broken outbound links (HIGH)** — extract `[[Target]]` targets from the page; verify each resolves to a file somewhere in the vault (`find/glob` by basename). Unresolved target = broken link or typo. Flag with the target name.
+**2. Broken outbound links (HIGH)** — extract `[[Target]]` targets from the page; verify each resolves to a file in **any** vault in `VAULT_CONFIG` (`find/glob` by basename). Unresolved target = broken link or typo. Flag with the target name.
+
+**Cross-vault links are normal — search all vaults for both checks.** Scoping resolution to the owning vault reports every legitimate cross-vault wikilink as broken. Observed 2026-08-16: a task in `Personal` linking `[[Boss Memory]]` was flagged unresolved because the check searched only `Personal` and `Trading`; the page lives in the `Boss` vault and is referenced by 20+ files across two others. A false "broken link" costs the operator a needless investigation and erodes trust in the whole verdict — search wide, and treat a hit in any vault as resolved.
 
 **3. One-way link to a hub/canonical page (LOW)** — if the page links to a hub/index/concept page (`page_type: hub`, or a `*Hub*`/`*Concept*`/`*Pipeline*` page) that does **not** link back, the new page is invisible from the hub. Suggest a reciprocal backlink. Soft signal — suggest, don't insist.
 

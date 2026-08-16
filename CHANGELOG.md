@@ -8,13 +8,13 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## v0.111.0
-
-- feat: `task complete` gains `--force`, bypassing the incomplete-checkbox guard. `commands/complete-task.md` has advertised the flag since it was written — `argument-hint` lists `[--force]`, and the abort path tells the operator to "re-run with `--force` to complete anyway" — but only `goal complete` implemented it (`cli.go`, "Complete even if open tasks are linked to this goal"). On the task path the advice was a dead end: the run failed with `incomplete subtasks: N pending` and the only way through was editing the task file to remove the checkboxes, which is lossy — out-of-scope follow-up items have to be relabelled as prose to satisfy a gate that was never meant to be absolute. Hit twice in one session on 2026-08-16, and first reported 2026-08-11.
-
 ## Unreleased
 
 - fix: the permission-mode precheck added in v0.110.0 never fired for ops tasks. It sat inside Phase 5, which is gated on the code-task heuristic (`fix|implement|refactor|add|bug|deploy|build`), so a task whose entire body is `kubectl delete` skipped Phase 5 wholesale and the precheck with it — every `decommission` / `renew` / `rebuild` / `migrate` task was silently excluded, which is exactly the ops work that needs the switch. Moved to its own Phase 5.5 that runs for all tasks and keys on the task's own commands. Caught by exercising v0.110.0 on "Decommission MinIO on Hell" the same day it shipped.
+
+## v0.111.0
+
+- feat: `task complete` gains `--force`, bypassing the incomplete-checkbox guard. `commands/complete-task.md` has advertised the flag since it was written — `argument-hint` lists `[--force]`, and the abort path tells the operator to "re-run with `--force` to complete anyway" — but only `goal complete` implemented it (`cli.go`, "Complete even if open tasks are linked to this goal"). On the task path the advice was a dead end: the run failed with `incomplete subtasks: N pending` and the only way through was editing the task file to remove the checkboxes, which is lossy — out-of-scope follow-up items have to be relabelled as prose to satisfy a gate that was never meant to be absolute. Hit twice in one session on 2026-08-16, and first reported 2026-08-11.
 
 ## v0.110.0
 

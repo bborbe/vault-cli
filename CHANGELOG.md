@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: correct `docs/releasing-vault-cli.md` § "Plugin release", which claimed `autoRelease` does **not** bump the plugin JSONs and prescribed a manual bump as the default. Driver 1 (`github-releaser-agent`) bumps all four version strings in lockstep, as the same doc's Driver 1 section and `CLAUDE.md`'s Plugin Release Checklist both already said — so the section contradicted its own page and steered operators into the version race `CLAUDE.md` warns about. Manual procedure is now labelled FALLBACK, with the precondition to confirm the releaser is actually down. Also fixed the two upstream spots repeating the stale claim (the two-surfaces table's "Bumped how" cell, and the `autoRelease` implication note, which describes Driver 2 only). Verified empirically on v0.109.0: a `commands/`-only PR released with all four strings aligned and nothing hand-bumped.
+
 ## v0.109.0
 
 - feat: `--non-interactive` work-on commands now auto-chain plan → execute instead of stopping at the next-step signal. `work-on-task`, `work-on`, and `work-on-goal` run the same chain in both modes, under a NO-ASK contract when headless: no `AskUserQuestion` anywhere in the chain, and a gate that would ask prints the unresolved gaps and stops at `phase: planning` instead. `plan-task` and `execute-task` gained matching `--non-interactive` contracts. Reverses the "non-interactive chaining is out of scope" call from v0.98.0, which assumed headless callers always get a second interactive turn — they do not: the Vault UI Start button runs the headless turn and then hands the operator a bare `--resume` with no prompt argument (`vault_ui/api/tasks.py` `_build_resume_command`), so vault-cli's own turn-2 continuation (`pkg/ops/workon.go`) never fires on that path. Every dashboard-started task therefore stopped at the signal and needed a manual confirmation plus two manual commands.

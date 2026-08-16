@@ -9,7 +9,7 @@ Vault-cli ships two artifacts that version independently:
 | Surface | Versioned by | Consumed by | Bumped how |
 |---------|--------------|-------------|------------|
 | **Binary** | git tag `vX.Y.Z` + matching `## vX.Y.Z` section in `CHANGELOG.md` | other projects via `go install github.com/bborbe/vault-cli@latest`; task-orchestrator via configured `vault_cli_path` | Auto-tagged by vault-cli's own daemon (`autoRelease: true`) when a prompt completes and updates `## Unreleased` |
-| **Plugin** | `.claude-plugin/plugin.json` `version` + `.claude-plugin/marketplace.json` (`metadata.version` AND `plugins[0].version`) | Claude Code via the marketplace | Manual — operator bumps the three JSON fields |
+| **Plugin** | `.claude-plugin/plugin.json` `version` + `.claude-plugin/marketplace.json` (`metadata.version` AND `plugins[0].version`) | Claude Code via the marketplace | Auto-bumped by `github-releaser-agent` (Driver 1) in lockstep with the CHANGELOG while `autoRelease: true`; manual only as fallback |
 
 A single change can touch one surface or both.
 
@@ -26,7 +26,9 @@ The check is **release-time only** — `make precommit` does NOT run it. Use `ma
 
 **Why not in `precommit`**: every refactor commit advances `## Unreleased` → eventually a `## vX.Y.Z` heading; if every prompt had to bump plugin JSONs in lockstep, each refactor would consume a release number. We learned this the hard way during spec 010 — three prompts auto-bumped plugin versions just to clear the precommit gate, burning v0.58.7 → v0.59.0 → v0.59.1 on internal refactors.
 
-**Implication for `autoRelease`**: when a prompt produces a binary release (CHANGELOG bump → tag), the plugin JSONs may lag behind. Operator runs `make release-check` before producing a plugin release and bumps the JSONs to match the latest CHANGELOG entry at that time.
+**Implication for the dark-factory driver (Driver 2)**: when the daemon produces a binary release (CHANGELOG bump → tag), it does not touch the plugin JSONs, so they can lag behind. Operator runs `make release-check` before producing a plugin release and bumps the JSONs to match the latest CHANGELOG entry at that time.
+
+**Driver 1 (`github-releaser-agent`) is different** — it bumps all four strings together, so a post-merge release leaves them aligned with no operator action. That is the path a normal PR takes.
 
 ## The release gate (run BEFORE every `make install`)
 
@@ -186,19 +188,29 @@ brew update && brew install bborbe/tap/vault-cli && vault-cli --version
 
 If step 1 shows no run, the Release was created as a **draft** — drafts do not fire `release: published`. Publish it (`gh release edit "$TAG" --draft=false`) and the workflow will trigger.
 
-## Plugin release (manual)
+## Plugin release
 
-Whenever any of `commands/`, `agents/`, `docs/`, or `skills/` change, the plugin version must be bumped. The binary's `autoRelease` does **not** bump the plugin version — these JSON files are not part of the binary CHANGELOG-driven flow.
+Whenever any of `commands/`, `agents/`, `docs/`, or `skills/` change, the plugin version must be bumped — the three `.claude-plugin/` JSON fields plus the CHANGELOG entry, all to the same version.
 
-### When to bump
+**While `.maintainer.yaml: release.autoRelease: true` (the current state), `github-releaser-agent` does this for you.** Driver 1 above bumps all four version strings in lockstep as part of the release commit. Your job is the `## Unreleased` bullet; the bot owns everything after the merge.
+
+> **Do not hand-bump the JSONs on an `autoRelease` repo.** A local bump + tag races the releaser for the same version number. This is the same rule as `CLAUDE.md`'s Plugin Release Checklist, stated there as "the manual checklist is the FALLBACK only".
+
+Verified empirically on **v0.109.0** (2026-08-16, PR #79 — a `commands/`-only change): nothing was hand-bumped, and the released tag carried `CHANGELOG.md ## v0.109.0`, `plugin.json 0.109.0`, and both `marketplace.json` fields at `0.109.0`.
+
+### Checking whether a bump is owed
+
+Useful when auditing a release after the fact, or before switching `autoRelease` off:
 
 ```bash
 LAST_PLUGIN_TAG=$(git log --oneline -- .claude-plugin/ | head -1 | awk '{print $1}')
 git diff "$LAST_PLUGIN_TAG"..HEAD --name-only -- commands/ agents/ docs/ skills/
-# any output → plugin needs a bump
+# any output → plugin surface changed since the last .claude-plugin/ commit
 ```
 
-### Procedure
+Under `autoRelease` this should come back empty shortly after each merge. Persistent output means the releaser is not running — investigate before falling back to the manual procedure.
+
+### Manual procedure (FALLBACK — releaser down, or `autoRelease: false`)
 
 1. **Run the release gate** (above) if any binary surface also changed.
 2. **Pick the next plugin version.** Increment minor from the latest `CHANGELOG.md` entry. Plugin and binary share the same CHANGELOG and the same monotonic version sequence.
@@ -211,9 +223,12 @@ git diff "$LAST_PLUGIN_TAG"..HEAD --name-only -- commands/ agents/ docs/ skills/
 6. **Commit:** `git commit -m "release plugin vX.Y.Z: <summary>"`.
 7. **Push:** `git push`.
 
+Confirm the releaser really is down first (`/github-release-repo-trigger` produced no tag, or `.maintainer.yaml` has `autoRelease: false`). Running this while the bot is healthy is the race the warning above describes.
+
 ### Common plugin-release mistakes
 
-- Forgetting `.claude-plugin/` files — CHANGELOG advances but plugin stays at old version.
+- **Hand-bumping while `autoRelease: true` is on.** The most likely mistake now that Driver 1 owns the bump — it races the releaser for the version number.
+- Forgetting `.claude-plugin/` files (manual path only) — CHANGELOG advances but plugin stays at old version.
 - Creating a separate "Plugin vX" CHANGELOG section. Wrong — one CHANGELOG, one version sequence.
 - Different version strings across the three JSON fields. The marketplace rejects mismatches silently and refuses to load the plugin.
 - Bumping the plugin version BEFORE running the release gate. Binary surface changes that ship in the same release escape scenario coverage.

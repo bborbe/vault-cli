@@ -101,7 +101,7 @@ func (g *goalWorkOnOperation) Execute(
 			)
 	}
 
-	sessionID, sessionErr := g.handleClaudeSession(ctx, goal, sessionDir, vault)
+	sessionID, sessionErr := g.handleClaudeSession(ctx, goal, vaultPath, sessionDir, vault)
 	if sessionErr != nil {
 		if errors.Is(sessionErr, ErrStarterUnavailable) {
 			// Soft failure — claude binary missing. Spec 014 Failure Modes table:
@@ -160,11 +160,35 @@ func applyGoalAssigneeMatrix(goal *domain.Goal, assignee string) string {
 	}
 }
 
+// persistGoalSessionID re-reads the goal from disk and writes back only the session id.
+// Used after StartSession blocks so that frontmatter the headless turn wrote is not
+// reverted by writing the stale in-memory copy.
+func persistGoalSessionID(
+	ctx context.Context,
+	vaultPath string,
+	goalName string,
+	sessionID string,
+	goalStorage storage.GoalStorage,
+) (string, error) {
+	refreshed, err := goalStorage.FindGoalByName(ctx, vaultPath, goalName)
+	if err != nil {
+		return sessionID, errors.Wrap(ctx, err, "re-read goal after claude session")
+	}
+	refreshed.SetClaudeSessionID(sessionID)
+	if err := goalStorage.WriteGoal(ctx, refreshed); err != nil {
+		return sessionID, errors.Wrap(ctx, err, "save session id to goal")
+	}
+	return sessionID, nil
+}
+
 // handleClaudeSession starts or returns an existing Claude session for the goal.
+// On a fresh start it re-reads the goal from disk after the session returns, so
+// frontmatter the session itself wrote during the blocking turn survives.
 func (g *goalWorkOnOperation) handleClaudeSession(
 	ctx context.Context,
 	goal *domain.Goal,
 	vaultPath string,
+	sessionDir string,
 	vault *config.Vault,
 ) (string, error) {
 	if existing := goal.ClaudeSessionID(); existing != "" {
@@ -178,13 +202,9 @@ func (g *goalWorkOnOperation) handleClaudeSession(
 	// defaults instead of prompting (prevents the 5m headless hang).
 	prompt := fmt.Sprintf(`%s "%s" --non-interactive`, vault.GetWorkOnGoalCommand(), goal.FilePath)
 	slog.Info("starting claude session", "goal", goal.Name)
-	sessionID, err := g.starter.StartSession(ctx, prompt, vaultPath, goal.Name)
+	sessionID, err := g.starter.StartSession(ctx, prompt, sessionDir, goal.Name)
 	if err != nil {
 		return "", errors.Wrap(ctx, err, "start claude session")
 	}
-	goal.SetClaudeSessionID(sessionID)
-	if err := g.goalStorage.WriteGoal(ctx, goal); err != nil {
-		return sessionID, errors.Wrap(ctx, err, "save session id to goal")
-	}
-	return sessionID, nil
+	return persistGoalSessionID(ctx, vaultPath, goal.Name, sessionID, g.goalStorage)
 }

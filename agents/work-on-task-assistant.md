@@ -170,6 +170,13 @@ workflow extracted in Phase 5, for operator-run mutations:
 `annotate`, `patch`, `rollout restart`, `scale`) · `helm install/upgrade` · ssh
 deploys · any prod runbook step.
 
+**Match described intent, not only command literals.** Task bodies are written in prose
+— "remove the ingresses", "scale the tenant to zero" — and frequently contain no command
+string at all. Also fire when a destructive verb (remove · delete · drop · tear down ·
+scale · restart · cut over · reclaim · uninstall · apply · deploy) is applied to an infra
+noun (ingress · namespace · deployment · statefulset · pod · PVC · PV · CRD · secret ·
+tenant · DNS record · cluster · node · release).
+
 If any are present, append verbatim to the report:
 
 > 🔐 **Permission mode:** this task's ops commands need `accept edits` — switch
@@ -186,6 +193,16 @@ wholesale, and the precheck never ran. Every `decommission` / `renew` / `rebuild
 `migrate` task — the ops work that most needs the switch — was silently excluded,
 while `deploy X` would have been covered. Keying on the task's own commands rather
 than on a code-task title heuristic is the fix.
+
+**The same task then exposed the next layer (2026-08-16, v0.111.3).** With the gating
+fixed, the precheck ran on "Decommission MinIO on Hell" and still emitted nothing —
+because every subtask described a cluster mutation in prose and none contained a command
+literal: *"Remove `minio` and `minio-console` ingresses"*, *"Scale the Tenant to zero"*,
+*"Delete Tenant CR, StatefulSet, services, PVC"*. The first `kubectl delete` of the
+session was then denied by the auto-mode classifier. A matcher keyed on command strings
+cannot see work that has not been written as commands yet — which is the normal state of
+a task at planning time, and precisely when this warning is worth giving. Hence the
+verb-plus-noun rule above.
 
 **Why the precheck exists at all.** Stating the operator/agent split is not enough.
 Observed 2026-08-16: the workflow block correctly said "the **operator** runs the

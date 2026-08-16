@@ -1,5 +1,5 @@
 ---
-description: Find task details, transition Jira, set status, track on daily note, discover guides, then auto-chain planning → execution (interactive) or signal the next steps (non-interactive)
+description: Find task details, transition Jira, set status, track on daily note, discover guides, then auto-chain planning → execution (non-interactive chains too, printing gaps instead of asking)
 argument-hint: "<jira-id-or-text> [--non-interactive]"
 allowed-tools: [Task, AskUserQuestion, Skill, Bash(vault-cli *)]
 ---
@@ -20,7 +20,9 @@ Find task details and relevant operational guides before starting work. Delegate
    - Parse `$ARGUMENTS`: if it contains `--non-interactive` → set `MODE=non_interactive` and strip that flag token from the arguments; otherwise `MODE=interactive`. Parsing is self-contained here — it does not depend on any other command. Use the stripped arguments as the task identifier everywhere below — NEVER pass the flag token into the assistant prompt or task search.
    - If no argument remains after stripping: `❌ Pass a task identifier or description.` and STOP
 
-   **`MODE=non_interactive`** exists for headless callers — e.g. `vault-cli work-on`'s Claude bootstrap runs `claude --print`, which cannot answer `AskUserQuestion`, so an interactive gate would block until the session-start timeout. In this mode the command NEVER calls `AskUserQuestion` and Phase 4's auto-create is skipped (the interactive create-task skill cannot run headlessly). Phase 5 forks on mode: non-interactive prints the next-step signal only — it does NOT chain, because `plan-task` / `execute-task` may call `AskUserQuestion` and would hang a headless caller; interactive auto-chains through planning → execution.
+   **`MODE=non_interactive`** exists for headless callers — e.g. `vault-cli work-on`'s Claude bootstrap runs `claude --print`, which cannot answer `AskUserQuestion`, so an interactive gate would block until the session-start timeout. In this mode the command NEVER calls `AskUserQuestion`, and that ban propagates to every command it chains into. Phase 4's auto-create is still skipped (the interactive create-task skill cannot run headlessly).
+
+   **Both modes chain through planning → execution.** They differ only in what happens when a gate would ask a question: interactive asks it; non-interactive stops at `phase: planning` and prints the unresolved gaps for the operator to resolve on resume. Non-interactive is not "orient and stop" — a headless caller that produces a clean plan lands in `phase: execution` with its first subtask surfaced, same as interactive.
 
 2. **Invoke work-on-task-assistant**
    ```
@@ -29,7 +31,7 @@ Find task details and relevant operational guides before starting work. Delegate
      prompt: 'Find details and guides for: {stripped arguments}'
    ```
 
-3. **Drive to execution (Phase 5).** If the assistant's report ends with `Ready to work on this task.` (the `found` case), continue to Phase 5 below (auto-chain in interactive mode, signal only in non-interactive). If the report contains the `not_found:` marker, skip Phase 5 and run Phase 4 (Handle not_found) instead.
+3. **Drive to execution (Phase 5).** If the assistant's report ends with `Ready to work on this task.` (the `found` case), continue to Phase 5 below (auto-chains in both modes). If the report contains the `not_found:` marker, skip Phase 5 and run Phase 4 (Handle not_found) instead.
 
 4. **Done**
 
@@ -56,44 +58,43 @@ The agent (dispatched in `## Process` step 2) emits a structured `not_found` ver
 4. **On create success** (create-task skill returns the new task file path or reports success): re-invoke `Task tool with subagent_type: 'vault-cli:work-on-task-assistant' prompt: 'Find details and guides for: <new task title>'` — same form as the Phase 2 invocation, but with the new task title. The agent's standard Phase 2–8 prep mutations then run against the just-created task.
    **On create failure or user cancel inside `vault-cli:create-task`** (the skill returns a non-success status, errors out, or the user aborts midway through its interactive prompts): print `❌ Task creation failed or was cancelled. No task created; no follow-up invocation.` and STOP — do NOT re-invoke `vault-cli:work-on-task-assistant`, do NOT retry the create.
 
-## Phase 5 — Auto-chain plan → execute (interactive) / signal (non-interactive)
+## Phase 5 — Auto-chain plan → execute
 
 After the assistant returns a `found` task, `work-on-task` **drives the task toward execution** rather than stopping at a signal. It orients, then plans, then — when the plan is clean — enters execution and surfaces the first subtask. It never forces execution past an unready plan: the planning gate is still real, just auto-invoked.
+
+**Both modes chain.** Mode changes only how an unresolved gap is handled, never whether the chain runs.
 
 Runs only after Phase 2 returned a `found` task — never on `not_found` (Phase 4 handles that branch).
 
 1. **Resolve the task name** from the assistant's `📋 Task: <name>` line (verbatim).
 
-2. **Non-interactive mode (`MODE=non_interactive`) — signal only, no chain.** `plan-task` and `execute-task` may call `AskUserQuestion`; a headless `claude --print` caller cannot answer, so chaining would hang. Print the signal and STOP:
-   ```
-   ✅ Oriented: <name>. Next:
-   → /vault-cli:plan-task "<name>"     — validate the plan (Success Criteria + subtasks)
-   → /vault-cli:execute-task "<name>"  — begin executing (flips planning → execution)
-   → /vault-cli:complete-task "<name>" — close when done
-   ```
+2. **Set the question policy from `MODE`, and state it to every command you chain into.**
+   - `MODE=interactive` → **ASK**: chained commands may use `AskUserQuestion` as they normally would.
+   - `MODE=non_interactive` → **NO-ASK**: neither this command nor anything it invokes may call `AskUserQuestion`. A gate that would ask instead reports the gap and stops. Pass this explicitly when invoking the skills below — append ` --non-interactive` to the skill argument so `plan-task` / `execute-task` apply their own NO-ASK contract (see `commands/plan-task.md` § Non-interactive contract).
 
-3. **Interactive mode — auto-chain through the phases.**
+   Rationale: a headless `claude --print` caller cannot answer a prompt, so an ask is not a question — it is a hang. Stopping with the gap printed gives the operator the same information without the deadlock, and the Vault UI's Start button (which runs exactly this headless turn and then hands the operator a bare `--resume`, no follow-up prompt) still lands a clean task in `execution`.
 
-   a. **Plan.** Invoke `Skill: vault-cli:plan-task "<name>"`. It runs the planning gates itself — passes clean with no questions when the task already has Success Criteria + goal-reaching subtasks (e.g. recurring / runbook tasks), or asks its normal targeted questions when there are real gaps. Let it run its own fix loop.
+3. **Plan.** Invoke `Skill: vault-cli:plan-task "<name>"` (NO-ASK mode: `Skill: vault-cli:plan-task "<name>" --non-interactive`). It runs the planning gates itself — passes clean with no questions when the task already has Success Criteria + goal-reaching subtasks (e.g. recurring / runbook tasks), or surfaces real gaps. In ASK mode let it run its own fix loop; in NO-ASK mode it reports gaps instead of asking.
 
-   b. **Branch on plan-task's terminal line:**
-      - **Plan is good → proceed to execute-task.** Two success lines both qualify: `✅ Plan ready` (plan just passed, phase still `planning`) OR `✅ Task sharpened` (the task was already past planning — plan-task validated but didn't move phase). In both cases invoke `Skill: vault-cli:execute-task "<name>"`. execute-task owns the phase logic and is idempotent: it flips `planning → execution` and prints the first subtask + DoD; or, when the task is already in `execution` / `ai_review` / `human_review`, re-surfaces the first unchecked subtask + DoD ("where was I?"); or, when the task is `done` / closed, prints its own refusal. The combined plan-task + execute-task output IS the final output — do NOT re-print the signal.
-      - `⚠ Task improved …` / score < 8 / gaps the operator left unresolved → do NOT execute (planning gate not cleared). Print:
-        ```
-        ⚠ Stopped at planning — plan not ready. Remaining: <bullets from plan-task>.
-        → Re-run /vault-cli:plan-task "<name>" when ready, then /vault-cli:execute-task "<name>".
-        ```
-      - `❌ …` (plan-task hard error — task not found, input error) → relay plan-task's output verbatim; do NOT invoke execute-task.
+4. **Branch on plan-task's terminal line** (identical in both modes):
+   - **Plan is good → proceed to execute-task.** Two success lines both qualify: `✅ Plan ready` (plan just passed, phase still `planning`) OR `✅ Task sharpened` (the task was already past planning — plan-task validated but didn't move phase). In both cases invoke `Skill: vault-cli:execute-task "<name>"` (appending ` --non-interactive` in NO-ASK mode). execute-task owns the phase logic and is idempotent: it flips `planning → execution` and prints the first subtask + DoD; or, when the task is already in `execution` / `ai_review` / `human_review`, re-surfaces the first unchecked subtask + DoD ("where was I?"); or, when the task is `done` / closed, prints its own refusal. The combined plan-task + execute-task output IS the final output — do NOT re-print the signal.
+   - `⚠ Task improved …` / score < 8 / unresolved gaps → do NOT execute (planning gate not cleared). Print:
+     ```
+     ⚠ Stopped at planning — plan not ready. Remaining: <bullets from plan-task>.
+     → Re-run /vault-cli:plan-task "<name>" when ready, then /vault-cli:execute-task "<name>".
+     ```
+     In NO-ASK mode this is the expected landing spot for an under-specified task: the operator resumes the session, answers the listed gaps, and the chain continues interactively from there.
+   - `❌ …` (plan-task hard error — task not found, input error) → relay plan-task's output verbatim; do NOT invoke execute-task.
 
-`work-on-task` orients, then drives. In interactive mode a task with an already-complete plan lands in `phase: execution` with its first subtask surfaced, in one command. A task with real planning gaps stops at `planning` after plan-task's questions — the gate is enforced, not skipped. Non-interactive callers keep the deliberate signal (no chaining).
+`work-on-task` orients, then drives. A task with an already-complete plan lands in `phase: execution` with its first subtask surfaced, in one command, headless or not. A task with real planning gaps stops at `planning` — after plan-task's questions in ASK mode, or with the gaps printed in NO-ASK mode. The gate is enforced in both, and never at the cost of a hang.
 
 ## Integration
 
 Task lifecycle:
 
 1. `/vault-cli:create-task` — capture (lenient)
-2. **`/vault-cli:work-on-task`** — orient (status + guides + daily note), then auto-chain plan → execute (interactive) or signal (non-interactive) — this command
-3. `/vault-cli:plan-task` — sharpen (5 hard gates); never flips phase; auto-invoked by work-on-task (interactive), or run directly
+2. **`/vault-cli:work-on-task`** — orient (status + guides + daily note), then auto-chain plan → execute — this command
+3. `/vault-cli:plan-task` — sharpen (5 hard gates); never flips phase; auto-invoked by work-on-task, or run directly
 4. `/vault-cli:execute-task` — gate planning → execution; flips phase + prints first subtask + DoD reminder; auto-invoked by work-on-task when the plan is clean, or run directly
 5. Start work — while working, use any of:
    - `/vault-cli:update-task` — log completed work, sync to daily note / parent goal
@@ -103,7 +104,7 @@ Task lifecycle:
 7. `/vault-cli:complete-task` — close task
 8. `/vault-cli:session-close` — verify session is safe to end (synced, committed, no orphaned state)
 
-In interactive mode `work-on-task` orients, then auto-chains: it runs `/plan-task` and, when the plan is clean, `/execute-task` — so the end state is `phase: execution` with the first subtask surfaced (or `phase: planning` if plan-task found real gaps). In non-interactive mode it orients and stops at `phase: planning`, printing the signal. `/complete-task` is always a deliberate operator step.
+`work-on-task` orients, then auto-chains in both modes: it runs `/plan-task` and, when the plan is clean, `/execute-task` — so the end state is `phase: execution` with the first subtask surfaced (or `phase: planning` if plan-task found real gaps). Non-interactive differs only in that a gap is printed rather than asked about. `/complete-task` is always a deliberate operator step.
 
 ## Notes
 
@@ -111,4 +112,5 @@ In interactive mode `work-on-task` orients, then auto-chains: it runs `/plan-tas
 - Works in Personal, Brogrammers, Trading, or any future vault registered with `vault-cli config`
 - Each vault session loads a single Atlassian MCP under the canonical name `atlassian` (see vault-specific `mcp-*.json` configs); the agent uses `mcp__atlassian__*` regardless of which Jira instance is active
 - The agent searches; the slash command auto-creates the task file on `not_found` (interactive mode).
-- **Phase 5 auto-chains in interactive mode, signals in non-interactive.** Phase 2 → Phase 5 covers the "I want to work on this task" intent by orienting (status, guides, daily note), then driving: interactive invocations run `plan-task` and — when it reports `✅ Plan ready` — `execute-task`, landing the task in `phase: execution` with its first subtask surfaced. The planning gate stays enforced: if `plan-task` finds real gaps, the chain stops at `planning` (it never force-executes an unready plan). Non-interactive invocations print the plan → execute → complete signal instead of chaining, because `plan-task` / `execute-task` may call `AskUserQuestion` and would hang a headless `claude --print` caller. Phase 5 is skipped on the `not_found` branch (Phase 4 handles that).
+- **Phase 5 auto-chains in both modes.** Phase 2 → Phase 5 covers the "I want to work on this task" intent by orienting (status, guides, daily note), then driving: it runs `plan-task` and — when it reports `✅ Plan ready` — `execute-task`, landing the task in `phase: execution` with its first subtask surfaced. The planning gate stays enforced: if `plan-task` finds real gaps, the chain stops at `planning` (it never force-executes an unready plan). Non-interactive invocations chain under a NO-ASK contract — no `AskUserQuestion` anywhere in the chain; a gate that would ask prints the gap and stops instead, so a headless `claude --print` caller can never hang. Phase 5 is skipped on the `not_found` branch (Phase 4 handles that).
+- **Non-interactive is the normal path, not an edge case.** The Vault UI "Start" button runs the headless turn and then hands the operator a bare resume command (`vault-ui/src/vault_ui/api/tasks.py` `_build_resume_command` emits `<script> --resume <id>[ -n <title>]`, no prompt argument). vault-cli's own turn-2 continuation (`pkg/ops/workon.go`) only fires when vault-cli resumes the session itself, which that path never does. So whatever the headless turn accomplishes is all the operator gets before they type — which is why it must chain.

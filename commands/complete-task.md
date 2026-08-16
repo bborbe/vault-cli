@@ -29,10 +29,18 @@ Mark task as complete using vault-cli. Handles normal and recurring tasks approp
       - Print: `❌ Task has incomplete items. Finish them first, or re-run with --force to complete anyway.`
       - STOP. Do NOT call `vault-cli task complete`. No interactive prompt.
 
-   c. Run vault-cli (incomplete items + FORCE=true, OR no incomplete items):
+   c. Run vault-cli. Pass `--force` through whenever FORCE=true — the CLI enforces
+      the same incomplete-checkbox guard, so omitting it makes the flag a no-op and
+      the run fails with `incomplete subtasks: N pending`:
       ```bash
-      vault-cli task complete "{task_name}"
+      vault-cli task complete "{task_name}"            # no incomplete items
+      vault-cli task complete "{task_name}" --force    # incomplete items + FORCE=true
       ```
+
+      **`--force` is for items that were never this task's work** — follow-ups filed
+      for a separate task, or notes that are checkboxes only by formatting. It is not
+      a way to close unfinished work. If the unchecked items are genuinely part of the
+      task, finish them.
 
    d. Show report:
       ```

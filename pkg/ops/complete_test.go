@@ -118,6 +118,30 @@ var _ = Describe("CompleteOperation", func() {
 		})
 	})
 
+	Context("task blocked only by in-progress checkboxes", func() {
+		BeforeEach(func() {
+			task = domain.NewTask(
+				map[string]any{"status": "todo"},
+				domain.FileMetadata{Name: taskName},
+				domain.Content("# Tasks\n\n- [x] done\n- [/] one\n- [/] two\n- [/] three\n"),
+			)
+			mockTaskStorage.FindTaskByNameReturns(task, nil)
+			force = false
+		})
+
+		It("returns error", func() {
+			Expect(err).NotTo(BeNil())
+		})
+
+		It("names the in-progress count, not just pending", func() {
+			Expect(err.Error()).To(ContainSubstring("0 pending, 3 in-progress"))
+		})
+
+		It("does not write the task", func() {
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(0))
+		})
+	})
+
 	Context("task with incomplete checkboxes", func() {
 		BeforeEach(func() {
 			task = domain.NewTask(

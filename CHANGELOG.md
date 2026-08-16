@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.111.4
 
 - fix: `work-on-task-assistant` Phase 5.5's permission-mode precheck matched only command literals (`kubectl`, `make apply`, `helm install`), so it stayed silent on tasks whose subtasks describe cluster mutations in prose. Observed 2026-08-16 on the same task that motivated the v0.111.1 gating fix: every subtask on "Decommission MinIO on Hell" was an operator-run mutation — *"Remove `minio` and `minio-console` ingresses"*, *"Scale the Tenant to zero"*, *"Delete Tenant CR, StatefulSet, services, PVC"* — none containing a command string, and the session's first `kubectl delete` was denied by the auto-mode classifier. The precheck now also fires on a destructive verb applied to an infra noun. A literal matcher cannot see work not yet written as commands, which is the normal state of a task at planning time and exactly when the warning is worth giving.
 - fix: `task-creator` wrote `goals:` into a new task's frontmatter but never added the task's checkbox to the goal file, leaving the link one-way. `vault-cli task complete` ticks that checkbox and warns when it is absent, so every goal-linked task emitted `checkbox not found for task <name> in goal <goal>` on completion and had to be patched by hand — and until then the goal's task list under-reported its own scope. The creator now appends `- [ ] [[<task title>]]` to each parent goal's `# Tasks` section, idempotently, and the self-audit checks for it.

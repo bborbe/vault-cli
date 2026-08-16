@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.111.3
 
 - fix: `session-close` Phase 8.6's link check searched only the vault owning the file, so every legitimate cross-vault wikilink read as broken. Observed 2026-08-16: a `Personal` task linking `[[Boss Memory]]` was flagged unresolved because the search covered only `Personal` and `Trading` — the page lives in the `Boss` vault and is referenced by 20+ files across two others. Both the orphan check and the broken-outbound-link check now search every path in `VAULT_CONFIG` and treat a hit in any vault as resolved. Also fixes a shell trap in the same snippet: the paths must be read into an **array**, because the shell here is often zsh, which does not word-split an unquoted `"$paths"` string — a bare `grep ... $ALL_VAULT_PATHS` passes every path as one argument, grep fails, stderr is swallowed, and the empty result is indistinguishable from a clean one. Added a sanity check to run before trusting a negative.
 - fix: `task-auditor` could report findings quoting text that does not exist in the file. It now must re-read each cited line and confirm the quote appears verbatim, dropping any finding whose quote it cannot locate. A well-formed quote with a line number is the most credible-looking form of a wrong finding, so reconstructing one from what the file "should" contain is worse than omitting it.

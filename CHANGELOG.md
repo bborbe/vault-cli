@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: scenario 005's "no approval turn" assertion could not distinguish a real failure from two unrelated causes, and two walks on 2026-08-16 duly contradicted each other. A prompt between resume and invocation has three sources: the classification bug (what the scenario tests), the trust-folder gate (a precondition the walk never proved), and — new since v0.110.0/v0.111.1 — the Phase 5.5 permission-mode precheck, which now runs for *every* task. The assertion now names all three and tells the walker to identify which before recording FAIL, plus a dedicated `🔐 Permission mode:` assertion: the fixture's only command is `/vault-cli:next-task`, so Phase 5.5's own rule ("emit nothing … do not warn on read-only or docs-only tasks") means seeing it is a Phase 5.5 trigger defect to file separately, not a classification failure. Also hardened two things the contradicting walks got wrong: the trust precondition must be *proven in the environment the walk runs in* (a fresh tmux / isolated HOME / sub-agent shell does not inherit it), and `claude_session_id` is now marked necessary-but-not-sufficient — one walk reported PASS from it alone after losing the scrollback. `PLUGIN_VER` is now required in the result, since this flow's behavior moved twice in a single day.
+
 ## v0.111.1
 
 - fix: the permission-mode precheck added in v0.110.0 never fired for ops tasks. It sat inside Phase 5, which is gated on the code-task heuristic (`fix|implement|refactor|add|bug|deploy|build`), so a task whose entire body is `kubectl delete` skipped Phase 5 wholesale and the precheck with it — every `decommission` / `renew` / `rebuild` / `migrate` task was silently excluded, which is exactly the ops work that needs the switch. Moved to its own Phase 5.5 that runs for all tasks and keys on the task's own commands. Caught by exercising v0.110.0 on "Decommission MinIO on Hell" the same day it shipped.

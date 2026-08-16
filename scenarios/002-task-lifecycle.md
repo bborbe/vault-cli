@@ -30,6 +30,8 @@ TOMORROW=$(date -v+1d +%Y-%m-%d 2>/dev/null || date -d '+1 day' +%Y-%m-%d)
 ### Work on a task
 - [ ] `$VAULT_CLI --config $CONFIG task work-on "Simple Task"` exits 0
 
+> Spawns a real headless `claude --print` turn — expect **no output at all for ~2-3 minutes** (measured 2m49s), then `✅ Now working on: …` and `session_id: …`. Allow **≥300s**. A short timeout kills it at exit 124, which looks identical to a hang; that is a false FAIL, not a regression. Observed 2026-08-16: a `timeout 10` run was reported as a broken `work-on`, and disproved by re-running with 300s.
+
 ### Defer the task
 - [ ] `$VAULT_CLI --config $CONFIG task defer "Simple Task" +1d` exits 0
 

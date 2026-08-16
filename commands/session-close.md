@@ -77,6 +77,8 @@ If the skill aborts ("No vault context detected", "No completion or PR detected"
 
 **Do NOT skip this step, and do NOT reimplement it inline.** "Run the sync-progress logic yourself" is not a valid reading — observed 2026-08-10, where the agent hand-checked the daily note instead of invoking the skill, skipped writing the session's entry, and then reported the session clean. Phase 7 is the backstop for exactly this, but it only catches the omission if it is written as specified below. Even sessions that "just talked" can include decisions worth recording.
 
+**Exception — already synced this conversation.** If `/vault-cli:sync-progress` already ran in THIS conversation and no vault-tracked work happened since, do NOT re-invoke it: a second run appends duplicate entries under "What happened today". This ordering is normal, not exotic — the Integration section below lists `sync-progress` as the mid-session checkpoint, so an operator running it and then closing is the expected path. State the skip explicitly in the Phase 9 output ("Phase 2 satisfied by the earlier sync-progress run") rather than passing over it silently, so Phase 7's representation check still has something to verify against. Observed 2026-08-16.
+
 ### Phase 3: Check git state for each touched repo
 
 For every repo the session touched (cwd + any other repos with edits in this conversation), run:

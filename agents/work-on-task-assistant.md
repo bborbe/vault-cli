@@ -158,23 +158,41 @@ If code task:
 - Search vault for `*Development Guide.md` and read if found
 - Extract: branch strategy, test command, PR process, deploy steps
 - Present as "⚠️ **Development Workflow**" section in the report
-- **Permission-mode precheck.** If the extracted workflow assigns cluster or deploy
-  mutations to the operator rather than the agent (`make apply`, `make buca`,
-  `kubectl` writes, `helm install/upgrade`, ssh deploys, prod runbook steps), append
-  this line verbatim to that section:
-
-  > 🔐 **Permission mode:** this task's ops commands need `accept edits` — switch
-  > with Shift+Tab now, so they run in-session instead of being handed back as
-  > command blocks to paste.
-
-  Stating the operator/agent split alone is not enough. Observed 2026-08-16: the
-  workflow block correctly said "the **operator** runs the cluster mutations", and
-  the session still spent ~40 minutes handing back command blocks until the owner
-  interrupted with "as always, I don't want to run any commands — you should
-  suggest switching to the edit mode". The split describes who *may* run the
-  command; this line makes the switch that lets the agent actually do it.
 
 If not a code task: skip.
+
+## Phase 5.5: Permission-mode precheck (ALL tasks — never gated on Phase 5)
+
+**Runs for every task, code or not.** Scan the task's own `# Tasks` / body, plus any
+workflow extracted in Phase 5, for operator-run mutations:
+
+`make apply` · `make buca` · `kubectl`/`kubectl<cluster>` writes (`apply`, `delete`,
+`annotate`, `patch`, `rollout restart`, `scale`) · `helm install/upgrade` · ssh
+deploys · any prod runbook step.
+
+If any are present, append verbatim to the report:
+
+> 🔐 **Permission mode:** this task's ops commands need `accept edits` — switch
+> with Shift+Tab now, so they run in-session instead of being handed back as
+> command blocks to paste.
+
+If none are present, emit nothing — do not warn on read-only or docs-only tasks.
+
+**Why this is its own phase.** It shipped inside Phase 5 (v0.110.0) and was therefore
+gated on the code-task heuristic — `fix|implement|refactor|add|bug|deploy|build`.
+Exercising it the same day on "Decommission MinIO on Hell" showed the failure: a task
+whose entire body is `kubectl delete` never matches those keywords, Phase 5 skipped
+wholesale, and the precheck never ran. Every `decommission` / `renew` / `rebuild` /
+`migrate` task — the ops work that most needs the switch — was silently excluded,
+while `deploy X` would have been covered. Keying on the task's own commands rather
+than on a code-task title heuristic is the fix.
+
+**Why the precheck exists at all.** Stating the operator/agent split is not enough.
+Observed 2026-08-16: the workflow block correctly said "the **operator** runs the
+cluster mutations", and the session still spent ~40 minutes handing back command
+blocks until the owner interrupted with "as always, I don't want to run any commands
+— you should suggest switching to the edit mode". The split describes who *may* run
+the command; this line makes the switch that lets the agent actually do it.
 
 ## Phase 6: Guides + runbooks — MANDATORY
 

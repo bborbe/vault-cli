@@ -9,14 +9,15 @@ import (
 )
 
 type LintOperation struct {
-	ExecuteStub        func(context.Context, string, string, string, bool) ([]ops.LintIssue, error)
+	ExecuteStub        func(context.Context, string, string, string, string, bool) ([]ops.LintIssue, error)
 	executeMutex       sync.RWMutex
 	executeArgsForCall []struct {
 		arg1 context.Context
 		arg2 string
 		arg3 string
 		arg4 string
-		arg5 bool
+		arg5 string
+		arg6 bool
 	}
 	executeReturns struct {
 		result1 []ops.LintIssue
@@ -26,13 +27,14 @@ type LintOperation struct {
 		result1 []ops.LintIssue
 		result2 error
 	}
-	ExecuteFileStub        func(context.Context, string, string, string) ([]ops.LintIssue, error)
+	ExecuteFileStub        func(context.Context, string, string, string, string) ([]ops.LintIssue, error)
 	executeFileMutex       sync.RWMutex
 	executeFileArgsForCall []struct {
 		arg1 context.Context
 		arg2 string
 		arg3 string
 		arg4 string
+		arg5 string
 	}
 	executeFileReturns struct {
 		result1 []ops.LintIssue
@@ -46,7 +48,7 @@ type LintOperation struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *LintOperation) Execute(arg1 context.Context, arg2 string, arg3 string, arg4 string, arg5 bool) ([]ops.LintIssue, error) {
+func (fake *LintOperation) Execute(arg1 context.Context, arg2 string, arg3 string, arg4 string, arg5 string, arg6 bool) ([]ops.LintIssue, error) {
 	fake.executeMutex.Lock()
 	ret, specificReturn := fake.executeReturnsOnCall[len(fake.executeArgsForCall)]
 	fake.executeArgsForCall = append(fake.executeArgsForCall, struct {
@@ -54,14 +56,15 @@ func (fake *LintOperation) Execute(arg1 context.Context, arg2 string, arg3 strin
 		arg2 string
 		arg3 string
 		arg4 string
-		arg5 bool
-	}{arg1, arg2, arg3, arg4, arg5})
+		arg5 string
+		arg6 bool
+	}{arg1, arg2, arg3, arg4, arg5, arg6})
 	stub := fake.ExecuteStub
 	fakeReturns := fake.executeReturns
-	fake.recordInvocation("Execute", []interface{}{arg1, arg2, arg3, arg4, arg5})
+	fake.recordInvocation("Execute", []interface{}{arg1, arg2, arg3, arg4, arg5, arg6})
 	fake.executeMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2, arg3, arg4, arg5)
+		return stub(arg1, arg2, arg3, arg4, arg5, arg6)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
@@ -75,17 +78,17 @@ func (fake *LintOperation) ExecuteCallCount() int {
 	return len(fake.executeArgsForCall)
 }
 
-func (fake *LintOperation) ExecuteCalls(stub func(context.Context, string, string, string, bool) ([]ops.LintIssue, error)) {
+func (fake *LintOperation) ExecuteCalls(stub func(context.Context, string, string, string, string, bool) ([]ops.LintIssue, error)) {
 	fake.executeMutex.Lock()
 	defer fake.executeMutex.Unlock()
 	fake.ExecuteStub = stub
 }
 
-func (fake *LintOperation) ExecuteArgsForCall(i int) (context.Context, string, string, string, bool) {
+func (fake *LintOperation) ExecuteArgsForCall(i int) (context.Context, string, string, string, string, bool) {
 	fake.executeMutex.RLock()
 	defer fake.executeMutex.RUnlock()
 	argsForCall := fake.executeArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4, argsForCall.arg5
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4, argsForCall.arg5, argsForCall.arg6
 }
 
 func (fake *LintOperation) ExecuteReturns(result1 []ops.LintIssue, result2 error) {
@@ -114,7 +117,7 @@ func (fake *LintOperation) ExecuteReturnsOnCall(i int, result1 []ops.LintIssue, 
 	}{result1, result2}
 }
 
-func (fake *LintOperation) ExecuteFile(arg1 context.Context, arg2 string, arg3 string, arg4 string) ([]ops.LintIssue, error) {
+func (fake *LintOperation) ExecuteFile(arg1 context.Context, arg2 string, arg3 string, arg4 string, arg5 string) ([]ops.LintIssue, error) {
 	fake.executeFileMutex.Lock()
 	ret, specificReturn := fake.executeFileReturnsOnCall[len(fake.executeFileArgsForCall)]
 	fake.executeFileArgsForCall = append(fake.executeFileArgsForCall, struct {
@@ -122,13 +125,14 @@ func (fake *LintOperation) ExecuteFile(arg1 context.Context, arg2 string, arg3 s
 		arg2 string
 		arg3 string
 		arg4 string
-	}{arg1, arg2, arg3, arg4})
+		arg5 string
+	}{arg1, arg2, arg3, arg4, arg5})
 	stub := fake.ExecuteFileStub
 	fakeReturns := fake.executeFileReturns
-	fake.recordInvocation("ExecuteFile", []interface{}{arg1, arg2, arg3, arg4})
+	fake.recordInvocation("ExecuteFile", []interface{}{arg1, arg2, arg3, arg4, arg5})
 	fake.executeFileMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2, arg3, arg4)
+		return stub(arg1, arg2, arg3, arg4, arg5)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
@@ -142,17 +146,17 @@ func (fake *LintOperation) ExecuteFileCallCount() int {
 	return len(fake.executeFileArgsForCall)
 }
 
-func (fake *LintOperation) ExecuteFileCalls(stub func(context.Context, string, string, string) ([]ops.LintIssue, error)) {
+func (fake *LintOperation) ExecuteFileCalls(stub func(context.Context, string, string, string, string) ([]ops.LintIssue, error)) {
 	fake.executeFileMutex.Lock()
 	defer fake.executeFileMutex.Unlock()
 	fake.ExecuteFileStub = stub
 }
 
-func (fake *LintOperation) ExecuteFileArgsForCall(i int) (context.Context, string, string, string) {
+func (fake *LintOperation) ExecuteFileArgsForCall(i int) (context.Context, string, string, string, string) {
 	fake.executeFileMutex.RLock()
 	defer fake.executeFileMutex.RUnlock()
 	argsForCall := fake.executeFileArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4, argsForCall.arg5
 }
 
 func (fake *LintOperation) ExecuteFileReturns(result1 []ops.LintIssue, result2 error) {

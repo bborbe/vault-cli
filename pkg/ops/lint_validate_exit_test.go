@@ -28,7 +28,7 @@ func TestValidateExecuteFileWithInvalidStatus(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 	g.Expect(f.Close()).To(Succeed())
 
-	issues, err := lintOp.ExecuteFile(ctx, f.Name(), "Test Task", "test")
+	issues, err := lintOp.ExecuteFile(ctx, ops.PageTypeTask, f.Name(), "Test Task", "test")
 	g.Expect(err).NotTo(HaveOccurred())
 	g.Expect(issues).NotTo(BeEmpty())
 	g.Expect(issues[0].IssueType).To(Equal(ops.IssueTypeInvalidStatus))
@@ -48,7 +48,7 @@ func TestValidateExecuteFileWithNoIssues(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 	g.Expect(f.Close()).To(Succeed())
 
-	issues, err := lintOp.ExecuteFile(ctx, f.Name(), "Test Task", "test")
+	issues, err := lintOp.ExecuteFile(ctx, ops.PageTypeTask, f.Name(), "Test Task", "test")
 	g.Expect(err).NotTo(HaveOccurred())
 	g.Expect(issues).To(BeEmpty())
 }
@@ -67,7 +67,13 @@ func TestValidateExecuteFileWithMissingFrontmatter(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 	g.Expect(f.Close()).To(Succeed())
 
-	issues, err := lintOp.ExecuteFile(ctx, f.Name(), "Missing Frontmatter", "test")
+	issues, err := lintOp.ExecuteFile(
+		ctx,
+		ops.PageTypeTask,
+		f.Name(),
+		"Missing Frontmatter",
+		"test",
+	)
 	g.Expect(err).NotTo(HaveOccurred())
 	g.Expect(issues).NotTo(BeEmpty())
 	g.Expect(issues[0].IssueType).To(Equal(ops.IssueTypeMissingFrontmatter))
@@ -87,7 +93,57 @@ func TestValidateExecuteFileWithFixableIssues(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 	g.Expect(f.Close()).To(Succeed())
 
-	issues, err := lintOp.ExecuteFile(ctx, f.Name(), "Test Task", "test")
+	issues, err := lintOp.ExecuteFile(ctx, ops.PageTypeTask, f.Name(), "Test Task", "test")
 	g.Expect(err).NotTo(HaveOccurred())
 	g.Expect(issues).NotTo(BeEmpty())
+}
+
+func TestValidateExecuteFileTaskMissingIdentifier(t *testing.T) {
+	g := NewWithT(t)
+	ctx := context.Background()
+	lintOp := ops.NewLintOperation()
+
+	f, err := os.CreateTemp("", "task-*.md")
+	g.Expect(err).NotTo(HaveOccurred())
+	defer func() { _ = os.Remove(f.Name()) }()
+
+	content := "---\nstatus: in_progress\npriority: 1\n---\n# Task\n"
+	_, err = f.WriteString(content)
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(f.Close()).To(Succeed())
+
+	issues, err := lintOp.ExecuteFile(ctx, ops.PageTypeTask, f.Name(), "Test Task", "test")
+	g.Expect(err).NotTo(HaveOccurred())
+	missingCount := 0
+	for _, i := range issues {
+		if i.IssueType == ops.IssueTypeMissingTaskIdentifier {
+			missingCount++
+		}
+	}
+	g.Expect(missingCount).To(Equal(1))
+}
+
+func TestValidateExecuteFileNonTaskPageTypeSkipsIdentifier(t *testing.T) {
+	g := NewWithT(t)
+	ctx := context.Background()
+	lintOp := ops.NewLintOperation()
+
+	f, err := os.CreateTemp("", "task-*.md")
+	g.Expect(err).NotTo(HaveOccurred())
+	defer func() { _ = os.Remove(f.Name()) }()
+
+	content := "---\nstatus: in_progress\npriority: 1\n---\n# Task\n"
+	_, err = f.WriteString(content)
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(f.Close()).To(Succeed())
+
+	issues, err := lintOp.ExecuteFile(ctx, "goal", f.Name(), "Test Task", "test")
+	g.Expect(err).NotTo(HaveOccurred())
+	missingCount := 0
+	for _, i := range issues {
+		if i.IssueType == ops.IssueTypeMissingTaskIdentifier {
+			missingCount++
+		}
+	}
+	g.Expect(missingCount).To(Equal(0))
 }

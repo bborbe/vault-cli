@@ -8,6 +8,11 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: `goal`, `theme`, `objective` and `vision` lint no longer report `MISSING_TASK_IDENTIFIER` / `INVALID_TASK_IDENTIFIER`. `task_identifier` is a task-only invariant, but the lint walker applied it to whatever collection it was pointed at, flagging 268 of 269 goals across all vaults. The page type now comes from the lint entry point — not from frontmatter, which only 178 of those 269 goals carry — and the two identifier checks run only for the task page type. `task lint` and `task validate` are unchanged.
+- fix: `task complete`'s refusal message reported only the pending count, so a task blocked purely by in-progress `[/]` items failed with the literal text `incomplete subtasks: 0 pending` — a count of zero given as the reason for refusing. The guard has always refused on `pending > 0 || inProgress > 0`, but the message interpolated `pending` alone. It now reads `incomplete subtasks: N pending, M in-progress`. Misleading at exactly the moment someone is trying to close out work correctly; found alongside the missing `--force` flag (v0.111.0), first reported 2026-08-11.
+
 ## v0.111.4
 
 - fix: `work-on-task-assistant` Phase 5.5's permission-mode precheck matched only command literals (`kubectl`, `make apply`, `helm install`), so it stayed silent on tasks whose subtasks describe cluster mutations in prose. Observed 2026-08-16 on the same task that motivated the v0.111.1 gating fix: every subtask on "Decommission MinIO on Hell" was an operator-run mutation — *"Remove `minio` and `minio-console` ingresses"*, *"Scale the Tenant to zero"*, *"Delete Tenant CR, StatefulSet, services, PVC"* — none containing a command string, and the session's first `kubectl delete` was denied by the auto-mode classifier. The precheck now also fires on a destructive verb applied to an infra noun. A literal matcher cannot see work not yet written as commands, which is the normal state of a task at planning time and exactly when the warning is worth giving.
@@ -21,10 +26,6 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 ## v0.111.2
 
 - fix: scenario 005's "no approval turn" assertion could not distinguish a real failure from two unrelated causes, and two walks on 2026-08-16 duly contradicted each other. A prompt between resume and invocation has three sources: the classification bug (what the scenario tests), the trust-folder gate (a precondition the walk never proved), and — new since v0.110.0/v0.111.1 — the Phase 5.5 permission-mode precheck, which now runs for *every* task. The assertion now names all three and tells the walker to identify which before recording FAIL, plus a dedicated `🔐 Permission mode:` assertion: the fixture's only command is `/vault-cli:next-task`, so Phase 5.5's own rule ("emit nothing … do not warn on read-only or docs-only tasks") means seeing it is a Phase 5.5 trigger defect to file separately, not a classification failure. Also hardened two things the contradicting walks got wrong: the trust precondition must be *proven in the environment the walk runs in* (a fresh tmux / isolated HOME / sub-agent shell does not inherit it), and `claude_session_id` is now marked necessary-but-not-sufficient — one walk reported PASS from it alone after losing the scrollback. `PLUGIN_VER` is now required in the result, since this flow's behavior moved twice in a single day.
-
-## Unreleased
-
-- fix: `task complete`'s refusal message reported only the pending count, so a task blocked purely by in-progress `[/]` items failed with the literal text `incomplete subtasks: 0 pending` — a count of zero given as the reason for refusing. The guard has always refused on `pending > 0 || inProgress > 0`, but the message interpolated `pending` alone. It now reads `incomplete subtasks: N pending, M in-progress`. Misleading at exactly the moment someone is trying to close out work correctly; found alongside the missing `--force` flag (v0.111.0), first reported 2026-08-11.
 
 ## v0.111.1
 

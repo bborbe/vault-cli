@@ -40,6 +40,7 @@ var (
 type LintOperation interface {
 	Execute(
 		ctx context.Context,
+		pageType string,
 		vaultPath string,
 		tasksDir string,
 		goalsDir string,
@@ -47,6 +48,7 @@ type LintOperation interface {
 	) ([]LintIssue, error)
 	ExecuteFile(
 		ctx context.Context,
+		pageType string,
 		filePath string,
 		taskName string,
 		vaultName string,
@@ -76,6 +78,14 @@ const (
 	IssueTypeInvalidTaskIdentifier  IssueType = "INVALID_TASK_IDENTIFIER"
 )
 
+// PageTypeTask is the lint page type that carries the task-identifier invariants.
+// The two identifier checks (MISSING_TASK_IDENTIFIER, INVALID_TASK_IDENTIFIER) run
+// only when the caller passes this value. Any other page type — including an
+// unrecognised one — skips them. Identifier checks fail open on purpose: a caller
+// that forgets its page type gets no identifier checking rather than a false error
+// on every file it lints.
+const PageTypeTask = "task"
+
 // LintIssue represents a single lint issue found in a file.
 type LintIssue struct {
 	FilePath    string
@@ -96,6 +106,7 @@ type LintIssueJSON struct {
 // Execute scans all task files for lint issues and optionally fixes them.
 func (l *lintOperation) Execute(
 	ctx context.Context,
+	pageType string,
 	vaultPath string,
 	tasksDir string,
 	goalsDir string,
@@ -113,7 +124,7 @@ func (l *lintOperation) Execute(
 			return nil
 		}
 
-		fileIssues, err := l.lintFile(ctx, vaultPath, goalsDir, path, fix)
+		fileIssues, err := l.lintFile(ctx, pageType, vaultPath, goalsDir, path, fix)
 		if err != nil {
 			return errors.Wrap(ctx, err, fmt.Sprintf("lint file %s", path))
 		}
@@ -130,11 +141,12 @@ func (l *lintOperation) Execute(
 // ExecuteFile lints a single file and returns any lint issues found.
 func (l *lintOperation) ExecuteFile(
 	ctx context.Context,
+	pageType string,
 	filePath string,
 	taskName string,
 	vaultName string,
 ) ([]LintIssue, error) {
-	issues, err := l.lintFile(ctx, "", "", filePath, false)
+	issues, err := l.lintFile(ctx, pageType, "", "", filePath, false)
 	if err != nil {
 		return nil, errors.Wrap(ctx, err, fmt.Sprintf("lint file %s", filePath))
 	}
@@ -158,6 +170,7 @@ type ValidateResult struct {
 // lintFile checks a single file for lint issues and optionally fixes them.
 func (l *lintOperation) lintFile(
 	ctx context.Context,
+	pageType string,
 	vaultPath string,
 	goalsDir string,
 	filePath string,
@@ -171,11 +184,18 @@ func (l *lintOperation) lintFile(
 	// Handle missing frontmatter first
 	matches := frontmatterRegex.FindSubmatch(content)
 	if len(matches) < 2 {
-		return l.handleMissingFrontmatterCase(vaultPath, goalsDir, filePath, content, fix)
+		return l.handleMissingFrontmatterCase(pageType, vaultPath, goalsDir, filePath, content, fix)
 	}
 
 	// Collect all lint issues from the frontmatter and content
-	issues := l.collectLintIssues(vaultPath, goalsDir, filePath, string(matches[1]), content)
+	issues := l.collectLintIssues(
+		pageType,
+		vaultPath,
+		goalsDir,
+		filePath,
+		string(matches[1]),
+		content,
+	)
 
 	// Fix issues if requested
 	if fix && len(issues) > 0 {
@@ -190,6 +210,7 @@ func (l *lintOperation) lintFile(
 
 // handleMissingFrontmatterCase handles files without frontmatter
 func (l *lintOperation) handleMissingFrontmatterCase(
+	pageType string,
 	vaultPath string,
 	goalsDir string,
 	filePath string,
@@ -212,6 +233,7 @@ func (l *lintOperation) handleMissingFrontmatterCase(
 
 	// Collect additional issues from the now-valid frontmatter
 	additionalIssues := l.collectLintIssues(
+		pageType,
 		vaultPath,
 		goalsDir,
 		filePath,
@@ -223,6 +245,7 @@ func (l *lintOperation) handleMissingFrontmatterCase(
 
 // collectLintIssues runs all lint checks and returns found issues
 func (l *lintOperation) collectLintIssues(
+	pageType string,
 	vaultPath string,
 	goalsDir string,
 	filePath string,
@@ -285,11 +308,8 @@ func (l *lintOperation) collectLintIssues(
 		add(IssueTypeStatusCheckboxMismatch, mismatchDesc, mismatchFixable)
 	}
 
-	// Check for missing task_identifier
-	issues = append(issues, l.missingTaskIdentifierIssues(filePath, frontmatterYAML)...)
-
-	// Check for invalid (non-UUID) task_identifier values
-	issues = append(issues, l.invalidTaskIdentifierIssues(filePath, frontmatterYAML)...)
+	// Identifier checks are task-only — see PageTypeTask.
+	issues = append(issues, l.taskIdentifierIssues(pageType, filePath, frontmatterYAML)...)
 
 	return issues
 }
@@ -608,6 +628,22 @@ func (l *lintOperation) detectStatusDateMismatch(frontmatterYAML string) (bool, 
 		}
 	}
 	return false, ""
+}
+
+// taskIdentifierIssues returns the identifier issues for a file, but only when the
+// lint entry point declared the task page type. Goals, themes, objectives and vision
+// items have no identifier concept, so a missing or non-UUID task_identifier on them
+// is inert rather than an error.
+func (l *lintOperation) taskIdentifierIssues(
+	pageType string,
+	filePath string,
+	frontmatterYAML string,
+) []LintIssue {
+	if pageType != PageTypeTask {
+		return nil
+	}
+	issues := l.missingTaskIdentifierIssues(filePath, frontmatterYAML)
+	return append(issues, l.invalidTaskIdentifierIssues(filePath, frontmatterYAML)...)
 }
 
 // missingTaskIdentifierIssues returns a lint issue if task_identifier is absent or empty.

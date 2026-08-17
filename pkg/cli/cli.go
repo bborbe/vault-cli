@@ -568,7 +568,13 @@ func createValidateCommand(
 
 			// Validate the task file
 			lintOp := ops.NewLintOperation()
-			issues, err := lintOp.ExecuteFile(ctx, taskFilePath, taskName, foundInVault.Name)
+			issues, err := lintOp.ExecuteFile(
+				ctx,
+				ops.PageTypeTask,
+				taskFilePath,
+				taskName,
+				foundInVault.Name,
+			)
 			if err != nil {
 				return err
 			}
@@ -608,6 +614,7 @@ func createGenericLintCommand(
 				lintOp := ops.NewLintOperation()
 				issues, err := lintOp.Execute(
 					ctx,
+					pageType,
 					vault.Path,
 					getDirFunc(storageConfig),
 					getGoalsDirFunc(storageConfig),

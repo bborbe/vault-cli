@@ -24,6 +24,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 
 ## Unreleased
 
+- fix: `goal-creator` never emitted `task_identifier`, so every goal it created failed `goal lint` with `MISSING_TASK_IDENTIFIER` on the first check — and `goal lint --fix` does not repair it, leaving the operator to generate a UUID by hand. `task-creator` has carried the instruction all along; the goal side was simply missing it. Also note the lint hint names a `backfill` command that does not exist on `vault-cli goal`. Found 2026-08-17 scaffolding a goal via `/jira-sprint-sync`, where all five sibling tasks linted clean and only the goal failed.
 - fix: `task complete`'s refusal message reported only the pending count, so a task blocked purely by in-progress `[/]` items failed with the literal text `incomplete subtasks: 0 pending` — a count of zero given as the reason for refusing. The guard has always refused on `pending > 0 || inProgress > 0`, but the message interpolated `pending` alone. It now reads `incomplete subtasks: N pending, M in-progress`. Misleading at exactly the moment someone is trying to close out work correctly; found alongside the missing `--force` flag (v0.111.0), first reported 2026-08-11.
 
 ## v0.111.1

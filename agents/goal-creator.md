@@ -120,6 +120,7 @@ Required fields:
 - `timeline: <TIMELINE>` (only if set in step 5)
 - `objective: <OBJECTIVE_LINK>` (only if resolved in step 4)
 - `themes:` — only if confidently inferred or explicitly provided
+- `task_identifier: <uuid>` — generate a UUID v4 (mirrors existing convention; preserves stable reference if filename is later renamed)
 
 Do NOT set `assignee`. Do NOT set fields the user did not ask for.
 

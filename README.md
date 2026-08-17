@@ -88,6 +88,7 @@ vault-cli task clear "Build vault-cli Go Tool" assignee     # Clear a frontmatte
 vault-cli task lint                                # Detect frontmatter issues
 vault-cli task lint --fix                          # Auto-fix frontmatter issues
 vault-cli task validate "Build vault-cli Go Tool"  # Validate a single task
+vault-cli task backfill-identifiers                # Assign task_identifier to tasks missing one
 
 vault-cli task watch                               # Stream file-change events as JSON
 vault-cli task search "improve CLI performance"    # Semantic search in tasks

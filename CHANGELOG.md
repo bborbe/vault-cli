@@ -12,6 +12,8 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 
 - fix: `goal`, `theme`, `objective` and `vision` lint no longer report `MISSING_TASK_IDENTIFIER` / `INVALID_TASK_IDENTIFIER`. `task_identifier` is a task-only invariant, but the lint walker applied it to whatever collection it was pointed at, flagging 268 of 269 goals across all vaults. The page type now comes from the lint entry point — not from frontmatter, which only 178 of those 269 goals carry — and the two identifier checks run only for the task page type. `task lint` and `task validate` are unchanged.
 - fix: `task complete`'s refusal message reported only the pending count, so a task blocked purely by in-progress `[/]` items failed with the literal text `incomplete subtasks: 0 pending` — a count of zero given as the reason for refusing. The guard has always refused on `pending > 0 || inProgress > 0`, but the message interpolated `pending` alone. It now reads `incomplete subtasks: N pending, M in-progress`. Misleading at exactly the moment someone is trying to close out work correctly; found alongside the missing `--force` flag (v0.111.0), first reported 2026-08-11.
+- feat: `vault-cli task backfill-identifiers` assigns `task_identifier` to every task missing one in the selected vault (or all vaults), skipping tasks that already have one and reporting modified/skipped counts. Wires the existing `EnsureAllTaskIdentifiersOperation`, which had no CLI entry point.
+- fix: the `MISSING_TASK_IDENTIFIER` lint message named "backfill", an operation no command exposed, so the 248 tasks across five vaults that legitimately lack `task_identifier` pointed at a remedy nobody could run. It now names `vault-cli task backfill-identifiers` verbatim.
 
 ## v0.111.4
 

@@ -1195,6 +1195,14 @@ func createTaskCommands(
 	cmd.AddCommand(createTaskListCommand(ctx, configLoader, vaultName, outputFormat))
 	cmd.AddCommand(createLintCommand(ctx, configLoader, vaultName, outputFormat))
 	cmd.AddCommand(createValidateCommand(ctx, configLoader, vaultName, outputFormat))
+	cmd.AddCommand(createTaskBackfillIdentifiersCommand(
+		ctx, configLoader, vaultName, outputFormat,
+		func(cfg *storage.Config) ops.EnsureAllTaskIdentifiersOperation {
+			return ops.NewEnsureAllTaskIdentifiersOperation(
+				storage.NewTaskStorage(cfg),
+			)
+		},
+	))
 	cmd.AddCommand(createCompleteCommand(ctx, configLoader, vaultName, outputFormat))
 	cmd.AddCommand(createDeferCommand(ctx, configLoader, vaultName, outputFormat))
 	cmd.AddCommand(createUpdateCommand(ctx, configLoader, vaultName, outputFormat))

@@ -1998,6 +1998,22 @@ var _ = Describe("LintOperation - Missing Task Identifier", func() {
 			Expect(found).To(BeTrue(), "expected MISSING_TASK_IDENTIFIER issue")
 		})
 
+		It("names a runnable command in the MISSING_TASK_IDENTIFIER description", func() {
+			content := "---\nstatus: todo\npage_type: task\n---\n# Task Without Identifier\n"
+			taskPath := filepath.Join(vaultPath, tasksDir, "Task.md")
+			Expect(os.WriteFile(taskPath, []byte(content), 0600)).To(Succeed())
+
+			issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+			Expect(err).To(BeNil())
+			for _, i := range issues {
+				if i.IssueType == ops.IssueTypeMissingTaskIdentifier {
+					Expect(
+						i.Description,
+					).To(ContainSubstring("vault-cli task backfill-identifiers"))
+				}
+			}
+		})
+
 		It("does not report MISSING_TASK_IDENTIFIER when task_identifier is present", func() {
 			content := "---\nstatus: todo\npage_type: task\ntask_identifier: 24242424-2424-4242-a242-242424242424\n---\n# Task With Identifier\n"
 			taskPath := filepath.Join(vaultPath, tasksDir, "Task.md")

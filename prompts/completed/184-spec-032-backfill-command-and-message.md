@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [032-bug-task-identifier-lint-fires-on-goals]
+summary: Wired `vault-cli task backfill-identifiers` behind a per-vault injected operation factory with plain/JSON output, and reworded the MISSING_TASK_IDENTIFIER lint message to name the command verbatim; all greps, end-to-end binary checks, and `make precommit` pass.
+execution_id: vault-cli-exec-184-spec-032-backfill-command-and-message
+dark-factory-version: dev
 created: "2026-08-17T08:20:00Z"
 queued: "2026-08-17T08:36:53Z"
+started: "2026-08-17T08:49:35Z"
+completed: "2026-08-17T09:01:13Z"
 branch: dark-factory/bug-task-identifier-lint-fires-on-goals
 ---
 

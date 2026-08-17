@@ -112,6 +112,7 @@ var _ = Describe("vault-cli integration tests", func() {
 			Entry("task clear", "task", "clear"),
 			Entry("task lint", "task", "lint"),
 			Entry("task validate", "task", "validate"),
+			Entry("task backfill-identifiers", "task", "backfill-identifiers"),
 			Entry("task search", "task", "search"),
 			Entry("task watch", "task", "watch"),
 			Entry("task add", "task", "add"),

@@ -654,7 +654,7 @@ func (l *lintOperation) missingTaskIdentifierIssues(filePath, frontmatterYAML st
 	return []LintIssue{{
 		FilePath:    filePath,
 		IssueType:   IssueTypeMissingTaskIdentifier,
-		Description: "task_identifier is missing; run backfill to assign one",
+		Description: "task_identifier is missing; run: vault-cli task backfill-identifiers",
 		Fixable:     false,
 		Fixed:       false,
 	}}

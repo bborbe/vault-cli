@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.113.0
 
 - feat: add `/vault-cli:prepare-compact` plugin command — a pre-`/compact` checkpoint that syncs vault progress (via the sibling `Skill: vault-cli:sync-progress`), sweeps touched goals/tasks, runs compact-safety checks (git status/log, live background processes, daemon state, containers, unanswered gates), emits a 4-field `RESUME AFTER COMPACT` block, writes a per-session `~/.claude/compact-checkpoints/<session-id>.md` resume file, and returns a `✅ Ready to compact` / `⚠️ Not compact-safe yet` verdict. Promoted from the per-machine commands directory into the plugin bundle; `allowed-tools` is now a granular per-capability list (no unscoped `Bash`), keeping the command read-and-report-only — it never auto-commits, auto-pushes, or kills anything.
 

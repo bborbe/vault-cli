@@ -1,11 +1,12 @@
 ---
-status: prompted
+status: verifying
 tags:
     - dark-factory
     - spec
 approved: "2026-08-19T09:43:16Z"
 generating: "2026-08-19T09:45:56Z"
 prompted: "2026-08-19T10:02:31Z"
+verifying: "2026-08-19T10:28:13Z"
 branch: dark-factory/prepare-compact-plugin-command
 ---
 

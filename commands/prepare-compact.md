@@ -16,7 +16,7 @@ allowed-tools:
 
 Pre-`/compact` checkpoint. Syncs vault progress, surfaces live background state, and writes a resume block so compaction never silently drops work. Run before `/compact` when you want to keep working in this session afterward.
 
-This command **must stay inline** — it reads the parent conversation's state (touched goals and tasks, live background work, the session's own id); a sub-agent cannot see the conversation. It is read-and-report-only: its only writes are vault progress updates (steps 1–2) and the per-session checkpoint file (step 5). Never auto-commit, auto-push, kill a daemon.
+This command **must stay inline** — it reads the parent conversation's state (touched goals and tasks, live background work, the session's own id); a sub-agent cannot see the conversation. It is read-and-report-only: its only writes are the vault progress updates (the *Sync vault progress* and *Goal and task sweep* sections) and the per-session checkpoint file (the *Per-session checkpoint file* section). Never auto-commit, auto-push, kill a daemon.
 
 ## Sync vault progress
 
@@ -70,7 +70,7 @@ Interpretations:
 
 ## RESUME AFTER COMPACT
 
-Emit the 4-field resume block below, populated from the findings of steps 2–3 — this is what the next session reads to pick up exactly where this one paused:
+Emit the 4-field resume block below, populated from the findings of the *Goal and task sweep* and *Compact-safety checks* sections — this is what the next session reads to pick up exactly where this one paused:
 
 ```
 Next action:
@@ -88,7 +88,7 @@ Write the resume state to a checkpoint file whose path template is `~/.claude/co
 - `<session-id>` is derived from the session's own scratchpad path — never from user input, conversation text, or file content. This is the trust boundary: a user- or file-controlled session-id would allow writing to an arbitrary filename. If the checkpoint directory does not exist, create it with the granted mkdir capability.
 - Per session, not a single fixed path — two concurrent sessions in the same project each write their own `<session-id>.md` and never clobber each other.
 - The file lives under `~/.claude/` — outside every repo on purpose — so it survives compacts and is never committed to any worktree.
-- Perform the write with the `Write` tool (the granted `Write` scope); this is one of only two write paths in the command, the other being the step 1–2 vault progress updates.
+- Perform the write with the `Write` tool (the granted `Write` scope); this is one of only two write paths in the command, the other being the vault progress updates above.
 
 After writing, state the full path in your final message — a checkpoint that is written but never announced defeats its purpose.
 

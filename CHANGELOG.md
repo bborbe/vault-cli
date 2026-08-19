@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat: add `/vault-cli:prepare-compact` plugin command — a pre-`/compact` checkpoint that syncs vault progress (via the sibling `Skill: vault-cli:sync-progress`), sweeps touched goals/tasks, runs compact-safety checks (git status/log, live background processes, daemon state, containers, unanswered gates), emits a 4-field `RESUME AFTER COMPACT` block, writes a per-session `~/.claude/compact-checkpoints/<session-id>.md` resume file, and returns a `✅ Ready to compact` / `⚠️ Not compact-safe yet` verdict. Promoted from the per-machine commands directory into the plugin bundle; `allowed-tools` is now a granular per-capability list (no unscoped `Bash`), keeping the command read-and-report-only — it never auto-commits, auto-pushes, or kills anything.
+
 ## v0.112.0
 
 - feat: `/vault-cli:work-on-goal` now behaves like `/vault-cli:work-on-task` on a miss — when the goal is not found in any source it **always creates the goal page** (via `Skill: vault-cli:create-goal`) and then proceeds with work preparation, instead of erroring with "suggest creating the goal". Mirrors `work-on-task`'s Phase 4 find-or-create: the `work-on-goal-assistant` now emits a structured `not_found:` verdict (with `Suggested goal name:` — Jira summary when the input is a Jira key) and stops; the slash command owns creation, re-invoking the assistant on success. The assistant also now finds an existing goal by its `jira:` frontmatter when given a Jira key, and can resolve Jira summaries via `mcp__atlassian__getJiraIssue` for the suggested name. `/vault-cli:work-on` already created task-or-goal on free-text not_found; this closes the goal-route gap so all three work-on commands are find-or-create.

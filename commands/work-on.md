@@ -81,7 +81,7 @@ Task lifecycle (extends `commands/work-on-task.md` Integration section):
 
 ## Notes
 
-- Keeps `work-on-task.md` and `work-on-goal.md` as functional aliases (no changes to either file)
+- `work-on-task.md` and `work-on-goal.md` are functional aliases. `work-on` uses the task route for Jira IDs (unambiguous task) and the free-text route for unknown types; the goal route delegates to `work-on-goal-assistant`, which shares work-on-goal's find-or-create behavior (auto-creates the goal on `not_found`).
 - No hardcoded Jira hostname, project key, or vault path — everything detected at runtime
 - `vault-cli resolve` dependency: must be installed (binary ≥ v0.95.0). If `resolve` exits non-zero or outputs invalid JSON, print a clear error: `❌ vault-cli resolve failed — ensure vault-cli binary is ≥ v0.95.0` and fall back to `AskUserQuestion` asking the user to pick task vs goal manually.
 - Works in any vault registered with `vault-cli config`

@@ -2,7 +2,7 @@
 name: work-on-goal-assistant
 description: Prepare a goal for work — find goal, search domain guides, analyze task progress, recommend next task, delegate to work-on-task-assistant. Works in any vault.
 model: haiku
-tools: Read, Glob, Grep, Bash, Task, AskUserQuestion, mcp__semantic-search__search_related
+tools: Read, Glob, Grep, Bash, Task, AskUserQuestion, mcp__semantic-search__search_related, mcp__atlassian__getAccessibleAtlassianResources, mcp__atlassian__getJiraIssue
 color: blue
 ---
 
@@ -36,6 +36,7 @@ This mirrors `work-on-task-assistant`'s status promotion. It runs in Phase 1 (ri
 - ALWAYS search for domain-level guides (broader than task-specific)
 - ALWAYS show progress overview before task selection
 - ALWAYS present absolute paths
+- On goal `not_found`, emit the structured `not_found:` verdict (see Phase 1 and `<output_format>`) and STOP — do NOT create the goal, do NOT call AskUserQuestion, do NOT invoke `Skill: vault-cli:create-goal`. The calling slash command (`vault-cli:work-on-goal`) owns goal creation.
 </constraints>
 
 <runtime_detection>
@@ -57,11 +58,16 @@ For cross-vault discovery: iterate each entry under `~/Documents/Obsidian/` to f
 <workflow>
 ## Phase 1: Find goal
 
-Goal name comes from the prompt (e.g. "Find goal: <name>"). The Focus-page lookup feature is removed — callers must pass a goal name explicitly.
+Goal name comes from the prompt (e.g. "Find goal: <name>"). The Focus-page lookup feature is removed — callers must pass a goal name explicitly. The input may be a goal title or a Jira key (e.g. `BRO-20702`).
 
-Search order:
+**Jira-key input** — if the input matches `^[A-Z][A-Z0-9]+-\d+$` (any project key):
+- If `mcp__atlassian__getJiraIssue` is available (cloudId via `getAccessibleAtlassianResources`): fetch the issue → capture `summary` for the `Suggested goal name:` field. If the MCP is absent, report "Jira tools not available in this session — looking up locally only" and fall through to the local searches.
+- Also search for an existing goal by frontmatter: `grep -rlE '^jira: <KEY>$' "{goals_dir}"` in the active vault and each sibling vault's `goals_dir`. A goal found this way is the found case — proceed normally.
+
+Search order (local):
 1. `Glob: {goals_dir}/*{name}*.md` in active vault
-2. Each sibling vault's `{their.goals_dir}/*{name}*.md`
+2. `grep -rlE '^jira: <KEY>$' "{goals_dir}"` if input is a Jira key (active vault + siblings)
+3. Each sibling vault's `{their.goals_dir}/*{name}*.md`
 
 Read goal file:
 - Extract frontmatter: status, themes, tasks (if listed)
@@ -69,7 +75,7 @@ Read goal file:
 - Extract sections: Impact, Success Criteria, Active Tasks
 - Determine "domain" from path or themes (e.g., a goal under `~/Documents/Obsidian/Trading/` is a Trading domain goal)
 
-If not found: error with searched paths + suggest `/vault-cli:create-goal`.
+If not found: emit the structured `not_found:` verdict block (literal `not_found:` header on its own line — see `<output_format>` for the exact form) with the searched-source evidence (Jira: hit/miss/skipped, Glob: paths tried, semantic-search: top-3 misses with scores) and a `Suggested goal name:` line derived from the input (or, if input is a Jira key and the Jira lookup returned a summary, from the issue summary; fall back to the raw input string if neither is available). Then STOP — do NOT propose a fix, do NOT call AskUserQuestion, do NOT invoke `Skill: vault-cli:create-goal`. The `not_found` verdict is parsed by the calling slash command (`vault-cli:work-on-goal`) which owns goal creation.
 
 **Promote status to in_progress (MANDATORY — see `<critical_writes>`).** Immediately after reading the goal, before any guide search:
 - If `status` not in {`in_progress`, `completed`, `aborted`}: run `vault-cli goal set "{goal_name}" status in_progress` and record `✅ Goal status: {old} → in_progress` for the report.
@@ -196,10 +202,25 @@ After user picks a task and `work-on-task-assistant` returns:
 
 Ready to work on this task.
 ```
+
+When the goal is NOT found in any source (Phase 1), emit this separate `not_found:` block instead — the literal `not_found:` header on its own line, then STOP. Do NOT emit the `Ready to work on this task.` marker (found-case only):
+
+```markdown
+not_found:
+📋 Goal: <input>
+Status: not_found
+
+Searched:
+- Jira: <hit: summary> | <miss> | <skipped: not in input pattern>
+- Glob ({goals_dir}/*<keyword>*.md): <paths tried, e.g. "23 Goals/*foo*.md → 0 matches"> | <skipped>
+- Semantic search: <top-3 misses with scores> | <skipped: MCP unavailable>
+
+Suggested goal name: <derived title — Jira summary if Jira ID input, else input string verbatim>
+```
 </output_format>
 
 <error_handling>
-- Goal not found: report searched paths + suggest creating the goal
+- Goal not found in any source: emit the `not_found:` verdict (see Phase 1 and `<output_format>`) and STOP — the calling slash command (`vault-cli:work-on-goal`) always creates the goal via `Skill: vault-cli:create-goal` (no consent prompt). The agent must not ask or create.
 - Goal already `completed` or `aborted`: do NOT auto-promote to in_progress (the `<critical_writes>` skip rule). Show completion summary; offer to reopen / pick next goal from theme / view tasks
 - No tasks defined: "ℹ️ No tasks defined for this goal — add tasks or mark goal complete"
 - All tasks deferred: show earliest defer date and recommend reviewing

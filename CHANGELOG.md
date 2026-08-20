@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.114.0
 
 - feat: add `/vault-cli:post-compact` — post-compaction verification that reads the session checkpoint, verifies carry-over items against live state, re-arms watchers, and surfaces next actions (idempotent, verify + surface only, never auto-commit/push/kill)
 - feat: `/vault-cli:prepare-compact` classifies open state as carryable, writes carry-over items into the checkpoint, and returns "Compact-safe — N carry-over items; run /vault-cli:post-compact after /compact" instead of hard-blocking; the hard "Not compact-safe" verdict is now reserved for a failed vault sync or checkpoint write

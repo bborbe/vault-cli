@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.113.1
 
 - fix: `/vault-cli:session-close` Phase 8.6 no longer reports `Tags:`-line wikilinks as broken outbound links. Vaults routinely tag with wikilink syntax for tags that intentionally have no page, so resolving them like body links flags the vault's own convention. Observed 2026-08-20: `[[OmniFocus]]` was flagged on a generated recurring task — one of 14 unresolved tag names across that vault's 74 generated tasks — and the false flag sent the operator to edit a source template, where a one-file "fix" would have created drift against 73 siblings. Check #2 now skips wikilinks on a line matching `^Tags:`.
 

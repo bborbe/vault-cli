@@ -182,6 +182,7 @@ claude plugin update vault-cli@vault-cli
 | `/vault-cli:audit-objective` | Full objective audit against Objective Writing Guide |
 | `/vault-cli:sync-progress` | Sync conversation progress to daily note + task pages (mid-session checkpoint) |
 | `/vault-cli:session-close` | End-of-session safety check — sync, git state, worktrees, reflect signals |
+| `/vault-cli:post-compact` | Post-compaction verification — read the session checkpoint, verify carry-over items, re-arm watchers, surface next actions |
 
 ## Shell Completion
 

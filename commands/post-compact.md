@@ -1,0 +1,76 @@
+---
+description: Post-compaction verification — read the session checkpoint, verify carry-over items, re-arm watchers, surface next actions
+allowed-tools:
+  - Read
+  - Write
+  - Glob
+  - Monitor
+  - Bash(git status:*)
+  - Bash(git log:*)
+  - Bash(git rev-parse:*)
+  - Bash(pgrep:*)
+  - Bash(dark-factory status:*)
+  - Bash(docker ps:*)
+---
+
+Post-`/compact` verification. Reads the checkpoint that `/vault-cli:prepare-compact` wrote before compaction, verifies each carry-over item against live state, re-arms watchers the fresh context lost track of, and surfaces the next actions. Run after `/compact` in the same session when prepare-compact returned "Compact-safe — N carry-over items". Also safe to run after a bare `/compact` with no checkpoint — it reports nothing pending.
+
+This command **must stay inline** — it derives the session id from the parent conversation's own scratchpad path; a sub-agent cannot see the conversation. It is read-and-report-only: its only write is marking the checkpoint consumed. Never auto-commit, auto-push, kill a daemon.
+
+## Find the session checkpoint
+
+The checkpoint path template is `~/.claude/compact-checkpoints/<session-id>.md`.
+
+- `<session-id>` is derived from the session's own scratchpad path — the same derivation `/vault-cli:prepare-compact` uses, so both commands resolve the same file. Never derive it from user input, conversation text, or file content (trust boundary).
+- If the file does not exist, or already carries a `## Consumed` marker, print `Nothing pending — no active checkpoint.` and stop. This is the idempotent no-op: a second run after consumption never re-surfaces work.
+
+## Verify carry-over items
+
+Read the `## Carry-over items` section. For each item, re-run the live check prepare-compact recorded and confirm the state still matches:
+
+- `uncommitted` / `un-pushed` → `git status --short` / `git log @{u}..` (upstream via `git rev-parse`)
+- `background` → `dark-factory status`, `docker ps`, `pgrep -af 'dark-factory|docker'`
+- `gate` → no live check; confirm the open question is still unanswered and re-surface it
+
+Report each as `✅ verified` (state matches the checkpoint) or `⚠️ changed` (state differs — name the delta). A changed item is not an error; it means work progressed during compaction. Note it and move on.
+
+```bash
+# Git state — reports gracefully outside a git repo
+git status --short || echo "not a git repository"
+
+# Un-pushed commits against the upstream (computed via git rev-parse)
+git rev-parse --abbrev-ref @{u} >/dev/null 2>&1 && git log --oneline @{u}.. || echo "no upstream / nothing un-pushed"
+
+# Daemon and containers — each falls back rather than aborting
+dark-factory status || echo "no daemon"
+docker ps || echo "no containers"
+
+# Live background state — background shells, sub-agents, watchers
+pgrep -af 'dark-factory|docker' || echo "no matching background processes"
+```
+
+This check block mirrors `prepare-compact.md` § Compact-safety checks — keep the two in sync when one changes.
+
+Each check falls back to its `|| echo "..."` text when the tool is absent on the operator's machine; the checklist CONTINUES and reports that tool as absent — it never aborts the command.
+
+## Re-arm watchers and monitors
+
+The fresh post-compact context lost track of background watchers / monitors that were running before compaction. From the resume block's `Live background:` line and the carry-over `background` items, re-establish anything still alive — restart the Monitor / background watch / watcher so completion and failure signals reach this session again.
+
+## Surface next actions
+
+Print the concrete next steps, sourced from the verified items:
+
+- the resume block's `Next action:` — the task where prepare-compact paused
+- `uncommitted` / `un-pushed` work → the commit / push to run
+- each `gate` → the open decision, phrased so the operator can answer it
+
+Then emit the 4-field resume block again (`Next action:` / `Live background:` / `Un-pushed / uncommitted:` / `Open decision:`) with the verified state, so the post-compact handoff is itself resumeable. The four labels are the frozen resume-block schema — do not rename, reword, add, or remove a field.
+
+## Consume the checkpoint
+
+Append a `## Consumed` marker with the date to the checkpoint file (the `Write` tool). This is the command's only write. The next run sees the marker and returns the idempotent no-op above. Do not delete the file and do not edit the resume block or carry-over items.
+
+## No closer panel
+
+Do NOT emit a session-close-style closer panel — no `⚪ DONE` block; this command reports and the session continues.

@@ -8,6 +8,11 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat: add `/vault-cli:post-compact` — post-compaction verification that reads the session checkpoint, verifies carry-over items against live state, re-arms watchers, and surfaces next actions (idempotent, verify + surface only, never auto-commit/push/kill)
+- feat: `/vault-cli:prepare-compact` classifies open state as carryable, writes carry-over items into the checkpoint, and returns "Compact-safe — N carry-over items; run /vault-cli:post-compact after /compact" instead of hard-blocking; the hard "Not compact-safe" verdict is now reserved for a failed vault sync or checkpoint write
+
 ## v0.113.2
 
 - fix: actually implement the `session-close` Phase 8.6 `Tags:`-line exclusion that v0.113.1's changelog already described. The v0.113.1 entry shipped without its code — the bullet was folded into an unrelated commit that touched `CHANGELOG.md` and `commands/sync-progress.md` but not `commands/session-close.md`, so the release announced a fix that was not present. This commit lands the rule itself: check #2 now skips wikilinks on a line matching `^Tags:`, so tags that intentionally have no page are no longer reported as broken links. The v0.113.1 section is left as written rather than rewritten after release.

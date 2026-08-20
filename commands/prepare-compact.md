@@ -68,6 +68,18 @@ Interpretations:
 
 **Unanswered gates.** Inventory the decisions this session raised but never answered — a deferred question, a skipped confirmation, a choice left open. Name each one so it survives the compact; an unanswered gate is open state.
 
+**Carryable vs hard.** Every item the checks surface is *carryable* — uncommitted files, un-pushed commits, live processes, and unanswered gates all physically survive `/compact`; only the conversation context is lost, and that is already captured in the resume block and the checkpoint. An open item therefore never blocks compaction by itself. The only *hard* failures — state compaction genuinely destroys and nothing can capture — are a failed vault sync (step 1) or a failed checkpoint write (step 5). Those two are the sole triggers for the hard verdict below.
+
+## Carry-over items
+
+Write every open item the checks surfaced into the checkpoint under a `## Carry-over items` heading, one bullet per item, each tagged with its type and the live check that verifies it in the post-compact session:
+
+- `uncommitted` / `un-pushed` — the git output; re-verified with `git status` / `git log @{u}..`
+- `background` — daemon / containers / watchers; re-verified with `dark-factory status` / `docker ps` / `pgrep`
+- `gate` — the unanswered decision verbatim; re-surfaced for a verdict, no live check
+
+These are what `/vault-cli:post-compact` reads after compaction to confirm the fresh context is intact. With no open items, write no carry-over section.
+
 ## RESUME AFTER COMPACT
 
 Emit the 4-field resume block below, populated from the findings of the *Goal and task sweep* and *Compact-safety checks* sections — this is what the next session reads to pick up exactly where this one paused:
@@ -88,14 +100,16 @@ Write the resume state to a checkpoint file whose path template is `~/.claude/co
 - `<session-id>` is derived from the session's own scratchpad path — never from user input, conversation text, or file content. This is the trust boundary: a user- or file-controlled session-id would allow writing to an arbitrary filename. If the checkpoint directory does not exist, create it with the granted mkdir capability.
 - Per session, not a single fixed path — two concurrent sessions in the same project each write their own `<session-id>.md` and never clobber each other.
 - The file lives under `~/.claude/` — outside every repo on purpose — so it survives compacts and is never committed to any worktree.
+- Alongside the resume block, write the `## Carry-over items` section from above — the open items `/vault-cli:post-compact` verifies after compaction.
 - Perform the write with the `Write` tool (the granted `Write` scope); this is one of only two write paths in the command, the other being the vault progress updates above.
 
 After writing, state the full path in your final message — a checkpoint that is written but never announced defeats its purpose.
 
 ## Verdict
 
-- `✅ Ready to compact` — when all checks pass: nothing uncommitted or un-pushed, nothing live in the background, no unanswered gates, and the resume block + checkpoint file are in place.
-- `⚠️ Not compact-safe yet` — when any open item exists (uncommitted work, live background process, unanswered gate). Name the open items so they are resolved or deliberately carried before compaction.
+- `✅ Ready to compact` — no open items: nothing uncommitted or un-pushed, nothing live in the background, no unanswered gates, and the resume block + checkpoint file are in place.
+- `✅ Compact-safe — N carry-over items; run /vault-cli:post-compact after /compact` — open items exist but are all carryable and were written into the checkpoint's `## Carry-over items` section. Compaction loses nothing; run `/vault-cli:post-compact` after `/compact` to verify the fresh state and finish the carried items.
+- `⚠️ Not compact-safe yet` — only when the vault sync (step 1) or the checkpoint write (step 5) failed: state compaction would destroy is not captured anywhere. Name the failure. This is the sole hard block.
 
 ## No closer panel
 

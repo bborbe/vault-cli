@@ -65,7 +65,11 @@ If NO completion detected, check whether a PR was created (Phase 3.3 detection r
 
 ### 3.1 Daily note
 
-File: `{daily_dir}/YYYY-MM-DD.md`. Add to `## What happened today`:
+File: `{daily_dir}/YYYY-MM-DD.md`. Add to the daily note's "What happened today" section.
+
+**Do not assume the heading level.** Templates differ across vaults — the Personal vault uses `# What happened today` (h1). Locate the section with `grep -nE '^#+ What happened today'` before concluding it is absent. A `^## ` grep returns nothing there, and reading that as "this vault's template has no such section" silently skips the entry — the daily note then reports the session as unrecorded and `session-close` Phase 7 has to catch it. Observed 2026-08-20. Same defect class `session-close.md` § Phase 7 already fixed on its own side.
+
+Entry shape:
 
 ```markdown
 ### {Task Name} — Done ✅
@@ -142,7 +146,7 @@ For each file written in Phase 3.1–3.4, record a structured record (in memory)
   - matches `vault.goals_dir` → `goal`
   - path contains `/65 Runbooks/` or `/70 Runbooks/` → `runbook`
   - else → `doc`
-- `section` — the h2 section name where content landed (e.g. `What happened today`, `Pull Requests`, `Results`); empty if the whole file is new
+- `section` — the section name where content landed (e.g. `What happened today`, `Pull Requests`, `Results`), at whatever heading level the vault uses; empty if the whole file is new
 
 Phase 5 reads these structured records to emit clickable links — do not skip the schema and feed Phase 5 raw paths.
 

@@ -8,6 +8,12 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: `/vault-cli:session-close` Phase 8.6 no longer reports `Tags:`-line wikilinks as broken outbound links. Vaults routinely tag with wikilink syntax for tags that intentionally have no page, so resolving them like body links flags the vault's own convention. Observed 2026-08-20: `[[OmniFocus]]` was flagged on a generated recurring task — one of 14 unresolved tag names across that vault's 74 generated tasks — and the false flag sent the operator to edit a source template, where a one-file "fix" would have created drift against 73 siblings. Check #2 now skips wikilinks on a line matching `^Tags:`.
+
+- fix: `/vault-cli:sync-progress` no longer hardcodes the daily-note section as `## What happened today`. Templates differ across vaults — the Personal vault uses `# What happened today` (h1) — so a `^## ` grep returned nothing and the section read as absent, silently skipping the session entry and leaving `session-close` Phase 7 to catch it. Phase 3.1 now instructs locating the heading with `grep -nE '^#+ What happened today'` at any level, and the Phase 3.5 `section` field no longer claims h2. Same defect class `session-close.md` § Phase 7 already fixed on its own side.
+
 ## v0.113.0
 
 - feat: add `/vault-cli:prepare-compact` plugin command — a pre-`/compact` checkpoint that syncs vault progress (via the sibling `Skill: vault-cli:sync-progress`), sweeps touched goals/tasks, runs compact-safety checks (git status/log, live background processes, daemon state, containers, unanswered gates), emits a 4-field `RESUME AFTER COMPACT` block, writes a per-session `~/.claude/compact-checkpoints/<session-id>.md` resume file, and returns a `✅ Ready to compact` / `⚠️ Not compact-safe yet` verdict. Promoted from the per-machine commands directory into the plugin bundle; `allowed-tools` is now a granular per-capability list (no unscoped `Bash`), keeping the command read-and-report-only — it never auto-commits, auto-pushes, or kills anything.

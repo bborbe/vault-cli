@@ -34,6 +34,12 @@ Obsidian vault task management CLI — fast CRUD for markdown files (tasks, goal
 30-second decision:
 
 1. Is this code that runs in a build / production / CI pipeline? No → **Direct** (edit by hand, no dark-factory). Markdown, config, yaml, agent definitions, operator scripts land here.
+   **Direct still means a feature worktree, never the shared checkout.** This repo has concurrent writers — the maintainer bot, dark-factory, and sibling Claude sessions. Branching in `~/Documents/workspaces/vault-cli` lets another agent's checkout switch HEAD out from under you and discard your uncommitted edits. Observed 2026-08-20: a docs branch cut there collided with an active `fix/session-close-tag-line-links` session and lost local changes. Create the worktree per [[Git Development Guide]] § Worktrees:
+   ```bash
+   git fetch
+   git worktree add --no-track ../vault-cli-<name> -b fix/<name> origin/master
+   cd ../vault-cli-<name> && git push -u origin fix/<name>
+   ```
 2. Yes — does the change carry a business-level "why" worth a permanent in-repo document? No → **Prompt**. Yes → **Spec → prompts**.
 
 ### Read the relevant guide before starting — every time, not from memory

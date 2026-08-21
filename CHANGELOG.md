@@ -11,6 +11,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 ## Unreleased
 - Bump golangci-lint to v2.13.1 (honnef.co/go/tools v0.8.0) — fixes the Go 1.27 staticcheck `buildir` panic that fails the lint step on CI
 - feat: verify-task now runs a goal-necessity forward check — for each linked goal, a task whose outcome advances none of the goal's success criteria (or whose domain the goal's `# Non-goals` explicitly exclude) is flagged in the verify report as not needed by the linked goal; goals with missing or unparseable `# Success Criteria` yield an informational line instead. Advisory only — nothing is auto-fixed.
+- feat: verify-goal now runs a goal-necessity inverse check — a task linked in a goal's `# Tasks` section that advances no success criterion of the goal (and is not explicitly framed as a needed foundation task, or whose domain the goal's `# Non-goals` explicitly exclude) is flagged in the verify report as not needed to complete the goal; goals with missing or unparseable `# Success Criteria` yield an informational line instead. Advisory only — nothing is auto-fixed.
 
 ## v0.114.1
 

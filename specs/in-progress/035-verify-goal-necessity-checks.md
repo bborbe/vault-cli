@@ -1,6 +1,8 @@
 ---
-status: approved
+status: prompted
 approved: "2026-08-21T08:41:34Z"
+generating: "2026-08-21T09:48:00Z"
+prompted: "2026-08-21T10:03:37Z"
 branch: dark-factory/verify-goal-necessity-checks
 ---
 

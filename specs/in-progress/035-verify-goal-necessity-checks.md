@@ -1,5 +1,7 @@
 ---
-status: draft
+status: approved
+approved: "2026-08-21T08:41:34Z"
+branch: dark-factory/verify-goal-necessity-checks
 ---
 
 ## Summary

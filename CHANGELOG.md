@@ -8,6 +8,9 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+- Bump golangci-lint to v2.13.1 (honnef.co/go/tools v0.8.0) — fixes the Go 1.27 staticcheck `buildir` panic that fails the lint step on CI
+
 ## v0.114.1
 
 - Update Go module dependencies (bborbe/collection, errors, time, validation, math, parse, run; ginkgo; sentry-go; prometheus; protobuf)

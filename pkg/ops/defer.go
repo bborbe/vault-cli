@@ -61,26 +61,26 @@ func (d *deferOperation) Execute(
 	targetDate, err := parseDeferDate(ctx, dateStr, now)
 	if err != nil {
 		return MutationResult{
-				Success: false,
-				Error:   err.Error(),
-			}, errors.Wrap(
-				ctx,
-				err,
-				"parse date",
-			)
+			Success: false,
+			Error:   err.Error(),
+		}, errors.Wrap(
+			ctx,
+			err,
+			"parse date",
+		)
 	}
 
 	// Find task early so we can adjust +Nd for time preservation
 	task, err := d.taskStorage.FindTaskByName(ctx, vaultPath, taskName)
 	if err != nil {
 		return MutationResult{
-				Success: false,
-				Error:   err.Error(),
-			}, errors.Wrap(
-				ctx,
-				err,
-				"find task",
-			)
+			Success: false,
+			Error:   err.Error(),
+		}, errors.Wrap(
+			ctx,
+			err,
+			"find task",
+		)
 	}
 
 	// For +Nd: if existing DeferDate has a time component, preserve it
@@ -99,16 +99,16 @@ func (d *deferOperation) Execute(
 	// Validate target is not in the past (date-only: compare at day level; datetime: compare at full precision)
 	if isDeferDateInPast(targetDate, now) {
 		return MutationResult{
-				Success: false,
-				Error: fmt.Sprintf(
-					"cannot defer to past date: %s",
-					targetDate.Time().Format("2006-01-02"),
-				),
-			}, errors.Errorf(
-				ctx,
+			Success: false,
+			Error: fmt.Sprintf(
 				"cannot defer to past date: %s",
 				targetDate.Time().Format("2006-01-02"),
-			)
+			),
+		}, errors.Errorf(
+			ctx,
+			"cannot defer to past date: %s",
+			targetDate.Time().Format("2006-01-02"),
+		)
 	}
 
 	// Find and update task

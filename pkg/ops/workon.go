@@ -75,13 +75,13 @@ func (w *workOnOperation) Execute(
 	task, err := w.taskStorage.FindTaskByName(ctx, vaultPath, taskName)
 	if err != nil {
 		return MutationResult{
-				Success: false,
-				Error:   err.Error(),
-			}, errors.Wrap(
-				ctx,
-				err,
-				"find task",
-			)
+			Success: false,
+			Error:   err.Error(),
+		}, errors.Wrap(
+			ctx,
+			err,
+			"find task",
+		)
 	}
 
 	_ = task.SetStatus(domain.TaskStatusInProgress)
@@ -94,13 +94,13 @@ func (w *workOnOperation) Execute(
 
 	if err := w.taskStorage.WriteTask(ctx, task); err != nil {
 		return MutationResult{
-				Success: false,
-				Error:   err.Error(),
-			}, errors.Wrap(
-				ctx,
-				err,
-				"write task",
-			)
+			Success: false,
+			Error:   err.Error(),
+		}, errors.Wrap(
+			ctx,
+			err,
+			"write task",
+		)
 	}
 
 	today := w.currentDateTime.Now().Format("2006-01-02")

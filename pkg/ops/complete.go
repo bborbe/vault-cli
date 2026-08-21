@@ -84,13 +84,13 @@ func (c *completeOperation) Execute(
 	task, err := c.taskStorage.FindTaskByName(ctx, vaultPath, taskName)
 	if err != nil {
 		return MutationResult{
-				Success: false,
-				Error:   err.Error(),
-			}, errors.Wrap(
-				ctx,
-				err,
-				"find task",
-			)
+			Success: false,
+			Error:   err.Error(),
+		}, errors.Wrap(
+			ctx,
+			err,
+			"find task",
+		)
 	}
 
 	// Handle recurring tasks differently
@@ -115,13 +115,13 @@ func (c *completeOperation) Execute(
 	// Write updated task
 	if err := c.taskStorage.WriteTask(ctx, task); err != nil {
 		return MutationResult{
-				Success: false,
-				Error:   err.Error(),
-			}, errors.Wrap(
-				ctx,
-				err,
-				"write task",
-			)
+			Success: false,
+			Error:   err.Error(),
+		}, errors.Wrap(
+			ctx,
+			err,
+			"write task",
+		)
 	}
 
 	// Update associated goals
@@ -227,14 +227,14 @@ func (c *completeOperation) handleRecurringTask(
 	// Write updated task
 	if err := c.taskStorage.WriteTask(ctx, task); err != nil {
 		return MutationResult{
-				Success: false,
-				Vault:   vaultName,
-				Error:   err.Error(),
-			}, errors.Wrap(
-				ctx,
-				err,
-				"write recurring task",
-			)
+			Success: false,
+			Vault:   vaultName,
+			Error:   err.Error(),
+		}, errors.Wrap(
+			ctx,
+			err,
+			"write recurring task",
+		)
 	}
 
 	// Update today's daily note (mark checkbox as checked for completion)

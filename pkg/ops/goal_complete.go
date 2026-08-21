@@ -57,13 +57,13 @@ func (g *goalCompleteOperation) Execute(
 	goal, err := g.goalStorage.FindGoalByName(ctx, vaultPath, goalName)
 	if err != nil {
 		return MutationResult{
-				Success: false,
-				Error:   err.Error(),
-			}, errors.Wrap(
-				ctx,
-				err,
-				"find goal",
-			)
+			Success: false,
+			Error:   err.Error(),
+		}, errors.Wrap(
+			ctx,
+			err,
+			"find goal",
+		)
 	}
 
 	if goal.Status() == domain.GoalStatusCompleted {
@@ -82,13 +82,13 @@ func (g *goalCompleteOperation) Execute(
 
 	if err := g.goalStorage.WriteGoal(ctx, goal); err != nil {
 		return MutationResult{
-				Success: false,
-				Error:   err.Error(),
-			}, errors.Wrap(
-				ctx,
-				err,
-				"write goal",
-			)
+			Success: false,
+			Error:   err.Error(),
+		}, errors.Wrap(
+			ctx,
+			err,
+			"write goal",
+		)
 	}
 
 	return MutationResult{Success: true, Name: goal.Name, Vault: vaultName}, nil
@@ -102,13 +102,13 @@ func (g *goalCompleteOperation) checkOpenTasks(
 	tasks, err := g.taskStorage.ListTasks(ctx, vaultPath)
 	if err != nil {
 		return MutationResult{
-				Success: false,
-				Error:   err.Error(),
-			}, errors.Wrap(
-				ctx,
-				err,
-				"list tasks",
-			)
+			Success: false,
+			Error:   err.Error(),
+		}, errors.Wrap(
+			ctx,
+			err,
+			"list tasks",
+		)
 	}
 
 	var openTasks []*domain.Task

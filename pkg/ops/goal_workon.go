@@ -66,24 +66,24 @@ func (g *goalWorkOnOperation) Execute(
 	goal, err := g.goalStorage.FindGoalByName(ctx, vaultPath, goalName)
 	if err != nil {
 		return MutationResult{
-				Success: false,
-				Error:   err.Error(),
-			}, errors.Wrap(
-				ctx,
-				err,
-				"find goal",
-			)
+			Success: false,
+			Error:   err.Error(),
+		}, errors.Wrap(
+			ctx,
+			err,
+			"find goal",
+		)
 	}
 
 	if err := goal.SetStatus(domain.GoalStatusInProgress); err != nil {
 		return MutationResult{
-				Success: false,
-				Error:   err.Error(),
-			}, errors.Wrap(
-				ctx,
-				err,
-				"set goal status",
-			)
+			Success: false,
+			Error:   err.Error(),
+		}, errors.Wrap(
+			ctx,
+			err,
+			"set goal status",
+		)
 	}
 
 	if w := applyGoalAssigneeMatrix(goal, assignee); w != "" {
@@ -92,13 +92,13 @@ func (g *goalWorkOnOperation) Execute(
 
 	if err := g.goalStorage.WriteGoal(ctx, goal); err != nil {
 		return MutationResult{
-				Success: false,
-				Error:   err.Error(),
-			}, errors.Wrap(
-				ctx,
-				err,
-				"write goal",
-			)
+			Success: false,
+			Error:   err.Error(),
+		}, errors.Wrap(
+			ctx,
+			err,
+			"write goal",
+		)
 	}
 
 	sessionID, sessionErr := g.handleClaudeSession(ctx, goal, vaultPath, sessionDir, vault)

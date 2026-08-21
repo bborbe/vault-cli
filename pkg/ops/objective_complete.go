@@ -51,13 +51,13 @@ func (o *objectiveCompleteOperation) Execute(
 	objective, err := o.objectiveStorage.FindObjectiveByName(ctx, vaultPath, objectiveName)
 	if err != nil {
 		return MutationResult{
-				Success: false,
-				Error:   err.Error(),
-			}, errors.Wrap(
-				ctx,
-				err,
-				"find objective",
-			)
+			Success: false,
+			Error:   err.Error(),
+		}, errors.Wrap(
+			ctx,
+			err,
+			"find objective",
+		)
 	}
 
 	if objective.Status() == domain.ObjectiveStatusCompleted {
@@ -70,13 +70,13 @@ func (o *objectiveCompleteOperation) Execute(
 
 	if err := o.objectiveStorage.WriteObjective(ctx, objective); err != nil {
 		return MutationResult{
-				Success: false,
-				Error:   err.Error(),
-			}, errors.Wrap(
-				ctx,
-				err,
-				"write objective",
-			)
+			Success: false,
+			Error:   err.Error(),
+		}, errors.Wrap(
+			ctx,
+			err,
+			"write objective",
+		)
 	}
 
 	return MutationResult{Success: true, Name: objective.Name, Vault: vaultName}, nil

@@ -51,13 +51,13 @@ func (d *decisionAckOperation) Execute(
 	decision, err := d.decisionStorage.FindDecisionByName(ctx, vaultPath, decisionName)
 	if err != nil {
 		return MutationResult{
-				Success: false,
-				Error:   err.Error(),
-			}, errors.Wrap(
-				ctx,
-				err,
-				"find decision",
-			)
+			Success: false,
+			Error:   err.Error(),
+		}, errors.Wrap(
+			ctx,
+			err,
+			"find decision",
+		)
 	}
 
 	decision.Reviewed = true
@@ -70,13 +70,13 @@ func (d *decisionAckOperation) Execute(
 
 	if err := d.decisionStorage.WriteDecision(ctx, decision); err != nil {
 		return MutationResult{
-				Success: false,
-				Error:   err.Error(),
-			}, errors.Wrap(
-				ctx,
-				err,
-				"write decision",
-			)
+			Success: false,
+			Error:   err.Error(),
+		}, errors.Wrap(
+			ctx,
+			err,
+			"write decision",
+		)
 	}
 
 	return MutationResult{

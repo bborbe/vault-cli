@@ -61,16 +61,16 @@ func (g *goalDeferOperation) Execute(
 
 	if isDeferDateInPast(targetDate, now) {
 		return MutationResult{
-				Success: false,
-				Error: fmt.Sprintf(
-					"cannot defer to past date: %s",
-					targetDate.Time().Format("2006-01-02"),
-				),
-			}, errors.Errorf(
-				ctx,
+			Success: false,
+			Error: fmt.Sprintf(
 				"cannot defer to past date: %s",
 				targetDate.Time().Format("2006-01-02"),
-			)
+			),
+		}, errors.Errorf(
+			ctx,
+			"cannot defer to past date: %s",
+			targetDate.Time().Format("2006-01-02"),
+		)
 	}
 
 	goal, err := g.goalStorage.FindGoalByName(ctx, vaultPath, goalName)

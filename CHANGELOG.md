@@ -8,6 +8,13 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## v0.114.1
+
+- Update Go module dependencies (bborbe/collection, errors, time, validation, math, parse, run; ginkgo; sentry-go; prometheus; protobuf)
+- Bump Go toolchain to 1.27.0
+- Fix Makefile format target ordering so gofmt runs after golines
+- Reformat pkg/ops files for gofmt/golines compliance (no logic changes)
+
 ## v0.114.0
 
 - feat: add `/vault-cli:post-compact` — post-compaction verification that reads the session checkpoint, verifies carry-over items against live state, re-arms watchers, and surfaces next actions (idempotent, verify + surface only, never auto-commit/push/kill)

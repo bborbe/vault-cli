@@ -54,13 +54,13 @@ func (u *updateOperation) Execute(
 	task, err := u.taskStorage.FindTaskByName(ctx, vaultPath, taskName)
 	if err != nil {
 		return MutationResult{
-				Success: false,
-				Error:   err.Error(),
-			}, errors.Wrap(
-				ctx,
-				err,
-				"find task",
-			)
+			Success: false,
+			Error:   err.Error(),
+		}, errors.Wrap(
+			ctx,
+			err,
+			"find task",
+		)
 	}
 
 	checkboxes := u.parseCheckboxes(string(task.Content))
@@ -79,13 +79,13 @@ func (u *updateOperation) Execute(
 
 	if err := u.taskStorage.WriteTask(ctx, task); err != nil {
 		return MutationResult{
-				Success: false,
-				Error:   err.Error(),
-			}, errors.Wrap(
-				ctx,
-				err,
-				"write task",
-			)
+			Success: false,
+			Error:   err.Error(),
+		}, errors.Wrap(
+			ctx,
+			err,
+			"write task",
+		)
 	}
 
 	warnings = u.syncGoals(ctx, vaultPath, task.Goals(), checkboxes, warnings)

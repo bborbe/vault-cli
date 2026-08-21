@@ -13,6 +13,7 @@ env:
   GOLANGCI_LINT_CACHE: /home/node/.cache/golangci-lint
   GO_TEST_PARALLEL: "4"
   GOFLAGS: "-buildvcs=false"
+  GOTOOLCHAIN: "go1.26.6"
 extraMounts:
   - src: ${GOPATH}/pkg
     dst: /home/node/go/pkg

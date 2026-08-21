@@ -316,6 +316,21 @@ func countCheckboxStates(content string) (completed, inProgress, pending int) {
 	return completed, inProgress, pending
 }
 
+// goalCheckboxMarkers are the unchecked checkbox markers a goal may use for a
+// task: pending and in-progress. Both roll up to "- [x]" on completion.
+var goalCheckboxMarkers = []string{"- [ ]", "- [/]"}
+
+// goalCheckboxMarker returns the unchecked checkbox marker present in line, or
+// an empty string when the line carries none.
+func goalCheckboxMarker(line string) string {
+	for _, marker := range goalCheckboxMarkers {
+		if strings.Contains(line, marker) {
+			return marker
+		}
+	}
+	return ""
+}
+
 // markGoalCheckbox marks the checkbox for a task in the goal file.
 func (c *completeOperation) markGoalCheckbox(
 	ctx context.Context,
@@ -333,10 +348,16 @@ func (c *completeOperation) markGoalCheckbox(
 	modified := false
 
 	for i, line := range lines {
-		// Match checkbox with task name (case-insensitive)
-		if strings.Contains(line, "- [ ]") &&
-			strings.Contains(strings.ToLower(line), strings.ToLower(taskName)) {
-			lines[i] = strings.Replace(line, "- [ ]", "- [x]", 1)
+		// Match checkbox with task name (case-insensitive). Both the pending
+		// marker and the in-progress marker are accepted: a task that is
+		// actively being worked is marked "- [/]" on its goal, so matching only
+		// "- [ ]" skipped exactly the tasks most likely to be completed.
+		marker := goalCheckboxMarker(line)
+		if marker == "" {
+			continue
+		}
+		if strings.Contains(strings.ToLower(line), strings.ToLower(taskName)) {
+			lines[i] = strings.Replace(line, marker, "- [x]", 1)
 			modified = true
 			break
 		}

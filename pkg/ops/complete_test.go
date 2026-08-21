@@ -229,6 +229,37 @@ status: active
 		})
 	})
 
+	Context("task with an in-progress goal checkbox", func() {
+		var goal *domain.Goal
+
+		BeforeEach(func() {
+			task.SetGoals([]string{"Test Goal"})
+
+			goal = domain.NewGoal(
+				map[string]any{"status": "active"},
+				domain.FileMetadata{Name: "Test Goal"},
+				domain.Content(`---
+status: active
+---
+# Test Goal
+
+## Tasks
+- [/] my-task
+`),
+			)
+			mockGoalStorage.FindGoalByNameReturns(goal, nil)
+			mockGoalStorage.WriteGoalReturns(nil)
+		})
+
+		It("marks the in-progress checkbox as complete", func() {
+			Expect(err).To(BeNil())
+			Expect(mockGoalStorage.WriteGoalCallCount()).To(BeNumerically(">", 0))
+			_, updatedGoal := mockGoalStorage.WriteGoalArgsForCall(0)
+			Expect(string(updatedGoal.Content)).To(ContainSubstring("- [x] my-task"))
+			Expect(string(updatedGoal.Content)).NotTo(ContainSubstring("- [/] my-task"))
+		})
+	})
+
 	Context("task with goal not found", func() {
 		BeforeEach(func() {
 			task.SetGoals([]string{"Missing Goal"})

@@ -8,6 +8,9 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+- `sync-progress`: daily-note entry template now wikilinks the task name (`### [[{Task Name}]] — Done ✅`). The plain-text form it emitted before failed `session-close` Phase 7, which verifies the session's work is represented by matching `[[wikilink]]` against touched task/goal titles — so every sync-then-close pair produced a false "no entry for this session's work" flag that had to be hand-patched. Producer and consumer now agree
+
 ## v0.114.2
 - Bump golangci-lint to v2.13.1 (honnef.co/go/tools v0.8.0) — fixes the Go 1.27 staticcheck `buildir` panic that fails the lint step on CI
 - feat: verify-task now runs a goal-necessity forward check — for each linked goal, a task whose outcome advances none of the goal's success criteria (or whose domain the goal's `# Non-goals` explicitly exclude) is flagged in the verify report as not needed by the linked goal; goals with missing or unparseable `# Success Criteria` yield an informational line instead. Advisory only — nothing is auto-fixed.

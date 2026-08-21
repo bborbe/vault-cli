@@ -260,6 +260,64 @@ status: active
 		})
 	})
 
+	Context("task whose goal entry carries no checkbox", func() {
+		var goal *domain.Goal
+
+		BeforeEach(func() {
+			task.SetGoals([]string{"Test Goal"})
+
+			goal = domain.NewGoal(
+				map[string]any{"status": "active"},
+				domain.FileMetadata{Name: "Test Goal"},
+				domain.Content(`---
+status: active
+---
+# Test Goal
+
+## Tasks
+
+1. my-task — written as a plain numbered list, no checkbox
+
+`),
+			)
+			mockGoalStorage.FindGoalByNameReturns(goal, nil)
+			mockGoalStorage.WriteGoalReturns(nil)
+		})
+
+		It("completes the task without rewriting the goal", func() {
+			Expect(err).To(BeNil())
+			Expect(mockGoalStorage.WriteGoalCallCount()).To(Equal(0))
+		})
+	})
+
+	Context("task whose goal checkbox is already complete", func() {
+		var goal *domain.Goal
+
+		BeforeEach(func() {
+			task.SetGoals([]string{"Test Goal"})
+
+			goal = domain.NewGoal(
+				map[string]any{"status": "active"},
+				domain.FileMetadata{Name: "Test Goal"},
+				domain.Content(`---
+status: active
+---
+# Test Goal
+
+## Tasks
+- [x] my-task
+`),
+			)
+			mockGoalStorage.FindGoalByNameReturns(goal, nil)
+			mockGoalStorage.WriteGoalReturns(nil)
+		})
+
+		It("completes the task without rewriting the goal", func() {
+			Expect(err).To(BeNil())
+			Expect(mockGoalStorage.WriteGoalCallCount()).To(Equal(0))
+		})
+	})
+
 	Context("task with goal not found", func() {
 		BeforeEach(func() {
 			task.SetGoals([]string{"Missing Goal"})

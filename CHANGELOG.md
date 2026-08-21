@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.114.3
 - `sync-progress`: daily-note entry template now wikilinks the task name (`### [[{Task Name}]] — Done ✅`). The plain-text form it emitted before failed `session-close` Phase 7, which verifies the session's work is represented by matching `[[wikilink]]` against touched task/goal titles — so every sync-then-close pair produced a false "no entry for this session's work" flag that had to be hand-patched. Producer and consumer now agree
 
 ## v0.114.2

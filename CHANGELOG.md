@@ -8,6 +8,9 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+- `task complete`: the parent-goal roll-up now accepts an in-progress checkbox (`- [/]`), not just `- [ ]`. It matched only the pending marker, so a goal entry that existed and correctly named the task was skipped whenever the task was marked in-progress — and that is precisely the state a task being completed is usually in. The result was a `checkbox not found for task ... in goal ...` warning, task completion succeeding anyway, and the goal silently left stale. Both markers now roll up to `- [x]`
+
 ## v0.114.3
 - `sync-progress`: daily-note entry template now wikilinks the task name (`### [[{Task Name}]] — Done ✅`). The plain-text form it emitted before failed `session-close` Phase 7, which verifies the session's work is represented by matching `[[wikilink]]` against touched task/goal titles — so every sync-then-close pair produced a false "no entry for this session's work" flag that had to be hand-patched. Producer and consumer now agree
 

@@ -176,21 +176,31 @@ Quick validation checks for task integrity.
    - Task MUST link to goal OR theme (at least one)
    - Verify linked files exist
 
-5. **Check Success Criteria section:**
+5. **Check goal-necessity (forward):**
+   - For each goal linked in the `goals` field (resolved in step 4), locate the goal file under `23 Goals/` (fall back to `22 Goals/` for compatibility) and read its `# Success Criteria` section. Skip any linked goal whose file was already flagged unresolvable in step 4.
+   - For each readable linked goal, evaluate whether ANY success criterion needs this task's outcome — does completing this task advance, produce evidence for, or unblock at least one success criterion of that goal?
+   - Judge with this fixed semantic anchor (cite it when reasoning; see `docs/goal-writing.md` § Non-goals — the scope-creep guard and § Tasks as Business-Value Milestones → Foundation/skeleton work): a task is *needed* iff it advances ≥ 1 success criterion of the linked goal OR is explicitly framed as a needed foundation task (e.g. "foundation; enables iteration"). Work-breakdown slices, scope-creep items, and padding are NOT needed. A task whose domain the goal's `# Non-goals` section explicitly excludes is also NOT needed.
+   - If NO success criterion needs the task's outcome → report issue: `✗ task not needed by linked goal <goal> — correlation-only (advances no success criterion)`. If the goal's `# Non-goals` explicitly exclude the task's domain → report instead: `✗ task not needed by linked goal <goal> — goal Non-goals exclude this task's domain`. In both cases the issue names the specific linked goal (`<goal>`) and the reason, so a misread is visible to the operator.
+   - If a linked goal has no parseable `# Success Criteria` (section missing or no checkbox lines) → emit info line `cannot evaluate necessity — goal <goal> has no parseable Success Criteria` and skip the necessity verdict for that goal (the structural checks already flag the missing section).
+   - Clean links (the task advances ≥ 1 SC of the linked goal) produce NO necessity issue and NO necessity row in the report.
+   - Necessity issues join the report step's `✗ {specific issues}` list (flipping the report to the `❌ Task Issues` shape); info lines are appended to the report body as plain lines — not `✗` issues, not pass/fail.
+   - Advisory only: report only — never modify goal or task files, never auto-remove or re-link.
+
+6. **Check Success Criteria section:**
    - If missing → ERROR
 
-6. **Check DoD section:**
+7. **Check DoD section:**
    - If missing → info only (optional)
 
-7. **Check checkboxes:**
+8. **Check checkboxes:**
    - Count in Success Criteria and DoD sections
    - If total = 0 → warning
 
-8. **Check status consistency:**
+9. **Check status consistency:**
    - completed → should be 100% checkboxes
    - 100% checkboxes → should be completed
 
-9. **Report:**
+10. **Report:**
    ```
    ✅ Task Valid: [[{task_name}]]
    Status: {status}

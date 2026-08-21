@@ -72,7 +72,7 @@ File: `{daily_dir}/YYYY-MM-DD.md`. Add to the daily note's "What happened today"
 Entry shape:
 
 ```markdown
-### {Task Name} — Done ✅
+### [[{Task Name}]] — Done ✅
 
 **{1-2 sentence summary}**
 
@@ -90,6 +90,7 @@ Entry shape:
 Rules:
 - New section at the top of "What happened today" (newest first)
 - Use `###` (h3); `##` is reserved for the day's top-level structure
+- **Wikilink the task/goal name in the heading.** `session-close` Phase 7 verifies this session's work is represented under "What happened today" by matching `[[wikilink]]` against the touched task/goal titles — a plain-text heading fails that check even though the entry is present, and the operator has to hand-patch it before close passes
 - Quote exact numbers/versions/metrics from the conversation
 - 2-3 sentence summary max; link to content pages for full context
 

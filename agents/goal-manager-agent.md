@@ -160,7 +160,16 @@ Quick validation checks for goal integrity.
    - If 0 tasks → warning
    - If `in_progress` with 0 tasks → error
 
-8. **Report:**
+8. **Check goal-necessity (inverse):**
+   - For each task linked in the goal's `# Tasks` section (resolved in step 5), evaluate whether it advances ≥ 1 success criterion of THIS goal (use `parse_success_criteria(goal_path)`), or is explicitly framed by the goal as a needed foundation task.
+   - Judge with this fixed semantic anchor (cite it when reasoning; see `docs/goal-writing.md` § Tasks as Business-Value Milestones → Foundation/skeleton work and § Non-goals — the scope-creep guard): a linked task is *needed* iff it advances ≥ 1 success criterion of the goal OR is explicitly framed as a needed foundation task (e.g. "foundation; enables iteration"). Work-breakdown slices, scope-creep items, and padding are NOT needed. A task whose domain the goal's `# Non-goals` section explicitly excludes is also NOT needed.
+   - If a linked task advances no success criterion → report issue: `✗ task <task> not needed to complete goal — advances no success criterion`. If the goal's `# Non-goals` explicitly exclude the task's domain → report instead: `✗ task <task> not needed to complete goal — goal Non-goals exclude this task's domain`. In both cases the issue names the specific linked task (`<task>`) and the reason.
+   - If the goal has no parseable `# Success Criteria` (section missing or no checkbox lines) → emit info line `cannot evaluate necessity — goal <goal> has no parseable Success Criteria` and skip the necessity verdict (the structural checks already flag the missing section).
+   - Clean links (the task advances ≥ 1 SC of the goal) produce NO necessity issue and NO necessity row in the report.
+   - Necessity issues join the report step's `✗ {specific issues}` list (flipping the report to the `❌ Goal Issues` shape); info lines are appended to the report body as plain lines — not `✗` issues, not pass/fail.
+   - Advisory only: report only — never modify goal or task files, never auto-remove or re-link.
+
+9. **Report:**
    ```
    ✅ Goal Valid: [[{goal_name}]]
    Status: {status}

@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.114.5
 - `work-on-task-assistant`: the Phase 4 daily-note report may no longer claim `Already tracked` without a matching line in hand, and must quote the matched line verbatim. The phase searched the note correctly but nothing bound the report to the search result, so it could assert a task was tracked in the Must section when the note contained no reference to it at all — indistinguishable from a real match, and leaving the task absent from the day's record until a later `sync-progress` caught it. Observed 2026-08-22, where the gap went unnoticed for roughly three hours
 
 ## v0.114.4

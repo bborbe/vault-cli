@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: `work-on-task-assistant` daily-note tracking claim now requires `grep -n` evidence (`<file>:<line-no>: <matched line>`) instead of a prose quote. v0.114.5 added a "quote it verbatim" guard after the agent reported `Already tracked` for a task absent from the note; the same day, with that guard in place, it did it again — a fabricated quote satisfies "quote verbatim" perfectly, since a plausible nonexistent line reads identically to a real match. A line number is cheaply spot-checkable and does not survive fabrication the same way.
+
 ## v0.114.5
 - `work-on-task-assistant`: the Phase 4 daily-note report may no longer claim `Already tracked` without a matching line in hand, and must quote the matched line verbatim. The phase searched the note correctly but nothing bound the report to the search result, so it could assert a task was tracked in the Must section when the note contained no reference to it at all — indistinguishable from a real match, and leaving the task absent from the day's record until a later `sync-progress` caught it. Observed 2026-08-22, where the gap went unnoticed for roughly three hours
 

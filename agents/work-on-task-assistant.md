@@ -146,7 +146,9 @@ A prerequisite's status is the single fact that decides whether work can start. 
 - Read `{daily_dir}/YYYY-MM-DD.md`
 - If missing: report `ℹ️ Daily note missing. Run /start-day` and continue
 - Search for `[[{task_name}]]` or `{jira_id}`
-  - This search is the ONLY basis for the "already tracked" report. Never report `Already tracked` without a matching line in hand — quote it verbatim (`ℹ️ Already tracked: <matched line>`). A tracking claim that names a section but no line is unverified, and reads identically to a real match while the task is in fact absent from the day's record. Observed 2026-08-22: the agent reported `Already tracked ([/] [[Review MoneyMoney - 2026W34-sat]] in Must section)` for a task that appeared nowhere in the note; it went untracked for three hours until `/vault-cli:sync-progress` caught it.
+  - This search is the ONLY basis for the "already tracked" report, and it MUST be a `grep -n` you actually ran. Report the hit as `ℹ️ Already tracked: <file>:<line-no>: <matched line>` — the line number is the evidence. No grep hit → report `ℹ️ Not tracked` and add the line.
+  - **A prose quote is not evidence.** An earlier version of this rule asked only to "quote it verbatim", which a fabricated line satisfies perfectly: a well-formed, plausible, nonexistent entry reads identically to a real match. A line number does not survive fabrication the same way — the caller can spot-check it with one `sed -n`.
+  - Observed twice on 2026-08-22, same daily note, same shape: `Already tracked ([/] [[Review MoneyMoney - 2026W34-sat]] in Must section)` for a task that appeared nowhere in the note (untracked for three hours until `/vault-cli:sync-progress` caught it), then — with the quote-verbatim guard already in place — `already tracked as [/] [[Plan Week - 2026W34-sat]]` while `grep -in "plan week"` returned nothing. The second miss is why the rule now demands a line number rather than a quote.
 - Add `- [/] [[{task_name}]]` or `- [/] {jira_id} {summary}` to Must section if absent
 - If found with `[ ]` → upgrade to `[/]`; if `[/]` or `[x]` → skip
 

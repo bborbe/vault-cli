@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.114.6
 
 - fix: `work-on-task-assistant` daily-note tracking claim now requires `grep -n` evidence (`<file>:<line-no>: <matched line>`) instead of a prose quote. v0.114.5 added a "quote it verbatim" guard after the agent reported `Already tracked` for a task absent from the note; the same day, with that guard in place, it did it again — a fabricated quote satisfies "quote verbatim" perfectly, since a plausible nonexistent line reads identically to a real match. A line number is cheaply spot-checkable and does not survive fabrication the same way.
 

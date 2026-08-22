@@ -146,6 +146,7 @@ A prerequisite's status is the single fact that decides whether work can start. 
 - Read `{daily_dir}/YYYY-MM-DD.md`
 - If missing: report `ℹ️ Daily note missing. Run /start-day` and continue
 - Search for `[[{task_name}]]` or `{jira_id}`
+  - This search is the ONLY basis for the "already tracked" report. Never report `Already tracked` without a matching line in hand — quote it verbatim (`ℹ️ Already tracked: <matched line>`). A tracking claim that names a section but no line is unverified, and reads identically to a real match while the task is in fact absent from the day's record. Observed 2026-08-22: the agent reported `Already tracked ([/] [[Review MoneyMoney - 2026W34-sat]] in Must section)` for a task that appeared nowhere in the note; it went untracked for three hours until `/vault-cli:sync-progress` caught it.
 - Add `- [/] [[{task_name}]]` or `- [/] {jira_id} {summary}` to Must section if absent
 - If found with `[ ]` → upgrade to `[/]`; if `[/]` or `[x]` → skip
 

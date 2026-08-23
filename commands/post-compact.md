@@ -57,6 +57,16 @@ Each check falls back to its `|| echo "..."` text when the tool is absent on the
 
 The fresh post-compact context lost track of background watchers / monitors that were running before compaction. From the resume block's `Live background:` line and the carry-over `background` items, re-establish anything still alive — restart the Monitor / background watch / watcher so completion and failure signals reach this session again.
 
+## Re-anchor on conventions (optional, one line)
+
+Compaction restores *state* (carry-over items, watchers, next actions) but not *rule-awareness* — the summarized context is exactly the drift trigger `/recall` exists for. After the re-arm step, emit a single pointer line — never the full doc re-read (the harness already re-injects `CLAUDE.md` into context each turn, so a full recall mostly re-emphasizes rather than recovers):
+
+```
+📌 Conventions: run /recall if you feel drifted — re-reads global + project CLAUDE.md.
+```
+
+Skip this step entirely when the session's drift risk is low (nothing touched git, worktrees, or repo conventions during the resumed task).
+
 ## Surface next actions
 
 Print the concrete next steps, sourced from the verified items:

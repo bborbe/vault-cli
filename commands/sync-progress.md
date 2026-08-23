@@ -69,6 +69,15 @@ File: `{daily_dir}/YYYY-MM-DD.md`. Add to the daily note's "What happened today"
 
 **Do not assume the heading level.** Templates differ across vaults — the Personal vault uses `# What happened today` (h1). Locate the section with `grep -nE '^#+ What happened today'` before concluding it is absent. A `^## ` grep returns nothing there, and reading that as "this vault's template has no such section" silently skips the entry — the daily note then reports the session as unrecorded and `session-close` Phase 7 has to catch it. Observed 2026-08-20. Same defect class `session-close.md` § Phase 7 already fixed on its own side.
 
+**Re-read the file immediately before writing — never write from a stale copy.** This command reads the daily note early (to locate the section) and may compose the entry over several turns. In that gap a sibling session can rewrite the same file, and writing over it from the earlier read silently destroys their entry — the clobbered text is lost for good, because obsidian-git autocommits whatever is on disk and the earlier write never enters history. Observed 2026-08-23 on the Personal vault: a `sync-progress` entry vanished this way, provable via `git log -S "<entry-text>"` showing a single commit (the later restore) instead of add+remove.
+
+**Mandatory write protocol for the daily note:**
+1. **Immediately before writing**, read the file again from disk (`Read` tool — not memory, not the earlier grep).
+2. **Merge, never overwrite** — splice the new entry into the *current* content. If the file grew or changed since your earlier read (a sibling session's entry landed), keep their content and add yours alongside.
+3. If the file is missing or the section vanished since your read, re-locate it and re-merge rather than recreating from scratch.
+
+The same guard applies to any other shared vault file this command writes (task/goal pages, PR sections).
+
 Entry shape:
 
 ```markdown

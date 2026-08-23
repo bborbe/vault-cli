@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.114.7
 - fix: sync-progress re-reads the daily note immediately before writing and merges — prevents a sibling session's concurrent write from being silently clobbered (lost entries never reach git history)
 
 ## v0.114.6

@@ -130,6 +130,10 @@ body
 			// ...and the session id must still be persisted.
 			Expect(written.ClaudeSessionID()).To(Equal("session-123"))
 			Expect(written.Status()).To(Equal(domain.TaskStatusInProgress))
+			// The metrics entry lands in the same re-read/write that preserved the
+			// session's own frontmatter writes (real storage round-trip).
+			Expect(written.MetricsSessions()).To(HaveLen(1))
+			Expect(written.MetricsSessions()[0].SessionID).To(Equal("session-123"))
 		})
 	})
 

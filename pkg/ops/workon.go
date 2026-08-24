@@ -182,21 +182,31 @@ func applyAssigneeMatrix(task *domain.Task, assignee string) string {
 	}
 }
 
-// persistTaskSessionID re-reads the task from disk and writes back only the session id.
-// Used after StartSession blocks so that frontmatter the headless turn wrote is not
-// reverted by writing the stale in-memory copy.
-func persistTaskSessionID(
+// persistSessionAndMetrics re-reads the task from disk and writes back the session id
+// and one metrics_sessions entry in a single write. The re-read is load-bearing: the
+// StartSession call blocks for the entire headless turn, and that turn writes to this
+// very task file, so writing the stale in-memory copy would revert the session's own
+// frontmatter changes. Used on both the fresh-start path (the session id is new) and
+// the cached-session path (the id already exists and is preserved).
+func persistSessionAndMetrics(
 	ctx context.Context,
 	vaultPath string,
 	taskName string,
 	sessionID string,
+	startedAt libtime.DateOrDateTime,
 	taskStorage storage.TaskStorage,
 ) (string, error) {
 	refreshed, err := taskStorage.FindTaskByName(ctx, vaultPath, taskName)
 	if err != nil {
 		return sessionID, errors.Wrap(ctx, err, "re-read task after claude session")
 	}
-	refreshed.SetClaudeSessionID(sessionID)
+	if refreshed.ClaudeSessionID() == "" {
+		refreshed.SetClaudeSessionID(sessionID)
+	}
+	refreshed.AppendMetricsSession(domain.MetricsSession{
+		SessionID: sessionID,
+		StartedAt: startedAt,
+	})
 	if err := taskStorage.WriteTask(ctx, refreshed); err != nil {
 		return sessionID, errors.Wrap(ctx, err, "save session id to task")
 	}
@@ -214,7 +224,8 @@ func (w *workOnOperation) handleClaudeSession(
 	vault *config.Vault,
 ) (string, error) {
 	if existing := task.ClaudeSessionID(); existing != "" {
-		return existing, nil
+		startedAt := libtime.DateOrDateTime(w.currentDateTime.Now().Time())
+		return persistSessionAndMetrics(ctx, vaultPath, task.Name, existing, startedAt, w.taskStorage)
 	}
 	if w.starter == nil {
 		return "", ErrStarterUnavailable
@@ -228,7 +239,8 @@ func (w *workOnOperation) handleClaudeSession(
 	if err != nil {
 		return "", errors.Wrap(ctx, err, "start claude session")
 	}
-	return persistTaskSessionID(ctx, vaultPath, task.Name, sessionID, w.taskStorage)
+	startedAt := libtime.DateOrDateTime(w.currentDateTime.Now().Time())
+	return persistSessionAndMetrics(ctx, vaultPath, task.Name, sessionID, startedAt, w.taskStorage)
 }
 
 // updateDailyNote updates the daily note to mark the task as in-progress.

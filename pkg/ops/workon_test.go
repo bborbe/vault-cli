@@ -132,6 +132,16 @@ var _ = Describe("WorkOnOperation", func() {
 			_, _, _, name := mockStarter.StartSessionArgsForCall(0)
 			Expect(name).To(Equal(taskName))
 		})
+
+		It("Fresh run records one entry", func() {
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(2))
+			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(1)
+			Expect(writtenTask.MetricsSessions()).To(HaveLen(1))
+			Expect(writtenTask.MetricsSessions()[0].SessionID).To(Equal("session-123"))
+			Expect(writtenTask.MetricsSessions()[0].StartedAt).To(Equal(
+				libtime.DateOrDateTime(libtimetest.ParseDateTime("2026-03-03T12:00:00Z").Time()),
+			))
+		})
 	})
 
 	Context("when assignee already equals current user", func() {
@@ -243,6 +253,12 @@ var _ = Describe("WorkOnOperation", func() {
 		It("returns empty session ID", func() {
 			Expect(result.SessionID).To(Equal(""))
 		})
+
+		It("No-anchor run records nothing", func() {
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
+			Expect(writtenTask.MetricsSessions()).To(BeNil())
+		})
 	})
 
 	Context("when starter is nil but task has cached session ID", func() {
@@ -287,6 +303,34 @@ var _ = Describe("WorkOnOperation", func() {
 
 		It("returns no error", func() {
 			Expect(err).To(BeNil())
+		})
+	})
+
+	Context("when task already has a session ID and prior metrics", func() {
+		var preExistingStartedAt libtime.DateOrDateTime
+
+		BeforeEach(func() {
+			preExistingStartedAt = libtime.DateOrDateTime(
+				libtimetest.ParseDateTime("2026-02-01T08:00:00Z").Time(),
+			)
+			task.SetClaudeSessionID("cached-session-456")
+			task.AppendMetricsSession(domain.MetricsSession{
+				SessionID: "first-session",
+				StartedAt: preExistingStartedAt,
+			})
+		})
+
+		It("Cached run appends and preserves", func() {
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(2))
+			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(1)
+			Expect(writtenTask.MetricsSessions()).To(HaveLen(2))
+			// Entry 0 is the pre-existing entry, byte-identical and untouched.
+			Expect(writtenTask.MetricsSessions()[0].SessionID).To(Equal("first-session"))
+			Expect(writtenTask.MetricsSessions()[0].StartedAt).To(Equal(preExistingStartedAt))
+			// Entry 1 is this run's cached-session record.
+			Expect(writtenTask.MetricsSessions()[1].SessionID).To(Equal("cached-session-456"))
+			// The cached session id is preserved, not overwritten.
+			Expect(writtenTask.ClaudeSessionID()).To(Equal("cached-session-456"))
 		})
 	})
 
@@ -801,6 +845,11 @@ var _ = Describe("WorkOnOperation", func() {
 
 		It("does not write a second time with the stale in-memory task", func() {
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+		})
+
+		It("does not append a metrics entry when the re-read fails", func() {
+			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
+			Expect(writtenTask.MetricsSessions()).To(BeNil())
 		})
 	})
 })

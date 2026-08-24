@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [036-passive-per-task-metrics]
+summary: 'work-on now records one metrics_sessions entry per run via a single re-read/write: persistSessionAndMetrics replaces persistTaskSessionID, routes both fresh-start and cached-session paths through it with the injected clock timestamp, preserves cached session ids and prior entries, and keeps the prompt-182 write-back fix; four new mocked tests plus a real-storage writeback assertion cover the behavior'
+execution_id: vault-cli-exec-189-spec-036-workon-start-hook
+dark-factory-version: dev
 created: "2026-08-24T18:30:00Z"
 queued: "2026-08-24T18:31:32Z"
+started: "2026-08-24T19:49:46Z"
+completed: "2026-08-24T19:56:13Z"
 branch: dark-factory/passive-per-task-metrics
 ---
 

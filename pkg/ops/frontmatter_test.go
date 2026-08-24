@@ -325,7 +325,7 @@ var _ = Describe("FrontmatterSetOperation", func() {
 
 		// Default: return a task
 		task = domain.NewTask(
-			map[string]any{},
+			map[string]any{"aborted_reason": "test reason", "gate_successor": "none"},
 			domain.FileMetadata{Name: taskName},
 			domain.Content(""),
 		)

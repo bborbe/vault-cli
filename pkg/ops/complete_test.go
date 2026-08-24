@@ -52,7 +52,7 @@ var _ = Describe("CompleteOperation", func() {
 
 		// Default: return a task
 		task = domain.NewTask(
-			map[string]any{"status": "todo"},
+			map[string]any{"status": "todo", "aborted_reason": "test reason", "gate_successor": "none"},
 			domain.FileMetadata{Name: taskName},
 			domain.Content(""),
 		)
@@ -145,7 +145,11 @@ var _ = Describe("CompleteOperation", func() {
 	Context("task with incomplete checkboxes", func() {
 		BeforeEach(func() {
 			task = domain.NewTask(
-				map[string]any{"status": "todo"},
+				map[string]any{
+					"status":         "todo",
+					"aborted_reason": "test reason",
+					"gate_successor": "none",
+				},
 				domain.FileMetadata{Name: taskName},
 				domain.Content("# Tasks\n\n- [x] done\n- [ ] still open\n"),
 			)

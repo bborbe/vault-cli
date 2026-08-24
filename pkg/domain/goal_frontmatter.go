@@ -138,9 +138,24 @@ func (f GoalFrontmatter) DeferDate() *libtime.DateOrDateTime {
 }
 
 // SetStatus validates and stores the status in the map.
+// Close-out transitions (aborted, completed) are rejected unless the frontmatter
+// already holds a non-empty aborted_reason AND a non-empty gate_successor; the
+// rejection is raised before any write, so the frontmatter is left unchanged.
 func (f *GoalFrontmatter) SetStatus(s GoalStatus) error {
 	if err := s.Validate(context.Background()); err != nil {
 		return err
+	}
+	if s == GoalStatusAborted || s == GoalStatusCompleted {
+		if missing := missingCloseOutFields(f.FrontmatterMap); len(missing) > 0 {
+			return errors.Wrapf(
+				context.Background(),
+				validation.Error,
+				"cannot set status %q: missing close-out field(s) %s; a close-out must record why the work is being closed out (aborted_reason), consider what it owns (trigger / gate / threshold / recurring check), and name where that risk moves (gate_successor, or %q when nothing is inherited)",
+				s,
+				strings.Join(missing, ", "),
+				"none",
+			)
+		}
 	}
 	f.Set("status", string(s))
 	return nil

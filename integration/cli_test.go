@@ -652,6 +652,8 @@ task_identifier: 90909090-9090-4909-a090-909090909090
 					"my-task": `---
 status: todo
 priority: 2
+aborted_reason: test reason
+gate_successor: none
 ---
 # My Task
 This is my task.

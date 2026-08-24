@@ -153,7 +153,9 @@ This task has a string priority value that cannot be parsed as integer and retur
 				task, err := store.ReadTask(ctx, vaultPath, "Test Task")
 				Expect(err).To(BeNil())
 
-				_ = task.SetStatus(domain.TaskStatusCompleted)
+				Expect(task.SetField(ctx, "aborted_reason", "test reason")).To(Succeed())
+				Expect(task.SetField(ctx, "gate_successor", "none")).To(Succeed())
+				Expect(task.SetStatus(domain.TaskStatusCompleted)).To(Succeed())
 				Expect(store.WriteTask(ctx, task)).To(Succeed())
 
 				// Read back and verify

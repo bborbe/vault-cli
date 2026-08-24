@@ -37,7 +37,7 @@ var _ = Describe("UpdateOperation", func() {
 
 		// Default: return a task with mixed checkboxes
 		task = domain.NewTask(
-			map[string]any{"status": "todo"},
+			map[string]any{"status": "todo", "aborted_reason": "test reason", "gate_successor": "none"},
 			domain.FileMetadata{Name: taskName},
 			domain.Content(`---
 status: todo

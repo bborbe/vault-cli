@@ -8,7 +8,9 @@ import (
 	"context"
 	"time"
 
+	errors "github.com/bborbe/errors"
 	libtime "github.com/bborbe/time"
+	"github.com/bborbe/validation"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -45,6 +47,74 @@ var _ = Describe("GoalFrontmatter", func() {
 
 		It("returns error for invalid status", func() {
 			Expect(fm.SetStatus(domain.GoalStatus("garbage"))).NotTo(BeNil())
+		})
+	})
+
+	Describe("SetStatus close-out guard", func() {
+		It("rejects aborted without aborted_reason and gate_successor and leaves the frontmatter unchanged", func() {
+			err := fm.SetStatus(domain.GoalStatusAborted)
+			Expect(err).NotTo(BeNil())
+			Expect(errors.Is(err, validation.Error)).To(BeTrue())
+			Expect(err.Error()).To(ContainSubstring("missing close-out field(s) aborted_reason, gate_successor"))
+			Expect(fm.Status()).To(Equal(domain.GoalStatus("")))
+		})
+
+		It("rejects completed without close-out fields and leaves the frontmatter unchanged", func() {
+			err := fm.SetStatus(domain.GoalStatusCompleted)
+			Expect(err).NotTo(BeNil())
+			Expect(errors.Is(err, validation.Error)).To(BeTrue())
+			Expect(err.Error()).To(ContainSubstring("missing close-out field(s) aborted_reason, gate_successor"))
+			Expect(fm.Status()).To(Equal(domain.GoalStatus("")))
+		})
+
+		It("accepts aborted when aborted_reason and gate_successor are both present", func() {
+			fm = domain.NewGoalFrontmatter(map[string]any{"aborted_reason": "no longer needed", "gate_successor": "none"})
+			Expect(fm.SetStatus(domain.GoalStatusAborted)).To(Succeed())
+			Expect(fm.Status()).To(Equal(domain.GoalStatusAborted))
+		})
+
+		It("accepts completed when aborted_reason and gate_successor are both present", func() {
+			fm = domain.NewGoalFrontmatter(map[string]any{"aborted_reason": "all criteria met", "gate_successor": "none"})
+			Expect(fm.SetStatus(domain.GoalStatusCompleted)).To(Succeed())
+			Expect(fm.Status()).To(Equal(domain.GoalStatusCompleted))
+		})
+
+		It("rejects aborted when only aborted_reason is present", func() {
+			fm = domain.NewGoalFrontmatter(map[string]any{"aborted_reason": "no longer needed"})
+			err := fm.SetStatus(domain.GoalStatusAborted)
+			Expect(err).NotTo(BeNil())
+			Expect(errors.Is(err, validation.Error)).To(BeTrue())
+			Expect(err.Error()).To(ContainSubstring("missing close-out field(s) gate_successor"))
+			Expect(err.Error()).NotTo(ContainSubstring("missing close-out field(s) aborted_reason, gate_successor"))
+		})
+
+		It("rejects aborted when only gate_successor is present", func() {
+			fm = domain.NewGoalFrontmatter(map[string]any{"gate_successor": "none"})
+			err := fm.SetStatus(domain.GoalStatusAborted)
+			Expect(err).NotTo(BeNil())
+			Expect(errors.Is(err, validation.Error)).To(BeTrue())
+			Expect(err.Error()).To(ContainSubstring("missing close-out field(s) aborted_reason"))
+		})
+
+		It("treats whitespace-only close-out fields as missing", func() {
+			fm = domain.NewGoalFrontmatter(map[string]any{"aborted_reason": "   ", "gate_successor": "none"})
+			err := fm.SetStatus(domain.GoalStatusAborted)
+			Expect(err).NotTo(BeNil())
+			Expect(errors.Is(err, validation.Error)).To(BeTrue())
+			Expect(err.Error()).To(ContainSubstring("aborted_reason"))
+		})
+
+		It("does not require close-out fields for non-close-out statuses", func() {
+			for _, status := range []domain.GoalStatus{
+				domain.GoalStatusNext,
+				domain.GoalStatusInProgress,
+				domain.GoalStatusBacklog,
+				domain.GoalStatusHold,
+			} {
+				fm = domain.NewGoalFrontmatter(nil)
+				Expect(fm.SetStatus(status)).To(Succeed())
+				Expect(fm.Status()).To(Equal(status))
+			}
 		})
 	})
 

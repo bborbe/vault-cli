@@ -163,7 +163,11 @@ var _ = Describe("NewGoalSetOperation", func() {
 		goalName = "my-goal"
 
 		goal = domain.NewGoal(
-			map[string]any{"status": "active"},
+			map[string]any{
+				"status":         "active",
+				"aborted_reason": "test reason",
+				"gate_successor": "none",
+			},
 			domain.FileMetadata{Name: goalName},
 			domain.Content(""),
 		)

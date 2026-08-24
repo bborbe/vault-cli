@@ -21,19 +21,20 @@ import (
 
 var _ = Describe("CompleteOperation", func() {
 	var (
-		ctx                  context.Context
-		err                  error
-		result               ops.MutationResult
-		completeOp           ops.CompleteOperation
-		mockTaskStorage      *mocks.TaskStorage
-		mockGoalStorage      *mocks.GoalStorage
-		mockDailyNoteStorage *mocks.DailyNoteStorage
-		vaultPath            string
-		taskName             string
-		task                 *domain.Task
-		force                bool
-		reason               string
-		gateSuccessor        string
+		ctx                    context.Context
+		err                    error
+		result                 ops.MutationResult
+		completeOp             ops.CompleteOperation
+		mockTaskStorage        *mocks.TaskStorage
+		mockGoalStorage        *mocks.GoalStorage
+		mockDailyNoteStorage   *mocks.DailyNoteStorage
+		mockInteractionCounter *mocks.InteractionCounter
+		vaultPath              string
+		taskName               string
+		task                   *domain.Task
+		force                  bool
+		reason                 string
+		gateSuccessor          string
 	)
 
 	BeforeEach(func() {
@@ -41,6 +42,7 @@ var _ = Describe("CompleteOperation", func() {
 		mockTaskStorage = &mocks.TaskStorage{}
 		mockGoalStorage = &mocks.GoalStorage{}
 		mockDailyNoteStorage = &mocks.DailyNoteStorage{}
+		mockInteractionCounter = &mocks.InteractionCounter{}
 		currentDateTime := libtime.NewCurrentDateTime()
 		currentDateTime.SetNow(libtimetest.ParseDateTime("2026-03-03T12:00:00Z"))
 		completeOp = ops.NewCompleteOperation(
@@ -48,6 +50,7 @@ var _ = Describe("CompleteOperation", func() {
 			mockGoalStorage,
 			mockDailyNoteStorage,
 			currentDateTime,
+			mockInteractionCounter,
 		)
 		vaultPath = "/path/to/vault"
 		taskName = "my-task"
@@ -1154,6 +1157,123 @@ recurring: daily
 			Expect(
 				updatedContent,
 			).To(ContainSubstring("- [/] 🔧 Nuke-reboot chain — [[Shutdown K3s - 2026W32-sat]] → [[Feed Worms]]."))
+		})
+	})
+
+	Context("non-recurring worked task records interaction count", func() {
+		BeforeEach(func() {
+			start := libtime.DateOrDateTime(libtimetest.ParseDateTime("2026-03-03T10:00:00Z").Time())
+			task.AppendMetricsSession(domain.MetricsSession{SessionID: "s1", StartedAt: start})
+			mockInteractionCounter.CountReturns(7)
+		})
+
+		It("Non-recurring worked: writes metrics_completed_at and metrics_interaction_count in the same write", func() {
+			Expect(err).To(BeNil())
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
+			Expect(writtenTask.MetricsCompletedAt()).NotTo(BeNil())
+			Expect(*writtenTask.MetricsCompletedAt()).To(Equal(
+				libtime.DateOrDateTime(libtimetest.ParseDateTime("2026-03-03T12:00:00Z").Time()),
+			))
+			Expect(writtenTask.MetricsInteractionCount()).NotTo(BeNil())
+			Expect(*writtenTask.MetricsInteractionCount()).To(Equal(7))
+			Expect(mockInteractionCounter.CountCallCount()).To(Equal(1))
+			_, sessionIDs := mockInteractionCounter.CountArgsForCall(0)
+			Expect(sessionIDs).To(Equal([]string{"s1"}))
+		})
+	})
+
+	Context("non-recurring task with no metrics sessions", func() {
+		It("Non-recurring no-anchor: writes metrics_completed_at but no metrics_interaction_count", func() {
+			Expect(err).To(BeNil())
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
+			Expect(writtenTask.MetricsCompletedAt()).NotTo(BeNil())
+			Expect(writtenTask.MetricsInteractionCount()).To(BeNil())
+			Expect(mockInteractionCounter.CountCallCount()).To(Equal(0))
+		})
+	})
+
+	Context("recurring worked task archives a cycle", func() {
+		BeforeEach(func() {
+			task.SetRecurring("daily")
+			_ = task.SetStatus(domain.TaskStatusInProgress)
+			task.SetClaudeSessionID("test-session-uuid")
+			early := libtime.DateOrDateTime(libtimetest.ParseDateTime("2026-03-03T10:00:00Z").Time())
+			late := libtime.DateOrDateTime(libtimetest.ParseDateTime("2026-03-03T11:00:00Z").Time())
+			// Appended out of chronological order on purpose: the archived StartedAt
+			// must be the minimum regardless of the order sessions were recorded.
+			task.AppendMetricsSession(domain.MetricsSession{SessionID: "s1", StartedAt: late})
+			task.AppendMetricsSession(domain.MetricsSession{SessionID: "s2", StartedAt: early})
+			mockInteractionCounter.CountReturns(7)
+			task.Content = `---
+status: in_progress
+recurring: daily
+---
+# My Task
+`
+		})
+
+		It("Recurring worked: archives one cycle and clears the accumulator", func() {
+			Expect(err).To(BeNil())
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
+			cycles := writtenTask.MetricsCycles()
+			Expect(cycles).To(HaveLen(1))
+			Expect(cycles[0].StartedAt).To(Equal(
+				libtime.DateOrDateTime(libtimetest.ParseDateTime("2026-03-03T10:00:00Z").Time()),
+			))
+			Expect(cycles[0].CompletedAt).To(Equal(
+				libtime.DateOrDateTime(libtimetest.ParseDateTime("2026-03-03T12:00:00Z").Time()),
+			))
+			Expect(cycles[0].InteractionCount).To(Equal(7))
+			Expect(writtenTask.MetricsSessions()).To(BeNil())
+			Expect(writtenTask.MetricsCompletedAt()).To(BeNil())
+			Expect(writtenTask.MetricsInteractionCount()).To(BeNil())
+			Expect(writtenTask.Status()).To(Equal(domain.TaskStatusInProgress))
+			Expect(writtenTask.Get("claude_session_id")).To(BeNil())
+		})
+	})
+
+	Context("recurring task with no metrics sessions", func() {
+		BeforeEach(func() {
+			task.SetRecurring("daily")
+			_ = task.SetStatus(domain.TaskStatusInProgress)
+			task.Content = `---
+status: in_progress
+recurring: daily
+---
+# My Task
+`
+		})
+
+		It("Recurring not worked: archives no cycle and leaves no accumulator keys", func() {
+			Expect(err).To(BeNil())
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
+			Expect(writtenTask.MetricsCycles()).To(BeNil())
+			Expect(writtenTask.Get("metrics_sessions")).To(BeNil())
+			Expect(writtenTask.Get("metrics_completed_at")).To(BeNil())
+			Expect(writtenTask.Get("metrics_interaction_count")).To(BeNil())
+			Expect(mockInteractionCounter.CountCallCount()).To(Equal(0))
+		})
+	})
+
+	Context("count never fails completion", func() {
+		BeforeEach(func() {
+			start := libtime.DateOrDateTime(libtimetest.ParseDateTime("2026-03-03T10:00:00Z").Time())
+			task.AppendMetricsSession(domain.MetricsSession{SessionID: "s1", StartedAt: start})
+			mockInteractionCounter.CountStub = func(ctx context.Context, sessionIDs []string) int {
+				return 0
+			}
+		})
+
+		It("Count never fails: completion still succeeds even when counting returns zero", func() {
+			Expect(err).To(BeNil())
+			Expect(result.Success).To(BeTrue())
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
+			Expect(*writtenTask.MetricsInteractionCount()).To(Equal(0))
 		})
 	})
 })

@@ -142,6 +142,23 @@ func Run(ctx context.Context, args []string) error {
 	return rootCmd.ExecuteContext(ctx)
 }
 
+// completeInteractionCounter builds the InteractionCounter for a vault's complete
+// command. It reads the Claude Code session logs of the very sessions work-on
+// started: the same session dir (vault path or session_project_dir override) under
+// <home>/.claude/projects.
+func completeInteractionCounter(ctx context.Context, vault *config.Vault) (ops.InteractionCounter, error) {
+	sessionDir := vault.Path
+	if dir := vault.GetSessionProjectDir(); dir != "" {
+		sessionDir = dir
+	}
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return nil, errors.Wrap(ctx, err, "get home directory")
+	}
+	projectsDir := filepath.Join(homeDir, ".claude", "projects")
+	return ops.NewInteractionCounter(projectsDir, sessionDir), nil
+}
+
 func createCompleteCommand(
 	ctx context.Context,
 	configLoader *config.Loader,
@@ -172,11 +189,16 @@ func createCompleteCommand(
 					taskStore := storage.NewTaskStorage(storageConfig)
 					goalStore := storage.NewGoalStorage(storageConfig)
 					dailyStore := storage.NewDailyNoteStorage(storageConfig)
+					interactionCounter, err := completeInteractionCounter(ctx, vault)
+					if err != nil {
+						return ops.MutationResult{}, err
+					}
 					completeOp := ops.NewCompleteOperation(
 						taskStore,
 						goalStore,
 						dailyStore,
 						currentDateTime,
+						interactionCounter,
 					)
 					result, err := completeOp.Execute(ctx, vault.Path, taskName, vault.Name, force, reason, gateSuccessor)
 					if err != nil {

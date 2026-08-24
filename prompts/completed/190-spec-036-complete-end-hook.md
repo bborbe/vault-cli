@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [036-passive-per-task-metrics]
+summary: 'Wired the passive complete-end metrics hook: new InteractionCounter streams Claude session JSONL logs (unsafe ids rejected, missing/malformed files contribute 0), task complete writes metrics_completed_at and metrics_interaction_count in the same write, and recurring completion archives one metrics_cycles entry then clears the accumulator; unit + integration tests green, make precommit exits 0.'
+execution_id: vault-cli-exec-190-spec-036-complete-end-hook
+dark-factory-version: dev
 created: "2026-08-24T18:30:00Z"
 queued: "2026-08-24T18:31:32Z"
+started: "2026-08-24T19:56:15Z"
+completed: "2026-08-24T20:07:11Z"
 branch: dark-factory/passive-per-task-metrics
 ---
 

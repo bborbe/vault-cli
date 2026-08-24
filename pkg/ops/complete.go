@@ -42,20 +42,23 @@ func NewCompleteOperation(
 	goalStorage storage.GoalStorage,
 	dailyNoteStorage storage.DailyNoteStorage,
 	currentDateTime libtime.CurrentDateTime,
+	interactionCounter InteractionCounter,
 ) CompleteOperation {
 	return &completeOperation{
-		taskStorage:      taskStorage,
-		goalStorage:      goalStorage,
-		dailyNoteStorage: dailyNoteStorage,
-		currentDateTime:  currentDateTime,
+		taskStorage:        taskStorage,
+		goalStorage:        goalStorage,
+		dailyNoteStorage:   dailyNoteStorage,
+		currentDateTime:    currentDateTime,
+		interactionCounter: interactionCounter,
 	}
 }
 
 type completeOperation struct {
-	taskStorage      storage.TaskStorage
-	goalStorage      storage.GoalStorage
-	dailyNoteStorage storage.DailyNoteStorage
-	currentDateTime  libtime.CurrentDateTime
+	taskStorage        storage.TaskStorage
+	goalStorage        storage.GoalStorage
+	dailyNoteStorage   storage.DailyNoteStorage
+	currentDateTime    libtime.CurrentDateTime
+	interactionCounter InteractionCounter
 }
 
 // MutationResult represents the result of a mutation operation.
@@ -123,6 +126,7 @@ func (c *completeOperation) Execute(
 	nowTime := c.currentDateTime.Now().Time()
 	completedD := libtime.DateOrDateTime(nowTime)
 	task.SetCompletedDate(&completedD)
+	c.applyCompletionMetrics(ctx, task, completedD)
 
 	// Write updated task
 	if err := c.taskStorage.WriteTask(ctx, task); err != nil {
@@ -167,6 +171,21 @@ func (c *completeOperation) Execute(
 	}
 
 	return MutationResult{Success: true, Name: task.Name, Vault: vaultName, Warnings: warnings}, nil
+}
+
+// applyCompletionMetrics writes the passive metrics fields into the task before
+// the completion write: metrics_completed_at always, and metrics_interaction_count
+// only when the task was worked on (it has metrics_sessions). A task that was never
+// worked on keeps its interaction count unknown — never forged as zero.
+func (c *completeOperation) applyCompletionMetrics(
+	ctx context.Context,
+	task *domain.Task,
+	completedD libtime.DateOrDateTime,
+) {
+	task.SetMetricsCompletedAt(&completedD)
+	if sessions := task.MetricsSessions(); len(sessions) > 0 {
+		task.SetMetricsInteractionCount(c.interactionCounter.Count(ctx, metricsSessionIDs(sessions)))
+	}
 }
 
 // setCompletedStatus persists the one-step close-out fields (when provided)
@@ -280,6 +299,20 @@ func (c *completeOperation) handleRecurringTask(
 	task.ClearClaudeSessionID()
 
 	// 6. Status remains as-is (do NOT set to completed)
+
+	// 7. Archive this cycle's metrics and clear the active accumulator so the next
+	// cycle measures fresh. A recurring task that was never worked on archives
+	// nothing, but stale accumulator fields are still cleared.
+	if sessions := task.MetricsSessions(); len(sessions) > 0 {
+		task.AppendMetricsCycle(domain.MetricsCycle{
+			StartedAt:        earliestStartedAt(sessions),
+			CompletedAt:      libtime.DateOrDateTime(now),
+			InteractionCount: c.interactionCounter.Count(ctx, metricsSessionIDs(sessions)),
+		})
+	}
+	task.ClearMetricsSessions()
+	task.ClearMetricsCompletedAt()
+	task.ClearMetricsInteractionCount()
 
 	// Write updated task
 	if err := c.taskStorage.WriteTask(ctx, task); err != nil {

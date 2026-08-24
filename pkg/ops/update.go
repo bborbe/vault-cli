@@ -75,7 +75,17 @@ func (u *updateOperation) Execute(
 	}
 
 	completed, total := u.countCompleted(checkboxes)
-	_ = task.SetStatus(u.statusFromProgress(completed, total))
+	target := u.statusFromProgress(completed, total)
+	if err := task.SetStatus(target); err != nil {
+		return MutationResult{
+			Success: false,
+			Error:   err.Error(),
+		}, errors.Wrap(
+			ctx,
+			err,
+			"set status",
+		)
+	}
 
 	if err := u.taskStorage.WriteTask(ctx, task); err != nil {
 		return MutationResult{

@@ -191,6 +191,38 @@ Just some text without checkboxes.
 		})
 	})
 
+	Context("all checkboxes checked but no close-out fields", func() {
+		BeforeEach(func() {
+			task = domain.NewTask(
+				map[string]any{"status": "todo"},
+				domain.FileMetadata{Name: taskName},
+				domain.Content(`---
+status: todo
+---
+
+# My Task
+
+- [x] First item
+- [x] Second item
+- [x] Third item
+`),
+			)
+			mockTaskStorage.FindTaskByNameReturns(task, nil)
+		})
+
+		It("returns error", func() {
+			Expect(err).NotTo(BeNil())
+		})
+
+		It("reports the missing close-out fields", func() {
+			Expect(err.Error()).To(ContainSubstring("aborted_reason"))
+		})
+
+		It("does not write the task", func() {
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(0))
+		})
+	})
+
 	Context("task not found", func() {
 		BeforeEach(func() {
 			mockTaskStorage.FindTaskByNameReturns(nil, ErrTest)

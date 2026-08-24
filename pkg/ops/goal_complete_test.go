@@ -245,6 +245,29 @@ var _ = Describe("GoalCompleteOperation", func() {
 		})
 	})
 
+	Context("goal without close-out fields", func() {
+		BeforeEach(func() {
+			goal = domain.NewGoal(
+				map[string]any{"status": "active"},
+				domain.FileMetadata{Name: goalName},
+				domain.Content(""),
+			)
+			mockGoalStorage.FindGoalByNameReturns(goal, nil)
+		})
+
+		It("returns error", func() {
+			Expect(err).NotTo(BeNil())
+		})
+
+		It("reports the missing close-out fields", func() {
+			Expect(err.Error()).To(ContainSubstring("aborted_reason"))
+		})
+
+		It("does not write the goal", func() {
+			Expect(mockGoalStorage.WriteGoalCallCount()).To(Equal(0))
+		})
+	})
+
 	Context("success", func() {
 		It("returns no error", func() {
 			Expect(err).To(BeNil())

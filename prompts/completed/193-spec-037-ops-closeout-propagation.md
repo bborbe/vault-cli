@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [037-mandatory-abort-reason-and-gate-successor]
+summary: Closed the three SetStatus swallow holes (complete, goal complete, update) so a rejected close-out returns MutationResult{Success:false, Error:...} and writes nothing; added guard-negative specs with field-less fixtures; made pre-existing field-less complete_test.go fixtures carry close-out fields so they still pass
+execution_id: vault-cli-exec-193-spec-037-ops-closeout-propagation
+dark-factory-version: dev
 created: "2026-08-24T19:00:00Z"
 queued: "2026-08-24T19:00:06Z"
+started: "2026-08-24T19:17:26Z"
+completed: "2026-08-24T19:20:39Z"
 ---
 
 # Ops layer honors the close-out guard (no silent completion)

@@ -77,7 +77,16 @@ func (g *goalCompleteOperation) Execute(
 		}
 	}
 
-	_ = goal.SetStatus(domain.GoalStatusCompleted)
+	if err := goal.SetStatus(domain.GoalStatusCompleted); err != nil {
+		return MutationResult{
+			Success: false,
+			Error:   err.Error(),
+		}, errors.Wrap(
+			ctx,
+			err,
+			"set status",
+		)
+	}
 	goal.SetCompleted(libtime.ToDate(g.currentDateTime.Now().Time()).Ptr())
 
 	if err := g.goalStorage.WriteGoal(ctx, goal); err != nil {

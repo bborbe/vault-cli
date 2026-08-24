@@ -106,7 +106,9 @@ func (c *completeOperation) Execute(
 	}
 
 	// Update task status to completed
-	_ = task.SetStatus(domain.TaskStatusCompleted)
+	if err := task.SetStatus(domain.TaskStatusCompleted); err != nil {
+		return MutationResult{Success: false, Error: err.Error()}, errors.Wrap(ctx, err, "set status")
+	}
 	task.SetPhase(domain.TaskPhaseDone.Ptr())
 	nowTime := c.currentDateTime.Now().Time()
 	completedD := libtime.DateOrDateTime(nowTime)

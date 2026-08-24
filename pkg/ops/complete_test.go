@@ -197,6 +197,33 @@ var _ = Describe("CompleteOperation", func() {
 		})
 	})
 
+	Context("task without close-out fields", func() {
+		BeforeEach(func() {
+			task = domain.NewTask(
+				map[string]any{"status": "todo"},
+				domain.FileMetadata{Name: taskName},
+				domain.Content(""),
+			)
+			mockTaskStorage.FindTaskByNameReturns(task, nil)
+		})
+
+		It("returns error", func() {
+			Expect(err).NotTo(BeNil())
+		})
+
+		It("reports the missing close-out fields", func() {
+			Expect(err.Error()).To(ContainSubstring("aborted_reason"))
+		})
+
+		It("puts the error in the result", func() {
+			Expect(result.Error).To(ContainSubstring("aborted_reason"))
+		})
+
+		It("does not write the task", func() {
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(0))
+		})
+	})
+
 	Context("task with associated goal", func() {
 		var goal *domain.Goal
 
@@ -960,7 +987,7 @@ recurring: daily
 		BeforeEach(func() {
 			taskName = "Turn on hell - 2026W32-sat"
 			task = domain.NewTask(
-				map[string]any{"status": "todo"},
+				map[string]any{"status": "todo", "aborted_reason": "test reason", "gate_successor": "none"},
 				domain.FileMetadata{Name: taskName},
 				domain.Content(""),
 			)
@@ -997,7 +1024,7 @@ recurring: daily
 		BeforeEach(func() {
 			taskName = "Turn on hell - 2026W32-sat"
 			task = domain.NewTask(
-				map[string]any{"status": "todo"},
+				map[string]any{"status": "todo", "aborted_reason": "test reason", "gate_successor": "none"},
 				domain.FileMetadata{Name: taskName},
 				domain.Content(""),
 			)
@@ -1036,7 +1063,7 @@ recurring: daily
 		BeforeEach(func() {
 			taskName = "Turn on hell - 2026W32-sat"
 			task = domain.NewTask(
-				map[string]any{"status": "todo"},
+				map[string]any{"status": "todo", "aborted_reason": "test reason", "gate_successor": "none"},
 				domain.FileMetadata{Name: taskName},
 				domain.Content(""),
 			)
@@ -1059,7 +1086,7 @@ recurring: daily
 		BeforeEach(func() {
 			taskName = "Feed Worms"
 			task = domain.NewTask(
-				map[string]any{"status": "todo"},
+				map[string]any{"status": "todo", "aborted_reason": "test reason", "gate_successor": "none"},
 				domain.FileMetadata{Name: taskName},
 				domain.Content(""),
 			)

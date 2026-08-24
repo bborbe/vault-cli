@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [036-passive-per-task-metrics]
+summary: 'Documented the passive per-task metrics fields (metrics_sessions, metrics_completed_at, metrics_interaction_count, metrics_cycles) in the work-on-task and complete-task command docs as written-by-vault-cli and not hand-editable, and extended the existing ## Unreleased changelog section with the metrics feat bullet; version strings and tags left untouched.'
+execution_id: vault-cli-exec-191-spec-036-plugin-docs-release
+dark-factory-version: dev
 created: "2026-08-24T18:30:00Z"
 queued: "2026-08-24T18:31:32Z"
+started: "2026-08-24T20:07:13Z"
+completed: "2026-08-24T20:08:58Z"
 branch: dark-factory/passive-per-task-metrics
 ---
 

@@ -92,3 +92,10 @@ Mark task as complete using vault-cli. Handles normal and recurring tasks approp
 - Goal files updated (by vault-cli)
 - Daily note updated (by vault-cli)
 </success_criteria>
+
+## Passive metrics
+
+Completion writes `metrics_completed_at` and, when the task was worked on,
+`metrics_interaction_count`. Recurring completion archives the finished cycle into
+`metrics_cycles` and resets the accumulator. These metrics fields are written passively
+by vault-cli and must not be hand-edited.

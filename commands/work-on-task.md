@@ -114,3 +114,9 @@ Task lifecycle:
 - The agent searches; the slash command auto-creates the task file on `not_found` (interactive mode).
 - **Phase 5 auto-chains in both modes.** Phase 2 → Phase 5 covers the "I want to work on this task" intent by orienting (status, guides, daily note), then driving: it runs `plan-task` and — when it reports `✅ Plan ready` — `execute-task`, landing the task in `phase: execution` with its first subtask surfaced. The planning gate stays enforced: if `plan-task` finds real gaps, the chain stops at `planning` (it never force-executes an unready plan). Non-interactive invocations chain under a NO-ASK contract — no `AskUserQuestion` anywhere in the chain; a gate that would ask prints the gap and stops instead, so a headless `claude --print` caller can never hang. Phase 5 is skipped on the `not_found` branch (Phase 4 handles that).
 - **Non-interactive is the normal path, not an edge case.** The Vault UI "Start" button runs the headless turn and then hands the operator a bare resume command (`vault-ui/src/vault_ui/api/tasks.py` `_build_resume_command` emits `<script> --resume <id>[ -n <title>]`, no prompt argument). vault-cli's own turn-2 continuation (`pkg/ops/workon.go`) only fires when vault-cli resumes the session itself, which that path never does. So whatever the headless turn accomplishes is all the operator gets before they type — which is why it must chain.
+
+## Passive metrics
+
+Each work-on run appends one entry to the task's `metrics_sessions` frontmatter field
+(session id + start timestamp). These metrics fields are written passively by vault-cli
+and must not be hand-edited.

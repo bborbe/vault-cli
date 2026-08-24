@@ -220,10 +220,22 @@ the command; this line makes the switch that lets the agent actually do it.
 
 Use the **task title verbatim** as the primary search seed. Don't paraphrase or generalise.
 
-If `SEMANTIC_SEARCH_AVAIL` — run ALL three queries (no early-out):
+If `SEMANTIC_SEARCH_AVAIL` — run ALL four queries (no early-out):
 1. `search_related(query="{task_title}", top_k=5)` → primary topic match (catches runbooks named after the task)
 2. `search_related(query="{task_title} runbook procedure", top_k=3)` → Runbooks
 3. `search_related(query="{task_title} guide", top_k=3)` → Operational guides
+4. `search_related(query="{task_title} prior analysis decision design", top_k=5)` → **Prior work on the same system**
+
+Query 4 exists because queries 1–3 are artifact-type-scoped — they find runbooks and guides, so a prior *decision* recorded on a task or KB page matches none of their framings and stays invisible. Report any hit ≥ 0.5 whose conclusion **constrains** this task — a decision to consolidate, deprecate, freeze, or reduce the very thing this task would grow — under a distinct heading:
+
+```
+⚠️ CONFLICTING PRIOR WORK
+- [[<page>]] (<score>) — <the decision, one line> → <why it constrains this task>
+```
+
+Do NOT fold these into the guides list; a guide tells you *how* to proceed, this tells you whether to proceed at all. Surface it even when the task looks routine — especially then.
+
+Observed 2026-08-24: a task to deploy 12 new per-symbol handlers passed Phase 6 clean and shipped a merged PR before anyone noticed [[Review candle-command-handler per-symbol design]], a five-week-old analysis that had already identified that exact fleet as the cluster's top pod-count offender and decided to consolidate it. The page was indexed and sitting on the same day's daily note; all three queries missed it because it is neither a runbook nor a guide.
 
 Examples (make sure haiku doesn't paraphrase):
 - Task `Review MoneyMoney` → `search_related("MoneyMoney")` NOT `search_related("trading review process")`
@@ -233,7 +245,7 @@ Else fall back: `Glob: 65 Runbooks/*{keyword}*.md`, `Glob: 50*Knowledge*/*{keywo
 
 For each result with score ≥ 0.5: read first ~100 lines and extract slash commands, quick checks, fix procedures. **List ALL hits ≥ 0.5 in the report** — don't filter to one.
 
-If zero hits ≥ 0.5 across all queries, report `ℹ️ No matching runbooks/guides found` — but only after running all three searches.
+If zero hits ≥ 0.5 across all queries, report `ℹ️ No matching runbooks/guides found` — but only after running all four searches.
 
 **Wikilink cross-vault resolution (MANDATORY)**:
 
@@ -437,7 +449,7 @@ Suggested task name: <derived title — Jira summary if Jira ID input, else inpu
 3. Obsidian status set to in_progress (or `not_found:` verdict emitted if no local task file exists — slash command Phase 4 handles creation)
 4. Tracked on daily note (or graceful skip)
 5. Code tasks: `Task(subagent_type='coding:pre-implementation-assistant', ...)` dispatched + Development Guide presented
-6. Guides searched (semantic or fallback) — **FAIL if Phase 6 skipped; at least one `search_related` call required when MCP available**
+6. Guides + prior work searched (semantic or fallback) — **FAIL if Phase 6 skipped; all four `search_related` queries required when MCP available, including query 4 (prior analysis/decisions). A clean guides result is not a pass if query 4 never ran.**
 7. Phase 8 verification ran for Jira tasks; report includes verification line
 8. Report ends with "Ready to work on this task." — NEVER emitted while Jira state is stale
 9. Readiness nudge emitted for Obsidian (non-recurring) tasks (one of ✅ / 🔵 / ⚠) — never silently skipped

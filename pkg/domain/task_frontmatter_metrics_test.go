@@ -22,6 +22,15 @@ var _ = Describe("TaskFrontmatter metrics", func() {
 		fm = domain.NewTaskFrontmatter(nil)
 	})
 
+	Describe("Absent metrics", func() {
+		It("returns nil for all four readers on a fresh frontmatter", func() {
+			Expect(fm.MetricsSessions()).To(BeNil())
+			Expect(fm.MetricsCompletedAt()).To(BeNil())
+			Expect(fm.MetricsInteractionCount()).To(BeNil())
+			Expect(fm.MetricsCycles()).To(BeNil())
+		})
+	})
+
 	Describe("MetricsSessions", func() {
 		It("preserves prior entries when appending", func() {
 			start1 := libtime.DateOrDateTime(time.Date(2026, 8, 24, 9, 0, 0, 0, time.UTC))

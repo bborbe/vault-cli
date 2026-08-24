@@ -1,14 +1,14 @@
 ---
-status: failed
+status: completed
 spec: [036-passive-per-task-metrics]
+summary: 'Verified and completed the passive metrics frontmatter contract: MetricsSession/MetricsCycle types and all eleven accessors (sessions, completed_at, interaction_count, cycles) with multi-shape coercion, accumulate-never-overwrite appends, and unknown-vs-zero distinction; added the missing fresh-frontmatter nil-assertions spec; boundary check confirmed the round-trip spec fails on a broken yaml tag; make precommit exits 0'
 execution_id: vault-cli-exec-188-spec-036-metrics-frontmatter
 dark-factory-version: dev
 created: "2026-08-24T18:30:00Z"
 queued: "2026-08-24T18:31:32Z"
-started: "2026-08-24T18:44:08Z"
-completed: "2026-08-24T18:52:51Z"
+started: "2026-08-24T19:45:14Z"
+completed: "2026-08-24T19:49:43Z"
 branch: dark-factory/passive-per-task-metrics
-lastFailReason: 'validate completion report: completion report status: partial'
 ---
 
 <summary>

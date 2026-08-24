@@ -41,9 +41,11 @@ type interactionCounter struct {
 }
 
 // Count returns the total number of user turns across the session logs for the
-// given session ids. An unsafe id is skipped before any path is built.
+// given session ids, counting each distinct id once. An unsafe id is skipped
+// before any path is built.
 func (c *interactionCounter) Count(ctx context.Context, sessionIDs []string) int {
 	total := 0
+	seen := make(map[string]struct{}, len(sessionIDs))
 	for _, id := range sessionIDs {
 		select {
 		case <-ctx.Done():
@@ -53,6 +55,10 @@ func (c *interactionCounter) Count(ctx context.Context, sessionIDs []string) int
 		if !isSafeSessionID(id) {
 			continue
 		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
 		path := filepath.Join(c.projectsDir, encodeProjectDir(c.sessionDir), id+".jsonl")
 		total += countUserTurnsInSessionLog(ctx, path)
 	}

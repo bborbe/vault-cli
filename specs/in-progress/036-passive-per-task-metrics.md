@@ -1,11 +1,12 @@
 ---
-status: prompted
+status: verifying
 tags:
     - dark-factory
     - spec
 approved: "2026-08-24T18:14:35Z"
 generating: "2026-08-24T18:15:19Z"
 prompted: "2026-08-24T18:21:53Z"
+verifying: "2026-08-24T20:08:59Z"
 branch: dark-factory/passive-per-task-metrics
 ---
 

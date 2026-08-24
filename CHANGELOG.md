@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: `metrics_interaction_count` no longer double-counts a task worked on more than once in the same Claude session — the interaction counter now deduplicates `session_id`s before summing `type:"user"` turns, so a session recorded N times in `metrics_sessions` contributes its user-turn total exactly once and the stored count for a double-worked task matches the ground truth of the single underlying session log instead of reporting double
+
 ## v0.116.0
 
 - feat: Enforce close-out fields at the `SetStatus` chokepoints — `TaskFrontmatter.SetStatus` / `GoalFrontmatter.SetStatus` now reject a transition to `aborted` or `completed` unless the frontmatter already holds a non-empty `aborted_reason` AND `gate_successor` (or `none`), naming the missing field(s) and leaving the frontmatter unchanged on rejection; non-close-out transitions are unaffected

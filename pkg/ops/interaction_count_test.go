@@ -94,4 +94,31 @@ var _ = Describe("InteractionCounter", func() {
 		writeFixture("s1", big)
 		Expect(counter.Count(ctx, []string{"s1"})).To(Equal(1))
 	})
+
+	It("Duplicate session ids counted once", func() {
+		writeFixture("s1", userLine, userLine, userLine)
+		// Adjacent duplicate (AC1): the shared session's 3 user turns count once.
+		Expect(counter.Count(ctx, []string{"s1", "s1"})).To(Equal(3))
+		Expect(counter.Count(ctx, []string{"s1"})).To(Equal(3))
+		// Repeated N times (Desired Behavior 2): never more than once.
+		Expect(counter.Count(ctx, []string{"s1", "s1", "s1"})).To(Equal(3))
+	})
+
+	It("Interleaved duplicate session ids counted once", func() {
+		writeFixture("s1", userLine, userLine, userLine)
+		writeFixture("s2", userLine, userLine)
+		// AC2: each distinct session once, order-independent.
+		Expect(counter.Count(ctx, []string{"s1", "s2", "s1"})).To(Equal(5))
+		Expect(counter.Count(ctx, []string{"s2", "s1", "s2"})).To(Equal(5))
+	})
+
+	It("Duplicated missing file contributes 0", func() {
+		// Failure Mode 4: a missing file contributes 0 whether duplicated or not (AC3).
+		Expect(counter.Count(ctx, []string{"missing", "missing"})).To(Equal(0))
+		// Failure Mode 3: every unsafe id still contributes 0 when duplicated, and the
+		// dedup never panics on a malformed/empty id (AC3, unchanged guard table).
+		for _, id := range []string{"../x", "a/b", `a\b`, "..", ""} {
+			Expect(counter.Count(ctx, []string{id, id})).To(Equal(0))
+		}
+	})
 })

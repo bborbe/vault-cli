@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat: work-on-task-assistant Phase 6 adds a 4th search for prior analysis/decisions on the same system, reported separately as `⚠️ CONFLICTING PRIOR WORK` — queries 1-3 are artifact-type-scoped (runbook/guide) and silently miss a prior decision recorded on a task or KB page
+
 ## v0.115.0
 
 - feat: post-compact re-anchors on conventions after re-arm — emits a one-line `📌 Conventions: run /recall if you feel drifted` pointer (full doc re-read skipped; CLAUDE.md re-injects each turn), skipped when drift risk is low

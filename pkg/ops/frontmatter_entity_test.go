@@ -152,6 +152,8 @@ var _ = Describe("NewGoalSetOperation", func() {
 		goalName        string
 		key             string
 		value           string
+		reason          string
+		gateSuccessor   string
 		goal            *domain.Goal
 	)
 
@@ -173,10 +175,12 @@ var _ = Describe("NewGoalSetOperation", func() {
 		)
 		mockGoalStorage.FindGoalByNameReturns(goal, nil)
 		mockGoalStorage.WriteGoalReturns(nil)
+		reason = ""
+		gateSuccessor = ""
 	})
 
 	JustBeforeEach(func() {
-		err = setOp.Execute(ctx, vaultPath, goalName, key, value)
+		err = setOp.Execute(ctx, vaultPath, goalName, key, value, reason, gateSuccessor)
 	})
 
 	Context("setting a string field", func() {
@@ -190,6 +194,30 @@ var _ = Describe("NewGoalSetOperation", func() {
 			Expect(mockGoalStorage.WriteGoalCallCount()).To(Equal(1))
 			_, writtenGoal := mockGoalStorage.WriteGoalArgsForCall(0)
 			Expect(string(writtenGoal.Status())).To(Equal("completed"))
+		})
+	})
+
+	Context("one-step close-out via status set", func() {
+		BeforeEach(func() {
+			goal = domain.NewGoal(
+				map[string]any{"status": "active"},
+				domain.FileMetadata{Name: goalName},
+				domain.Content(""),
+			)
+			mockGoalStorage.FindGoalByNameReturns(goal, nil)
+			key = "status"
+			value = "aborted"
+			reason = "reason text"
+			gateSuccessor = "none"
+		})
+
+		It("persists reason and successor with the aborted status", func() {
+			Expect(err).To(BeNil())
+			Expect(mockGoalStorage.WriteGoalCallCount()).To(Equal(1))
+			_, writtenGoal := mockGoalStorage.WriteGoalArgsForCall(0)
+			Expect(writtenGoal.Status()).To(Equal(domain.GoalStatusAborted))
+			Expect(writtenGoal.GetString("aborted_reason")).To(Equal("reason text"))
+			Expect(writtenGoal.GetString("gate_successor")).To(Equal("none"))
 		})
 	})
 

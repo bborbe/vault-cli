@@ -32,6 +32,8 @@ var _ = Describe("CompleteOperation", func() {
 		taskName             string
 		task                 *domain.Task
 		force                bool
+		reason               string
+		gateSuccessor        string
 	)
 
 	BeforeEach(func() {
@@ -59,10 +61,20 @@ var _ = Describe("CompleteOperation", func() {
 		mockTaskStorage.FindTaskByNameReturns(task, nil)
 		mockTaskStorage.WriteTaskReturns(nil)
 		force = false
+		reason = ""
+		gateSuccessor = ""
 	})
 
 	JustBeforeEach(func() {
-		result, err = completeOp.Execute(ctx, vaultPath, taskName, "test-vault", force)
+		result, err = completeOp.Execute(
+			ctx,
+			vaultPath,
+			taskName,
+			"test-vault",
+			force,
+			reason,
+			gateSuccessor,
+		)
 	})
 
 	Context("success", func() {
@@ -221,6 +233,35 @@ var _ = Describe("CompleteOperation", func() {
 
 		It("does not write the task", func() {
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(0))
+		})
+	})
+
+	Context("one-step close-out writes reason and successor with the status", func() {
+		BeforeEach(func() {
+			task = domain.NewTask(
+				map[string]any{"status": "todo"},
+				domain.FileMetadata{Name: taskName},
+				domain.Content(""),
+			)
+			mockTaskStorage.FindTaskByNameReturns(task, nil)
+			reason = "gate moved to X"
+			gateSuccessor = "none"
+		})
+
+		It("returns no error", func() {
+			Expect(err).To(BeNil())
+		})
+
+		It("writes the task in a single write", func() {
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+		})
+
+		It("persists reason and successor with the status", func() {
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
+			Expect(writtenTask.GetString("aborted_reason")).To(Equal("gate moved to X"))
+			Expect(writtenTask.GetString("gate_successor")).To(Equal("none"))
+			Expect(writtenTask.Status()).To(Equal(domain.TaskStatusCompleted))
 		})
 	})
 

@@ -30,6 +30,8 @@ var _ = Describe("GoalCompleteOperation", func() {
 		goalName        string
 		vaultName       string
 		force           bool
+		reason          string
+		gateSuccessor   string
 		goal            *domain.Goal
 	)
 
@@ -53,10 +55,20 @@ var _ = Describe("GoalCompleteOperation", func() {
 		mockGoalStorage.FindGoalByNameReturns(goal, nil)
 		mockGoalStorage.WriteGoalReturns(nil)
 		mockTaskStorage.ListTasksReturns(nil, nil)
+		reason = ""
+		gateSuccessor = ""
 	})
 
 	JustBeforeEach(func() {
-		result, err = op.Execute(ctx, vaultPath, goalName, vaultName, force)
+		result, err = op.Execute(
+			ctx,
+			vaultPath,
+			goalName,
+			vaultName,
+			force,
+			reason,
+			gateSuccessor,
+		)
 	})
 
 	Context("goal not found", func() {
@@ -265,6 +277,35 @@ var _ = Describe("GoalCompleteOperation", func() {
 
 		It("does not write the goal", func() {
 			Expect(mockGoalStorage.WriteGoalCallCount()).To(Equal(0))
+		})
+	})
+
+	Context("one-step close-out writes reason and successor with the status", func() {
+		BeforeEach(func() {
+			goal = domain.NewGoal(
+				map[string]any{"status": "active"},
+				domain.FileMetadata{Name: goalName},
+				domain.Content(""),
+			)
+			mockGoalStorage.FindGoalByNameReturns(goal, nil)
+			reason = "achieved"
+			gateSuccessor = "none"
+		})
+
+		It("returns no error", func() {
+			Expect(err).To(BeNil())
+		})
+
+		It("writes the goal in a single write", func() {
+			Expect(mockGoalStorage.WriteGoalCallCount()).To(Equal(1))
+		})
+
+		It("persists reason and successor with the status", func() {
+			Expect(mockGoalStorage.WriteGoalCallCount()).To(Equal(1))
+			_, writtenGoal := mockGoalStorage.WriteGoalArgsForCall(0)
+			Expect(writtenGoal.GetString("aborted_reason")).To(Equal("achieved"))
+			Expect(writtenGoal.GetString("gate_successor")).To(Equal("none"))
+			Expect(writtenGoal.Status()).To(Equal(domain.GoalStatusCompleted))
 		})
 	})
 

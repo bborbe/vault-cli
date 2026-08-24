@@ -313,6 +313,8 @@ var _ = Describe("FrontmatterSetOperation", func() {
 		taskName        string
 		key             string
 		value           string
+		reason          string
+		gateSuccessor   string
 		task            *domain.Task
 	)
 
@@ -331,10 +333,12 @@ var _ = Describe("FrontmatterSetOperation", func() {
 		)
 		mockTaskStorage.FindTaskByNameReturns(task, nil)
 		mockTaskStorage.WriteTaskReturns(nil)
+		reason = ""
+		gateSuccessor = ""
 	})
 
 	JustBeforeEach(func() {
-		err = setOp.Execute(ctx, vaultPath, taskName, key, value)
+		err = setOp.Execute(ctx, vaultPath, taskName, key, value, reason, gateSuccessor)
 	})
 
 	Context("setting phase field", func() {
@@ -407,6 +411,50 @@ var _ = Describe("FrontmatterSetOperation", func() {
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
 			Expect(writtenTask.Status()).To(Equal(domain.TaskStatusCompleted))
+		})
+	})
+
+	Context("one-step close-out via status set", func() {
+		BeforeEach(func() {
+			task = domain.NewTask(
+				map[string]any{"status": "in_progress"},
+				domain.FileMetadata{Name: taskName},
+				domain.Content(""),
+			)
+			mockTaskStorage.FindTaskByNameReturns(task, nil)
+			key = "status"
+			reason = "reason text"
+			gateSuccessor = "none"
+		})
+
+		Context("target is a close-out status", func() {
+			BeforeEach(func() {
+				value = "aborted"
+			})
+
+			It("persists reason and successor with the aborted status", func() {
+				Expect(err).To(BeNil())
+				Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+				_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
+				Expect(writtenTask.Status()).To(Equal(domain.TaskStatusAborted))
+				Expect(writtenTask.GetString("aborted_reason")).To(Equal("reason text"))
+				Expect(writtenTask.GetString("gate_successor")).To(Equal("none"))
+			})
+		})
+
+		Context("target is not a close-out status", func() {
+			BeforeEach(func() {
+				value = "in_progress"
+			})
+
+			It("writes no close-out fields", func() {
+				Expect(err).To(BeNil())
+				Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+				_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
+				Expect(writtenTask.Status()).To(Equal(domain.TaskStatusInProgress))
+				Expect(writtenTask.GetString("aborted_reason")).To(Equal(""))
+				Expect(writtenTask.GetString("gate_successor")).To(Equal(""))
+			})
 		})
 	})
 

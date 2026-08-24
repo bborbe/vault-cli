@@ -675,6 +675,10 @@ This is my task.
 					"task",
 					"complete",
 					"my-task",
+					"--reason",
+					"test reason",
+					"--gate-successor",
+					"none",
 				)
 				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 				Expect(err).NotTo(HaveOccurred())
@@ -712,6 +716,388 @@ This is my task.
 				Expect(err).NotTo(HaveOccurred())
 				Eventually(session).Should(gexec.Exit(1))
 			})
+		})
+	})
+
+	Describe("vault-cli task set status aborted gating", func() {
+		var vaultPath, configPath string
+		var cleanup func()
+
+		BeforeEach(func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"my-task": "---\nstatus: in_progress\n---\n# My Task\n",
+			})
+		})
+
+		AfterEach(func() {
+			cleanup()
+		})
+
+		It("rejects aborted without reason and gate-successor", func() {
+			cmd := exec.Command(
+				binPath,
+				"--config", configPath,
+				"--vault", "test",
+				"task", "set", "my-task", "status", "aborted",
+			)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(1))
+			Expect(string(session.Err.Contents())).To(ContainSubstring("aborted_reason"))
+
+			taskPath := filepath.Join(vaultPath, "Tasks", "my-task.md")
+			content, err := os.ReadFile(taskPath) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(content)).NotTo(ContainSubstring("status: aborted"))
+		})
+
+		It("accepts aborted with --reason and --gate-successor", func() {
+			cmd := exec.Command(
+				binPath,
+				"--config", configPath,
+				"--vault", "test",
+				"task", "set", "my-task", "status", "aborted",
+				"--reason", "gate moved to X",
+				"--gate-successor", "none",
+			)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(0))
+
+			taskPath := filepath.Join(vaultPath, "Tasks", "my-task.md")
+			content, err := os.ReadFile(taskPath) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(content)).To(ContainSubstring("status: aborted"))
+			Expect(string(content)).To(ContainSubstring("aborted_reason: gate moved to X"))
+			Expect(string(content)).To(ContainSubstring("gate_successor: none"))
+		})
+
+		It("names the missing field and the succeeding command form in JSON error output", func() {
+			cmd := exec.Command(
+				binPath,
+				"--config", configPath,
+				"--vault", "test",
+				"task", "set", "my-task", "status", "aborted",
+				"--output", "json",
+			)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+
+			// JSON-mode mutation commands print the error body and return exit 0
+			// by pre-existing design; only the body is asserted here.
+			Eventually(session.Out).Should(gbytes.Say(`"error"`))
+			var parsed map[string]any
+			Expect(json.Unmarshal(session.Out.Contents(), &parsed)).To(Succeed())
+			Expect(parsed).To(HaveKeyWithValue("success", false))
+			errStr, ok := parsed["error"].(string)
+			Expect(ok).To(BeTrue())
+			Expect(errStr).To(ContainSubstring("aborted_reason"))
+			Expect(errStr).To(ContainSubstring("trigger / gate / threshold / recurring check"))
+			Expect(errStr).To(ContainSubstring(`vault-cli task set "my-task" status aborted --reason`))
+		})
+	})
+
+	Describe("vault-cli task complete gating", func() {
+		var vaultPath, configPath string
+		var cleanup func()
+
+		Context("field-less task with no incomplete subtasks", func() {
+			BeforeEach(func() {
+				vaultPath, configPath, cleanup = createTempVault(map[string]string{
+					"my-task": "---\nstatus: in_progress\n---\n# My Task\n",
+				})
+			})
+
+			AfterEach(func() {
+				cleanup()
+			})
+
+			It("rejects complete without reason", func() {
+				cmd := exec.Command(
+					binPath,
+					"--config", configPath,
+					"--vault", "test",
+					"task", "complete", "my-task",
+				)
+				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+				Expect(err).NotTo(HaveOccurred())
+				Eventually(session).Should(gexec.Exit(1))
+				Expect(string(session.Err.Contents())).To(ContainSubstring("aborted_reason"))
+
+				taskPath := filepath.Join(vaultPath, "Tasks", "my-task.md")
+				content, err := os.ReadFile(taskPath) //#nosec G304 -- test file
+				Expect(err).NotTo(HaveOccurred())
+				Expect(string(content)).NotTo(ContainSubstring("status: completed"))
+			})
+
+			It("accepts complete with --reason and --gate-successor", func() {
+				cmd := exec.Command(
+					binPath,
+					"--config", configPath,
+					"--vault", "test",
+					"task", "complete", "my-task",
+					"--reason", "all done",
+					"--gate-successor", "none",
+				)
+				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+				Expect(err).NotTo(HaveOccurred())
+				Eventually(session).Should(gexec.Exit(0))
+
+				taskPath := filepath.Join(vaultPath, "Tasks", "my-task.md")
+				content, err := os.ReadFile(taskPath) //#nosec G304 -- test file
+				Expect(err).NotTo(HaveOccurred())
+				Expect(string(content)).To(ContainSubstring("status: completed"))
+				Expect(string(content)).To(ContainSubstring("aborted_reason: all done"))
+				Expect(string(content)).To(ContainSubstring("gate_successor: none"))
+			})
+
+			It("persists YAML-special characters in reason via the serializer", func() {
+				cmd := exec.Command(
+					binPath,
+					"--config", configPath,
+					"--vault", "test",
+					"task", "complete", "my-task",
+					"--reason", "multi\nline: quoted",
+					"--gate-successor", "none",
+				)
+				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+				Expect(err).NotTo(HaveOccurred())
+				Eventually(session).Should(gexec.Exit(0))
+
+				getCmd := exec.Command(
+					binPath,
+					"--config", configPath,
+					"--vault", "test",
+					"task", "get", "my-task", "aborted_reason",
+					"--output", "json",
+				)
+				getSession, err := gexec.Start(getCmd, GinkgoWriter, GinkgoWriter)
+				Expect(err).NotTo(HaveOccurred())
+				Eventually(getSession).Should(gexec.Exit(0))
+
+				var parsed map[string]any
+				Expect(json.Unmarshal(getSession.Out.Contents(), &parsed)).To(Succeed())
+				Expect(parsed).To(HaveKeyWithValue("value", "multi\nline: quoted"))
+			})
+		})
+
+		Context("field-less task with an incomplete subtask", func() {
+			BeforeEach(func() {
+				vaultPath, configPath, cleanup = createTempVault(map[string]string{
+					"my-task": "---\nstatus: in_progress\n---\n# My Task\n\n- [ ] not done\n",
+				})
+			})
+
+			AfterEach(func() {
+				cleanup()
+			})
+
+			It("rejects complete with --force but without reason", func() {
+				cmd := exec.Command(
+					binPath,
+					"--config", configPath,
+					"--vault", "test",
+					"task", "complete", "my-task", "--force",
+				)
+				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+				Expect(err).NotTo(HaveOccurred())
+				Eventually(session).Should(gexec.Exit(1))
+				Expect(string(session.Err.Contents())).To(ContainSubstring("aborted_reason"))
+
+				taskPath := filepath.Join(vaultPath, "Tasks", "my-task.md")
+				content, err := os.ReadFile(taskPath) //#nosec G304 -- test file
+				Expect(err).NotTo(HaveOccurred())
+				Expect(string(content)).NotTo(ContainSubstring("status: completed"))
+			})
+		})
+	})
+
+	Describe("vault-cli task update close-out gating", func() {
+		var vaultPath, configPath string
+		var cleanup func()
+
+		BeforeEach(func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"my-task": "---\nstatus: in_progress\n---\n# My Task\n\n- [x] item one\n- [x] item two\n",
+			})
+		})
+
+		AfterEach(func() {
+			cleanup()
+		})
+
+		It("rejects checkbox-sync completion without close-out fields", func() {
+			cmd := exec.Command(
+				binPath,
+				"--config", configPath,
+				"--vault", "test",
+				"task", "update", "my-task",
+			)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(1))
+			Expect(string(session.Err.Contents())).To(ContainSubstring("aborted_reason"))
+
+			taskPath := filepath.Join(vaultPath, "Tasks", "my-task.md")
+			content, err := os.ReadFile(taskPath) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(content)).NotTo(ContainSubstring("status: completed"))
+		})
+
+		It("accepts checkbox-sync completion once the fields are present", func() {
+			for _, args := range [][]string{
+				{"task", "set", "my-task", "aborted_reason", "all done"},
+				{"task", "set", "my-task", "gate_successor", "none"},
+			} {
+				setArgs := append([]string{"--config", configPath, "--vault", "test"}, args...)
+				setCmd := exec.Command(binPath, setArgs...)
+				setSession, err := gexec.Start(setCmd, GinkgoWriter, GinkgoWriter)
+				Expect(err).NotTo(HaveOccurred())
+				Eventually(setSession).Should(gexec.Exit(0))
+			}
+
+			cmd := exec.Command(
+				binPath,
+				"--config", configPath,
+				"--vault", "test",
+				"task", "update", "my-task",
+			)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(0))
+
+			taskPath := filepath.Join(vaultPath, "Tasks", "my-task.md")
+			content, err := os.ReadFile(taskPath) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(content)).To(ContainSubstring("status: completed"))
+		})
+	})
+
+	Describe("vault-cli goal close-out gating", func() {
+		var vaultPath, configPath string
+		var cleanup func()
+
+		BeforeEach(func() {
+			vaultPath, configPath, cleanup = createTempVaultWithGoals(
+				map[string]string{},
+				map[string]string{
+					"my-goal": "---\nstatus: in_progress\n---\n# My Goal\n",
+				},
+			)
+		})
+
+		AfterEach(func() {
+			cleanup()
+		})
+
+		It("rejects goal aborted without reason", func() {
+			cmd := exec.Command(
+				binPath,
+				"--config", configPath,
+				"--vault", "test",
+				"goal", "set", "my-goal", "status", "aborted",
+			)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(1))
+			Expect(string(session.Err.Contents())).To(ContainSubstring("aborted_reason"))
+
+			goalPath := filepath.Join(vaultPath, "Goals", "my-goal.md")
+			content, err := os.ReadFile(goalPath) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(content)).NotTo(ContainSubstring("status: aborted"))
+		})
+
+		It("accepts goal aborted with --reason and --gate-successor", func() {
+			cmd := exec.Command(
+				binPath,
+				"--config", configPath,
+				"--vault", "test",
+				"goal", "set", "my-goal", "status", "aborted",
+				"--reason", "no longer needed",
+				"--gate-successor", "none",
+			)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(0))
+
+			goalPath := filepath.Join(vaultPath, "Goals", "my-goal.md")
+			content, err := os.ReadFile(goalPath) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(content)).To(ContainSubstring("status: aborted"))
+			Expect(string(content)).To(ContainSubstring("aborted_reason: no longer needed"))
+			Expect(string(content)).To(ContainSubstring("gate_successor: none"))
+		})
+
+		It("accepts goal complete with --reason and --gate-successor", func() {
+			cmd := exec.Command(
+				binPath,
+				"--config", configPath,
+				"--vault", "test",
+				"goal", "complete", "my-goal",
+				"--reason", "achieved",
+				"--gate-successor", "none",
+			)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(0))
+
+			goalPath := filepath.Join(vaultPath, "Goals", "my-goal.md")
+			content, err := os.ReadFile(goalPath) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(content)).To(ContainSubstring("status: completed"))
+			Expect(string(content)).To(ContainSubstring("aborted_reason: achieved"))
+			Expect(string(content)).To(ContainSubstring("gate_successor: none"))
+		})
+	})
+
+	Describe("vault-cli non-close-out transitions unaffected", func() {
+		var vaultPath, configPath string
+		var cleanup func()
+
+		BeforeEach(func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"my-task": "---\nstatus: todo\n---\n# My Task\n",
+			})
+		})
+
+		AfterEach(func() {
+			cleanup()
+		})
+
+		It("task set status in_progress works without flags", func() {
+			cmd := exec.Command(
+				binPath,
+				"--config", configPath,
+				"--vault", "test",
+				"task", "set", "my-task", "status", "in_progress",
+			)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(0))
+
+			taskPath := filepath.Join(vaultPath, "Tasks", "my-task.md")
+			content, err := os.ReadFile(taskPath) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(content)).To(ContainSubstring("status: in_progress"))
+			Expect(string(content)).NotTo(ContainSubstring("aborted_reason:"))
+		})
+
+		It("task set status hold works without flags", func() {
+			cmd := exec.Command(
+				binPath,
+				"--config", configPath,
+				"--vault", "test",
+				"task", "set", "my-task", "status", "hold",
+			)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(0))
+
+			taskPath := filepath.Join(vaultPath, "Tasks", "my-task.md")
+			content, err := os.ReadFile(taskPath) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(content)).To(ContainSubstring("status: hold"))
 		})
 	})
 

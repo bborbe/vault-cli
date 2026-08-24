@@ -22,12 +22,17 @@ import (
 type CompleteOperation interface {
 	// Execute marks a task as complete. When force is true the incomplete-subtask
 	// guard is bypassed, mirroring the --force flag on goal complete.
+	// reason and gateSuccessor are the one-step close-out fields (aborted_reason /
+	// gate_successor) and are persisted with the status in a single write when
+	// non-empty; they are ignored for recurring tasks, whose status never changes.
 	Execute(
 		ctx context.Context,
 		vaultPath string,
 		taskName string,
 		vaultName string,
 		force bool,
+		reason string,
+		gateSuccessor string,
 	) (MutationResult, error)
 }
 
@@ -77,6 +82,8 @@ func (c *completeOperation) Execute(
 	taskName string,
 	vaultName string,
 	force bool,
+	reason string,
+	gateSuccessor string,
 ) (MutationResult, error) {
 	var warnings []string
 
@@ -105,9 +112,12 @@ func (c *completeOperation) Execute(
 		}
 	}
 
-	// Update task status to completed
-	if err := task.SetStatus(domain.TaskStatusCompleted); err != nil {
-		return MutationResult{Success: false, Error: err.Error()}, errors.Wrap(ctx, err, "set status")
+	// One-step close-out: persist reason and successor before the status
+	// transition so both land in a single WriteTask. Fields are written only
+	// when provided — the two-step close-out (fields already in the file) works
+	// unchanged, and recurring tasks (status never changes) are untouched.
+	if result, err := c.setCompletedStatus(ctx, task, taskName, reason, gateSuccessor); err != nil {
+		return result, err
 	}
 	task.SetPhase(domain.TaskPhaseDone.Ptr())
 	nowTime := c.currentDateTime.Now().Time()
@@ -157,6 +167,51 @@ func (c *completeOperation) Execute(
 	}
 
 	return MutationResult{Success: true, Name: task.Name, Vault: vaultName, Warnings: warnings}, nil
+}
+
+// setCompletedStatus persists the one-step close-out fields (when provided)
+// and transitions the task to completed. A guard rejection returns an error
+// naming the missing fields and the succeeding command form; recurring tasks
+// are handled before this is reached, so the status always changes here.
+//
+//nolint:dupl // Structurally parallel to the goal variant; frozen field names prevent dedup
+func (c *completeOperation) setCompletedStatus(
+	ctx context.Context,
+	task *domain.Task,
+	taskName string,
+	reason, gateSuccessor string,
+) (MutationResult, error) {
+	if reason != "" {
+		if err := task.SetField(ctx, "aborted_reason", reason); err != nil {
+			return MutationResult{
+				Success: false,
+				Error:   err.Error(),
+			}, errors.Wrap(ctx, err, "set aborted_reason")
+		}
+	}
+	if gateSuccessor != "" {
+		if err := task.SetField(ctx, "gate_successor", gateSuccessor); err != nil {
+			return MutationResult{
+				Success: false,
+				Error:   err.Error(),
+			}, errors.Wrap(ctx, err, "set gate_successor")
+		}
+	}
+	if err := task.SetStatus(domain.TaskStatusCompleted); err != nil {
+		msg := err.Error()
+		if strings.Contains(msg, "missing close-out field(s)") {
+			msg = fmt.Sprintf(
+				"%s\nTry: vault-cli task complete \"%s\" --reason \"<text>\" --gate-successor \"<successor|none>\"",
+				msg,
+				taskName,
+			)
+		}
+		return MutationResult{
+			Success: false,
+			Error:   msg,
+		}, errors.Wrap(ctx, err, "set status")
+	}
+	return MutationResult{}, nil
 }
 
 // checkSubtaskCompletion checks if all subtasks are complete.

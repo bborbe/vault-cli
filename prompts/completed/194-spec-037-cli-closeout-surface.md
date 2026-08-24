@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [037-mandatory-abort-reason-and-gate-successor]
+summary: Wired --reason/--gate-successor flags through all four close-out CLI commands into the ops layer with a one-step single-write close-out, enriched guard-rejection errors with the missing fields and succeeding command form in plain and JSON output, and added ops-level and end-to-end integration tests, docs, and CHANGELOG entries
+execution_id: vault-cli-exec-194-spec-037-cli-closeout-surface
+dark-factory-version: dev
 created: "2026-08-24T19:00:00Z"
 queued: "2026-08-24T19:00:06Z"
+started: "2026-08-24T19:20:41Z"
+completed: "2026-08-24T19:33:39Z"
 ---
 
 # CLI surface: --reason / --gate-successor flags, one-step close-out, and the risk-naming error

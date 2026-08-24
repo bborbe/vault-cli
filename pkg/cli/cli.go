@@ -149,6 +149,7 @@ func createCompleteCommand(
 	outputFormat *string,
 ) *cobra.Command {
 	var force bool
+	var reason, gateSuccessor string
 	cmd := &cobra.Command{
 		Use:   "complete <task-name>",
 		Short: "Mark a task as complete",
@@ -177,7 +178,7 @@ func createCompleteCommand(
 						dailyStore,
 						currentDateTime,
 					)
-					result, err := completeOp.Execute(ctx, vault.Path, taskName, vault.Name, force)
+					result, err := completeOp.Execute(ctx, vault.Path, taskName, vault.Name, force, reason, gateSuccessor)
 					if err != nil {
 						return result, err
 					}
@@ -199,6 +200,8 @@ func createCompleteCommand(
 
 	cmd.Flags().
 		BoolVar(&force, "force", false, "Complete even if the task has incomplete checkboxes")
+	cmd.Flags().StringVar(&reason, "reason", "", "Close-out reason (aborted_reason); required to complete")
+	cmd.Flags().StringVar(&gateSuccessor, "gate-successor", "", "Where any risk gate moves, or 'none' (gate_successor); required to complete")
 	return cmd
 }
 
@@ -899,7 +902,8 @@ func createEntitySetCommand(
 	entityType string,
 	newSetOp func(cfg *storage.Config) ops.EntitySetOperation,
 ) *cobra.Command {
-	return &cobra.Command{
+	var reason, gateSuccessor string
+	cmd := &cobra.Command{
 		Use:   "set <name> <key> <value>",
 		Short: fmt.Sprintf("Set a frontmatter field value on a %s", entityType),
 		Args:  cobra.ExactArgs(3),
@@ -917,7 +921,7 @@ func createEntitySetCommand(
 			err = dispatcher.FirstSuccess(ctx, vaults, func(vault *config.Vault) error {
 				storageConfig := storage.NewConfigFromVault(vault)
 				setOp := newSetOp(storageConfig)
-				if err := setOp.Execute(ctx, vault.Path, entityName, key, value); err != nil {
+				if err := setOp.Execute(ctx, vault.Path, entityName, key, value, reason, gateSuccessor); err != nil {
 					return err
 				}
 				if OutputFormat(*outputFormat).IsJSON() {
@@ -943,6 +947,11 @@ func createEntitySetCommand(
 			return nil
 		},
 	}
+	if entityType == "goal" {
+		cmd.Flags().StringVar(&reason, "reason", "", "Close-out reason (aborted_reason); required for goal close-out")
+		cmd.Flags().StringVar(&gateSuccessor, "gate-successor", "", "Where any risk gate moves, or 'none' (gate_successor); required for goal close-out")
+	}
+	return cmd
 }
 
 //nolint:dupl // Entity commands have similar structure but operate on different types
@@ -1320,6 +1329,7 @@ func createGoalCompleteCommand(
 	outputFormat *string,
 ) *cobra.Command {
 	var force bool
+	var reason, gateSuccessor string
 
 	cmd := &cobra.Command{
 		Use:   "complete <goal-name>",
@@ -1353,6 +1363,8 @@ func createGoalCompleteCommand(
 						goalName,
 						vault.Name,
 						force,
+						reason,
+						gateSuccessor,
 					)
 					if err != nil {
 						return result, err
@@ -1368,6 +1380,8 @@ func createGoalCompleteCommand(
 
 	cmd.Flags().
 		BoolVar(&force, "force", false, "Complete even if open tasks are linked to this goal")
+	cmd.Flags().StringVar(&reason, "reason", "", "Close-out reason (aborted_reason); required to complete a goal")
+	cmd.Flags().StringVar(&gateSuccessor, "gate-successor", "", "Where any risk gate moves, or 'none' (gate_successor); required to complete a goal")
 	return cmd
 }
 
@@ -2042,7 +2056,8 @@ func createTaskSetCommand(
 	vaultName *string,
 	outputFormat *string,
 ) *cobra.Command {
-	return &cobra.Command{
+	var reason, gateSuccessor string
+	cmd := &cobra.Command{
 		Use:   "set <task-name> <key> <value>",
 		Short: "Set a frontmatter field value",
 		Args:  cobra.ExactArgs(3),
@@ -2061,7 +2076,7 @@ func createTaskSetCommand(
 				storageConfig := storage.NewConfigFromVault(vault)
 				taskStore := storage.NewTaskStorage(storageConfig)
 				setOp := ops.NewFrontmatterSetOperation(taskStore)
-				if err := setOp.Execute(ctx, vault.Path, taskName, key, value); err != nil {
+				if err := setOp.Execute(ctx, vault.Path, taskName, key, value, reason, gateSuccessor); err != nil {
 					return err
 				}
 				if OutputFormat(*outputFormat).IsJSON() {
@@ -2089,6 +2104,9 @@ func createTaskSetCommand(
 			return nil
 		},
 	}
+	cmd.Flags().StringVar(&reason, "reason", "", "Close-out reason (aborted_reason); required for task close-out")
+	cmd.Flags().StringVar(&gateSuccessor, "gate-successor", "", "Where any risk gate moves, or 'none' (gate_successor); required for task close-out")
+	return cmd
 }
 
 //nolint:dupl,gocognit,nestif // Mutation commands have similar structure but different operations

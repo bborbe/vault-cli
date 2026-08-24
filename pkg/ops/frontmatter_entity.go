@@ -7,6 +7,7 @@ package ops
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/bborbe/errors"
 
@@ -90,7 +91,7 @@ func NewVisionGetOperation(visionStorage storage.VisionStorage) EntityGetOperati
 //
 //counterfeiter:generate -o ../../mocks/entity-set-operation.go --fake-name EntitySetOperation . EntitySetOperation
 type EntitySetOperation interface {
-	Execute(ctx context.Context, vaultPath, entityName, key, value string) error
+	Execute(ctx context.Context, vaultPath, entityName, key, value, reason, gateSuccessor string) error
 }
 
 type goalSetOperation struct {
@@ -100,13 +101,25 @@ type goalSetOperation struct {
 // Execute sets the value of a frontmatter field on the named goal.
 func (o *goalSetOperation) Execute(
 	ctx context.Context,
-	vaultPath, entityName, key, value string,
+	vaultPath, entityName, key, value, reason, gateSuccessor string,
 ) error {
 	goal, err := o.goalStorage.FindGoalByName(ctx, vaultPath, entityName)
 	if err != nil {
 		return errors.Wrap(ctx, err, "find goal")
 	}
+
+	// One-step close-out: when this invocation sets a close-out goal status,
+	// persist reason and successor first so both land in a single WriteGoal.
+	if err := writeGoalCloseOutFieldsIfCloseOut(ctx, goal, value, reason, gateSuccessor); err != nil {
+		return err
+	}
+
 	if err := goal.SetField(ctx, key, value); err != nil {
+		if key == "status" && strings.Contains(err.Error(), "missing close-out field(s)") {
+			err = errors.Errorf(ctx,
+				"%s\nTry: vault-cli goal set \"%s\" status %s --reason \"<text>\" --gate-successor \"<successor|none>\"",
+				err.Error(), entityName, value)
+		}
 		return errors.Wrap(ctx, err, fmt.Sprintf("set field %q", key))
 	}
 	if err := o.goalStorage.WriteGoal(ctx, goal); err != nil {
@@ -120,6 +133,32 @@ func NewGoalSetOperation(goalStorage storage.GoalStorage) EntitySetOperation {
 	return &goalSetOperation{goalStorage: goalStorage}
 }
 
+// writeGoalCloseOutFieldsIfCloseOut writes the one-step close-out fields when
+// the target goal status is a close-out (aborted or completed), returning the
+// first write error. Fields are written only when provided; non-close-out
+// targets never receive them.
+func writeGoalCloseOutFieldsIfCloseOut(
+	ctx context.Context,
+	goal *domain.Goal,
+	value, reason, gateSuccessor string,
+) error {
+	target := domain.GoalStatus(value)
+	if target != domain.GoalStatusAborted && target != domain.GoalStatusCompleted {
+		return nil
+	}
+	if reason != "" {
+		if err := goal.SetField(ctx, "aborted_reason", reason); err != nil {
+			return errors.Wrap(ctx, err, "set aborted_reason")
+		}
+	}
+	if gateSuccessor != "" {
+		if err := goal.SetField(ctx, "gate_successor", gateSuccessor); err != nil {
+			return errors.Wrap(ctx, err, "set gate_successor")
+		}
+	}
+	return nil
+}
+
 type themeSetOperation struct {
 	themeStorage storage.ThemeStorage
 }
@@ -127,7 +166,7 @@ type themeSetOperation struct {
 // Execute sets the value of a frontmatter field on the named theme.
 func (o *themeSetOperation) Execute(
 	ctx context.Context,
-	vaultPath, entityName, key, value string,
+	vaultPath, entityName, key, value, reason, gateSuccessor string,
 ) error {
 	theme, err := o.themeStorage.FindThemeByName(ctx, vaultPath, entityName)
 	if err != nil {
@@ -154,7 +193,7 @@ type objectiveSetOperation struct {
 // Execute sets the value of a frontmatter field on the named objective.
 func (o *objectiveSetOperation) Execute(
 	ctx context.Context,
-	vaultPath, entityName, key, value string,
+	vaultPath, entityName, key, value, reason, gateSuccessor string,
 ) error {
 	objective, err := o.objectiveStorage.FindObjectiveByName(ctx, vaultPath, entityName)
 	if err != nil {
@@ -181,7 +220,7 @@ type visionSetOperation struct {
 // Execute sets the value of a frontmatter field on the named vision.
 func (o *visionSetOperation) Execute(
 	ctx context.Context,
-	vaultPath, entityName, key, value string,
+	vaultPath, entityName, key, value, reason, gateSuccessor string,
 ) error {
 	vision, err := o.visionStorage.FindVisionByName(ctx, vaultPath, entityName)
 	if err != nil {

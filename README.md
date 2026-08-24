@@ -74,7 +74,7 @@ vault-cli task list --all                          # Show all tasks
 vault-cli task list --assignee alice               # Filter by assignee
 
 vault-cli task show "Build vault-cli Go Tool"      # Show full task detail
-vault-cli task complete "Build vault-cli Go Tool"  # Mark task as complete
+vault-cli task complete "Build vault-cli Go Tool" --reason "..." --gate-successor none  # Mark task as complete
 vault-cli task defer "Migrate TaskOrchestrator" +7d     # Defer by relative days
 vault-cli task defer "Migrate TaskOrchestrator" monday  # Defer to next weekday
 vault-cli task defer "Migrate TaskOrchestrator" 2026-03-01  # Defer to ISO date
@@ -82,7 +82,7 @@ vault-cli task update "Build vault-cli Go Tool"    # Update progress from checkb
 vault-cli task work-on "Build vault-cli Go Tool"   # Mark in_progress; assignee: blank→current_user, equal→no-op, other→preserved+⚠️
 
 vault-cli task get "Build vault-cli Go Tool" status         # Get a frontmatter field
-vault-cli task set "Build vault-cli Go Tool" status done    # Set a frontmatter field
+vault-cli task set "Build vault-cli Go Tool" status done --reason "..." --gate-successor none    # Set a frontmatter field
 vault-cli task clear "Build vault-cli Go Tool" assignee     # Clear a frontmatter field
 
 vault-cli task lint                                # Detect frontmatter issues

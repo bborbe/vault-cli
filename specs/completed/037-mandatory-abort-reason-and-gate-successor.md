@@ -1,5 +1,5 @@
 ---
-status: verifying
+status: completed
 tags:
     - dark-factory
     - spec
@@ -7,6 +7,7 @@ approved: "2026-08-24T18:35:29Z"
 generating: "2026-08-24T18:35:29Z"
 prompted: "2026-08-24T18:56:37Z"
 verifying: "2026-08-24T19:33:39Z"
+completed: "2026-08-24T19:59:26Z"
 branch: dark-factory/mandatory-abort-reason-and-gate-successor
 ---
 

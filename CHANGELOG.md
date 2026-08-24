@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.116.0
 
 - feat: Enforce close-out fields at the `SetStatus` chokepoints — `TaskFrontmatter.SetStatus` / `GoalFrontmatter.SetStatus` now reject a transition to `aborted` or `completed` unless the frontmatter already holds a non-empty `aborted_reason` AND `gate_successor` (or `none`), naming the missing field(s) and leaving the frontmatter unchanged on rejection; non-close-out transitions are unaffected
 - fix: task complete, goal complete, and the `task update` checkbox sync no longer swallow the `SetStatus` close-out guard error — a rejected close-out returns `MutationResult{Success: false, Error: ...}` and writes nothing, so a task/goal missing `aborted_reason` and `gate_successor` can no longer be silently completed through any of the three paths

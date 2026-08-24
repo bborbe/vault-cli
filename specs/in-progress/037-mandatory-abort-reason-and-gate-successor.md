@@ -142,3 +142,16 @@ Rationale: prompt 1 establishes the hard invariant at the single domain chokepoi
 ## Do-Nothing Option
 
 Without this change, `aborted`/`completed` continue to persist with no reason and no disposition. The July failure — a P1 task aborted at `phase: todo` that owned a live risk trigger, ~€412 of avoidable losses across W27–W29 — repeats whenever a gate-owning task is closed out without thought. The cost of the change is small (an enforced existing field plus one structured field, at a single chokepoint) against a demonstrated, named loss. The control's weak half (`aborted_reason` free text) is already adopted in the vault; this spec makes the mechanical half actually enforce the behavioural half. Not doing it leaves a known, priced failure mode open.
+
+## Verification Result
+
+**Verified:** 2026-08-24T19:57:28Z (binary source 39bb36c; 037 commits b8f61f2/e4aa305/12a50a3 present)
+**Binary:** /Users/bborbe/Documents/workspaces/vault-cli/bin/vault-cli — fresh `make build`, source 39bb36c
+**Scenario:** none (spec declares "Scenario coverage: none"); ACs driven via operator rungs against fresh scratch vaults
+**Evidence:**
+- `make precommit` exit 0; `make test` exit 0; domain tests: SetStatus(aborted|completed) without fields → validation error, frontmatter unchanged; with both fields → success (task + goal mirror)
+- aborted/completed reject without reason: exit 1, stderr "missing close-out field(s) aborted_reason, gate_successor", file `status` unchanged (task set/complete, goal set/complete, task update)
+- close-outs accept with `--reason` + `--gate-successor`: exit 0, frontmatter gains `status`, `aborted_reason`, `gate_successor` (task + goal)
+- non-close-out transitions (in_progress/hold/next/backlog): exit 0, persisted without reason flags
+- no backfill: git-initialized fixture with reason-less aborted+completed tasks — `git diff HEAD` empty after exercising, only intentional write in porcelain
+**Verdict:** PASS

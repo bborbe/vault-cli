@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [039-bug-completed-requires-closeout-fields]
+summary: 'Applied the spec-039 surface-text rung: reworded all eight --reason/--gate-successor help strings in pkg/cli/cli.go to ''required for aborted, optional for completed'', aligned docs/task-writing.md § Lifecycle to the aborted-only close-out contract, appended the supersession note to the completed spec-037 record, and added the exact ## Unreleased CHANGELOG bullet; make precommit exits 0'
+execution_id: vault-cli-aborted-reason-exec-197-spec-039-docs-and-surface
+dark-factory-version: dev
 created: "2026-08-25T07:35:47Z"
 queued: "2026-08-25T08:09:37Z"
+started: "2026-08-25T08:13:48Z"
+completed: "2026-08-25T08:17:41Z"
 branch: dark-factory/bug-completed-requires-closeout-fields
 ---
 

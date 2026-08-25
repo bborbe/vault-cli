@@ -1,11 +1,12 @@
 ---
-status: prompted
+status: verifying
 tags:
     - dark-factory
     - spec
 approved: "2026-08-25T07:32:00Z"
 generating: "2026-08-25T07:32:00Z"
 prompted: "2026-08-25T07:43:46Z"
+verifying: "2026-08-25T08:17:41Z"
 branch: dark-factory/bug-completed-requires-closeout-fields
 ---
 

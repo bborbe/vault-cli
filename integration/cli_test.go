@@ -812,7 +812,7 @@ This is my task.
 				cleanup()
 			})
 
-			It("rejects complete without reason", func() {
+			It("completes without close-out fields", func() {
 				cmd := exec.Command(
 					binPath,
 					"--config", configPath,
@@ -821,13 +821,33 @@ This is my task.
 				)
 				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 				Expect(err).NotTo(HaveOccurred())
-				Eventually(session).Should(gexec.Exit(1))
-				Expect(string(session.Err.Contents())).To(ContainSubstring("aborted_reason"))
+				Eventually(session).Should(gexec.Exit(0))
 
 				taskPath := filepath.Join(vaultPath, "Tasks", "my-task.md")
 				content, err := os.ReadFile(taskPath) //#nosec G304 -- test file
 				Expect(err).NotTo(HaveOccurred())
-				Expect(string(content)).NotTo(ContainSubstring("status: completed"))
+				Expect(string(content)).To(ContainSubstring("status: completed"))
+				Expect(string(content)).NotTo(ContainSubstring("aborted_reason:"))
+				Expect(string(content)).NotTo(ContainSubstring("gate_successor:"))
+			})
+
+			It("completes via task set status completed without close-out fields", func() {
+				cmd := exec.Command(
+					binPath,
+					"--config", configPath,
+					"--vault", "test",
+					"task", "set", "my-task", "status", "completed",
+				)
+				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+				Expect(err).NotTo(HaveOccurred())
+				Eventually(session).Should(gexec.Exit(0))
+
+				taskPath := filepath.Join(vaultPath, "Tasks", "my-task.md")
+				content, err := os.ReadFile(taskPath) //#nosec G304 -- test file
+				Expect(err).NotTo(HaveOccurred())
+				Expect(string(content)).To(ContainSubstring("status: completed"))
+				Expect(string(content)).NotTo(ContainSubstring("aborted_reason:"))
+				Expect(string(content)).NotTo(ContainSubstring("gate_successor:"))
 			})
 
 			It("accepts complete with --reason and --gate-successor", func() {
@@ -892,7 +912,7 @@ This is my task.
 				cleanup()
 			})
 
-			It("rejects complete with --force but without reason", func() {
+			It("completes with --force despite incomplete subtasks and without close-out fields", func() {
 				cmd := exec.Command(
 					binPath,
 					"--config", configPath,
@@ -901,13 +921,14 @@ This is my task.
 				)
 				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 				Expect(err).NotTo(HaveOccurred())
-				Eventually(session).Should(gexec.Exit(1))
-				Expect(string(session.Err.Contents())).To(ContainSubstring("aborted_reason"))
+				Eventually(session).Should(gexec.Exit(0))
 
 				taskPath := filepath.Join(vaultPath, "Tasks", "my-task.md")
 				content, err := os.ReadFile(taskPath) //#nosec G304 -- test file
 				Expect(err).NotTo(HaveOccurred())
-				Expect(string(content)).NotTo(ContainSubstring("status: completed"))
+				Expect(string(content)).To(ContainSubstring("status: completed"))
+				Expect(string(content)).NotTo(ContainSubstring("aborted_reason:"))
+				Expect(string(content)).NotTo(ContainSubstring("gate_successor:"))
 			})
 		})
 	})
@@ -926,7 +947,7 @@ This is my task.
 			cleanup()
 		})
 
-		It("rejects checkbox-sync completion without close-out fields", func() {
+		It("completes via checkbox sync without close-out fields", func() {
 			cmd := exec.Command(
 				binPath,
 				"--config", configPath,
@@ -935,13 +956,14 @@ This is my task.
 			)
 			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 			Expect(err).NotTo(HaveOccurred())
-			Eventually(session).Should(gexec.Exit(1))
-			Expect(string(session.Err.Contents())).To(ContainSubstring("aborted_reason"))
+			Eventually(session).Should(gexec.Exit(0))
 
 			taskPath := filepath.Join(vaultPath, "Tasks", "my-task.md")
 			content, err := os.ReadFile(taskPath) //#nosec G304 -- test file
 			Expect(err).NotTo(HaveOccurred())
-			Expect(string(content)).NotTo(ContainSubstring("status: completed"))
+			Expect(string(content)).To(ContainSubstring("status: completed"))
+			Expect(string(content)).NotTo(ContainSubstring("aborted_reason:"))
+			Expect(string(content)).NotTo(ContainSubstring("gate_successor:"))
 		})
 
 		It("accepts checkbox-sync completion once the fields are present", func() {
@@ -1048,6 +1070,44 @@ This is my task.
 			Expect(string(content)).To(ContainSubstring("status: completed"))
 			Expect(string(content)).To(ContainSubstring("aborted_reason: achieved"))
 			Expect(string(content)).To(ContainSubstring("gate_successor: none"))
+		})
+
+		It("accepts goal set status completed without close-out fields", func() {
+			cmd := exec.Command(
+				binPath,
+				"--config", configPath,
+				"--vault", "test",
+				"goal", "set", "my-goal", "status", "completed",
+			)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(0))
+
+			goalPath := filepath.Join(vaultPath, "Goals", "my-goal.md")
+			content, err := os.ReadFile(goalPath) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(content)).To(ContainSubstring("status: completed"))
+			Expect(string(content)).NotTo(ContainSubstring("aborted_reason:"))
+			Expect(string(content)).NotTo(ContainSubstring("gate_successor:"))
+		})
+
+		It("accepts goal complete without close-out fields", func() {
+			cmd := exec.Command(
+				binPath,
+				"--config", configPath,
+				"--vault", "test",
+				"goal", "complete", "my-goal",
+			)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(0))
+
+			goalPath := filepath.Join(vaultPath, "Goals", "my-goal.md")
+			content, err := os.ReadFile(goalPath) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(content)).To(ContainSubstring("status: completed"))
+			Expect(string(content)).NotTo(ContainSubstring("aborted_reason:"))
+			Expect(string(content)).NotTo(ContainSubstring("gate_successor:"))
 		})
 	})
 

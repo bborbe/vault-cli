@@ -222,8 +222,8 @@ func createCompleteCommand(
 
 	cmd.Flags().
 		BoolVar(&force, "force", false, "Complete even if the task has incomplete checkboxes")
-	cmd.Flags().StringVar(&reason, "reason", "", "Close-out reason (aborted_reason); required to complete")
-	cmd.Flags().StringVar(&gateSuccessor, "gate-successor", "", "Where any risk gate moves, or 'none' (gate_successor); required to complete")
+	cmd.Flags().StringVar(&reason, "reason", "", "Close-out reason (aborted_reason); required for aborted, optional for completed")
+	cmd.Flags().StringVar(&gateSuccessor, "gate-successor", "", "Where any risk gate moves, or 'none' (gate_successor); required for aborted, optional for completed")
 	return cmd
 }
 
@@ -970,8 +970,8 @@ func createEntitySetCommand(
 		},
 	}
 	if entityType == "goal" {
-		cmd.Flags().StringVar(&reason, "reason", "", "Close-out reason (aborted_reason); required for goal close-out")
-		cmd.Flags().StringVar(&gateSuccessor, "gate-successor", "", "Where any risk gate moves, or 'none' (gate_successor); required for goal close-out")
+		cmd.Flags().StringVar(&reason, "reason", "", "Close-out reason (aborted_reason); required for aborted, optional for completed")
+		cmd.Flags().StringVar(&gateSuccessor, "gate-successor", "", "Where any risk gate moves, or 'none' (gate_successor); required for aborted, optional for completed")
 	}
 	return cmd
 }
@@ -1402,8 +1402,8 @@ func createGoalCompleteCommand(
 
 	cmd.Flags().
 		BoolVar(&force, "force", false, "Complete even if open tasks are linked to this goal")
-	cmd.Flags().StringVar(&reason, "reason", "", "Close-out reason (aborted_reason); required to complete a goal")
-	cmd.Flags().StringVar(&gateSuccessor, "gate-successor", "", "Where any risk gate moves, or 'none' (gate_successor); required to complete a goal")
+	cmd.Flags().StringVar(&reason, "reason", "", "Close-out reason (aborted_reason); required for aborted, optional for completed")
+	cmd.Flags().StringVar(&gateSuccessor, "gate-successor", "", "Where any risk gate moves, or 'none' (gate_successor); required for aborted, optional for completed")
 	return cmd
 }
 
@@ -2126,8 +2126,8 @@ func createTaskSetCommand(
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&reason, "reason", "", "Close-out reason (aborted_reason); required for task close-out")
-	cmd.Flags().StringVar(&gateSuccessor, "gate-successor", "", "Where any risk gate moves, or 'none' (gate_successor); required for task close-out")
+	cmd.Flags().StringVar(&reason, "reason", "", "Close-out reason (aborted_reason); required for aborted, optional for completed")
+	cmd.Flags().StringVar(&gateSuccessor, "gate-successor", "", "Where any risk gate moves, or 'none' (gate_successor); required for aborted, optional for completed")
 	return cmd
 }
 

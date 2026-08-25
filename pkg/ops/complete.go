@@ -119,7 +119,7 @@ func (c *completeOperation) Execute(
 	// transition so both land in a single WriteTask. Fields are written only
 	// when provided — the two-step close-out (fields already in the file) works
 	// unchanged, and recurring tasks (status never changes) are untouched.
-	if result, err := c.setCompletedStatus(ctx, task, taskName, reason, gateSuccessor); err != nil {
+	if result, err := c.setCompletedStatus(ctx, task, reason, gateSuccessor); err != nil {
 		return result, err
 	}
 	task.SetPhase(domain.TaskPhaseDone.Ptr())
@@ -189,15 +189,15 @@ func (c *completeOperation) applyCompletionMetrics(
 }
 
 // setCompletedStatus persists the one-step close-out fields (when provided)
-// and transitions the task to completed. A guard rejection returns an error
-// naming the missing fields and the succeeding command form; recurring tasks
-// are handled before this is reached, so the status always changes here.
+// and transitions the task to completed. completed never consults the
+// close-out fields (spec 039), so this cannot fail on the guard; the error
+// return is kept for status-set failure propagation. Recurring tasks are
+// handled before this is reached, so the status always changes here.
 //
 //nolint:dupl // Structurally parallel to the goal variant; frozen field names prevent dedup
 func (c *completeOperation) setCompletedStatus(
 	ctx context.Context,
 	task *domain.Task,
-	taskName string,
 	reason, gateSuccessor string,
 ) (MutationResult, error) {
 	if reason != "" {
@@ -217,17 +217,9 @@ func (c *completeOperation) setCompletedStatus(
 		}
 	}
 	if err := task.SetStatus(domain.TaskStatusCompleted); err != nil {
-		msg := err.Error()
-		if strings.Contains(msg, "missing close-out field(s)") {
-			msg = fmt.Sprintf(
-				"%s\nTry: vault-cli task complete \"%s\" --reason \"<text>\" --gate-successor \"<successor|none>\"",
-				msg,
-				taskName,
-			)
-		}
 		return MutationResult{
 			Success: false,
-			Error:   msg,
+			Error:   err.Error(),
 		}, errors.Wrap(ctx, err, "set status")
 	}
 	return MutationResult{}, nil

@@ -156,3 +156,7 @@ Without this change, `aborted`/`completed` continue to persist with no reason an
 - non-close-out transitions (in_progress/hold/next/backlog): exit 0, persisted without reason flags
 - no backfill: git-initialized fixture with reason-less aborted+completed tasks — `git diff HEAD` empty after exercising, only intentional write in porcelain
 **Verdict:** PASS
+
+## Superseded (spec 039)
+
+**Superseded:** 2026-08-25 — spec 039 (`039-bug-completed-requires-closeout-fields`) relaxes the close-out guard for the `completed` transition: a task or goal may now transition to `completed` without `aborted_reason` / `gate_successor`; the fields remain optional on completion and are still persisted when supplied via `--reason` / `--gate-successor`. The `aborted` transition is unchanged and still requires both fields exactly as this spec locked them. Body text above is preserved as written; only this note is appended.

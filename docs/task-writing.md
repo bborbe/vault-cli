@@ -316,16 +316,16 @@ The auditor (`task-auditor` agent) checks structure, success-criteria binary-nes
 | `todo` | Defined, not started | Task file created with required sections filled |
 | `in_progress` | Actively working | `/vault-cli:work-on-task` or `assignee` set + first subtask started |
 | `hold` | Blocked long-term (weeks+, external dependency, unresolved upstream) | `blocked_by:` field populated, or operator sets manually |
-| `completed` | All success criteria met | `/vault-cli:complete-task` — checks every `# Success Criteria` checkbox is `[x]`; requires close-out fields (see below) |
+| `completed` | All success criteria met | `/vault-cli:complete-task` — checks every `# Success Criteria` checkbox is `[x]`; no close-out fields required |
 | `aborted` | Abandoned without completion | Operator closes out with `aborted_reason` + `gate_successor` (enforced, see below) |
 | `backlog` | Not committed yet | Initial state before commitment |
 
-**Close-out fields (`aborted` / `completed`):** vault-cli enforces that every close-out transition records a disposition. Two frontmatter fields carry it:
+**Close-out fields (`aborted` only):** vault-cli enforces that every `aborted` transition records a disposition. `completed` never requires these fields — they are optional on completion and persisted only when supplied. Two frontmatter fields carry the close-out:
 
-- `aborted_reason` — free text explaining the close-out; used for **both** `aborted` and `completed` transitions (there is no separate `completion_reason` field).
+- `aborted_reason` — free text explaining the close-out; used for the `aborted` transition (there is no separate `completion_reason` field).
 - `gate_successor` — names the task / alert / owner that inherits any risk gate the task owned, or the literal `none` when nothing is inherited. Required at close-out time: a missing value is indistinguishable from "did not think about the gate".
 
-The CLI rejects `aborted` / `completed` (via `task set`, `task complete`, `goal set`, `goal complete`, or the `task update` checkbox sync) unless both fields are present; the error names the missing fields, asks what the task owns (trigger / gate / threshold / recurring check) and where it moves. Values are user-supplied strings persisted through the YAML serializer. Pre-existing reason-less close-outs are not backfilled. `task set`, `task complete`, `goal set`, and `goal complete` accept --reason <text> and --gate-successor <successor|none> to record both fields in the same invocation; a close-out attempted without them is rejected with an error that names the missing fields and the succeeding command form.
+The CLI rejects `aborted` (via `task set`, `task complete`, `goal set`, `goal complete`, or the `task update` checkbox sync) unless both fields are present; the error names the missing fields, asks what the task owns (trigger / gate / threshold / recurring check) and where it moves. Values are user-supplied strings persisted through the YAML serializer. Pre-existing reason-less close-outs are not backfilled. `task set`, `task complete`, `goal set`, and `goal complete` accept --reason <text> and --gate-successor <successor|none> to record both fields in the same invocation; on a `completed` transition they are optional, on `aborted` a close-out attempted without them is rejected with an error that names the missing fields and the succeeding command form.
 
 **Hold vs in_progress + `[/]` subtask:** `hold` is for waits measured in weeks (vendor reply that may never come, partner-team backlog, dependency not yet built). Short waits (hours/days for a doc, callback, code review) stay `in_progress` with the in-flight subtask marked `[/]`. Default is `in_progress`; only escalate to `hold` when the block outlives the current week. Premature `hold` hides the task from active rotations and turns "waiting on Jana for invoices" into "forgot for three months."
 

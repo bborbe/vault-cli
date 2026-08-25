@@ -257,7 +257,7 @@ var _ = Describe("GoalCompleteOperation", func() {
 		})
 	})
 
-	Context("goal without close-out fields", func() {
+	Context("goal completes without close-out fields", func() {
 		BeforeEach(func() {
 			goal = domain.NewGoal(
 				map[string]any{"status": "active"},
@@ -267,16 +267,19 @@ var _ = Describe("GoalCompleteOperation", func() {
 			mockGoalStorage.FindGoalByNameReturns(goal, nil)
 		})
 
-		It("returns error", func() {
-			Expect(err).NotTo(BeNil())
+		It("returns no error", func() {
+			Expect(err).To(BeNil())
 		})
 
-		It("reports the missing close-out fields", func() {
-			Expect(err.Error()).To(ContainSubstring("aborted_reason"))
+		It("writes the goal in a single write", func() {
+			Expect(mockGoalStorage.WriteGoalCallCount()).To(Equal(1))
 		})
 
-		It("does not write the goal", func() {
-			Expect(mockGoalStorage.WriteGoalCallCount()).To(Equal(0))
+		It("persists status completed without close-out fields", func() {
+			_, writtenGoal := mockGoalStorage.WriteGoalArgsForCall(0)
+			Expect(writtenGoal.Status()).To(Equal(domain.GoalStatusCompleted))
+			Expect(writtenGoal.GetString("aborted_reason")).To(Equal(""))
+			Expect(writtenGoal.GetString("gate_successor")).To(Equal(""))
 		})
 	})
 

@@ -85,7 +85,7 @@ func (g *goalCompleteOperation) Execute(
 	// transition so both land in a single WriteGoal. Fields are written only
 	// when provided — the two-step close-out (fields already in the file) works
 	// unchanged.
-	if result, err := g.setCompletedStatus(ctx, goal, goalName, reason, gateSuccessor); err != nil {
+	if result, err := g.setCompletedStatus(ctx, goal, reason, gateSuccessor); err != nil {
 		return result, err
 	}
 	goal.SetCompleted(libtime.ToDate(g.currentDateTime.Now().Time()).Ptr())
@@ -105,14 +105,14 @@ func (g *goalCompleteOperation) Execute(
 }
 
 // setCompletedStatus persists the one-step close-out fields (when provided)
-// and transitions the goal to completed. A guard rejection returns an error
-// naming the missing fields and the succeeding command form.
+// and transitions the goal to completed. completed never consults the
+// close-out fields (spec 039), so this cannot fail on the guard; the error
+// return is kept for status-set failure propagation.
 //
 //nolint:dupl // Structurally parallel to the task variant; frozen field names prevent dedup
 func (g *goalCompleteOperation) setCompletedStatus(
 	ctx context.Context,
 	goal *domain.Goal,
-	goalName string,
 	reason, gateSuccessor string,
 ) (MutationResult, error) {
 	if reason != "" {
@@ -132,15 +132,7 @@ func (g *goalCompleteOperation) setCompletedStatus(
 		}
 	}
 	if err := goal.SetStatus(domain.GoalStatusCompleted); err != nil {
-		msg := err.Error()
-		if strings.Contains(msg, "missing close-out field(s)") {
-			msg = fmt.Sprintf(
-				"%s\nTry: vault-cli goal complete \"%s\" --reason \"<text>\" --gate-successor \"<successor|none>\"",
-				msg,
-				goalName,
-			)
-		}
-		return MutationResult{Success: false, Error: msg}, errors.Wrap(ctx, err, "set status")
+		return MutationResult{Success: false, Error: err.Error()}, errors.Wrap(ctx, err, "set status")
 	}
 	return MutationResult{}, nil
 }

@@ -7,10 +7,11 @@ package domain
 import "strings"
 
 // closeOutFields are the frontmatter keys that must both be present and
-// non-empty before a task or goal may transition to status aborted or
-// completed (a "close-out"). aborted_reason is the free-text why; gate_successor
-// names where any risk gate the entity owned moves, or the literal "none".
-// Both names are frozen by spec 037 and documented in docs/task-writing.md § Lifecycle.
+// non-empty before a task or goal may transition to status aborted (a
+// "close-out"). aborted_reason is the free-text why; gate_successor names
+// where any risk gate the entity owned moves, or the literal "none".
+// Both names are frozen by spec 037; the guard is consulted for aborted
+// only — completed never reads these fields (spec 039).
 var closeOutFields = []string{"aborted_reason", "gate_successor"}
 
 // missingCloseOutFields returns the subset of close-out fields that are absent

@@ -212,7 +212,7 @@ var _ = Describe("CompleteOperation", func() {
 		})
 	})
 
-	Context("task without close-out fields", func() {
+	Context("task completes without close-out fields", func() {
 		BeforeEach(func() {
 			task = domain.NewTask(
 				map[string]any{"status": "todo"},
@@ -222,20 +222,19 @@ var _ = Describe("CompleteOperation", func() {
 			mockTaskStorage.FindTaskByNameReturns(task, nil)
 		})
 
-		It("returns error", func() {
-			Expect(err).NotTo(BeNil())
+		It("returns no error", func() {
+			Expect(err).To(BeNil())
 		})
 
-		It("reports the missing close-out fields", func() {
-			Expect(err.Error()).To(ContainSubstring("aborted_reason"))
+		It("writes the task in a single write", func() {
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 		})
 
-		It("puts the error in the result", func() {
-			Expect(result.Error).To(ContainSubstring("aborted_reason"))
-		})
-
-		It("does not write the task", func() {
-			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(0))
+		It("persists status completed without close-out fields", func() {
+			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
+			Expect(writtenTask.Status()).To(Equal(domain.TaskStatusCompleted))
+			Expect(writtenTask.GetString("aborted_reason")).To(Equal(""))
+			Expect(writtenTask.GetString("gate_successor")).To(Equal(""))
 		})
 	})
 

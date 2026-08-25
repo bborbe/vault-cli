@@ -177,14 +177,15 @@ func (f TaskFrontmatter) DueDate() *libtime.DateOrDateTime {
 func (f TaskFrontmatter) TaskIdentifier() string { return f.GetString("task_identifier") }
 
 // SetStatus validates and stores the status in the map.
-// Close-out transitions (aborted, completed) are rejected unless the frontmatter
-// already holds a non-empty aborted_reason AND a non-empty gate_successor; the
-// rejection is raised before any write, so the frontmatter is left unchanged.
+// The aborted transition is a close-out and is rejected unless the frontmatter
+// already holds a non-empty aborted_reason AND a non-empty gate_successor;
+// completed never consults the close-out fields (spec 039). The rejection is
+// raised before any write, so the frontmatter is left unchanged.
 func (f *TaskFrontmatter) SetStatus(s TaskStatus) error {
 	if err := s.Validate(context.Background()); err != nil {
 		return err
 	}
-	if s == TaskStatusAborted || s == TaskStatusCompleted {
+	if s == TaskStatusAborted {
 		if missing := missingCloseOutFields(f.FrontmatterMap); len(missing) > 0 {
 			return errors.Wrapf(
 				context.Background(),

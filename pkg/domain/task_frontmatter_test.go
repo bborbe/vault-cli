@@ -86,12 +86,11 @@ var _ = Describe("TaskFrontmatter", func() {
 			Expect(fm.Status()).To(Equal(domain.TaskStatus("")))
 		})
 
-		It("rejects completed without close-out fields and leaves the frontmatter unchanged", func() {
-			err := fm.SetStatus(domain.TaskStatusCompleted)
-			Expect(err).NotTo(BeNil())
-			Expect(errors.Is(err, validation.Error)).To(BeTrue())
-			Expect(err.Error()).To(ContainSubstring("missing close-out field(s) aborted_reason, gate_successor"))
-			Expect(fm.Status()).To(Equal(domain.TaskStatus("")))
+		It("accepts completed without close-out fields", func() {
+			Expect(fm.SetStatus(domain.TaskStatusCompleted)).To(Succeed())
+			Expect(fm.Status()).To(Equal(domain.TaskStatusCompleted))
+			Expect(fm.GetString("aborted_reason")).To(Equal(""))
+			Expect(fm.GetString("gate_successor")).To(Equal(""))
 		})
 
 		It("accepts aborted when aborted_reason and gate_successor are both present", func() {

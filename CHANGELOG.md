@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: `completed` transitions no longer require the close-out fields — `TaskFrontmatter.SetStatus` / `GoalFrontmatter.SetStatus` now consult `aborted_reason` + `gate_successor` only for `aborted` (spec 037 semantics unchanged); `task complete`, `goal complete`, `task set <name> status completed`, `goal set <name> status completed`, and the `task update` checkbox sync all succeed and persist `status: completed` on a field-less task/goal, with `--reason` / `--gate-successor` still recorded when supplied (spec 039)
+
 ## v0.116.1
 
 - fix: `metrics_interaction_count` no longer double-counts a task worked on more than once in the same Claude session — the interaction counter now deduplicates `session_id`s before summing `type:"user"` turns, so a session recorded N times in `metrics_sessions` contributes its user-turn total exactly once and the stored count for a double-worked task matches the ground truth of the single underlying session log instead of reporting double

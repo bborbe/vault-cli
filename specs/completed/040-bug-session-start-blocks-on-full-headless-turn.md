@@ -1,9 +1,10 @@
 ---
-status: verifying
+status: completed
 approved: "2026-08-27T09:41:10Z"
 generating: "2026-08-27T09:41:29Z"
 prompted: "2026-08-27T10:06:54Z"
 verifying: "2026-08-27T12:07:28Z"
+completed: "2026-08-27T19:32:08Z"
 branch: dark-factory/bug-session-start-blocks-on-full-headless-turn
 ---
 

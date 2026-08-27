@@ -12,6 +12,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 
 - fix: `task work-on` / `goal work-on` no longer wait for the entire headless bootstrap turn before returning a session id. `StartSession` now takes a caller-minted session id and, on the non-interactive branch, spawns the child detached (`exec.Command` + `Setpgid` + `os.DevNull`) and returns within a 10s liveness window while the turn continues independently; the TTY branch keeps its blocking 5m behaviour unchanged. The misleading "claude session start timed out" error is renamed to name the bootstrap turn
 - fix: on the non-interactive `task work-on` branch the session id and its metrics entry are persisted to the task file before the child is spawned, so the session's own read-modify-write always reads a file that already contains the id; a spawn failure inside the liveness window triggers a re-read-based compensating clear that removes the id and that run's metrics entry while preserving any frontmatter the child wrote before dying, and a failed clear is surfaced as a warning rather than masking the spawn error
+- fix: the non-interactive `goal work-on` branch now persists the session id to the goal file before the child is spawned, and a spawn failure inside the liveness window triggers a re-read-based compensating clear of the id that preserves any frontmatter the child wrote before dying (goals carry no metrics_sessions, so there is no metrics rollback)
 
 ## v0.116.2
 

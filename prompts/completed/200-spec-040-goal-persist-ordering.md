@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [040-bug-session-start-blocks-on-full-headless-turn]
+summary: Goal work-on now persists the session id before the child spawn on the non-interactive branch and compensates with a re-read-based id-only clear on spawn failure, mirroring the task path, with AC8 tests and changelog entry
+execution_id: vault-cli-session-fast-return-exec-200-spec-040-goal-persist-ordering
+dark-factory-version: dev
 created: "2026-08-27T12:00:00Z"
 queued: "2026-08-27T10:51:51Z"
+started: "2026-08-27T11:54:40Z"
+completed: "2026-08-27T12:01:31Z"
 branch: dark-factory/bug-session-start-blocks-on-full-headless-turn
 ---
 

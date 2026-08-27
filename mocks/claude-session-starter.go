@@ -9,27 +9,27 @@ import (
 )
 
 type ClaudeSessionStarter struct {
-	StartSessionStub        func(context.Context, string, string, string) (string, error)
+	StartSessionStub        func(context.Context, string, string, string, string, bool) error
 	startSessionMutex       sync.RWMutex
 	startSessionArgsForCall []struct {
 		arg1 context.Context
 		arg2 string
 		arg3 string
 		arg4 string
+		arg5 string
+		arg6 bool
 	}
 	startSessionReturns struct {
-		result1 string
-		result2 error
+		result1 error
 	}
 	startSessionReturnsOnCall map[int]struct {
-		result1 string
-		result2 error
+		result1 error
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *ClaudeSessionStarter) StartSession(arg1 context.Context, arg2 string, arg3 string, arg4 string) (string, error) {
+func (fake *ClaudeSessionStarter) StartSession(arg1 context.Context, arg2 string, arg3 string, arg4 string, arg5 string, arg6 bool) error {
 	fake.startSessionMutex.Lock()
 	ret, specificReturn := fake.startSessionReturnsOnCall[len(fake.startSessionArgsForCall)]
 	fake.startSessionArgsForCall = append(fake.startSessionArgsForCall, struct {
@@ -37,18 +37,20 @@ func (fake *ClaudeSessionStarter) StartSession(arg1 context.Context, arg2 string
 		arg2 string
 		arg3 string
 		arg4 string
-	}{arg1, arg2, arg3, arg4})
+		arg5 string
+		arg6 bool
+	}{arg1, arg2, arg3, arg4, arg5, arg6})
 	stub := fake.StartSessionStub
 	fakeReturns := fake.startSessionReturns
-	fake.recordInvocation("StartSession", []interface{}{arg1, arg2, arg3, arg4})
+	fake.recordInvocation("StartSession", []interface{}{arg1, arg2, arg3, arg4, arg5, arg6})
 	fake.startSessionMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2, arg3, arg4)
+		return stub(arg1, arg2, arg3, arg4, arg5, arg6)
 	}
 	if specificReturn {
-		return ret.result1, ret.result2
+		return ret.result1
 	}
-	return fakeReturns.result1, fakeReturns.result2
+	return fakeReturns.result1
 }
 
 func (fake *ClaudeSessionStarter) StartSessionCallCount() int {
@@ -57,43 +59,40 @@ func (fake *ClaudeSessionStarter) StartSessionCallCount() int {
 	return len(fake.startSessionArgsForCall)
 }
 
-func (fake *ClaudeSessionStarter) StartSessionCalls(stub func(context.Context, string, string, string) (string, error)) {
+func (fake *ClaudeSessionStarter) StartSessionCalls(stub func(context.Context, string, string, string, string, bool) error) {
 	fake.startSessionMutex.Lock()
 	defer fake.startSessionMutex.Unlock()
 	fake.StartSessionStub = stub
 }
 
-func (fake *ClaudeSessionStarter) StartSessionArgsForCall(i int) (context.Context, string, string, string) {
+func (fake *ClaudeSessionStarter) StartSessionArgsForCall(i int) (context.Context, string, string, string, string, bool) {
 	fake.startSessionMutex.RLock()
 	defer fake.startSessionMutex.RUnlock()
 	argsForCall := fake.startSessionArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4, argsForCall.arg5, argsForCall.arg6
 }
 
-func (fake *ClaudeSessionStarter) StartSessionReturns(result1 string, result2 error) {
+func (fake *ClaudeSessionStarter) StartSessionReturns(result1 error) {
 	fake.startSessionMutex.Lock()
 	defer fake.startSessionMutex.Unlock()
 	fake.StartSessionStub = nil
 	fake.startSessionReturns = struct {
-		result1 string
-		result2 error
-	}{result1, result2}
+		result1 error
+	}{result1}
 }
 
-func (fake *ClaudeSessionStarter) StartSessionReturnsOnCall(i int, result1 string, result2 error) {
+func (fake *ClaudeSessionStarter) StartSessionReturnsOnCall(i int, result1 error) {
 	fake.startSessionMutex.Lock()
 	defer fake.startSessionMutex.Unlock()
 	fake.StartSessionStub = nil
 	if fake.startSessionReturnsOnCall == nil {
 		fake.startSessionReturnsOnCall = make(map[int]struct {
-			result1 string
-			result2 error
+			result1 error
 		})
 	}
 	fake.startSessionReturnsOnCall[i] = struct {
-		result1 string
-		result2 error
-	}{result1, result2}
+		result1 error
+	}{result1}
 }
 
 func (fake *ClaudeSessionStarter) Invocations() map[string][][]interface{} {

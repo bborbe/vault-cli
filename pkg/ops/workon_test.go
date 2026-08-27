@@ -50,6 +50,7 @@ var _ = Describe("WorkOnOperation", func() {
 			mockTaskStorage,
 			mockDailyNoteStorage,
 			currentDateTime,
+			func() string { return pinnedSessionID },
 			mockStarter,
 			mockResumer,
 		)
@@ -70,7 +71,7 @@ var _ = Describe("WorkOnOperation", func() {
 		)
 		mockTaskStorage.FindTaskByNameReturns(task, nil)
 		mockTaskStorage.WriteTaskReturns(nil)
-		mockStarter.StartSessionReturns("session-123", nil)
+		mockStarter.StartSessionReturns(nil)
 		mockResumer.ResumeSessionReturns(nil)
 	})
 
@@ -129,15 +130,21 @@ var _ = Describe("WorkOnOperation", func() {
 
 		It("passes task name to session starter", func() {
 			Expect(mockStarter.StartSessionCallCount()).To(Equal(1))
-			_, _, _, name := mockStarter.StartSessionArgsForCall(0)
+			_, _, _, _, name, _ := mockStarter.StartSessionArgsForCall(0)
 			Expect(name).To(Equal(taskName))
+		})
+
+		It("passes isInteractive=false to the starter on the non-interactive branch", func() {
+			Expect(mockStarter.StartSessionCallCount()).To(Equal(1))
+			_, _, _, _, _, isInteractiveArg := mockStarter.StartSessionArgsForCall(0)
+			Expect(isInteractiveArg).To(BeFalse())
 		})
 
 		It("Fresh run records one entry", func() {
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(2))
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(1)
 			Expect(writtenTask.MetricsSessions()).To(HaveLen(1))
-			Expect(writtenTask.MetricsSessions()[0].SessionID).To(Equal("session-123"))
+			Expect(writtenTask.MetricsSessions()[0].SessionID).To(Equal(pinnedSessionID))
 			Expect(writtenTask.MetricsSessions()[0].StartedAt).To(Equal(
 				libtime.DateOrDateTime(libtimetest.ParseDateTime("2026-03-03T12:00:00Z").Time()),
 			))
@@ -211,13 +218,13 @@ var _ = Describe("WorkOnOperation", func() {
 
 		It("uses the configured work on command in the prompt", func() {
 			Expect(mockStarter.StartSessionCallCount()).To(Equal(1))
-			_, prompt, _, _ := mockStarter.StartSessionArgsForCall(0)
+			_, _, prompt, _, _, _ := mockStarter.StartSessionArgsForCall(0)
 			Expect(prompt).To(MatchRegexp(`^/custom-cmd "`))
 		})
 
 		It("appends --non-interactive to the bootstrap prompt", func() {
 			Expect(mockStarter.StartSessionCallCount()).To(Equal(1))
-			_, prompt, _, _ := mockStarter.StartSessionArgsForCall(0)
+			_, _, prompt, _, _, _ := mockStarter.StartSessionArgsForCall(0)
 			Expect(prompt).To(MatchRegexp(` --non-interactive$`))
 			Expect(prompt).To(MatchRegexp(`/path/to/vault/tasks/my-task\.md`))
 		})
@@ -231,6 +238,7 @@ var _ = Describe("WorkOnOperation", func() {
 				mockTaskStorage,
 				mockDailyNoteStorage,
 				currentDateTime,
+				func() string { return pinnedSessionID },
 				nil,
 				nil,
 			)
@@ -270,6 +278,7 @@ var _ = Describe("WorkOnOperation", func() {
 				mockTaskStorage,
 				mockDailyNoteStorage,
 				currentDateTime,
+				func() string { return pinnedSessionID },
 				nil,
 				nil,
 			)
@@ -336,7 +345,7 @@ var _ = Describe("WorkOnOperation", func() {
 
 	Context("when session start fails (hard failure)", func() {
 		BeforeEach(func() {
-			mockStarter.StartSessionReturns("", ErrTest)
+			mockStarter.StartSessionReturns(ErrTest)
 		})
 
 		It("returns wrapped error", func() {
@@ -352,7 +361,6 @@ var _ = Describe("WorkOnOperation", func() {
 	Context("when claude returns zero turns", func() {
 		BeforeEach(func() {
 			mockStarter.StartSessionReturns(
-				"",
 				errors.New(ctx, "claude returned 0 turns: Unknown command: /x"),
 			)
 		})
@@ -379,7 +387,7 @@ var _ = Describe("WorkOnOperation", func() {
 		It("calls ResumeSession", func() {
 			Expect(mockResumer.ResumeSessionCallCount()).To(Equal(1))
 			_, sessionID, cwd, _ := mockResumer.ResumeSessionArgsForCall(0)
-			Expect(sessionID).To(Equal("session-123"))
+			Expect(sessionID).To(Equal(pinnedSessionID))
 			Expect(cwd).To(Equal(vaultPath))
 		})
 
@@ -409,10 +417,16 @@ var _ = Describe("WorkOnOperation", func() {
 
 		It("leaves the turn-1 bootstrap prompt non-interactive", func() {
 			Expect(mockStarter.StartSessionCallCount()).To(Equal(1))
-			_, bootstrap, _, _ := mockStarter.StartSessionArgsForCall(0)
+			_, _, bootstrap, _, _, _ := mockStarter.StartSessionArgsForCall(0)
 			Expect(bootstrap).To(Equal(
 				`/vault-cli:work-on-task "/path/to/vault/tasks/my-task.md" --non-interactive`,
 			))
+		})
+
+		It("passes isInteractive=true to the starter", func() {
+			Expect(mockStarter.StartSessionCallCount()).To(Equal(1))
+			_, _, _, _, _, isInteractiveArg := mockStarter.StartSessionArgsForCall(0)
+			Expect(isInteractiveArg).To(BeTrue())
 		})
 
 		It("returns no error", func() {
@@ -840,7 +854,7 @@ var _ = Describe("WorkOnOperation", func() {
 		})
 
 		It("still reports the session id so the session is not orphaned silently", func() {
-			Expect(result.SessionID).To(Equal("session-123"))
+			Expect(result.SessionID).To(Equal(pinnedSessionID))
 		})
 
 		It("does not write a second time with the stale in-memory task", func() {

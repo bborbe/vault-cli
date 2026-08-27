@@ -21,6 +21,10 @@ import (
 	"github.com/bborbe/vault-cli/pkg/storage"
 )
 
+// pinnedSessionID is a uuid.Parse-able id the injected generator returns, so every
+// equality assertion on the generated/resumed session id is deterministic.
+const pinnedSessionID = "123e4567-e89b-12d3-a456-426614174000"
+
 var _ = Describe("work-on session write-back", func() {
 	var (
 		ctx           context.Context
@@ -83,20 +87,20 @@ body
 			// Claude session runs plan-task -> execute-task and writes to the very file
 			// work-on loaded before the call.
 			mockStarter.StartSessionStub = func(
-				ctx context.Context, _ string, _ string, _ string,
-			) (string, error) {
+				ctx context.Context, _ string, _ string, _ string, _ string, _ bool,
+			) error {
 				fresh, err := taskStore.FindTaskByName(ctx, vaultPath, "Repro Task")
 				if err != nil {
-					return "", err
+					return err
 				}
 				fresh.SetPhase(domain.TaskPhaseExecution.Ptr())
 				if err := fresh.SetField(ctx, "session_note", "written by the headless turn"); err != nil {
-					return "", err
+					return err
 				}
 				if err := taskStore.WriteTask(ctx, fresh); err != nil {
-					return "", err
+					return err
 				}
-				return "session-123", nil
+				return nil
 			}
 		})
 
@@ -109,7 +113,7 @@ body
 				WorkOnCommand: "/vault-cli:work-on-task",
 			}
 			workOnOp := ops.NewWorkOnOperation(
-				taskStore, mockDailyNote, currentDateTime, mockStarter, nil,
+				taskStore, mockDailyNote, currentDateTime, func() string { return pinnedSessionID }, mockStarter, nil,
 			)
 
 			result, err := workOnOp.Execute(
@@ -118,7 +122,7 @@ body
 			)
 			Expect(err).To(BeNil())
 			Expect(result.Success).To(BeTrue())
-			Expect(result.SessionID).To(Equal("session-123"))
+			Expect(result.SessionID).To(Equal(pinnedSessionID))
 
 			written, err := taskStore.FindTaskByName(ctx, vaultPath, "Repro Task")
 			Expect(err).To(BeNil())
@@ -128,12 +132,12 @@ body
 			// An unrelated field the session touched must survive too.
 			Expect(written.GetField("session_note")).To(Equal("written by the headless turn"))
 			// ...and the session id must still be persisted.
-			Expect(written.ClaudeSessionID()).To(Equal("session-123"))
+			Expect(written.ClaudeSessionID()).To(Equal(pinnedSessionID))
 			Expect(written.Status()).To(Equal(domain.TaskStatusInProgress))
 			// The metrics entry lands in the same re-read/write that preserved the
 			// session's own frontmatter writes (real storage round-trip).
 			Expect(written.MetricsSessions()).To(HaveLen(1))
-			Expect(written.MetricsSessions()[0].SessionID).To(Equal("session-123"))
+			Expect(written.MetricsSessions()[0].SessionID).To(Equal(pinnedSessionID))
 		})
 	})
 
@@ -158,20 +162,20 @@ body
 			// Claude session runs plan-task -> execute-task and writes to the very file
 			// work-on loaded before the call.
 			mockStarter.StartSessionStub = func(
-				ctx context.Context, _ string, _ string, _ string,
-			) (string, error) {
+				ctx context.Context, _ string, _ string, _ string, _ string, _ bool,
+			) error {
 				fresh, err := goalStore.FindGoalByName(ctx, vaultPath, "Repro Goal")
 				if err != nil {
-					return "", err
+					return err
 				}
 				fresh.SetPhase(domain.GoalPhaseExecution.Ptr())
 				if err := fresh.SetField(ctx, "session_note", "written by the headless turn"); err != nil {
-					return "", err
+					return err
 				}
 				if err := goalStore.WriteGoal(ctx, fresh); err != nil {
-					return "", err
+					return err
 				}
-				return "session-123", nil
+				return nil
 			}
 		})
 
@@ -181,7 +185,7 @@ body
 				Name:              "test-vault",
 				WorkOnGoalCommand: "/vault-cli:work-on-goal",
 			}
-			goalWorkOnOp := ops.NewGoalWorkOnOperation(goalStore, mockStarter, nil)
+			goalWorkOnOp := ops.NewGoalWorkOnOperation(goalStore, func() string { return pinnedSessionID }, mockStarter, nil)
 
 			result, err := goalWorkOnOp.Execute(
 				ctx, vaultPath, "Repro Goal", "user@example.com", "test-vault",
@@ -189,7 +193,7 @@ body
 			)
 			Expect(err).To(BeNil())
 			Expect(result.Success).To(BeTrue())
-			Expect(result.SessionID).To(Equal("session-123"))
+			Expect(result.SessionID).To(Equal(pinnedSessionID))
 
 			written, err := goalStore.FindGoalByName(ctx, vaultPath, "Repro Goal")
 			Expect(err).To(BeNil())
@@ -199,7 +203,7 @@ body
 			// An unrelated field the session touched must survive too.
 			Expect(written.GetField("session_note")).To(Equal("written by the headless turn"))
 			// ...and the session id must still be persisted.
-			Expect(written.ClaudeSessionID()).To(Equal("session-123"))
+			Expect(written.ClaudeSessionID()).To(Equal(pinnedSessionID))
 			Expect(written.Status()).To(Equal(domain.GoalStatusInProgress))
 		})
 	})

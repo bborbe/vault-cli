@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: `task work-on` / `goal work-on` no longer wait for the entire headless bootstrap turn before returning a session id. `StartSession` now takes a caller-minted session id and, on the non-interactive branch, spawns the child detached (`exec.Command` + `Setpgid` + `os.DevNull`) and returns within a 10s liveness window while the turn continues independently; the TTY branch keeps its blocking 5m behaviour unchanged. The misleading "claude session start timed out" error is renamed to name the bootstrap turn
+
 ## v0.116.2
 
 - fix: `completed` transitions no longer require the close-out fields — `TaskFrontmatter.SetStatus` / `GoalFrontmatter.SetStatus` now consult `aborted_reason` + `gate_successor` only for `aborted` (spec 037 semantics unchanged); `task complete`, `goal complete`, `task set <name> status completed`, `goal set <name> status completed`, and the `task update` checkbox sync all succeed and persist `status: completed` on a field-less task/goal, with `--reason` / `--gate-successor` still recorded when supplied (spec 039)

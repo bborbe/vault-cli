@@ -41,6 +41,7 @@ var _ = Describe("GoalWorkOnOperation", func() {
 		mockResumer = &mocks.ClaudeResumer{}
 		goalWorkOnOp = ops.NewGoalWorkOnOperation(
 			mockGoalStorage,
+			func() string { return pinnedSessionID },
 			mockStarter,
 			mockResumer,
 		)
@@ -61,7 +62,7 @@ var _ = Describe("GoalWorkOnOperation", func() {
 		)
 		mockGoalStorage.FindGoalByNameReturns(goal, nil)
 		mockGoalStorage.WriteGoalReturns(nil)
-		mockStarter.StartSessionReturns("session-123", nil)
+		mockStarter.StartSessionReturns(nil)
 		mockResumer.ResumeSessionReturns(nil)
 	})
 
@@ -120,8 +121,14 @@ var _ = Describe("GoalWorkOnOperation", func() {
 
 		It("passes goal name to session starter", func() {
 			Expect(mockStarter.StartSessionCallCount()).To(Equal(1))
-			_, _, _, name := mockStarter.StartSessionArgsForCall(0)
+			_, _, _, _, name, _ := mockStarter.StartSessionArgsForCall(0)
 			Expect(name).To(Equal(goalName))
+		})
+
+		It("passes isInteractive=false to the starter on the non-interactive branch", func() {
+			Expect(mockStarter.StartSessionCallCount()).To(Equal(1))
+			_, _, _, _, _, isInteractiveArg := mockStarter.StartSessionArgsForCall(0)
+			Expect(isInteractiveArg).To(BeFalse())
 		})
 	})
 
@@ -192,13 +199,13 @@ var _ = Describe("GoalWorkOnOperation", func() {
 
 		It("uses the configured work on command in the prompt", func() {
 			Expect(mockStarter.StartSessionCallCount()).To(Equal(1))
-			_, prompt, _, _ := mockStarter.StartSessionArgsForCall(0)
+			_, _, prompt, _, _, _ := mockStarter.StartSessionArgsForCall(0)
 			Expect(prompt).To(MatchRegexp(`^/custom-cmd "`))
 		})
 
 		It("appends --non-interactive to the bootstrap prompt", func() {
 			Expect(mockStarter.StartSessionCallCount()).To(Equal(1))
-			_, prompt, _, _ := mockStarter.StartSessionArgsForCall(0)
+			_, _, prompt, _, _, _ := mockStarter.StartSessionArgsForCall(0)
 			Expect(prompt).To(MatchRegexp(` --non-interactive$`))
 			Expect(prompt).To(MatchRegexp(`/path/to/vault/Goals/my-goal\.md`))
 		})
@@ -208,6 +215,7 @@ var _ = Describe("GoalWorkOnOperation", func() {
 		BeforeEach(func() {
 			goalWorkOnOp = ops.NewGoalWorkOnOperation(
 				mockGoalStorage,
+				func() string { return pinnedSessionID },
 				nil,
 				nil,
 			)
@@ -252,7 +260,7 @@ var _ = Describe("GoalWorkOnOperation", func() {
 
 	Context("when session start fails (hard failure)", func() {
 		BeforeEach(func() {
-			mockStarter.StartSessionReturns("", ErrTest)
+			mockStarter.StartSessionReturns(ErrTest)
 		})
 
 		It("returns wrapped error", func() {
@@ -268,7 +276,6 @@ var _ = Describe("GoalWorkOnOperation", func() {
 	Context("when claude returns zero turns", func() {
 		BeforeEach(func() {
 			mockStarter.StartSessionReturns(
-				"",
 				errors.New(ctx, "claude returned 0 turns: Unknown command: /x"),
 			)
 		})
@@ -295,9 +302,15 @@ var _ = Describe("GoalWorkOnOperation", func() {
 		It("calls ResumeSession", func() {
 			Expect(mockResumer.ResumeSessionCallCount()).To(Equal(1))
 			_, sessionID, cwd, prompt := mockResumer.ResumeSessionArgsForCall(0)
-			Expect(sessionID).To(Equal("session-123"))
+			Expect(sessionID).To(Equal(pinnedSessionID))
 			Expect(cwd).To(Equal(vaultPath))
 			Expect(prompt).To(BeEmpty())
+		})
+
+		It("passes isInteractive=true to the starter", func() {
+			Expect(mockStarter.StartSessionCallCount()).To(Equal(1))
+			_, _, _, _, _, isInteractiveArg := mockStarter.StartSessionArgsForCall(0)
+			Expect(isInteractiveArg).To(BeTrue())
 		})
 
 		It("returns no error", func() {

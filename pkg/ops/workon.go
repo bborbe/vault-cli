@@ -37,6 +37,7 @@ func NewWorkOnOperation(
 	taskStorage storage.TaskStorage,
 	dailyNoteStorage storage.DailyNoteStorage,
 	currentDateTime libtime.CurrentDateTime,
+	uuidGenerator func() string,
 	starter ClaudeSessionStarter,
 	resumer ClaudeResumer,
 ) WorkOnOperation {
@@ -44,6 +45,7 @@ func NewWorkOnOperation(
 		taskStorage:      taskStorage,
 		dailyNoteStorage: dailyNoteStorage,
 		currentDateTime:  currentDateTime,
+		uuidGenerator:    uuidGenerator,
 		starter:          starter,
 		resumer:          resumer,
 	}
@@ -53,6 +55,7 @@ type workOnOperation struct {
 	taskStorage      storage.TaskStorage
 	dailyNoteStorage storage.DailyNoteStorage
 	currentDateTime  libtime.CurrentDateTime
+	uuidGenerator    func() string
 	starter          ClaudeSessionStarter
 	resumer          ClaudeResumer
 }
@@ -110,7 +113,7 @@ func (w *workOnOperation) Execute(
 		slog.Warn("workon warning", "warning", warning)
 	}
 
-	sessionID, sessionErr := w.handleClaudeSession(ctx, task, vaultPath, sessionDir, vault)
+	sessionID, sessionErr := w.handleClaudeSession(ctx, task, vaultPath, sessionDir, vault, isInteractive)
 	if sessionErr != nil {
 		if errors.Is(sessionErr, ErrStarterUnavailable) {
 			// Soft failure — claude binary missing. Spec 014 Failure Modes table:
@@ -222,6 +225,7 @@ func (w *workOnOperation) handleClaudeSession(
 	vaultPath string,
 	sessionDir string,
 	vault *config.Vault,
+	isInteractive bool,
 ) (string, error) {
 	if existing := task.ClaudeSessionID(); existing != "" {
 		startedAt := libtime.DateOrDateTime(w.currentDateTime.Now().Time())
@@ -234,9 +238,9 @@ func (w *workOnOperation) handleClaudeSession(
 	// AskUserQuestion; --non-interactive tells the work-on command to take safe
 	// defaults instead of prompting (prevents the 5m headless hang).
 	prompt := fmt.Sprintf(`%s "%s" --non-interactive`, vault.GetWorkOnCommand(), task.FilePath)
+	sessionID := w.uuidGenerator()
 	slog.Info("starting claude session", "task", task.Name)
-	sessionID, err := w.starter.StartSession(ctx, prompt, sessionDir, task.Name)
-	if err != nil {
+	if err := w.starter.StartSession(ctx, sessionID, prompt, sessionDir, task.Name, isInteractive); err != nil {
 		return "", errors.Wrap(ctx, err, "start claude session")
 	}
 	startedAt := libtime.DateOrDateTime(w.currentDateTime.Now().Time())

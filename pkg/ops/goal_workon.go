@@ -33,20 +33,23 @@ type GoalWorkOnOperation interface {
 // NewGoalWorkOnOperation creates a new goal work-on operation.
 func NewGoalWorkOnOperation(
 	goalStorage storage.GoalStorage,
+	uuidGenerator func() string,
 	starter ClaudeSessionStarter,
 	resumer ClaudeResumer,
 ) GoalWorkOnOperation {
 	return &goalWorkOnOperation{
-		goalStorage: goalStorage,
-		starter:     starter,
-		resumer:     resumer,
+		goalStorage:   goalStorage,
+		uuidGenerator: uuidGenerator,
+		starter:       starter,
+		resumer:       resumer,
 	}
 }
 
 type goalWorkOnOperation struct {
-	goalStorage storage.GoalStorage
-	starter     ClaudeSessionStarter
-	resumer     ClaudeResumer
+	goalStorage   storage.GoalStorage
+	uuidGenerator func() string
+	starter       ClaudeSessionStarter
+	resumer       ClaudeResumer
 }
 
 // Execute marks a goal as in_progress, assigns it, and starts or resumes a Claude session.
@@ -101,7 +104,7 @@ func (g *goalWorkOnOperation) Execute(
 		)
 	}
 
-	sessionID, sessionErr := g.handleClaudeSession(ctx, goal, vaultPath, sessionDir, vault)
+	sessionID, sessionErr := g.handleClaudeSession(ctx, goal, vaultPath, sessionDir, vault, isInteractive)
 	if sessionErr != nil {
 		if errors.Is(sessionErr, ErrStarterUnavailable) {
 			// Soft failure — claude binary missing. Spec 014 Failure Modes table:
@@ -190,6 +193,7 @@ func (g *goalWorkOnOperation) handleClaudeSession(
 	vaultPath string,
 	sessionDir string,
 	vault *config.Vault,
+	isInteractive bool,
 ) (string, error) {
 	if existing := goal.ClaudeSessionID(); existing != "" {
 		return existing, nil
@@ -201,9 +205,9 @@ func (g *goalWorkOnOperation) handleClaudeSession(
 	// AskUserQuestion; --non-interactive tells the work-on command to take safe
 	// defaults instead of prompting (prevents the 5m headless hang).
 	prompt := fmt.Sprintf(`%s "%s" --non-interactive`, vault.GetWorkOnGoalCommand(), goal.FilePath)
+	sessionID := g.uuidGenerator()
 	slog.Info("starting claude session", "goal", goal.Name)
-	sessionID, err := g.starter.StartSession(ctx, prompt, sessionDir, goal.Name)
-	if err != nil {
+	if err := g.starter.StartSession(ctx, sessionID, prompt, sessionDir, goal.Name, isInteractive); err != nil {
 		return "", errors.Wrap(ctx, err, "start claude session")
 	}
 	return persistGoalSessionID(ctx, vaultPath, goal.Name, sessionID, g.goalStorage)

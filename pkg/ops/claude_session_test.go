@@ -7,7 +7,10 @@ package ops_test
 import (
 	"context"
 	"errors"
+	"time"
 
+	libtime "github.com/bborbe/time"
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -36,6 +39,8 @@ var _ = Describe("ClaudeSessionStarter", func() {
 			func(_ context.Context, _ []string, _ string) ([]byte, error) {
 				return capturedOutput, capturedErr
 			},
+			nil,
+			libtime.NewWaiterDuration(),
 		)
 	})
 
@@ -44,10 +49,9 @@ var _ = Describe("ClaudeSessionStarter", func() {
 			output = []byte(`{"session_id":"abc-123","result":"ok","num_turns":1,"is_error":false}`)
 		})
 
-		It("returns the session_id", func() {
-			sessionID, err := starter.StartSession(ctx, "/work-on-task \"my-task\"", "/vault", "")
+		It("returns no error", func() {
+			err := starter.StartSession(ctx, "session-abc", "/work-on-task \"my-task\"", "/vault", "", true)
 			Expect(err).To(BeNil())
-			Expect(sessionID).To(Equal("abc-123"))
 		})
 	})
 
@@ -57,7 +61,7 @@ var _ = Describe("ClaudeSessionStarter", func() {
 		})
 
 		It("returns error", func() {
-			_, err := starter.StartSession(ctx, "prompt", "/vault", "")
+			err := starter.StartSession(ctx, "session-abc", "prompt", "/vault", "", true)
 			Expect(err).NotTo(BeNil())
 		})
 	})
@@ -68,7 +72,7 @@ var _ = Describe("ClaudeSessionStarter", func() {
 		})
 
 		It("returns parse error", func() {
-			_, err := starter.StartSession(ctx, "prompt", "/vault", "")
+			err := starter.StartSession(ctx, "session-abc", "prompt", "/vault", "", true)
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(ContainSubstring("parse claude output"))
 		})
@@ -80,7 +84,7 @@ var _ = Describe("ClaudeSessionStarter", func() {
 		})
 
 		It("returns error about empty session_id", func() {
-			_, err := starter.StartSession(ctx, "prompt", "/vault", "")
+			err := starter.StartSession(ctx, "session-abc", "prompt", "/vault", "", true)
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(ContainSubstring("empty session_id"))
 		})
@@ -92,23 +96,22 @@ var _ = Describe("ClaudeSessionStarter", func() {
 		})
 
 		It("returns error about empty session_id", func() {
-			_, err := starter.StartSession(ctx, "prompt", "/vault", "")
+			err := starter.StartSession(ctx, "session-abc", "prompt", "/vault", "", true)
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(ContainSubstring("empty session_id"))
 		})
 	})
 
-	Context("returns session_id when num_turns >= 1 and is_error is false", func() {
+	Context("returns no error when num_turns >= 1 and is_error is false", func() {
 		BeforeEach(func() {
 			output = []byte(
 				`{"session_id":"happy-path-sid","result":"done","num_turns":3,"is_error":false}`,
 			)
 		})
 
-		It("returns session_id and nil error", func() {
-			sessionID, err := starter.StartSession(ctx, "prompt", "/vault", "")
+		It("returns nil error", func() {
+			err := starter.StartSession(ctx, "session-abc", "prompt", "/vault", "", true)
 			Expect(err).To(BeNil())
-			Expect(sessionID).To(Equal("happy-path-sid"))
 		})
 	})
 
@@ -120,7 +123,7 @@ var _ = Describe("ClaudeSessionStarter", func() {
 		})
 
 		It("returns error containing 0 turns and result", func() {
-			_, err := starter.StartSession(ctx, "prompt", "/vault", "")
+			err := starter.StartSession(ctx, "session-abc", "prompt", "/vault", "", true)
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(ContainSubstring("0 turns"))
 			Expect(err.Error()).To(ContainSubstring("Unknown command: /x"))
@@ -135,10 +138,51 @@ var _ = Describe("ClaudeSessionStarter", func() {
 		})
 
 		It("returns error containing error and result", func() {
-			_, err := starter.StartSession(ctx, "prompt", "/vault", "")
+			err := starter.StartSession(ctx, "session-abc", "prompt", "/vault", "", true)
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(ContainSubstring("error"))
 			Expect(err.Error()).To(ContainSubstring("something failed"))
+		})
+	})
+
+	Context("interactive branch deadline", func() {
+		It("reports bootstrap turn timed out when the parent deadline has already passed", func() {
+			parentCtx, cancel := context.WithDeadline(context.Background(), time.Now().Add(-time.Minute))
+			defer cancel()
+			starter = ops.NewClaudeSessionStarterWithRunner(
+				"/usr/local/bin/claude",
+				func(_ context.Context, _ []string, _ string) ([]byte, error) {
+					return nil, errors.New("exit status 1")
+				},
+				nil,
+				libtime.NewWaiterDuration(),
+			)
+			err := starter.StartSession(parentCtx, "id", "prompt", "/vault", "", true)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("bootstrap turn timed out"))
+		})
+	})
+
+	Context("interactive branch blocks until the child exits", func() {
+		It("does not return until the command completes", func() {
+			release := make(chan struct{})
+			starter = ops.NewClaudeSessionStarterWithRunner(
+				"/usr/local/bin/claude",
+				func(_ context.Context, _ []string, _ string) ([]byte, error) {
+					<-release
+					return []byte(`{"session_id":"sid-1","num_turns":1,"is_error":false}`), nil
+				},
+				nil,
+				libtime.NewWaiterDuration(),
+			)
+			done := make(chan struct{})
+			go func() {
+				_ = starter.StartSession(context.Background(), "id", "prompt", "/vault", "", true)
+				close(done)
+			}()
+			Consistently(done, "100ms").ShouldNot(BeClosed())
+			close(release)
+			Eventually(done, "2s").Should(BeClosed())
 		})
 	})
 
@@ -155,25 +199,27 @@ var _ = Describe("ClaudeSessionStarter", func() {
 					capturedDir = dir
 					return []byte(`{"session_id":"sid-1","num_turns":1,"is_error":false}`), nil
 				},
+				nil,
+				libtime.NewWaiterDuration(),
 			)
 		})
 
 		It("passes correct args and cwd", func() {
-			_, err := starter.StartSession(ctx, "my prompt", "/my/vault", "")
+			err := starter.StartSession(ctx, "session-abc", "my prompt", "/my/vault", "", true)
 			Expect(err).To(BeNil())
 			Expect(capturedArgs).To(Equal([]string{
 				"/bin/claude", "--print", "-p", "my prompt",
-				"--output-format", "json",
+				"--output-format", "json", "--session-id", "session-abc",
 			}))
 			Expect(capturedDir).To(Equal("/my/vault"))
 		})
 
 		It("inserts -n <name> after --print when name is non-empty", func() {
-			_, err := starter.StartSession(ctx, "my prompt", "/my/vault", "My Task Title")
+			err := starter.StartSession(ctx, "session-abc", "my prompt", "/my/vault", "My Task Title", true)
 			Expect(err).To(BeNil())
 			Expect(capturedArgs).To(Equal([]string{
 				"/bin/claude", "--print", "-n", "My Task Title", "-p", "my prompt",
-				"--output-format", "json",
+				"--output-format", "json", "--session-id", "session-abc",
 			}))
 		})
 	})
@@ -187,10 +233,93 @@ var _ = Describe("ClaudeSessionStarter", func() {
 					capturedArgs = args
 					return []byte(`{"session_id":"sid-2","num_turns":1,"is_error":false}`), nil
 				},
+				nil,
+				libtime.NewWaiterDuration(),
 			)
-			_, err := customStarter.StartSession(ctx, "prompt", "/vault", "")
+			err := customStarter.StartSession(ctx, "session-abc", "prompt", "/vault", "", true)
 			Expect(err).To(BeNil())
 			Expect(capturedArgs[0]).To(Equal("/opt/custom-claude"))
+		})
+	})
+
+	Context("non-interactive branch", func() {
+		var (
+			detachArgs []string
+			detachDir  string
+			doneCh     chan error
+			detachErr  error
+		)
+
+		BeforeEach(func() {
+			detachArgs = nil
+			detachDir = ""
+			doneCh = make(chan error)
+			detachErr = nil
+		})
+
+		JustBeforeEach(func() {
+			starter = ops.NewClaudeSessionStarterWithRunner(
+				"/usr/local/bin/claude",
+				nil,
+				func(args []string, dir string) (<-chan error, error) {
+					detachArgs = args
+					detachDir = dir
+					return doneCh, detachErr
+				},
+				libtime.WaiterDurationFunc(func(_ context.Context, _ libtime.Duration) error { return nil }),
+			)
+		})
+
+		It("passes the session id and name to the detached runner", func() {
+			sessionID := "123e4567-e89b-12d3-a456-426614174000"
+			err := starter.StartSession(ctx, sessionID, "prompt", "/my/vault", "My Task", false)
+			Expect(err).To(BeNil())
+			Expect(detachArgs).To(ContainElement("--session-id"))
+			Expect(detachArgs).To(ContainElement(sessionID))
+			Expect(detachArgs).To(ContainElement("--print"))
+			Expect(detachArgs).To(ContainElement("-n"))
+			Expect(detachArgs).To(ContainElement("My Task"))
+			Expect(detachDir).To(Equal("/my/vault"))
+			_, err = uuid.Parse(sessionID)
+			Expect(err).To(BeNil())
+		})
+
+		It("returns within the liveness window", func() {
+			start := time.Now()
+			err := starter.StartSession(ctx, "session-abc", "prompt", "/my/vault", "", false)
+			Expect(err).To(BeNil())
+			Expect(time.Since(start)).To(BeNumerically("<", 10*time.Second))
+		})
+
+		It("treats an early exit as an error", func() {
+			earlyDone := make(chan error, 1)
+			earlyDone <- errors.New("exit status 1")
+			starter = ops.NewClaudeSessionStarterWithRunner(
+				"/usr/local/bin/claude",
+				nil,
+				func(_ []string, _ string) (<-chan error, error) {
+					return earlyDone, nil
+				},
+				libtime.WaiterDurationFunc(func(_ context.Context, _ libtime.Duration) error { return nil }),
+			)
+			err := starter.StartSession(ctx, "session-abc", "prompt", "/my/vault", "", false)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("exit status 1"))
+			Expect(err.Error()).To(ContainSubstring("exited during startup"))
+		})
+
+		It("wraps a spawn failure", func() {
+			starter = ops.NewClaudeSessionStarterWithRunner(
+				"/usr/local/bin/claude",
+				nil,
+				func(_ []string, _ string) (<-chan error, error) {
+					return nil, ErrTest
+				},
+				libtime.WaiterDurationFunc(func(_ context.Context, _ libtime.Duration) error { return nil }),
+			)
+			err := starter.StartSession(ctx, "session-abc", "prompt", "/my/vault", "", false)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("start detached claude session"))
 		})
 	})
 })

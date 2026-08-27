@@ -1,6 +1,9 @@
 ---
-status: draft
-kind: bug
+status: prompted
+approved: "2026-08-27T09:41:10Z"
+generating: "2026-08-27T09:41:29Z"
+prompted: "2026-08-27T10:06:54Z"
+branch: dark-factory/bug-session-start-blocks-on-full-headless-turn
 ---
 
 ## Summary

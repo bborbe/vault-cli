@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.116.5
 
 - docs: correct `commands/update-task.md` — checkboxes are ticked by direct body edit, then `vault-cli task update` syncs the derived status; the CLI cannot tick a specific checkbox (it recomputes status from checkbox counts via `statusFromProgress`)
 

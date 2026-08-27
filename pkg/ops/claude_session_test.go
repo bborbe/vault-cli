@@ -244,10 +244,11 @@ var _ = Describe("ClaudeSessionStarter", func() {
 
 	Context("non-interactive branch", func() {
 		var (
-			detachArgs []string
-			detachDir  string
-			doneCh     chan error
-			detachErr  error
+			detachArgs     []string
+			detachDir      string
+			doneCh         chan error
+			detachErr      error
+			capturedWindow libtime.Duration
 		)
 
 		BeforeEach(func() {
@@ -255,6 +256,7 @@ var _ = Describe("ClaudeSessionStarter", func() {
 			detachDir = ""
 			doneCh = make(chan error)
 			detachErr = nil
+			capturedWindow = 0
 		})
 
 		JustBeforeEach(func() {
@@ -266,7 +268,10 @@ var _ = Describe("ClaudeSessionStarter", func() {
 					detachDir = dir
 					return doneCh, detachErr
 				},
-				libtime.WaiterDurationFunc(func(_ context.Context, _ libtime.Duration) error { return nil }),
+				libtime.WaiterDurationFunc(func(_ context.Context, d libtime.Duration) error {
+					capturedWindow = d
+					return nil
+				}),
 			)
 		})
 
@@ -284,11 +289,15 @@ var _ = Describe("ClaudeSessionStarter", func() {
 			Expect(err).To(BeNil())
 		})
 
-		It("returns within the liveness window", func() {
-			start := time.Now()
+		It("waits for the liveness window", func() {
 			err := starter.StartSession(ctx, "session-abc", "prompt", "/my/vault", "", false)
 			Expect(err).To(BeNil())
-			Expect(time.Since(start)).To(BeNumerically("<", 10*time.Second))
+			// Locks the wiring: StartSession hands the constant, not a stray literal.
+			Expect(capturedWindow).To(Equal(ops.LivenessWindow))
+			// Locks the value: LivenessWindow is an alias for livenessWindow, so the
+			// line above moves with the constant and would survive any retune. This
+			// line is the one that fails when the window is changed.
+			Expect(capturedWindow).To(Equal(10 * libtime.Second))
 		})
 
 		It("treats an early exit as an error", func() {

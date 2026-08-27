@@ -1,8 +1,11 @@
 ---
-status: approved
+status: executing
 spec: [040-bug-session-start-blocks-on-full-headless-turn]
+execution_id: vault-cli-session-fast-return-exec-199-spec-040-task-persist-ordering
+dark-factory-version: dev
 created: "2026-08-27T12:00:00Z"
 queued: "2026-08-27T10:51:51Z"
+started: "2026-08-27T11:08:54Z"
 branch: dark-factory/bug-session-start-blocks-on-full-headless-turn
 ---
 

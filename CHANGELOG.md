@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- test: assert the liveness window against `livenessWindow` via the injected waiter instead of a wall-clock tolerance — the previous spec finished in microseconds against a no-op waiter and would have passed for any window value, including zero
+
 ## v0.116.3
 
 - fix: `task work-on` / `goal work-on` no longer wait for the entire headless bootstrap turn before returning a session id. `StartSession` now takes a caller-minted session id and, on the non-interactive branch, spawns the child detached (`exec.Command` + `Setpgid` + `os.DevNull`) and returns within a 10s liveness window while the turn continues independently; the TTY branch keeps its blocking 5m behaviour unchanged. The misleading "claude session start timed out" error is renamed to name the bootstrap turn

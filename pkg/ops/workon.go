@@ -312,6 +312,11 @@ func (w *workOnOperation) clearSessionAndMetrics(
 	}
 	refreshed.ClearClaudeSessionID()
 	var kept []domain.MetricsSession
+	// No ctx.Done() check in this loop (go-functional-composition/list-checks-ctx-done):
+	// it filters an already-loaded in-memory slice of a handful of entries with no I/O
+	// and no blocking call per iteration, so there is nothing for cancellation to
+	// interrupt. The surrounding I/O (FindTaskByName above, WriteTask below) is
+	// ctx-aware.
 	for _, m := range refreshed.MetricsSessions() {
 		if m.SessionID != sessionID {
 			kept = append(kept, m)

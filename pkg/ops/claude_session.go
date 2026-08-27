@@ -112,6 +112,11 @@ func defaultDetachedRunner(args []string, dir string) (<-chan error, error) {
 		return nil, err
 	}
 	done := make(chan error, 1)
+	// Raw go func is deliberate here (go-concurrency/no-raw-go-func): this is a reaper
+	// for a child we have intentionally detached, not orchestrated concurrent work, so
+	// run.CancelOnFirstErrorWait does not apply. It is unbounded in time by design — the
+	// child outlives this process — and cannot leak or block: the channel is buffered
+	// with capacity 1 and has exactly one send.
 	go func() {
 		err := cmd.Wait()
 		_ = devNull.Close() // close only after the child exits — closing earlier would
@@ -164,6 +169,10 @@ func (c *claudeSessionStarter) StartSession(
 			return errors.Wrap(ctx, err, "start detached claude session")
 		}
 		waitCh := make(chan error, 1)
+		// Raw go func is deliberate here (go-concurrency/no-raw-go-func): this adapts the
+		// injectable waiter into a channel so the select below can race it against the
+		// child's exit. Bounded by livenessWindow, buffered with capacity 1 and exactly
+		// one send, so it neither leaks nor blocks when the child wins the race.
 		go func() {
 			waitCh <- c.waiter.Wait(ctx, c.livenessWindow)
 		}()

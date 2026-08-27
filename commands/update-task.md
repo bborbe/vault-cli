@@ -23,7 +23,7 @@ The agent handles:
 - Detect task from conversation (file paths, wiki-links, mentions; ranked by confidence)
 - Read current checkbox state from the task file (`[x]` / `[/]` / `[ ]`)
 - Analyze the conversation for completed work (files created/modified, commands run, problems solved)
-- Tick completed checkboxes via `vault-cli task update` (NOT direct Edit on frontmatter)
+- Tick completed checkboxes by direct body Edit (`- [ ]` → `- [x]`), then run `vault-cli task update` to sync the derived status — the CLI cannot tick a specific checkbox (it only recomputes status from checkbox counts via `statusFromProgress` in `pkg/ops/update.go`); direct Edit is on the task body line, never on frontmatter status
 - Determine if the progress is noteworthy (100% complete, major milestone, >20% jump)
 - If noteworthy: append a progress entry to today's daily note
 - If 100% complete: invoke `vault-cli task complete` to finalize

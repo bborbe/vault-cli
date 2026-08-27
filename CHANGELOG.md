@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- docs: correct `commands/update-task.md` — checkboxes are ticked by direct body edit, then `vault-cli task update` syncs the derived status; the CLI cannot tick a specific checkbox (it recomputes status from checkbox counts via `statusFromProgress`)
+
 ## v0.116.4
 
 - test: assert the liveness window against `livenessWindow` via the injected waiter instead of a wall-clock tolerance — the previous spec finished in microseconds against a no-op waiter and would have passed for any window value, including zero

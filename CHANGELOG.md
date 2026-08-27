@@ -8,6 +8,13 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: `task work-on` / `goal work-on` no longer wait for the entire headless bootstrap turn before returning a session id. `StartSession` now takes a caller-minted session id and, on the non-interactive branch, spawns the child detached (`exec.Command` + `Setpgid` + `os.DevNull`) and returns within a 10s liveness window while the turn continues independently; the TTY branch keeps its blocking 5m behaviour unchanged. The misleading "claude session start timed out" error is renamed to name the bootstrap turn
+- fix: on the non-interactive `task work-on` branch the session id and its metrics entry are persisted to the task file before the child is spawned, so the session's own read-modify-write always reads a file that already contains the id; a spawn failure inside the liveness window triggers a re-read-based compensating clear that removes the id and that run's metrics entry while preserving any frontmatter the child wrote before dying, and a failed clear is surfaced as a warning rather than masking the spawn error
+- fix: the non-interactive `goal work-on` branch now persists the session id to the goal file before the child is spawned, and a spawn failure inside the liveness window triggers a re-read-based compensating clear of the id that preserves any frontmatter the child wrote before dying (goals carry no metrics_sessions, so there is no metrics rollback)
+- docs: document the work-on session lifecycle (`docs/work-on-session-lifecycle.md`) — caller-minted session id, pre-spawn persist ordering, why `stream-json` was rejected, why the TTY branch blocks, the fate of `--output-format json` on the detached branch, and the liveness window's scope — and update `scenarios/002` for the fast non-TTY return (returns within ~10s with `session_id:`, turn continues after CLI exit, `~/.claude/projects/<encoded-cwd>/<uuid>.jsonl` existence check added)
+
 ## v0.116.2
 
 - fix: `completed` transitions no longer require the close-out fields — `TaskFrontmatter.SetStatus` / `GoalFrontmatter.SetStatus` now consult `aborted_reason` + `gate_successor` only for `aborted` (spec 037 semantics unchanged); `task complete`, `goal complete`, `task set <name> status completed`, `goal set <name> status completed`, and the `task update` checkbox sync all succeed and persist `status: completed` on a field-less task/goal, with `--reason` / `--gate-successor` still recorded when supplied (spec 039)

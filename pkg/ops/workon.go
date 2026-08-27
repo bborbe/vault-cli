@@ -37,6 +37,7 @@ func NewWorkOnOperation(
 	taskStorage storage.TaskStorage,
 	dailyNoteStorage storage.DailyNoteStorage,
 	currentDateTime libtime.CurrentDateTime,
+	uuidGenerator func() string,
 	starter ClaudeSessionStarter,
 	resumer ClaudeResumer,
 ) WorkOnOperation {
@@ -44,6 +45,7 @@ func NewWorkOnOperation(
 		taskStorage:      taskStorage,
 		dailyNoteStorage: dailyNoteStorage,
 		currentDateTime:  currentDateTime,
+		uuidGenerator:    uuidGenerator,
 		starter:          starter,
 		resumer:          resumer,
 	}
@@ -53,6 +55,7 @@ type workOnOperation struct {
 	taskStorage      storage.TaskStorage
 	dailyNoteStorage storage.DailyNoteStorage
 	currentDateTime  libtime.CurrentDateTime
+	uuidGenerator    func() string
 	starter          ClaudeSessionStarter
 	resumer          ClaudeResumer
 }
@@ -110,17 +113,13 @@ func (w *workOnOperation) Execute(
 		slog.Warn("workon warning", "warning", warning)
 	}
 
-	sessionID, sessionErr := w.handleClaudeSession(ctx, task, vaultPath, sessionDir, vault)
+	sessionID, sessionWarnings, sessionErr := w.handleClaudeSession(ctx, task, vaultPath, sessionDir, vault, isInteractive)
+	warnings = append(warnings, sessionWarnings...)
 	if sessionErr != nil {
 		if errors.Is(sessionErr, ErrStarterUnavailable) {
-			// Soft failure — claude binary missing. Spec 014 Failure Modes table:
-			// "Unchanged". Keep as warning, continue, CLI exits 0.
-			warning := fmt.Sprintf("claude session: %v", sessionErr)
-			warnings = append(warnings, warning)
-			slog.Warn("workon warning", "warning", warning)
+			warnings = appendSessionWarning(warnings, sessionErr)
 		} else {
-			slog.Warn("workon session error", "error", sessionErr)
-			return MutationResult{Success: false, Name: task.Name, Vault: vaultName, Warnings: warnings, SessionID: sessionID, Error: sessionErr.Error()},
+			return sessionFailureResult(task, vaultName, warnings, sessionID, sessionErr),
 				errors.Wrap(ctx, sessionErr, "start work-on session")
 		}
 	}
@@ -149,6 +148,30 @@ func (w *workOnOperation) Execute(
 		Warnings:  warnings,
 		SessionID: sessionID,
 	}, nil
+}
+
+// appendSessionWarning records a non-fatal session-start warning (claude binary
+// missing). Spec 014 Failure Modes table: "Unchanged". Keep as warning, continue,
+// CLI exits 0.
+func appendSessionWarning(warnings []string, sessionErr error) []string {
+	warning := fmt.Sprintf("claude session: %v", sessionErr)
+	warnings = append(warnings, warning)
+	slog.Warn("workon warning", "warning", warning)
+	return warnings
+}
+
+// sessionFailureResult builds the hard-failure MutationResult for a session-start
+// error: Success=false, the accumulated warnings (including any compensating-clear
+// warning), and the spawn error message. The caller wraps the returned error.
+func sessionFailureResult(
+	task *domain.Task,
+	vaultName string,
+	warnings []string,
+	sessionID string,
+	sessionErr error,
+) MutationResult {
+	slog.Warn("workon session error", "error", sessionErr)
+	return MutationResult{Success: false, Name: task.Name, Vault: vaultName, Warnings: warnings, SessionID: sessionID, Error: sessionErr.Error()}
 }
 
 // advancePhaseIfEntering moves a task into the planning phase only when entering
@@ -183,11 +206,13 @@ func applyAssigneeMatrix(task *domain.Task, assignee string) string {
 }
 
 // persistSessionAndMetrics re-reads the task from disk and writes back the session id
-// and one metrics_sessions entry in a single write. The re-read is load-bearing: the
-// StartSession call blocks for the entire headless turn, and that turn writes to this
-// very task file, so writing the stale in-memory copy would revert the session's own
-// frontmatter changes. Used on both the fresh-start path (the session id is new) and
-// the cached-session path (the id already exists and is preserved).
+// and one metrics_sessions entry in a single write. The re-read is load-bearing on the
+// interactive branch and the cached-session path: the headless turn may mutate the
+// file before the post-return persist, so writing the stale in-memory copy would
+// revert the session's own frontmatter changes. On the non-interactive branch the
+// persist runs before the child exists, so the session's own read-modify-write reads a
+// file that already contains the id. Used on both the fresh-start path (the session id
+// is new) and the cached-session path (the id already exists and is preserved).
 func persistSessionAndMetrics(
 	ctx context.Context,
 	vaultPath string,
@@ -214,33 +239,94 @@ func persistSessionAndMetrics(
 }
 
 // handleClaudeSession starts or returns an existing Claude session for the task.
-// On a fresh start it re-reads the task from disk after the session returns, so
-// frontmatter the session itself wrote during the blocking turn survives.
+// On the non-interactive branch the session id and its metrics entry are persisted
+// BEFORE the child is spawned, so the session's own read-modify-write always reads a
+// file that already contains the id. A spawn failure inside the liveness window
+// triggers a compensating re-read-based clear that removes the id and this run's
+// metrics entry while preserving any frontmatter the child wrote before dying; a
+// failed clear is surfaced as a warning rather than masking the spawn error.
 func (w *workOnOperation) handleClaudeSession(
 	ctx context.Context,
 	task *domain.Task,
 	vaultPath string,
 	sessionDir string,
 	vault *config.Vault,
-) (string, error) {
+	isInteractive bool,
+) (string, []string, error) {
 	if existing := task.ClaudeSessionID(); existing != "" {
 		startedAt := libtime.DateOrDateTime(w.currentDateTime.Now().Time())
-		return persistSessionAndMetrics(ctx, vaultPath, task.Name, existing, startedAt, w.taskStorage)
+		sessionID, err := persistSessionAndMetrics(ctx, vaultPath, task.Name, existing, startedAt, w.taskStorage)
+		return sessionID, nil, err
 	}
 	if w.starter == nil {
-		return "", ErrStarterUnavailable
+		return "", nil, ErrStarterUnavailable
 	}
 	// The bootstrap always runs headless `claude --print`, which cannot answer
 	// AskUserQuestion; --non-interactive tells the work-on command to take safe
 	// defaults instead of prompting (prevents the 5m headless hang).
 	prompt := fmt.Sprintf(`%s "%s" --non-interactive`, vault.GetWorkOnCommand(), task.FilePath)
+	sessionID := w.uuidGenerator()
 	slog.Info("starting claude session", "task", task.Name)
-	sessionID, err := w.starter.StartSession(ctx, prompt, sessionDir, task.Name)
-	if err != nil {
-		return "", errors.Wrap(ctx, err, "start claude session")
+	if isInteractive {
+		// TTY branch, unchanged: block through the headless turn, then re-read and
+		// persist so frontmatter the session itself wrote survives.
+		if err := w.starter.StartSession(ctx, sessionID, prompt, sessionDir, task.Name, isInteractive); err != nil {
+			return "", nil, errors.Wrap(ctx, err, "start claude session")
+		}
+		startedAt := libtime.DateOrDateTime(w.currentDateTime.Now().Time())
+		sessionID, err := persistSessionAndMetrics(ctx, vaultPath, task.Name, sessionID, startedAt, w.taskStorage)
+		return sessionID, nil, err
 	}
+	// Non-interactive branch: persist id + metrics BEFORE the child exists, so the
+	// session's own read-modify-write always reads a file that already contains it.
 	startedAt := libtime.DateOrDateTime(w.currentDateTime.Now().Time())
-	return persistSessionAndMetrics(ctx, vaultPath, task.Name, sessionID, startedAt, w.taskStorage)
+	if _, err := persistSessionAndMetrics(ctx, vaultPath, task.Name, sessionID, startedAt, w.taskStorage); err != nil {
+		return "", nil, errors.Wrap(ctx, err, "persist claude session before spawn")
+	}
+	if err := w.starter.StartSession(ctx, sessionID, prompt, sessionDir, task.Name, isInteractive); err != nil {
+		// Compensating clear: the child may have written frontmatter before dying
+		// inside the window (e.g. phase: planning). Re-read and clear only the id and
+		// this run's metrics entry, preserving every other field on disk.
+		if clearErr := w.clearSessionAndMetrics(ctx, vaultPath, task.Name, sessionID); clearErr != nil {
+			return "", []string{fmt.Sprintf("failed to clear claude session id after spawn failure: %v", clearErr)},
+				errors.Wrap(ctx, err, "start claude session")
+		}
+		return "", nil, errors.Wrap(ctx, err, "start claude session")
+	}
+	return sessionID, nil, nil
+}
+
+// clearSessionAndMetrics re-reads the task after a spawn failure and clears only
+// the claude_session_id and the metrics_sessions entry for this run, preserving
+// any frontmatter the child wrote before dying. The re-read is load-bearing:
+// clearing from the stale in-memory copy would revert the child's writes.
+func (w *workOnOperation) clearSessionAndMetrics(
+	ctx context.Context,
+	vaultPath string,
+	taskName string,
+	sessionID string,
+) error {
+	refreshed, err := w.taskStorage.FindTaskByName(ctx, vaultPath, taskName)
+	if err != nil {
+		return errors.Wrap(ctx, err, "re-read task after spawn failure")
+	}
+	refreshed.ClearClaudeSessionID()
+	var kept []domain.MetricsSession
+	// No ctx.Done() check in this loop (go-functional-composition/list-checks-ctx-done):
+	// it filters an already-loaded in-memory slice of a handful of entries with no I/O
+	// and no blocking call per iteration, so there is nothing for cancellation to
+	// interrupt. The surrounding I/O (FindTaskByName above, WriteTask below) is
+	// ctx-aware.
+	for _, m := range refreshed.MetricsSessions() {
+		if m.SessionID != sessionID {
+			kept = append(kept, m)
+		}
+	}
+	refreshed.Set("metrics_sessions", kept)
+	if err := w.taskStorage.WriteTask(ctx, refreshed); err != nil {
+		return errors.Wrap(ctx, err, "clear session id after spawn failure")
+	}
+	return nil
 }
 
 // updateDailyNote updates the daily note to mark the task as in-progress.

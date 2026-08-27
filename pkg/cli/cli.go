@@ -15,6 +15,7 @@ import (
 
 	"github.com/bborbe/errors"
 	libtime "github.com/bborbe/time"
+	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
@@ -381,6 +382,7 @@ func createWorkOnCommand(
 					taskStore,
 					dailyStore,
 					currentDateTime,
+					uuid.NewString,
 					starter,
 					resumer,
 				)
@@ -1504,7 +1506,7 @@ func createWorkOnGoalCommand(
 				resumer := ops.NewClaudeResumer(vault.GetClaudeScript())
 				storageConfig := storage.NewConfigFromVault(vault)
 				goalStore := storage.NewGoalStorage(storageConfig)
-				workOnOp := ops.NewGoalWorkOnOperation(goalStore, starter, resumer)
+				workOnOp := ops.NewGoalWorkOnOperation(goalStore, uuid.NewString, starter, resumer)
 				sessionDir := vault.Path
 				if dir := vault.GetSessionProjectDir(); dir != "" {
 					sessionDir = dir

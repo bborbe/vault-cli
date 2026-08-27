@@ -165,10 +165,11 @@ func applyGoalAssigneeMatrix(goal *domain.Goal, assignee string) string {
 }
 
 // persistGoalSessionID re-reads the goal from disk and writes back only the session id.
-// The re-read is load-bearing: on the interactive branch the StartSession call blocks
-// for the entire headless turn and that turn writes to this very goal file, so writing
-// the stale in-memory copy would revert the session's own frontmatter changes; on the
-// non-interactive branch the persist runs before the child is spawned.
+// The re-read is load-bearing on the interactive branch: the headless turn may mutate
+// the file before the post-return persist, so writing the stale in-memory copy would
+// revert the session's own frontmatter changes. On the non-interactive branch the
+// persist runs before the child exists, so the session's own read-modify-write reads a
+// file that already contains the id.
 func persistGoalSessionID(
 	ctx context.Context,
 	vaultPath string,
@@ -194,7 +195,7 @@ func persistGoalSessionID(
 // compensating re-read-based clear that removes the id while preserving any
 // frontmatter the child wrote before dying; a failed clear is surfaced as a warning
 // rather than masking the spawn error. On the interactive branch the id is persisted
-// after the blocking turn so frontmatter the session itself wrote survives.
+// after the headless turn returns so frontmatter the session itself wrote survives.
 func (g *goalWorkOnOperation) handleClaudeSession(
 	ctx context.Context,
 	goal *domain.Goal,

@@ -30,7 +30,7 @@ TOMORROW=$(date -v+1d +%Y-%m-%d 2>/dev/null || date -d '+1 day' +%Y-%m-%d)
 ### Work on a task
 - [ ] `$VAULT_CLI --config $CONFIG task work-on "Simple Task"` exits 0
 
-> Spawns a real headless `claude --print` turn — expect **no output at all for ~2-3 minutes** (measured 2m49s), then `✅ Now working on: …` and `session_id: …`. Allow **≥300s**. A short timeout kills it at exit 124, which looks identical to a hang; that is a false FAIL, not a regression. Observed 2026-08-16: a `timeout 10` run was reported as a broken `work-on`, and disproved by re-running with 300s.
+> Spawns a real headless `claude --print` turn. On a non-TTY caller (CI, an agent shell, a pipe) the CLI now returns within ~10s (the liveness window) with `✅ Now working on: …` and `session_id: …`; the bootstrap turn continues after the CLI exits. Run the session-lifecycle check in Expected below. TTY callers (a real terminal) still block through the turn and hand you the interactive session.
 
 ### Defer the task
 - [ ] `$VAULT_CLI --config $CONFIG task defer "Simple Task" +1d` exits 0
@@ -43,6 +43,22 @@ TOMORROW=$(date -v+1d +%Y-%m-%d 2>/dev/null || date -d '+1 day' +%Y-%m-%d)
 - [ ] `grep "status: completed" "$TASK_FILE"` succeeds
 - [ ] `grep "assignee: alice" "$TASK_FILE"` succeeds
 - [ ] `grep -E "^defer_date: \"?$TOMORROW\"?\$" "$TASK_FILE"` succeeds (YAML may quote the date)
+- [ ] `claude_session_id` in the task file is non-empty, and a transcript file named `<that id>.jsonl` exists under `~/.claude/projects/<encoded-cwd>/`. Resolve `<encoded-cwd>` the way the installed `claude` client does for the directory `work-on` was invoked in; the exact shell is agent-decided. This is the check that catches a `claude` build which accepts `--session-id` but silently mints its own (spec 040 Failure Modes row 7).
+
+```bash
+# The bootstrap claude runs with the vault dir as its cwd (vault.Path; no
+# session_project_dir is configured), so its transcript is keyed on that dir.
+# claude encodes the cwd for ~/.claude/projects/<encoded-cwd>/ by replacing path
+# separators and dots with '-'. The find fallback covers any encoding drift so the
+# check stays runnable, and still looks for the <uuid>.jsonl under ~/.claude/projects.
+SESSION_ID=$(awk -F': ' '/^claude_session_id:/{gsub(/"/, "", $2); print $2; exit}' "$TASK_FILE")
+ENCODED_CWD=$(printf '%s' "$WORK_DIR/vault" | sed 's|^/||; s|/|-|g; s|\.|-|g' | tr -c 'A-Za-z0-9_-' '-')
+TRANSCRIPT="$HOME/.claude/projects/-${ENCODED_CWD}/${SESSION_ID}.jsonl"
+if [ ! -f "$TRANSCRIPT" ]; then
+  TRANSCRIPT=$(find "$HOME/.claude/projects" -name "${SESSION_ID}.jsonl" 2>/dev/null | head -1)
+fi
+test -n "$SESSION_ID" && test -n "$TRANSCRIPT" && echo "transcript: $TRANSCRIPT"
+```
 
 ## Cleanup
 

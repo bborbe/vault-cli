@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [040-bug-session-start-blocks-on-full-headless-turn]
+summary: 'Created docs/work-on-session-lifecycle.md (7 sections: session-id ownership, pre-spawn ordering, stream-json rejection, TTY branch, --output-format json fate, liveness window scope, compensated failure path), corrected the stale blocking-behaviour doc comments in pkg/ops (AC12 grep now 0 lines), updated scenarios/002 for the ~10s non-TTY return with a ~/.claude/projects jsonl transcript check, and appended the docs: CHANGELOG bullet'
+execution_id: vault-cli-session-fast-return-exec-201-spec-040-docs-and-scenario
+dark-factory-version: dev
 created: "2026-08-27T12:00:00Z"
 queued: "2026-08-27T10:51:51Z"
+started: "2026-08-27T12:01:33Z"
+completed: "2026-08-27T12:07:28Z"
 branch: dark-factory/bug-session-start-blocks-on-full-headless-turn
 ---
 

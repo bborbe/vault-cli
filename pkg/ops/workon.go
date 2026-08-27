@@ -206,13 +206,13 @@ func applyAssigneeMatrix(task *domain.Task, assignee string) string {
 }
 
 // persistSessionAndMetrics re-reads the task from disk and writes back the session id
-// and one metrics_sessions entry in a single write. The re-read is load-bearing: on
-// the interactive branch the StartSession call blocks for the entire headless turn and
-// that turn writes to this very task file, so writing the stale in-memory copy would
-// revert the session's own frontmatter changes; on the non-interactive branch the
-// persist runs before the child is spawned. Used on both the fresh-start path (the
-// session id is new) and the cached-session path (the id already exists and is
-// preserved).
+// and one metrics_sessions entry in a single write. The re-read is load-bearing on the
+// interactive branch and the cached-session path: the headless turn may mutate the
+// file before the post-return persist, so writing the stale in-memory copy would
+// revert the session's own frontmatter changes. On the non-interactive branch the
+// persist runs before the child exists, so the session's own read-modify-write reads a
+// file that already contains the id. Used on both the fresh-start path (the session id
+// is new) and the cached-session path (the id already exists and is preserved).
 func persistSessionAndMetrics(
 	ctx context.Context,
 	vaultPath string,

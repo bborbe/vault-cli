@@ -1,9 +1,10 @@
 ---
-status: verifying
+status: completed
 approved: "2026-08-27T09:41:10Z"
 generating: "2026-08-27T09:41:29Z"
 prompted: "2026-08-27T10:06:54Z"
 verifying: "2026-08-27T12:07:28Z"
+completed: "2026-08-27T19:32:08Z"
 branch: dark-factory/bug-session-start-blocks-on-full-headless-turn
 ---
 
@@ -191,3 +192,18 @@ Needs a browser and a real `claude`; neither exists in the container.
 3. Resolved: the detached child's stdout/stderr go to `os.DevNull`. A per-session log file would make the "died after the liveness window" row diagnosable rather than merely recoverable, but that is a new artifact with its own lifecycle — deferred until that failure is actually observed.
 4. `--output-format json` becomes dead weight on the non-interactive branch: nothing parses the blob any more, and stdout goes to `DevNull`. Keep it (harmless, and the interactive branch still exits on it) or drop it? — **agent decides at impl time**; either way the choice must be stated in `docs/work-on-session-lifecycle.md`, not left implicit.
 5. Resolved: **no Windows target**, so no build-tag split. `.goreleaser.yaml` builds `darwin` and `linux` only, and `pkg/` contains zero `//go:build` lines. `SysProcAttr{Setpgid: true}` goes inline in `pkg/ops/claude_session.go` — which AC1's file-pinned `Setpgid` and `os.DevNull` greps depend on. A `claude_session_unix.go` split would make both return 0 and fail AC1.
+
+## Verification Result
+
+**Verified:** 2026-08-27T19:23:45Z (HEAD 0c076a3, v0.116.4)
+**Binary:** re-verification run in worktree `vault-cli-liveness-assert`; installed `vault-cli v0.116.4-dirty` (Go source byte-identical to v0.116.4 — `git diff v0.116.4 -- '*.go'` empty; the `-dirty` is an unembedded `commands/update-task.md` edit in the main worktree)
+**Scenario:** all container-executable AC evidence commands re-run first-hand, plus AC2 non-vacuity proven by independent mutation, plus re-inspection of the live Vault-UI Start artifacts.
+**Evidence:**
+- AC2 mutation proof: `livenessWindow` retuned to 30s → `claude_session_test.go:300` `[FAILED] Expected <time.Duration>: 30000000000 to equal <time.Duration>: 10000000000`; restored to `10 * libtime.Second` → `Ran 1 of 838 … 1 Passed`. `capturedWindow = d` is assigned from the waiter's own argument (`claude_session_test.go:272`), not the constant; `time.Since(start)` count 0.
+- AC1 detachment integration test: `Ran 1 of 838 Specs in 12.423 seconds … SUCCESS` (child slept 12s > 10s window, sentinel appeared after context cancel); `exec.CommandContext` count 1, on `defaultCommandRunner` ("the interactive (blocking) runner"); `Setpgid` at :119, `os.OpenFile(os.DevNull…)` at :113.
+- AC7: `go test -v ./pkg/ops/ -ginkgo.focus="work-on session write-back"` → `Ran 4 of 838 … 4 Passed`, exit 0; invariant counts exact (TaskPhaseExecution 2, GoalPhaseExecution 2, session_note 4, MetricsSessions() 2, ClaudeSessionID() 2).
+- AC3/AC11/AC12: `context.WithTimeout` count 1 (interactive path, :208), `claude returned 0 turns` count 1, `git diff --exit-code scenarios/005-…` empty vs both HEAD and v0.116.2; `claude session start timed out` 0 hits in `pkg/`; stale-comment regex 0 hits.
+- AC14: `## Unreleased` bullets confirmed present at `0589e8b` and `6392ffb`, folded into `v0.116.3`/`v0.116.4` by the release cut.
+- AC15: `make precommit` → `ready to commit`, `git status --porcelain` empty afterwards; `go test ./pkg/ops/` ok 19.201s.
+- Live operator rung (Vault UI Start, task "Weekly Strategy Rep - 2026W35"): transcript `af750666-….jsonl` — all 69 records carry the caller-minted uuid (Failure Modes row 7 not firing); `metrics_sessions.started_at` 2026-08-27T20:06:57.840187+02:00 precedes the child's first transcript record (18:06:58.670Z) by **829.8ms**, and `workon.go:282-286` stamps/persists before `StartSession` spawns — persist-before-spawn observed live; `phase: execution` written by the detached child after the CLI exited.
+**Verdict:** PASS

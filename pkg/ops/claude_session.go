@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 	"os/exec"
 	"syscall"
@@ -83,7 +84,16 @@ func defaultCommandRunner(ctx context.Context, args []string, dir string) ([]byt
 		args[0],
 		args[1:]...) //#nosec G204 -- args[0] is the claude binary path from LookPath
 	cmd.Dir = dir
-	return cmd.Output()
+	started := time.Now()
+	output, err := cmd.Output()
+	slog.Info(
+		"claude interactive spawn completed",
+		"args", args,
+		"cwd", dir,
+		"latency", time.Since(started),
+		"err", err,
+	)
+	return output, err
 }
 
 // defaultDetachedRunner is the non-interactive runner. It spawns the child detached
@@ -111,6 +121,10 @@ func defaultDetachedRunner(args []string, dir string) (<-chan error, error) {
 		_ = devNull.Close()
 		return nil, err
 	}
+	// Audit line for the detached spawn. This child writes to os.DevNull and outlives
+	// this process, so its pid recorded here is the only trace it leaves — without it a
+	// detached session is unobservable from the parent side.
+	slog.Info("claude detached spawn started", "args", args, "cwd", dir, "pid", cmd.Process.Pid)
 	done := make(chan error, 1)
 	// Raw go func is deliberate here (go-concurrency/no-raw-go-func): this is a reaper
 	// for a child we have intentionally detached, not orchestrated concurrent work, so

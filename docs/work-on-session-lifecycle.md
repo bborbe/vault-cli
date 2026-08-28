@@ -1,9 +1,16 @@
 # Work-on Session Lifecycle
 
 This document records the design decisions behind the `work-on` session-start fix
-(spec 040): why `task work-on` / `goal work-on` return a session id within ~10
-seconds on a non-TTY caller instead of blocking for the whole headless bootstrap
-turn, and what each branch of `StartSession` does and does not guarantee.
+(spec 040, revised by spec 041): why `task work-on` / `goal work-on` persist a
+session id only once the headless bootstrap turn has finished on a non-TTY caller,
+and what each branch of `StartSession` does and does not guarantee.
+
+Spec 040 originally had the non-interactive branch return within ~10 seconds while
+the turn kept running. That shipped a worse bug: the Vault UI offers **Resume** as
+soon as `claude_session_id` appears, so it advertised a session whose transcript was
+still being written — `claude --resume` failed, and a second writer could land on the
+same jsonl. Spec 041 inverted it. **An id on disk now means the session is
+resumable**, not merely that one exists.
 
 It is decisions only — implementation details live in the code and its doc
 comments. The spec's Design section is the source; this file is its durable form.
@@ -19,22 +26,25 @@ invents or substitutes an id.
 
 `claude --session-id <uuid>` is documented by the client itself as *"Use a specific
 session ID for the conversation (must be a valid UUID)"* (verified 2026-08-27). The
-caller mints the id so it can be persisted to the task/goal file **before the child
-process exists** — the ordering that makes the fix a guarantee rather than a race.
+caller mints the id so it can be passed to the child and correlated with the
+transcript the child writes.
 
-## Pre-spawn write ordering
+## Post-exit write ordering
 
-The id — and, on the task path, its `metrics_sessions` entry — are persisted while
-**no child exists**. `persistSessionAndMetrics` (task) and `persistGoalSessionID`
-(goal) run before `StartSession` is called on the non-interactive branch, so the
-session's own read-modify-write always reads a file that already contains the id.
+The id — and, on the task path, its `metrics_sessions` entry — are persisted only
+**after the child has exited**. On the non-interactive branch `StartSession` is
+called first and `persistSessionAndMetrics` (task) / `persistGoalSessionID` (goal)
+run only when it returns cleanly.
 
-This is the load-bearing part of the fix. Before it, the id was written *after* the
-headless turn returned, and the re-read existed because the turn mutated the very
-file being written. With persist-before-spawn there is no post-turn id write to
-revert on the fresh-start path; the re-read remains load-bearing on the interactive
-branch and the cached-session path, where the turn may still mutate the file before
-the post-return persist.
+This is the load-bearing part of the fix, and it is what makes the id trustworthy:
+the id is the UI's signal that Resume will work, so it must not appear while a child
+still holds the transcript. Writing after the child exits is also race-free — there
+is no concurrent writer left — and the re-read before writing is load-bearing on
+**every** branch, because the turn mutates the same file it is being written to.
+
+On any failure — child exit error, invalid turn JSON, bound expiry, ctx cancel —
+nothing is persisted. There is no compensating clear because there is nothing to
+undo, and the task keeps whatever frontmatter the child wrote.
 
 ## Why stream-json was rejected
 
@@ -42,8 +52,9 @@ the post-return persist.
 event within ~1 second, which looks like a faster answer. It was rejected: returning
 early from a stream would reintroduce the exact hazard this fix removes, from the
 opposite direction — the parent would stop waiting on a live child that the request
-context could still kill mid-write. The liveness window waits on the child's exit,
-not on a message the child emits.
+context could still kill mid-write. The non-interactive branch waits on the child's
+exit, not on a message the child emits — and an init event says only that a session
+started, which is exactly the claim that proved untrustworthy.
 
 ## Why the TTY branch is untouched
 
@@ -58,28 +69,48 @@ interactive` from a pipe takes the blocking path.
 
 ## The fate of --output-format json
 
-Spec Open Question 4 is decided: `--output-format json` is **kept on both
-branches**. The interactive branch still validates the JSON blob, so the flag is
-required there. On the non-interactive branch it is harmless dead weight — the
-detached child's stdout goes to `os.DevNull` and nothing parses the blob — and
-dropping it would add risk for no gain: it would create a second argv difference
-between the branches and one more way for the two paths to diverge.
+`--output-format json` is **kept on both branches**, and on both it is now
+load-bearing. The interactive branch validates the blob from `cmd.Output()`. The
+non-interactive branch redirects the detached child's stdout to a caller-owned temp
+file and validates the same blob after the child exits, through the shared
+`validateSessionTurn` helper.
 
-## What the liveness window does and does not cover
+Validation is not optional. `claude` reports a `session_id` even for a turn that did
+no work or failed outright, so an unvalidated id would be handed to the operator as
+resumable when it is not — the same class of lie this fix exists to remove. A turn
+whose result is `num_turns: 0`, `is_error: true`, or unparseable is an error, and no
+id is persisted.
 
-On the non-interactive branch `StartSession` waits for `livenessWindow` (10s,
-tunable) on a channel fed by the child's `Wait`. An exit inside the window is a real
-failure and returns an error naming the child's exit status. The window covers the
-failure mode that actually bites: a session that dies on startup (bad flag, auth
-failure). It is deliberately **not** an inactivity watchdog — a session that hangs
-*after* starting is left to the Vault UI's existing `claude_session_started` cleanup
-sweep, which is out of scope here.
+A temp **file** rather than a pipe is deliberate: the child writes to an inherited fd
+with no reader, so there is no pipe-buffer deadlock and no EPIPE if the parent goes
+away, and the file is complete once `cmd.Wait()` returns. It is unlinked eagerly, so
+no path — including cancel and timeout, where the child still holds the fd — leaves
+anything behind. Stderr still goes to `os.DevNull`; a crash surfaces via exit code.
 
-## Compensated failure path
+## What the turn timeout does and does not cover
 
-When the spawn fails inside the liveness window, the pre-persisted state is rolled
-back: the caller re-reads the task (or goal) from disk and clears only the
-`claude_session_id` and, on the task path, this run's `metrics_sessions` entry. The
-clear is itself a re-read-modify-write, so any frontmatter the child wrote before
-dying (for example `phase: planning` at 8s) survives. A failed clear is surfaced as
-a warning rather than masking the spawn error.
+On the non-interactive branch `StartSession` blocks on a channel fed by the child's
+`Wait`, bounded by `sessionTurnTimeout` (30m, tunable). The bound is a **wait bound,
+never a kill**: the child is detached in its own process group and survives expiry —
+the parent only stops waiting. `--max-turns` is inert (`maxTurns` is -1), so a
+legitimate agentic chain can run for minutes; 30m is roughly 6-10x the observed turn
+length, chosen to bound a pathological hang without cutting off normal work.
+
+Expiry, ctx cancellation, and a non-zero child exit all return an error, so the
+caller persists nothing and the UI keeps showing **Start** rather than offering a
+Resume that cannot work. This is deliberately **not** an inactivity watchdog — a
+session that hangs after starting is left to the Vault UI's existing
+`claude_session_started` cleanup sweep, which is out of scope here.
+
+## Failure path
+
+Nothing is persisted on any failure, so there is nothing to compensate for. The
+previous design pre-wrote the id and needed a re-read-modify-write to clear it after
+a failed spawn; with post-exit ordering that path is gone entirely, along with its
+"failed to clear" warning. Frontmatter the child wrote before failing (for example
+`phase: planning`) is untouched, because the caller never writes on the failure path.
+
+The persist step itself can also fail — the re-read or the write. When it does, the
+caller is handed an **empty** id, never the one it minted. Nothing landed on disk, so
+reporting the id would advertise a session the UI cannot resume, which is the same lie
+in a different place. The rule is uniform: the id is returned only when it is on disk.

@@ -7,6 +7,7 @@ package ops_test
 import (
 	"context"
 	"errors"
+	"os"
 	"time"
 
 	libtime "github.com/bborbe/time"
@@ -244,32 +245,54 @@ var _ = Describe("ClaudeSessionStarter", func() {
 
 	Context("non-interactive branch", func() {
 		var (
-			detachArgs     []string
-			detachDir      string
-			doneCh         chan error
-			detachErr      error
-			capturedWindow libtime.Duration
+			detachArgs  []string
+			detachDir   string
+			doneCh      chan error
+			detachErr   error
+			windowCh    chan libtime.Duration
+			blockWaiter chan struct{}
 		)
+
+		// validTurnJSON is what a clean headless turn writes to the captured stdout
+		// file. Every success-path fake must write it, or StartSession fails
+		// validation with "parse claude output".
+		const validTurnJSON = `{"session_id":"session-abc","num_turns":3,"is_error":false,"result":"done"}`
 
 		BeforeEach(func() {
 			detachArgs = nil
 			detachDir = ""
-			doneCh = make(chan error)
+			doneCh = make(chan error, 1)
 			detachErr = nil
-			capturedWindow = 0
+			windowCh = make(chan libtime.Duration, 1)
+			// The waiter must BLOCK on the success paths. StartSession selects on the
+			// child-exit channel and the waiter channel; a waiter that returns
+			// immediately makes both ready and the select picks nondeterministically,
+			// flipping between success and a spurious turn-timeout error.
+			// Every waiter closure below captures blockWaiter and windowCh as
+			// spec-local values rather than reading these variables. StartSession's
+			// select can return via the child-exit branch while the waiter goroutine is
+			// still parked on the channel, so that goroutine outlives the spec; reading
+			// either outer variable would race the next spec's reassignment here.
+			blockWaiter = make(chan struct{})
+			DeferCleanup(func() { close(blockWaiter) })
 		})
 
 		JustBeforeEach(func() {
+			bw, wc := blockWaiter, windowCh
 			starter = ops.NewClaudeSessionStarterWithRunner(
 				"/usr/local/bin/claude",
 				nil,
-				func(args []string, dir string) (<-chan error, error) {
+				func(args []string, dir string, stdout *os.File) (<-chan error, error) {
 					detachArgs = args
 					detachDir = dir
+					if stdout != nil {
+						_, _ = stdout.WriteString(validTurnJSON)
+					}
 					return doneCh, detachErr
 				},
 				libtime.WaiterDurationFunc(func(_ context.Context, d libtime.Duration) error {
-					capturedWindow = d
+					wc <- d
+					<-bw
 					return nil
 				}),
 			)
@@ -277,6 +300,7 @@ var _ = Describe("ClaudeSessionStarter", func() {
 
 		It("passes the session id and name to the detached runner", func() {
 			sessionID := "123e4567-e89b-12d3-a456-426614174000"
+			doneCh <- nil
 			err := starter.StartSession(ctx, sessionID, "prompt", "/my/vault", "My Task", false)
 			Expect(err).To(BeNil())
 			Expect(detachArgs).To(ContainElement("--session-id"))
@@ -289,42 +313,155 @@ var _ = Describe("ClaudeSessionStarter", func() {
 			Expect(err).To(BeNil())
 		})
 
-		It("waits for the liveness window", func() {
-			err := starter.StartSession(ctx, "session-abc", "prompt", "/my/vault", "", false)
-			Expect(err).To(BeNil())
+		It("blocks until the detached child exits", func() {
+			returned := make(chan error, 1)
+			go func() {
+				returned <- starter.StartSession(ctx, "session-abc", "prompt", "/my/vault", "", false)
+			}()
+			// The child has not exited, so StartSession must still be waiting. This is
+			// the whole point of the fix: returning here would hand the caller an id
+			// whose transcript is still being written.
+			Consistently(returned, "100ms").ShouldNot(Receive())
+			doneCh <- nil
+			Eventually(returned).Should(Receive(BeNil()))
+			// Received once, asserted twice: the send happens-before this receive, which
+			// is what makes reading the bound race-free.
+			var window libtime.Duration
+			Expect(windowCh).To(Receive(&window))
 			// Locks the wiring: StartSession hands the constant, not a stray literal.
-			Expect(capturedWindow).To(Equal(ops.LivenessWindow))
-			// Locks the value: LivenessWindow is an alias for livenessWindow, so the
-			// line above moves with the constant and would survive any retune. This
-			// line is the one that fails when the window is changed.
-			Expect(capturedWindow).To(Equal(10 * libtime.Second))
+			Expect(window).To(Equal(ops.SessionTurnTimeout))
+			// Locks the value: SessionTurnTimeout is an alias, so the line above moves
+			// with the constant and would survive any retune. This line is the one that
+			// fails when the bound is changed.
+			Expect(window).To(Equal(30 * libtime.Minute))
 		})
 
-		It("treats an early exit as an error", func() {
-			earlyDone := make(chan error, 1)
-			earlyDone <- errors.New("exit status 1")
+		It("validates the turn and rejects a zero-turn result", func() {
+			bw := blockWaiter
 			starter = ops.NewClaudeSessionStarterWithRunner(
 				"/usr/local/bin/claude",
 				nil,
-				func(_ []string, _ string) (<-chan error, error) {
+				func(_ []string, _ string, stdout *os.File) (<-chan error, error) {
+					_, _ = stdout.WriteString(`{"session_id":"session-abc","num_turns":0,"is_error":false,"result":"Unknown command"}`)
+					done := make(chan error, 1)
+					done <- nil
+					return done, nil
+				},
+				libtime.WaiterDurationFunc(func(_ context.Context, _ libtime.Duration) error {
+					<-bw
+					return nil
+				}),
+			)
+			err := starter.StartSession(ctx, "session-abc", "prompt", "/my/vault", "", false)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("0 turns"))
+		})
+
+		It("validates the turn and rejects an is_error result", func() {
+			bw := blockWaiter
+			starter = ops.NewClaudeSessionStarterWithRunner(
+				"/usr/local/bin/claude",
+				nil,
+				func(_ []string, _ string, stdout *os.File) (<-chan error, error) {
+					_, _ = stdout.WriteString(`{"session_id":"session-abc","num_turns":2,"is_error":true,"result":"boom"}`)
+					done := make(chan error, 1)
+					done <- nil
+					return done, nil
+				},
+				libtime.WaiterDurationFunc(func(_ context.Context, _ libtime.Duration) error {
+					<-bw
+					return nil
+				}),
+			)
+			err := starter.StartSession(ctx, "session-abc", "prompt", "/my/vault", "", false)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("claude reported error"))
+		})
+
+		It("rejects an unparseable turn result", func() {
+			bw := blockWaiter
+			starter = ops.NewClaudeSessionStarterWithRunner(
+				"/usr/local/bin/claude",
+				nil,
+				func(_ []string, _ string, _ *os.File) (<-chan error, error) {
+					done := make(chan error, 1)
+					done <- nil
+					return done, nil
+				},
+				libtime.WaiterDurationFunc(func(_ context.Context, _ libtime.Duration) error {
+					<-bw
+					return nil
+				}),
+			)
+			err := starter.StartSession(ctx, "session-abc", "prompt", "/my/vault", "", false)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("parse claude output"))
+		})
+
+		It("treats a child exit error as an error", func() {
+			earlyDone := make(chan error, 1)
+			earlyDone <- errors.New("exit status 1")
+			bw := blockWaiter
+			starter = ops.NewClaudeSessionStarterWithRunner(
+				"/usr/local/bin/claude",
+				nil,
+				func(_ []string, _ string, _ *os.File) (<-chan error, error) {
 					return earlyDone, nil
+				},
+				libtime.WaiterDurationFunc(func(_ context.Context, _ libtime.Duration) error {
+					<-bw
+					return nil
+				}),
+			)
+			err := starter.StartSession(ctx, "session-abc", "prompt", "/my/vault", "", false)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("exit status 1"))
+			Expect(err.Error()).To(ContainSubstring("exited with error"))
+		})
+
+		It("treats the turn timeout as an error so no id is persisted", func() {
+			starter = ops.NewClaudeSessionStarterWithRunner(
+				"/usr/local/bin/claude",
+				nil,
+				func(_ []string, _ string, _ *os.File) (<-chan error, error) {
+					// Child never exits within the bound.
+					return make(chan error), nil
 				},
 				libtime.WaiterDurationFunc(func(_ context.Context, _ libtime.Duration) error { return nil }),
 			)
 			err := starter.StartSession(ctx, "session-abc", "prompt", "/my/vault", "", false)
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("exit status 1"))
-			Expect(err.Error()).To(ContainSubstring("exited during startup"))
+			Expect(err.Error()).To(ContainSubstring("did not complete within"))
 		})
 
-		It("wraps a spawn failure", func() {
+		It("treats context cancellation as an error so no id is persisted", func() {
 			starter = ops.NewClaudeSessionStarterWithRunner(
 				"/usr/local/bin/claude",
 				nil,
-				func(_ []string, _ string) (<-chan error, error) {
+				func(_ []string, _ string, _ *os.File) (<-chan error, error) {
+					return make(chan error), nil
+				},
+				libtime.WaiterDurationFunc(func(_ context.Context, _ libtime.Duration) error {
+					return context.Canceled
+				}),
+			)
+			err := starter.StartSession(ctx, "session-abc", "prompt", "/my/vault", "", false)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("wait cancelled"))
+		})
+
+		It("wraps a spawn failure", func() {
+			bw := blockWaiter
+			starter = ops.NewClaudeSessionStarterWithRunner(
+				"/usr/local/bin/claude",
+				nil,
+				func(_ []string, _ string, _ *os.File) (<-chan error, error) {
 					return nil, ErrTest
 				},
-				libtime.WaiterDurationFunc(func(_ context.Context, _ libtime.Duration) error { return nil }),
+				libtime.WaiterDurationFunc(func(_ context.Context, _ libtime.Duration) error {
+					<-bw
+					return nil
+				}),
 			)
 			err := starter.StartSession(ctx, "session-abc", "prompt", "/my/vault", "", false)
 			Expect(err).To(HaveOccurred())

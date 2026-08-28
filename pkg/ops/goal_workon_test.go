@@ -91,8 +91,8 @@ var _ = Describe("GoalWorkOnOperation", func() {
 		})
 
 		It("calls FindGoalByName", func() {
-			// Twice: once to load the goal, once to re-read it before spawning so the
-			// session id lands on the freshest on-disk state.
+			// Twice: once to load the goal, once to re-read it after the child exits
+			// so the session id lands on the freshest on-disk state.
 			Expect(mockGoalStorage.FindGoalByNameCallCount()).To(Equal(2))
 			actualCtx, actualVaultPath, actualGoalName := mockGoalStorage.FindGoalByNameArgsForCall(
 				0,
@@ -102,11 +102,11 @@ var _ = Describe("GoalWorkOnOperation", func() {
 			Expect(actualGoalName).To(Equal(goalName))
 		})
 
-		It("re-reads the goal from the vault path before spawning the session", func() {
-			// The second FindGoalByName is the pre-spawn persist re-read: under the
-			// non-interactive branch the session id is persisted before the child is
-			// spawned, so the session's own read-modify-write always reads a file that
-			// already contains it.
+		It("re-reads the goal from the vault path after the session finishes", func() {
+			// The second FindGoalByName is the post-spawn persist re-read: under the
+			// non-interactive branch the session id is persisted only after the child
+			// exits cleanly, so the read-modify-write happens against whatever the
+			// session's own turn already wrote.
 			Expect(mockGoalStorage.FindGoalByNameCallCount()).To(Equal(2))
 			_, reReadVaultPath, reReadGoalName := mockGoalStorage.FindGoalByNameArgsForCall(1)
 			Expect(reReadVaultPath).To(Equal(vaultPath))
@@ -352,10 +352,13 @@ var _ = Describe("GoalWorkOnOperation", func() {
 		})
 	})
 
-	Context("when persisting the goal session id before spawn", func() {
-		var writeGoalAt, spawnAt time.Time
+	Context("when persisting the goal session id after the child exits", func() {
+		var writeGoalAt, childExitAt time.Time
+		var blockWaiter chan struct{}
 
 		BeforeEach(func() {
+			blockWaiter = make(chan struct{})
+			DeferCleanup(func() { close(blockWaiter) })
 			mockGoalStorage.WriteGoalStub = func(_ context.Context, g *domain.Goal) error {
 				if g.ClaudeSessionID() != "" {
 					writeGoalAt = time.Now()
@@ -365,11 +368,21 @@ var _ = Describe("GoalWorkOnOperation", func() {
 			realStarter := ops.NewClaudeSessionStarterWithRunner(
 				"/usr/local/bin/claude",
 				nil,
-				func(_ []string, _ string) (<-chan error, error) {
-					spawnAt = time.Now()
-					return make(chan error), nil
+				func(_ []string, _ string, stdout *os.File) (<-chan error, error) {
+					if stdout != nil {
+						_, _ = stdout.WriteString(
+							`{"session_id":"` + pinnedSessionID + `","num_turns":3,"is_error":false,"result":"done"}`,
+						)
+					}
+					done := make(chan error, 1)
+					done <- nil
+					childExitAt = time.Now()
+					return done, nil
 				},
-				libtime.WaiterDurationFunc(func(_ context.Context, _ libtime.Duration) error { return nil }),
+				libtime.WaiterDurationFunc(func(_ context.Context, _ libtime.Duration) error {
+					<-blockWaiter
+					return nil
+				}),
 			)
 			goalWorkOnOp = ops.NewGoalWorkOnOperation(
 				mockGoalStorage,
@@ -379,26 +392,43 @@ var _ = Describe("GoalWorkOnOperation", func() {
 			)
 		})
 
-		It("writes the goal session id to storage before the runner spawns the child", func() {
+		It("writes the goal session id to storage after the child exits", func() {
 			Expect(err).To(BeNil())
 			Expect(writeGoalAt).NotTo(BeZero())
-			Expect(spawnAt).NotTo(BeZero())
-			Expect(writeGoalAt.Before(spawnAt)).To(BeTrue())
+			Expect(childExitAt).NotTo(BeZero())
+			Expect(writeGoalAt.After(childExitAt)).To(BeTrue())
 		})
 	})
 
 	Context("when capturing the spawned claude argv", func() {
 		var capturedArgs []string
+		var blockWaiter chan struct{}
 
 		BeforeEach(func() {
+			// The waiter must block: StartSession selects on child-exit vs the turn
+			// bound, so a waiter that returns immediately makes both cases ready and
+			// the test flips nondeterministically between success and a spurious
+			// "did not complete within" error.
+			blockWaiter = make(chan struct{})
+			DeferCleanup(func() { close(blockWaiter) })
 			realStarter := ops.NewClaudeSessionStarterWithRunner(
 				"/usr/local/bin/claude",
 				nil,
-				func(args []string, _ string) (<-chan error, error) {
+				func(args []string, _ string, stdout *os.File) (<-chan error, error) {
 					capturedArgs = args
-					return make(chan error), nil
+					if stdout != nil {
+						_, _ = stdout.WriteString(
+							`{"session_id":"` + pinnedSessionID + `","num_turns":3,"is_error":false,"result":"done"}`,
+						)
+					}
+					done := make(chan error, 1)
+					done <- nil
+					return done, nil
 				},
-				libtime.WaiterDurationFunc(func(_ context.Context, _ libtime.Duration) error { return nil }),
+				libtime.WaiterDurationFunc(func(_ context.Context, _ libtime.Duration) error {
+					<-blockWaiter
+					return nil
+				}),
 			)
 			goalWorkOnOp = ops.NewGoalWorkOnOperation(
 				mockGoalStorage,
@@ -442,18 +472,18 @@ body
 				[]byte(rollbackFixture), 0600,
 			)).To(Succeed())
 
-			// The liveness window has NOT elapsed when the child exits, so the starter
-			// must treat the exit as inside-the-window. A nil-returning waiter would
-			// race the select against the child's buffered exit; the waiter stays
-			// blocked until the spec is done, so only `done` is ready and the error
-			// path is deterministic.
+			// A nil-returning waiter would race the select against the child's buffered
+			// exit; the waiter stays blocked until the spec is done, so only `done` is
+			// ready and the error path is deterministic.
 			block := make(chan struct{})
 			realStarter := ops.NewClaudeSessionStarterWithRunner(
 				"/usr/local/bin/claude",
 				nil,
-				func(_ []string, _ string) (<-chan error, error) {
-					// The child writes frontmatter before dying: the compensating clear
-					// must re-read this write and preserve it.
+				func(_ []string, _ string, _ *os.File) (<-chan error, error) {
+					// The child writes frontmatter before dying; nothing was persisted
+					// for this id (the non-interactive branch only persists after a
+					// clean, validated turn), so the child's write is the only mutation
+					// on disk and must survive.
 					fresh, ferr := realGoalStore.FindGoalByName(ctx, realVaultPath, "Rollback Goal")
 					if ferr != nil {
 						return nil, ferr
@@ -490,33 +520,14 @@ body
 			Expect(err.Error()).To(ContainSubstring("exit status 1"))
 			Expect(result.Success).To(BeFalse())
 
-			// The child's write survived the compensating clear; the pre-persisted id
-			// is gone.
+			// The child's write survived; the id was never persisted in the first
+			// place, since the non-interactive branch only writes it after a clean,
+			// validated turn.
 			written, ferr := realGoalStore.FindGoalByName(ctx, realVaultPath, "Rollback Goal")
 			Expect(ferr).To(BeNil())
 			Expect(written.ClaudeSessionID()).To(Equal(""))
 			Expect(written.Phase()).NotTo(BeNil())
 			Expect(*written.Phase()).To(Equal(domain.GoalPhaseExecution))
-		})
-	})
-
-	Context("when the clear after a spawn failure cannot re-read the goal", func() {
-		BeforeEach(func() {
-			mockStarter.StartSessionReturns(ErrTest)
-			// call 0 = Execute load, call 1 = pre-spawn persist re-read,
-			// call 2 = the compensating clear's re-read.
-			mockGoalStorage.FindGoalByNameReturnsOnCall(2, nil, ErrTest)
-		})
-
-		It("returns the spawn error, never masked by the failed clear", func() {
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("start work-on session"))
-		})
-
-		It("surfaces the failed clear as a warning", func() {
-			Expect(result.Warnings).To(ContainElement(
-				ContainSubstring("failed to clear claude session id after spawn failure"),
-			))
 		})
 	})
 })

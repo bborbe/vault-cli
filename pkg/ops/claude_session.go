@@ -27,18 +27,25 @@ type ClaudeSessionStarter interface {
 	// (not by claude) so it can be persisted before the child process exists.
 	// When name is non-empty, the session is created with -n <name> so its
 	// custom-title and agent-name are set from turn 1.
-	// On the interactive branch it blocks until the headless turn completes (bounded
-	// by a 5m timeout) and validates the JSON result. On the non-interactive branch
-	// it spawns the child detached from the request context and returns within the
-	// liveness window once the child has proven it survives startup. See
+	// Both branches block until the headless turn completes and validate its JSON
+	// result; they differ in how. The interactive branch runs the child under the
+	// request context (bounded by a 5m timeout). The non-interactive branch spawns
+	// the child detached from the request context and waits for its exit, bounded by
+	// sessionTurnTimeout — a wait bound, not a kill. Any outcome other than a clean,
+	// validated turn returns an error, so the caller persists no session id and the
+	// UI never offers Resume against a live or failed transcript. See
 	// docs/work-on-session-lifecycle.md.
 	StartSession(ctx context.Context, sessionID string, prompt string, cwd string, name string, isInteractive bool) error
 }
 
-// livenessWindow is how long the non-interactive branch waits for the detached child
-// to prove it survived startup (auth failure, bad flag). Tunable constant; no config
-// field unless a second caller needs one.
-const livenessWindow = 10 * libtime.Second
+// sessionTurnTimeout bounds how long the non-interactive branch waits for the detached
+// child's headless turn to finish. It is a wait bound, never a kill: the child is
+// detached (own process group) and survives expiry — the parent simply stops waiting
+// and reports an error so the caller persists no session id. --max-turns is inert
+// (maxTurns is -1), so a legitimate agentic chain can run for minutes; 30m is ~6-10x
+// the observed turn length. Tunable constant; no config field unless a second caller
+// needs one.
+const sessionTurnTimeout = 30 * libtime.Minute
 
 // NewClaudeSessionStarter creates a ClaudeSessionStarter using the given claude script.
 // Returns nil if the binary is not found.
@@ -48,12 +55,12 @@ func NewClaudeSessionStarter(claudeScript string) ClaudeSessionStarter {
 		return nil
 	}
 	return &claudeSessionStarter{
-		claudePath:     claudePath,
-		maxTurns:       -1,
-		runCmd:         defaultCommandRunner,
-		detachRun:      defaultDetachedRunner,
-		waiter:         libtime.NewWaiterDuration(),
-		livenessWindow: livenessWindow,
+		claudePath:         claudePath,
+		maxTurns:           -1,
+		runCmd:             defaultCommandRunner,
+		detachRun:          defaultDetachedRunner,
+		waiter:             libtime.NewWaiterDuration(),
+		sessionTurnTimeout: sessionTurnTimeout,
 	}
 }
 
@@ -62,16 +69,16 @@ func NewClaudeSessionStarter(claudeScript string) ClaudeSessionStarter {
 func NewClaudeSessionStarterWithRunner(
 	claudePath string,
 	runCmd func(ctx context.Context, args []string, dir string) ([]byte, error),
-	detachRun func(args []string, dir string) (<-chan error, error),
+	detachRun func(args []string, dir string, stdout *os.File) (<-chan error, error),
 	waiter libtime.WaiterDuration,
 ) ClaudeSessionStarter {
 	return &claudeSessionStarter{
-		claudePath:     claudePath,
-		maxTurns:       -1,
-		runCmd:         runCmd,
-		detachRun:      detachRun,
-		waiter:         waiter,
-		livenessWindow: livenessWindow,
+		claudePath:         claudePath,
+		maxTurns:           -1,
+		runCmd:             runCmd,
+		detachRun:          detachRun,
+		waiter:             waiter,
+		sessionTurnTimeout: sessionTurnTimeout,
 	}
 }
 
@@ -97,24 +104,29 @@ func defaultCommandRunner(ctx context.Context, args []string, dir string) ([]byt
 }
 
 // defaultDetachedRunner is the non-interactive runner. It spawns the child detached
-// from the request context: exec.Command (not CommandContext), stdout/stderr
-// redirected to os.DevNull so the child never dies on EPIPE when the parent exits,
-// and Setpgid so it lives in its own process group and survives the parent. It
-// returns a buffered channel that receives cmd.Wait()'s error, plus a spawn error
-// when Start fails. The child may outlive this process by minutes; that is the
-// point of the detachment, not an accident.
-func defaultDetachedRunner(args []string, dir string) (<-chan error, error) {
+// from the request context: exec.Command (not CommandContext), stderr redirected to
+// os.DevNull so the child never dies on EPIPE when the parent exits, and Setpgid so
+// it lives in its own process group and survives the parent. It returns a buffered
+// channel that receives cmd.Wait()'s error, plus a spawn error when Start fails. The
+// child may outlive this process by minutes; that is the point of the detachment,
+// not an accident.
+//
+// stdout is the caller-owned temp file the turn's --output-format json blob lands in.
+// A file (not a pipe) is deliberate: the child writes to an inherited fd with no
+// reader, so there is no pipe-buffer deadlock and no EPIPE, and the file is complete
+// once cmd.Wait() returns. The caller owns its lifecycle — this function never closes it.
+func defaultDetachedRunner(args []string, dir string, stdout *os.File) (<-chan error, error) {
 	cmd := exec.Command(args[0], args[1:]...) //#nosec G204 -- args[0] is the claude binary path from LookPath
 	cmd.Dir = dir
 	// os.DevNull is a string constant ("/dev/null"), NOT an io.Writer — assigning it
-	// directly to cmd.Stdout does not compile. Open it as a file. Leaving Stdout/Stderr
-	// nil would also route to /dev/null, but AC1 requires an explicit os.DevNull
-	// reference so the detachment is deliberate rather than accidental.
+	// directly to cmd.Stderr does not compile. Open it as a file. Leaving Stderr nil
+	// would also route to /dev/null, but the explicit os.DevNull reference keeps the
+	// detachment deliberate rather than accidental.
 	devNull, err := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
 	if err != nil {
 		return nil, err // caller wraps with ctx; never context.Background() here
 	}
-	cmd.Stdout = devNull
+	cmd.Stdout = stdout
 	cmd.Stderr = devNull
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	if err := cmd.Start(); err != nil {
@@ -148,10 +160,10 @@ type claudeSessionStarter struct {
 	// (both constructors hardcode -1, no test sets it positive),
 	// but dropping it silently changes the struct's contract —
 	// out of scope for this bug fix.
-	runCmd         func(ctx context.Context, args []string, dir string) ([]byte, error)
-	detachRun      func(args []string, dir string) (<-chan error, error)
-	waiter         libtime.WaiterDuration
-	livenessWindow libtime.Duration
+	runCmd             func(ctx context.Context, args []string, dir string) ([]byte, error)
+	detachRun          func(args []string, dir string, stdout *os.File) (<-chan error, error)
+	waiter             libtime.WaiterDuration
+	sessionTurnTimeout libtime.Duration
 }
 
 func (c *claudeSessionStarter) StartSession(
@@ -175,32 +187,7 @@ func (c *claudeSessionStarter) StartSession(
 	}
 
 	if !isInteractive {
-		// Non-interactive branch: spawn detached and return once the child has
-		// outlived the liveness window. The child keeps running after this process
-		// exits (the Vault UI Start button gets its session id back in ~10s).
-		done, err := c.detachRun(args, cwd)
-		if err != nil {
-			return errors.Wrap(ctx, err, "start detached claude session")
-		}
-		waitCh := make(chan error, 1)
-		// Raw go func is deliberate here (go-concurrency/no-raw-go-func): this adapts the
-		// injectable waiter into a channel so the select below can race it against the
-		// child's exit. Bounded by livenessWindow, buffered with capacity 1 and exactly
-		// one send, so it neither leaks nor blocks when the child wins the race.
-		go func() {
-			waitCh <- c.waiter.Wait(ctx, c.livenessWindow)
-		}()
-		select {
-		case exitErr := <-done:
-			return errors.Errorf(ctx, "claude session exited during startup: %v", exitErr)
-		case err := <-waitCh:
-			if err != nil {
-				// The request context was cancelled mid-window. The child is detached
-				// and survives on its own; the parent is exiting anyway.
-				return nil
-			}
-			return nil
-		}
+		return c.runDetachedTurn(ctx, args, cwd)
 	}
 
 	// Interactive branch, unchanged behaviour: block through the headless turn so
@@ -216,6 +203,74 @@ func (c *claudeSessionStarter) StartSession(
 		return errors.Wrap(ctx, err, "run claude")
 	}
 
+	return validateSessionTurn(ctx, output)
+}
+
+// runDetachedTurn spawns the child detached and blocks until its headless turn
+// finishes. Returning early would hand the caller a session id whose transcript is
+// still being written — the Vault UI would offer Resume against a live,
+// single-writer-assumed jsonl and `claude --resume` would fail. So every exit path
+// except a clean, validated turn returns an error, and the caller persists nothing.
+func (c *claudeSessionStarter) runDetachedTurn(
+	ctx context.Context,
+	args []string,
+	cwd string,
+) error {
+	outFile, err := os.CreateTemp("", "vault-claude-session-*.json")
+	if err != nil {
+		return errors.Wrap(ctx, err, "create claude output file")
+	}
+	// Unlink eagerly: on POSIX the child keeps its inherited fd, so the data stays
+	// readable to us until we close, and nothing is left behind on any return path
+	// (including the cancel/timeout ones, where the child still holds the fd).
+	defer func() {
+		_ = os.Remove(outFile.Name())
+		_ = outFile.Close()
+	}()
+
+	done, err := c.detachRun(args, cwd, outFile)
+	if err != nil {
+		return errors.Wrap(ctx, err, "start detached claude session")
+	}
+	waitCh := make(chan error, 1)
+	// Raw go func is deliberate here (go-concurrency/no-raw-go-func): this adapts the
+	// injectable waiter into a channel so the select below can race it against the
+	// child's exit. Bounded by sessionTurnTimeout, buffered with capacity 1 and
+	// exactly one send, so it neither leaks nor blocks when the child wins the race.
+	go func() {
+		waitCh <- c.waiter.Wait(ctx, c.sessionTurnTimeout)
+	}()
+	select {
+	case exitErr := <-done:
+		if exitErr != nil {
+			return errors.Errorf(ctx, "claude session exited with error: %v", exitErr)
+		}
+	case err := <-waitCh:
+		// Both outcomes are errors so the caller persists no session id. The child
+		// is detached and keeps running in either case; we only stop waiting on it.
+		if err != nil {
+			return errors.Wrap(ctx, err, "claude session wait cancelled")
+		}
+		return errors.Errorf(
+			ctx,
+			"claude session turn did not complete within %v",
+			c.sessionTurnTimeout,
+		)
+	}
+
+	// The child has exited, so its fd is closed and the file is complete.
+	output, err := os.ReadFile(outFile.Name())
+	if err != nil {
+		return errors.Wrap(ctx, err, "read claude output")
+	}
+	return validateSessionTurn(ctx, output)
+}
+
+// validateSessionTurn checks the --output-format json blob a finished headless turn
+// emits. Shared by both branches: a session id alone proves nothing, because claude
+// reports one even for a turn that did no work or failed, so an unvalidated id would
+// be handed to the operator as resumable when it is not.
+func validateSessionTurn(ctx context.Context, output []byte) error {
 	var result struct {
 		SessionID string `json:"session_id"`
 		NumTurns  int    `json:"num_turns"`

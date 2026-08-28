@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat(plan-task): add a `Blast radius named` hard non-negotiable — a task whose subtasks push to a registry, deploy, mutate a cluster, or need a credential/secret must name the external system AND the account written to. Closes the gap where the owner only discovers what was automated at the credential request, after the work has shipped (observed 2026-08-27: a publish-on-tag CI shipped and was then reverted across two PRs once its Docker Hub push became visible).
+
 ## v0.116.6
 
 - fix: bump errcheck to v1.20.0 for Go 1.27 compatibility

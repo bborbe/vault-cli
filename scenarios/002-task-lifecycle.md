@@ -30,7 +30,7 @@ TOMORROW=$(date -v+1d +%Y-%m-%d 2>/dev/null || date -d '+1 day' +%Y-%m-%d)
 ### Work on a task
 - [ ] `$VAULT_CLI --config $CONFIG task work-on "Simple Task"` exits 0
 
-> Spawns a real headless `claude --print` turn. On a non-TTY caller (CI, an agent shell, a pipe) the CLI now returns within ~10s (the liveness window) with `✅ Now working on: …` and `session_id: …`; the bootstrap turn continues after the CLI exits. Run the session-lifecycle check in Expected below. TTY callers (a real terminal) still block through the turn and hand you the interactive session.
+> Spawns a real headless `claude --print` turn. **Both branches block until the turn completes** — expect no output for the whole bootstrap (typically 2-5 minutes; bounded by a 30m turn timeout), then `✅ Now working on: …` and `session_id: …`. A fast return is a FAIL, not a pass: the session id is written only once the turn has finished, which is what makes `claude --resume <id>` work. Allow ≥300s. Run the session-lifecycle check in Expected below.
 
 ### Defer the task
 - [ ] `$VAULT_CLI --config $CONFIG task defer "Simple Task" +1d` exits 0

@@ -6,6 +6,7 @@ package ops_test
 
 import (
 	"context"
+	"os"
 	"strings"
 	"time"
 
@@ -95,8 +96,8 @@ var _ = Describe("WorkOnOperation", func() {
 		})
 
 		It("calls FindTaskByName", func() {
-			// Twice: once to load the task, once to re-read it before spawning so
-			// the session id is persisted while no child exists yet.
+			// Twice: once to load the task, once to re-read it after the child exits
+			// so the session id is persisted only once the turn is done.
 			Expect(mockTaskStorage.FindTaskByNameCallCount()).To(Equal(2))
 			actualCtx, actualVaultPath, actualTaskName := mockTaskStorage.FindTaskByNameArgsForCall(
 				0,
@@ -106,10 +107,10 @@ var _ = Describe("WorkOnOperation", func() {
 			Expect(actualTaskName).To(Equal(taskName))
 		})
 
-		It("re-reads the task from the vault path before spawning the session", func() {
+		It("re-reads the task from the vault path after the session finishes", func() {
 			Expect(mockTaskStorage.FindTaskByNameCallCount()).To(Equal(2))
-			// The second FindTaskByName is persistSessionAndMetrics' pre-spawn re-read:
-			// the session id is written to disk before the child starts.
+			// The second FindTaskByName is persistSessionAndMetrics' post-spawn
+			// re-read: the session id is written to disk only after the child exits.
 			_, reReadVaultPath, reReadTaskName := mockTaskStorage.FindTaskByNameArgsForCall(1)
 			Expect(reReadVaultPath).To(Equal(vaultPath))
 			Expect(reReadTaskName).To(Equal(taskName))
@@ -844,11 +845,11 @@ var _ = Describe("WorkOnOperation", func() {
 		})
 	})
 
-	Context("when the pre-spawn persist re-read fails", func() {
+	Context("when the persist re-read after the session finishes fails", func() {
 		BeforeEach(func() {
 			mockTaskStorage.FindTaskByNameReturnsOnCall(0, task, nil)
 			// Under the new ordering the failing call is persistSessionAndMetrics'
-			// pre-spawn re-read, which runs before any child is spawned.
+			// re-read, which runs only after StartSession reports a clean turn.
 			mockTaskStorage.FindTaskByNameReturnsOnCall(1, nil, ErrTest)
 		})
 
@@ -858,29 +859,33 @@ var _ = Describe("WorkOnOperation", func() {
 			Expect(result.Success).To(BeFalse())
 		})
 
-		It("does not report a session id because no session was ever spawned", func() {
+		It("does not report a session id because the persist never completed", func() {
 			Expect(result.SessionID).To(Equal(""))
 		})
 
 		It("does not write a second time with the stale in-memory task", func() {
-			// Execute's write only — the pre-spawn persist failed before writing.
+			// Execute's write only — the post-spawn persist failed before writing.
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 		})
 
-		It("does not append a metrics entry when the pre-spawn re-read fails", func() {
+		It("does not append a metrics entry when the post-spawn re-read fails", func() {
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
 			Expect(writtenTask.MetricsSessions()).To(BeNil())
 		})
 	})
 
-	Context("when persisting the session id before spawn", func() {
+	Context("when persisting the session id after the child exits", func() {
 		var (
-			writeTaskAt, spawnAt time.Time
-			writtenSessionID     string
-			spawnedSessionID     string
+			writeTaskAt, childExitAt time.Time
+			writtenSessionID         string
+			spawnedSessionID         string
+			blockWaiter              chan struct{}
 		)
 
 		BeforeEach(func() {
+			blockWaiter = make(chan struct{})
+			DeferCleanup(func() { close(blockWaiter) })
+
 			mockTaskStorage.WriteTaskStub = func(_ context.Context, t *domain.Task) error {
 				if t.ClaudeSessionID() != "" {
 					writtenSessionID = t.ClaudeSessionID()
@@ -891,16 +896,28 @@ var _ = Describe("WorkOnOperation", func() {
 			realStarter := ops.NewClaudeSessionStarterWithRunner(
 				"/usr/local/bin/claude",
 				nil,
-				func(args []string, _ string) (<-chan error, error) {
+				func(args []string, _ string, stdout *os.File) (<-chan error, error) {
 					for i, a := range args {
 						if a == "--session-id" && i+1 < len(args) {
 							spawnedSessionID = args[i+1]
 						}
 					}
-					spawnAt = time.Now()
-					return make(chan error), nil
+					_, err := stdout.WriteString(
+						`{"session_id":"` + pinnedSessionID + `","num_turns":3,"is_error":false,"result":"done"}`,
+					)
+					Expect(err).To(BeNil())
+					done := make(chan error, 1)
+					childExitAt = time.Now()
+					done <- nil
+					return done, nil
 				},
-				libtime.WaiterDurationFunc(func(_ context.Context, _ libtime.Duration) error { return nil }),
+				// Blocking waiter: only the child-exit channel is ever ready, so the
+				// select in StartSession cannot nondeterministically pick the
+				// timeout branch instead of the success branch.
+				libtime.WaiterDurationFunc(func(_ context.Context, _ libtime.Duration) error {
+					<-blockWaiter
+					return nil
+				}),
 			)
 			currentDateTime := libtime.NewCurrentDateTime()
 			currentDateTime.SetNow(libtimetest.ParseDateTime("2026-03-03T12:00:00Z"))
@@ -913,11 +930,11 @@ var _ = Describe("WorkOnOperation", func() {
 			)
 		})
 
-		It("writes the session id to storage before the runner spawns the child", func() {
+		It("writes the session id to storage only after the child exits", func() {
 			Expect(err).To(BeNil())
 			Expect(writeTaskAt).NotTo(BeZero())
-			Expect(spawnAt).NotTo(BeZero())
-			Expect(writeTaskAt.Before(spawnAt)).To(BeTrue())
+			Expect(childExitAt).NotTo(BeZero())
+			Expect(writeTaskAt.After(childExitAt)).To(BeTrue())
 			// AC5's "id equals the value in task frontmatter" — capture the id written to
 			// storage and the id handed to detachRun and assert they are the same value.
 			// Both derive from the pinned generator today, so this holds implicitly; assert
@@ -926,7 +943,7 @@ var _ = Describe("WorkOnOperation", func() {
 		})
 	})
 
-	Context("when the spawn fails after the pre-spawn persist", func() {
+	Context("when the spawn fails", func() {
 		BeforeEach(func() {
 			mockStarter.StartSessionReturns(ErrTest)
 		})
@@ -940,69 +957,12 @@ var _ = Describe("WorkOnOperation", func() {
 			Expect(result.Success).To(BeFalse())
 		})
 
-		It("clears the pre-persisted session id on the last write", func() {
-			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(3))
-			_, lastWritten := mockTaskStorage.WriteTaskArgsForCall(mockTaskStorage.WriteTaskCallCount() - 1)
-			Expect(lastWritten.ClaudeSessionID()).To(Equal(""))
-		})
-	})
-
-	Context("when the clear after a spawn failure cannot re-read the task", func() {
-		BeforeEach(func() {
-			mockStarter.StartSessionReturns(ErrTest)
-			// call 0 = Execute load, call 1 = pre-spawn persist re-read,
-			// call 2 = the compensating clear's re-read.
-			mockTaskStorage.FindTaskByNameReturnsOnCall(2, nil, ErrTest)
-		})
-
-		It("returns the spawn error, never masked by the failed clear", func() {
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("start work-on session"))
-		})
-
-		It("surfaces the failed clear as a warning", func() {
-			Expect(result.Warnings).To(ContainElement(
-				ContainSubstring("failed to clear claude session id after spawn failure"),
-			))
-		})
-	})
-
-	Context("when the clear preserves other sessions' metrics entries", func() {
-		BeforeEach(func() {
-			task.AppendMetricsSession(domain.MetricsSession{
-				SessionID: "other-session",
-				StartedAt: libtime.DateOrDateTime(
-					libtimetest.ParseDateTime("2026-02-01T08:00:00Z").Time(),
-				),
-			})
-			mockStarter.StartSessionReturns(ErrTest)
-		})
-
-		It("keeps the other session's metrics entry on the last write", func() {
-			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(3))
-			_, lastWritten := mockTaskStorage.WriteTaskArgsForCall(2)
-			Expect(lastWritten.MetricsSessions()).To(HaveLen(1))
-			Expect(lastWritten.MetricsSessions()[0].SessionID).To(Equal("other-session"))
-		})
-	})
-
-	Context("when the clear after a spawn failure cannot write the task", func() {
-		BeforeEach(func() {
-			mockStarter.StartSessionReturns(ErrTest)
-			// The clear's re-read succeeds (call 2) but its WriteTask fails; the
-			// spawn error must still be returned, the failed clear a warning.
-			mockTaskStorage.WriteTaskReturnsOnCall(2, ErrTest)
-		})
-
-		It("returns the spawn error, never masked by the failed clear", func() {
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("start work-on session"))
-		})
-
-		It("surfaces the failed clear as a warning", func() {
-			Expect(result.Warnings).To(ContainElement(
-				ContainSubstring("failed to clear claude session id after spawn failure"),
-			))
+		It("never persists a session id: WriteTask reflects only Execute's initial write", func() {
+			// No compensating clear exists in the new design — nothing was written
+			// for this id, so there is nothing to undo.
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+			_, onlyWritten := mockTaskStorage.WriteTaskArgsForCall(0)
+			Expect(onlyWritten.ClaudeSessionID()).To(Equal(""))
 		})
 	})
 })

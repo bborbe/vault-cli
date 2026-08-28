@@ -1,5 +1,7 @@
 ---
-status: draft
+status: approved
+approved: "2026-08-28T08:35:16Z"
+branch: dark-factory/bug-resume-races-live-headless-turn
 ---
 
 ## Summary

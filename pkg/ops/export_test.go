@@ -4,8 +4,12 @@
 
 package ops
 
-// LivenessWindow exposes the unexported livenessWindow constant to the external
-// ops_test package so tests can assert the duration StartSession hands to its
-// waiter against the real value, rather than against a copied literal. Test-only:
+// SessionTurnTimeout exposes the unexported sessionTurnTimeout constant to the
+// external ops_test package so tests can assert the duration StartSession hands to
+// its waiter against the real value, rather than against a copied literal. Test-only:
 // this file is a _test.go file and is not part of the package's public API.
-const LivenessWindow = livenessWindow
+//
+// Note this is an alias: asserting only against it locks the wiring (StartSession
+// passes the constant, not a stray literal) but NOT the value — a retune moves both
+// sides. Tests must also assert the literal to lock the value.
+const SessionTurnTimeout = sessionTurnTimeout

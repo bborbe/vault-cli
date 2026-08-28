@@ -12,6 +12,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 
 - fix: non-interactive `task work-on` / `goal work-on` now wait for the detached headless turn to finish before persisting `claude_session_id`, so the Vault UI only offers Resume against a complete transcript — previously the id landed within ~10s while the turn was still writing, and `claude --resume` failed with "session not found" or replayed partial output. The wait is bounded by a 30m turn timeout (a wait bound, never a kill — the child stays detached), and the turn's JSON result is now validated on both branches, so a failed or zero-turn session persists no id at all. The interactive TTY branch is unchanged.
 - fix: a failed session-id persist (re-read or write error) no longer reports the id back to the caller — nothing landed on disk, so returning it advertised a session the Vault UI could not resume. Affects `task work-on` and `goal work-on` on every branch, including the cached-session path.
+- test: fix a data race in the work-on session specs — the blocking-waiter and turn-bound channels were `Describe`-scoped and reassigned per spec, while the waiter goroutine parked on them outlives the spec that started it (`StartSession` can return via the child-exit branch first). Both are now captured spec-locally, and the turn bound is read through a channel so the assertion has a real happens-before edge. `go test ./... -race` is clean.
 
 ## v0.117.0
 

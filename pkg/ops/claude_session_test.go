@@ -245,12 +245,12 @@ var _ = Describe("ClaudeSessionStarter", func() {
 
 	Context("non-interactive branch", func() {
 		var (
-			detachArgs     []string
-			detachDir      string
-			doneCh         chan error
-			detachErr      error
-			capturedWindow libtime.Duration
-			blockWaiter    chan struct{}
+			detachArgs  []string
+			detachDir   string
+			doneCh      chan error
+			detachErr   error
+			windowCh    chan libtime.Duration
+			blockWaiter chan struct{}
 		)
 
 		// validTurnJSON is what a clean headless turn writes to the captured stdout
@@ -263,16 +263,22 @@ var _ = Describe("ClaudeSessionStarter", func() {
 			detachDir = ""
 			doneCh = make(chan error, 1)
 			detachErr = nil
-			capturedWindow = 0
+			windowCh = make(chan libtime.Duration, 1)
 			// The waiter must BLOCK on the success paths. StartSession selects on the
 			// child-exit channel and the waiter channel; a waiter that returns
 			// immediately makes both ready and the select picks nondeterministically,
 			// flipping between success and a spurious turn-timeout error.
+			// Every waiter closure below captures blockWaiter and windowCh as
+			// spec-local values rather than reading these variables. StartSession's
+			// select can return via the child-exit branch while the waiter goroutine is
+			// still parked on the channel, so that goroutine outlives the spec; reading
+			// either outer variable would race the next spec's reassignment here.
 			blockWaiter = make(chan struct{})
 			DeferCleanup(func() { close(blockWaiter) })
 		})
 
 		JustBeforeEach(func() {
+			bw, wc := blockWaiter, windowCh
 			starter = ops.NewClaudeSessionStarterWithRunner(
 				"/usr/local/bin/claude",
 				nil,
@@ -285,8 +291,8 @@ var _ = Describe("ClaudeSessionStarter", func() {
 					return doneCh, detachErr
 				},
 				libtime.WaiterDurationFunc(func(_ context.Context, d libtime.Duration) error {
-					capturedWindow = d
-					<-blockWaiter
+					wc <- d
+					<-bw
 					return nil
 				}),
 			)
@@ -318,15 +324,20 @@ var _ = Describe("ClaudeSessionStarter", func() {
 			Consistently(returned, "100ms").ShouldNot(Receive())
 			doneCh <- nil
 			Eventually(returned).Should(Receive(BeNil()))
+			// Received once, asserted twice: the send happens-before this receive, which
+			// is what makes reading the bound race-free.
+			var window libtime.Duration
+			Expect(windowCh).To(Receive(&window))
 			// Locks the wiring: StartSession hands the constant, not a stray literal.
-			Expect(capturedWindow).To(Equal(ops.SessionTurnTimeout))
+			Expect(window).To(Equal(ops.SessionTurnTimeout))
 			// Locks the value: SessionTurnTimeout is an alias, so the line above moves
 			// with the constant and would survive any retune. This line is the one that
 			// fails when the bound is changed.
-			Expect(capturedWindow).To(Equal(30 * libtime.Minute))
+			Expect(window).To(Equal(30 * libtime.Minute))
 		})
 
 		It("validates the turn and rejects a zero-turn result", func() {
+			bw := blockWaiter
 			starter = ops.NewClaudeSessionStarterWithRunner(
 				"/usr/local/bin/claude",
 				nil,
@@ -337,7 +348,7 @@ var _ = Describe("ClaudeSessionStarter", func() {
 					return done, nil
 				},
 				libtime.WaiterDurationFunc(func(_ context.Context, _ libtime.Duration) error {
-					<-blockWaiter
+					<-bw
 					return nil
 				}),
 			)
@@ -347,6 +358,7 @@ var _ = Describe("ClaudeSessionStarter", func() {
 		})
 
 		It("validates the turn and rejects an is_error result", func() {
+			bw := blockWaiter
 			starter = ops.NewClaudeSessionStarterWithRunner(
 				"/usr/local/bin/claude",
 				nil,
@@ -357,7 +369,7 @@ var _ = Describe("ClaudeSessionStarter", func() {
 					return done, nil
 				},
 				libtime.WaiterDurationFunc(func(_ context.Context, _ libtime.Duration) error {
-					<-blockWaiter
+					<-bw
 					return nil
 				}),
 			)
@@ -367,6 +379,7 @@ var _ = Describe("ClaudeSessionStarter", func() {
 		})
 
 		It("rejects an unparseable turn result", func() {
+			bw := blockWaiter
 			starter = ops.NewClaudeSessionStarterWithRunner(
 				"/usr/local/bin/claude",
 				nil,
@@ -376,7 +389,7 @@ var _ = Describe("ClaudeSessionStarter", func() {
 					return done, nil
 				},
 				libtime.WaiterDurationFunc(func(_ context.Context, _ libtime.Duration) error {
-					<-blockWaiter
+					<-bw
 					return nil
 				}),
 			)
@@ -388,6 +401,7 @@ var _ = Describe("ClaudeSessionStarter", func() {
 		It("treats a child exit error as an error", func() {
 			earlyDone := make(chan error, 1)
 			earlyDone <- errors.New("exit status 1")
+			bw := blockWaiter
 			starter = ops.NewClaudeSessionStarterWithRunner(
 				"/usr/local/bin/claude",
 				nil,
@@ -395,7 +409,7 @@ var _ = Describe("ClaudeSessionStarter", func() {
 					return earlyDone, nil
 				},
 				libtime.WaiterDurationFunc(func(_ context.Context, _ libtime.Duration) error {
-					<-blockWaiter
+					<-bw
 					return nil
 				}),
 			)
@@ -437,6 +451,7 @@ var _ = Describe("ClaudeSessionStarter", func() {
 		})
 
 		It("wraps a spawn failure", func() {
+			bw := blockWaiter
 			starter = ops.NewClaudeSessionStarterWithRunner(
 				"/usr/local/bin/claude",
 				nil,
@@ -444,7 +459,7 @@ var _ = Describe("ClaudeSessionStarter", func() {
 					return nil, ErrTest
 				},
 				libtime.WaiterDurationFunc(func(_ context.Context, _ libtime.Duration) error {
-					<-blockWaiter
+					<-bw
 					return nil
 				}),
 			)

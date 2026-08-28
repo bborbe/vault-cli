@@ -42,14 +42,24 @@ var _ = Describe("work-on session write-back", func() {
 	// (via blockWaiter, closed in AfterEach) — a waiter that returns immediately
 	// races the select against the child's buffered exit and makes the outcome
 	// nondeterministic.
+	//
+	// StartSession's select can return via the child-exit branch while the
+	// waiter goroutine is still blocked on <-blockWaiter; that goroutine only
+	// unblocks (and exits) when this spec's DeferCleanup closes it, which can
+	// still be in flight when the next spec's BeforeEach reassigns the shared
+	// blockWaiter variable. Capturing the channel into a spec-local "bw" here
+	// (instead of letting the waiter closure read the outer, reassignable
+	// variable directly) gives the leaked goroutine its own private channel to
+	// finish reading, so it never races against a later spec's reassignment.
 	var blockWaiter chan struct{}
 	newStarter := func(detachRun func(args []string, dir string, stdout *os.File) (<-chan error, error)) ops.ClaudeSessionStarter {
+		bw := blockWaiter
 		return ops.NewClaudeSessionStarterWithRunner(
 			"/usr/local/bin/claude",
 			nil,
 			detachRun,
 			libtime.WaiterDurationFunc(func(_ context.Context, _ libtime.Duration) error {
-				<-blockWaiter
+				<-bw
 				return nil
 			}),
 		)

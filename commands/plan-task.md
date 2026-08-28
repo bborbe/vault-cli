@@ -72,7 +72,7 @@ Task tool with:
 
 ### 5. Check the non-negotiables
 
-Five checks beyond the auditor's general scoring — first four are hard (any failure → mandatory question in step 6, can't exit on auditor score alone), fifth is a soft warning.
+Six checks beyond the auditor's general scoring — first five are hard (any failure → mandatory question in step 6, can't exit on auditor score alone), sixth is a soft warning.
 
 **Hard:**
 
@@ -102,6 +102,7 @@ Five checks beyond the auditor's general scoring — first four are hard (any fa
 
     Skip this whole check for non-shipping-class tasks (pure research, decision, doc-only with no published artifact).
 - **Subtask-goal alignment** — every `# Tasks` checkbox must either (a) map by topic to ≥ 1 `# Success Criteria` outcome, or (b) be the e2e verify subtask. Flag any orphan as a scope-creep candidate; in step 6 the owner can link it to an SC, move it to `# Out of Scope`, or split it into a separate task.
+- **Blast radius named** — if any subtask pushes to a registry, deploys, mutates a cluster, or needs a credential/secret, the task must name the external system AND the account written to (e.g. *"pushes `docker.io/bborbe/<img>` under the bborbe Docker Hub account"*). A credential requirement with no named target is a scope gap: the owner discovers what was automated at the secrets request, after the work has shipped. Observed 2026-08-27 — a publish-on-tag CI was designed, merged and released; the owner objected (*"Is the agent trying to push a docker image? I don't think that I want this"*) only when its Docker Hub secrets were requested, costing two reversal PRs for a net deletion. Flag → mandatory question in step 6.
 
 **Soft:**
 

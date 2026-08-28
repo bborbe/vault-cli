@@ -13,6 +13,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 - fix: non-interactive `task work-on` / `goal work-on` now wait for the detached headless turn to finish before persisting `claude_session_id`, so the Vault UI only offers Resume against a complete transcript — previously the id landed within ~10s while the turn was still writing, and `claude --resume` failed with "session not found" or replayed partial output. The wait is bounded by a 30m turn timeout (a wait bound, never a kill — the child stays detached), and the turn's JSON result is now validated on both branches, so a failed or zero-turn session persists no id at all. The interactive TTY branch is unchanged.
 - fix: a failed session-id persist (re-read or write error) no longer reports the id back to the caller — nothing landed on disk, so returning it advertised a session the Vault UI could not resume. Affects `task work-on` and `goal work-on` on every branch, including the cached-session path.
 
+## v0.117.0
+
+- feat(plan-task): add a `Blast radius named` hard non-negotiable — a task whose subtasks push to a registry, deploy, mutate a cluster, or need a credential/secret must name the external system AND the account written to. Closes the gap where the owner only discovers what was automated at the credential request, after the work has shipped (observed 2026-08-27: a publish-on-tag CI shipped and was then reverted across two PRs once its Docker Hub push became visible).
+
 ## v0.116.6
 
 - fix: bump errcheck to v1.20.0 for Go 1.27 compatibility

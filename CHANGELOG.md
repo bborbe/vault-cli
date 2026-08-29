@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: `session-close` Phase 2 now decides from the daily note itself, not from memory of what ran. Its "already synced" exception fired only when `/vault-cli:sync-progress` had run earlier in the same conversation, which misses the common route where the entry was written during task execution — recurring operational tasks routinely carry a `Document findings in today's daily note` subtask, so the record is a task deliverable that lands before close. Observed 2026-08-29 on a Prometheus alert-triage session: the entry was present, the clause did not recognise it, the command reported the skip as a deviation, and the operator had to invoke `/vault-cli:sync-progress` by hand — which wrote nothing, confirming the record was already complete. The exception is now keyed on Phase 7's representation check (route-agnostic: "is the record there") rather than on the proxy "did the skill run", and both routes must still state the skip explicitly in the Phase 9 output.
+
 ## v0.117.1
 
 - fix: non-interactive `task work-on` / `goal work-on` now wait for the detached headless turn to finish before persisting `claude_session_id`, so the Vault UI only offers Resume against a complete transcript — previously the id landed within ~10s while the turn was still writing, and `claude --resume` failed with "session not found" or replayed partial output. The wait is bounded by a 30m turn timeout (a wait bound, never a kill — the child stays detached), and the turn's JSON result is now validated on both branches, so a failed or zero-turn session persists no id at all. The interactive TTY branch is unchanged.

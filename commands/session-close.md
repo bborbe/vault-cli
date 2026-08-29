@@ -77,7 +77,14 @@ If the skill aborts ("No vault context detected", "No completion or PR detected"
 
 **Do NOT skip this step, and do NOT reimplement it inline.** "Run the sync-progress logic yourself" is not a valid reading — observed 2026-08-10, where the agent hand-checked the daily note instead of invoking the skill, skipped writing the session's entry, and then reported the session clean. Phase 7 is the backstop for exactly this, but it only catches the omission if it is written as specified below. Even sessions that "just talked" can include decisions worth recording.
 
-**Exception — already synced this conversation.** If `/vault-cli:sync-progress` already ran in THIS conversation and no vault-tracked work happened since, do NOT re-invoke it: a second run appends duplicate entries under "What happened today". This ordering is normal, not exotic — the Integration section below lists `sync-progress` as the mid-session checkpoint, so an operator running it and then closing is the expected path. State the skip explicitly in the Phase 9 output ("Phase 2 satisfied by the earlier sync-progress run") rather than passing over it silently, so Phase 7's representation check still has something to verify against. Observed 2026-08-16.
+**Exception — the record already exists.** If this session's work is ALREADY represented under "What happened today", do NOT invoke the skill: a second run appends duplicate entries. Two routes get you there, and both count:
+
+1. **`/vault-cli:sync-progress` already ran in THIS conversation** and no vault-tracked work happened since. This ordering is normal, not exotic — the Integration section below lists `sync-progress` as the mid-session checkpoint, so an operator running it and then closing is the expected path. Observed 2026-08-16.
+2. **The entry was written during task execution.** Recurring operational tasks routinely carry a `Document findings in today's daily note` subtask, so the record lands as a task deliverable, before close. Observed 2026-08-29 on a Prometheus alert-triage task: the entry was written during execution, this clause did not recognise that route, and the operator had to invoke `/vault-cli:sync-progress` by hand — which then wrote nothing, because the record was already there.
+
+**Decide from the file, not from memory of what ran.** Apply Phase 7's representation check (a `###` entry under "What happened today" linking a touched task/goal by `[[wikilink]]`) and treat a match as the exception firing. That test is route-agnostic: it answers "is the record there", which is the thing that actually matters, whereas "did the skill run" is a proxy that misses route 2.
+
+Either way, state the skip explicitly in the Phase 9 output ("Phase 2 satisfied by the earlier sync-progress run" / "Phase 2 satisfied — entry written during task execution") rather than passing over it silently, so Phase 7's representation check still has something to verify against.
 
 ### Phase 3: Check git state for each touched repo
 

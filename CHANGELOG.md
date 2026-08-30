@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: `session-close` now treats an `in_progress` anchor task as a hard gate on the clean verdict — an unfinished touched task forbids the `✅ Nothing to do` / `⚪ DONE` output entirely (mode 3 outstanding is forced), and the closer's `approve:` line must name that task's resolution (complete / defer / hold / abort), never a different item. Previously the task was surfaced as outstanding but the operator could name another item (e.g. a worktree cleanup) in the closer and the session closed `⚪ DONE` with the anchor still `in_progress`. Observed 2026-08-30 on a standing-trigger task that stays `in_progress` by design; it now blocks the clean close until explicitly resolved.
+
 ## v0.117.2
 
 - fix: `session-close` Phase 2 now decides from the daily note itself, not from memory of what ran. Its "already synced" exception fired only when `/vault-cli:sync-progress` had run earlier in the same conversation, which misses the common route where the entry was written during task execution — recurring operational tasks routinely carry a `Document findings in today's daily note` subtask, so the record is a task deliverable that lands before close. Observed 2026-08-29 on a Prometheus alert-triage session: the entry was present, the clause did not recognise it, the command reported the skip as a deviation, and the operator had to invoke `/vault-cli:sync-progress` by hand — which wrote nothing, confirming the record was already complete. The exception is now keyed on Phase 7's representation check (route-agnostic: "is the record there") rather than on the proxy "did the skill run", and both routes must still state the skip explicitly in the Phase 9 output.

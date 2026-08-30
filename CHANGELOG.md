@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.118.0
 
 - feat: `work-on-task` / `work-on-goal` / `work-on` now connect the current session to the entity — when the task/goal's `claude_session_id` frontmatter is empty, the assistant writes the current session's real UUID (detected from the transcript dir, falling back to the entity name), and the report suggests running `/rename "<entity>"` so the session is named after the task/goal. Task↔session link is now visible in the session list / Vault UI.
 

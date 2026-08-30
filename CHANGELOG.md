@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.118.1
 
 - fix: a second `task work-on` / `goal work-on` (or a second Resume) against a session id whose per-session lock is already held is now refused with `ErrSessionBusy` instead of spawning a second claude process onto the same transcript — two writers on one jsonl silently corrupt it. An exclusive, non-blocking flock (`LOCK_EX|LOCK_NB`) is taken before any claude process is started or resumed, keyed by session id, released on every start-return path and by the kernel on process death (normal exit, crash, SIGKILL — no stale lock), and the interactive resume's lock fd survives the exec so the resumed claude holds it until exit. The interactive TTY branch and scenario 005 are unchanged.
 

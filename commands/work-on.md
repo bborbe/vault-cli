@@ -52,6 +52,8 @@ Auto-detects whether `<name-or-jira-id>` is a task or goal, then dispatches to t
 
 When the `work-on-task-assistant` (task route) or `work-on-goal-assistant` (goal route) report ends with `Ready to work on this task.`, resolve `<name>` from the `📋 Task: <name>` line and follow `commands/work-on-task.md` Phase 5 exactly: **both modes auto-chain** `Skill: vault-cli:plan-task "<name>"` → (on `✅ Plan ready` or `✅ Task sharpened`) `Skill: vault-cli:execute-task "<name>"`, stopping at planning if plan-task reports unresolved gaps. In non-interactive / headless mode, append ` --non-interactive` to both skill arguments so the chain runs under NO-ASK — no `AskUserQuestion` anywhere, gaps printed rather than asked. This applies to both the task route and the goal route. The goal route does NOT re-invoke `work-on-goal-assistant` — it takes the selected task name from the assistant's already-returned `📋 Task: <name>` line and auto-chains that task's plan → execute.
 
+**Session-connect surfaces through the chain.** Whichever route runs, the underlying assistant (task or goal) sets the entity's `claude_session_id` frontmatter to the current session when empty (real UUID detected from the transcript dir, falling back to the entity name) and reports it. `commands/work-on-task.md` Phase 5 step 5 then echoes the `/rename "<name>"` hint — the session gets named after the entity, connecting it to the task/goal in the session list / Vault UI.
+
 ### Phase 4 — Handle not_found (always create)
 
 `work-on` **always creates a file** on `not_found` — never a "create it?" consent prompt. The only question is *which type*, and that depends on how Phase 1 classified the input.

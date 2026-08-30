@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat: `work-on-task` / `work-on-goal` / `work-on` now connect the current session to the entity — when the task/goal's `claude_session_id` frontmatter is empty, the assistant writes the current session's real UUID (detected from the transcript dir, falling back to the entity name), and the report suggests running `/rename "<entity>"` so the session is named after the task/goal. Task↔session link is now visible in the session list / Vault UI.
+
 ## v0.117.3
 
 - fix: `session-close` now treats an `in_progress` anchor task as a hard gate on the clean verdict — an unfinished touched task forbids the `✅ Nothing to do` / `⚪ DONE` output entirely (mode 3 outstanding is forced), and the closer's `approve:` line must name that task's resolution (complete / defer / hold / abort), never a different item. Previously the task was surfaced as outstanding but the operator could name another item (e.g. a worktree cleanup) in the closer and the session closed `⚪ DONE` with the anchor still `in_progress`. Observed 2026-08-30 on a standing-trigger task that stays `in_progress` by design; it now blocks the clean close until explicitly resolved.

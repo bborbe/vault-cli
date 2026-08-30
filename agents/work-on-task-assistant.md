@@ -23,6 +23,7 @@ When `JIRA_MCP_AVAILABLE` AND input is a Jira ID:
 
 When Obsidian task file exists:
 3. Set frontmatter `status: in_progress` (if not already)
+4. Set frontmatter `claude_session_id` to the current session (if empty) — see Phase 3
 
 Mutations happen **before** guide discovery and report rendering. Verify after writing — see Phase 8.
 </critical_writes>
@@ -31,7 +32,7 @@ Mutations happen **before** guide discovery and report rendering. Verify after w
 - AUTO: Jira tasks assigned to current user + transitioned to "In Progress" (no asking)
 - AUTO: Obsidian task status set to `in_progress` (no asking)
 - MANDATORY for code tasks: dispatch `Task(subagent_type='coding:pre-implementation-assistant', ...)` and read project Development Guide if present (replaces the prior `Skill: coding:check-guides` invocation — `Skill` is no longer in `tools:`)
-- READ-ONLY except: status frontmatter + daily-note tracking
+- READ-ONLY except: status frontmatter + `claude_session_id` frontmatter + daily-note tracking
 - ALLOWED `Task` subagent dispatch is restricted to: `coding:pre-implementation-assistant` (Phase 5), `vault-cli:task-manager-agent` (Phase 7). NEVER dispatch to a `*create-task*`, `*creator*`, or any subagent whose role is to create task files — task creation is owned by the calling slash command (`vault-cli:work-on-task` Phase 4), not a sibling agent. `Task` is a generic dispatch primitive; it does not grant create-task capability by itself, but routing through a creator-agent would defeat that architectural boundary.
 - ALWAYS present absolute file paths
 - **NEVER fall back to direct HTTP for Jira (no `curl`, no `wget`, no `gh api` against Jira hosts).** If no `mcp__atlassian__*` MCP is available, skip every Jira block silently. Direct API calls bypass authentication and credential management and are forbidden.
@@ -118,9 +119,28 @@ Record each result for the final report (✅ / ℹ️ / ⚠️). Errors do NOT b
 - If Jira: also `Grep: 'jira: {key}'` in `{tasks_dir}`
 
 If found:
-- Read frontmatter
-- If `status != in_progress`: `vault-cli task work-on "{task_name}"`
+- Read frontmatter (capture `status`, `claude_session_id`)
+- **Session connect FIRST** (see below) — so the status mutation below reuses this session id instead of spawning a nested one
+- If `status != in_progress`: `vault-cli task work-on "{task_name}"` (reuses the just-set `claude_session_id` — cached path, no new session)
 - Report: `✅ Status: {old} → in_progress`
+
+### Session connect (MANDATORY when Obsidian task file exists)
+
+Connect the current session to the task so the task's `claude_session_id` points at the session working on it, and the session is renamed after the task. This makes the task↔session link visible in the session list / Vault UI.
+
+1. Read the task's `claude_session_id` frontmatter.
+2. If it is **empty or absent**: detect the current session's UUID from the transcript dir:
+   ```bash
+   # active vault from config; use session_project_dir if set, else vault path
+   SESSION_DIR=$(vault-cli config list --output json | python3 -c "import sys,json; vs=json.load(sys.stdin); v=[x for x in vs if x['path']=='<active vault path>'][0]; print(v.get('session_project_dir') or v['path'])")
+   ENC=$(printf '%s' "$SESSION_DIR" | sed 's|/|-|g')
+   ls -t "$HOME/.claude/projects/$ENC/"*.jsonl 2>/dev/null | head -1 | xargs -n1 basename 2>/dev/null | sed 's/\.jsonl$//'
+   ```
+   - If a UUID is returned: `vault-cli task set "<task_name>" claude_session_id "<uuid>"`
+   - If no transcript dir / no UUID (e.g. fresh session): fall back to the task name: `vault-cli task set "<task_name>" claude_session_id "<task_name>"`
+   - Report: `✅ Session: connected (<uuid | task_name>)`
+3. If `claude_session_id` is **already set**: report `ℹ️ Session: already connected (<value>)` — do NOT overwrite.
+4. Add to the report (always, found case): `💡 Suggest: run /rename "<task_name>" to name this session after the task` — connects the session to the task by name.
 
 If not found AND task came from Jira:
 - The Jira issue exists but there is no local Obsidian task file. This is a `not_found` case for the Obsidian side — the calling slash command's Phase 4 owns task creation. Emit the `not_found:` verdict (see Phase 1 and `<output_format>`) including the Jira summary as the `Suggested task name:` value and STOP — do NOT call AskUserQuestion, do NOT invoke `Skill: vault-cli:create-task`. The slash command creates the file (always, on `not_found`).
@@ -351,6 +371,10 @@ Jira:
 
 [Obsidian:]
 ✅ Status: <old> → in_progress | ℹ️ Continuing Jira-only
+
+[Session — Obsidian task file exists:]
+✅ Session: connected (<uuid | task_name>) | ℹ️ Session: already connected (<value>) | ⚠️ Could not set: <error>
+💡 Suggest: run /rename "<task_name>" to name this session after the task
 
 [Daily Note:]
 ✅ Tracked on today's page | ℹ️ Already tracked | ℹ️ Daily note missing

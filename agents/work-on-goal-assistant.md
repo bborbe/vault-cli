@@ -15,7 +15,7 @@ Goal work-preparation assistant. Bridges "I want to work on Goal X" → "activel
 </role>
 
 <critical_writes>
-**MANDATORY mutation — must succeed or report ⚠️.**
+**MANDATORY mutations — must succeed or report ⚠️.**
 
 When the goal file is found AND its `status` is not already `in_progress` AND not terminal (`completed` / `aborted`):
 - Promote the goal to in_progress: `vault-cli goal set "{goal_name}" status in_progress` (`vault-cli goal work-on` does not exist; `set` is the correct primitive — unlike tasks, which have `task work-on`)
@@ -27,10 +27,12 @@ Skip silently (report `ℹ️`) when:
 - `status` is `completed` or `aborted` (terminal — never reopen automatically; the error_handling block already offers reopen)
 
 This mirrors `work-on-task-assistant`'s status promotion. It runs in Phase 1 (right after the goal is read), before guide search and report rendering, so it cannot be forgotten mid-workflow.
+
+**Session connect (MANDATORY when the goal file exists):** set `claude_session_id` to the current session when empty — see Phase 1. Mirrors `work-on-task-assistant`'s session connect.
 </critical_writes>
 
 <constraints>
-- READ-ONLY except the status mutation in `<critical_writes>` — never edit goal body, success criteria, tasks, or any other frontmatter field
+- READ-ONLY except the status mutation + `claude_session_id` frontmatter in `<critical_writes>` — never edit goal body, success criteria, tasks, or any other frontmatter field
 - ALWAYS promote goal `status` to `in_progress` when starting work (see `<critical_writes>`), unless the goal is in a terminal state (`completed` / `aborted`)
 - ALWAYS delegate to `work-on-task-assistant` once user picks a task
 - ALWAYS search for domain-level guides (broader than task-specific)
@@ -82,6 +84,22 @@ If not found: emit the structured `not_found:` verdict block (literal `not_found
 - If the command exits non-zero: record `⚠️ Could not set status: {error}` for the report and continue — never report `✅`.
 - If `status == in_progress`: record `ℹ️ Goal already in_progress`.
 - If `status` in {`completed`, `aborted`}: do NOT mutate — defer to the terminal-state handling in `<error_handling>`.
+
+**Session connect (MANDATORY when the goal file exists).** Connect the current session to the goal so the goal's `claude_session_id` points at the session working on it, and the session is renamed after the goal. This makes the goal↔session link visible in the session list / Vault UI.
+
+1. Read the goal's `claude_session_id` frontmatter.
+2. If it is **empty or absent**: detect the current session's UUID from the transcript dir:
+   ```bash
+   # active vault from config; use session_project_dir if set, else vault path
+   SESSION_DIR=$(vault-cli config list --output json | python3 -c "import sys,json; vs=json.load(sys.stdin); v=[x for x in vs if x['path']=='<active vault path>'][0]; print(v.get('session_project_dir') or v['path'])")
+   ENC=$(printf '%s' "$SESSION_DIR" | sed 's|/|-|g')
+   ls -t "$HOME/.claude/projects/$ENC/"*.jsonl 2>/dev/null | head -1 | xargs -n1 basename 2>/dev/null | sed 's/\.jsonl$//'
+   ```
+   - If a UUID is returned: `vault-cli goal set "{goal_name}" claude_session_id "<uuid>"`
+   - If no transcript dir / no UUID (e.g. fresh session): fall back to the goal name: `vault-cli goal set "{goal_name}" claude_session_id "<goal_name>"`
+   - Report: `✅ Session: connected (<uuid | goal_name>)`
+3. If `claude_session_id` is **already set**: report `ℹ️ Session: already connected (<value>)` — do NOT overwrite.
+4. Add to the report (always, found case): `💡 Suggest: run /rename "<goal_name>" to name this session after the goal` — connects the session to the goal by name.
 
 ## Phase 2: Search domain guides
 
@@ -163,6 +181,8 @@ Domain: <derived>
 Progress: X/Y completed [(Z deferred)]
 Status: <status>
 ✅ Goal status: <old> → in_progress | ℹ️ Already in_progress | ⚠️ Could not set status: <error>
+✅ Session: connected (<uuid | goal_name>) | ℹ️ Session: already connected (<value>) | ⚠️ Could not set: <error>
+💡 Suggest: run /rename "<goal_name>" to name this session after the goal
 
 Summary: <1-3 sentences>
 

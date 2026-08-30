@@ -42,6 +42,8 @@ The goal name is **required** — pass it as a quoted string. (Focus-page auto-d
 
    **Non-interactive / headless mode** chains identically, under NO-ASK: append ` --non-interactive` to both skill arguments. No `AskUserQuestion` anywhere in the chain — a gate that would ask prints the gap and stops at `planning` instead, so a headless caller can never hang.
 
+   **Session-connect surfaces through the chain.** The goal assistant (Phase 1) sets the goal's `claude_session_id` frontmatter to the current session when empty (real UUID detected from the transcript dir, falling back to the goal name) and reports it in its context block. `commands/work-on-task.md` Phase 5 step 5 then echoes the `/rename` hint for the selected task — both the goal and the task are connected to the session by name.
+
 ## Phase 4 — Handle not_found (always create)
 
 The agent (dispatched in `## Process` step 2) emits a structured `not_found` verdict from its own Phase 1 (`Find goal`) when the requested goal cannot be found in any source. This phase parses that verdict and **always creates the goal page** (via the interactive create-goal skill) before continuing. There is no "create it?" consent prompt — a `work-on-goal` invocation is an intent to work on a goal, so a missing goal page is created, not queried. (The create-goal skill's own interactive flow is still where the operator can back out.)

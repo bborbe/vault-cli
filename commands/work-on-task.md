@@ -86,6 +86,12 @@ Runs only after Phase 2 returned a `found` task — never on `not_found` (Phase 
      In NO-ASK mode this is the expected landing spot for an under-specified task: the operator resumes the session, answers the listed gaps, and the chain continues interactively from there.
    - `❌ …` (plan-task hard error — task not found, input error) → relay plan-task's output verbatim; do NOT invoke execute-task.
 
+5. **Surface the session-connect suggestion.** The assistant (Phase 3 session-connect) sets the task's `claude_session_id` frontmatter to the current session when empty (real UUID detected from the transcript dir, falling back to the task name) and reports it in its output (`✅ Session: connected …` / `ℹ️ Session: already connected …`). After the chain lands (or stops at planning), echo the rename hint once:
+   ```
+   💡 Suggest: run /rename "<name>" to name this session after the task
+   ```
+   This connects the task with the session — the session appears under the task name in the session list / Vault UI.
+
 `work-on-task` orients, then drives. A task with an already-complete plan lands in `phase: execution` with its first subtask surfaced, in one command, headless or not. A task with real planning gaps stops at `planning` — after plan-task's questions in ASK mode, or with the gaps printed in NO-ASK mode. The gate is enforced in both, and never at the cost of a hang.
 
 ## Integration

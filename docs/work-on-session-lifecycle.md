@@ -114,3 +114,58 @@ The persist step itself can also fail — the re-read or the write. When it does
 caller is handed an **empty** id, never the one it minted. Nothing landed on disk, so
 reporting the id would advertise a session the UI cannot resume, which is the same lie
 in a different place. The rule is uniform: the id is returned only when it is on disk.
+
+## The per-session lock
+
+Spec 042 closes the last gap the post-exit ordering left open: nothing stopped a
+second process from targeting a session id whose transcript was still being
+written. Two claude processes working the same session id both append to the single
+transcript `~/.claude/projects/<cwd>/<session-id>.jsonl`, and interleaved appends
+corrupt the jsonl — silent corruption, not merely a duplicate window: a resumed
+session reads garbage mid-line, and the corruption is only noticed later, if at
+all. Nothing guarded against it before.
+
+**The invariant.** The per-session lock is held for the whole time a process writes
+the transcript. On the spawn path the parent holds it from the start of
+`StartSession` until the call returns, released by a deferred unlock on every return
+path — clean turn, child exit error, ctx cancel, or the 30m bound. On the interactive
+resume path the lock fd survives the `syscall.Exec` into `claude --resume`
+(FD_CLOEXEC is cleared on it), so the resumed claude process itself holds the lock
+until it exits; a concurrent work-on on the same id is refused for the whole
+interactive session, which is exactly the window that matters.
+
+**No stale lock.** The kernel releases the flock when the holding process exits —
+normal exit, crash, or SIGKILL — so a re-work-on on the same session id succeeds
+immediately afterwards. There are no cleanup sweeps, no compensating clears, and no
+lock TTL; the kernel is the only party that ever frees a lock, and it cannot fail to
+do so.
+
+**The refusal.** A contended acquire returns `ErrSessionBusy` — a sentinel beside
+`ErrStarterUnavailable` in `pkg/ops/errors.go`, wrapped via `github.com/bborbe/errors`
+so `errors.Is` works — with a message naming the session id. `task work-on` and
+`goal work-on` surface it as a **hard** failure (`Success: false`), never downgraded
+to a warning, while the `ErrStarterUnavailable` soft path (warning, exit 0) is
+unchanged: a missing starter is an environment quirk, a busy session is a contract
+violation. `LOCK_EX|LOCK_NB` means the acquire never blocks and never retries — two
+racers collapse to one winner plus one refusal, zero corruption.
+
+**The lock directory.** The default lock directory sits under the user's home, on a
+real local persistent filesystem — never tmpfs, never a shared or network mount,
+because a lock on a mount cleared on reboot or shared across hosts would reopen the
+double-writer window. It is created on demand with owner-only permissions, and the
+directory must not be world-writable: an attacker-writable directory would let a local
+user pre-hold a lock and DoS work-on on any session id. The lock file itself is empty
+— no secret material.
+
+**Lock scope.** The lock covers the launch path only: `StartSession` (both the
+interactive and non-interactive branches) and `ResumeSession`. The cached-id
+non-interactive re-persist path spawns no writer and takes no lock; liveness gating
+there belongs to the vault-ui follow-on, not to the locker.
+
+**The detached-child safety property.** On the spawn path, when the parent stops
+waiting — child exit error, ctx cancel, or the 30m bound — the detached child keeps
+running *without* the parent's lock. That is safe because the id is never persisted on
+those paths, so no second engager can target it: the id is only handed back (and only
+resumable) when it is on disk, and it is only on disk when the child has exited. Do
+not pre-persist the id on the failure paths — doing so would make the child targetable
+precisely when it is running unlocked.

@@ -35,6 +35,8 @@ var _ = Describe("work-on session write-back", func() {
 		storageConfig *storage.Config
 		starter       ops.ClaudeSessionStarter
 		mockDailyNote *mocks.DailyNoteStorage
+		lockDir       string
+		locker        ops.SessionLocker
 	)
 
 	// newStarter builds a real starter whose detached child runs the given fake.
@@ -62,6 +64,7 @@ var _ = Describe("work-on session write-back", func() {
 				<-bw
 				return nil
 			}),
+			locker,
 		)
 	}
 
@@ -78,6 +81,9 @@ var _ = Describe("work-on session write-back", func() {
 		// FindTaskByName looks in an empty directory and this test fails.
 		sessionDir, err = os.MkdirTemp("", "vault-workon-cwd-*")
 		Expect(err).To(BeNil())
+		lockDir, err = os.MkdirTemp("", "vault-workon-lock-*")
+		Expect(err).To(BeNil())
+		locker = ops.NewSessionLockerWithDir(lockDir)
 
 		storageConfig = &storage.Config{TasksDir: "24 Tasks", GoalsDir: "23 Goals"}
 		for _, dir := range []string{"24 Tasks", "23 Goals"} {
@@ -95,6 +101,9 @@ var _ = Describe("work-on session write-back", func() {
 		}
 		if sessionDir != "" {
 			_ = os.RemoveAll(sessionDir)
+		}
+		if lockDir != "" {
+			_ = os.RemoveAll(lockDir)
 		}
 	})
 
@@ -299,6 +308,7 @@ body
 					<-block
 					return nil
 				}),
+				locker,
 			)
 			DeferCleanup(func() { close(block) })
 		})

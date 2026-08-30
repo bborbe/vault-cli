@@ -7,9 +7,11 @@ package ops_test
 import (
 	"context"
 	"errors"
+	"os"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	unix "golang.org/x/sys/unix"
 
 	"github.com/bborbe/vault-cli/pkg/ops"
 )
@@ -22,6 +24,7 @@ var _ = Describe("ClaudeResumer", func() {
 		capturedChdirDir string
 		execErr          error
 		chDirErr         error
+		locker           ops.SessionLocker
 	)
 
 	BeforeEach(func() {
@@ -30,6 +33,10 @@ var _ = Describe("ClaudeResumer", func() {
 		capturedChdirDir = ""
 		execErr = nil
 		chDirErr = nil
+		lockDir, err := os.MkdirTemp("", "vault-session-lock-resume-*")
+		Expect(err).To(BeNil())
+		DeferCleanup(func() { _ = os.RemoveAll(lockDir) })
+		locker = ops.NewSessionLockerWithDir(lockDir)
 	})
 
 	JustBeforeEach(func() {
@@ -46,6 +53,7 @@ var _ = Describe("ClaudeResumer", func() {
 				capturedArgv = argv
 				return capturedExecErr
 			},
+			locker,
 		)
 	})
 
@@ -144,10 +152,64 @@ var _ = Describe("ClaudeResumer", func() {
 					capturedArgv0 = argv0
 					return nil
 				},
+				locker,
 			)
 			err := customResumer.ResumeSession(context.Background(), "session-xyz", "/vault", "")
 			Expect(err).To(BeNil())
 			Expect(capturedArgv0).To(Equal("/opt/custom-claude"))
+		})
+	})
+
+	Context("session lock", func() {
+		var lockLocker ops.SessionLocker
+
+		BeforeEach(func() {
+			// Fresh per-spec temp dir so a held/leaked lock can never bleed across specs.
+			lockDir, err := os.MkdirTemp("", "vault-session-lock-resume-spec-*")
+			Expect(err).To(BeNil())
+			DeferCleanup(func() { _ = os.RemoveAll(lockDir) })
+			lockLocker = ops.NewSessionLockerWithDir(lockDir)
+		})
+
+		JustBeforeEach(func() {
+			// Rebuild the resumer on the fresh per-spec locker so the busy refusal
+			// below conflicts on a real flock, not on the suite-level locker.
+			capturedExecErr := execErr
+			capturedChDirErr := chDirErr
+			resumer = ops.NewClaudeResumerForTesting(
+				"/usr/local/bin/claude",
+				func(dir string) error {
+					capturedChdirDir = dir
+					return capturedChDirErr
+				},
+				func(argv0 string, argv []string, _ []string) error {
+					capturedArgv0 = argv0
+					capturedArgv = argv
+					return capturedExecErr
+				},
+				lockLocker,
+			)
+		})
+
+		It("refuses with ErrSessionBusy before chdir or exec when the session is locked", func() {
+			held, err := lockLocker.Acquire(context.Background(), "session-abc")
+			Expect(err).To(BeNil())
+			defer func() { _ = held.Release() }()
+
+			err = resumer.ResumeSession(context.Background(), "session-abc", "/vault/path", "")
+			Expect(err).NotTo(BeNil())
+			Expect(errors.Is(err, ops.ErrSessionBusy)).To(BeTrue())
+			Expect(capturedArgv0).To(BeEmpty())
+			Expect(capturedChdirDir).To(BeEmpty())
+		})
+
+		It("keeps the lock fd not close-on-exec so it survives exec into claude --resume", func() {
+			lock, err := lockLocker.Acquire(context.Background(), "session-abc")
+			Expect(err).To(BeNil())
+			flags, ferr := unix.FcntlInt(uintptr(lock.File().Fd()), unix.F_GETFD, 0)
+			Expect(ferr).To(BeNil())
+			Expect(flags & unix.FD_CLOEXEC).To(BeZero())
+			Expect(lock.Release()).To(Succeed())
 		})
 	})
 })

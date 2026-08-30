@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: a second `task work-on` / `goal work-on` (or a second Resume) against a session id whose per-session lock is already held is now refused with `ErrSessionBusy` instead of spawning a second claude process onto the same transcript — two writers on one jsonl silently corrupt it. An exclusive, non-blocking flock (`LOCK_EX|LOCK_NB`) is taken before any claude process is started or resumed, keyed by session id, released on every start-return path and by the kernel on process death (normal exit, crash, SIGKILL — no stale lock), and the interactive resume's lock fd survives the exec so the resumed claude holds it until exit. The interactive TTY branch and scenario 005 are unchanged.
+
 ## v0.118.0
 
 - feat: `work-on-task` / `work-on-goal` / `work-on` now connect the current session to the entity — when the task/goal's `claude_session_id` frontmatter is empty, the assistant writes the current session's real UUID (detected from the transcript dir, falling back to the entity name), and the report suggests running `/rename "<entity>"` so the session is named after the task/goal. Task↔session link is now visible in the session list / Vault UI.

@@ -373,8 +373,9 @@ func createWorkOnCommand(
 
 			dispatcher := ops.NewVaultDispatcher()
 			return dispatcher.FirstSuccess(ctx, vaults, func(vault *config.Vault) error {
-				starter := ops.NewClaudeSessionStarter(vault.GetClaudeScript())
-				resumer := ops.NewClaudeResumer(vault.GetClaudeScript())
+				locker := ops.NewSessionLocker()
+				starter := ops.NewClaudeSessionStarter(vault.GetClaudeScript(), locker)
+				resumer := ops.NewClaudeResumer(vault.GetClaudeScript(), locker)
 				storageConfig := storage.NewConfigFromVault(vault)
 				taskStore := storage.NewTaskStorage(storageConfig)
 				dailyStore := storage.NewDailyNoteStorage(storageConfig)
@@ -1502,8 +1503,9 @@ func createWorkOnGoalCommand(
 
 			dispatcher := ops.NewVaultDispatcher()
 			return dispatcher.FirstSuccess(ctx, vaults, func(vault *config.Vault) error {
-				starter := ops.NewClaudeSessionStarter(vault.GetClaudeScript())
-				resumer := ops.NewClaudeResumer(vault.GetClaudeScript())
+				locker := ops.NewSessionLocker()
+				starter := ops.NewClaudeSessionStarter(vault.GetClaudeScript(), locker)
+				resumer := ops.NewClaudeResumer(vault.GetClaudeScript(), locker)
 				storageConfig := storage.NewConfigFromVault(vault)
 				goalStore := storage.NewGoalStorage(storageConfig)
 				workOnOp := ops.NewGoalWorkOnOperation(goalStore, uuid.NewString, starter, resumer)

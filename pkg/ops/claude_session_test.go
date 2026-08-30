@@ -24,12 +24,17 @@ var _ = Describe("ClaudeSessionStarter", func() {
 		starter ops.ClaudeSessionStarter
 		runErr  error
 		output  []byte
+		locker  ops.SessionLocker
 	)
 
 	BeforeEach(func() {
 		ctx = context.Background()
 		runErr = nil
 		output = nil
+		lockDir, err := os.MkdirTemp("", "vault-session-lock-claude-*")
+		Expect(err).To(BeNil())
+		DeferCleanup(func() { _ = os.RemoveAll(lockDir) })
+		locker = ops.NewSessionLockerWithDir(lockDir)
 	})
 
 	JustBeforeEach(func() {
@@ -42,6 +47,7 @@ var _ = Describe("ClaudeSessionStarter", func() {
 			},
 			nil,
 			libtime.NewWaiterDuration(),
+			locker,
 		)
 	})
 
@@ -157,6 +163,7 @@ var _ = Describe("ClaudeSessionStarter", func() {
 				},
 				nil,
 				libtime.NewWaiterDuration(),
+				locker,
 			)
 			err := starter.StartSession(parentCtx, "id", "prompt", "/vault", "", true)
 			Expect(err).To(HaveOccurred())
@@ -175,6 +182,7 @@ var _ = Describe("ClaudeSessionStarter", func() {
 				},
 				nil,
 				libtime.NewWaiterDuration(),
+				locker,
 			)
 			done := make(chan struct{})
 			go func() {
@@ -202,6 +210,7 @@ var _ = Describe("ClaudeSessionStarter", func() {
 				},
 				nil,
 				libtime.NewWaiterDuration(),
+				locker,
 			)
 		})
 
@@ -236,6 +245,7 @@ var _ = Describe("ClaudeSessionStarter", func() {
 				},
 				nil,
 				libtime.NewWaiterDuration(),
+				locker,
 			)
 			err := customStarter.StartSession(ctx, "session-abc", "prompt", "/vault", "", true)
 			Expect(err).To(BeNil())
@@ -295,6 +305,7 @@ var _ = Describe("ClaudeSessionStarter", func() {
 					<-bw
 					return nil
 				}),
+				locker,
 			)
 		})
 
@@ -351,6 +362,7 @@ var _ = Describe("ClaudeSessionStarter", func() {
 					<-bw
 					return nil
 				}),
+				locker,
 			)
 			err := starter.StartSession(ctx, "session-abc", "prompt", "/my/vault", "", false)
 			Expect(err).To(HaveOccurred())
@@ -372,6 +384,7 @@ var _ = Describe("ClaudeSessionStarter", func() {
 					<-bw
 					return nil
 				}),
+				locker,
 			)
 			err := starter.StartSession(ctx, "session-abc", "prompt", "/my/vault", "", false)
 			Expect(err).To(HaveOccurred())
@@ -392,6 +405,7 @@ var _ = Describe("ClaudeSessionStarter", func() {
 					<-bw
 					return nil
 				}),
+				locker,
 			)
 			err := starter.StartSession(ctx, "session-abc", "prompt", "/my/vault", "", false)
 			Expect(err).To(HaveOccurred())
@@ -412,6 +426,7 @@ var _ = Describe("ClaudeSessionStarter", func() {
 					<-bw
 					return nil
 				}),
+				locker,
 			)
 			err := starter.StartSession(ctx, "session-abc", "prompt", "/my/vault", "", false)
 			Expect(err).To(HaveOccurred())
@@ -428,6 +443,7 @@ var _ = Describe("ClaudeSessionStarter", func() {
 					return make(chan error), nil
 				},
 				libtime.WaiterDurationFunc(func(_ context.Context, _ libtime.Duration) error { return nil }),
+				locker,
 			)
 			err := starter.StartSession(ctx, "session-abc", "prompt", "/my/vault", "", false)
 			Expect(err).To(HaveOccurred())
@@ -444,6 +460,7 @@ var _ = Describe("ClaudeSessionStarter", func() {
 				libtime.WaiterDurationFunc(func(_ context.Context, _ libtime.Duration) error {
 					return context.Canceled
 				}),
+				locker,
 			)
 			err := starter.StartSession(ctx, "session-abc", "prompt", "/my/vault", "", false)
 			Expect(err).To(HaveOccurred())
@@ -462,10 +479,133 @@ var _ = Describe("ClaudeSessionStarter", func() {
 					<-bw
 					return nil
 				}),
+				locker,
 			)
 			err := starter.StartSession(ctx, "session-abc", "prompt", "/my/vault", "", false)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("start detached claude session"))
+		})
+	})
+
+	Context("session lock lifecycle", func() {
+		var (
+			lockLocker ops.SessionLocker
+			spawnCount int
+			lockDoneCh chan error
+			lockWaiter chan struct{}
+		)
+
+		BeforeEach(func() {
+			// Each spec gets its own fresh temp dir so a held/leaked lock from a
+			// prior spec can never bleed into the next.
+			lockDir, err := os.MkdirTemp("", "vault-session-lock-lifecycle-*")
+			Expect(err).To(BeNil())
+			DeferCleanup(func() { _ = os.RemoveAll(lockDir) })
+			lockLocker = ops.NewSessionLockerWithDir(lockDir)
+			spawnCount = 0
+			lockDoneCh = make(chan error, 1)
+			lockWaiter = make(chan struct{})
+			DeferCleanup(func() { close(lockWaiter) })
+		})
+
+		// validTurnJSON is what a clean headless turn writes to the captured stdout
+		// file. Every success-path fake must write it, or StartSession fails
+		// validation with "parse claude output".
+		const validTurnJSON = `{"session_id":"session-abc","num_turns":3,"is_error":false,"result":"done"}`
+
+		JustBeforeEach(func() {
+			done, waiter := lockDoneCh, lockWaiter
+			starter = ops.NewClaudeSessionStarterWithRunner(
+				"/usr/local/bin/claude",
+				nil,
+				func(_ []string, _ string, stdout *os.File) (<-chan error, error) {
+					spawnCount++
+					if stdout != nil {
+						_, _ = stdout.WriteString(validTurnJSON)
+					}
+					return done, nil
+				},
+				libtime.WaiterDurationFunc(func(_ context.Context, _ libtime.Duration) error {
+					<-waiter
+					return nil
+				}),
+				lockLocker,
+			)
+		})
+
+		It("refuses with ErrSessionBusy and spawns no child when the session lock is held", func() {
+			held, err := lockLocker.Acquire(ctx, "session-abc")
+			Expect(err).To(BeNil())
+			defer func() { _ = held.Release() }()
+
+			err = starter.StartSession(ctx, "session-abc", "prompt", "/vault", "", false)
+			Expect(err).NotTo(BeNil())
+			Expect(errors.Is(err, ops.ErrSessionBusy)).To(BeTrue())
+			Expect(spawnCount).To(Equal(0))
+		})
+
+		It("releases the lock after a clean non-interactive turn", func() {
+			lockDoneCh <- nil
+			err := starter.StartSession(ctx, "session-abc", "prompt", "/vault", "", false)
+			Expect(err).To(BeNil())
+
+			reacquired, err := lockLocker.Acquire(ctx, "session-abc")
+			Expect(err).To(BeNil())
+			Expect(reacquired.Release()).To(Succeed())
+		})
+
+		It("releases the lock when the child exits with an error", func() {
+			lockDoneCh <- ErrTest
+			err := starter.StartSession(ctx, "session-abc", "prompt", "/vault", "", false)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("exited with error"))
+
+			reacquired, err := lockLocker.Acquire(ctx, "session-abc")
+			Expect(err).To(BeNil())
+			Expect(reacquired.Release()).To(Succeed())
+		})
+
+		It("releases the lock when the 30m turn bound expires", func() {
+			starter = ops.NewClaudeSessionStarterWithRunner(
+				"/usr/local/bin/claude",
+				nil,
+				func(_ []string, _ string, _ *os.File) (<-chan error, error) {
+					spawnCount++
+					// Child never exits within the bound.
+					return make(chan error), nil
+				},
+				libtime.WaiterDurationFunc(func(_ context.Context, _ libtime.Duration) error { return nil }),
+				lockLocker,
+			)
+			err := starter.StartSession(ctx, "session-abc", "prompt", "/vault", "", false)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("did not complete within"))
+
+			reacquired, err := lockLocker.Acquire(ctx, "session-abc")
+			Expect(err).To(BeNil())
+			Expect(reacquired.Release()).To(Succeed())
+		})
+
+		It("releases the lock when the wait is cancelled", func() {
+			starter = ops.NewClaudeSessionStarterWithRunner(
+				"/usr/local/bin/claude",
+				nil,
+				func(_ []string, _ string, _ *os.File) (<-chan error, error) {
+					spawnCount++
+					return make(chan error), nil
+				},
+				libtime.WaiterDurationFunc(func(_ context.Context, _ libtime.Duration) error {
+					return context.Canceled
+				}),
+				lockLocker,
+			)
+			err := starter.StartSession(ctx, "session-abc", "prompt", "/vault", "", false)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("wait cancelled"))
+
+			reacquired, err := lockLocker.Acquire(ctx, "session-abc")
+			Expect(err).To(BeNil())
+			Expect(reacquired.Release()).To(Succeed())
 		})
 	})
 })

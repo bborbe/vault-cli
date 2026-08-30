@@ -13,3 +13,8 @@ package ops
 // passes the constant, not a stray literal) but NOT the value — a retune moves both
 // sides. Tests must also assert the literal to lock the value.
 const SessionTurnTimeout = sessionTurnTimeout
+
+// DefaultSessionLockDir exposes the unexported defaultSessionLockDir so tests can
+// assert the default lock directory resolves under the user's home. Test-only:
+// this file is a _test.go file and is not part of the package's public API.
+var DefaultSessionLockDir = defaultSessionLockDir

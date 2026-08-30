@@ -355,10 +355,15 @@ var _ = Describe("GoalWorkOnOperation", func() {
 	Context("when persisting the goal session id after the child exits", func() {
 		var writeGoalAt, childExitAt time.Time
 		var blockWaiter chan struct{}
+		var lockDirLocker ops.SessionLocker
 
 		BeforeEach(func() {
 			blockWaiter = make(chan struct{})
 			DeferCleanup(func() { close(blockWaiter) })
+			lockDir, err := os.MkdirTemp("", "vault-goal-workon-lock-*")
+			Expect(err).To(BeNil())
+			DeferCleanup(func() { _ = os.RemoveAll(lockDir) })
+			lockDirLocker = ops.NewSessionLockerWithDir(lockDir)
 			mockGoalStorage.WriteGoalStub = func(_ context.Context, g *domain.Goal) error {
 				if g.ClaudeSessionID() != "" {
 					writeGoalAt = time.Now()
@@ -383,6 +388,7 @@ var _ = Describe("GoalWorkOnOperation", func() {
 					<-blockWaiter
 					return nil
 				}),
+				lockDirLocker,
 			)
 			goalWorkOnOp = ops.NewGoalWorkOnOperation(
 				mockGoalStorage,
@@ -403,6 +409,7 @@ var _ = Describe("GoalWorkOnOperation", func() {
 	Context("when capturing the spawned claude argv", func() {
 		var capturedArgs []string
 		var blockWaiter chan struct{}
+		var lockDirLocker ops.SessionLocker
 
 		BeforeEach(func() {
 			// The waiter must block: StartSession selects on child-exit vs the turn
@@ -411,6 +418,10 @@ var _ = Describe("GoalWorkOnOperation", func() {
 			// "did not complete within" error.
 			blockWaiter = make(chan struct{})
 			DeferCleanup(func() { close(blockWaiter) })
+			lockDir, err := os.MkdirTemp("", "vault-goal-workon-lock-*")
+			Expect(err).To(BeNil())
+			DeferCleanup(func() { _ = os.RemoveAll(lockDir) })
+			lockDirLocker = ops.NewSessionLockerWithDir(lockDir)
 			realStarter := ops.NewClaudeSessionStarterWithRunner(
 				"/usr/local/bin/claude",
 				nil,
@@ -429,6 +440,7 @@ var _ = Describe("GoalWorkOnOperation", func() {
 					<-blockWaiter
 					return nil
 				}),
+				lockDirLocker,
 			)
 			goalWorkOnOp = ops.NewGoalWorkOnOperation(
 				mockGoalStorage,
@@ -456,6 +468,10 @@ var _ = Describe("GoalWorkOnOperation", func() {
 			var mkErr error
 			realVaultPath, mkErr = os.MkdirTemp("", "vault-goal-rollback-*")
 			Expect(mkErr).To(BeNil())
+			lockDir, lockErr := os.MkdirTemp("", "vault-goal-rollback-lock-*")
+			Expect(lockErr).To(BeNil())
+			DeferCleanup(func() { _ = os.RemoveAll(lockDir) })
+			lockDirLocker := ops.NewSessionLockerWithDir(lockDir)
 			for _, dir := range []string{"24 Tasks", "23 Goals"} {
 				Expect(os.MkdirAll(filepath.Join(realVaultPath, dir), 0755)).To(Succeed())
 			}
@@ -500,6 +516,7 @@ body
 					<-block
 					return nil
 				}),
+				lockDirLocker,
 			)
 			DeferCleanup(func() { close(block) })
 			DeferCleanup(func() { _ = os.RemoveAll(realVaultPath) })
@@ -528,6 +545,59 @@ body
 			Expect(written.ClaudeSessionID()).To(Equal(""))
 			Expect(written.Phase()).NotTo(BeNil())
 			Expect(*written.Phase()).To(Equal(domain.GoalPhaseExecution))
+		})
+	})
+
+	Context("when the session lock is already held", func() {
+		var (
+			lockDirLocker ops.SessionLocker
+			spawned       int
+		)
+
+		BeforeEach(func() {
+			lockDir, err := os.MkdirTemp("", "vault-goal-workon-busy-lock-*")
+			Expect(err).To(BeNil())
+			DeferCleanup(func() { _ = os.RemoveAll(lockDir) })
+			lockDirLocker = ops.NewSessionLockerWithDir(lockDir)
+			spawned = 0
+
+			// The waiter must block so the select in StartSession can never pick the
+			// timeout branch; on the busy path it is never reached anyway.
+			block := make(chan struct{})
+			DeferCleanup(func() { close(block) })
+			realStarter := ops.NewClaudeSessionStarterWithRunner(
+				"/usr/local/bin/claude",
+				nil,
+				func(_ []string, _ string, _ *os.File) (<-chan error, error) {
+					spawned++
+					done := make(chan error, 1)
+					done <- nil
+					return done, nil
+				},
+				libtime.WaiterDurationFunc(func(_ context.Context, _ libtime.Duration) error {
+					<-block
+					return nil
+				}),
+				lockDirLocker,
+			)
+			goalWorkOnOp = ops.NewGoalWorkOnOperation(
+				mockGoalStorage,
+				func() string { return pinnedSessionID },
+				realStarter,
+				mockResumer,
+			)
+
+			// Hold the lock for pinnedSessionID so the work-on's own acquire refuses.
+			held, aerr := lockDirLocker.Acquire(ctx, pinnedSessionID)
+			Expect(aerr).To(BeNil())
+			DeferCleanup(func() { _ = held.Release() })
+		})
+
+		It("fails hard with ErrSessionBusy and never spawns a second writer", func() {
+			Expect(errors.Is(err, ops.ErrSessionBusy)).To(BeTrue())
+			Expect(result.Success).To(BeFalse())
+			Expect(result.Error).To(ContainSubstring(pinnedSessionID))
+			Expect(spawned).To(Equal(0))
 		})
 	})
 })

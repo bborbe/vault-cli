@@ -15,3 +15,10 @@ import (
 var ErrStarterUnavailable = stderrors.New(
 	"claude session starter unavailable — claude script not found in PATH",
 )
+
+// ErrSessionBusy indicates another claude process already holds the per-session
+// lock for the requested session id (a second work-on or resume raced a live
+// session). Hard failure — the caller spawns no second writer.
+var ErrSessionBusy = stderrors.New(
+	"claude session is busy — another process is already working on this session",
+)

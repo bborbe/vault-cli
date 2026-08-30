@@ -29,7 +29,11 @@ var _ = Describe("ClaudeSessionStarter detachment (integration)", func() {
 		script := filepath.Join(dir, "worker.sh")
 		Expect(os.WriteFile(script, []byte("#!/bin/sh\nsleep 6\ntouch "+sentinel+"\n"), 0755)).To(Succeed())
 
-		starter := ops.NewClaudeSessionStarter(script)
+		lockDir, err := os.MkdirTemp("", "vault-session-lock-detach-*")
+		Expect(err).To(BeNil())
+		defer os.RemoveAll(lockDir)
+
+		starter := ops.NewClaudeSessionStarter(script, ops.NewSessionLockerWithDir(lockDir))
 		Expect(starter).NotTo(BeNil())
 
 		ctx, cancel := context.WithCancel(context.Background())

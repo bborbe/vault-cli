@@ -49,7 +49,7 @@ const sessionTurnTimeout = 30 * libtime.Minute
 
 // NewClaudeSessionStarter creates a ClaudeSessionStarter using the given claude script.
 // Returns nil if the binary is not found.
-func NewClaudeSessionStarter(claudeScript string) ClaudeSessionStarter {
+func NewClaudeSessionStarter(claudeScript string, locker SessionLocker) ClaudeSessionStarter {
 	claudePath, err := exec.LookPath(claudeScript)
 	if err != nil {
 		return nil
@@ -61,6 +61,7 @@ func NewClaudeSessionStarter(claudeScript string) ClaudeSessionStarter {
 		detachRun:          defaultDetachedRunner,
 		waiter:             libtime.NewWaiterDuration(),
 		sessionTurnTimeout: sessionTurnTimeout,
+		locker:             locker,
 	}
 }
 
@@ -71,6 +72,7 @@ func NewClaudeSessionStarterWithRunner(
 	runCmd func(ctx context.Context, args []string, dir string) ([]byte, error),
 	detachRun func(args []string, dir string, stdout *os.File) (<-chan error, error),
 	waiter libtime.WaiterDuration,
+	locker SessionLocker,
 ) ClaudeSessionStarter {
 	return &claudeSessionStarter{
 		claudePath:         claudePath,
@@ -79,6 +81,7 @@ func NewClaudeSessionStarterWithRunner(
 		detachRun:          detachRun,
 		waiter:             waiter,
 		sessionTurnTimeout: sessionTurnTimeout,
+		locker:             locker,
 	}
 }
 
@@ -164,6 +167,7 @@ type claudeSessionStarter struct {
 	detachRun          func(args []string, dir string, stdout *os.File) (<-chan error, error)
 	waiter             libtime.WaiterDuration
 	sessionTurnTimeout libtime.Duration
+	locker             SessionLocker
 }
 
 func (c *claudeSessionStarter) StartSession(
@@ -174,6 +178,17 @@ func (c *claudeSessionStarter) StartSession(
 	name string,
 	isInteractive bool,
 ) error {
+	// Acquire the per-session lock first: a second work-on against a live session
+	// must be refused before any child is spawned. The deferred release covers
+	// every return path — clean turn, child exit error, ctx cancel, the 30m turn
+	// bound expiry, the interactive 5m timeout, and validation errors — so a live
+	// session can never leave the lock held.
+	lock, err := c.locker.Acquire(ctx, sessionID)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = lock.Release() }()
+
 	args := []string{
 		c.claudePath,
 		"--print",

@@ -31,7 +31,7 @@ type ClaudeResumer interface {
 
 // NewClaudeResumer creates a ClaudeResumer using the given claude script.
 // Returns nil if the binary is not found.
-func NewClaudeResumer(claudeScript string) ClaudeResumer {
+func NewClaudeResumer(claudeScript string, locker SessionLocker) ClaudeResumer {
 	claudePath, err := exec.LookPath(claudeScript)
 	if err != nil {
 		return nil
@@ -40,6 +40,7 @@ func NewClaudeResumer(claudeScript string) ClaudeResumer {
 		claudePath: claudePath,
 		chdir:      os.Chdir,
 		execFn:     syscall.Exec,
+		locker:     locker,
 	}
 }
 
@@ -49,11 +50,13 @@ func NewClaudeResumerForTesting(
 	claudePath string,
 	chdir func(string) error,
 	execFn func(string, []string, []string) error,
+	locker SessionLocker,
 ) ClaudeResumer {
 	return &claudeResumer{
 		claudePath: claudePath,
 		chdir:      chdir,
 		execFn:     execFn,
+		locker:     locker,
 	}
 }
 
@@ -61,6 +64,7 @@ type claudeResumer struct {
 	claudePath string
 	chdir      func(dir string) error
 	execFn     func(argv0 string, argv []string, envv []string) error
+	locker     SessionLocker
 }
 
 func (c *claudeResumer) ResumeSession(
@@ -69,12 +73,26 @@ func (c *claudeResumer) ResumeSession(
 	cwd string,
 	prompt string,
 ) error {
+	// Acquire the per-session lock before chdir, so a busy session is refused
+	// before any state change.
+	lock, err := c.locker.Acquire(ctx, sessionID)
+	if err != nil {
+		return err // ErrSessionBusy — hard failure, exec never invoked
+	}
 	if err := c.chdir(cwd); err != nil {
+		_ = lock.Release()
 		return errors.Wrapf(ctx, err, "change directory to %s", cwd)
 	}
 	args := []string{"claude", "--resume", sessionID}
 	if strings.TrimSpace(prompt) != "" {
 		args = append(args, prompt)
 	}
-	return c.execFn(c.claudePath, args, os.Environ())
+	if err := c.execFn(c.claudePath, args, os.Environ()); err != nil {
+		_ = lock.Release()
+		return errors.Wrap(ctx, err, "exec claude resume")
+	}
+	// No release on the success path: syscall.Exec never returns on success, and
+	// the whole point is that the lock fd survives the replacement so the resumed
+	// claude holds it until it exits.
+	return nil
 }

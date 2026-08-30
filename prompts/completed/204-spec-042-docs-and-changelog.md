@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [042-prevent-duplicate-session-resume]
+summary: 'Added the per-session lock section to docs/work-on-session-lifecycle.md (why, invariant, no-stale-lock, ErrSessionBusy refusal, lock directory, scope, detached-child safety) and created the CHANGELOG ## Unreleased section with the duplicate-resume guard bullet; docs+changelog only, scenario 005 untouched'
+execution_id: vault-cli-session-lock-exec-204-spec-042-docs-and-changelog
+dark-factory-version: dev
 created: "2026-08-30T19:00:00Z"
 queued: "2026-08-30T18:18:03Z"
+started: "2026-08-30T19:01:06Z"
+completed: "2026-08-30T19:03:46Z"
 ---
 
 # Per-session lock docs and CHANGELOG (spec 042, prompt 2 of 2)

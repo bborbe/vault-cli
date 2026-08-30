@@ -159,7 +159,7 @@ Interpret:
 
 - `STATUS_EXIT == 0` and parsed `value` field:
   - `status: completed` → ✅ silent OK
-  - `status: in_progress` → ⚠ flag — the session anchored on this task but never completed it
+  - `status: in_progress` → ⚠ **HARD flag** — the session anchored on this task but never completed it. This is a blocker on the clean verdict, not a soft warning: it forces Phase 9 into mode 3 (outstanding) and must be the item named in the closer's `approve:` line. There is no "no action needed" / "correct, standing trigger" / "deliberate" annotation that downgrades an `in_progress` anchor task to clean — a task that is designed never to complete still blocks the clean close until the operator explicitly resolves it (complete / defer / hold / abort). Observed 2026-08-30: a standing-trigger anchor task stayed `in_progress` by design, session-close flagged it as outstanding but named a worktree-cleanup item as the `approve:` item instead, and the session closed `⚪ DONE` with the anchor unfinished. The task is the gate; no other item stands in for it.
   - `status: hold` / `status: aborted` → ✅ silent OK (deliberate non-completion, owner already decided)
   - `status: next` / `status: backlog` → ✅ silent OK (touched as a side-reference, not as an active anchor)
 - `STATUS_EXIT != 0` OR JSON parse failure → ⚠ surface as outstanding (do NOT silently skip — a failed check means the anchor-task gate is unverified, which is exactly the failure mode this phase guards against)
@@ -465,7 +465,9 @@ Omit any line with zero entries. If nothing was touched (e.g. talk-only session)
 
 **Verdict — three modes:**
 
-**1. Clean + no reflect signals** (all phases ✅, score < 3):
+**Mode gate (Phase 4.5 is a hard block, not a suggestion):** if any touched task is `in_progress`, modes 1 and 2 (the clean verdicts) are **forbidden** — the verdict MUST be mode 3 (outstanding), with that task as an outstanding item. An `in_progress` anchor task can never be annotated away ("no action needed", "standing trigger", "deliberate") into a clean verdict; the operator must resolve it (complete / defer / hold / abort) before the session can be suggested as closeable. Modes 1 and 2 are reachable only when every touched task is `completed`, `hold`, `aborted`, `next`, or `backlog`.
+
+**1. Clean + no reflect signals** (all phases ✅ — including every touched task resolved, score < 3):
 
 ```
 <summary block, if any>
@@ -515,7 +517,7 @@ Append below the verdict. This command is terminal; without a fixed closer the t
 ⏰ Next: you open a new session; the orchestrator picks the next anchor
 ```
 
-**Outstanding items (mode 3):** `🔵 READY`, with `👤 You: approve:` naming exactly ONE item from the numbered list.
+**Outstanding items (mode 3):** `🔵 READY`, with `👤 You: approve:` naming exactly ONE item from the numbered list. **When an `in_progress` touched task is on the list, that task IS the item to name** — the `approve:` line must offer its resolution (`/vault-cli:complete-task "<title>"`, `/vault-cli:defer-task "<title>" <date>`, or set status hold/aborted), never a different item (a worktree cleanup, uncommitted files, a daemon). Naming any other item while the anchor task sits `in_progress` repeats the 2026-08-30 defect: the session closed `⚪ DONE` with the anchor unfinished. The task is the gate; no other item stands in for it.
 
 **Never name a specific next task. Never recommend `/vault-cli:next-task`.** Next-session anchor selection belongs to the orchestrator (or to the user opening a fresh session), not to this command. Same rationale as `sync-progress.md` Phase 6 — and note that closing one task's session is the routine bookend between two task sessions, so the global "no end-of-day suggestions" rule does not apply here.
 

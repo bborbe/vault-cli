@@ -880,11 +880,17 @@ var _ = Describe("WorkOnOperation", func() {
 			writtenSessionID         string
 			spawnedSessionID         string
 			blockWaiter              chan struct{}
+			lockDirLocker            ops.SessionLocker
 		)
 
 		BeforeEach(func() {
 			blockWaiter = make(chan struct{})
 			DeferCleanup(func() { close(blockWaiter) })
+
+			lockDir, err := os.MkdirTemp("", "vault-workon-lock-*")
+			Expect(err).To(BeNil())
+			DeferCleanup(func() { _ = os.RemoveAll(lockDir) })
+			lockDirLocker = ops.NewSessionLockerWithDir(lockDir)
 
 			mockTaskStorage.WriteTaskStub = func(_ context.Context, t *domain.Task) error {
 				if t.ClaudeSessionID() != "" {
@@ -918,6 +924,7 @@ var _ = Describe("WorkOnOperation", func() {
 					<-blockWaiter
 					return nil
 				}),
+				lockDirLocker,
 			)
 			currentDateTime := libtime.NewCurrentDateTime()
 			currentDateTime.SetNow(libtimetest.ParseDateTime("2026-03-03T12:00:00Z"))
@@ -963,6 +970,60 @@ var _ = Describe("WorkOnOperation", func() {
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 			_, onlyWritten := mockTaskStorage.WriteTaskArgsForCall(0)
 			Expect(onlyWritten.ClaudeSessionID()).To(Equal(""))
+		})
+	})
+
+	Context("when the session lock is already held", func() {
+		var (
+			lockDirLocker ops.SessionLocker
+			spawned       int
+		)
+
+		BeforeEach(func() {
+			lockDir, err := os.MkdirTemp("", "vault-workon-busy-lock-*")
+			Expect(err).To(BeNil())
+			DeferCleanup(func() { _ = os.RemoveAll(lockDir) })
+			lockDirLocker = ops.NewSessionLockerWithDir(lockDir)
+			spawned = 0
+
+			// The waiter must block so the select in StartSession can never pick the
+			// timeout branch; on the busy path it is never reached anyway.
+			block := make(chan struct{})
+			DeferCleanup(func() { close(block) })
+			realStarter := ops.NewClaudeSessionStarterWithRunner(
+				"/usr/local/bin/claude",
+				nil,
+				func(_ []string, _ string, _ *os.File) (<-chan error, error) {
+					spawned++
+					done := make(chan error, 1)
+					done <- nil
+					return done, nil
+				},
+				libtime.WaiterDurationFunc(func(_ context.Context, _ libtime.Duration) error {
+					<-block
+					return nil
+				}),
+				lockDirLocker,
+			)
+			currentDateTime := libtime.NewCurrentDateTime()
+			currentDateTime.SetNow(libtimetest.ParseDateTime("2026-03-03T12:00:00Z"))
+			workOnOp = ops.NewWorkOnOperation(
+				mockTaskStorage, mockDailyNoteStorage, currentDateTime,
+				func() string { return pinnedSessionID },
+				realStarter, mockResumer,
+			)
+
+			// Hold the lock for pinnedSessionID so the work-on's own acquire refuses.
+			held, aerr := lockDirLocker.Acquire(ctx, pinnedSessionID)
+			Expect(aerr).To(BeNil())
+			DeferCleanup(func() { _ = held.Release() })
+		})
+
+		It("fails hard with ErrSessionBusy and never spawns a second writer", func() {
+			Expect(errors.Is(err, ops.ErrSessionBusy)).To(BeTrue())
+			Expect(result.Success).To(BeFalse())
+			Expect(result.Error).To(ContainSubstring(pinnedSessionID))
+			Expect(spawned).To(Equal(0))
 		})
 	})
 })

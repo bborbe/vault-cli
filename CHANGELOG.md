@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.118.2
 
 - fix: `/vault-cli:work-on-task` session-rename suggestion now emits `run /rename <name>` without quotes — `/rename` takes the rest of the line verbatim, so a quoted suggestion named the session with literal quote characters.
 

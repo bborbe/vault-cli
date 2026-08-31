@@ -88,7 +88,7 @@ Runs only after Phase 2 returned a `found` task — never on `not_found` (Phase 
 
 5. **Surface the session-connect suggestion.** The assistant (Phase 3 session-connect) sets the task's `claude_session_id` frontmatter to the current session when empty (real UUID detected from the transcript dir, falling back to the task name) and reports it in its output (`✅ Session: connected …` / `ℹ️ Session: already connected …`). After the chain lands (or stops at planning), echo the rename hint once:
    ```
-   💡 Suggest: run /rename "<name>" to name this session after the task
+   💡 Suggest: run /rename <name> to name this session after the task — no quotes: /rename takes the rest of the line verbatim, so a quoted suggestion names the session with literal quote characters
    ```
    This connects the task with the session — the session appears under the task name in the session list / Vault UI.
 

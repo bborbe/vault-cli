@@ -8,6 +8,11 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: `/vault-cli:execute-task` auto-invoke no longer strands a headless run at a confirmation gate. The NO-ASK mode now propagates into the auto-invoked subtask command (` --non-interactive` is appended, matching what `/vault-cli:work-on-task` Phase 5 already does when chaining inward), and a command that defines no non-interactive contract — or whose contract needs a confirmation it cannot obtain headlessly — is printed rather than invoked. Previously the contract declared this branch "unchanged" under NO-ASK, so a `claude --print` run could auto-invoke an interactive command, do substantial work, then stall at a gate with no operator to answer it, leaving the task parked in `execution` with its first subtask unchecked.
+- fix: `/vault-cli:execute-task`'s auto-invoke allowlist no longer contradicts its own examples. The rule said "bare-name commands and skills shipped by those same plugins" while citing `/start-day`, which is vault-local (`<vault>/.claude/commands/`) and shipped by no plugin; resolving that ambiguity by matching the example widened the blast radius, the opposite of the section's purpose. Vault-local commands are now explicitly in scope, which is what `recurring-task-creator`-generated task files require — their first subtask is routinely a bare vault-local command.
+
 ## v0.118.3
 
 - fix: `task work-on` now persists the fresh `claude_session_id` and its `metrics_sessions` entry to the task file before the headless Claude session is spawned, so the session's own `/vault-cli:work-on-task` session-connect reads the field already set and keeps the fresh session instead of scanning the transcript directory and attaching whichever transcript was most recently modified (in a fleet of concurrent sessions, rarely the fresh one); a failed spawn now triggers a re-read-based compensating clear that removes the id and that run's metrics entry, preserving the invariant that an id on disk means a resumable session — frontmatter the child wrote before failing survives, and a failed clear never masks the spawn error

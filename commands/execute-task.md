@@ -14,7 +14,7 @@ If the arguments contain `--non-interactive`, strip that token and run under **N
 
 - **Step 1 ambiguity** (multiple `Glob` matches) → print the candidates and `❌ Ambiguous task identifier — pass an exact path.` STOP.
 - **Steps 3–6** (refusals, entry contract, the 4 hard non-negotiables, the phase flip) are unchanged — none of them ask; they check and decide. A task that passes the gate flips to `execution` headlessly, exactly as it would interactively.
-- **Step 7's subtask classification** — the "bare slash-command call → invoke" branch already runs with no approval turn, so it is unchanged. Any branch that would otherwise seek approval is downgraded to printing the subtask for the operator instead of acting on it.
+- **Step 7's subtask classification** — the "bare slash-command call → invoke" branch still runs with no approval turn, but it is **not** unchanged: NO-ASK propagates into the invoked command, and a command that cannot satisfy a confirmation gate headlessly is printed rather than invoked. See § Subtask classification → *Under NO-ASK, the mode travels with the call*. Any branch that would otherwise seek approval is downgraded to printing the subtask for the operator instead of acting on it.
 
 The phase flip is deliberately allowed headlessly: it is the whole point of chaining, it is reversible (`vault-cli task set <name> phase planning`), and it is gated by the same hard checks in both modes.
 
@@ -148,12 +148,14 @@ Residue after normalization means print, not invoke. `` Run `/start-day`. `` kee
 3. The command token matches the allowlist below.
 4. Every argument is plain text or a double-quoted string containing no shell metacharacters.
 
-**Allowlist** — first-party Claude Code commands only:
+**Allowlist** — first-party Claude Code commands, plus the active vault's own:
 
 - `/vault-cli:*`
 - `/dark-factory:*`
 - `/coding:*`
-- bare-name commands and skills shipped by those same plugins (for example `/start-day`, `/update-task`)
+- bare-name commands and skills from the plugins above, **or from the active vault's own `.claude/commands/` directory** (for example `/start-day`, `/email-inbox`, `/update-task`)
+
+The vault-local clause is deliberate, not an oversight. `recurring-task-creator` generates task files whose first subtask is routinely a bare vault-local command, and those commands live in `<vault>/.claude/commands/`, not in any plugin. Do not read "first-party" as "plugin-shipped" and reject them — that reading contradicts the examples. (Written out 2026-09-01: the bullet previously said "shipped by those same plugins" while citing `/start-day`, which is vault-local. A reader resolving that contradiction by matching the example lands on the wider blast radius, which is the opposite of what this section is for.)
 
 Everything else is outside the boundary and is **never auto-invoke**d — print it instead. That includes shell commands, `make` targets, `bash …`, file paths, URLs, and commands from any other plugin or marketplace. The allowlist is what bounds blast radius, not the reader's attention: task files are not always operator-authored (`recurring-task-creator` generates them from YAML, and vaults sync across machines).
 
@@ -168,6 +170,10 @@ When in doubt, print. A printed subtask costs the operator one keystroke; a wron
 
 **How to invoke.** Print the DoD block first (so the destination stays visible), then print `🚀 Running: <normalized command>` and invoke it with `Skill: <command without the leading slash> "<args, if any>"` — the same form `/vault-cli:work-on-task` Phase 5 uses. The invoked command's own output becomes the tail of this command's output; do NOT re-print `🎯 Start with:` afterwards.
 
+**Under NO-ASK, the mode travels with the call.** Append ` --non-interactive` to the invoked command's arguments, exactly as `/vault-cli:work-on-task` Phase 5 does when it chains into this command. The flag must not stop here: an auto-invoked command that does not know it is headless will reach its own interactive gate and wait on an operator who cannot answer.
+
+**And if the callee cannot satisfy that contract, print instead of invoking.** A command that defines no non-interactive contract, or whose contract requires a confirmation it cannot obtain headlessly, is not eligible for auto-invoke under NO-ASK — treat it exactly like a disqualified subtask and emit the `🎯 Start with:` line. A gate with nobody to answer it is a stall, not a question, and the stall is silent: the callee may do substantial irreversible-looking work (fetching, marking read, staging) before reaching its gate, then stop with the task parked in `execution` and its first subtask unchecked. Printing costs the operator one keystroke on resume; stalling costs a run that looks started and is not. (Observed 2026-09-01: a headless chain auto-invoked `/email-inbox`, whose safety rule forbids disposing of mail without explicit confirmation — it had no way to ask and no way to proceed.)
+
 ## Notes
 
 - **Idempotent re-entry.** Safe to re-run on `phase: execution` — no mutation, just re-prints the work block + destination. Useful as a session-start "where was I?" command.
@@ -176,7 +182,7 @@ When in doubt, print. A printed subtask costs the operator one keystroke; a wron
 - **Status flips happen, phase flips don't (when planning gates fail).** Resume-from-paused is a separate concern from "is planning complete" — flipping `hold → in_progress` is always safe; flipping `planning → execution` requires the gates.
 - **No daily-note tracking, no guide search.** Those belong to `/vault-cli:work-on-task`. This command is purely the gate + work-block kickoff.
 - **Reads `~/.claude/plugins/marketplaces/vault-cli/docs/task-writing.md`** as the canonical rule source for the 4 hard checks — same source `/plan-task` and `task-auditor` use.
-- **Auto-invoke is allowlist-bounded, not heuristic.** A subtask that is nothing but a first-party slash command is executed; everything else is printed. The rule converts a string from a markdown file into an executed command, so the boundary is a fixed allowlist plus explicit disqualifiers — see § Subtask classification. Sandboxing what an allowlisted command does once invoked is the existing permission model's job and is unchanged here.
+- **Auto-invoke is allowlist-bounded, not heuristic.** A subtask that is nothing but an allowlisted slash command — plugin-shipped or vault-local — is executed; everything else is printed. The rule converts a string from a markdown file into an executed command, so the boundary is a fixed allowlist plus explicit disqualifiers — see § Subtask classification. Sandboxing what an allowlisted command does once invoked is the existing permission model's job and is unchanged here; what *is* now in scope is the headless case, where a callee that cannot answer its own confirmation gate is printed rather than invoked.
 
 ## Integration
 

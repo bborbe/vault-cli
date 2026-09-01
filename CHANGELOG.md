@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: `task work-on` now persists the fresh `claude_session_id` and its `metrics_sessions` entry to the task file before the headless Claude session is spawned, so the session's own `/vault-cli:work-on-task` session-connect reads the field already set and keeps the fresh session instead of scanning the transcript directory and attaching whichever transcript was most recently modified (in a fleet of concurrent sessions, rarely the fresh one); a failed spawn now triggers a re-read-based compensating clear that removes the id and that run's metrics entry, preserving the invariant that an id on disk means a resumable session — frontmatter the child wrote before failing survives, and a failed clear never masks the spawn error
+
 ## v0.118.2
 
 - fix: `/vault-cli:work-on-task` session-rename suggestion now emits `run /rename <name>` without quotes — `/rename` takes the rest of the line verbatim, so a quoted suggestion named the session with literal quote characters.

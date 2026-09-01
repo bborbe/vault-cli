@@ -124,11 +124,12 @@ body
 				[]byte(taskFixture), 0600,
 			)).To(Succeed())
 
-			// Simulate the real headless turn: the spawned Claude session runs
-			// plan-task -> execute-task and writes to the very file work-on loaded
-			// before the call. The write happens inside the detached child (the
-			// detachRun fake) while the parent has already returned within the
-			// liveness window.
+			// Simulate the real headless turn: work-on persists the fresh session id
+			// and its metrics entry to the file BEFORE spawning (pre-spawn persist),
+			// then the spawned Claude session runs plan-task -> execute-task and
+			// writes its own frontmatter on top of that file inside the detached
+			// child (the detachRun fake). Nothing writes to the file after the
+			// child's own write, so the child's frontmatter survives.
 			detachRun := func(_ []string, _ string, stdout *os.File) (<-chan error, error) {
 				fresh, err := taskStore.FindTaskByName(ctx, vaultPath, "Repro Task")
 				if err != nil {
@@ -183,8 +184,9 @@ body
 			// ...and the session id must still be persisted.
 			Expect(written.ClaudeSessionID()).To(Equal(pinnedSessionID))
 			Expect(written.Status()).To(Equal(domain.TaskStatusInProgress))
-			// The metrics entry lands in the same re-read/write that preserved the
-			// session's own frontmatter writes (real storage round-trip).
+			// The metrics entry lands in the pre-spawn persist write (real storage
+			// round-trip) and survives because nothing writes to the file after the
+			// child's own write.
 			Expect(written.MetricsSessions()).To(HaveLen(1))
 			Expect(written.MetricsSessions()[0].SessionID).To(Equal(pinnedSessionID))
 		})
@@ -313,7 +315,7 @@ body
 			DeferCleanup(func() { close(block) })
 		})
 
-		It("never persists a session id and preserves the child's frontmatter write when the child exited non-zero inside the window", func() {
+		It("clears the pre-persisted session id and preserves the child's frontmatter write when the child exited non-zero inside the window", func() {
 			currentDateTime := libtime.NewCurrentDateTime()
 			currentDateTime.SetNow(libtimetest.ParseDateTime("2026-03-03T12:00:00Z"))
 			testVault := config.Vault{
@@ -337,18 +339,24 @@ body
 			Expect(err.Error()).To(ContainSubstring("exit status 1"))
 			Expect(result.Success).To(BeFalse())
 
-			// The child's write survived; nothing in the new design ever touches it.
+			// The child's write survived: the pre-spawn persist wrote the id and this
+			// run's metrics entry, the child's `phase: planning` write landed on top,
+			// then the compensating clear re-read the file (so `phase: planning` was
+			// already on disk) and removed only the id and this run's metrics entry.
+			// A clear from the stale in-memory copy would have reverted phase back to
+			// execution.
 			written, err := taskStore.FindTaskByName(ctx, vaultPath, "Repro Task")
 			Expect(err).To(BeNil())
 			Expect(written.Phase()).NotTo(BeNil())
 			Expect(*written.Phase()).To(Equal(domain.TaskPhasePlanning))
 
-			// On-disk shape: the id and this run's metrics entry were never written
-			// in the first place (the AC6 grep pins keep the count of the id/metrics
+			// On-disk shape: the pre-spawn persist wrote the id and this run's
+			// metrics entry, and the compensating clear removed them again after the
+			// failed spawn (the AC6 grep pins keep the count of the id/metrics
 			// accessor calls in this file at 2, so the absence is asserted via the
 			// raw file). The id itself is the shared fingerprint of both
 			// claude_session_id and the metrics_sessions entry, so its absence proves
-			// neither was persisted.
+			// neither survived the clear.
 			raw, err := os.ReadFile(filepath.Join(vaultPath, "24 Tasks", "Repro Task.md"))
 			Expect(err).To(BeNil())
 			Expect(strings.Count(string(raw), "claude_session_id:")).To(Equal(0))

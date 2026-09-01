@@ -129,16 +129,20 @@ If found:
 Connect the current session to the task so the task's `claude_session_id` points at the session working on it, and the session is renamed after the task. This makes the task↔session link visible in the session list / Vault UI.
 
 1. Read the task's `claude_session_id` frontmatter.
-2. If it is **empty or absent**: detect the current session's UUID from the transcript dir:
+2. If it is **empty or absent**: detect the current session's UUID by title-match, never by newest-transcript. The `ls -t ... | head -1` mtime scan is forbidden — in a fleet of concurrent sessions the newest transcript is almost never the current session (observed: a fresh headless Start session got bound to a live unrelated session this way). Match the task's name against each transcript's CURRENT title (the `customTitle` of the LAST `custom-title` line — transcripts are append-only, so last is newest; ignore `custom-title` lines with no `customTitle` key):
    ```bash
    # active vault from config; use session_project_dir if set, else vault path
    SESSION_DIR=$(vault-cli config list --output json | python3 -c "import sys,json; vs=json.load(sys.stdin); v=[x for x in vs if x['path']=='<active vault path>'][0]; print(v.get('session_project_dir') or v['path'])")
    ENC=$(printf '%s' "$SESSION_DIR" | sed 's|/|-|g')
-   ls -t "$HOME/.claude/projects/$ENC/"*.jsonl 2>/dev/null | head -1 | xargs -n1 basename 2>/dev/null | sed 's/\.jsonl$//'
+   ls "$HOME/.claude/projects/$ENC/"*.jsonl 2>/dev/null | while read -r f; do
+     stem=$(basename "$f" .jsonl)
+     cur=$(grep '"type":"custom-title"' "$f" 2>/dev/null | grep '"customTitle"' | tail -1 | sed 's/.*"customTitle":"//; s/".*$//')
+     [ "$cur" = "<task_name>" ] && echo "$stem"
+   done | sort -u
    ```
-   - If a UUID is returned: `vault-cli task set "<task_name>" claude_session_id "<uuid>"`
-   - If no transcript dir / no UUID (e.g. fresh session): fall back to the task name: `vault-cli task set "<task_name>" claude_session_id "<task_name>"`
-   - Report: `✅ Session: connected (<uuid | task_name>)`
+   - If EXACTLY ONE UUID is returned: `vault-cli task set "<task_name>" claude_session_id "<uuid>"`
+   - If zero OR multiple UUIDs are returned (ambiguous / no match — e.g. the task is not the session's current title, or several sessions share the title): do NOT write the field, and report `ℹ️ Session: not connected — <n> matching session(s), refusing to guess`. Do NOT fall back to the task name: a name is not a UUID and the vault-ui resolver would then mis-resolve it. The headless Start path pre-sets this field via vault-cli before the turn, so a miss here is safe — leave it for vault-cli.
+   - Report: `✅ Session: connected (<uuid>)`
 3. If `claude_session_id` is **already set**: report `ℹ️ Session: already connected (<value>)` — do NOT overwrite.
 4. Add to the report (always, found case): `💡 Suggest: run /rename "<task_name>" to name this session after the task` — connects the session to the task by name.
 

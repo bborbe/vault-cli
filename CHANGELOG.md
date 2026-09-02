@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: `/vault-cli:sync-progress` now resolves the daily-note date with `date +%Y-%m-%d` instead of leaving `YYYY-MM-DD` as an unexplained placeholder. A session spanning midnight or resumed days later has a stale sense of "today", so the entry landed in a past day's note where the work is invisible on the day it happened — observed 2026-09-02, an entry written to `2026-08-30.md` three days late and caught only incidentally by `session-close` Phase 7, which already resolves the date correctly. Sibling of the existing stale-copy guard in the same section: stale input, different field.
+
 ## v0.118.4
 
 - fix: `/vault-cli:execute-task` auto-invoke no longer strands a headless run at a confirmation gate. The NO-ASK mode now propagates into the auto-invoked subtask command (` --non-interactive` is appended, matching what `/vault-cli:work-on-task` Phase 5 already does when chaining inward), and a command that defines no non-interactive contract — or whose contract needs a confirmation it cannot obtain headlessly — is printed rather than invoked. Previously the contract declared this branch "unchanged" under NO-ASK, so a `claude --print` run could auto-invoke an interactive command, do substantial work, then stall at a gate with no operator to answer it, leaving the task parked in `execution` with its first subtask unchecked.

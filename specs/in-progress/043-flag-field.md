@@ -1,8 +1,9 @@
 ---
-status: prompted
+status: verifying
 approved: "2026-09-02T20:29:47Z"
 generating: "2026-09-02T20:29:47Z"
 prompted: "2026-09-02T20:29:47Z"
+verifying: "2026-09-02T20:33:32Z"
 branch: dark-factory/flag-field
 ---
 
@@ -108,3 +109,17 @@ Rationale: single-layer change (domain frontmatter + its tests); one prompt cove
 ## Do-Nothing Option
 
 The `flag` field never exists, so the daily boot keeps having no frontmatter channel for a focus pick. The workaround is corrupting `planned_date` to mean focus, which breaks the board's urgency sort and silently re-introduces the staleness the flag was designed to remove. The whole [[Add a Flag Field to Tasks and Sort Flagged Cards to the Top of Vault UI Columns]] task (and the [[Rethink Start-Day to Drive the Vault UI Board Instead of the Daily Note]] morning pass that depends on it) stays blocked.
+
+## Verification Result
+
+**Verified:** 2026-09-02T21:08:45Z (HEAD b89e333)
+**Binary:** /private/tmp/claude-501/-Users-bborbe-Documents-Obsidian-Personal/bef5ab66-dd3c-4916-8a08-5406b39f4858/scratchpad/043-verify/vault-cli — fresh `go build` from HEAD b89e333
+**Scenario:** Live CLI walk against throwaway scratch vault/task T — `task set/get/clear flag` across every AC variant, diffs isolated against a canonical no-flag baseline (git repo in scratch vault).
+**Evidence:**
+- AC1: `set flag true`/`yes` → `grep '^flag: true'` matches; `set flag FALSE` → `^flag: false`; git diff = only the added `flag:` line
+- AC2: `set flag banana` → exit 1, stderr `invalid flag value 'banana' (accepted values: true/yes/false/no)`, file unmodified
+- AC3: `get flag` prints `true` / `true` (after `TRUE`) / `false` / empty (after clear)
+- AC4: after `clear flag`, `grep -c '^flag:'` = 0, `get flag` empty; set+clear returns file byte-identical to baseline (empty diff)
+- AC5: `git diff` after `set flag true` on status/priority/planned_date/themes/custom_key task = only `+flag: true`, zero removed lines
+- AC6: `make precommit` exit 0 ("ready to commit"); corroborated by container log `prompts/log/205-spec-043-flag-field.log` exitCode 0
+**Verdict:** PASS

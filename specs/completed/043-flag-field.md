@@ -1,9 +1,10 @@
 ---
-status: verifying
+status: completed
 approved: "2026-09-02T20:29:47Z"
 generating: "2026-09-02T20:29:47Z"
 prompted: "2026-09-02T20:29:47Z"
 verifying: "2026-09-02T20:33:32Z"
+completed: "2026-09-02T21:11:23Z"
 branch: dark-factory/flag-field
 ---
 

@@ -106,7 +106,8 @@ For each selected learning, process one at a time.
 **Find candidates:**
 
 If `SEMANTIC_SEARCH_AVAILABLE`:
-- `mcp__semantic-search__search_related(query="<title> <key terms>", top_k=5)`
+- `mcp__semantic-search__search_related(query="<domain / problem, in your own words>", top_k=5)`
+- **Run ≥2 queries with different framings.** Query the *domain and problem*, never the title you just drafted — a title-derived query returns pages phrased like your draft and misses pages stating the same idea in other vocabulary. Observed 2026-09-02: querying "page existed but was not consulted" missed [[A Written Warning Is Not a Control]] ("a warning informs whoever is already looking; a control changes what happens when nobody is") — the same thesis in different words. A near-duplicate page was written, then deleted.
 - Filter to results under the vault's `<knowledge_dir>/` path
 
 Else (fallback):
@@ -163,9 +164,7 @@ Wait for user confirmation.
 **CREATE (new page):**
 
 1. Pick a filename (PascalCase or natural language matching existing KB pages)
-2. If `DUPLICATE_CHECK_AVAILABLE`:
-   - `mcp__semantic-search__check_duplicates(file_path="<knowledge_dir>/<filename>.md")`
-   - If duplicate detected → ask user whether to enhance the duplicate instead
+2. **Pre-write duplicate check.** The file does not exist yet, so `check_duplicates(file_path=…)` cannot be called on it — it takes a path to an *existing* file. Instead run one final `mcp__semantic-search__search_related` on the **drafted summary sentence** (not the title), and treat any hit ≥ 0.6 under `<knowledge_dir>/` as a duplicate → open that page and ask the user whether to ENHANCE it instead. Only if `DUPLICATE_CHECK_AVAILABLE` and the file already exists on a re-run does `check_duplicates` apply.
 3. Create the file at `<knowledge_dir>/<filename>.md`:
 
    ```markdown
@@ -196,6 +195,8 @@ Wait for user confirmation.
    - [[<related page 1>]]
    - [[<related page 2>]]
    ```
+
+4. **Post-write audit.** Now that the file exists, if `DUPLICATE_CHECK_AVAILABLE` run `mcp__semantic-search__check_duplicates(file_path="<knowledge_dir>/<filename>.md")` as a backstop. A hit here means step 2's search missed — delete the new page and ENHANCE the match instead, rather than leaving both.
 
 ## Step 5: Report
 

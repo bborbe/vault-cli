@@ -1,6 +1,7 @@
 ---
-status: draft
-created: "2026-09-02T21:55:00+02:00"
+status: approved
+approved: "2026-09-02T20:29:47Z"
+branch: dark-factory/flag-field
 ---
 
 ## Summary

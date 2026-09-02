@@ -1,8 +1,9 @@
 ---
-status: prompted
+status: verifying
 approved: "2026-08-30T16:57:47Z"
 generating: "2026-08-30T18:02:13Z"
 prompted: "2026-08-30T18:02:13Z"
+verifying: "2026-09-02T20:26:48Z"
 branch: dark-factory/prevent-duplicate-session-resume
 ---
 

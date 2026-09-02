@@ -63,7 +63,7 @@ grep -n "^- \[[ x/]\]" "{task_path}"
 
 ### status
 
-Emit a grouped-checkbox status report for a resolved task path. The slash command (`commands/task-status.md`) handles conversation-based task detection AND the inline `/sync-progress` step before invoking this action; this agent only reads, parses, and formats.
+Emit a grouped-checkbox status report for a resolved task path, including a read-only phase/plan assessment. The slash command (`commands/task-status.md`) handles conversation-based task detection AND the inline `/sync-progress` step before invoking this action; this agent only reads, parses, classifies, and formats.
 
 **Arguments:**
 - `TASK_PATH` (required) — absolute path to the task file. The slash command resolves this in Phase 2; do NOT attempt to detect from conversation here (sub-agents can't see the parent conversation).
@@ -104,14 +104,41 @@ Emit a grouped-checkbox status report for a resolved task path. The slash comman
    completed = SC.x_count + Tasks.x_count + DoD.x_count
    percent = round((completed / total) × 100)
    ```
-   If `total == 0`, render `<no checkboxes>` after the header and stop after step 7.
+   If `total == 0`, render `<no checkboxes>` after the header and stop after step 8.
 
-6. **Extract next step.** Walk sections in priority order (Success Criteria → Tasks → Definition of Done); within each section, return the text of the first `[ ]` or `[/]` item (prefer `[ ]` when both exist at same position). If all items are `[x]`, the next step is `✅ Task complete. Run /complete-task to close.`
+6. **Compute phase/plan assessment.** Classify the task's phase against its plan. **Recommend-only, never mutating:** do NOT write status, phase, or any checkbox — this step reads and classifies only. Per the Task Lifecycle Guide, manual phase-setting is an anti-pattern; `/vault-cli:execute-task` and `/vault-cli:complete-task` are the sole phase flippers, and `/plan-task` never flips itself.
+
+   Compute from step 1 (`status`, `phase`) and step 3's parsed sections:
+   - `validated` = SC section exists with ≥ 2 binary checkboxes AND Tasks section exists with ≥ 1 checkbox
+   - `all_sc_ticked` = SC exists AND every SC checkbox is `[x]`
+   - `tasks_done` / `tasks_total` = `[x]`-count / total count in the `# Tasks` section (only verbatim `[x]` counts as done; `[/]` is not done)
+
+   Classify — first match wins:
+   - status `completed` / `aborted` OR phase `done` → branch `closed` · recommend none
+   - phase `ai_review` → branch `ai_review` · recommend none ("agent review in progress")
+   - phase `human_review` → branch `human_review` · recommend `/vault-cli:complete-task`
+   - status `next` / `backlog` (phase `todo`/empty) → branch `not-started` · recommend `/vault-cli:work-on-task`
+   - phase `planning` → branch `plan-ready` · recommend `/vault-cli:execute-task`
+   - status `in_progress` + phase `todo` → branch `gate-not-run` · recommend `/vault-cli:plan-task`
+   - phase `execution` + not `validated` → branch `plan-unvalidated` · recommend `/vault-cli:plan-task`
+   - phase `execution` + `all_sc_ticked` → branch `plan-complete` · recommend `/vault-cli:complete-task`
+   - phase `execution` → branch `in-progress` · recommend none ("continue")
+   - anything else → branch = phase verbatim · recommend none
+
+   Build the `Plan:` line:
+   - `validated` → `Plan: validated · {tasks_done}/{tasks_total} subtasks · {all_sc_ticked ? complete : not complete}`
+   - not `validated` → `Plan: not started (missing SC/Tasks)`
+
+7. **Extract next step.** Walk sections in priority order (Success Criteria → Tasks → Definition of Done); within each section, return the text of the first `[ ]` or `[/]` item (prefer `[ ]` when both exist at same position). If all items are `[x]`, the next step is `✅ Task complete. Run /complete-task to close.`
 
    This is a quick hint, NOT a full recommendation. For an action-prioritized list with deferrals + interactive pick, use `/vault-cli:next-steps`.
 
-7. **Render output** — `OUTPUT=grouped-checkbox` (default):
+8. **Render output** — `OUTPUT=grouped-checkbox` (default):
    ```
+   Phase: {branch}
+   Plan: {plan line}
+   Recommend: {command | none — reason}
+
    Task: {task_name}
    Outcome: {outcome}
    Status: {status} · phase: {phase} · {completed}/{total} ({percent}%)
@@ -132,13 +159,14 @@ Emit a grouped-checkbox status report for a resolved task path. The slash comman
    ```
 
    **Rules:**
+   - The assessment block (`Phase:` / `Plan:` / `Recommend:`) always renders at the very top for `grouped-checkbox` output, blank line after. It is computed in step 6 — never omit it, never mutate state to produce it.
    - `Outcome:` line is omitted entirely when `outcome` is empty (legacy task with no Summary paragraph). When present, it's the contract reminder — "what's true when this is done" — and sits above the volatile Status line for at-a-glance scanning.
    - Section header (e.g. `## Success Criteria`) only prints when the section exists AND has ≥ 1 checkbox. Empty sections are omitted entirely (no header, no body).
    - Preserve the disk's exact state token (`[x]` / `[ ]` / `[/]`) — do NOT normalize.
    - One blank line between sections for visual grouping.
    - `Next:` is one line, ends the output, names one concrete action.
 
-8. **Legacy flat mode** — `OUTPUT=flat`:
+9. **Legacy flat mode** — `OUTPUT=flat`:
    ```
    📋 Task: {task_name}
    Progress: {completed}/{total} ({percent}%)
@@ -147,7 +175,7 @@ Emit a grouped-checkbox status report for a resolved task path. The slash comman
 
    Used by callers that haven't migrated yet (e.g. internal scripts). Default callers receive `grouped-checkbox`. Flat mode does not surface the outcome line — orchestration callers don't need it.
 
-9. **Warnings (append after the report):**
+10. **Warnings (append after the report):**
    - If `>3 in-progress`: `⚠️ Multiple in-progress items. Focus on one.`
    - If `total == 0`: `⚠️ No checkboxes found in any of # Success Criteria / # Tasks / # Definition of Done.`
 

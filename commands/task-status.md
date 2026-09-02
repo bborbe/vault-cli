@@ -1,5 +1,5 @@
 ---
-description: Sync conversation progress to disk, then show grouped-checkbox task status (Success Criteria / Tasks / Definition of Done) with verbatim state and next step.
+description: Sync conversation progress to disk, then show grouped-checkbox task status (Success Criteria / Tasks / Definition of Done) with a phase/plan assessment, verbatim state, and next step.
 argument-hint: (detects from conversation)
 allowed-tools:
   - Read
@@ -12,11 +12,11 @@ allowed-tools:
   - Task
 ---
 
-Quick "where was I?" recovery tool. Detects active task from the parent conversation, syncs any in-flight progress to disk first (via `/vault-cli:sync-progress` logic, inline), then emits a grouped-checkbox status report.
+Quick "where was I?" recovery tool. Detects active task from the parent conversation, syncs any in-flight progress to disk first (via `/vault-cli:sync-progress` logic, inline), re-evaluates the task's phase and plan state against its `# Success Criteria` / `# Tasks` sections, then emits a grouped-checkbox status report.
 
 **Important side-effect:** this command mutates the vault (daily note + task page) before reporting. The mutation reflects work the conversation has already done — not new content. If you want a pure read without disk writes, use `/vault-cli:verify-task` instead.
 
-**This command must stay inline** — Phase 1 (sync) and Phase 2 (task detection) both analyze the parent conversation; a sub-agent cannot see the conversation. Only the final output formatting (Phase 3) delegates to `task-manager-agent`.
+**This command must stay inline** — Phase 1 (sync), Phase 2 (task detection), and Phase 2.5 (phase/plan re-evaluation) all analyze the parent conversation; a sub-agent cannot see the conversation. Only the final output formatting (Phase 3) delegates to `task-manager-agent`.
 
 ## Phase 1: Sync progress from conversation
 
@@ -47,6 +47,12 @@ Resolve the detected name via `Glob` `<tasks_dir>/*<arg>*.md`. Multiple matches 
 
 Print `Detected task: <name>` on first line so the owner can interrupt if wrong before Phase 3 runs.
 
+## Phase 2.5: Re-evaluate phase & plan state
+
+The phase/plan assessment is computed by `task-manager-agent` as part of its grouped report (see Output shape below) — this command does NOT inline the classification algorithm. The agent is the single parser for status, counts, and classification; the command only orchestrates detection and delegation.
+
+**Recommend-only constraint.** The assessment classifies and recommends; it never mutates status, phase, or any checkbox. Per [[Task Lifecycle Guide]], manual phase-setting via `vault-cli task set` is a documented anti-pattern — `/vault-cli:execute-task` (planning → execution) and `/vault-cli:complete-task` (→ done) are the sole phase flippers, and `/plan-task` never flips itself. The agent's assessment step is read-only by contract.
+
 ## Phase 3: Generate grouped-checkbox status report
 
 Delegate to `task-manager-agent`:
@@ -60,15 +66,19 @@ Task tool with:
            OUTPUT: grouped-checkbox
 
            Read the task file (already disk-fresh after sync). Parse # Success Criteria,
-           # Tasks, # Definition of Done sections. Emit grouped-checkbox output per the
-           agent contract.'
+           # Tasks, # Definition of Done sections. Compute the phase/plan assessment and
+           emit grouped-checkbox output per the agent contract.'
 ```
 
-The agent does NOT detect from conversation in this phase — Phase 2 already resolved the path. The agent only reads, parses, formats.
+The agent does NOT detect from conversation in this phase — Phase 2 already resolved the path. The agent only reads, parses, classifies, formats.
 
 ## Output shape (from task-manager-agent)
 
 ```
+Phase: <branch>
+Plan: <validated · N/M subtasks · complete|not complete | not started (missing SC/Tasks)>
+Recommend: <command | none — reason>
+
 Task: <name>
 Status: <status> · phase: <phase> · <completed>/<total> (<pct>%)
 

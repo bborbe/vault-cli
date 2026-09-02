@@ -49,32 +49,9 @@ Print `Detected task: <name>` on first line so the owner can interrupt if wrong 
 
 ## Phase 2.5: Re-evaluate phase & plan state
 
-Inline. Read the resolved task file (from Phase 2) and classify the task's phase against its plan. Do NOT delegate — the classification is a diagnostic that sits in the conversation context.
+The phase/plan assessment is computed by `task-manager-agent` as part of its grouped report (see Output shape below) — this command does NOT inline the classification algorithm. The agent is the single parser for status, counts, and classification; the command only orchestrates detection and delegation.
 
-**Recommend-only, never mutating.** Per [[Task Lifecycle Guide]], manual phase-setting via `vault-cli task set` is a documented anti-pattern; `/vault-cli:execute-task` (planning → execution) and `/vault-cli:complete-task` (→ done) are the sole phase flippers, and `/plan-task` never flips itself. This step reads and classifies only — zero frontmatter writes.
-
-1. Read frontmatter `status` + `phase`, then the `# Success Criteria` and `# Tasks` sections.
-2. Compute:
-   - `validated` = SC section exists with ≥ 2 binary checkboxes AND Tasks section exists with ≥ 1 checkbox
-   - `all_sc_ticked` = SC exists AND every SC checkbox is `[x]`
-   - `tasks_done` / `tasks_total` = checked / total checkboxes in `# Tasks`
-3. Classify — first match wins:
-   - status `completed` / `aborted` OR phase `done` → branch `closed` · recommend none
-   - phase `ai_review` → branch `ai_review` · recommend none ("agent review in progress")
-   - phase `human_review` → branch `human_review` · recommend `/vault-cli:complete-task`
-   - status `next` / `backlog` (phase `todo`/empty) → branch `not-started` · recommend `/vault-cli:work-on-task` ("not started — run /work-on-task")
-   - phase `planning` → branch `plan-ready` · recommend `/vault-cli:execute-task` ("plan ready — run /execute-task")
-   - status `in_progress` + phase `todo` → branch `gate-not-run` · recommend `/vault-cli:plan-task` ("planning gate not run — run /plan-task")
-   - phase `execution` + not `validated` → branch `plan-unvalidated` · recommend `/vault-cli:plan-task` ("plan not validated — run /plan-task")
-   - phase `execution` + `all_sc_ticked` → branch `plan-complete` · recommend `/vault-cli:complete-task` ("all Success Criteria ticked — run /complete-task")
-   - phase `execution` → branch `in-progress` · recommend none ("continue")
-   - anything else → branch = phase verbatim · recommend none
-4. Build the `Plan:` line:
-   - `validated` → `Plan: validated · {tasks_done}/{tasks_total} subtasks · {all_sc_ticked ? complete : not complete}`
-   - not `validated` → `Plan: not started (missing SC/Tasks)`
-5. Print the one-line preview so the owner can interrupt before Phase 3:
-   `Phase assessment: <branch> — <recommend | continue>`
-6. Hand the three-line assessment to Phase 3 as `ASSESSMENT` (the agent renders it verbatim, does NOT recompute).
+**Recommend-only constraint.** The assessment classifies and recommends; it never mutates status, phase, or any checkbox. Per [[Task Lifecycle Guide]], manual phase-setting via `vault-cli task set` is a documented anti-pattern — `/vault-cli:execute-task` (planning → execution) and `/vault-cli:complete-task` (→ done) are the sole phase flippers, and `/plan-task` never flips itself. The agent's assessment step is read-only by contract.
 
 ## Phase 3: Generate grouped-checkbox status report
 
@@ -85,21 +62,22 @@ Task tool with:
   subagent_type: 'vault-cli:task-manager-agent'
   prompt: 'ACTION: status
            TASK_PATH: <resolved-path-from-phase-2>
-           ASSESSMENT: <the three-line block from Phase 2.5 — Phase / Plan / Recommend>
            MODE: interactive
            OUTPUT: grouped-checkbox
 
            Read the task file (already disk-fresh after sync). Parse # Success Criteria,
-           # Tasks, # Definition of Done sections. Emit grouped-checkbox output per the
-           agent contract. Render the ASSESSMENT block verbatim at the top.'
+           # Tasks, # Definition of Done sections. Compute the phase/plan assessment and
+           emit grouped-checkbox output per the agent contract.'
 ```
 
-The agent does NOT detect from conversation in this phase — Phase 2 already resolved the path. The agent only reads, parses, formats; it renders the Phase 2.5 assessment without recomputing it.
+The agent does NOT detect from conversation in this phase — Phase 2 already resolved the path. The agent only reads, parses, classifies, formats.
 
 ## Output shape (from task-manager-agent)
 
 ```
-{ASSESSMENT block from Phase 2.5 — Phase / Plan / Recommend, rendered verbatim}
+Phase: <branch>
+Plan: <validated · N/M subtasks · complete|not complete | not started (missing SC/Tasks)>
+Recommend: <command | none — reason>
 
 Task: <name>
 Status: <status> · phase: <phase> · <completed>/<total> (<pct>%)

@@ -113,6 +113,7 @@ If `SEMANTIC_SEARCH_AVAILABLE`:
 Else (fallback):
 - `Glob: <knowledge_dir>/*<keyword>*.md`
 - `Grep` for the strongest keyword in `<knowledge_dir>/`
+- **The ≥2-framings rule applies here too, and matters more.** Keyword matching is strictly weaker than semantic search at finding a page that states your idea in different words — the exact miss this guard exists for. Use ≥2 keyword sets drawn from the *domain*, not from your drafted title, and grep the KB's vocabulary rather than your own (e.g. both `warning`/`control` and `documented`/`consulted`). Without semantic search, treat a single clean `Glob` as weak evidence of novelty, not proof.
 
 **Decide action:**
 
@@ -197,6 +198,8 @@ Wait for user confirmation.
    ```
 
 4. **Post-write audit.** Now that the file exists, if `DUPLICATE_CHECK_AVAILABLE` run `mcp__semantic-search__check_duplicates(file_path="<knowledge_dir>/<filename>.md")` as a backstop. A hit here means step 2's search missed — delete the new page and ENHANCE the match instead, rather than leaving both.
+
+   When `DUPLICATE_CHECK_AVAILABLE` is false this backstop cannot run, and step 2's search is the *only* guard. Say so in the Step 5 report (`duplicate check: pre-write only — check_duplicates unavailable`) rather than reporting the page as duplicate-checked; an unrun check is not a pass. See [[Checks That Report False Green]].
 
 ## Step 5: Report
 

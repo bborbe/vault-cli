@@ -6,9 +6,9 @@ spec:
 ---
 
 <summary>
-- `vault-cli task show --output json` and `task list --output json` currently omit the `flag` field entirely (spec 043 added the typed accessor `Flag()` but not the JSON read surface).
+- JSON output from `task show` and `task list` currently omits the `flag` field entirely — spec 043 added the typed accessor but not the JSON read surface.
 - Consumers that read task state from JSON — vault-ui's `_parse_task` reads `data.get("flag")` — therefore always see the flag as absent, so a flagged task renders unflagged on the board.
-- This prompt adds `flag` to the `TaskDetail` struct (pkg/ops/show.go) and `TaskListItem` struct (pkg/ops/list.go), populated from the existing `task.Flag()` accessor.
+- This prompt adds the `flag` value to both task JSON output shapes (full detail and list row), populated from the existing typed accessor.
 - Round-trip: after this change, `set flag true` then `task show --output json` / `task list --output json` contains `"flag": true`.
 </summary>
 
@@ -28,7 +28,7 @@ Task JSON output (`show` and `list`) reports the boolean `flag` value from front
 1. `pkg/ops/show.go` — add `Flag bool \`json:"flag,omitempty"\`` to the `TaskDetail` struct and populate it in `Execute` from `task.Flag()`.
 2. `pkg/ops/list.go` — add `Flag bool \`json:"flag,omitempty"\`` to the `TaskListItem` struct and populate it in the list operation from the task's `Flag()`.
 3. Tests: extend the existing show/list tests (find them by grepping for `TaskDetail` / `TaskListItem` in pkg/ops/*_test.go) with a case asserting that a task with `flag: true` in frontmatter yields `"flag": true` in the JSON output, and that a task without the key yields no `flag` field (omitempty).
-4. Add a `feat:` or `fix:` bullet under `## Unreleased` in CHANGELOG.md describing that task JSON output now includes the flag field.
+4. Create a `## Unreleased` section directly above `## v0.119.0` if one does not already exist, and add a `feat:` bullet under it describing that task JSON output now includes the flag field.
 </requirements>
 
 <constraints>

@@ -31,20 +31,21 @@ transcript the child writes.
 
 ## Post-exit write ordering
 
-The id — and, on the task path, its `metrics_sessions` entry — are persisted only
-**after the child has exited**. On the non-interactive branch `StartSession` is
-called first and `persistSessionAndMetrics` (task) / `persistGoalSessionID` (goal)
-run only when it returns cleanly.
+On the **task path** the fresh id and its `metrics_sessions` entry are now persisted
+**before the child is spawned**: `persistSessionAndMetrics` runs first, then
+`StartSession`. The reason is the child's own `/vault-cli:work-on-task`
+session-connect: it must read `claude_session_id` already set, so its "already
+connected, do NOT overwrite" step fires instead of scanning the transcript directory
+and attaching whichever transcript was most recently modified. A spawn failure
+triggers a re-read-based compensating clear that removes the id and that run's
+metrics entry (see `## Failure path`).
 
-This is the load-bearing part of the fix, and it is what makes the id trustworthy:
-the id is the UI's signal that Resume will work, so it must not appear while a child
-still holds the transcript. Writing after the child exits is also race-free — there
-is no concurrent writer left — and the re-read before writing is load-bearing on
-**every** branch, because the turn mutates the same file it is being written to.
+The **goal path** (`pkg/ops/goal_workon.go`) keeps its post-exit ordering unchanged:
+`persistGoalSessionID` runs only after `StartSession` returns cleanly.
 
-On any failure — child exit error, invalid turn JSON, bound expiry, ctx cancel —
-nothing is persisted. There is no compensating clear because there is nothing to
-undo, and the task keeps whatever frontmatter the child wrote.
+On the task path the pre-spawn re-read before writing is load-bearing: the task file
+is a shared, concurrently-written vault file (the headless turn mutates it too), so
+writing the stale in-memory copy would revert those changes.
 
 ## Why stream-json was rejected
 
@@ -104,11 +105,13 @@ session that hangs after starting is left to the Vault UI's existing
 
 ## Failure path
 
-Nothing is persisted on any failure, so there is nothing to compensate for. The
-previous design pre-wrote the id and needed a re-read-modify-write to clear it after
-a failed spawn; with post-exit ordering that path is gone entirely, along with its
-"failed to clear" warning. Frontmatter the child wrote before failing (for example
-`phase: planning`) is untouched, because the caller never writes on the failure path.
+On the **task path** the id is pre-persisted, so a failed spawn runs a compensating
+clear: a re-read-modify-write that removes the id and that run's `metrics_sessions`
+entry while preserving any frontmatter the child wrote before failing (for example
+`phase: planning`). The re-read is load-bearing — clearing from the stale in-memory
+copy would revert the child's writes. If the clear itself fails it is logged as a
+warning and never masks the original spawn error. The **goal path** persists nothing
+on failure and needs no clear.
 
 The persist step itself can also fail — the re-read or the write. When it does, the
 caller is handed an **empty** id, never the one it minted. Nothing landed on disk, so
@@ -164,8 +167,10 @@ there belongs to the vault-ui follow-on, not to the locker.
 
 **The detached-child safety property.** On the spawn path, when the parent stops
 waiting — child exit error, ctx cancel, or the 30m bound — the detached child keeps
-running *without* the parent's lock. That is safe because the id is never persisted on
-those paths, so no second engager can target it: the id is only handed back (and only
-resumable) when it is on disk, and it is only on disk when the child has exited. Do
-not pre-persist the id on the failure paths — doing so would make the child targetable
-precisely when it is running unlocked.
+running *without* the parent's lock. On the task path the id is pre-persisted, and the
+safety argument is layered: during the running window Resume is not offered for a live
+turn (the Vault UI resolver fix, shipped separately) and the per-session lock (spec
+042) refuses a second writer on the same id, so the child running unlocked is not
+targetable; on any failure the compensating clear removes the id, so it cannot stay
+resumable-looking. The goal path keeps its post-exit ordering, so there the id is only
+on disk once the child has exited.

@@ -8,7 +8,25 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.118.6
+
+- fix: `/vault-cli:session-close` Phase 4.5 no longer hard-flags follow-up tasks the session itself created. "Touched" is implemented as "edited a file under `tasks_dir`" and creating a file counts as editing it, so every session that filed a follow-up tripped the anchor gate — a whole legitimate category, since new tasks default to `in_progress` by vault convention. The only lever available at close was a status flip, which silences the gate without changing anything real; the operator reported it as near-daily. A touched task is now excluded when its file was created this session AND its `claude_session_id` does not name this session, so a task that was created *and then worked* still hard-flags as the anchor. Phase 4.6 excludes the same category, so the two phases stay consistent rather than handing the false positive to each other. Phase 4.5's original scoping (v0.77.0) weighed *mine vs sibling-session*, and the hard-gate tightening (v0.117.3) closed the annotation loophole — neither considered *created-this-session*.
+- fix: `/vault-cli:reflect` no longer calls `check_duplicates` on a file that does not exist yet. CREATE step 2 passed `file_path` for the page step 3 then creates, so the pre-write duplicate check could never fire; it is now a `search_related` on the drafted summary sentence, with `check_duplicates` moved to a post-write backstop. Step 3's candidate search also required ≥2 queries framed by domain rather than by the drafted title — a title-derived query returns pages phrased like the draft and misses pages stating the same thesis in different vocabulary. Observed 2026-09-02: a near-duplicate of an existing page was written and then deleted after the existing page surfaced only incidentally. The non-semantic-search fallback carries the same ≥2-framings requirement — keyword matching is weaker at exactly the miss this guards against — and when `check_duplicates` is unavailable the report now says the page was pre-write-checked only, rather than implying a backstop ran.
+
+## v0.118.5
+
+- fix: `/vault-cli:sync-progress` now resolves the daily-note date with `date +%Y-%m-%d` instead of leaving `YYYY-MM-DD` as an unexplained placeholder. A session spanning midnight or resumed days later has a stale sense of "today", so the entry landed in a past day's note where the work is invisible on the day it happened — observed 2026-09-02, an entry written to `2026-08-30.md` three days late and caught only incidentally by `session-close` Phase 7, which already resolves the date correctly. Sibling of the existing stale-copy guard in the same section: stale input, different field.
+
+## v0.118.4
+
+- fix: `/vault-cli:execute-task` auto-invoke no longer strands a headless run at a confirmation gate. The NO-ASK mode now propagates into the auto-invoked subtask command (` --non-interactive` is appended, matching what `/vault-cli:work-on-task` Phase 5 already does when chaining inward), and a command that defines no non-interactive contract — or whose contract needs a confirmation it cannot obtain headlessly — is printed rather than invoked. Previously the contract declared this branch "unchanged" under NO-ASK, so a `claude --print` run could auto-invoke an interactive command, do substantial work, then stall at a gate with no operator to answer it, leaving the task parked in `execution` with its first subtask unchecked.
+- fix: `/vault-cli:execute-task`'s auto-invoke allowlist no longer contradicts its own examples. The rule said "bare-name commands and skills shipped by those same plugins" while citing `/start-day`, which is vault-local (`<vault>/.claude/commands/`) and shipped by no plugin; resolving that ambiguity by matching the example widened the blast radius, the opposite of the section's purpose. Vault-local commands are now explicitly in scope, which is what `recurring-task-creator`-generated task files require — their first subtask is routinely a bare vault-local command.
+
+## v0.118.3
+
+- fix: `task work-on` now persists the fresh `claude_session_id` and its `metrics_sessions` entry to the task file before the headless Claude session is spawned, so the session's own `/vault-cli:work-on-task` session-connect reads the field already set and keeps the fresh session instead of scanning the transcript directory and attaching whichever transcript was most recently modified (in a fleet of concurrent sessions, rarely the fresh one); a failed spawn now triggers a re-read-based compensating clear that removes the id and that run's metrics entry, preserving the invariant that an id on disk means a resumable session — frontmatter the child wrote before failing survives, and a failed clear never masks the spawn error
+
+## v0.118.2
 
 - fix: `/vault-cli:work-on-task` session-rename suggestion now emits `run /rename <name>` without quotes — `/rename` takes the rest of the line verbatim, so a quoted suggestion named the session with literal quote characters.
 

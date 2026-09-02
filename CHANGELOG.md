@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.121.0
 
 - feat: `vault-cli task show "T" --output json` and `vault-cli task list --output json` now report the boolean `flag` field from frontmatter — `"flag": true` / `"flag": false` / omitted when un-flagged (omitempty), so downstream consumers like vault-ui can render and sort flagged cards.
 

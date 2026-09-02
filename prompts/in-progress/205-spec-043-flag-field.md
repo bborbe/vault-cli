@@ -1,7 +1,8 @@
 ---
-spec: ["043-flag-field"]
-status: draft
+status: approved
+spec: [043-flag-field]
 created: "2026-09-02T20:08:50Z"
+queued: "2026-09-02T20:29:47Z"
 ---
 
 # Add the boolean `flag` field to task frontmatter

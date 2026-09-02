@@ -1,6 +1,8 @@
 ---
-status: approved
+status: prompted
 approved: "2026-09-02T20:29:47Z"
+generating: "2026-09-02T20:29:47Z"
+prompted: "2026-09-02T20:29:47Z"
 branch: dark-factory/flag-field
 ---
 

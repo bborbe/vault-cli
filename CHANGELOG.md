@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.118.5
 
 - fix: `/vault-cli:sync-progress` now resolves the daily-note date with `date +%Y-%m-%d` instead of leaving `YYYY-MM-DD` as an unexplained placeholder. A session spanning midnight or resumed days later has a stale sense of "today", so the entry landed in a past day's note where the work is invisible on the day it happened — observed 2026-09-02, an entry written to `2026-08-30.md` three days late and caught only incidentally by `session-close` Phase 7, which already resolves the date correctly. Sibling of the existing stale-copy guard in the same section: stale input, different field.
 

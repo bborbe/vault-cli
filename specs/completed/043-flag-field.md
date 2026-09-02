@@ -113,8 +113,8 @@ The `flag` field never exists, so the daily boot keeps having no frontmatter cha
 
 ## Verification Result
 
-**Verified:** 2026-09-02T21:08:45Z (HEAD b89e333)
-**Binary:** /private/tmp/claude-501/-Users-bborbe-Documents-Obsidian-Personal/bef5ab66-dd3c-4916-8a08-5406b39f4858/scratchpad/043-verify/vault-cli — fresh `go build` from HEAD b89e333
+**Verified:** 2026-09-02T21:18:11Z (HEAD b89e333)
+**Binary:** /private/tmp/claude-501/-Users-bborbe-Documents-Obsidian-Personal/4ae71432-439f-4ee0-abf0-396f281df19d/scratchpad/043-verify/vault-cli — fresh `go build` from HEAD b89e333
 **Scenario:** Live CLI walk against throwaway scratch vault/task T — `task set/get/clear flag` across every AC variant, diffs isolated against a canonical no-flag baseline (git repo in scratch vault).
 **Evidence:**
 - AC1: `set flag true`/`yes` → `grep '^flag: true'` matches; `set flag FALSE` → `^flag: false`; git diff = only the added `flag:` line

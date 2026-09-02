@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.119.0
 
 - feat: task frontmatter gains a boolean `flag` field — `vault-cli task set "T" flag true|yes|false|no` writes it (case-insensitive; invalid values error and write nothing), `vault-cli task clear "T" flag` removes it, and `vault-cli task get "T" flag` reads `true`/`false`/empty. The flag round-trips with the same omitempty semantics as the rest of the map and is orthogonal to status, phase, priority and the date fields.
 

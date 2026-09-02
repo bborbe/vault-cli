@@ -155,6 +155,14 @@ A touched task is **excluded** from this gate when BOTH hold:
 1. its file was created during this session (it did not exist when the session began), AND
 2. its `claude_session_id` does not name this session — i.e. `work-on-task` never anchored on it.
 
+Determine (1) from this conversation first — you created the file, so you know. When that is unclear (resumed session, post-compaction), fall back to git, since the vault is a repo:
+
+```bash
+cd <vault.path> && git log --diff-filter=A --format=%H -1 -- "<tasks_dir>/<task>.md"
+```
+
+Empty output means the file is untracked — created and not yet autocommitted, i.e. new. A commit hash predating this session means pre-existing → the exclusion does NOT apply, and the gate runs normally. **When you cannot establish (1) either way, treat the task as pre-existing and let it flag** — a false flag costs the operator one glance, a false exclusion silently drops the anchor gate this phase exists to enforce.
+
 Everything else touched and `in_progress` still hard-flags. Condition 2 is load-bearing: a session that creates a task *and then works it* has made it the anchor, and abandoning that is exactly what this phase exists to catch.
 
 Observed 2026-09-02: a session completed its anchor, filed two follow-up tasks, and close flagged both — the operator reported it as near-daily (*"You do it every day nearly"*), and the proposed resolution was to flip both to `next` purely to clear the flag. The originating task [[Make Session-Close Refuse to Close While the Anchor Task Is In_progress]] weighed *mine vs sibling-session* and never considered *created-this-session*; this is that unconsidered third category, not a reversal of its Out of Scope.
@@ -170,13 +178,13 @@ Interpret:
 
 - `STATUS_EXIT == 0` and parsed `value` field:
   - `status: completed` → ✅ silent OK
-  - `status: in_progress` → ⚠ **HARD flag** — the session anchored on this task but never completed it. This is a blocker on the clean verdict, not a soft warning: it forces Phase 9 into mode 3 (outstanding) and must be the item named in the closer's `approve:` line. There is no "no action needed" / "correct, standing trigger" / "deliberate" annotation that downgrades an `in_progress` anchor task to clean — a task that is designed never to complete still blocks the clean close until the operator explicitly resolves it (complete / defer / hold / abort). Observed 2026-08-30: a standing-trigger anchor task stayed `in_progress` by design, session-close flagged it as outstanding but named a worktree-cleanup item as the `approve:` item instead, and the session closed `⚪ DONE` with the anchor unfinished. The task is the gate; no other item stands in for it.
+  - `status: in_progress` → ⚠ **HARD flag**, *unless the created-this-session exclusion above applies* (check that first — it is the only exception, and it is decided before this bullet) — the session anchored on this task but never completed it. This is a blocker on the clean verdict, not a soft warning: it forces Phase 9 into mode 3 (outstanding) and must be the item named in the closer's `approve:` line. There is no "no action needed" / "correct, standing trigger" / "deliberate" annotation that downgrades an `in_progress` anchor task to clean — a task that is designed never to complete still blocks the clean close until the operator explicitly resolves it (complete / defer / hold / abort). Observed 2026-08-30: a standing-trigger anchor task stayed `in_progress` by design, session-close flagged it as outstanding but named a worktree-cleanup item as the `approve:` item instead, and the session closed `⚪ DONE` with the anchor unfinished. The task is the gate; no other item stands in for it.
   - created this session AND not anchored (see the exclusion above) → ✅ silent OK (follow-up filed for a later session, never this session's anchor)
   - `status: hold` / `status: aborted` → ✅ silent OK (deliberate non-completion, owner already decided)
   - `status: next` / `status: backlog` → ✅ silent OK (touched as a side-reference, not as an active anchor)
 - `STATUS_EXIT != 0` OR JSON parse failure → ⚠ surface as outstanding (do NOT silently skip — a failed check means the anchor-task gate is unverified, which is exactly the failure mode this phase guards against)
 
-For each `in_progress` task, surface in Phase 9 as outstanding:
+For each `in_progress` task that was **not** excluded above, surface in Phase 9 as outstanding:
 
 ```
 N. Task [[<title>]] still in_progress — `/vault-cli:complete-task "<title>"` to finish, `/vault-cli:defer-task "<title>" <date>` to push out, or set status hold/aborted if abandoning

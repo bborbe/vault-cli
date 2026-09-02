@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat: task frontmatter gains a boolean `flag` field — `vault-cli task set "T" flag true|yes|false|no` writes it (case-insensitive; invalid values error and write nothing), `vault-cli task clear "T" flag` removes it, and `vault-cli task get "T" flag` reads `true`/`false`/empty. The flag round-trips with the same omitempty semantics as the rest of the map and is orthogonal to status, phase, priority and the date fields.
+
 ## v0.118.6
 
 - fix: `/vault-cli:session-close` Phase 4.5 no longer hard-flags follow-up tasks the session itself created. "Touched" is implemented as "edited a file under `tasks_dir`" and creating a file counts as editing it, so every session that filed a follow-up tripped the anchor gate — a whole legitimate category, since new tasks default to `in_progress` by vault convention. The only lever available at close was a status flip, which silences the gate without changing anything real; the operator reported it as near-daily. A touched task is now excluded when its file was created this session AND its `claude_session_id` does not name this session, so a task that was created *and then worked* still hard-flags as the anchor. Phase 4.6 excludes the same category, so the two phases stay consistent rather than handing the false positive to each other. Phase 4.5's original scoping (v0.77.0) weighed *mine vs sibling-session*, and the hard-gate tightening (v0.117.3) closed the annotation loophole — neither considered *created-this-session*.

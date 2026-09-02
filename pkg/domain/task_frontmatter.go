@@ -67,6 +67,12 @@ func (f TaskFrontmatter) Priority() Priority {
 	}
 }
 
+// Flag reads the "flag" key via GetBool coercion.
+// Returns true for a YAML bool true or the strings "true"/"yes" (case-insensitive,
+// surrounding whitespace trimmed); false for a missing key, a false value, or an
+// unrecognised value.
+func (f TaskFrontmatter) Flag() bool { return f.GetBool("flag") }
+
 // Assignee reads "assignee" key as string.
 func (f TaskFrontmatter) Assignee() string { return f.GetString("assignee") }
 
@@ -300,6 +306,20 @@ func (f *TaskFrontmatter) SetPriority(ctx context.Context, p Priority) error {
 	return nil
 }
 
+// SetFlag stores the flag in the map. A bool has no invalid state, so this
+// setter mirrors the SetPriority signature (ctx + error) for the validated
+// field family and always returns nil; value validation happens at the string
+// boundary in setFlagField. The parameter is named `_` because the unparam
+// linter (enabled in .golangci.yml) rejects an unused named parameter.
+func (f *TaskFrontmatter) SetFlag(_ context.Context, v bool) error {
+	f.Set("flag", v)
+	return nil
+}
+
+// ClearFlag removes the flag key entirely, so the task reads back as un-flagged
+// and the key is never emitted on the next write.
+func (f *TaskFrontmatter) ClearFlag() { f.Delete("flag") }
+
 // SetPhase stores the phase pointer in the map. Deletes the key if p is nil.
 func (f *TaskFrontmatter) SetPhase(p *TaskPhase) {
 	if p == nil {
@@ -353,6 +373,11 @@ func (f TaskFrontmatter) GetField(key string) string {
 			return ""
 		}
 		return strconv.Itoa(int(p))
+	case "flag":
+		if f.Get("flag") == nil {
+			return ""
+		}
+		return strconv.FormatBool(f.GetBool("flag"))
 	case "assignee":
 		return f.Assignee()
 	case "defer_date":
@@ -425,6 +450,25 @@ func (f *TaskFrontmatter) setPriorityField(ctx context.Context, value string) er
 	return f.SetPriority(ctx, Priority(n))
 }
 
+// setFlagField parses a boolean string and stores the flag, or deletes on empty.
+// Accepted values match GetBool's coercion: "true"/"yes" and "false"/"no",
+// case-insensitive with surrounding whitespace trimmed. The canonical form
+// stored is a real YAML bool (true or false).
+func (f *TaskFrontmatter) setFlagField(ctx context.Context, value string) error {
+	if value == "" {
+		f.ClearFlag()
+		return nil
+	}
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "true", "yes":
+		return f.SetFlag(ctx, true)
+	case "false", "no":
+		return f.SetFlag(ctx, false)
+	default:
+		return errors.Wrapf(ctx, validation.Error, "invalid flag value '%s' (accepted values: true/yes/false/no)", value)
+	}
+}
+
 // setPhaseField normalises the value (accepting aliases) and stores the phase, or clears on empty.
 func (f *TaskFrontmatter) setPhaseField(ctx context.Context, value string) error {
 	if value == "" {
@@ -455,6 +499,8 @@ func (f *TaskFrontmatter) SetField(ctx context.Context, key, value string) error
 		setStringSliceField(f.SetGoals, value)
 	case "priority":
 		return f.setPriorityField(ctx, value)
+	case "flag":
+		return f.setFlagField(ctx, value)
 	case "assignee":
 		f.SetAssignee(value)
 	case "defer_date":

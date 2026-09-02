@@ -291,6 +291,29 @@ var _ = Describe("FrontmatterGetOperation", func() {
 		})
 	})
 
+	Context("getting flag field when absent", func() {
+		BeforeEach(func() {
+			key = "flag"
+		})
+
+		It("returns empty string with no error", func() {
+			Expect(err).To(BeNil())
+			Expect(result).To(Equal(""))
+		})
+	})
+
+	Context("getting flag field when set", func() {
+		BeforeEach(func() {
+			key = "flag"
+			_ = task.SetFlag(context.Background(), true)
+		})
+
+		It("returns true", func() {
+			Expect(err).To(BeNil())
+			Expect(result).To(Equal("true"))
+		})
+	})
+
 	Context("task not found", func() {
 		BeforeEach(func() {
 			key = "phase"
@@ -365,6 +388,52 @@ var _ = Describe("FrontmatterSetOperation", func() {
 		It("returns an error", func() {
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(ContainSubstring("unknown task phase"))
+		})
+
+		It("does not write the task", func() {
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(0))
+		})
+	})
+
+	Context("setting flag field", func() {
+		BeforeEach(func() {
+			key = "flag"
+			value = "true"
+		})
+
+		It("updates the flag field", func() {
+			Expect(err).To(BeNil())
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
+			Expect(writtenTask.Flag()).To(BeTrue())
+		})
+	})
+
+	Context("setting flag field to false", func() {
+		BeforeEach(func() {
+			key = "flag"
+			value = "no"
+		})
+
+		It("writes flag false", func() {
+			Expect(err).To(BeNil())
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
+			Expect(writtenTask.Flag()).To(BeFalse())
+		})
+	})
+
+	Context("setting invalid flag field", func() {
+		BeforeEach(func() {
+			key = "flag"
+			value = "banana"
+		})
+
+		It("returns an error naming the value and the accepted set", func() {
+			Expect(err).NotTo(BeNil())
+			Expect(err.Error()).To(ContainSubstring("banana"))
+			Expect(err.Error()).To(ContainSubstring("true"))
+			Expect(err.Error()).To(ContainSubstring("false"))
 		})
 
 		It("does not write the task", func() {

@@ -181,6 +181,61 @@ var _ = Describe("TaskFrontmatter", func() {
 		})
 	})
 
+	Describe("Flag", func() {
+		DescribeTable("coerces the stored value",
+			func(stored any, expected bool) {
+				fm = domain.NewTaskFrontmatter(map[string]any{"flag": stored})
+				Expect(fm.Flag()).To(Equal(expected))
+			},
+			Entry("bool true", true, true),
+			Entry("bool false", false, false),
+			Entry("string true", "true", true),
+			Entry("string yes", "yes", true),
+			Entry("string TRUE uppercase", "TRUE", true),
+			Entry("string no", "no", false),
+			Entry("string FALSE uppercase", "FALSE", false),
+			Entry("string with surrounding whitespace", "  yes  ", true),
+			Entry("unparseable string", "banana", false),
+			Entry("nil value", nil, false),
+		)
+
+		It("returns false for a missing key", func() {
+			fm = domain.NewTaskFrontmatter(map[string]any{"status": "todo"})
+			Expect(fm.Flag()).To(BeFalse())
+		})
+	})
+
+	Describe("SetFlag", func() {
+		It("stores true", func() {
+			Expect(fm.SetFlag(ctx, true)).To(Succeed())
+			Expect(fm.Flag()).To(BeTrue())
+		})
+
+		It("stores false", func() {
+			Expect(fm.SetFlag(ctx, false)).To(Succeed())
+			Expect(fm.Flag()).To(BeFalse())
+		})
+
+		It("stores a real YAML bool, not the string", func() {
+			Expect(fm.SetFlag(ctx, true)).To(Succeed())
+			Expect(fm.Get("flag")).To(Equal(true))
+		})
+	})
+
+	Describe("ClearFlag", func() {
+		It("removes the key entirely", func() {
+			Expect(fm.SetFlag(ctx, true)).To(Succeed())
+			fm.ClearFlag()
+			Expect(fm.Flag()).To(BeFalse())
+			Expect(fm.Get("flag")).To(BeNil())
+		})
+
+		It("is a no-op when the key is absent", func() {
+			fm.ClearFlag()
+			Expect(fm.Get("flag")).To(BeNil())
+		})
+	})
+
 	Describe("Goals", func() {
 		It("returns nil for missing key", func() {
 			Expect(fm.Goals()).To(BeNil())
@@ -571,6 +626,20 @@ var _ = Describe("TaskFrontmatter", func() {
 			fm = domain.NewTaskFrontmatter(map[string]any{"custom_field": "custom_value"})
 			Expect(fm.GetField("custom_field")).To(Equal("custom_value"))
 		})
+
+		It("returns empty for an absent flag", func() {
+			Expect(fm.GetField("flag")).To(Equal(""))
+		})
+
+		It("returns true for flag true", func() {
+			fm = domain.NewTaskFrontmatter(map[string]any{"flag": true})
+			Expect(fm.GetField("flag")).To(Equal("true"))
+		})
+
+		It("returns false for flag false", func() {
+			fm = domain.NewTaskFrontmatter(map[string]any{"flag": false})
+			Expect(fm.GetField("flag")).To(Equal("false"))
+		})
 	})
 
 	Describe("SetField", func() {
@@ -608,6 +677,31 @@ var _ = Describe("TaskFrontmatter", func() {
 		It("stores unknown field without error", func() {
 			Expect(fm.SetField(ctx, "custom_field", "custom_value")).To(Succeed())
 			Expect(fm.GetField("custom_field")).To(Equal("custom_value"))
+		})
+
+		It("sets flag true from the string 'yes'", func() {
+			Expect(fm.SetField(ctx, "flag", "yes")).To(Succeed())
+			Expect(fm.Flag()).To(BeTrue())
+		})
+
+		It("sets flag false from the string 'FALSE'", func() {
+			Expect(fm.SetField(ctx, "flag", "FALSE")).To(Succeed())
+			Expect(fm.Flag()).To(BeFalse())
+		})
+
+		It("returns a validation error for an invalid flag value", func() {
+			err := fm.SetField(ctx, "flag", "banana")
+			Expect(err).To(HaveOccurred())
+			Expect(errors.Is(err, validation.Error)).To(BeTrue())
+			Expect(err.Error()).To(ContainSubstring("banana"))
+			Expect(err.Error()).To(ContainSubstring("true"))
+			Expect(err.Error()).To(ContainSubstring("false"))
+		})
+
+		It("clears flag on empty string", func() {
+			Expect(fm.SetField(ctx, "flag", "true")).To(Succeed())
+			Expect(fm.SetField(ctx, "flag", "")).To(Succeed())
+			Expect(fm.Get("flag")).To(BeNil())
 		})
 	})
 
@@ -777,5 +871,82 @@ var _ = Describe("TaskFrontmatterGoldenYAML", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		Expect(string(got)).To(Equal(string(want)))
+	})
+})
+
+var _ = Describe("TaskFrontmatter flag YAML round-trip", func() {
+	var ctx context.Context
+	var fm domain.TaskFrontmatter
+
+	BeforeEach(func() {
+		ctx = context.Background()
+		fm = domain.NewTaskFrontmatter(nil)
+	})
+
+	It("writes flag true alongside pre-existing keys without touching them", func() {
+		fm = domain.NewTaskFrontmatter(map[string]any{
+			"status":       "in_progress",
+			"priority":     3,
+			"planned_date": "2025-03-15",
+			"themes":       []any{"t1"},
+			"custom_key":   "custom-value",
+		})
+
+		Expect(fm.SetField(ctx, "flag", "true")).To(Succeed())
+
+		data, err := yaml.Marshal(fm.RawMap())
+		Expect(err).NotTo(HaveOccurred())
+		yamlText := string(data)
+
+		Expect(yamlText).To(ContainSubstring("flag: true"))
+		for _, preexisting := range []string{"status:", "priority:", "planned_date:", "themes:", "custom_key:"} {
+			Expect(yamlText).To(ContainSubstring(preexisting))
+		}
+	})
+
+	It("never emits a flag key for a task that was never flagged", func() {
+		fm = domain.NewTaskFrontmatter(map[string]any{"status": "todo"})
+		data, err := yaml.Marshal(fm.RawMap())
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(data)).NotTo(ContainSubstring("flag:"))
+	})
+
+	It("emits no flag key after clear", func() {
+		Expect(fm.SetField(ctx, "flag", "true")).To(Succeed())
+		fm.ClearFlag()
+		data, err := yaml.Marshal(fm.RawMap())
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(data)).NotTo(ContainSubstring("flag:"))
+	})
+
+	It("round-trips flag true through unmarshal", func() {
+		Expect(fm.SetField(ctx, "flag", "true")).To(Succeed())
+		data, err := yaml.Marshal(fm.RawMap())
+		Expect(err).NotTo(HaveOccurred())
+
+		var raw map[string]any
+		Expect(yaml.Unmarshal(data, &raw)).To(Succeed())
+		re := domain.NewTaskFrontmatter(raw)
+		Expect(re.Flag()).To(BeTrue())
+	})
+
+	It("round-trips explicit false as flag: false", func() {
+		Expect(fm.SetFlag(ctx, false)).To(Succeed())
+		data, err := yaml.Marshal(fm.RawMap())
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(data)).To(ContainSubstring("flag: false"))
+
+		var raw map[string]any
+		Expect(yaml.Unmarshal(data, &raw)).To(Succeed())
+		Expect(domain.NewTaskFrontmatter(raw).Flag()).To(BeFalse())
+	})
+
+	It("preserves an unparseable flag value on write until explicitly changed", func() {
+		fm = domain.NewTaskFrontmatter(map[string]any{"flag": "banana", "status": "todo"})
+		Expect(fm.Flag()).To(BeFalse())
+
+		data, err := yaml.Marshal(fm.RawMap())
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(data)).To(ContainSubstring("flag: banana"))
 	})
 })

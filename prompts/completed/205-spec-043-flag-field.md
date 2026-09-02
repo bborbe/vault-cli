@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [043-flag-field]
+summary: Added boolean flag field to task frontmatter with Flag/SetFlag/ClearFlag accessors, validated setFlagField string-boundary helper, SetField/GetField dispatch routing, domain + ops tests, and CHANGELOG feat entry under Unreleased
+execution_id: vault-cli-exec-205-spec-043-flag-field
+dark-factory-version: dev
 created: "2026-09-02T20:08:50Z"
 queued: "2026-09-02T20:29:47Z"
+started: "2026-09-02T20:29:49Z"
+completed: "2026-09-02T20:33:31Z"
 ---
 
 # Add the boolean `flag` field to task frontmatter

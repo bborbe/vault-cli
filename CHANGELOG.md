@@ -8,6 +8,11 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat: `/vault-cli:task-status` now re-evaluates the task's phase and plan state before reporting. A new inline Phase 2.5 step reads the task's frontmatter (`status`/`phase`) and its `# Success Criteria` / `# Tasks` sections, classifies the task into one of nine branches (closed / ai_review / human_review / not-started / plan-ready / gate-not-run / plan-unvalidated / plan-complete / in-progress), emits a `Plan:` line (`validated · N/M subtasks · complete|not complete` vs `not started (missing SC/Tasks)`), and recommends the next gated command (`/execute-task`, `/plan-task`, `/complete-task`, `/work-on-task` or none). The assessment is recommend-only — `task-status` never mutates status, phase, or checkboxes, keeping `/execute-task` and `/complete-task` the sole phase flippers per the Task Lifecycle Guide. The `task-manager-agent` status action renders the assessment block verbatim at the top of its grouped output.
+
+
 ## v0.119.0
 
 - feat: task frontmatter gains a boolean `flag` field — `vault-cli task set "T" flag true|yes|false|no` writes it (case-insensitive; invalid values error and write nothing), `vault-cli task clear "T" flag` removes it, and `vault-cli task get "T" flag` reads `true`/`false`/empty. The flag round-trips with the same omitempty semantics as the rest of the map and is orthogonal to status, phase, priority and the date fields.

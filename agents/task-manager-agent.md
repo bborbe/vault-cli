@@ -67,6 +67,7 @@ Emit a grouped-checkbox status report for a resolved task path. The slash comman
 
 **Arguments:**
 - `TASK_PATH` (required) — absolute path to the task file. The slash command resolves this in Phase 2; do NOT attempt to detect from conversation here (sub-agents can't see the parent conversation).
+- `ASSESSMENT` (optional) — the three-line phase/plan assessment block computed by the slash command's inline Phase 2.5 (see `commands/task-status.md`). Rendered verbatim at the top of the grouped report; do NOT recompute or second-guess it — the classification needs the command's conversation context, which a sub-agent cannot see. Omitted entirely when the caller doesn't pass it (backward compatible with other callers).
 - `OUTPUT` (optional) — `grouped-checkbox` (new default) or `flat` (legacy aggregate-only).
 
 **Steps:**
@@ -112,6 +113,8 @@ Emit a grouped-checkbox status report for a resolved task path. The slash comman
 
 7. **Render output** — `OUTPUT=grouped-checkbox` (default):
    ```
+   {ASSESSMENT — rendered verbatim when provided, blank line after}
+
    Task: {task_name}
    Outcome: {outcome}
    Status: {status} · phase: {phase} · {completed}/{total} ({percent}%)
@@ -132,6 +135,7 @@ Emit a grouped-checkbox status report for a resolved task path. The slash comman
    ```
 
    **Rules:**
+   - `ASSESSMENT` block (when provided) renders as-is at the very top, blank line after. Never recompute it — Phase 2.5 in the slash command owns the classification.
    - `Outcome:` line is omitted entirely when `outcome` is empty (legacy task with no Summary paragraph). When present, it's the contract reminder — "what's true when this is done" — and sits above the volatile Status line for at-a-glance scanning.
    - Section header (e.g. `## Success Criteria`) only prints when the section exists AND has ≥ 1 checkbox. Empty sections are omitted entirely (no header, no body).
    - Preserve the disk's exact state token (`[x]` / `[ ]` / `[/]`) — do NOT normalize.

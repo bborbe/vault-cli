@@ -59,6 +59,7 @@ type TaskListItem struct {
 	ModifiedDate    string   `json:"modified_date,omitempty"`
 	CompletedDate   string   `json:"completed_date,omitempty"`
 	Goals           []string `json:"goals,omitempty"`
+	Flag            bool     `json:"flag,omitempty"`
 }
 
 // Execute lists tasks from the vault, optionally filtered by status, assignee, and goal.
@@ -112,6 +113,7 @@ func (l *listOperation) Execute(
 				}
 				return ""
 			}(),
+			Flag: task.Flag(),
 		}
 		if d := task.DeferDate(); d != nil {
 			items[i].DeferDate = d.String()

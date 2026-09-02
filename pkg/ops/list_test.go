@@ -724,4 +724,38 @@ var _ = Describe("ListOperation JSON output", func() {
 			Expect(string(data)).To(ContainSubstring(`"goals":["[[Goal A]]"]`))
 		})
 	})
+
+	Context("Flag field in TaskListItem", func() {
+		It("includes flag as true in JSON output when frontmatter has flag: true", func() {
+			taskWithFlag := domain.NewPage(
+				map[string]any{"status": "todo", "flag": true},
+				domain.FileMetadata{Name: "Flagged Task"},
+				domain.Content(""),
+			)
+			mockPageStorage.ListPagesReturns([]*domain.Page{taskWithFlag}, nil)
+			items, execErr := listOp.Execute(ctx, "/vault", "my-vault", "Tasks", nil, true, "", "")
+			Expect(execErr).To(BeNil())
+			Expect(items).To(HaveLen(1))
+			Expect(items[0].Flag).To(BeTrue())
+			data, marshalErr := json.Marshal(items[0])
+			Expect(marshalErr).To(BeNil())
+			Expect(string(data)).To(ContainSubstring(`"flag":true`))
+		})
+
+		It("omits flag from JSON output when frontmatter lacks the key", func() {
+			taskNoFlag := domain.NewPage(
+				map[string]any{"status": "todo"},
+				domain.FileMetadata{Name: "Plain Task"},
+				domain.Content(""),
+			)
+			mockPageStorage.ListPagesReturns([]*domain.Page{taskNoFlag}, nil)
+			items, execErr := listOp.Execute(ctx, "/vault", "my-vault", "Tasks", nil, true, "", "")
+			Expect(execErr).To(BeNil())
+			Expect(items).To(HaveLen(1))
+			Expect(items[0].Flag).To(BeFalse())
+			data, marshalErr := json.Marshal(items[0])
+			Expect(marshalErr).To(BeNil())
+			Expect(string(data)).NotTo(ContainSubstring(`"flag"`))
+		})
+	})
 })

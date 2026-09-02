@@ -58,6 +58,7 @@ type TaskDetail struct {
 	CompletedDate   string   `json:"completed_date,omitempty"`
 	FilePath        string   `json:"file_path"`
 	Vault           string   `json:"vault"`
+	Flag            bool     `json:"flag,omitempty"`
 }
 
 var (
@@ -95,6 +96,7 @@ func (o *showOperation) Execute(
 		Content:         string(task.Content),
 		FilePath:        task.FilePath,
 		Vault:           vaultName,
+		Flag:            task.Flag(),
 	}
 
 	if d := task.DeferDate(); d != nil {

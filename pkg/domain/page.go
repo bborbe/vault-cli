@@ -77,6 +77,9 @@ func (p Page) Priority() Priority {
 // Assignee reads "assignee" key as string.
 func (p Page) Assignee() string { return p.GetString("assignee") }
 
+// Flag reads the "flag" key via GetBool coercion.
+func (p Page) Flag() bool { return p.GetBool("flag") }
+
 // DeferDate reads "defer_date" key as *libtime.DateOrDateTime.
 // Handles both time.Time (YAML-parsed) and string (hand-authored) forms.
 // Returns nil on missing or unparseable value.

@@ -6,6 +6,7 @@ package ops_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -156,6 +157,60 @@ var _ = Describe("ShowOperation completed_date", func() {
 			detail, err := showOp.Execute(ctx, "/vault", "my-vault", "todo-task")
 			Expect(err).To(BeNil())
 			Expect(detail.CompletedDate).To(BeEmpty())
+		})
+	})
+})
+
+var _ = Describe("ShowOperation flag", func() {
+	var (
+		ctx             context.Context
+		showOp          ops.ShowOperation
+		mockTaskStorage *mocks.TaskStorage
+	)
+
+	BeforeEach(func() {
+		ctx = context.Background()
+		mockTaskStorage = &mocks.TaskStorage{}
+		showOp = ops.NewShowOperation(mockTaskStorage)
+	})
+
+	Context("with flag true in frontmatter", func() {
+		BeforeEach(func() {
+			task := domain.NewTask(
+				map[string]any{"status": "in_progress", "flag": true},
+				domain.FileMetadata{Name: "flagged-task", FilePath: "/tmp/nonexistent-flag-test.md"},
+				domain.Content("---\nstatus: in_progress\n---\nDo the thing.\n"),
+			)
+			mockTaskStorage.FindTaskByNameReturns(task, nil)
+		})
+
+		It("includes flag as true in JSON output", func() {
+			detail, err := showOp.Execute(ctx, "/vault", "my-vault", "flagged-task")
+			Expect(err).To(BeNil())
+			Expect(detail.Flag).To(BeTrue())
+			data, marshalErr := json.Marshal(detail)
+			Expect(marshalErr).To(BeNil())
+			Expect(string(data)).To(ContainSubstring(`"flag":true`))
+		})
+	})
+
+	Context("without flag in frontmatter", func() {
+		BeforeEach(func() {
+			task := domain.NewTask(
+				map[string]any{"status": "todo"},
+				domain.FileMetadata{Name: "plain-task", FilePath: "/tmp/nonexistent-flag-test2.md"},
+				domain.Content("---\nstatus: todo\n---\nNot flagged.\n"),
+			)
+			mockTaskStorage.FindTaskByNameReturns(task, nil)
+		})
+
+		It("omits flag from JSON output", func() {
+			detail, err := showOp.Execute(ctx, "/vault", "my-vault", "plain-task")
+			Expect(err).To(BeNil())
+			Expect(detail.Flag).To(BeFalse())
+			data, marshalErr := json.Marshal(detail)
+			Expect(marshalErr).To(BeNil())
+			Expect(string(data)).NotTo(ContainSubstring(`"flag"`))
 		})
 	})
 })

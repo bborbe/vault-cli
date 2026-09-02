@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat: `vault-cli task show "T" --output json` and `vault-cli task list --output json` now report the boolean `flag` field from frontmatter — `"flag": true` / `"flag": false` / omitted when un-flagged (omitempty), so downstream consumers like vault-ui can render and sort flagged cards.
+
 ## v0.120.0
 
 - feat: `/vault-cli:task-status` now re-evaluates the task's phase and plan state before reporting. The `task-manager-agent` status action (which already parses the task's frontmatter and `# Success Criteria` / `# Tasks` / `# Definition of Done` sections) now classifies the task into one of nine branches (closed / ai_review / human_review / not-started / plan-ready / gate-not-run / plan-unvalidated / plan-complete / in-progress), emits a `Plan:` line (`validated · N/M subtasks · complete|not complete` vs `not started (missing SC/Tasks)`), and recommends the next gated command (`/execute-task`, `/plan-task`, `/complete-task`, `/work-on-task` or none) at the top of its grouped output. The assessment is recommend-only — neither the command nor the agent mutates status, phase, or checkboxes, keeping `/execute-task` and `/complete-task` the sole phase flippers per the Task Lifecycle Guide. The classification stays in the agent (single parser); the slash command remains thin and orchestrates detection + delegation only.

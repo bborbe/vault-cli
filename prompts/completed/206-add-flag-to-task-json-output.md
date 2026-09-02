@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [043-flag-field]
+summary: Added the boolean flag field to task JSON output (show and list) via the typed accessor, with tests and a CHANGELOG Unreleased feat entry
+execution_id: vault-cli-exec-206-add-flag-to-task-json-output
+dark-factory-version: dev
 created: "2026-09-02T23:10:00+02:00"
 queued: "2026-09-02T21:34:35Z"
+started: "2026-09-02T21:35:20Z"
+completed: "2026-09-02T21:39:19Z"
 ---
 
 <summary>

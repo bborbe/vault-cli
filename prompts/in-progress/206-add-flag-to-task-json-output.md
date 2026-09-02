@@ -1,8 +1,8 @@
 ---
-status: draft
+status: approved
+spec: [043-flag-field]
 created: "2026-09-02T23:10:00+02:00"
-spec:
-  - 043-flag-field
+queued: "2026-09-02T21:34:35Z"
 ---
 
 <summary>

@@ -319,13 +319,16 @@ Shallow check — file-level presence/absence, not substance. Substance belongs 
 
 Branch by lifecycle position — `status` first (terminal states short-circuit), then `phase` (in-progress sub-stage), then `SC_*` checks (the planning-vs-execution gate).
 
-Compute from the already-loaded task file:
+Resolve `STATUS` and `PHASE` via the live CLI at Phase 7.5 time — never from the run-start snapshot. The task file can change after the Phase 3 read (concurrent session, operator, or an auto-chain phase flip); a stale nudge is worse than none. Observed: the nudge reported `phase: planning` on a task whose frontmatter and CLI both read `execution` because `PHASE` came from the already-loaded file. This is the same rule Phase 3's prerequisite gate uses: "Resolve each via CLI — never by reading the file or its frontmatter."
 
-- `STATUS` = frontmatter `status` value (string)
-- `PHASE` = frontmatter `phase` value (empty string `""` if key absent)
-- `SC_PRESENT` = task body contains a literal `# Success Criteria` heading
+- `STATUS` = `vault-cli task get "<task_name>" status --output json` → parse `value` (string)
+- `PHASE` = `vault-cli task get "<task_name>" phase --output json` → parse `value` (empty string `""` if key absent)
+- On CLI error for either: set that value to `unverified` and skip its branches below (fall through to the `SC_*` checks / default) — never guess from the earlier read
+- `SC_PRESENT` = fresh `Read` of the task file, body contains a literal `# Success Criteria` heading
 - `SC_HAS_CHECKBOXES` = ≥ 1 `- [ ]` or `- [x]` checkbox under that heading
 - `SC_HAS_UNCHECKED` = ≥ 1 `- [ ]` checkbox under that heading
+
+Use the same live `STATUS` / `PHASE` values in the final report (`Status: <status>` and any `(phase: <phase>)` suffix) — the nudge and the report must agree with each other and with the live file.
 
 Emit exactly ONE nudge from the table below — first match wins:
 

@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.121.2
 
 - fix: `vault-cli resolve <name> --output json` without `--vault` now searches every configured vault — a vault that does not contain the name no longer terminates the search, the first vault that resolves it wins, and `found:false` is emitted only after all vaults have been searched (with the internal "not found in any vault" error consumed rather than surfaced).
 

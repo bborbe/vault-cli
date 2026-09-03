@@ -1,8 +1,8 @@
 ---
 status: completed
-spec: ["044"]
+spec: [044-bug-resolve-stops-at-first-vault-on-found-false]
 summary: Added `vault-cli config list` command with plain and JSON output, JSON tags to Vault struct
-container: vault-cli-044-config-list-command
+execution_id: vault-cli-044-config-list-command
 dark-factory-version: v0.54.0
 created: "2026-03-12T17:00:00Z"
 queued: "2026-03-12T16:56:57Z"

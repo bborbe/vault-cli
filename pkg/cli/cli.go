@@ -20,6 +20,7 @@ import (
 	"golang.org/x/term"
 
 	"github.com/bborbe/vault-cli/pkg/config"
+	"github.com/bborbe/vault-cli/pkg/domain"
 	"github.com/bborbe/vault-cli/pkg/ops"
 	"github.com/bborbe/vault-cli/pkg/storage"
 )
@@ -114,7 +115,15 @@ func NewRootCommand(ctx context.Context) *cobra.Command {
 	// Add root-level search command
 	rootCmd.AddCommand(createSearchCommand(ctx, &configLoader, &vaultName, &outputFormat))
 
-	rootCmd.AddCommand(createResolveCommand(ctx, &configLoader, &vaultName, &outputFormat))
+	rootCmd.AddCommand(createResolveCommand(
+		ctx, &configLoader, &vaultName, &outputFormat,
+		func(cfg *storage.Config) ops.ResolveOperation {
+			return ops.NewResolveOperation(
+				storage.NewTaskStorage(cfg),
+				storage.NewGoalStorage(cfg),
+			)
+		},
+	))
 
 	rootCmd.AddCommand(createTaskCommands(ctx, &configLoader, &vaultName, &outputFormat))
 
@@ -1183,6 +1192,7 @@ func createResolveCommand(
 	configLoader *config.Loader,
 	vaultName *string,
 	outputFormat *string,
+	newResolveOp func(cfg *storage.Config) ops.ResolveOperation,
 ) *cobra.Command {
 	return &cobra.Command{
 		Use:   "resolve <name>",
@@ -1196,15 +1206,17 @@ func createResolveCommand(
 			}
 
 			dispatcher := ops.NewVaultDispatcher()
-			return dispatcher.FirstSuccess(ctx, vaults, func(vault *config.Vault) error {
-				storageConfig := storage.NewConfigFromVault(vault)
-				taskStore := storage.NewTaskStorage(storageConfig)
-				goalStore := storage.NewGoalStorage(storageConfig)
-				resolveOp := ops.NewResolveOperation(taskStore, goalStore)
+			err = dispatcher.FirstSuccess(ctx, vaults, func(vault *config.Vault) error {
+				resolveOp := newResolveOp(storage.NewConfigFromVault(vault))
 				result, err := resolveOp.Execute(ctx, vault.Path, name)
 				// resolve always returns nil error under current contract; guard for future change
 				if err != nil {
 					return err
+				}
+				if !result.Found {
+					// A miss in one vault must not end the search: signal
+					// FirstSuccess to continue with the next vault.
+					return errors.Wrapf(ctx, storage.ErrNotFound, "not found in vault %s", vault.Name)
 				}
 				if OutputFormat(*outputFormat).IsJSON() {
 					return PrintJSON(result)
@@ -1212,6 +1224,21 @@ func createResolveCommand(
 				// plain mode: silent no-op — resolve is a machine contract
 				return nil
 			})
+			if err != nil {
+				// An ErrNotFound-class error means every vault missed the name:
+				// the search is exhausted. Consume the wrapped error here and
+				// emit the single not-found JSON instead; any other error (hard
+				// vault error, context cancellation, no vaults configured)
+				// propagates unchanged.
+				if errors.Is(err, storage.ErrNotFound) {
+					if OutputFormat(*outputFormat).IsJSON() {
+						return PrintJSON(domain.ResolveResult{Type: "", Name: name, Found: false})
+					}
+					return nil
+				}
+				return err
+			}
+			return nil
 		},
 	}
 }

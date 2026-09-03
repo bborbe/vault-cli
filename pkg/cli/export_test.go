@@ -30,3 +30,14 @@ func CreateTaskBackfillIdentifiersCommandForTest(
 		ctx, configLoader, vaultName, outputFormat, newBackfillOp,
 	)
 }
+
+// CreateResolveCommandForTest exposes createResolveCommand for testing.
+func CreateResolveCommandForTest(
+	ctx context.Context,
+	configLoader *config.Loader,
+	vaultName *string,
+	outputFormat *string,
+	newResolveOp func(cfg *storage.Config) ops.ResolveOperation,
+) *cobra.Command {
+	return createResolveCommand(ctx, configLoader, vaultName, outputFormat, newResolveOp)
+}

@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: `vault-cli resolve <name> --output json` without `--vault` now searches every configured vault — a vault that does not contain the name no longer terminates the search, the first vault that resolves it wins, and `found:false` is emitted only after all vaults have been searched (with the internal "not found in any vault" error consumed rather than surfaced).
+
 ## v0.121.1
 
 - fix: `/vault-cli:work-on-task-assistant` Phase 7.5 readiness nudge now resolves `STATUS` and `PHASE` via live `vault-cli task get "<task>" status|phase --output json` instead of the run-start file snapshot. The nudge (and the `(phase: …)` suffix appended to the report's `Status:` line) previously used the task file as loaded at Phase 3, so a phase transition that landed mid-run — a concurrent session's `/execute-task`, an operator flip, or an auto-chain — was invisible, and the assistant emitted a stale `phase: planning` gate warning on a task that was already past planning. Observed 2026-08-08/09 and reproduced via a controlled mid-run phase flip. Matches the file's own Phase 3 prerequisite rule ("Resolve each via CLI — never by reading the file or its frontmatter").

@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -73,6 +74,71 @@ vaults:
 
 	return vaultPath, configFile.Name(), func() {
 		_ = os.RemoveAll(vaultPath)
+		_ = os.Remove(configFile.Name())
+	}
+}
+
+// createTwoTempVaults creates two temporary vaults (alpha and beta) each with
+// Tasks and Goals directories, plus a shared config file with
+// default_vault: alpha and both vaults configured.
+func createTwoTempVaults(
+	tasksA, goalsA, tasksB, goalsB map[string]string,
+) (vaultPathA, vaultPathB, configPath string, cleanup func()) {
+	var err error
+	vaultPathA, err = os.MkdirTemp("", "vault-alpha-*")
+	Expect(err).NotTo(HaveOccurred())
+	vaultPathB, err = os.MkdirTemp("", "vault-beta-*")
+	Expect(err).NotTo(HaveOccurred())
+
+	writeVaultFiles := func(vaultPath string, tasks, goals map[string]string) {
+		tasksDir := filepath.Join(vaultPath, "Tasks")
+		err = os.MkdirAll(tasksDir, 0755)
+		Expect(err).NotTo(HaveOccurred())
+
+		for name, content := range tasks {
+			taskPath := filepath.Join(tasksDir, name+".md")
+			err = os.WriteFile(taskPath, []byte(content), 0600)
+			Expect(err).NotTo(HaveOccurred())
+		}
+
+		goalsDir := filepath.Join(vaultPath, "Goals")
+		err = os.MkdirAll(goalsDir, 0755)
+		Expect(err).NotTo(HaveOccurred())
+
+		for name, content := range goals {
+			goalPath := filepath.Join(goalsDir, name+".md")
+			err = os.WriteFile(goalPath, []byte(content), 0600)
+			Expect(err).NotTo(HaveOccurred())
+		}
+	}
+
+	writeVaultFiles(vaultPathA, tasksA, goalsA)
+	writeVaultFiles(vaultPathB, tasksB, goalsB)
+
+	configContent := fmt.Sprintf(`default_vault: alpha
+vaults:
+  alpha:
+    name: alpha
+    path: %s
+    tasks_dir: Tasks
+    goals_dir: Goals
+  beta:
+    name: beta
+    path: %s
+    tasks_dir: Tasks
+    goals_dir: Goals
+`, vaultPathA, vaultPathB)
+
+	configFile, err := os.CreateTemp("", "vault-config-*.yaml")
+	Expect(err).NotTo(HaveOccurred())
+	_, err = configFile.WriteString(configContent)
+	Expect(err).NotTo(HaveOccurred())
+	err = configFile.Close()
+	Expect(err).NotTo(HaveOccurred())
+
+	return vaultPathA, vaultPathB, configFile.Name(), func() {
+		_ = os.RemoveAll(vaultPathA)
+		_ = os.RemoveAll(vaultPathB)
 		_ = os.Remove(configFile.Name())
 	}
 }
@@ -1517,6 +1583,103 @@ page_type: goal
 				Expect(json.Unmarshal(session.Out.Contents(), &result)).To(Succeed())
 				Expect(result).To(HaveKeyWithValue("type", "task"))
 				Expect(result).To(HaveKeyWithValue("found", true))
+			})
+		})
+
+		Context("multi-vault fall-through", func() {
+			It("resolves a task found in one vault even when the other misses", func() {
+				_, _, configPath, cleanup := createTwoTempVaults(
+					map[string]string{
+						"my-task": `---
+status: todo
+priority: 2
+---
+# My Task
+`,
+					},
+					nil,
+					nil,
+					nil,
+				)
+				defer cleanup()
+
+				cmd := exec.Command(
+					binPath,
+					"--config", configPath,
+					"resolve", "my-task",
+					"--output", "json",
+				)
+				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+				Expect(err).NotTo(HaveOccurred())
+				Eventually(session).Should(gexec.Exit(0))
+
+				var result map[string]any
+				Expect(json.Unmarshal(session.Out.Contents(), &result)).To(Succeed())
+				Expect(result).To(HaveKeyWithValue("type", "task"))
+				Expect(result).To(HaveKeyWithValue("name", "my-task"))
+				Expect(result).To(HaveKeyWithValue("found", true))
+				Expect(strings.Count(string(session.Out.Contents()), `"found"`)).To(Equal(1))
+			})
+
+			It("resolves a goal found in one vault even when the other misses", func() {
+				_, _, configPath, cleanup := createTwoTempVaults(
+					nil,
+					nil,
+					nil,
+					map[string]string{
+						"my-goal": `---
+status: todo
+page_type: goal
+---
+# My Goal
+`,
+					},
+				)
+				defer cleanup()
+
+				cmd := exec.Command(
+					binPath,
+					"--config", configPath,
+					"resolve", "my-goal",
+					"--output", "json",
+				)
+				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+				Expect(err).NotTo(HaveOccurred())
+				Eventually(session).Should(gexec.Exit(0))
+
+				var result map[string]any
+				Expect(json.Unmarshal(session.Out.Contents(), &result)).To(Succeed())
+				Expect(result).To(HaveKeyWithValue("type", "goal"))
+				Expect(result).To(HaveKeyWithValue("name", "my-goal"))
+				Expect(result).To(HaveKeyWithValue("found", true))
+				Expect(strings.Count(string(session.Out.Contents()), `"found"`)).To(Equal(1))
+			})
+
+			It("returns a single found:false JSON after both vaults miss", func() {
+				_, _, configPath, cleanup := createTwoTempVaults(nil, nil, nil, nil)
+				defer cleanup()
+
+				cmd := exec.Command(
+					binPath,
+					"--config", configPath,
+					"resolve", "nonexistent",
+					"--output", "json",
+				)
+				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+				Expect(err).NotTo(HaveOccurred())
+				Eventually(session).Should(gexec.Exit(0))
+
+				var result map[string]any
+				Expect(json.Unmarshal(session.Out.Contents(), &result)).To(Succeed())
+				Expect(result).To(HaveKeyWithValue("type", ""))
+				Expect(result).To(HaveKeyWithValue("name", "nonexistent"))
+				Expect(result).To(HaveKeyWithValue("found", false))
+				raw := string(session.Out.Contents())
+				Expect(raw).To(ContainSubstring(`"type": ""`))
+				Expect(raw).To(ContainSubstring(`"found": false`))
+				Expect(strings.Count(raw, `"found"`)).To(Equal(1))
+				Expect(raw).NotTo(ContainSubstring("not found in any vault"))
+				Expect(string(session.Err.Contents())).NotTo(ContainSubstring("not found in any vault"))
 			})
 		})
 	})

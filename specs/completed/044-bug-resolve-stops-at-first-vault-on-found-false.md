@@ -1,5 +1,5 @@
 ---
-status: verifying
+status: completed
 tags:
     - dark-factory
     - spec
@@ -7,6 +7,7 @@ approved: "2026-09-03T19:35:03Z"
 generating: "2026-09-03T19:42:29Z"
 prompted: "2026-09-03T19:42:29Z"
 verifying: "2026-09-03T19:53:13Z"
+completed: "2026-09-03T20:18:10Z"
 branch: dark-factory/bug-resolve-stops-at-first-vault-on-found-false
 ---
 

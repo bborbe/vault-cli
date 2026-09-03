@@ -1,11 +1,12 @@
 ---
-status: prompted
+status: verifying
 tags:
     - dark-factory
     - spec
 approved: "2026-09-03T19:35:03Z"
 generating: "2026-09-03T19:42:29Z"
 prompted: "2026-09-03T19:42:29Z"
+verifying: "2026-09-03T19:53:13Z"
 branch: dark-factory/bug-resolve-stops-at-first-vault-on-found-false
 ---
 
@@ -172,3 +173,17 @@ Single-layer, single-prompt fix: the change is confined to the `resolve` command
 ## Do-Nothing Option
 
 Doing nothing keeps a shipped command that lies nondeterministically: for a name that exists in a non-first-iterated vault, `resolve` without `--vault` reports `found:false` in ~90% of runs (10-vault config), so entity-type auto-detection (`/vault-cli:work-on` probe, task-orchestrator scripts) misroutes existing entities into create flows and duplicate vault pages. The only workaround — always passing `--vault` explicitly — defeats the multi-vault feature the command was built for. The bug is in shipped code with named consumers; this is not acceptable current behavior.
+
+## Verification Result
+
+**Verified:** 2026-09-03T20:17:04Z (HEAD 462f8de)
+**Binary:** /tmp/new-vault-cli (fresh build of master incl. fix 22e52f7, release v0.121.2); installed vault-cli v0.121.2-dirty cross-checked
+**Scenario:** runtime replay of resolve multi-vault dispatch on the live 10-vault config, plus scenarios 001-004 regression walks
+**Evidence:**
+- 20/20 no-vault runs `resolve "Vault-cli Resolve Stops At First Vault On found:false" --output json` -> `"found":true`, rc=0, exactly one JSON doc each, stderr empty
+- `resolve "Automatic Vault Optimization" --output json` -> `{"type":"goal","name":"Automatic Vault Optimization","found":true}` rc=0
+- `resolve "no-such-entity-xyz" --output json` -> `{"type":"","name":"no-such-entity-xyz","found":false}` rc=0; stderr empty, no `not found in any vault` text
+- `resolve ... --vault personal --output json` -> `"found":true` rc=0 (both /tmp/new-vault-cli and installed binary)
+- `make precommit` rc=0; `make test` rc=0; all 10 grep gates pass (two-vault context integration/cli_test.go:1589; resolve_test.go Equal(2)/Equal(1))
+- Scenarios 001-004 walked against /tmp/new-vault-cli: all PASS (002 live claude session bb7486b5, transcript on disk); 005 operator-only (interactive TTY), not run
+**Verdict:** PASS

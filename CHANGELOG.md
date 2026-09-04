@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.121.3
 
 - fix: `/vault-cli:post-compact` now re-reads the anchor task's live status — and its parent goal's, when it has one — instead of re-emitting the checkpoint's `State:` line as current. That line is a snapshot from checkpoint-write time; work continues after `prepare-compact` runs, including completion, so it is stale by construction. The new "Re-verify the anchor task and goal" step resolves both via `vault-cli task get` / `vault-cli goal get`, drops carry-over items that existed only to advance a now-terminal anchor, reports the delta as `⚠️ anchor task completed since checkpoint`, and surfaces a failed lookup as unverified rather than falling back to the checkpoint. It runs before the re-arm step so a watcher is never re-armed for finished work. Observed 2026-09-04: a checkpoint recording `SC 3/5 ... status: in_progress` outlived the task's completion 3.5h later, and post-compact reported a soak check as the next action for criteria already signed off. Mirrors `session-close.md` Phase 4.5, which already checks goals alongside tasks.
 

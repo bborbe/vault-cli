@@ -53,6 +53,29 @@ This check block mirrors `prepare-compact.md` § Compact-safety checks — keep 
 
 Each check falls back to its `|| echo "..."` text when the tool is absent on the operator's machine; the checklist CONTINUES and reports that tool as absent — it never aborts the command.
 
+## Re-verify the anchor task and goal
+
+The checkpoint's `State:` line is a snapshot from write time, not a live reading. Work continues after prepare-compact runs — including completion — so that line is stale by construction and must never be re-emitted as current.
+
+Resolve the anchor task named in the checkpoint, plus its parent goal when it has one (a parent *theme* has no status to check), and re-read both from disk. This mirrors `session-close.md` § Phase 4.5, which already checks goals alongside tasks:
+
+```bash
+vault-cli task get "<anchor task>" status --output json
+vault-cli goal get "<parent goal>" status --output json   # skip when the parent is a theme
+```
+
+Interpret each:
+
+- `completed` / `aborted` → say so plainly, treat every criterion in the checkpoint's `State:` line as closed, and DROP any carry-over item that existed only to advance it (a scheduled soak check, a watcher, a queued verification).
+- any other status → carry the `State:` line forward as written.
+- lookup fails (non-zero exit, or JSON that does not parse) → report the anchor as unverified and name the exit code. Never silently fall back to the checkpoint's line: an unverified anchor and a confirmed-open one look identical downstream.
+
+Report the delta whenever it differs from the checkpoint: `⚠️ anchor task completed since checkpoint`.
+
+**This step runs BEFORE the re-arm below, deliberately.** Re-arming a watcher for finished work is one of the failures it prevents.
+
+Observed 2026-09-04: a checkpoint written at 22:00Z recorded `SC 3/5 ... status: in_progress`; the task was completed at 01:26 local — 3.5h later, by the same session. post-compact verified all three carry-over items, then emitted `Next action: Wait for one-shot cron ... to run the SC 4 drop count` for criteria already closed and signed off. Every wrong conclusion that followed, including a git worktree opened for a fix that was never needed, descended from that one unvalidated line. The carry-over checks all passed — they simply do not cover the anchor.
+
 ## Re-arm watchers and monitors
 
 The fresh post-compact context lost track of background watchers / monitors that were running before compaction. From the resume block's `Live background:` line and the carry-over `background` items, re-establish anything still alive — restart the Monitor / background watch / watcher so completion and failure signals reach this session again.

@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.121.5
 
 - fix: daily-note-has-entry reported a present entry as absent on real notes — `awk | grep -q` under `set -o pipefail` let awk die of SIGPIPE (141) once grep short-circuited, which pipefail promoted to the pipeline status. Replaced the pipeline with a command substitution + here-string. Added a generated large-note regression case; the existing fixtures were all too small to reach the pipe buffer, so every one of them passed while real daily notes failed.
 

@@ -312,52 +312,31 @@ ls "$DAILY"
 Instead, take Phase 1's touched `Tasks` + `Goals` list and require that at least one `###` entry under the "What happened today" section references at least one of them by `[[wikilink]]`:
 
 ```bash
-# For each touched task/goal title T, does any entry under the section link to it?
-# T_RE = T with regex metacharacters escaped — see below, do not skip this.
-T_RE=$(printf '%s' "$T" | sed 's/[][\.^$*+?(){}|\/]/\\&/g')
-awk 'match($0,/^#+/) && $0 ~ /^#+ What happened today/ {lvl=RLENGTH; f=1; next}
-     f && match($0,/^#+/) && RLENGTH<=lvl {f=0}
-     f' "$DAILY" \
-  | grep -E "^#{3} \[\[([^]|#]*/)?${T_RE}([|#][^]]*)?\]\]"
+# Exits 0 if an entry for T exists under "What happened today", 1 if not,
+# 2 on input error (missing note) — which is NOT the same as "absent".
+bash scripts/daily-note-has-entry.sh "$DAILY" "$T"
 ```
 
-**Terminate the range, and anchor the grep to the entry heading.** Two independent
-holes, both of which let the check pass on **zero** entries for the touched task:
-`,0` is an unterminated range that runs to EOF, so every later section counts as
-"under" the heading; and an unanchored grep matches a `[[wikilink]]` in ANY line,
-including a checkbox or a body mention inside a *different* session's entry.
-Observed 2026-09-05: the check reported `1` while the section held no entry for
-that task at all — the hit was `- [x] [[<task>]]` inside another session's
-write-up. That is a **false pass**, the failure direction this phase cannot
-tolerate: Phase 2's exception consults this same test, so a false pass silently
-suppresses the entry-writing it is supposed to guarantee. (The heading-level and
-escaping bugs below both fail *safe* — they over-flag. This one does not.)
+**The check lives in `scripts/daily-note-has-entry.sh`, not inline here, and it
+has tests.** It has shipped three separate bugs — hardcoded heading level,
+unescaped regex metacharacters in the title, and an unterminated range paired
+with an unanchored grep. Every one was invisible to reading and obvious to
+running, and the third failed in the direction this phase cannot tolerate: it
+returned a match when the section held **no** entry for the task, and Phase 2's
+exception consults the same test, so a false pass silently suppresses the
+entry-writing Phase 7 exists to guarantee.
 
-**The terminator must be level-aware — `/^#+ /{f=0}` is wrong.** Entries are `###`,
-which matches `^#+ `, so a naive terminator closes the range at the *first entry*
-and the check returns 0 for a task whose entry is plainly there. Capture the
-section heading's level via `RLENGTH` and close only on a heading of the same or
-higher level. Caught 2026-09-05 by running both variants against a real note
-before shipping: the naive form scored `0` on a task with a present entry, the
-level-aware form scored `1`. Exercise this snippet on a real daily note after any
-edit — every bug this phase has shipped was invisible to reading and obvious to
-running.
+`scripts/daily-note-has-entry-test.sh` (run by `make test`) pins all three as
+regression cases — a later-section heading, a checkbox inside another session's
+entry, a body-text mention, a parenthesised title, and an `h2`-heading vault.
+Each of the three false-pass cases fails against the pre-fix implementation.
+**Change the check there, not here**, and let the tests prove it.
 
-**Escaping `T` is mandatory, not a nicety.** Task titles routinely contain regex metacharacters — this vault alone has `Cleanup Email Inbox (Personal) - <date>`, `(Work)`, `(Recurrence)`. Unescaped, `(Personal)` is parsed as a capture group, so `grep -E` looks for the title *without* the literal parentheses and never matches. The entry is present, the check returns 0, and Phase 7 false-flags — the same always-flag failure class as the heading-level bug below, reached by a different route. Verified both ways: unescaped → 0, escaped → 1, same file and same entry.
-
-**Do not hardcode the heading level.** Daily-note templates differ across vaults — the Personal vault uses `# What happened today` (h1), while this command's own prose and `sync-progress.md` both say `##`. An `awk` range anchored on `^## ` never matches there, so the range stays empty, the grep receives no input, and the check returns 0 **unconditionally** — it flags on every run regardless of content. The direction is fail-safe but the check is useless: crying wolf every time trains the reader to ignore it, which is precisely the failure Phase 7 exists to prevent. Caught by the v0.106.3 end-to-end run — which is the argument for exercising a check rather than reasoning about it.
-
-**Match every wikilink form, not just the bare one.** A naive `grep -F "[[$T]]"` misses three variants this vault uses routinely, and each miss is a false flag:
-
-| Form | Example |
-|---|---|
-| aliased | `[[Trading - IBKR Swing Trading Daily\|runbook]]` |
-| heading | `[[Rebuild Dev and Prod#Fallback when sun is off]]` |
-| path-prefixed | `[[22 Goals/90 Completed/Become profitable…\|Grid Trading Strategy Goal]]` |
-
-The path-prefixed form is the nastiest: the link does not even *begin* with the title, so anchoring on `[[$T` fails too. The pattern above allows an optional folder path before the title and an optional `|alias` / `#heading` after it.
-
-Erring toward over-matching is correct here. A false pass silently reinstates the original bug (close reports clean, record is missing); a false flag costs one glance.
+The script's header documents the three past bugs and the wikilink forms it must
+match (bare, aliased, `#heading`, and path-prefixed — the last does not even
+*begin* with the title, so anchoring on `[[$T` fails). Over-matching is the
+correct bias: a false pass silently reinstates the original bug (close reports
+clean, record is missing); a false flag costs one glance.
 
 - Match found → ✅ silent OK.
 - No touched task/goal appears → ⚠ flag as outstanding.

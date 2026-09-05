@@ -63,6 +63,7 @@ endif
 .PHONY: test
 test:
 	go test -mod=mod -count=1 -p=$${GO_TEST_PARALLEL:-1} -cover $(TESTFLAGS_RACE) $(shell go list -mod=mod ./... | grep -v /vendor/)
+	@bash scripts/daily-note-has-entry-test.sh
 
 .PHONY: check
 check: lint vet vulncheck osv-scanner trivy check-changelog

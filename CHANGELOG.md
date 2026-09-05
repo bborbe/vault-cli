@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.122.1
 
 - fix: session-close Phase 1 counted only `Edit`/`Write` tool calls as "touching" a task or goal file, so a session whose vault writes went through `vault-cli task set` reported zero touched tasks and Phase 4.5's anchor gate never ran. `/plan-day` writes exclusively via `task set`, so plan-then-close sessions closed clean over `in_progress` anchors. Phase 1 now states that CLI frontmatter mutations count. Observed with three unflagged `in_progress` tasks.
 

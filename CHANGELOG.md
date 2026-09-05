@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: session-close Phase 1 counted only `Edit`/`Write` tool calls as "touching" a task or goal file, so a session whose vault writes went through `vault-cli task set` reported zero touched tasks and Phase 4.5's anchor gate never ran. `/plan-day` writes exclusively via `task set`, so plan-then-close sessions closed clean over `in_progress` anchors. Phase 1 now states that CLI frontmatter mutations count. Observed with three unflagged `in_progress` tasks.
+
 ## v0.122.0
 
 - feat: task-auditor runs four rigor passes on every task — hedge-word audit (flags decision deferrals, not descriptive English), adversarial laziness (mandatory concrete laziest-work one-liner, -2 on FAIL), evidence shape per Success Criterion, and MVP framing. The first three are ported from dark-factory's spec-auditor and adapted spec→task; MVP framing is new.

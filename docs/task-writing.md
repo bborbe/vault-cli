@@ -276,12 +276,33 @@ Keep the subtask `[ ]` until real-environment execution evidence exists.
 
 **Why the third one matters most:** audit skills (`/coding:audit-slash-command`, `/coding:audit-agent`) catch structural issues; bot reviewers catch some runtime bugs. Neither catches *"my new slash command isn't actually installed in this session yet"*. Only running the command end-to-end does.
 
+## Evidence Shape — how a criterion will be observed
+
+Every Success Criterion declares **how completion is observed**. This is the canonical vocabulary: `/vault-cli:plan-task` enforces it on the e2e-verify subtask and `task-auditor` § 15 checks it on every criterion. Both cite this section — do not define a competing list elsewhere.
+
+A criterion's evidence takes one of these shapes. Any one is sufficient; combinations are stronger.
+
+| Shape | What it is | Example |
+|---|---|---|
+| **Procedure** | a command to execute | `curl /widgets` · `kubectl get pod foo` · `run make docs-build` |
+| **Observable** | a result to check | `HTTP 200` · `exit 0` · log contains `startup complete` |
+| **Artifact** | a thing to inspect | output matches `docs/widget-response.schema.json` · `marketplace.json` version equals the git tag |
+| **State transition** | a before/after delta | frontmatter `status` moves `in_progress → completed` · `go.mod` go-directive moves 1.26.6 → 1.27.1 on master |
+| **Negative evidence** | a proven absence | `git diff config/Y.yaml` is empty · `grep ERROR run.log` returns 0 lines · no message published on topic `Z` in the window |
+
+**A criterion needs a procedure *and* a result a reader could independently confirm.** "Verify the endpoint" names a target but no action and no expected result. "Run a check on the endpoint" names an action but no result. "`curl /widgets`, confirm 200 and body matches the schema" satisfies both.
+
+**Negative criteria need an explicit probe.** "Config Y is not mutated" is unverifiable as written — name the diff, grep or probe that must come back empty, and say what you ran to establish it.
+
+**What does not count as evidence:** "unit test covers this" (that is the test plan, not the observation) · "it works" · "functionality verified" · "tests pass" without naming the behaviour asserted.
+
 ## Scope Check
 
 Before committing to a task, verify these signals:
 
 - **Success criteria binary-verifiable** — each item is done-or-not-done. Count is guidance, not a cap: 2-4 typical, 5-8 normal for shipping checklists. DoD is needed when SCs are aspirational, not just numerous.
 - **Single mental model** — if the task touches multiple unrelated domains/repos, split
+- **MVP framing — every item earns its place.** Would a Success Criterion still be met if one of its subtasks were deleted? Then that subtask is not load-bearing. Does the task bundle two things a reader would want to review, release or revert independently? Then it is two tasks. Polish bundled with the change that motivated the task ("while we're in there…") is the common form. Distinct from the smell count above: scope-fit asks whether the task is too big overall, MVP framing asks whether each item belongs in *this* task.
 - **Days-to-week effort** — if multi-week, it's a goal masquerading as a task
 - **Linked to a parent goal when one exists** — for operational/infra/follow-up tasks with no clean parent goal, a theme link is acceptable; forcing a synthetic parent goal is worse than no link
 - **Title is problem-framed** (names the problem or observable outcome — see [[#Title & Filename]]). Action-verb-led titles are OK when the action IS the deliverable (e.g. "Write … runbook"), for routine operational tasks ("Backup Database - 2026W25-sat"), or when the solution is mandated. Always wrong: "Stuff about X"
@@ -298,6 +319,9 @@ Before approving:
 - [ ] Are success criteria binary (yes/no, not "improve X")?
 - [ ] Is this 1-7 days of work, not weeks?
 - [ ] Is the title problem-framed (or action-verb-led only when the action IS the deliverable / routine ops / mandated solution)?
+- [ ] Does every Success Criterion declare an evidence shape (see [[#Evidence Shape — how a criterion will be observed]])?
+- [ ] Is this the MVP — would anything here ship fine as a separate follow-up?
+- [ ] Any hedge words that defer a decision (`reasonable`, `appropriate`, `as needed`) rather than describe expected state?
 
 ## Audit
 

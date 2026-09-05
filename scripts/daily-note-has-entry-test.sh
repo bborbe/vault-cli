@@ -9,7 +9,10 @@
 set -uo pipefail
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
-cd "$ROOT"
+# `|| exit` is load-bearing here: this script runs under `set -uo pipefail`
+# WITHOUT `-e` (it must survive non-zero exits from the script under test), so a
+# failed cd would otherwise continue and run the cases from the wrong directory.
+cd "$ROOT" || exit 2
 
 SCRIPT=scripts/daily-note-has-entry.sh
 H1=scripts/testdata/daily-note-h1.md

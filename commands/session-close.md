@@ -113,6 +113,27 @@ If any repo has uncommitted/unpushed work, ASK whether to commit/push before clo
 
 **Exception: vaults with obsidian-git autocommit.** If the repo is a vault path (matches any `VAULT_CONFIG[].path`), pending edits are the steady state — obsidian-git handles them. Don't flag.
 
+**Scope: files THIS session edited.** Phase 5 already applies this reasoning to processes —
+*"a machine-wide `ps` scan cannot tell a sibling session's daemon from your own, and flagging
+someone else's is a false positive that makes the verdict untrustworthy."* Files are the same
+class and never got the same treatment. A repo this session merely `cd`'d into can hold a
+sibling session's dirty tree or unpushed commits, and flagging those asks the operator to
+adjudicate work that is not theirs to resolve.
+
+Cross-check every dirty path and unpushed commit against the files this session actually
+edited — from the conversation, not from `git status` alone:
+
+- **Overlap** → report normally; it is this session's work.
+- **No overlap** → report as `<repo>: N dirty file(s) / N unpushed commit(s) — NOT this
+  session's, informational only`, and **never name it in the closer's `approve:` line**.
+  A sibling's work is surfaced so the operator knows it exists, not so they resolve it here.
+
+Observed 2026-09-05: `nuke` was flagged on **three consecutive** `session-close` runs for a
+sibling session's `agent/` edits — which then became four unpushed commits (`release v0.34.4`,
+a `github-update-go-watcher` pin bump) as that session progressed. The operator selected it as
+an action item twice; both times the correct action was none, and the command had to decline
+and re-ask instead of acting.
+
 ### Phase 3.5: Detect uncleaned feature worktrees
 
 For each touched repo (from Phase 1), list worktrees:

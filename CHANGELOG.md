@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: `session-close` Phase 3 now scopes dirty files and unpushed commits to what THIS session edited. A repo the session merely visited can hold a sibling session's work; flagging it asked the operator to adjudicate work that was not theirs. Phase 5 already applied this reasoning to processes ("flagging someone else's is a false positive that makes the verdict untrustworthy") — files never got the same treatment. Non-overlapping paths are now reported as informational and never named in the closer's `approve:` line.
+
 ## v0.122.1
 
 - fix: session-close Phase 1 counted only `Edit`/`Write` tool calls as "touching" a task or goal file, so a session whose vault writes went through `vault-cli task set` reported zero touched tasks and Phase 4.5's anchor gate never ran. `/plan-day` writes exclusively via `task set`, so plan-then-close sessions closed clean over `in_progress` anchors. Phase 1 now states that CLI frontmatter mutations count. Observed with three unflagged `in_progress` tasks.

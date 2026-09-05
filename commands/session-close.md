@@ -63,6 +63,12 @@ Find what the session actually touched:
 - **Repos**: walk every file path edited this session, find the nearest ancestor with a `.git` dir, dedupe. Express as `~/...` relative path.
 - **Background tasks**: any still-running shell tasks from this session.
 
+**"Edits" includes CLI mutations, not just `Edit` / `Write` tool calls.** A `vault-cli task set` / `goal set` / `clear` writes frontmatter to a file under `tasks_dir` / `goals_dir` — that file is touched and belongs in these lists. Reading "edits this session" as "files I opened with an editor tool" is the natural reading, and it is wrong: it empties the list for whole command families.
+
+The emptied list is not a cosmetic problem — it silently disarms Phase 4.5. `/plan-day` writes **only** via `vault-cli task set` (`flag`, `planned_date`, `due_date`, `priority`) and never opens a task file with `Edit`. So a session that planned the day and then closed reports zero touched tasks, the anchor-task gate never runs, and the verdict is clean no matter what was left `in_progress`.
+
+Observed 2026-09-05: `/plan-day` mutated five tasks; three were still `in_progress` at close and none was flagged. The miss surfaced only by accident, when an unrelated revert re-touched one of them through a tool call. **A gate that scans an empty set reports the same "clean" as a gate that scanned everything** — the failure is indistinguishable from success at the point it matters.
+
 If multiple vaults touched, group goals/tasks per vault. Cap each list at 5 (show "+N more" if longer).
 
 ### Phase 2: Sync progress to vault (delegate to skill)

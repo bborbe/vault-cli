@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.122.2
 
 - fix: `session-close` Phase 3 now scopes dirty files and unpushed commits to what THIS session edited. A repo the session merely visited can hold a sibling session's work; flagging it asked the operator to adjudicate work that was not theirs. Phase 5 already applied this reasoning to processes ("flagging someone else's is a false positive that makes the verdict untrustworthy") — files never got the same treatment. Non-overlapping paths are now reported as informational and never named in the closer's `approve:` line.
 

@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.121.4
 
 - fix: session-close Phase 7 representation check could pass on zero entries — the `awk` range ran to EOF (`,0`) and the grep was unanchored, so a `[[wikilink]]` in any later section (e.g. a checkbox inside another session's entry) counted as representation. This failed in the intolerable direction: Phase 2's exception consults the same test, so a false pass silently suppresses the entry-writing Phase 7 exists to guarantee.
 - refactor: extract that check to `scripts/daily-note-has-entry.sh` with `scripts/daily-note-has-entry-test.sh` (13 cases, wired into `make test`). It had shipped three bugs as an inline snippet — hardcoded heading level, unescaped title metacharacters, and the range/anchor pair — each invisible to reading and obvious to running. Three of the regression cases fail against the pre-fix implementation. `commands/session-close.md` shrinks 588 → 567 lines.

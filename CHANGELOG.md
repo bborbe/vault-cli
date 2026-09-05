@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: daily-note-has-entry reported a present entry as absent on real notes — `awk | grep -q` under `set -o pipefail` let awk die of SIGPIPE (141) once grep short-circuited, which pipefail promoted to the pipeline status. Replaced the pipeline with a command substitution + here-string. Added a generated large-note regression case; the existing fixtures were all too small to reach the pipe buffer, so every one of them passed while real daily notes failed.
+
 ## v0.121.4
 
 - fix: session-close Phase 7 representation check could pass on zero entries — the `awk` range ran to EOF (`,0`) and the grep was unanchored, so a `[[wikilink]]` in any later section (e.g. a checkbox inside another session's entry) counted as representation. This failed in the intolerable direction: Phase 2's exception consults the same test, so a false pass silently suppresses the entry-writing Phase 7 exists to guarantee.

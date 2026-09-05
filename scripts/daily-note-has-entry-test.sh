@@ -59,5 +59,27 @@ expect 0 "path-prefixed [[dir/T|alias]]"       "$H1" "Path Prefixed Task"
 # --- input errors are distinct from "absent"
 expect 2 "missing daily note"                  "scripts/testdata/nope.md" "Anything"
 
+# --- bug 4: `awk | grep -q` under `set -o pipefail` reported a PRESENT entry as
+# absent. grep -q exits at the first match, awk keeps writing, takes SIGPIPE and
+# dies 141, and pipefail promotes that to the pipeline's status.
+# This fixture is GENERATED, not committed, and must stay far larger than the
+# pipe buffer (~16-64KB) with the target entry FIRST — that is the only shape
+# that keeps the writer running after the reader has exited. Every committed
+# fixture above is a few dozen lines, which is exactly why they all passed while
+# real daily notes failed. Do not shrink this or the case stops testing anything.
+BIG=$(mktemp -t daily-note-big.XXXXXX)
+trap 'rm -f "$BIG"' EXIT
+{
+	echo "# What happened today"
+	echo
+	echo "### [[First Entry Task]] — Done ✅"
+	echo
+	for i in $(seq 1 4000); do
+		echo "- filler line $i to push the section past the pipe buffer"
+	done
+} >"$BIG"
+expect 0 "large note, entry first (SIGPIPE regression)" "$BIG" "First Entry Task"
+expect 1 "large note, title genuinely absent"           "$BIG" "Not In Big Note"
+
 echo "daily-note-has-entry: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

@@ -57,10 +57,19 @@ TITLE_RE=$(printf '%s' "$TITLE" | sed 's/[][\.^$*+?(){}|\/]/\\&/g')
 # first entry.
 # Match: anchored to `^### ` so only an entry heading counts, allowing an
 # optional folder path prefix and an optional `|alias` / `#heading` suffix.
-if awk 'match($0,/^#+/) && $0 ~ /^#+ What happened today/ {lvl=RLENGTH; f=1; next}
-        f && match($0,/^#+/) && RLENGTH<=lvl {f=0}
-        f' "$DAILY" \
-	| grep -qE "^#{3} \[\[([^]|#]*/)?${TITLE_RE}([|#][^]]*)?\]\]"; then
+# NOT a pipeline: `awk ... | grep -q` is broken under `set -o pipefail`.
+# `grep -q` exits at the first match; on a real daily note awk still has
+# hundreds of lines to write, takes SIGPIPE, and dies 141. pipefail promotes
+# that to the pipeline's status, so a title that IS present reports absent.
+# Invisible in tests — small fixtures let awk finish before grep short-circuits,
+# so the bug only appears above the pipe-buffer threshold, i.e. only in real use.
+# Also shell-dependent: ugrep (interactive zsh) does not short-circuit the same
+# way as BSD grep (the bash this script runs under), so it reproduces only here.
+SECTION=$(awk 'match($0,/^#+/) && $0 ~ /^#+ What happened today/ {lvl=RLENGTH; f=1; next}
+               f && match($0,/^#+/) && RLENGTH<=lvl {f=0}
+               f' "$DAILY")
+
+if grep -qE "^#{3} \[\[([^]|#]*/)?${TITLE_RE}([|#][^]]*)?\]\]" <<<"$SECTION"; then
 	exit 0
 fi
 

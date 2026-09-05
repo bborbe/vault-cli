@@ -228,9 +228,89 @@ The `# Definition of Done` section is the closure gate. Tasks that lack it (or h
 
 **Reference checks:** The DoD section should reference `[[Closure Patterns]]` (per-artifact blocks) and/or `[[Goal Closure Checklist]]` (goal-level checklist) — recommend, don't require.
 
+## Rigor Passes (always run)
+
+Four passes that apply to every task regardless of class. The first three were ported from `dark-factory`'s `spec-auditor` on 2026-09-05 and adapted spec→task (Acceptance Criteria → Success Criteria, prompts → subtasks); the fourth has no upstream.
+
+### 13. Hedge-Word Audit (free — catches decision deferrals)
+
+A task that defers decisions to execution time creates unbounded interpretation surface. "Reasonable", "appropriate" and "as needed" cannot be pinned to an observable check, so the criterion passes on whatever the executor felt like doing.
+
+**Flagged words:** `should`, `appropriate`, `reasonable`, `as needed`, `where applicable`, `if necessary`, `proper`, `correct`, `sensible`, `suitable`, `relevant`, `adequately`, `sufficiently`, `etc.`, `and so on`, `among others`
+
+**Critical distinction — flag deferrals, NOT descriptive English.** The same word is fine when it describes expected state and wrong when it defers a decision the executor would otherwise have to make.
+
+Flag (deferral):
+- ❌ "retry **appropriately**" → defers the retry policy
+- ❌ "use a **reasonable** timeout" → defers the value
+- ❌ "log **relevant** fields" → defers the field list
+- ❌ "handle **proper** error cases" → defers which errors
+
+Don't flag (descriptive):
+- ✅ "the daemon should be running when the task starts" → state assumption
+- ✅ "the relevant config file" → identifies an existing artifact
+- ✅ "the correct review state" → describes an expected outcome
+
+Scan `# Success Criteria`, `# Tasks` and `# Definition of Done`. Report each deferral as a **Recommendation** with the offending line quoted and a concrete replacement suggested.
+
+### 14. Adversarial Laziness Pass (verdict drives scoring at -2)
+
+Read the task assuming the executor intends the **laziest possible work that still ticks every Success Criterion**. Ask what that would look like.
+
+If the laziest work is a no-op, a stub that satisfies the criterion's wording without delivering the outcome, or a rename that changes nothing observable → the criteria are under-specified. They need to assert *behaviour*, not *artifact existence*.
+
+| Criterion text | Laziest work | Verdict |
+|---|---|---|
+| "`docs/foo.md` exists" | `touch docs/foo.md` | UNDER-SPECIFIED — name minimum sections or content |
+| "A test for X exists" | `func TestX(t *testing.T) {}` | UNDER-SPECIFIED — name the assertion |
+| "The command reports a verdict" | always return the same verdict | UNDER-SPECIFIED — assert per input class |
+| "On 403, the task escalates to human_review" | — | adequately specified — escalation is observable |
+
+**MANDATORY report output.** Every audit must include a concrete laziest-work one-liner; it is the artifact that proves the pass ran.
+
+> **Adversarial laziness pass**: laziest work = `<concrete one-liner>`. Verdict: PASS / FAIL.
+
+The one-liner must be concrete, not vibes:
+- ✅ "laziest work = `touch docs/foo.md` and tick the box"
+- ✅ "laziest work = tick the deploy criterion on a dev deploy and never touch prod"
+- ❌ "laziest work = something that satisfies the criteria" (no information)
+
+If FAIL, list the under-specified criteria by number with a concrete tightening for each.
+
+### 15. Evidence Shape per Success Criterion
+
+Every Success Criterion must declare **how completion will be observed**. This check *extends* the procedure / observable / artifact triad already defined in `task-writing.md` § Shipping Checklist — it does not replace it, and the auditor must use that vocabulary rather than inventing a parallel one.
+
+Two shapes the triad does not yet name, both legitimate and both commonly needed:
+
+| Shape | Example phrasing |
+|---|---|
+| **State transition** | "task frontmatter `status` moves `in_progress → completed` after the run" / "`go.mod` go-directive moves 1.26.6 → 1.27.1 on master" — captures the delta with before/after framing |
+| **Negative evidence** | "`git diff config/Y.yaml` is empty after the action" / "`grep ERROR run.log` returns 0 lines" — captures the *absence* of an artifact; the correct shape for any "X is not mutated" / "no errors logged" criterion |
+
+**Negative criteria need an explicit probe.** "Config Y is not mutated" is unverifiable as written; "`git diff config/Y.yaml` returns empty, confirmed by `git status` showing no modified files" is not.
+
+**What does NOT count:** "unit test covers this" (that is the test plan, not the observation), "it works", "functionality verified", "tests pass" without naming the behaviour asserted.
+
+Raise a missing evidence shape as a **Recommendation**, not Critical — many tasks predate this rule and the shape is often inferable.
+
+### 16. MVP Framing
+
+Ask whether the task is the smallest change that delivers its stated outcome, or whether it has accreted work that could ship separately.
+
+Signals it has:
+- Success Criteria that would still be met if a subtask were deleted — the subtask is not load-bearing
+- Subtasks serving a *future* criterion not present in this task ("while we're in there…")
+- More than one deliverable that a reader would plausibly want to review, release or revert independently
+- Polish work (refactors, renames, doc sweeps) bundled with the change that motivates the task
+
+Distinguish from scope-creep (§ Task Scope Fit, which counts smells across the whole task): MVP framing is per-item — it asks whether each item *earns its place in this task*, not whether the task is too big overall. A task can pass scope-fit and still bundle two shippable things.
+
+Report as a **Recommendation** naming which items would ship fine as a follow-up, and what the residual MVP is.
+
 ## Quick Fixes (Minor)
 
-### 13. Formatting
+### 17. Formatting
 - Title not duplicated as H1 (Obsidian shows filename)
 - Proper markdown formatting
 - Consistent checkbox markers `- [ ]`
@@ -286,6 +366,14 @@ For each goal in the task's `goals:` frontmatter, render this table:
 |-----------|--------------------------|---------|
 | `[[Goal X]]` | "Deploy Y to dev" matches goal SC #2 | Aligned |
 | `[[Goal Z]]` | No match found | ORPHAN — MAJOR |
+
+## Rigor Passes
+
+> **Adversarial laziness pass**: laziest work = `<concrete one-liner>`. Verdict: PASS / FAIL.
+
+Hedge words: [count + quoted lines, or "none"]
+Evidence shape: [criteria missing a declared shape, or "all declared"]
+MVP framing: [items that could ship separately, or "minimal"]
 
 ## Recommendations
 ## Quick Fixes

@@ -8,6 +8,12 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat: task-auditor runs four rigor passes on every task — hedge-word audit (flags decision deferrals, not descriptive English), adversarial laziness (mandatory concrete laziest-work one-liner, -2 on FAIL), evidence shape per Success Criterion, and MVP framing. The first three are ported from dark-factory's spec-auditor and adapted spec→task; MVP framing is new.
+- feat: task-writing.md gains a canonical "Evidence Shape" section — the procedure / observable / artifact triad that plan-task already enforced, now written down once and extended with state-transition and negative-evidence shapes. plan-task and task-auditor both cite it instead of defining rival vocabularies.
+- feat: Scope Check and the Preflight Checklist gain MVP-framing, evidence-shape and hedge-word questions.
+
 ## v0.121.5
 
 - fix: daily-note-has-entry reported a present entry as absent on real notes — `awk | grep -q` under `set -o pipefail` let awk die of SIGPIPE (141) once grep short-circuited, which pipefail promoted to the pipeline status. Replaced the pipeline with a command substitution + here-string. Added a generated large-note regression case; the existing fixtures were all too small to reach the pipe buffer, so every one of them passed while real daily notes failed.

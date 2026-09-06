@@ -307,6 +307,14 @@ Two kinds, report both, don't conflate:
 
 If the runbook names an **escape path** for a prerequisite ("skippable when…"), report the prerequisite as blocking *and* quote the escape path. Never apply an escape path unilaterally — it is the operator's call.
 
+**Onward-linked runbooks — name them, never summarize them (MANDATORY)**:
+
+A runbook routinely summarizes a procedure that has its own runbook (`**Reboot procedure**: see [[X]] for the full procedure. Summary — …`). That summary is written to orient a reader, not to be executed from, and it silently omits the sibling's preflight steps.
+
+For every runbook retrieved at score ≥ 0.5, scan it for wikilinks to other runbooks and list them in the output under the parent. Do **not** read them and fold their content into your bullets — naming them is the deliverable; the operator opens them at execution time.
+
+Observed 2026-09-06: [[System Update All]] § *Check Reboot Required* summarized [[Hetzner Reboot]] in five lines. The summary was accurate and complete-looking, and it omitted preflight step 1d (`update-grub2`) — the step that preempts the "STILL PENDING after reboot" failure mode. Work proceeded off the summary until the operator asked whether the runbook had actually been opened.
+
 ## Phase 7: Progress (Obsidian tasks only)
 
 - Parse the task file for `[x]` / `[/]` / `[ ]` checkboxes
@@ -405,9 +413,11 @@ Prerequisites (N, verified via CLI):
 📖 Full guide: [[Guide]]
 
 [If runbooks:]
-📋 Runbooks (N):
+📋 Runbooks (N) — ⚠️ DIGEST, not a substitute for the file. Open before executing:
 1. <name> (<absolute path>)
    - <quick action>
+   - ↪ Links onward to: <runbook names, or "none"> — open these too; a summary of one
+     runbook inside another omits its preflight steps
 
 [If guides:]
 📚 Operational Guides (N):

@@ -18,7 +18,11 @@ Invoke goal-manager-agent for fast sanity checks: status valid, subtasks exist, 
 3. Agent checks:
    - Status valid (in_progress|todo|backlog|completed|hold|aborted)
    - All subtasks exist (links resolve)
-   - Status consistency (goal in_progress → subtasks should be too)
+   - Status consistency — a task must not outrank its goal:
+     - goal `in_progress` → subtasks at `backlog`/`next`/`in_progress`/`completed` are all aligned (no restriction)
+     - goal `completed` → every subtask must be `completed`
+     - goal NOT `in_progress` → no subtask may be `in_progress`
+     - goal `backlog` → no subtask may be `next` or `in_progress`
    - Tasks/PRDs linked
    - Goal necessity (each linked task advances ≥ 1 of the goal's success criteria — goal-necessity check)
 4. Return pass/fail report with specific issues

@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.126.0
 
 - fix: `pkg/ops` `runDetachedTurn` precedence — a validated turn result now overrides a non-zero child exit, so a clean headless-turn blob is a success even when the child exits non-zero. Parsed-but-rejected output leads with the child's own `result` text (predicate named in parentheses), and the child's exit status is reported only when the output is unparseable or missing.
 - test: `pkg/ops` write-back specs prove the spec 045 clear-vs-retain consequence end-to-end through `Execute` on real vault files — the task path retains the pre-persisted session id (and the goal path persists it) when a non-zero-exit turn's result validated, and both paths still leave no session id when the turn reported its own failure, with the child's reason leading the surfaced error.

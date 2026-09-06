@@ -10,8 +10,8 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 
 ## Unreleased
 
-- work-on-task-assistant: label the runbook section as a derived digest, not a substitute for the file
-- work-on-task-assistant: name runbooks that a retrieved runbook links onward to, instead of folding their summaries into the digest
+- fix: work-on-task-assistant labelled its runbook section as if it were the runbook — it is a derived digest, and acting on it skipped a linked runbook's preflight steps
+- feat: work-on-task-assistant names runbooks that a retrieved runbook links onward to, instead of folding their summaries into the digest
 
 ## v0.122.4
 

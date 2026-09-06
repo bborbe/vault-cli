@@ -12,6 +12,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 
 - fix: `pkg/ops` a failed headless `work-on` turn now surfaces the child's own reason as the FIRST line instead of burying it. `sessionFailureResult` and `goal_workon`'s equivalent no longer re-log an error they already return — that second copy carried a full `bborbe/errors` stack to stderr, and vault-ui concatenates stderr into its red banner. The secondary "turn rejected by predicate" signal drops from `Warn` to `Debug` for the same reason. Measured against a seeded failing turn: stderr goes from ~45 lines to 2, leading with `start claude session: <child result text> (<failed predicate>)`. Completes spec 045 SC5.
 
+## v0.126.1
+
+- fix: `/vault-cli:post-compact` now reads the anchor task's parent goal from the task file's own `goals:` frontmatter instead of trusting the checkpoint's `Goal:` line. That line is prose written at checkpoint time and validated against nothing, and a wrong goal name still returns a valid status — so the anchor check passed while the goal was misattributed for a whole session, including its success-criteria counts in every closer panel.
+
 ## v0.126.0
 
 - fix: `pkg/ops` `runDetachedTurn` precedence — a validated turn result now overrides a non-zero child exit, so a clean headless-turn blob is a success even when the child exits non-zero. Parsed-but-rejected output leads with the child's own `result` text (predicate named in parentheses), and the child's exit status is reported only when the output is unparseable or missing.

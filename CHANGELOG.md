@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.122.3
 
 - fix: `session-close` Phase 8.6 check #2 (broken outbound links) now carries the same array-construction and sanity-check mandate that check #1 already documents. Both checks search every path in `VAULT_CONFIG`, but only check #1 warned that zsh does not word-split an unquoted `$paths` — so a check #2 sweep built the naive way passes all paths to `find` as one argument, the search fails, stderr is swallowed, and every target reads UNRESOLVED. Observed reporting 18 of 18 links broken (including a page whose absolute path had just been printed) where the true count was 5; the 13 false positives buried the real dead links. Negatives must now be proven against a non-empty path array and a known-good link before they are believed.
 - fix: `vault-cli task set phase todo` on a task with `status: in_progress` whose current phase is `execution`, `ai_review`, or `human_review` is now rejected as a lifecycle regression — a bulk `task set phase todo` loop regressed 80 active tasks on 2026-09-02, silently stalling their execution pipeline. A deliberate reset passes the new `--force` flag on `task set`. Also raised the `lint` target's golangci-lint timeout to 10m (the 5m config timeout was exceeded in practice).

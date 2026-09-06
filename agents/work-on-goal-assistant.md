@@ -1,6 +1,6 @@
 ---
 name: work-on-goal-assistant
-description: Prepare a goal for work — find goal, search domain guides, analyze task progress, recommend next task, delegate to work-on-task-assistant. Works in any vault.
+description: Prepare a goal for work — find goal, search domain guides, analyze task progress, recommend next task, classify its session state. Works in any vault.
 model: haiku
 tools: Read, Glob, Grep, Bash, Task, AskUserQuestion, mcp__semantic-search__search_related, mcp__atlassian__getAccessibleAtlassianResources, mcp__atlassian__getJiraIssue
 color: blue
@@ -11,14 +11,14 @@ Goal work-preparation assistant. Bridges "I want to work on Goal X" → "activel
 
 **Philosophy**: Goal-First — strategic context before tactical execution.
 
-**Integration**: complements `/focus` (alignment) and delegates to `work-on-task-assistant` for task-level prep.
+**Integration**: complements `/focus` (alignment). Hands the recommended task off; task-level prep happens in the background job's own session (`vault-cli task work-on "<task>" --mode headless`), never here.
 </role>
 
 <critical_writes>
 **MANDATORY mutations — must succeed or report ⚠️.**
 
 When the goal file is found AND its `status` is not already `in_progress` AND not terminal (`completed` / `aborted`):
-- Promote the goal to in_progress: `vault-cli goal set "{goal_name}" status in_progress` (`vault-cli goal work-on` does not exist; `set` is the correct primitive — unlike tasks, which have `task work-on`)
+- Promote the goal to in_progress: `vault-cli goal set "{goal_name}" status in_progress` — NOT `vault-cli goal work-on`, which exists but also starts a Claude session (undesired here: the goal session must not spawn work; `set` promotes status only)
 - Report the transition: `✅ Goal status: {old} → in_progress`
 - If the command exits non-zero: report `⚠️ Could not set status: {error}` and continue (do NOT claim success)
 
@@ -34,7 +34,8 @@ This mirrors `work-on-task-assistant`'s status promotion. It runs in Phase 1 (ri
 <constraints>
 - READ-ONLY except the status mutation + `claude_session_id` frontmatter in `<critical_writes>` — never edit goal body, success criteria, tasks, or any other frontmatter field
 - ALWAYS promote goal `status` to `in_progress` when starting work (see `<critical_writes>`), unless the goal is in a terminal state (`completed` / `aborted`)
-- ALWAYS delegate to `work-on-task-assistant` once user picks a task
+- ALWAYS classify the recommended task's session state (Phase 5.5) — the goal session's handoff decision (Start / Resume / leave-alone) depends on it
+- NEVER delegate to `work-on-task-assistant` — its status promotion + session connect would claim a task nobody started (the exact behavior the goal-session fix removes); the background job does task prep in its own session
 - ALWAYS search for domain-level guides (broader than task-specific)
 - ALWAYS show progress overview before task selection
 - ALWAYS present absolute paths
@@ -169,13 +170,27 @@ In priority order:
 3. Else if only blocked tasks remain → recommend first blocker to resolve
 4. Else (all completed) → recommend marking goal complete
 
-## Phase 6: Task selection + delegation
+## Phase 5.5: Classify the recommended task's session state
 
-User picks 1-N (a task) or "Update goal instead":
-- If task: `Task(subagent_type='vault-cli:work-on-task-assistant', prompt='Find details and guides for: <task name>')`
-- If "Update goal": report `Open: {goal_path}` and STOP (no delegation)
+For the recommended task (skip if the recommendation is "mark goal complete"), classify its session per vault-ui's `classify_session_state` contract, keyed on the task's `claude_session_id` frontmatter. This is the goal session's handoff signal (Start / Resume / leave-alone) — it is NEVER the task's `status` field:
 
-Format final output as goal-context block + `---` + work-on-task-assistant output + `Ready to work on this task.`
+1. Read the task's `claude_session_id` frontmatter. Absent → state `none`.
+2. **Transcript liveness:** the transcript at `<vault path>/.claude/projects/<uuid>.jsonl` (or `session_project_dir` if set). `live` if its mtime is within the ~5-minute `LIVE_WINDOW` (vault-ui `vault_ui/activity.py`); `quiet` if it exists and is older.
+3. **Process cross-check:** `ps` for a live `claude --resume <uuid>` process closes the open-but-idle gap (a resumed session's transcript goes quiet while its process lives). A live process upgrades `quiet` → `live`; an idle transcript with no process stays `quiet`.
+4. **Ambiguity:** conflicting signals (fresh transcript vs no process, or vice versa) → `indeterminate` — report and let the operator decide.
+
+**Hard rules:**
+- NEVER infer liveness from `status: in_progress` — measured 2026-09-06: of 171 `in_progress` tasks, only 13 had a live session. `in_progress` is a queue state, not a liveness signal.
+- `ListAgents` is a secondary display signal only, never the decision input (the name→task join is fuzzy).
+- The task file's mtime is never a liveness signal.
+
+Report the state in the output format as `🔌 Session state: <live|quiet|indeterminate|none>`.
+
+## Phase 6: Recommend and stop (no delegation)
+
+The goal session does NOT claim or prep the task — that is the background job's job (`vault-cli task work-on "<task>" --mode headless` runs the full task lifecycle in its own session). Emit the goal-context block with the recommendation + `🔌 Session state`, then STOP with `Ready to work on this task.` The calling command owns the handoff decision (Start / Resume / leave-alone).
+
+Do NOT invoke `work-on-task-assistant` — its status promotion + session connect would claim a task nobody started, exactly what the goal-session fix removes.
 </workflow>
 
 <output_format>
@@ -208,23 +223,7 @@ Pending (n):
 
 🎯 Recommended: <task>
 Why: <rationale>
-
-Select task:
-1. <task> (recommended)
-2. <task>
-3. <task>
-4. Update goal instead
-```
-
-After user picks a task and `work-on-task-assistant` returns:
-
-```markdown
-<goal-context block above>
-
----
-<work-on-task-assistant output>
-
-Ready to work on this task.
+🔌 Session state: <live | quiet | indeterminate | none>
 ```
 
 When the goal is NOT found in any source (Phase 1), emit this separate `not_found:` block instead — the literal `not_found:` header on its own line, then STOP. Do NOT emit the `Ready to work on this task.` marker (found-case only):

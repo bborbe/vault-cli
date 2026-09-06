@@ -71,6 +71,14 @@ Observed 2026-09-05: `/plan-day` mutated five tasks; three were still `in_progre
 
 If multiple vaults touched, group goals/tasks per vault. Cap each list at 5 (show "+N more" if longer).
 
+**Goal-anchored session?** A session is goal-anchored when a touched goal carries THIS session's `claude_session_id` — i.e. `/vault-cli:work-on-goal` anchored on it. Read each touched goal's frontmatter:
+
+```bash
+grep -m1 '^claude_session_id:' "<vault.path>/<goals_dir>/<goal>.md"
+```
+
+A match against this session's ID — the transcript dir name is canonical; fall back to the anchor task's `claude_session_id` only when the transcript name is unavailable — → `GOAL_ANCHORED=true`, anchor goal = that goal. No match (or no goals touched) → task-anchored / unanchored; every goal rule below stays in the current flagging mode.
+
 ### Phase 2: Sync progress to vault (delegate to skill)
 
 Invoke the skill. Literally this call, not an inlined equivalent:
@@ -238,7 +246,7 @@ STATUS_EXIT=$?
 
 Interpretation is identical to the task branch above — `completed` / `hold` / `aborted` / `next` / `backlog` are silent OK, `in_progress` flags, a non-zero exit or parse failure surfaces as its own outstanding line rather than being skipped. Same scoping rule too: **touched goals only**. A goal this session never edited belongs to another session.
 
-For each `in_progress` goal, surface in Phase 9 as outstanding:
+For each `in_progress` goal, surface in Phase 9 as outstanding — except the anchor goal of a goal-anchored session (Phase 1's `GOAL_ANCHORED`): see the goal-anchored exemption below.
 
 ```
 N. Goal [[<title>]] still in_progress — `/vault-cli:complete-goal "<title>"` to close, `/vault-cli:defer-goal "<title>" <date>` to push out, or set status hold/aborted if abandoning
@@ -251,6 +259,17 @@ N. Goal check unverified for [[<title>]] — `vault-cli goal get` failed (exit <
 ```
 
 A goal legitimately outliving the session is common — goals span 1–4 weeks, sessions do not. The flag is a prompt to confirm that's deliberate, not an assertion the goal should be closed.
+
+**Goal-anchored sessions are exempt from the flag.** When Phase 1's `GOAL_ANCHORED` is true, the anchor goal is NOT an outstanding item — a goal session exists to manage a 1–4-week goal, so the goal ending `in_progress` is the expected steady state (mirrors the 2026-09-06 `work-on-goal` fix: a goal session hands tasks off, it does not complete the goal). Instead resolve the anchor goal's open-task state:
+
+1. Walk its `# Tasks` wikilinks (leading `[[...]]` of each list item — same rule as `execute-goal.md` step 7), resolve each to `<tasks_dir>/<Title>.md`, read each task's `status`:
+   ```bash
+   vault-cli task get "<Title>" status --output json
+   ```
+2. **Open tasks remain** (≥1 task not `completed` / `aborted`) → the goal is not outstanding; Phase 9 names the next open task (the first in `# Tasks` order) under the goal (the global rule: *"When the anchored goal has remaining tasks, the next action is the next task under that same goal — name it"*).
+3. **All tasks terminal** → the goal has drained; Phase 9 lists it normally as the outstanding item to close (`/vault-cli:complete-goal "<title>"`), and the `sync-progress` → `session-close` recommendation becomes available.
+
+For task-anchored sessions touching a goal, nothing changes — the `in_progress` flag stands as the "confirm this is deliberate" prompt.
 
 ### Phase 4.6: Check tasks this session CAUSED (not just touched)
 
@@ -528,6 +547,8 @@ Omit any line with zero entries. If nothing was touched (e.g. talk-only session)
 
 **Mode gate (Phase 4.5 is a hard block, not a suggestion):** if any touched task is `in_progress`, modes 1 and 2 (the clean verdicts) are **forbidden** — the verdict MUST be mode 3 (outstanding), with that task as an outstanding item. An `in_progress` anchor task can never be annotated away ("no action needed", "standing trigger", "deliberate") into a clean verdict; the operator must resolve it (complete / defer / hold / abort) before the session can be suggested as closeable. Modes 1 and 2 are reachable only when every touched task is `completed`, `hold`, `aborted`, `next`, or `backlog`.
 
+**Goal-anchored sessions are exempt from the goal half of the gate.** The Phase 4.5 block above is about touched *tasks* — that stands unchanged. But an anchor goal left `in_progress` with open tasks does NOT force mode 3: it is the goal session's designed steady state, exempted in Phase 4.5. A goal-anchored session reaches the clean verdicts on the same task conditions as any session; the open goal is then reflected in the closer panel (below), never as an outstanding item — the one exception is a DRAINED anchor goal (all tasks terminal), which Phase 4.5 lists normally as outstanding (drained goals go through mode 3, not this path).
+
 **1. Clean + no reflect signals** (all phases ✅ — including every touched task resolved, score < 3):
 
 ```
@@ -578,9 +599,29 @@ Append below the verdict. This command is terminal; without a fixed closer the t
 ⏰ Next: you open a new session; the orchestrator picks the next anchor
 ```
 
+**Goal-anchored clean verdict** (Phase 1's `GOAL_ANCHORED` and the anchor goal still has open tasks — exempted in Phase 4.5, so the session can close clean): the `⏰ Next:` line names the next open task under the anchor goal instead of deferring to the orchestrator:
+
+```
+⚪ DONE
+👤 You: nothing — session closed
+⏰ Next: /vault-cli:work-on-task "<next open task>" — <N> open task(s) remain under the goal
+```
+
 **Outstanding items (mode 3):** `🔵 READY`, with `👤 You: approve:` naming exactly ONE item from the numbered list. **When an `in_progress` touched task is on the list, that task IS the item to name** — the `approve:` line must offer its resolution (`/vault-cli:complete-task "<title>"`, `/vault-cli:defer-task "<title>" <date>`, or set status hold/aborted), never a different item (a worktree cleanup, uncommitted files, a daemon). Naming any other item while the anchor task sits `in_progress` repeats the 2026-08-30 defect: the session closed `⚪ DONE` with the anchor unfinished. The task is the gate; no other item stands in for it.
 
-**Never name a specific next task. Never recommend `/vault-cli:next-task`.** Next-session anchor selection belongs to the orchestrator (or to the user opening a fresh session), not to this command. Same rationale as `sync-progress.md` Phase 6 — and note that closing one task's session is the routine bookend between two task sessions, so the global "no end-of-day suggestions" rule does not apply here.
+**Never name a specific next task — in a task-anchored session.** For task sessions, never name a specific next task and never recommend `/vault-cli:next-task`: next-session anchor selection belongs to the orchestrator (or to the user opening a fresh session), not to this command. Same rationale as `sync-progress.md` Phase 6 — closing one task's session is the routine bookend between two task sessions, so the global "no end-of-day suggestions" rule does not apply here.
+
+**Goal-anchored sessions are the carve-out.** The global rule (`~/.claude/CLAUDE.md`) states: *"When the anchored goal has remaining tasks, the next action is the next task under that same goal — name it"*. When Phase 1's `GOAL_ANCHORED` is true and the anchor goal has open tasks, this command DOES name the next open task: on the goal-anchored clean verdict's `⏰ Next:` line, or — when mode 3 has outstanding items — on its own `⏰ Next:` line directly under the mandatory `approve:` line. The two can name different tasks: `approve:` resolves the blocking item, `⏰ Next:` names the goal's next open task. This resolves the contradiction the two rules created: task sessions never name a next task; goal sessions name the next task under the anchored goal.
+
+**Goal-anchored mode-3 closer** (outstanding items + open anchor goal):
+
+```
+🔵 READY
+👤 You: approve: <blocking item resolution — the in_progress touched task's complete/defer/hold, or the outstanding item named in Phase 9>
+⏰ Next: /vault-cli:work-on-task "<next open task>"
+```
+
+**Drained anchor goal in mode 3** (the goal itself is the outstanding item): after `approve: /vault-cli:complete-goal "<title>"`, the `⏰ Next:` line is `/vault-cli:session-close` — the goal's session-scoped work is fully complete (global rule).
 
 ## Integration
 

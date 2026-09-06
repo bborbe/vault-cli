@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.126.1
 
 - fix: `/vault-cli:post-compact` now reads the anchor task's parent goal from the task file's own `goals:` frontmatter instead of trusting the checkpoint's `Goal:` line. That line is prose written at checkpoint time and validated against nothing, and a wrong goal name still returns a valid status — so the anchor check passed while the goal was misattributed for a whole session, including its success-criteria counts in every closer panel.
 

@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: `verify-goal` forward status-consistency rule for `in_progress` goals relaxed — subtasks at `backlog`/`next`/`in_progress`/`completed` are all aligned under an active goal (queued work is normal), matching the documented matrix (goal `in_progress` → task `backlog`/`next`/`in_progress`/`completed`). Previously every subtask had to be `in_progress`/`completed`, false-positiving active goals with queued subtasks. The `completed`-goal → all `completed` rule and the inverse rules are unchanged.
+
 ## v0.125.0
 
 - feat: `verify-goal` status-consistency check gains the inverse direction — a subtask may not outrank its goal. If a goal is not `in_progress` (`next`/`backlog`/`hold`/`aborted`) no subtask may be `in_progress`; if a goal is `backlog` no subtask may be `next` or `in_progress`. Report-only, matching the goal-necessity check; never modifies goal or task files.

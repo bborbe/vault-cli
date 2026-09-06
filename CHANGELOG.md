@@ -10,6 +10,8 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 
 ## Unreleased
 
+- docs: `commands/verify-goal.md` rule matrix updated to match the relaxed forward `in_progress` rule (goal `in_progress` → subtask `backlog`/`next`/`in_progress`/`completed` all aligned).
+
 - fix: `verify-goal` forward status-consistency rule for `in_progress` goals relaxed — subtasks at `backlog`/`next`/`in_progress`/`completed` are all aligned under an active goal (queued work is normal), matching the documented matrix (goal `in_progress` → task `backlog`/`next`/`in_progress`/`completed`). Previously every subtask had to be `in_progress`/`completed`, false-positiving active goals with queued subtasks. The `completed`-goal → all `completed` rule and the inverse rules are unchanged.
 
 ## v0.125.0

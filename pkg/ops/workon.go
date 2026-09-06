@@ -169,7 +169,10 @@ func sessionFailureResult(
 	sessionID string,
 	sessionErr error,
 ) MutationResult {
-	slog.Warn("workon session error", "error", sessionErr)
+	// Deliberately not logged here: sessionErr is returned to the caller and printed
+	// by the CLI. Logging it again sent a second copy — with a full bborbe/errors stack
+	// — to stderr, and vault-ui concatenates stderr into its banner, burying the child's
+	// own reason under ~40 lines of trace. See spec 045 SC5.
 	return MutationResult{Success: false, Name: task.Name, Vault: vaultName, Warnings: warnings, SessionID: sessionID, Error: sessionErr.Error()}
 }
 

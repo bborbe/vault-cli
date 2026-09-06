@@ -463,6 +463,16 @@ Zero inbound links on a **newly created** page = orphan. Flag HIGH — it won't 
 
 **2. Broken outbound links (HIGH)** — extract `[[Target]]` targets from the page; verify each resolves to a file in **any** vault in `VAULT_CONFIG` (`find/glob` by basename). Unresolved target = broken link or typo. Flag with the target name.
 
+**Build `ALL_VAULT_PATHS` as an array and sanity-check it here too — check #1's zsh warning applies to this check verbatim.** Same multi-path search, same trap: an unquoted `$paths` reaches `find`/`grep` as ONE argument, the search fails, stderr is swallowed, and **every** target reads UNRESOLVED. Reuse the array built for check #1 rather than rebuilding it; if you do rebuild, use the same `${(@f)…}` (zsh) / `mapfile` (bash) form. Before trusting ANY negative, prove the search works:
+
+```bash
+# Both must hold before a single "unresolved" is believed.
+[ "${#ALL_VAULT_PATHS[@]}" -ge 1 ] || echo "BROKEN: empty vault path list"
+find "${ALL_VAULT_PATHS[@]}" -name "<a page you know exists>.md" -not -path '*/.git/*' | head -1
+```
+
+Observed 2026-09-06: the sweep reported **18 of 18** links unresolved across a task + goal pair — including a page whose absolute path had been printed one tool call earlier. Rebuilt with a proper array, the true count was **5**. Note the failure direction: this floods rather than silences, which is its own hazard — 13 false positives buried 5 real dead links (a phantom task roadmap that was blocking the goal), and a check that flags everything trains the operator to stop reading it, at which point it hides the real hits too.
+
 **Tag-line wikilinks are not page links — exclude them from check #2.** Many vaults write the `Tags:` line as wikilinks (`Tags: [[Task]] [[Inbox]] [[OmniFocus]]`) for tags that intentionally have no page. Resolving those the same way as body links reports the vault's own tagging convention as broken. Observed 2026-08-20: `[[OmniFocus]]` was flagged on a generated recurring task, and it turned out to be one of **14** unresolved tag names across that vault's 74 generated tasks (`[[Backup]]` ×7, `[[Planning]]` ×5, `[[Review]]` ×4, `[[Finance]]` ×4, …) — not one broken link but the house style. Worse, the flag sent the operator to "fix" a source template, where the one-file change would have created drift against 73 siblings. When extracting targets, skip any wikilink on a line matching `^Tags:` — check body links only.
 
 **Cross-vault links are normal — search all vaults for both checks.** Scoping resolution to the owning vault reports every legitimate cross-vault wikilink as broken. Observed 2026-08-16: a task in `Personal` linking `[[Boss Memory]]` was flagged unresolved because the check searched only `Personal` and `Trading`; the page lives in the `Boss` vault and is referenced by 20+ files across two others. A false "broken link" costs the operator a needless investigation and erodes trust in the whole verdict — search wide, and treat a hit in any vault as resolved.

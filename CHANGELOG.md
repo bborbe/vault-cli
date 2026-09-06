@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.122.4
 
 - fix: `session-close` Phase 8.6 check #2 (broken outbound links) now carries the same array-construction and sanity-check mandate that check #1 already documents. Both checks search every path in `VAULT_CONFIG`, but only check #1 warned that zsh does not word-split an unquoted `$paths` — so a check #2 sweep built the naive way passes all paths to `find` as one argument, the search fails, stderr is swallowed, and every target reads UNRESOLVED. Observed reporting 18 of 18 links broken (including a page whose absolute path had just been printed) where the true count was 5; the 13 false positives buried the real dead links. Negatives must now be proven against a non-empty path array and a known-good link before they are believed.
 

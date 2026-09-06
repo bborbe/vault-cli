@@ -2110,6 +2110,7 @@ func createTaskSetCommand(
 	outputFormat *string,
 ) *cobra.Command {
 	var reason, gateSuccessor string
+	var force bool
 	cmd := &cobra.Command{
 		Use:   "set <task-name> <key> <value>",
 		Short: "Set a frontmatter field value",
@@ -2129,7 +2130,7 @@ func createTaskSetCommand(
 				storageConfig := storage.NewConfigFromVault(vault)
 				taskStore := storage.NewTaskStorage(storageConfig)
 				setOp := ops.NewFrontmatterSetOperation(taskStore)
-				if err := setOp.Execute(ctx, vault.Path, taskName, key, value, reason, gateSuccessor); err != nil {
+				if err := setOp.Execute(ctx, vault.Path, taskName, key, value, reason, gateSuccessor, force); err != nil {
 					return err
 				}
 				if OutputFormat(*outputFormat).IsJSON() {
@@ -2159,6 +2160,7 @@ func createTaskSetCommand(
 	}
 	cmd.Flags().StringVar(&reason, "reason", "", "Close-out reason (aborted_reason); required for aborted, optional for completed")
 	cmd.Flags().StringVar(&gateSuccessor, "gate-successor", "", "Where any risk gate moves, or 'none' (gate_successor); required for aborted, optional for completed")
+	cmd.Flags().BoolVar(&force, "force", false, "Allow a phase regression (e.g. execution -> todo) on an in-progress task for a deliberate reset")
 	return cmd
 }
 

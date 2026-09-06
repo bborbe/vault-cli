@@ -78,15 +78,18 @@ file and validates the same blob after the child exits, through the shared
 
 Validation is not optional. `claude` reports a `session_id` even for a turn that did
 no work or failed outright, so an unvalidated id would be handed to the operator as
-resumable when it is not — the same class of lie this fix exists to remove. A turn
-whose result is `num_turns: 0`, `is_error: true`, or unparseable is an error, and no
-id is persisted.
+resumable when it is not — the same class of lie this fix exists to remove. The
+validation verdict, not the process exit status, is what decides: a turn whose result
+is `num_turns: 0`, `is_error: true`, or unparseable is an error, and no id is
+persisted. The same shared `validateSessionTurn` still serves both branches.
 
 A temp **file** rather than a pipe is deliberate: the child writes to an inherited fd
 with no reader, so there is no pipe-buffer deadlock and no EPIPE if the parent goes
 away, and the file is complete once `cmd.Wait()` returns. It is unlinked eagerly, so
 no path — including cancel and timeout, where the child still holds the fd — leaves
-anything behind. Stderr still goes to `os.DevNull`; a crash surfaces via exit code.
+anything behind. Stderr still goes to `os.DevNull` — which is precisely why the
+exit code carries no diagnostic content and is now the fallback signal rather than
+the primary one.
 
 ## What the turn timeout does and does not cover
 
@@ -97,11 +100,37 @@ the parent only stops waiting. `--max-turns` is inert (`maxTurns` is -1), so a
 legitimate agentic chain can run for minutes; 30m is roughly 6-10x the observed turn
 length, chosen to bound a pathological hang without cutting off normal work.
 
-Expiry, ctx cancellation, and a non-zero child exit all return an error, so the
-caller persists nothing and the UI keeps showing **Start** rather than offering a
-Resume that cannot work. This is deliberately **not** an inactivity watchdog — a
-session that hangs after starting is left to the Vault UI's existing
-`claude_session_started` cleanup sweep, which is out of scope here.
+Expiry and ctx cancellation still return an error and the caller persists nothing —
+those two are unchanged. A non-zero child exit is no longer a failure by itself.
+Once the child has exited, the captured result is read and validated: the
+**validated result outranks the exit code**: when the blob validates, the turn is
+a success and the id persists.
+
+Why the exit status is the weaker signal by construction: the child's stderr goes to
+`os.DevNull`, so a non-zero exit arrives with no accompanying explanation, while the
+result blob is a structured document the code already knows how to validate. Trusting
+the opaque signal over the structured one was the inversion. The mirror-image lie
+matters too: discarding a session that *can* be resumed costs the whole turn, while
+the false positive it was guarding against costs one failed `claude --resume`.
+
+The exit status remains the reason in exactly one case: the output is missing,
+unreadable, or not valid turn JSON, so there is no `result` text to surface. When the
+blob parses but fails a predicate, the error leads with the child's own `result` text
+and names the failed predicate — `claude reported is_error: true`, `claude returned
+num_turns: 0`, `claude returned empty session_id`. The compensating clear is
+unchanged: it still fires on every error the detached turn returns. Only the
+definition of "failed" moved.
+
+**The read is never hoisted above the `select`.** The read lives inside the
+child-exited branch. On the timeout and cancellation paths the child is still running,
+so any bytes in the output file are partial by definition and must never be validated
+as success. This is a regression lock with a unit test behind it, not a stylistic
+preference — a future reader who "simplifies" the read out of its branch reintroduces
+the bug in a worse form.
+
+This is deliberately **not** an inactivity watchdog — a session that hangs after
+starting is left to the Vault UI's existing `claude_session_started` cleanup sweep,
+which is out of scope here.
 
 ## Failure path
 
@@ -166,7 +195,7 @@ non-interactive re-persist path spawns no writer and takes no lock; liveness gat
 there belongs to the vault-ui follow-on, not to the locker.
 
 **The detached-child safety property.** On the spawn path, when the parent stops
-waiting — child exit error, ctx cancel, or the 30m bound — the detached child keeps
+waiting — a failed turn, ctx cancel, or the 30m bound — the detached child keeps
 running *without* the parent's lock. On the task path the id is pre-persisted, and the
 safety argument is layered: during the running window Resume is not offered for a live
 turn (the Vault UI resolver fix, shipped separately) and the per-session lock (spec

@@ -9,6 +9,7 @@ import (
 	stderrors "errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/bborbe/errors"
@@ -545,6 +546,183 @@ body
 			Expect(written.ClaudeSessionID()).To(Equal(""))
 			Expect(written.Phase()).NotTo(BeNil())
 			Expect(*written.Phase()).To(Equal(domain.GoalPhaseExecution))
+		})
+	})
+
+	Context("goal work-on retains the session id after a non-zero exit with a valid turn result", func() {
+		var realVaultPath string
+		var realGoalStore storage.GoalStorage
+
+		BeforeEach(func() {
+			var mkErr error
+			realVaultPath, mkErr = os.MkdirTemp("", "vault-goal-retain-*")
+			Expect(mkErr).To(BeNil())
+			lockDir, lockErr := os.MkdirTemp("", "vault-goal-retain-lock-*")
+			Expect(lockErr).To(BeNil())
+			DeferCleanup(func() { _ = os.RemoveAll(lockDir) })
+			lockDirLocker := ops.NewSessionLockerWithDir(lockDir)
+			for _, dir := range []string{"24 Tasks", "23 Goals"} {
+				Expect(os.MkdirAll(filepath.Join(realVaultPath, dir), 0755)).To(Succeed())
+			}
+			realGoalStore = storage.NewGoalStorage(&storage.Config{TasksDir: "24 Tasks", GoalsDir: "23 Goals"})
+
+			const retainFixture = `---
+phase: execution
+status: in_progress
+---
+body
+`
+			Expect(os.WriteFile(
+				filepath.Join(realVaultPath, "23 Goals", "Rollback Goal.md"),
+				[]byte(retainFixture), 0600,
+			)).To(Succeed())
+
+			// A validated turn result is authoritative over the child's non-zero exit, so
+			// the persist-on-success path stays alive and the id lands on top of the
+			// child's own frontmatter write. The phase change is deliberately different
+			// from the seeded `execution` so the "child's write survived" assertion is
+			// non-vacuous.
+			block := make(chan struct{})
+			realStarter := ops.NewClaudeSessionStarterWithRunner(
+				"/usr/local/bin/claude",
+				nil,
+				func(_ []string, _ string, stdout *os.File) (<-chan error, error) {
+					fresh, ferr := realGoalStore.FindGoalByName(ctx, realVaultPath, "Rollback Goal")
+					if ferr != nil {
+						return nil, ferr
+					}
+					fresh.SetPhase(domain.GoalPhasePlanning.Ptr())
+					if ferr := realGoalStore.WriteGoal(ctx, fresh); ferr != nil {
+						return nil, ferr
+					}
+					if _, werr := stdout.WriteString(
+						`{"session_id":"` + pinnedSessionID + `","num_turns":3,"is_error":false,"result":"done"}`,
+					); werr != nil {
+						return nil, werr
+					}
+					done := make(chan error, 1)
+					done <- stderrors.New("exit status 1")
+					return done, nil
+				},
+				libtime.WaiterDurationFunc(func(_ context.Context, _ libtime.Duration) error {
+					<-block
+					return nil
+				}),
+				lockDirLocker,
+			)
+			DeferCleanup(func() { close(block) })
+			DeferCleanup(func() { _ = os.RemoveAll(realVaultPath) })
+
+			goalWorkOnOp = ops.NewGoalWorkOnOperation(
+				realGoalStore,
+				func() string { return pinnedSessionID },
+				realStarter,
+				nil,
+			)
+			vaultPath = realVaultPath
+			goalName = "Rollback Goal"
+		})
+
+		It("goal work-on retains the session id after a non-zero exit when the turn result validated", func() {
+			Expect(err).To(BeNil())
+			Expect(result.Success).To(BeTrue())
+			Expect(result.SessionID).To(Equal(pinnedSessionID))
+
+			written, ferr := realGoalStore.FindGoalByName(ctx, realVaultPath, "Rollback Goal")
+			Expect(ferr).To(BeNil())
+			Expect(written.ClaudeSessionID()).To(Equal(pinnedSessionID))
+			// The child's own write survived the persist-on-success re-read.
+			Expect(written.Phase()).NotTo(BeNil())
+			Expect(*written.Phase()).To(Equal(domain.GoalPhasePlanning))
+
+			raw, rerr := os.ReadFile(filepath.Join(realVaultPath, "23 Goals", "Rollback Goal.md"))
+			Expect(rerr).To(BeNil())
+			Expect(strings.Count(string(raw), "claude_session_id:")).To(Equal(1))
+		})
+	})
+
+	Context("goal work-on persists nothing for a failed turn", func() {
+		var realVaultPath string
+		var realGoalStore storage.GoalStorage
+
+		BeforeEach(func() {
+			var mkErr error
+			realVaultPath, mkErr = os.MkdirTemp("", "vault-goal-clear-*")
+			Expect(mkErr).To(BeNil())
+			lockDir, lockErr := os.MkdirTemp("", "vault-goal-clear-lock-*")
+			Expect(lockErr).To(BeNil())
+			DeferCleanup(func() { _ = os.RemoveAll(lockDir) })
+			lockDirLocker := ops.NewSessionLockerWithDir(lockDir)
+			for _, dir := range []string{"24 Tasks", "23 Goals"} {
+				Expect(os.MkdirAll(filepath.Join(realVaultPath, dir), 0755)).To(Succeed())
+			}
+			realGoalStore = storage.NewGoalStorage(&storage.Config{TasksDir: "24 Tasks", GoalsDir: "23 Goals"})
+
+			const clearFixture = `---
+phase: execution
+status: in_progress
+---
+body
+`
+			Expect(os.WriteFile(
+				filepath.Join(realVaultPath, "23 Goals", "Rollback Goal.md"),
+				[]byte(clearFixture), 0600,
+			)).To(Succeed())
+
+			block := make(chan struct{})
+			realStarter := ops.NewClaudeSessionStarterWithRunner(
+				"/usr/local/bin/claude",
+				nil,
+				func(_ []string, _ string, stdout *os.File) (<-chan error, error) {
+					// The blob reports the turn's own failure; `pkg/ops/goal_workon.go` has
+					// its own handleClaudeSession that persists the id only after a clean,
+					// validated turn, so nothing was written for this id on any failure path.
+					if _, werr := stdout.WriteString(
+						`{"session_id":"` + pinnedSessionID + `","num_turns":0,"is_error":true,"result":"seeded failure text"}`,
+					); werr != nil {
+						return nil, werr
+					}
+					done := make(chan error, 1)
+					done <- stderrors.New("exit status 1")
+					return done, nil
+				},
+				libtime.WaiterDurationFunc(func(_ context.Context, _ libtime.Duration) error {
+					<-block
+					return nil
+				}),
+				lockDirLocker,
+			)
+			DeferCleanup(func() { close(block) })
+			DeferCleanup(func() { _ = os.RemoveAll(realVaultPath) })
+
+			goalWorkOnOp = ops.NewGoalWorkOnOperation(
+				realGoalStore,
+				func() string { return pinnedSessionID },
+				realStarter,
+				nil,
+			)
+			vaultPath = realVaultPath
+			goalName = "Rollback Goal"
+		})
+
+		It("goal work-on persists no session id for a failed turn", func() {
+			Expect(err).To(HaveOccurred())
+			Expect(result.Success).To(BeFalse())
+
+			// The child's own reason leads the message; the spec's AC2 permits an
+			// exit-status mention only as a trailing clause, never before it.
+			msg := err.Error()
+			Expect(msg).To(ContainSubstring("seeded failure text"))
+			if idx := strings.Index(msg, "exit status"); idx >= 0 {
+				Expect(strings.Index(msg, "seeded failure text")).To(BeNumerically("<", idx))
+			}
+
+			// The goal path needs no compensating clear: nothing is persisted for a failed
+			// turn (the non-interactive branch persists only after a clean, validated
+			// turn), so the raw file proves the invariant rather than a clear.
+			raw, rerr := os.ReadFile(filepath.Join(realVaultPath, "23 Goals", "Rollback Goal.md"))
+			Expect(rerr).To(BeNil())
+			Expect(strings.Count(string(raw), "claude_session_id:")).To(Equal(0))
 		})
 	})
 

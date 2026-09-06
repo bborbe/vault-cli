@@ -365,4 +365,160 @@ body
 		})
 	})
 
+	Context("when the child exits non-zero after writing a valid turn result", func() {
+		// AC6 retain half: under the spec 045 precedence a validated turn result is
+		// authoritative over the child's non-zero exit, so the pre-persisted session id
+		// survives what used to be the failed-spawn path and the Vault UI can offer Resume.
+		const rollbackFixture = `---
+phase: execution
+status: in_progress
+---
+body
+`
+		var taskStore storage.TaskStorage
+
+		BeforeEach(func() {
+			taskStore = storage.NewTaskStorage(storageConfig)
+			Expect(os.WriteFile(
+				filepath.Join(vaultPath, "24 Tasks", "Repro Task.md"),
+				[]byte(rollbackFixture), 0600,
+			)).To(Succeed())
+
+			// Same re-read/set-phase/write-back shape as the rollback Context, but with a
+			// valid JSON blob written to stdout before the child exits non-zero. The phase
+			// change is deliberately different from the seeded `execution`, so the
+			// "child's write survived" assertion is non-vacuous.
+			detachRun := func(_ []string, _ string, stdout *os.File) (<-chan error, error) {
+				fresh, err := taskStore.FindTaskByName(ctx, vaultPath, "Repro Task")
+				if err != nil {
+					return nil, err
+				}
+				fresh.SetPhase(domain.TaskPhasePlanning.Ptr())
+				if err := taskStore.WriteTask(ctx, fresh); err != nil {
+					return nil, err
+				}
+				if _, err := stdout.WriteString(
+					`{"session_id":"` + pinnedSessionID + `","num_turns":3,"is_error":false,"result":"done"}`,
+				); err != nil {
+					return nil, err
+				}
+				done := make(chan error, 1)
+				done <- errors.New("exit status 1")
+				return done, nil
+			}
+			starter = newStarter(detachRun)
+		})
+
+		It("retains the pre-persisted session id when the turn result validated despite the non-zero exit", func() {
+			currentDateTime := libtime.NewCurrentDateTime()
+			currentDateTime.SetNow(libtimetest.ParseDateTime("2026-03-03T12:00:00Z"))
+			testVault := config.Vault{
+				Path:          vaultPath,
+				Name:          "test-vault",
+				WorkOnCommand: "/vault-cli:work-on-task",
+			}
+			workOnOp := ops.NewWorkOnOperation(
+				taskStore, mockDailyNote, currentDateTime, func() string { return pinnedSessionID }, starter, nil,
+			)
+
+			// The retain is caller-side (handleClaudeSession/Execute): the pre-spawn
+			// persist wrote the id, the validated result stops the compensating clear from
+			// firing, so only Execute observes the id surviving — a direct StartSession
+			// call never sees it.
+			result, err := workOnOp.Execute(
+				ctx, vaultPath, "Repro Task", "user@example.com", "test-vault",
+				false, sessionDir, &testVault,
+			)
+			Expect(err).To(BeNil())
+			Expect(result.Success).To(BeTrue())
+			Expect(result.SessionID).To(Equal(pinnedSessionID))
+
+			// In-test form of the spec's `grep -c '^claude_session_id:' <task file>`
+			// evidence: exactly one id line survives the validated-but-non-zero-exit turn.
+			raw, err := os.ReadFile(filepath.Join(vaultPath, "24 Tasks", "Repro Task.md"))
+			Expect(err).To(BeNil())
+			Expect(strings.Count(string(raw), "claude_session_id:")).To(Equal(1))
+			Expect(strings.Contains(string(raw), pinnedSessionID)).To(BeTrue())
+			// Seeded with phase: execution, so this only passes if the child's write landed.
+			Expect(strings.Contains(string(raw), "phase: planning")).To(BeTrue())
+		})
+	})
+
+	Context("when the child reports its own failure", func() {
+		const rollbackFixture = `---
+phase: execution
+status: in_progress
+---
+body
+`
+		var taskStore storage.TaskStorage
+
+		BeforeEach(func() {
+			taskStore = storage.NewTaskStorage(storageConfig)
+			Expect(os.WriteFile(
+				filepath.Join(vaultPath, "24 Tasks", "Repro Task.md"),
+				[]byte(rollbackFixture), 0600,
+			)).To(Succeed())
+
+			// Same re-read/set-phase/write-back shape as the rollback Context (the child's
+			// frontmatter write must survive the clear), but the blob reports the turn's
+			// own failure, so the compensating clear still fires.
+			detachRun := func(_ []string, _ string, stdout *os.File) (<-chan error, error) {
+				fresh, err := taskStore.FindTaskByName(ctx, vaultPath, "Repro Task")
+				if err != nil {
+					return nil, err
+				}
+				fresh.SetPhase(domain.TaskPhasePlanning.Ptr())
+				if err := taskStore.WriteTask(ctx, fresh); err != nil {
+					return nil, err
+				}
+				if _, err := stdout.WriteString(
+					`{"session_id":"` + pinnedSessionID + `","num_turns":0,"is_error":true,"result":"seeded failure text"}`,
+				); err != nil {
+					return nil, err
+				}
+				done := make(chan error, 1)
+				done <- errors.New("exit status 1")
+				return done, nil
+			}
+			starter = newStarter(detachRun)
+		})
+
+		It("clears the pre-persisted session id when the turn result reports its own failure", func() {
+			currentDateTime := libtime.NewCurrentDateTime()
+			currentDateTime.SetNow(libtimetest.ParseDateTime("2026-03-03T12:00:00Z"))
+			testVault := config.Vault{
+				Path:          vaultPath,
+				Name:          "test-vault",
+				WorkOnCommand: "/vault-cli:work-on-task",
+			}
+			workOnOp := ops.NewWorkOnOperation(
+				taskStore, mockDailyNote, currentDateTime, func() string { return pinnedSessionID }, starter, nil,
+			)
+
+			result, err := workOnOp.Execute(
+				ctx, vaultPath, "Repro Task", "user@example.com", "test-vault",
+				false, sessionDir, &testVault,
+			)
+			Expect(err).To(HaveOccurred())
+			Expect(result.Success).To(BeFalse())
+
+			// The child's own reason leads the message; the spec's AC2 permits an
+			// exit-status mention only as a trailing clause, never before it.
+			msg := err.Error()
+			Expect(msg).To(ContainSubstring("seeded failure text"))
+			if idx := strings.Index(msg, "exit status"); idx >= 0 {
+				Expect(strings.Index(msg, "seeded failure text")).To(BeNumerically("<", idx))
+			}
+
+			// The compensating clear removed the id and this run's metrics entry, but the
+			// child's `phase: planning` write survived (the fixture seeded `execution`).
+			raw, err := os.ReadFile(filepath.Join(vaultPath, "24 Tasks", "Repro Task.md"))
+			Expect(err).To(BeNil())
+			Expect(strings.Count(string(raw), "claude_session_id:")).To(Equal(0))
+			Expect(strings.Contains(string(raw), pinnedSessionID)).To(BeFalse())
+			Expect(strings.Contains(string(raw), "phase: planning")).To(BeTrue())
+		})
+	})
+
 })

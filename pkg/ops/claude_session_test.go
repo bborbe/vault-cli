@@ -132,7 +132,7 @@ var _ = Describe("ClaudeSessionStarter", func() {
 		It("returns error containing 0 turns and result", func() {
 			err := starter.StartSession(ctx, "session-abc", "prompt", "/vault", "", true)
 			Expect(err).NotTo(BeNil())
-			Expect(err.Error()).To(ContainSubstring("0 turns"))
+			Expect(err.Error()).To(ContainSubstring("num_turns"))
 			Expect(err.Error()).To(ContainSubstring("Unknown command: /x"))
 		})
 	})
@@ -366,7 +366,7 @@ var _ = Describe("ClaudeSessionStarter", func() {
 			)
 			err := starter.StartSession(ctx, "session-abc", "prompt", "/my/vault", "", false)
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("0 turns"))
+			Expect(err.Error()).To(ContainSubstring("num_turns"))
 		})
 
 		It("validates the turn and rejects an is_error result", func() {
@@ -388,7 +388,7 @@ var _ = Describe("ClaudeSessionStarter", func() {
 			)
 			err := starter.StartSession(ctx, "session-abc", "prompt", "/my/vault", "", false)
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("claude reported error"))
+			Expect(err.Error()).To(ContainSubstring("claude reported is_error"))
 		})
 
 		It("rejects an unparseable turn result", func() {
@@ -432,6 +432,141 @@ var _ = Describe("ClaudeSessionStarter", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("exit status 1"))
 			Expect(err.Error()).To(ContainSubstring("exited with error"))
+		})
+
+		It("returns nil when the child writes a valid blob and exits non-zero", func() {
+			bw := blockWaiter
+			starter = ops.NewClaudeSessionStarterWithRunner(
+				"/usr/local/bin/claude",
+				nil,
+				func(_ []string, _ string, stdout *os.File) (<-chan error, error) {
+					_, _ = stdout.WriteString(validTurnJSON)
+					done := make(chan error, 1)
+					done <- errors.New("exit status 1")
+					return done, nil
+				},
+				libtime.WaiterDurationFunc(func(_ context.Context, _ libtime.Duration) error {
+					<-bw
+					return nil
+				}),
+				locker,
+			)
+			err := starter.StartSession(ctx, "session-abc", "prompt", "/my/vault", "", false)
+			Expect(err).To(BeNil())
+		})
+
+		It("leads with the child's reason when a parsed blob reports is_error", func() {
+			bw := blockWaiter
+			starter = ops.NewClaudeSessionStarterWithRunner(
+				"/usr/local/bin/claude",
+				nil,
+				func(_ []string, _ string, stdout *os.File) (<-chan error, error) {
+					_, _ = stdout.WriteString(`{"session_id":"session-abc","num_turns":2,"is_error":true,"result":"seeded failure text"}`)
+					done := make(chan error, 1)
+					done <- errors.New("exit status 1")
+					return done, nil
+				},
+				libtime.WaiterDurationFunc(func(_ context.Context, _ libtime.Duration) error {
+					<-bw
+					return nil
+				}),
+				locker,
+			)
+			err := starter.StartSession(ctx, "session-abc", "prompt", "/my/vault", "", false)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(HavePrefix("seeded failure text"))
+			Expect(err.Error()).To(ContainSubstring("is_error"))
+			Expect(err.Error()).NotTo(HavePrefix("exit status"))
+		})
+
+		It("leads with the child's reason when a parsed blob has zero turns", func() {
+			bw := blockWaiter
+			starter = ops.NewClaudeSessionStarterWithRunner(
+				"/usr/local/bin/claude",
+				nil,
+				func(_ []string, _ string, stdout *os.File) (<-chan error, error) {
+					_, _ = stdout.WriteString(`{"session_id":"session-abc","num_turns":0,"is_error":false,"result":"seeded failure text"}`)
+					done := make(chan error, 1)
+					done <- errors.New("exit status 1")
+					return done, nil
+				},
+				libtime.WaiterDurationFunc(func(_ context.Context, _ libtime.Duration) error {
+					<-bw
+					return nil
+				}),
+				locker,
+			)
+			err := starter.StartSession(ctx, "session-abc", "prompt", "/my/vault", "", false)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(HavePrefix("seeded failure text"))
+			Expect(err.Error()).To(ContainSubstring("num_turns"))
+			Expect(err.Error()).NotTo(HavePrefix("exit status"))
+		})
+
+		It("leads with the child's reason when a parsed blob has an empty session_id", func() {
+			bw := blockWaiter
+			starter = ops.NewClaudeSessionStarterWithRunner(
+				"/usr/local/bin/claude",
+				nil,
+				func(_ []string, _ string, stdout *os.File) (<-chan error, error) {
+					_, _ = stdout.WriteString(`{"session_id":"","num_turns":2,"is_error":false,"result":"seeded failure text"}`)
+					done := make(chan error, 1)
+					done <- errors.New("exit status 1")
+					return done, nil
+				},
+				libtime.WaiterDurationFunc(func(_ context.Context, _ libtime.Duration) error {
+					<-bw
+					return nil
+				}),
+				locker,
+			)
+			err := starter.StartSession(ctx, "session-abc", "prompt", "/my/vault", "", false)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(HavePrefix("seeded failure text"))
+			Expect(err.Error()).To(ContainSubstring("session_id"))
+			Expect(err.Error()).NotTo(HavePrefix("exit status"))
+		})
+
+		It("names the exit status when the output is non-empty but unparseable", func() {
+			bw := blockWaiter
+			starter = ops.NewClaudeSessionStarterWithRunner(
+				"/usr/local/bin/claude",
+				nil,
+				func(_ []string, _ string, stdout *os.File) (<-chan error, error) {
+					_, _ = stdout.WriteString(`not valid json at all`)
+					done := make(chan error, 1)
+					done <- errors.New("exit status 1")
+					return done, nil
+				},
+				libtime.WaiterDurationFunc(func(_ context.Context, _ libtime.Duration) error {
+					<-bw
+					return nil
+				}),
+				locker,
+			)
+			err := starter.StartSession(ctx, "session-abc", "prompt", "/my/vault", "", false)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("exit status"))
+		})
+
+		It("fails on timeout even when a valid blob is already on disk", func() {
+			// Regression lock against hoisting the read above the select: the child
+			// is still running (its channel never fires), so the bytes already on
+			// disk are partial by definition and must never be validated as success.
+			starter = ops.NewClaudeSessionStarterWithRunner(
+				"/usr/local/bin/claude",
+				nil,
+				func(_ []string, _ string, stdout *os.File) (<-chan error, error) {
+					_, _ = stdout.WriteString(validTurnJSON)
+					// Child never exits within the bound.
+					return make(chan error), nil
+				},
+				libtime.WaiterDurationFunc(func(_ context.Context, _ libtime.Duration) error { return nil }),
+				locker,
+			)
+			err := starter.StartSession(ctx, "session-abc", "prompt", "/my/vault", "", false)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("did not complete within"))
 		})
 
 		It("treats the turn timeout as an error so no id is persisted", func() {
@@ -555,7 +690,25 @@ var _ = Describe("ClaudeSessionStarter", func() {
 		})
 
 		It("releases the lock when the child exits with an error", func() {
-			lockDoneCh <- ErrTest
+			// The child must leave the output file empty for the exit status to be
+			// authoritative under the result-over-exit-code precedence: a valid blob
+			// on disk would validate as a success even with a non-zero exit.
+			waiter := lockWaiter
+			starter = ops.NewClaudeSessionStarterWithRunner(
+				"/usr/local/bin/claude",
+				nil,
+				func(_ []string, _ string, _ *os.File) (<-chan error, error) {
+					spawnCount++
+					done := make(chan error, 1)
+					done <- ErrTest
+					return done, nil
+				},
+				libtime.WaiterDurationFunc(func(_ context.Context, _ libtime.Duration) error {
+					<-waiter
+					return nil
+				}),
+				lockLocker,
+			)
 			err := starter.StartSession(ctx, "session-abc", "prompt", "/vault", "", false)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("exited with error"))

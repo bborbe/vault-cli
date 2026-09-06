@@ -151,10 +151,13 @@ Quick validation checks for goal integrity.
    - Verify file exists in `24 Tasks/`
    - If not found → report missing task
 
-6. **Check status consistency:**
-   - If goal `in_progress`: every subtask must be `in_progress` or `completed`
-   - If goal `completed`: every subtask must be `completed`
-   - Report all violations
+6. **Check status consistency** (a task must not outrank its goal):
+   - Forward — if goal `in_progress`: every subtask must be `in_progress` or `completed`
+   - Forward — if goal `completed`: every subtask must be `completed`
+   - Inverse — if goal is NOT `in_progress` (i.e. `next`, `backlog`, `hold`, `aborted`): no subtask may be `in_progress`
+   - Inverse — if goal `backlog`: no subtask may be `next` or `in_progress`
+   - Report all violations in the `✗` issue shape, e.g. `✗ task <task> in_progress but goal <goal> is next — task must not outrank its goal`
+   - Advisory only: report only — never modify goal or task files, never auto-change statuses
 
 7. **Check task/PRD linkage:**
    - If 0 tasks → warning

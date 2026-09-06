@@ -1,7 +1,13 @@
 ---
-spec: ["045-bug-exit-code-outranks-validated-turn"]
-status: draft
+status: completed
+spec: [045-bug-exit-code-outranks-validated-turn]
+summary: 'Extended workon_session_writeback_test.go and goal_workon_test.go with four Execute-driven specs proving spec 045''s clear-vs-retain precedence end-to-end on real vault files (task and goal paths), with AC2''s child-reason-leads message ordering asserted; CHANGELOG updated with a test: bullet.'
+execution_id: vault-cli-exit-code-exec-209-spec-045-workon-writeback-precedence
+dark-factory-version: dev
 created: "2026-09-06T13:20:00Z"
+queued: "2026-09-06T14:07:44Z"
+started: "2026-09-06T14:07:49Z"
+completed: "2026-09-06T14:14:38Z"
 ---
 
 # Task and goal write-back under the new precedence (spec 045, prompt 2 of 3)

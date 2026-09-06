@@ -1,7 +1,8 @@
 ---
-spec: ["045-bug-exit-code-outranks-validated-turn"]
-status: draft
+status: approved
+spec: [045-bug-exit-code-outranks-validated-turn]
 created: "2026-09-06T13:20:00Z"
+queued: "2026-09-06T14:07:44Z"
 ---
 
 # Lifecycle doc contract rewrite and CHANGELOG bullet (spec 045, prompt 3 of 3)

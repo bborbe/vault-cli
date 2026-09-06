@@ -1,8 +1,9 @@
 ---
-status: prompted
+status: verifying
 approved: "2026-09-06T13:07:28Z"
 generating: "2026-09-06T13:43:00Z"
 prompted: "2026-09-06T13:43:00Z"
+verifying: "2026-09-06T14:00:37Z"
 branch: dark-factory/bug-exit-code-outranks-validated-turn
 ---
 

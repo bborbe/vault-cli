@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.122.3
 
 - fix: `vault-cli task set phase todo` on a task with `status: in_progress` whose current phase is `execution`, `ai_review`, or `human_review` is now rejected as a lifecycle regression — a bulk `task set phase todo` loop regressed 80 active tasks on 2026-09-02, silently stalling their execution pipeline. A deliberate reset passes the new `--force` flag on `task set`. Also raised the `lint` target's golangci-lint timeout to 10m (the 5m config timeout was exceeded in practice).
 

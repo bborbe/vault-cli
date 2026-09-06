@@ -8,10 +8,13 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## v0.123.0
+## Unreleased
 
 - feat: `work-on-goal` is now a management session — Phase 3 ("Drive to execution") drops the `plan-task` → `execute-task` auto-chain and hands the recommended task off instead. It classifies the task's session state (live / quiet / indeterminate / none, per vault-ui's `classify_session_state` contract), reports an existing session, or offers an approval-gated `vault-cli task work-on "<task>" --mode headless` background start with a returned resume command. Headless / NO-ASK mode surveys, records the recommendation, and stops — no task is ever flipped to `phase: execution`. The goal's next-open-task walk is reused from `execute-goal`, not re-implemented.
 - feat: `session-close` gains a goal-session mode. A goal-anchored session's `in_progress` goal with open tasks is no longer an outstanding item (the designed steady state); the close offer is gated on the goal draining (all tasks terminal); the closer names the next open task under the anchored goal; and the "never name a specific next task" prohibition is explicitly scoped to task sessions.
+
+## v0.123.0
+
 - fix: work-on-task-assistant labelled its runbook section as if it were the runbook — it is a derived digest, and acting on it skipped a linked runbook's preflight steps
 - feat: work-on-task-assistant names runbooks that a retrieved runbook links onward to, instead of folding their summaries into the digest
 

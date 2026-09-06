@@ -288,7 +288,10 @@ func (c *claudeSessionStarter) runDetachedTurn(
 		// message, but a non-zero exit alongside it is still a distinct signal, so log
 		// it rather than drop it — mirrors the override log above.
 		if exitErr != nil {
-			slog.Warn("turn rejected by predicate; child also exited non-zero", "err", exitErr)
+			// Debug, not Warn: this is a secondary signal about an error already being
+			// returned. At Warn it reached stderr ahead of the error itself and became
+			// the first line of vault-ui's banner (spec 045 SC5).
+			slog.Debug("turn rejected by predicate; child also exited non-zero", "err", exitErr)
 		}
 		// Return it unwrapped so the child's own result text leads (see rejectTurn).
 		return validateErr

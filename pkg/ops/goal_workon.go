@@ -113,7 +113,9 @@ func (g *goalWorkOnOperation) Execute(
 			warnings = append(warnings, warning)
 			slog.Warn("workon warning", "warning", warning)
 		} else {
-			slog.Warn("workon session error", "error", sessionErr)
+			// Not logged here — see the note in workon.go sessionFailureResult: the
+			// error is returned and printed, and a second stack-carrying copy on stderr
+			// buries the child's reason in vault-ui's banner.
 			return MutationResult{Success: false, Name: goal.Name, Vault: vaultName, Warnings: warnings, SessionID: sessionID, Error: sessionErr.Error()},
 				errors.Wrap(ctx, sessionErr, "start work-on session")
 		}

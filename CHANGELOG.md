@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: session-close offers "leave it open" as an anchor-task resolution — a task gated on a scheduled event is neither finished nor abandoned, and the previous complete/defer/hold menu had no correct option for it
+
 ## v0.126.0
 
 - fix: `pkg/ops` `runDetachedTurn` precedence — a validated turn result now overrides a non-zero child exit, so a clean headless-turn blob is a success even when the child exits non-zero. Parsed-but-rejected output leads with the child's own `result` text (predicate named in parentheses), and the child's exit status is reported only when the output is unparseable or missing.

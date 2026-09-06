@@ -224,8 +224,17 @@ Interpret:
 For each `in_progress` task that was **not** excluded above, surface in Phase 9 as outstanding:
 
 ```
-N. Task [[<title>]] still in_progress — `/vault-cli:complete-task "<title>"` to finish, `/vault-cli:defer-task "<title>" <date>` to push out, or set status hold/aborted if abandoning
+N. Task [[<title>]] still in_progress — `/vault-cli:complete-task "<title>"` to finish, `/vault-cli:defer-task "<title>" <date>` to push out, set status hold/aborted if abandoning, or **leave it open and say so plainly**
 ```
+
+**"Leave it open" is a real resolution, and often the only correct one.** A task gated on a scheduled event — a soak window, a deferred re-measure, a dated follow-up — is neither finished nor abandoned, and forcing a status flip to clear the flag records something false. Two of the three other options are actively wrong for it:
+
+- `hold` is for blocks with **no** resume date. Setting it on a task that resumes on a known date misstates the reason it is not moving.
+- `defer` may be the operator's choice, but this command must not propose it — it is banned as a suggestion.
+
+So the flag stays (Phase 4.5 is still a hard block, and mode 3 still applies), the `approve:` line offers leaving it open, and the reason is stated in the output. What is forbidden is closing **silently** with an unresolved anchor, not closing with an anchor that is deliberately still open.
+
+Observed 2026-09-06: an anchor task was gated on a 48h verification window with a watcher already armed. The template offered only complete / defer / hold, so `hold` was proposed — contradicting the vault's own status semantics (*"never set `hold` for a task with a scheduled `defer_date`… reserve `hold` only for blocks with no scheduled resume date"*). The operator caught it with one word: *"why … hold?"*
 
 For each task whose status lookup FAILED, surface in Phase 9 as outstanding:
 
@@ -251,7 +260,7 @@ Interpretation is identical to the task branch above — `completed` / `hold` / 
 For each `in_progress` goal, surface in Phase 9 as outstanding — except the anchor goal of a goal-anchored session (Phase 1's `GOAL_ANCHORED`): see the goal-anchored exemption below.
 
 ```
-N. Goal [[<title>]] still in_progress — `/vault-cli:complete-goal "<title>"` to close, `/vault-cli:defer-goal "<title>" <date>` to push out, or set status hold/aborted if abandoning
+N. Goal [[<title>]] still in_progress — `/vault-cli:complete-goal "<title>"` to close, `/vault-cli:defer-goal "<title>" <date>` to push out, set status hold/aborted if abandoning, or **leave it open and say so plainly**
 ```
 
 For each goal whose status lookup FAILED:
@@ -609,7 +618,7 @@ Append below the verdict. This command is terminal; without a fixed closer the t
 ⏰ Next: /vault-cli:work-on-task "<next open task>" — <N> open task(s) remain under the goal
 ```
 
-**Outstanding items (mode 3):** `🔵 READY`, with `👤 You: approve:` naming exactly ONE item from the numbered list. **When an `in_progress` touched task is on the list, that task IS the item to name** — the `approve:` line must offer its resolution (`/vault-cli:complete-task "<title>"`, `/vault-cli:defer-task "<title>" <date>`, or set status hold/aborted), never a different item (a worktree cleanup, uncommitted files, a daemon). Naming any other item while the anchor task sits `in_progress` repeats the 2026-08-30 defect: the session closed `⚪ DONE` with the anchor unfinished. The task is the gate; no other item stands in for it.
+**Outstanding items (mode 3):** `🔵 READY`, with `👤 You: approve:` naming exactly ONE item from the numbered list. **When an `in_progress` touched task is on the list, that task IS the item to name** — the `approve:` line must offer its resolution (`/vault-cli:complete-task "<title>"`, `/vault-cli:defer-task "<title>" <date>`, set status hold/aborted, or **leave it open and say so plainly**), never a different item (a worktree cleanup, uncommitted files, a daemon). Naming any other item while the anchor task sits `in_progress` repeats the 2026-08-30 defect: the session closed `⚪ DONE` with the anchor unfinished. The task is the gate; no other item stands in for it.
 
 **Never name a specific next task — in a task-anchored session.** For task sessions, never name a specific next task and never recommend `/vault-cli:next-task`: next-session anchor selection belongs to the orchestrator (or to the user opening a fresh session), not to this command. Same rationale as `sync-progress.md` Phase 6 — closing one task's session is the routine bookend between two task sessions, so the global "no end-of-day suggestions" rule does not apply here.
 

@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.124.1
 
 - fix: `session-close` goal-anchored detection now also fires on the conversation signal — a touched goal that this session ran `/vault-cli:work-on-goal` on is goal-anchored even when the goal carries no `claude_session_id` (the assistant refuses to guess when its title-match finds 0 sessions: headless runs, un-renamed sessions). Previously such a goal session was mis-detected as task-anchored and the open goal flagged as outstanding — the exact close-offer-on-an-open-goal defect the goal-session mode exists to fix. Found by e2e on 2026-09-06.
 

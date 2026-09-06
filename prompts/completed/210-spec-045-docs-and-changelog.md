@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [045-bug-exit-code-outranks-validated-turn]
+summary: 'Rewrote docs/work-on-session-lifecycle.md contract to the new result-over-exit-code precedence (spec 045 AC7) and appended the corresponding CHANGELOG fix bullet under ## Unreleased (AC8), all greps and make precommit passing'
+execution_id: vault-cli-exit-code-exec-210-spec-045-docs-and-changelog
+dark-factory-version: dev
 created: "2026-09-06T13:20:00Z"
 queued: "2026-09-06T14:07:44Z"
+started: "2026-09-06T14:14:39Z"
+completed: "2026-09-06T14:16:58Z"
 ---
 
 # Lifecycle doc contract rewrite and CHANGELOG bullet (spec 045, prompt 3 of 3)

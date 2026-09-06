@@ -12,6 +12,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 
 - fix: `pkg/ops` `runDetachedTurn` precedence — a validated turn result now overrides a non-zero child exit, so a clean headless-turn blob is a success even when the child exits non-zero. Parsed-but-rejected output leads with the child's own `result` text (predicate named in parentheses), and the child's exit status is reported only when the output is unparseable or missing.
 - test: `pkg/ops` write-back specs prove the spec 045 clear-vs-retain consequence end-to-end through `Execute` on real vault files — the task path retains the pre-persisted session id (and the goal path persists it) when a non-zero-exit turn's result validated, and both paths still leave no session id when the turn reported its own failure, with the child's reason leading the surfaced error.
+- fix: `docs/work-on-session-lifecycle.md` contract — the validated result outranks the exit code, so a headless `work-on` turn that completed successfully is no longer discarded because its child process exited non-zero: the session id persists and the Vault UI offers Resume. A genuinely failed turn still clears the id and now reports the child's own reason instead of `exit status 1`.
 
 ## v0.125.0
 

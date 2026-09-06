@@ -338,6 +338,7 @@ var _ = Describe("FrontmatterSetOperation", func() {
 		value           string
 		reason          string
 		gateSuccessor   string
+		force           bool
 		task            *domain.Task
 	)
 
@@ -358,10 +359,11 @@ var _ = Describe("FrontmatterSetOperation", func() {
 		mockTaskStorage.WriteTaskReturns(nil)
 		reason = ""
 		gateSuccessor = ""
+		force = false
 	})
 
 	JustBeforeEach(func() {
-		err = setOp.Execute(ctx, vaultPath, taskName, key, value, reason, gateSuccessor)
+		err = setOp.Execute(ctx, vaultPath, taskName, key, value, reason, gateSuccessor, force)
 	})
 
 	Context("setting phase field", func() {
@@ -392,6 +394,86 @@ var _ = Describe("FrontmatterSetOperation", func() {
 
 		It("does not write the task", func() {
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(0))
+		})
+	})
+
+	Context("rejecting phase regression execution -> todo on in_progress task", func() {
+		BeforeEach(func() {
+			task = domain.NewTask(
+				map[string]any{"status": "in_progress", "phase": "execution"},
+				domain.FileMetadata{Name: taskName},
+				domain.Content(""),
+			)
+			mockTaskStorage.FindTaskByNameReturns(task, nil)
+			key = "phase"
+			value = "todo"
+		})
+
+		It("returns a regression error", func() {
+			Expect(err).NotTo(BeNil())
+			Expect(err.Error()).To(ContainSubstring("refusing to set phase"))
+			Expect(err.Error()).To(ContainSubstring("--force"))
+		})
+
+		It("does not write the task", func() {
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(0))
+		})
+	})
+
+	Context("rejecting phase regression human_review -> todo on in_progress task", func() {
+		BeforeEach(func() {
+			task = domain.NewTask(
+				map[string]any{"status": "in_progress", "phase": "human_review"},
+				domain.FileMetadata{Name: taskName},
+				domain.Content(""),
+			)
+			mockTaskStorage.FindTaskByNameReturns(task, nil)
+			key = "phase"
+			value = "todo"
+		})
+
+		It("returns a regression error", func() {
+			Expect(err).NotTo(BeNil())
+			Expect(err.Error()).To(ContainSubstring("refusing to set phase"))
+		})
+	})
+
+	Context("allowing execution -> todo with --force on in_progress task", func() {
+		BeforeEach(func() {
+			task = domain.NewTask(
+				map[string]any{"status": "in_progress", "phase": "execution"},
+				domain.FileMetadata{Name: taskName},
+				domain.Content(""),
+			)
+			mockTaskStorage.FindTaskByNameReturns(task, nil)
+			key = "phase"
+			value = "todo"
+			force = true
+		})
+
+		It("writes the regressed phase", func() {
+			Expect(err).To(BeNil())
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
+			Expect(*writtenTask.Phase()).To(Equal(domain.TaskPhaseTodo))
+		})
+	})
+
+	Context("allowing planning -> todo on in_progress task", func() {
+		BeforeEach(func() {
+			task = domain.NewTask(
+				map[string]any{"status": "in_progress", "phase": "planning"},
+				domain.FileMetadata{Name: taskName},
+				domain.Content(""),
+			)
+			mockTaskStorage.FindTaskByNameReturns(task, nil)
+			key = "phase"
+			value = "todo"
+		})
+
+		It("writes the phase", func() {
+			Expect(err).To(BeNil())
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 		})
 	})
 

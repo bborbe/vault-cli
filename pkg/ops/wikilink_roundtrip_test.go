@@ -113,7 +113,7 @@ body
 			ctx context.Context, cfg *storage.Config, vaultPath, name, key, value string,
 		) error {
 			return ops.NewFrontmatterSetOperation(storage.NewTaskStorage(cfg)).
-				Execute(ctx, vaultPath, name, key, value, "", "")
+				Execute(ctx, vaultPath, name, key, value, "", "", false)
 		}),
 		Entry("goal", "23 Goals", func(
 			ctx context.Context, cfg *storage.Config, vaultPath, name, key, value string,

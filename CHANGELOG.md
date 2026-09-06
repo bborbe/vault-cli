@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: `vault-cli task set phase todo` on a task with `status: in_progress` whose current phase is `execution`, `ai_review`, or `human_review` is now rejected as a lifecycle regression — a bulk `task set phase todo` loop regressed 80 active tasks on 2026-09-02, silently stalling their execution pipeline. A deliberate reset passes the new `--force` flag on `task set`. Also raised the `lint` target's golangci-lint timeout to 10m (the 5m config timeout was exceeded in practice).
+
 ## v0.122.2
 
 - fix: `session-close` Phase 3 now scopes dirty files and unpushed commits to what THIS session edited. A repo the session merely visited can hold a sibling session's work; flagging it asked the operator to adjudicate work that was not theirs. Phase 5 already applied this reasoning to processes ("flagging someone else's is a false positive that makes the verdict untrustworthy") — files never got the same treatment. Non-overlapping paths are now reported as informational and never named in the closer's `approve:` line.

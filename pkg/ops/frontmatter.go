@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/bborbe/errors"
+	"github.com/bborbe/validation"
 
 	"github.com/bborbe/vault-cli/pkg/domain"
 	"github.com/bborbe/vault-cli/pkg/storage"
@@ -45,7 +46,7 @@ func (o *frontmatterGetOperation) Execute(
 
 //counterfeiter:generate -o ../../mocks/frontmatter-set-operation.go --fake-name FrontmatterSetOperation . FrontmatterSetOperation
 type FrontmatterSetOperation interface {
-	Execute(ctx context.Context, vaultPath, taskName, key, value, reason, gateSuccessor string) error
+	Execute(ctx context.Context, vaultPath, taskName, key, value, reason, gateSuccessor string, force bool) error
 }
 
 // NewFrontmatterSetOperation creates a new frontmatter set operation.
@@ -62,7 +63,7 @@ type frontmatterSetOperation struct {
 // Execute sets the value of a frontmatter field on a task.
 func (o *frontmatterSetOperation) Execute(
 	ctx context.Context,
-	vaultPath, taskName, key, value, reason, gateSuccessor string,
+	vaultPath, taskName, key, value, reason, gateSuccessor string, force bool,
 ) error {
 	task, err := o.taskStorage.FindTaskByName(ctx, vaultPath, taskName)
 	if err != nil {
@@ -73,6 +74,13 @@ func (o *frontmatterSetOperation) Execute(
 	// reason and successor first so both land in a single WriteTask. Fields are
 	// written only when provided; non-close-out targets never receive them.
 	if err := writeTaskCloseOutFieldsIfCloseOut(ctx, task, value, reason, gateSuccessor); err != nil {
+		return err
+	}
+
+	// Phase-regression guard: an in-progress task may not silently move
+	// backward out of execution into todo (observed 2026-09-02: a bulk
+	// `task set phase todo` loop regressed 80 active tasks). --force overrides.
+	if err := checkPhaseRegression(ctx, task, key, value, force); err != nil {
 		return err
 	}
 
@@ -150,5 +158,31 @@ func (o *frontmatterClearOperation) Execute(
 		return errors.Wrap(ctx, err, "write task")
 	}
 
+	return nil
+}
+
+// checkPhaseRegression rejects setting phase "todo" on a task whose status is
+// in_progress and whose current phase is execution, ai_review, or human_review.
+// Such a write silently regresses the lifecycle and stalls the execution
+// pipeline (observed 2026-09-02: a bulk `task set phase todo` loop regressed 80
+// active tasks in the Personal vault). A deliberate reset must pass force=true.
+func checkPhaseRegression(ctx context.Context, task *domain.Task, key, value string, force bool) error {
+	if force || key != "phase" || task.Status() != domain.TaskStatusInProgress {
+		return nil
+	}
+	canonical, ok := domain.NormalizeTaskPhase(value)
+	if !ok || canonical != domain.TaskPhaseTodo {
+		return nil
+	}
+	current := task.Phase()
+	if current == nil {
+		return nil
+	}
+	switch *current {
+	case domain.TaskPhaseExecution, domain.TaskPhaseAIReview, domain.TaskPhaseHumanReview:
+		return errors.Wrapf(ctx, validation.Error,
+			"refusing to set phase %q on %q: task is in_progress with phase %q; this regression would silently stall the execution pipeline. Pass --force to override",
+			canonical, task.Name, *current)
+	}
 	return nil
 }

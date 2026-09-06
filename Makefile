@@ -70,7 +70,7 @@ check: lint vet vulncheck osv-scanner trivy check-changelog
 
 .PHONY: lint
 lint:
-	go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION) run --allow-parallel-runners --config .golangci.yml ./...
+	go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION) run --allow-parallel-runners --timeout 10m --config .golangci.yml ./...
 
 .PHONY: vet
 vet:

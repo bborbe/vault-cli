@@ -8,10 +8,13 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: session-close offers "leave it open" as an anchor-task resolution — a task gated on a scheduled event is neither finished nor abandoned, and the previous complete/defer/hold menu had no correct option for it
+
 ## v0.126.2
 
 - fix: `pkg/ops` a failed headless `work-on` turn now surfaces the child's own reason as the FIRST line instead of burying it. `sessionFailureResult` and `goal_workon`'s equivalent no longer re-log an error they already return — that second copy carried a full `bborbe/errors` stack to stderr, and vault-ui concatenates stderr into its red banner. The secondary "turn rejected by predicate" signal drops from `Warn` to `Debug` for the same reason. Measured against a seeded failing turn: stderr goes from ~45 lines to 2, leading with `start claude session: <child result text> (<failed predicate>)`. Completes spec 045 SC5.
-- fix: session-close offers "leave it open" as an anchor-task resolution — a task gated on a scheduled event is neither finished nor abandoned, and the previous complete/defer/hold menu had no correct option for it
 
 ## v0.126.1
 

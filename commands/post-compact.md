@@ -57,12 +57,16 @@ Each check falls back to its `|| echo "..."` text when the tool is absent on the
 
 The checkpoint's `State:` line is a snapshot from write time, not a live reading. Work continues after prepare-compact runs — including completion — so that line is stale by construction and must never be re-emitted as current.
 
-Resolve the anchor task named in the checkpoint, plus its parent goal when it has one (a parent *theme* has no status to check), and re-read both from disk. This mirrors `session-close.md` § Phase 4.5, which already checks goals alongside tasks:
+Resolve the anchor task named in the checkpoint, then read its parent goal from **the task file's own `goals:` frontmatter** — never from the checkpoint's `Goal:` line. That line is prose written at checkpoint time and validated against nothing; the staleness warning above applies to it exactly as it applies to `State:`. Re-read both from disk. (A parent *theme* has no status to check.) This mirrors `session-close.md` § Phase 4.5, which already checks goals alongside tasks:
 
 ```bash
 vault-cli task get "<anchor task>" status --output json
+# parent goal read from the TASK FILE, not from the checkpoint's Goal: line
+vault-cli task get "<anchor task>" goals --output json
 vault-cli goal get "<parent goal>" status --output json   # skip when the parent is a theme
 ```
+
+**A wrong goal name still returns a valid status, so this check passes while the anchor is misattributed.** Nothing downstream distinguishes "resolved the right goal" from "resolved a real goal that is not the parent" — both print a status and both look clean. Observed 2026-09-06: a checkpoint's `Goal:` line named a goal that genuinely tracked the anchor task as a blocker but was *not* its `goals:` parent. post-compact resolved that name, got `in_progress`, reported the anchor verified — and every closer panel for the rest of the session named the wrong goal, including its success-criteria counts. A sub-agent surfaced it hours later; the git history showed the `goals:` field had never changed.
 
 Interpret each:
 

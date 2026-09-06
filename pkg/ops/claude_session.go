@@ -284,8 +284,13 @@ func (c *claudeSessionStarter) runDetachedTurn(
 			// child's exit status is the only reason we can name.
 			return errors.Errorf(ctx, "claude session exited with error: %v", exitErr)
 		}
-		// The output parsed but failed a predicate. Return it unwrapped so the
-		// child's own result text leads the message (see rejectTurn).
+		// The output parsed but failed a predicate. The child's own reason leads the
+		// message, but a non-zero exit alongside it is still a distinct signal, so log
+		// it rather than drop it — mirrors the override log above.
+		if exitErr != nil {
+			slog.Warn("turn rejected by predicate; child also exited non-zero", "err", exitErr)
+		}
+		// Return it unwrapped so the child's own result text leads (see rejectTurn).
 		return validateErr
 	case err := <-waitCh:
 		// Both outcomes are errors so the caller persists no session id. The child
@@ -320,6 +325,11 @@ func validateSessionTurn(ctx context.Context, output []byte) error {
 		Result    string `json:"result"`
 	}
 	if err := json.Unmarshal(output, &result); err != nil {
+		// The sentinel is the wrapped cause on purpose so errors.Is can match it; the
+		// underlying unmarshal error is flattened into the text rather than chained.
+		// Do not "fix" this back to errors.Wrap(ctx, err, ...) — that breaks the
+		// errors.Is check in runDetachedTurn and silently restores the old behaviour
+		// of reporting a bare exit status for output that actually parsed.
 		return errors.Wrapf(ctx, errClaudeOutputUnparseable, "parse claude output: %v", err)
 	}
 

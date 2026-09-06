@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.125.1
 
 - docs: `commands/verify-goal.md` rule matrix updated to match the relaxed forward `in_progress` rule (goal `in_progress` → subtask `backlog`/`next`/`in_progress`/`completed` all aligned).
 

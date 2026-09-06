@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: `session-close` goal-anchored detection now also fires on the conversation signal — a touched goal that this session ran `/vault-cli:work-on-goal` on is goal-anchored even when the goal carries no `claude_session_id` (the assistant refuses to guess when its title-match finds 0 sessions: headless runs, un-renamed sessions). Previously such a goal session was mis-detected as task-anchored and the open goal flagged as outstanding — the exact close-offer-on-an-open-goal defect the goal-session mode exists to fix. Found by e2e on 2026-09-06.
+
 ## v0.124.0
 
 - feat: `work-on-goal` is now a management session — Phase 3 ("Drive to execution") drops the `plan-task` → `execute-task` auto-chain and hands the recommended task off instead. It classifies the task's session state (live / quiet / indeterminate / none, per vault-ui's `classify_session_state` contract), reports an existing session, or offers an approval-gated `vault-cli task work-on "<task>" --mode headless` background start with a returned resume command. Headless / NO-ASK mode surveys, records the recommendation, and stops — no task is ever flipped to `phase: execution`. The goal's next-open-task walk is reused from `execute-goal`, not re-implemented.

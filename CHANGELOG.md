@@ -11,6 +11,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 ## v0.126.1
 
 - fix: `/vault-cli:post-compact` now reads the anchor task's parent goal from the task file's own `goals:` frontmatter instead of trusting the checkpoint's `Goal:` line. That line is prose written at checkpoint time and validated against nothing, and a wrong goal name still returns a valid status — so the anchor check passed while the goal was misattributed for a whole session, including its success-criteria counts in every closer panel.
+- fix: session-close offers "leave it open" as an anchor-task resolution — a task gated on a scheduled event is neither finished nor abandoned, and the previous complete/defer/hold menu had no correct option for it
 
 ## v0.126.0
 

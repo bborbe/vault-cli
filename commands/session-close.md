@@ -71,13 +71,15 @@ Observed 2026-09-05: `/plan-day` mutated five tasks; three were still `in_progre
 
 If multiple vaults touched, group goals/tasks per vault. Cap each list at 5 (show "+N more" if longer).
 
-**Goal-anchored session?** A session is goal-anchored when a touched goal carries THIS session's `claude_session_id` — i.e. `/vault-cli:work-on-goal` anchored on it. Read each touched goal's frontmatter:
+**Goal-anchored session?** A session is goal-anchored when a touched goal is this session's goal anchor. Either signal qualifies:
 
-```bash
-grep -m1 '^claude_session_id:' "<vault.path>/<goals_dir>/<goal>.md"
-```
+1. **Session link (exact):** a touched goal's `claude_session_id` frontmatter matches THIS session's ID — the transcript dir name is canonical; fall back to the anchor task's `claude_session_id` only when the transcript name is unavailable:
+   ```bash
+   grep -m1 '^claude_session_id:' "<vault.path>/<goals_dir>/<goal>.md"
+   ```
+2. **Conversation signal (inline):** this conversation invoked `/vault-cli:work-on-goal "<goal>"` — the anchor event even when the goal ended up unconnected. `work-on-goal`'s assistant refuses to guess a `claude_session_id` when its title-match finds 0 matching sessions (headless runs, un-renamed sessions), so the goal often has no ID to match — but the session is unmistakably the goal's management session, and this command already analyzes the parent conversation for Phase 1. Observed 2026-09-06 e2e: a headless `work-on-goal` on [[Automatic Vault Optimization]] left the goal unconnected and session-close flagged it as outstanding — the exact close-offer-on-an-open-goal defect this mode exists to fix.
 
-A match against this session's ID — the transcript dir name is canonical; fall back to the anchor task's `claude_session_id` only when the transcript name is unavailable — → `GOAL_ANCHORED=true`, anchor goal = that goal. No match (or no goals touched) → task-anchored / unanchored; every goal rule below stays in the current flagging mode.
+Either signal → `GOAL_ANCHORED=true`, anchor goal = that goal. Neither (or no goals touched) → task-anchored / unanchored; every goal rule below stays in the current flagging mode.
 
 ### Phase 2: Sync progress to vault (delegate to skill)
 

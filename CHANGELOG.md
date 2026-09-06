@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: `pkg/ops` `runDetachedTurn` precedence — a validated turn result now overrides a non-zero child exit, so a clean headless-turn blob is a success even when the child exits non-zero. Parsed-but-rejected output leads with the child's own `result` text (predicate named in parentheses), and the child's exit status is reported only when the output is unparseable or missing.
+
 ## v0.125.0
 
 - feat: `verify-goal` status-consistency check gains the inverse direction — a subtask may not outrank its goal. If a goal is not `in_progress` (`next`/`backlog`/`hold`/`aborted`) no subtask may be `in_progress`; if a goal is `backlog` no subtask may be `next` or `in_progress`. Report-only, matching the goal-necessity check; never modifies goal or task files.

@@ -7,6 +7,7 @@ package ops
 import (
 	"context"
 	"encoding/json"
+	stderrors "errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -31,10 +32,11 @@ type ClaudeSessionStarter interface {
 	// result; they differ in how. The interactive branch runs the child under the
 	// request context (bounded by a 5m timeout). The non-interactive branch spawns
 	// the child detached from the request context and waits for its exit, bounded by
-	// sessionTurnTimeout — a wait bound, not a kill. Any outcome other than a clean,
-	// validated turn returns an error, so the caller persists no session id and the
-	// UI never offers Resume against a live or failed transcript. See
-	// docs/work-on-session-lifecycle.md.
+	// sessionTurnTimeout — a wait bound, not a kill. The turn is judged by its
+	// validated result: a non-zero child exit is not itself a failure when the result
+	// validates, and the caller persists no session id only when the turn genuinely
+	// failed. That way the UI never offers Resume against a live or failed transcript.
+	// See docs/work-on-session-lifecycle.md.
 	StartSession(ctx context.Context, sessionID string, prompt string, cwd string, name string, isInteractive bool) error
 }
 
@@ -224,8 +226,10 @@ func (c *claudeSessionStarter) StartSession(
 // runDetachedTurn spawns the child detached and blocks until its headless turn
 // finishes. Returning early would hand the caller a session id whose transcript is
 // still being written — the Vault UI would offer Resume against a live,
-// single-writer-assumed jsonl and `claude --resume` would fail. So every exit path
-// except a clean, validated turn returns an error, and the caller persists nothing.
+// single-writer-assumed jsonl and `claude --resume` would fail. The turn is judged
+// by its validated result: a non-zero child exit is not itself a failure when the
+// result validates, and the caller persists nothing only when the turn genuinely
+// failed.
 func (c *claudeSessionStarter) runDetachedTurn(
 	ctx context.Context,
 	args []string,
@@ -257,9 +261,32 @@ func (c *claudeSessionStarter) runDetachedTurn(
 	}()
 	select {
 	case exitErr := <-done:
-		if exitErr != nil {
+		// The child has exited, so its fd is closed and the file is complete.
+		// The read may not be hoisted above this select: on the timeout and
+		// cancellation paths the child is still running, so any bytes present are
+		// partial by definition and must never be validated as success.
+		output, readErr := os.ReadFile(outFile.Name())
+		if readErr != nil {
+			return errors.Wrap(ctx, readErr, "read claude output")
+		}
+		validateErr := validateSessionTurn(ctx, output)
+		if validateErr == nil {
+			// The validated result is authoritative. A non-zero exit is the only
+			// signal we are deliberately ignoring here, so log it rather than
+			// swallow it silently.
+			if exitErr != nil {
+				slog.Warn("validated turn result overrides non-zero child exit", "err", exitErr)
+			}
+			return nil
+		}
+		if exitErr != nil && errors.Is(validateErr, errClaudeOutputUnparseable) {
+			// No usable result exists: the output did not even parse, so the
+			// child's exit status is the only reason we can name.
 			return errors.Errorf(ctx, "claude session exited with error: %v", exitErr)
 		}
+		// The output parsed but failed a predicate. Return it unwrapped so the
+		// child's own result text leads the message (see rejectTurn).
+		return validateErr
 	case err := <-waitCh:
 		// Both outcomes are errors so the caller persists no session id. The child
 		// is detached and keeps running in either case; we only stop waiting on it.
@@ -272,14 +299,14 @@ func (c *claudeSessionStarter) runDetachedTurn(
 			c.sessionTurnTimeout,
 		)
 	}
-
-	// The child has exited, so its fd is closed and the file is complete.
-	output, err := os.ReadFile(outFile.Name())
-	if err != nil {
-		return errors.Wrap(ctx, err, "read claude output")
-	}
-	return validateSessionTurn(ctx, output)
 }
+
+// errClaudeOutputUnparseable marks a turn result that could not be parsed at all,
+// as opposed to one that parsed and then failed a predicate. The distinction is
+// load-bearing: a parsed blob carries the child's own `result` text and can explain
+// itself, while an unparseable one cannot — so only the unparseable case falls back
+// to the child's exit status as the reason.
+var errClaudeOutputUnparseable = stderrors.New("claude output is not valid turn JSON")
 
 // validateSessionTurn checks the --output-format json blob a finished headless turn
 // emits. Shared by both branches: a session id alone proves nothing, because claude
@@ -293,20 +320,32 @@ func validateSessionTurn(ctx context.Context, output []byte) error {
 		Result    string `json:"result"`
 	}
 	if err := json.Unmarshal(output, &result); err != nil {
-		return errors.Wrap(ctx, err, "parse claude output")
+		return errors.Wrapf(ctx, errClaudeOutputUnparseable, "parse claude output: %v", err)
 	}
 
 	if result.SessionID == "" {
-		return errors.Errorf(ctx, "claude returned empty session_id")
+		return rejectTurn(ctx, result.Result, "claude returned empty session_id")
 	}
 
 	if result.NumTurns == 0 {
-		return errors.Errorf(ctx, "claude returned 0 turns: %s", result.Result)
+		return rejectTurn(ctx, result.Result, "claude returned num_turns: 0")
 	}
 
 	if result.IsError {
-		return errors.Errorf(ctx, "claude reported error: %s", result.Result)
+		return rejectTurn(ctx, result.Result, "claude reported is_error: true")
 	}
 
 	return nil
+}
+
+// rejectTurn builds the error for a turn result that parsed but failed a predicate.
+// The child's own `result` text leads, because it is the only part of the message an
+// operator can act on; the predicate name follows in parentheses. When the child
+// reported no result text at all there is nothing to lead with, so the predicate
+// stands alone.
+func rejectTurn(ctx context.Context, resultText string, reason string) error {
+	if resultText == "" {
+		return errors.New(ctx, reason)
+	}
+	return errors.Errorf(ctx, "%s (%s)", resultText, reason)
 }

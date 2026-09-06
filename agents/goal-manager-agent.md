@@ -152,7 +152,7 @@ Quick validation checks for goal integrity.
    - If not found → report missing task
 
 6. **Check status consistency** (a task must not outrank its goal):
-   - Forward — if goal `in_progress`: every subtask must be `in_progress` or `completed`
+   - Forward — if goal `in_progress`: subtasks at `backlog`/`next`/`in_progress`/`completed` are all aligned (queued work under an active goal is normal); no status outranks `in_progress`, so no restriction
    - Forward — if goal `completed`: every subtask must be `completed`
    - Inverse — if goal is NOT `in_progress` (i.e. `next`, `backlog`, `hold`, `aborted`): no subtask may be `in_progress`
    - Inverse — if goal `backlog`: no subtask may be `next` or `in_progress`

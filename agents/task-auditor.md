@@ -106,6 +106,8 @@ Tasks should be a single mental model, days-to-week effort, contributing to one 
 
 Count how many apply. **3+ smells → recommend splitting, promoting to a goal, or moving to Out of Scope.**
 
+Smell 8 is the exception: it fires on its own. It is a correctness defect on a specific criterion, not evidence that the task is too big, so counting it toward a 3-smell threshold would bury it — a recurring task carrying one one-off criterion and nothing else wrong scores clean under a count rule while shipping the exact defect the smell exists to catch.
+
 1. **Success criteria count ≥ 5 AND items are aspirational** — only a smell when SCs are vague ("works", "better"). Shipping checklists with concrete per-item verification (merge / release / deploy / smoke) routinely run 5-8 and are fine without DoD. Count alone is NOT a smell.
 2. **A success criterion contributes to no parent goal's Success Criteria** — task drifted from its declared parent. Either re-link or move to a different goal.
 3. **Title or scope spans multiple unrelated repos/domains** — cross-cutting work probably needs a goal, not a task.
@@ -113,6 +115,17 @@ Count how many apply. **3+ smells → recommend splitting, promoting to a goal, 
 5. **Sub-task list is > 8 items** — operational decomposition belongs in a spec or sub-tasks, not in one task page.
 6. **Estimated effort > 7 days** — tasks are 1-7 days. Multi-week work is a goal.
 7. **Title is vague capability or abstract noun** ("Improve X System", "Stuff about Y") rather than naming a problem or concrete deliverable. Problem-framed titles ("X has Y bug" / "Component Z exceeds latency") AND action-verb titles when the action IS the deliverable ("Write … runbook") both pass; only vague-noun and goal-shaped capability titles fail.
+8. **A recurring task carries a one-off criterion** — cadence and *kind of work* are two different axes, and the first seven smells only measure size. Apply when the task is recurring; report it alone, without waiting for a 3-smell total.
+
+    **Detect a recurring task by either signal:**
+    - `recurring:` in the frontmatter
+    - a **cadence-marked title** — a period token in the title, whether trailing (`- 2026W35-sat`, `- 2026-09-08`, `- 2026M09`) or embedded (`ORB DE40 **W35** Sunday Review and Extend Closing to **W36**`). Do not require the trailing form: instances scaffolded by hand routinely carry the period inline and no `recurring:` key, and those are exactly the instances that drift. A title naming one period and handing off to the next (`… W35 … to W36`) is a recurrence chain even with no frontmatter at all.
+
+    **The test, applied per criterion:** *would this criterion be true again next firing?* A standing criterion describes work the cadence performs every time ("closing positions reviewed", "backup verified"). A one-off criterion resolves once and is then permanently satisfied — one-time decisions ("decide whether to extend to W37"), migrations, drafting a document, or anything naming a specific week, incident, or version. A criterion that cannot be true again next firing does not belong on the recurring task; it belongs on a separate one-off task.
+
+    **Successor-check clause — always check the next instance too, not just this one.** Recurring instances are scaffolded from their predecessor, so a one-off criterion copied into week N is usually already sitting in week N+1 before anyone notices; the creep outlives the week that caused it. When the smell fires, look for the successor instance (same title stem, next period stamp) and say whether it inherited the criterion, so the fix covers both rather than leaving the clone to re-seed it.
+
+    Report which criteria fail the test, and recommend moving each to a one-off task rather than deleting it — the work is usually real, just misfiled.
 
 ### Signals the scope IS appropriate
 
@@ -126,7 +139,7 @@ Count how many apply. **3+ smells → recommend splitting, promoting to a goal, 
 
 Add a top-level section **"Task Scope Fit"** in the report. Example:
 
-> ⚠ **This task is over-scoped — likely a goal, not a task.** 4/7 smells:
+> ⚠ **This task is over-scoped — likely a goal, not a task.** 4/8 smells:
 > - 6 success criteria with no Definition of Done
 > - Touches 3 separate repos
 > - `# Out of Scope` missing
@@ -354,7 +367,7 @@ Adjust expectations based on task complexity:
 **Status**: [Excellent | Good | Needs Improvement | Significant Issues]
 
 ## Task Scope Fit
-[Only include this section if 3+ smells apply. Otherwise omit. Place BEFORE Critical Issues — this blocks approval-quality scoring.]
+[Include this section if 3+ smells apply, OR if smell 8 applies on its own. Otherwise omit. Place BEFORE Critical Issues — this blocks approval-quality scoring.]
 
 ## Critical Issues
 

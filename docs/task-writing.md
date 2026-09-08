@@ -307,7 +307,9 @@ Before committing to a task, verify these signals:
 - **Linked to a parent goal when one exists** — for operational/infra/follow-up tasks with no clean parent goal, a theme link is acceptable; forcing a synthetic parent goal is worse than no link
 - **Title is problem-framed** (names the problem or observable outcome — see [[#Title & Filename]]). Action-verb-led titles are OK when the action IS the deliverable (e.g. "Write … runbook"), for routine operational tasks ("Backup Database - 2026W25-sat"), or when the solution is mandated. Always wrong: "Stuff about X"
 
-If 3+ smells fail → split or promote to a goal.
+- **Recurring task carries only standing criteria.** On a task with `recurring:` frontmatter or a cadence-marked title — period token trailing (`- 2026W35-sat`, `- 2026-09-08`) *or* embedded (`ORB DE40 W35 … to W36`) — apply the test to each criterion: *would this be true again next firing?* Standing criteria describe what the cadence does every time ("closing positions reviewed"). One-off criteria resolve once and stay resolved — a one-time decision ("decide whether to extend to W37"), a migration, drafting a document, anything naming a specific week, incident or version. Move those to a separate one-off task; the work is real, just misfiled. **Check the successor instance too:** each instance is scaffolded from its predecessor, so a one-off criterion added in week N is usually already sitting in week N+1 — fix both, or the clone re-seeds it.
+
+If 3+ smells fail → split or promote to a goal. The recurring-kind check is the exception: one one-off criterion on a recurring task is a defect on its own, not a size signal, so act on it without waiting for a third smell.
 
 ## Preflight Checklist
 

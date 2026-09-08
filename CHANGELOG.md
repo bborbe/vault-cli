@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.127.0
 
 - feat: add task-auditor Task Scope Fit smell 8 — a recurring task carrying a one-off criterion. Fires on its own rather than counting toward the 3-smell threshold, since it is a per-criterion correctness defect, not a size signal. Includes the "would this be true again next firing?" test, both recurring-detection signals, and a successor-check clause so the scaffolded next instance is fixed too.
 - docs: add the matching task-writing authoring rule to § Scope Check, so the constraint is stated where tasks are written, not only where they are audited.

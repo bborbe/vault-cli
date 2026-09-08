@@ -10,8 +10,8 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 
 ## Unreleased
 
-- task-auditor: add Task Scope Fit smell 8 — a recurring task carrying a one-off criterion. Fires on its own rather than counting toward the 3-smell threshold, since it is a per-criterion correctness defect, not a size signal. Includes the "would this be true again next firing?" test, both recurring-detection signals, and a successor-check clause so the scaffolded next instance is fixed too.
-- task-writing: add the matching authoring rule to § Scope Check, so the constraint is stated where tasks are written, not only where they are audited.
+- feat: add task-auditor Task Scope Fit smell 8 — a recurring task carrying a one-off criterion. Fires on its own rather than counting toward the 3-smell threshold, since it is a per-criterion correctness defect, not a size signal. Includes the "would this be true again next firing?" test, both recurring-detection signals, and a successor-check clause so the scaffolded next instance is fixed too.
+- docs: add the matching task-writing authoring rule to § Scope Check, so the constraint is stated where tasks are written, not only where they are audited.
 
 ## v0.126.3
 

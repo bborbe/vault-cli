@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat: `plan-task` gains a third sub-check on the E2E-verify gate — **falsifiability**. The gate previously tested whether a verify subtask was *specific* (procedure + observable) but not whether its evidence could *discriminate* a working implementation from a broken one. The recurring miss is an absence assertion over a window shorter than the period of the event it rules out (`"no writes in 15 min"` when writes fire every ~25 min), which passes on a no-op. The new check names the shape, requires widening the window past one full period, and requires leading with a positive count rather than an absence. `/vault-cli:drive` Axis B already asked this question, but only after work had started.
+
 ## v0.127.0
 
 - feat: add task-auditor Task Scope Fit smell 8 — a recurring task carrying a one-off criterion. Fires on its own rather than counting toward the 3-smell threshold, since it is a per-criterion correctness defect, not a size signal. Includes the "would this be true again next firing?" test, both recurring-detection signals, and a successor-check clause so the scaffolded next instance is fixed too.

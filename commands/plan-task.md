@@ -100,6 +100,18 @@ Six checks beyond the auditor's general scoring — first five are hard (any fai
 
         LLM quality call (no verb list, no regex) — the rule above IS the anchor. Re-read it when in doubt; the procedure / observable / artifact taxonomy defines what concrete means here.
 
+    3. **Falsifiable — the evidence must distinguish pass from fail.** Ask: *if this check passed tomorrow, what would I actually know?* Reject a criterion whose stated evidence could also be produced by a broken implementation. Sub-check 2 tests whether the evidence is **specific**; this one tests whether it **discriminates** — a criterion can be perfectly concrete and still prove nothing.
+
+        The recurring shape is an **absence** assertion over a window shorter than the period of the event it claims to rule out: *"no writes in 15 min"* when writes occur every ~25 min passes on a no-op. Same failure with *"no errors in the log"* over a window where the error path is never exercised, or *"the file is unchanged"* when nothing would have written to it anyway.
+
+        Two fixes, apply both when the shape appears:
+        - **Widen the window past one full period** of the underlying event, so a real signal is guaranteed to fall inside it.
+        - **Lead with a positive assertion** — the expected signal appears N times — and keep the absence as the secondary clause. A positive count cannot be satisfied by a no-op; an absence can.
+
+        Fails: *"deploy with the flag on, watch 15 min, confirm no light changes"* (writes fire every ~25 min — passes on a build that ignores the flag entirely). Passes: *"watch ≥40 min spanning a write boundary, confirm ≥4 `skip` log lines naming the affected checks AND 0 `applied` lines"*.
+
+        Sibling test: `/vault-cli:drive` § "Challenge the acceptance criteria" Axis B applies the same question — but only once work is already underway. This gate is the cheaper place to catch it.
+
     Skip this whole check for non-shipping-class tasks (pure research, decision, doc-only with no published artifact).
 - **Subtask-goal alignment** — every `# Tasks` checkbox must either (a) map by topic to ≥ 1 `# Success Criteria` outcome, or (b) be the e2e verify subtask. Flag any orphan as a scope-creep candidate; in step 6 the owner can link it to an SC, move it to `# Out of Scope`, or split it into a separate task.
 - **Blast radius named** — if any subtask pushes to a registry, deploys, mutates a cluster, or needs a credential/secret, the task must name the external system AND the account written to (e.g. *"pushes `docker.io/bborbe/<img>` under the bborbe Docker Hub account"*). A credential requirement with no named target is a scope gap: the owner discovers what was automated at the secrets request, after the work has shipped. Observed 2026-08-27 — a publish-on-tag CI was designed, merged and released; the owner objected (*"Is the agent trying to push a docker image? I don't think that I want this"*) only when its Docker Hub secrets were requested, costing two reversal PRs for a net deletion. Flag → mandatory question in step 6.

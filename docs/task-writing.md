@@ -237,7 +237,7 @@ When the task is shipping-class, the `# Tasks` section **must explicitly enumera
 
 For artifacts with multiple environments (k8s services, deployed daemons, anything with `<service>-dev/` and `<service>-prod/` worktrees), item 3 splits into TWO sub-items:
 
-- **Tested on dev** — deployed AND verified working AND watched for ≥15 min for new alerts AND symptom-specific check passes (the bug this task fixes is actually fixed)
+- **Tested on dev** — deployed AND verified working AND watched for ≥15 min for new alerts AND symptom-specific check passes (the bug this task fixes is actually fixed). The ≥15 min is a floor for *alert* watching only — a symptom check that asserts an **absence** needs a window longer than the period of the event it rules out, which is often far more than 15 min. See § Evidence Shape.
 - **Tested on prod** — same ladder on prod; not "auto-deployed succeeded" — actually verify the symptom
 
 For single-environment artifacts (CLI tools, libraries, docs):
@@ -293,6 +293,8 @@ A criterion's evidence takes one of these shapes. Any one is sufficient; combina
 **A criterion needs a procedure *and* a result a reader could independently confirm.** "Verify the endpoint" names a target but no action and no expected result. "Run a check on the endpoint" names an action but no result. "`curl /widgets`, confirm 200 and body matches the schema" satisfies both.
 
 **Negative criteria need an explicit probe.** "Config Y is not mutated" is unverifiable as written — name the diff, grep or probe that must come back empty, and say what you ran to establish it.
+
+**A negative criterion must also be able to fail.** Naming the probe is necessary, not sufficient: the observation window must be longer than the period of the event it claims to rule out, or the probe comes back empty on a working system and a broken one alike. *"No writes in 15 min"* proves nothing when writes fire every ~25 min — it passes on a build that never writes at all. Two fixes, apply both: widen the window past one full period of the underlying event, and **lead with a positive assertion** (the expected signal appears N times) keeping the absence as the secondary clause. A positive count cannot be satisfied by a no-op. `/vault-cli:plan-task` enforces this as the third sub-check on the e2e-verify gate.
 
 **What does not count as evidence:** "unit test covers this" (that is the test plan, not the observation) · "it works" · "functionality verified" · "tests pass" without naming the behaviour asserted.
 

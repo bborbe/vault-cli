@@ -11,6 +11,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 ## Unreleased
 
 - feat: `plan-task` gains a third sub-check on the E2E-verify gate — **falsifiability**. The gate previously tested whether a verify subtask was *specific* (procedure + observable) but not whether its evidence could *discriminate* a working implementation from a broken one. The recurring miss is an absence assertion over a window shorter than the period of the event it rules out (`"no writes in 15 min"` when writes fire every ~25 min), which passes on a no-op. The new check names the shape, requires widening the window past one full period, and requires leading with a positive count rather than an absence. `/vault-cli:drive` Axis B already asked this question, but only after work had started.
+- docs: add the matching authoring rule to `task-writing.md` § Evidence Shape, so the constraint is stated where criteria are written, not only where they are gated. Also qualifies the dev-ladder's `≥15 min` — it is a floor for *alert* watching, not a valid window for an absence-based symptom check, which was the exact source of the defect.
 
 ## v0.127.0
 

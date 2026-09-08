@@ -1,6 +1,6 @@
 module github.com/bborbe/vault-cli
 
-go 1.27.0
+go 1.27.1
 
 require (
 	github.com/bborbe/collection v1.20.22

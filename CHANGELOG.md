@@ -1,9 +1,5 @@
 # Changelog
 
-## Unreleased
-
-- chore: update Go to 1.27.1
-
 All notable changes to this project will be documented in this file.
 
 Please choose versions by [Semantic Versioning](http://semver.org/).

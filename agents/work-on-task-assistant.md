@@ -255,7 +255,13 @@ Examples (make sure haiku doesn't paraphrase):
 
 Else fall back: `Glob: 65 Runbooks/*{keyword}*.md`, `Glob: 50*Knowledge*/*{keyword}*Guide*.md`.
 
-For each result with score ≥ 0.5: read first ~100 lines and extract slash commands, quick checks, fix procedures. **List ALL hits ≥ 0.5 in the report** — don't filter to one.
+For each result with score ≥ 0.5, read the file and extract **two kinds of content**. **List ALL hits ≥ 0.5 in the report** — don't filter to one.
+
+**Runbook content (procedural)** — slash commands, quick checks, fix procedures: read the first ~100 lines, where procedures live.
+
+**Methodology content (decision rules)** — the rules that gate analysis *conclusions*, not just actions: decision-rule tables, numeric thresholds, sample-size minimums, classification checklists (e.g. "30-trade minimum recent-window", "±5–10% variance = STABLE", "DECLINING → REDUCE/MONITOR at 5–10% allocation"). These live anywhere in the file, often past line 100. Read the **whole file** (guides ≤300 lines, runbooks ≤200) and extract decision tables (`| … |` rows), numeric thresholds, and classification checklists **verbatim**, naming the source section so the reader can verify against the file.
+
+Observed 2026-07-21: the 30-trade minimum sample rule, the REDUCE/MONITOR option, and the ±5–10% win-rate variance bands were all present in surfaced guides but missed because extraction stopped at runbook content — methodology rules must be extracted too, not just commands.
 
 If zero hits ≥ 0.5 across all queries, report `ℹ️ No matching runbooks/guides found` — but only after running all three searches.
 
@@ -423,6 +429,11 @@ Prerequisites (N, verified via CLI):
 📚 Operational Guides (N):
 1. <name> (<absolute path>)
    - <quick action>
+
+[If methodology content extracted (≥ 1 rule/threshold/checklist from any hit ≥ 0.5):]
+🔑 Methodology rules (verbatim from surfaced guides — these gate analysis conclusions, not just actions):
+- <rule, verbatim> (source: <guide name> § <section>)
+- <rule, verbatim> (source: <guide name> § <section>)
 
 [If progress:]
 ---

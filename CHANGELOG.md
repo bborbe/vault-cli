@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat: `work-on-task-assistant` Phase 6 now extracts **methodology content** from surfaced guides, not just runbook content. It previously read the first ~100 lines and pulled only slash commands, quick checks, and fix procedures — so decision rules that gate analysis conclusions (30-trade minimum sample, REDUCE/MONITOR option, ±5–10% win-rate variance bands) never reached the orientation report, and sessions re-derived methodology from first principles (observed 2026-07-21: a V6 GBPJPY post-mortem misclassified DECLINING as FAILED). The agent now reads the whole guide (≤300 lines) and extracts decision tables, numeric thresholds, and classification checklists verbatim, naming the source section; the report gains a `🔑 Methodology rules` block separate from runbook quick-action bullets.
+
 ## v0.128.0
 
 - feat: `plan-task` gains a third sub-check on the E2E-verify gate — **falsifiability**. The gate previously tested whether a verify subtask was *specific* (procedure + observable) but not whether its evidence could *discriminate* a working implementation from a broken one. The recurring miss is an absence assertion over a window shorter than the period of the event it rules out (`"no writes in 15 min"` when writes fire every ~25 min), which passes on a no-op. The new check names the shape, requires widening the window past one full period, and requires leading with a positive count rather than an absence. `/vault-cli:drive` Axis B already asked this question, but only after work had started.

@@ -163,6 +163,7 @@ Emit a grouped-checkbox status report for a resolved task path, including a read
    - `Outcome:` line is omitted entirely when `outcome` is empty (legacy task with no Summary paragraph). When present, it's the contract reminder — "what's true when this is done" — and sits above the volatile Status line for at-a-glance scanning.
    - Section header (e.g. `## Success Criteria`) only prints when the section exists AND has ≥ 1 checkbox. Empty sections are omitted entirely (no header, no body).
    - Map the disk's state token to a display glyph per line — never echo the raw token: `[x]` → `✅`, `[/]` → `⏳`, `[ ]` → `❌`. (Disk is untouched; the markdown checkbox is the source of truth and stays `[x]`/`[/]`/`[ ]` in the vault file.)
+   - Emit a one-line legend with the `ℹ️` info marker directly under the Status line when the report has ≥ 1 non-`[x]` item: `ℹ️ legend: ✅ done · ⏳ in-progress · ❌ pending`. Omit it when everything is `[x]` (the glyphs are self-evident from a fully-complete report).
    - One blank line between sections for visual grouping.
    - `Next:` is one line, ends the output, names one concrete action.
 

@@ -83,17 +83,17 @@ Task: <name>
 Status: <status> · phase: <phase> · <completed>/<total> (<pct>%)
 
 ## Success Criteria
-[x] <SC item text, truncated to ~80 chars>
-[ ] <SC item text>
-[/] <SC item text>
+✅ <SC item text, truncated to ~80 chars>
+❌ <SC item text>
+⏳ <SC item text>
 
 ## Tasks
-[x] <subtask>
-[ ] <subtask>
+✅ <subtask>
+❌ <subtask>
 
 ## Definition of Done
-[x] <DoD item>
-[ ] <DoD item>
+✅ <DoD item>
+❌ <DoD item>
 
 Next: <first unchecked item from SC, then Tasks, then DoD — one action>
 ```

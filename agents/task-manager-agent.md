@@ -144,15 +144,15 @@ Emit a grouped-checkbox status report for a resolved task path, including a read
    Status: {status} · phase: {phase} · {completed}/{total} ({percent}%)
 
    ## Success Criteria
-   {state} {text}
+   {glyph} {text}
    ...
 
    ## Tasks
-   {state} {text}
+   {glyph} {text}
    ...
 
    ## Definition of Done
-   {state} {text}
+   {glyph} {text}
    ...
 
    Next: {next_step_text}
@@ -162,7 +162,7 @@ Emit a grouped-checkbox status report for a resolved task path, including a read
    - The assessment block (`Phase:` / `Plan:` / `Recommend:`) always renders at the very top for `grouped-checkbox` output, blank line after. It is computed in step 6 — never omit it, never mutate state to produce it.
    - `Outcome:` line is omitted entirely when `outcome` is empty (legacy task with no Summary paragraph). When present, it's the contract reminder — "what's true when this is done" — and sits above the volatile Status line for at-a-glance scanning.
    - Section header (e.g. `## Success Criteria`) only prints when the section exists AND has ≥ 1 checkbox. Empty sections are omitted entirely (no header, no body).
-   - Preserve the disk's exact state token (`[x]` / `[ ]` / `[/]`) — do NOT normalize.
+   - Map the disk's state token to a display glyph per line — never echo the raw token: `[x]` → `✅`, `[/]` → `⏳`, `[ ]` → `❌`. (Disk is untouched; the markdown checkbox is the source of truth and stays `[x]`/`[/]`/`[ ]` in the vault file.)
    - One blank line between sections for visual grouping.
    - `Next:` is one line, ends the output, names one concrete action.
 

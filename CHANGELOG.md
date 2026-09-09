@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.130.0
 
 - feat: `task-status` grouped-checkbox output now renders state as display glyphs (`✅` done / `⏳` in-progress / `❌` pending) instead of echoing raw markdown tokens; disk checkboxes stay `[x]`/`[/]`/`[ ]` untouched. `goal-status` is unaffected (aggregate-only output, already emoji).
 

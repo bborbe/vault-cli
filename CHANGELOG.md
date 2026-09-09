@@ -10,6 +10,8 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 
 ## Unreleased
 
+- docs: add `docs/output-formatting.md` — codifies the terminal-report conventions (glyph mapping `[x]`/`[/]`/`[ ]` → `✅`/`⏳`/`❌`, `ℹ️` legend, section-header counts, `▶ Next:` anchor) and cross-references the vault's [[Icons.md]]. `task-status` gains the `ℹ️` legend line under Status when any item is incomplete.
+
 - feat: `task-status` grouped-checkbox output now renders state as display glyphs (`✅` done / `⏳` in-progress / `❌` pending) instead of echoing raw markdown tokens; disk checkboxes stay `[x]`/`[/]`/`[ ]` untouched. `goal-status` is unaffected (aggregate-only output, already emoji).
 
 ## v0.129.0

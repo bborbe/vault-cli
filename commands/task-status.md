@@ -81,6 +81,7 @@ Recommend: <command | none — reason>
 
 Task: <name>
 Status: <status> · phase: <phase> · <completed>/<total> (<pct>%)
+ℹ️ legend: ✅ done · ⏳ in-progress · ❌ pending   (only when ≥1 non-[x] item)
 
 ## Success Criteria
 ✅ <SC item text, truncated to ~80 chars>

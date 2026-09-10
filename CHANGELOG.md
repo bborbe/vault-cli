@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: `task-status` output now always leads with a clickable `obsidian://` link to the resolved task (emitted on every run, including `Next:` / `✅ Task complete` / `❌` branches). The link is built from the resolved task path — vault basename + path from `vault-cli config list`, percent-encoded per Obsidian links rules.
+
 ## v0.130.0
 
 - docs: add `docs/output-formatting.md` — codifies the terminal-report conventions (glyph mapping `[x]`/`[/]`/`[ ]` → `✅`/`⏳`/`❌`, `ℹ️` legend, section-header counts, `▶ Next:` anchor) and cross-references the vault's [[Icons.md]]. `task-status` gains the `ℹ️` legend line under Status when any item is incomplete.

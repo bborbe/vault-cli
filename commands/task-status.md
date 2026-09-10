@@ -45,7 +45,13 @@ Inline. Scan the parent conversation in priority order:
 
 Resolve the detected name via `Glob` `<tasks_dir>/*<arg>*.md`. Multiple matches → list candidates, ask via `AskUserQuestion`. Zero → `❌ No active task detected. Pass a task identifier or name.` STOP.
 
-Print `Detected task: <name>` on first line so the owner can interrupt if wrong before Phase 3 runs.
+Print `Detected task: <name>` on first line so the owner can interrupt if wrong before Phase 3 runs, followed by the always-shown clickable link to the task file:
+
+```
+📎 [<name>](obsidian://open?vault=<vault>&file=<percent-encoded relpath>)
+```
+
+**The link line is emitted on EVERY run** — on the `Next:` / `✅ Task complete` / `❌` branches alike — so the operator can always open the task from the status output. Build it from the resolved task path: strip `<vault.path>` and the `.md` suffix to get `relpath`, resolve `<vault>` (vault basename) and `<vault.path>` from `vault-cli config list --output json`, then percent-encode per the Obsidian Links rules (spaces `%20`, slashes `%2F`, drop `.md`).
 
 ## Phase 2.5: Re-evaluate phase & plan state
 
@@ -74,7 +80,11 @@ The agent does NOT detect from conversation in this phase — Phase 2 already re
 
 ## Output shape (from task-manager-agent)
 
+The final output ALWAYS leads with the clickable task link from Phase 2, then the agent's grouped report:
+
 ```
+📎 [<name>](obsidian://open?vault=<vault>&file=<percent-encoded relpath>) — always emitted, task link
+
 Phase: <branch>
 Plan: <validated · N/M subtasks · complete|not complete | not started (missing SC/Tasks)>
 Recommend: <command | none — reason>

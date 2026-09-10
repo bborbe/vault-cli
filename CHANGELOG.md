@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.130.1
 
 - fix: `task-status` output now always leads with a clickable `obsidian://` link to the resolved task (emitted on every run, including `Next:` / `✅ Task complete` / `❌` branches). The link is built from the resolved task path — vault basename + path from `vault-cli config list`, percent-encoded per Obsidian links rules.
 

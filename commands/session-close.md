@@ -161,14 +161,20 @@ cd <worktree> && git ls-remote --exit-code --heads origin "$(git branch --show-c
 ```
 
 - Exit-code **zero** → branch still on remote → work in flight, **leave alone** (could be a parked session).
-- Exit-code **non-zero** → the branch is absent from the remote, which has two very different causes. **Split them before flagging** — a fresh worktree reads identically to a cleaned-up one:
+- Exit-code **non-zero** → the branch is absent from the remote, which has two very different causes. **Split them before flagging** — a fresh worktree reads identically to a cleaned-up one. Run **both** tests; either one positive means orphaned:
 
   ```bash
+  # (a) commits this branch holds that master does not
   cd <worktree> && git rev-list --count "$(git merge-base HEAD origin/master)"..HEAD
+  # (b) did master absorb this branch via a merge commit?
+  cd <worktree> && git log --merges --format=%s origin/master | awk -v b="$(git branch --show-current)" \
+    '$1=="Merge" && $2=="pull" && $3=="request" {t=$NF; sub("^[^/]*/","",t); if (t==b) f=1} END{exit !f}'
   ```
 
-  - **Zero commits beyond the base** → the worktree was **just created** and its branch was never pushed. Nothing was ever merged, so nothing was cleaned up; it cannot be an orphan. **Leave it alone.** Observed 2026-09-11: `feature/status-toggle-icons` and `feature/status-toggle-lines` both read "remote gone" while both had 0 commits beyond master — one of them a sibling session's worktree created minutes earlier. Flagging it would have named live work for removal.
-  - **Commits beyond the base** → remote branch deleted (typical after `gh pr merge --delete-branch`). The worktree is **orphaned** — kept work is committed and merged; the worktree itself is now garbage.
+  - **Either test positive** → remote branch deleted (typical after `gh pr merge --delete-branch`). The worktree is **orphaned** — kept work is committed and merged; the worktree itself is now garbage.
+  - **Both negative** → the worktree was **just created** and its branch was never pushed. Nothing was ever merged, so nothing was cleaned up; it cannot be an orphan. **Leave it alone.** Observed 2026-09-11: `feature/status-toggle-icons` and `feature/status-toggle-lines` both read "remote gone" while both had 0 commits beyond master — one of them a sibling session's worktree created minutes earlier. Flagging it would have named live work for removal.
+
+  **Test (b) is not optional — the commit count alone is not a merge detector.** These repos merge with merge commits only (`allow_squash_merge=false`, `allow_rebase_merge=false`), so a merged branch's tip stays an *ancestor* of master: `git merge-base HEAD origin/master` returns HEAD itself and (a) reads **0**. Judging on (a) alone therefore classifies every merged worktree as freshly created and silently disables this check. Observed 2026-09-11: all ten orphaned worktrees in `vault-cli` computed 0 commits beyond base, and none would have been flagged. The count still earns its place — it is the only signal for a squash- or rebase-merged branch, whose commits never reach master.
 
 Cross-check against other still-active Claude sessions: a worktree from a sibling session (different cwd, different conversation) may be active — don't flag those. Use a conservative test: if any process under the worktree path is running (`lsof +D <worktree>` shows hits, or any `cwd` in `/proc` or via `ps -o pid,cwd` matches), assume it's actively used.
 

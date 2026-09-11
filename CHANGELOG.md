@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: `session-close` Phase 3.5 no longer reads a merged worktree as freshly created. v0.131.1 added a commit-count test to stop the phase flagging never-pushed worktrees, but that test is not a merge detector on these repos: they merge with merge commits only, so a merged branch's tip stays an *ancestor* of master, `git merge-base HEAD origin/master` returns HEAD itself, and the count reads **0** for precisely the case the phase exists to catch. The guard therefore classified every merged worktree as just-created and silently disabled orphan detection — observed 2026-09-11, where all ten orphaned worktrees in `vault-cli` computed 0 commits beyond base and none would have been flagged. Phase 3.5 now runs a second test beside the count — a merge commit on `origin/master` naming the branch — and flags the worktree when **either** is positive; both negative is the only "leave alone". Verified against a freshly-created probe (both negative → left alone) and all ten orphans (merge record positive → flagged).
+
 ## v0.131.2
 
 - fix: the `work-on-task` → `plan-task` chain no longer plans or edits a task a live sibling session already owns — `plan-task` reads the owner's session state at step 2 and re-checks it before every mutation, hard-stopping in NO-ASK mode and requiring an explicit answer in interactive mode

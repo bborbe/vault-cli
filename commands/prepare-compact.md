@@ -62,6 +62,7 @@ Interpretations:
 
 - `git status --short` output → uncommitted work. `git log @{u}..` output → un-pushed commits; empty means caught up with the remote OR no upstream configured — both silent-OK states.
 - `pgrep` hits → background shells / sub-agents / watchers still alive.
+- **`pgrep` hits may include sibling sessions.** The pattern is machine-wide and a fleet runs many Claude sessions — a hit is not proof it is this session's work. Cross-check each pid against this session's own spawned background (conversation `run_in_background` / `Monitor` calls) before recording it as a carry-over `background` item; else mark it possibly-sibling and let `post-compact` verify ownership before re-arming. (session-close Phase 5 scopes the same check to this session's processes — keep in sync.)
 - **A stopped daemon does not mean stopped work.** The daemon spawns executor containers with their own lifecycle, and `pgrep` on the host cannot see into them. The log relay can also die while the container runs on: a log frozen mid-sentence is evidence about the *logger*, not about the work. Observed 2026-08-15 — `pgrep` came back empty and this checklist reported "compact-safe", while `docker ps` showed an exec container `Up 10 hours` that had written to the tree two minutes earlier. If an exec container is up, the tree is still moving; confirm with file mtimes before believing any "quiet" verdict.
 - A running dark-factory daemon is worth pausing for before compaction.
 - `docker ps` hits → running containers that would outlive the compact.

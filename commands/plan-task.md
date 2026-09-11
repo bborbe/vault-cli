@@ -119,6 +119,14 @@ Six checks beyond the auditor's general scoring — first five are hard (any fai
 
         Fails: *"deploy with the flag on, watch 15 min, confirm no light changes"* (writes fire every ~25 min — passes on a build that ignores the flag entirely). Passes: *"watch ≥40 min spanning a write boundary, confirm ≥4 `skip` log lines naming the affected checks AND 0 `applied` lines"*.
 
+        A second shape: **a constructed probe whose input shape the system never produces.** A case built by hand is evidence only if that case can occur. Ask: *does the input I exercise exist in the real population, or did I invent a shape the system cannot emit?* A probe outside the real shape passes for reasons unrelated to the claim, and it reads as a positive control — worse than having none, because the positive control is what the criterion leans on to show the check *can* fire.
+
+        Worked case (2026-09-11): a criterion required flagging a worktree carrying commits beyond base, and a probe was hand-built to exactly that shape. It passed. But these repos merge with merge commits only (`allow_squash_merge=false`, `allow_rebase_merge=false`), so every real orphan's tip stays an *ancestor* of master, `git merge-base HEAD origin/master` returns `HEAD` itself, and the count reads **0** — the probe's shape and the real population were disjoint. A peer review caught it; this gate did not.
+
+        Two fixes, apply both when the shape appears:
+        - **Sample the population before trusting a hand-built case** — confirm the system actually emits that shape. Here one `git log --merges origin/master` over the real fleet would have shown every orphan is merge-committed.
+        - **Assert on a signal the real path emits**, not the manufactured one — draw the evidence from the population the claim quantifies over.
+
         Sibling test: `/vault-cli:drive` § "Challenge the acceptance criteria" Axis B applies the same question — but only once work is already underway. This gate is the cheaper place to catch it.
 
     Skip this whole check for non-shipping-class tasks (pure research, decision, doc-only with no published artifact).

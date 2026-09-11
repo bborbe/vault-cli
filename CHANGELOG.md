@@ -12,6 +12,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 
 - feat: `blocked_by` frontmatter on tasks and goals is now a typed dependency list — `vault-cli task list --output json` and `vault-cli goal list --output json` emit the raw `blocked_by` array plus a computed `blocked` boolean (blocked iff any named blocker is not `completed`; a missing, unreadable or status-less blocker counts as blocked). Additive only: an entity without `blocked_by` emits neither key and every existing field is unchanged.
 - fix: `/vault-cli:next-task` no longer recommends tasks whose dependencies are unmet — it reads the typed `blocked` flag from `vault-cli task list --output json` instead of content-scanning for `**Blocker:**` / `Blocked by:` / `Prerequisites` patterns, and reports filtered tasks as a count rather than by name.
+- docs: `task-writing.md` and `goal-writing.md` now describe `blocked_by` as a dependency list whose derived blocked state is orthogonal to `status` — the "`blocked_by:` field populated triggers `hold`" phrasing is removed, the resolution rules (case-insensitive, wikilink-aware, same-kind, unverifiable-blocker-counts-as-blocked, no transitive walk) are documented, and the JSON surface (`blocked_by` / `blocked`) plus the next-task behaviour are named.
 
 ## v0.130.3
 

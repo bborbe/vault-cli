@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [046-blocked-by-frontmatter-model]
+summary: 'Rewrote blocked_by guidance in docs/task-writing.md and docs/goal-writing.md to describe the shipped dependency model — derived blocked state orthogonal to status, case-insensitive/wikilink-aware/same-kind/non-transitive resolution rules, JSON surface (blocked_by/blocked) and next-task behaviour — fixed both hold lifecycle rows, and added the docs changelog entry under ## Unreleased'
+execution_id: vault-cli-blocked-by-exec-213-spec-046-docs-blocked-by-semantics
+dark-factory-version: dev
 created: "2026-09-11T07:53:52Z"
 queued: "2026-09-11T09:20:10Z"
+started: "2026-09-11T09:35:25Z"
+completed: "2026-09-11T09:39:22Z"
 ---
 
 # Document blocked_by as a dependency list orthogonal to status

@@ -43,6 +43,11 @@ func (f TaskFrontmatter) PageType() string { return f.GetString("page_type") }
 // Goals reads "goals" key via GetStringSlice.
 func (f TaskFrontmatter) Goals() []string { return f.GetStringSlice("goals") }
 
+// BlockedBy reads the "blocked_by" key as a list of blocker names.
+// Only a YAML list is accepted (plain names or [[wikilinks]]); a scalar value
+// is malformed and reads as an empty list, so malformed data never blocks.
+func (f TaskFrontmatter) BlockedBy() []string { return blockedByList(f.FrontmatterMap) }
+
 // Priority reads "priority" key as int. Returns 0 on missing or parse failure.
 func (f TaskFrontmatter) Priority() Priority {
 	v := f.Get("priority")

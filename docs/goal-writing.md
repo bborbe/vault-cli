@@ -114,6 +114,8 @@ timeline: 2026-MM-DD to 2026-MM-DD               # optional, ≤ 4 weeks for tac
 objective: "[[Parent Objective]]"                # optional
 themes:                                          # optional
   - "[[Parent Theme]]"
+blocked_by:                                      # optional — dependencies; unblocks when all complete
+  - "[[Blocker Goal]]"
 binding: <free text>                             # optional — the hard deadline/constraint
                                                  # gating the completion verdict; rendered on
                                                  # the status anchor line ("binding: <value>")
@@ -121,6 +123,20 @@ binding: <free text>                             # optional — the hard deadlin
 ```
 
 `status` valid values: `in_progress`, `todo`, `backlog`, `hold`, `completed`, `aborted`.
+
+### Dependencies (`blocked_by`)
+
+`blocked_by` declares the goals this goal cannot start before. It is a YAML list of goal names; each entry may be a plain name (`Blocker Goal`) or a wikilink (`[[Blocker Goal]]`) — both forms resolve the same way. A scalar value (`blocked_by: Blocker Goal`) is malformed and reads as an empty list, so it never blocks.
+
+Names match goal files in the goals directory, ignoring case and stripping the `[[` `]]` brackets. Resolution is same-kind only: a goal's blockers are goals, never tasks, and never another kind; the lookup is exact-name — a substring is not a match.
+
+The goal is blocked while at least one named blocker is not `status: completed`. A blocker whose file is missing, unreadable, or carries no parseable status counts as **not** completed: the safe default is "cannot verify it is done, so do not start". Only a single status read is performed per blocker — a blocker's own `blocked_by` is never followed, so a dependency cycle leaves both goals blocked and terminates immediately rather than hanging.
+
+Blocked state is derived and is never written. Nothing sets `status: hold` from `blocked_by`, and no command flips a status when a blocker completes. A blocked goal is not moved to `hold`; `hold` stays an operator decision, and a blocked goal usually stays `todo` or `in_progress`.
+
+Where it surfaces: `vault-cli goal list --output json` emits `blocked_by` (the raw list) and a computed `blocked` boolean for any goal that declares a dependency list; a goal with no `blocked_by` emits neither key. `/vault-cli:next-task` does not recommend a goal or task whose `blocked` flag is true.
+
+To clear a dependency list, `vault-cli goal clear "<name>" blocked_by` removes the key; `vault-cli goal set "<name>" blocked_by ""` empties the effective list. Either makes the goal read as unblocked again.
 
 ### Required sections
 
@@ -394,7 +410,7 @@ The auditor (`goal-auditor` agent) checks structure, SMART criteria, Non-goals p
 |--------|---------|------------------|
 | `todo` | Defined, not started | Goal file created with required sections filled |
 | `in_progress` | Actively working (limit to 3-5 in flight) | First linked task transitions to `in_progress` |
-| `hold` | Blocked or paused | `blocked_by:` field populated, or operator sets manually |
+| `hold` | Blocked or paused | Operator sets manually when the block outlives the current week |
 | `completed` | All success criteria met | `/vault-cli:complete-goal` — checks every `# Success Criteria` checkbox is `[x]` |
 | `aborted` | Abandoned without completion | Operator sets manually with reason in body |
 | `backlog` | Potential future, not committed | Initial state before commitment |

@@ -27,6 +27,8 @@ Date anchor:
 date "+%Y-%m-%d"
 ```
 
+Blocked state comes from `vault-cli task list --all --output json` (`blocked` / `blocked_by`), never from task content.
+
 ## Step 1: Detect mode
 
 - No args / empty → **Worker mode** (Step 2 onwards)
@@ -59,19 +61,25 @@ For each resolved task:
 Accept any of: `status == in_progress`, `status == next`, `status == todo` (legacy alias), `status == hold`.
 
 Group:
-- **In Progress**: `status == in_progress` OR daily-note `[/]`
-- **Blocked**: `status == hold` OR file content contains blocker refs (see Step 5)
-- **Pending**: `status in (next, todo)` and not blocked
+- **In Progress**: `status == in_progress` OR daily-note `[/]`, and not filtered by Step 5
+- **Blocked**: `status == hold` (parked — still listed by name)
+- **Pending**: `status in (next, todo)` and not filtered by Step 5
 
-### Step 5: Detect blockers
+A task whose Step 5 `blocked` flag is true is removed from the candidate set entirely: it is not recommended, not listed by name, and not counted in any of the three groups above. Report it only as a count (Step 7).
 
-Scan each task's content for:
-- `**Blocker:** [[Task]]`
-- `Blocked by: [[Task]]`
-- `⚠️ Blocked by: [[Task]]`
-- `- [ ] [[Task]]` lines under a `Prerequisites` section
+### Step 5: Detect blocked tasks (JSON)
 
-For each blocker, resolve to a task file. If found and `status != completed`, it's an active blocker.
+```bash
+vault-cli --vault <name> task list --all --output json
+```
+
+Run once per vault in scope (the active vault first, then sibling vaults). Build a lookup from each item's `name` to its `blocked` and `blocked_by` fields.
+
+- `"blocked": true` → the task is blocked; its `blocked_by` array names the unmet dependencies.
+- `"blocked": false`, or the `blocked` key absent → the task is not blocked. The key is absent when the task declares no `blocked_by` list.
+- A task that appears in no vault's output → treat it as not blocked (no declared dependency was found).
+
+The JSON field is the single source of truth for blocked state. Never derive blocked state from task content — the body-marker heuristic this section replaced is gone and must not be reintroduced. Do not restate the removed patterns here: naming them invites a future reader to re-implement them.
 
 ### Step 6: Pick recommended task
 
@@ -79,8 +87,8 @@ Priority cascade (stop at first match):
 1. Single in-progress task → that one
 2. Multiple in-progress → first by `priority` then alphabetical
 3. Pending with `priority: 1` → first one
-4. Any unblocked pending → first by daily-note order
-5. Only blocked tasks → first blocker to resolve
+4. Any pending → first by daily-note order
+5. Every candidate was filtered as blocked (candidate set empty) → recommend nothing: state that every candidate is blocked and name the unmet dependency (from `blocked_by`) to resolve. Do not name the blocked task itself.
 
 ### Step 7: Present worker-mode output
 
@@ -95,7 +103,8 @@ Pending (n):
 ○ [[Task]]
 
 Blocked (n):
-⚠️ [[Task]] — blocked by [[Blocker]] (<status>)
+⚠️ [[Task]] — status: hold, waiting
+⛔ <N> hidden — unmet blocked_by (see `vault-cli task list --all --output json`)
 
 🎯 Recommended: [[Task]]
 Why: <rationale>
@@ -141,7 +150,7 @@ For goals/tasks (not subtasks):
 - Skip `defer_date > today`
 - Accept `status in (in_progress, next, todo, hold)`
 
-Group as in Step 4-5 (in-progress / blocked / pending).
+Group as in Step 4-5 (in-progress / blocked / pending); the Step 5 filter applies to task children and to goal children alike. For goal children (a THEME argument), read blocked state from `vault-cli --vault <name> goal list --all --output json` using the same `blocked` / `blocked_by` fields. For task children, use the Step 5 task listing. Subtask checkbox lines parsed from a TASK's content have no JSON entity behind them and are listed unchanged.
 
 ### Step 13: Present boss-mode output
 
@@ -155,7 +164,8 @@ In Progress (n):
 Pending (n):
 ○ <child>
 Blocked (n):
-⚠️ <child> — blocked by ...
+⚠️ <child> — status: hold, waiting
+⛔ <N> hidden — unmet blocked_by (see `vault-cli task list --all --output json`)
 
 🎯 Recommended: <child>
 Why: <rationale>
@@ -184,5 +194,6 @@ The recommended-task path then routes through `/vault-cli:work-on-task` which ha
 - Use vault-relative paths in display; absolute paths only when crossing vaults
 - Wikilinks preferred over filenames
 - Hide deferred tasks but show count
+- Never name a task or child whose `blocked` flag is true — report the count only. `status: hold` items without a `blocked_by` list keep their named listing.
 - Sort by priority then alphabetical
 - Max 5 items per group; if more, append `... and N more`

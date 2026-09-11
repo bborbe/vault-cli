@@ -106,6 +106,11 @@ func (f GoalFrontmatter) TargetDate() *libtime.DateOrDateTime {
 // Tags reads "tags" key via GetStringSlice.
 func (f GoalFrontmatter) Tags() []string { return f.GetStringSlice("tags") }
 
+// BlockedBy reads the "blocked_by" key as a list of blocker names.
+// Only a YAML list is accepted (plain names or [[wikilinks]]); a scalar value
+// is malformed and reads as an empty list, so malformed data never blocks.
+func (f GoalFrontmatter) BlockedBy() []string { return blockedByList(f.FrontmatterMap) }
+
 // Completed reads "completed" key as *libtime.Date.
 func (f GoalFrontmatter) Completed() *libtime.Date {
 	v := f.Get("completed")

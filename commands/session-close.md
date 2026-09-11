@@ -573,10 +573,15 @@ Omit any line with zero entries. If nothing was touched (e.g. talk-only session)
 ```
 <summary block>
 
-✅ Nothing outstanding — but the session has follow-up-worthy moments. Append whichever fired:
-- reflect (new knowledge files, decisions captured) → Consider `/vault-cli:reflect` before closing.
-- self-improve (tooling friction: corrections, retries, missing command) → Consider `/coding:self-improve` before closing.
+✅ Nothing outstanding — but the session has follow-up-worthy moments. Append whichever fired, as a NUMBERED list:
+
+1. `/vault-cli:reflect` — <what fired it: new knowledge files, decisions captured>
+2. `/coding:self-improve` — <what fired it: corrections, retries, missing command>
 ```
+
+**Number these items even though the verdict is clean.** They are invocable commands, and the operator answers by pointing at them (`do 1 + 2`). Bullets force them to describe in prose what a digit would have said. Mode 3 has always been numbered; mode 2 emitting bullets was an inconsistency, not a design choice. Observed 2026-09-11, operator verbatim: *"why no numbers at … is more easy for me to say … do 1 + 2"*.
+
+If only one signal fired, still number it `1.` — a one-item numbered list costs nothing and keeps the reply form identical across runs.
 
 **3. Outstanding items** (any phase ⚠):
 
@@ -602,13 +607,25 @@ Never auto-close, never auto-commit, never auto-kill, never auto-reflect, never 
 
 Append below the verdict. This command is terminal; without a fixed closer the trailing "name a concrete next action" convention gets improvised, and improvisation reliably produces a next-task recommendation — the exact thing the one-task-per-session contract forbids.
 
-**Clean verdict (mode 1 or 2):**
+**Clean verdict, mode 1 (no signals fired):**
 
 ```
 ⚪ DONE
 👤 You: nothing — session closed
 ⏰ Next: you open a new session; the orchestrator picks the next anchor
 ```
+
+**Clean verdict, mode 2 (reflect and/or self-improve fired):** the verdict is still clean, but the body now lists invocable commands — so `👤 You:` must offer them, numbered to match the list above it:
+
+```
+⚪ DONE
+👤 You: pick — 1. /vault-cli:reflect · 2. /coding:self-improve · 3. nothing — close
+⏰ Next: your reply
+```
+
+Include only the options whose signals actually fired, renumbered from 1, and keep `nothing — close` last so closing stays one keystroke away.
+
+**`nothing — session closed` is wrong for mode 2** — it asserts there is nothing to do directly above a list of things to do. The global closer rule already forbids `nothing` while something is pending; mode 2 is exactly that case. This is not a "fork" in the `/drive` sense either: these are optional follow-ups on a finished task, which is precisely what a `pick` is for.
 
 **Goal-anchored clean verdict** (Phase 1's `GOAL_ANCHORED` and the anchor goal still has open tasks — exempted in Phase 4.5, so the session can close clean): the `⏰ Next:` line names the next open task under the anchor goal instead of deferring to the orchestrator:
 

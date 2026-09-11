@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.131.2
 
 - fix: the `work-on-task` → `plan-task` chain no longer plans or edits a task a live sibling session already owns — `plan-task` reads the owner's session state at step 2 and re-checks it before every mutation, hard-stopping in NO-ASK mode and requiring an explicit answer in interactive mode
 - fix: `work-on-task-assistant` no longer spawns a second session onto a task the calling session is already working — the status flip stops routing through `vault-cli task work-on` when session-connect left `claude_session_id` empty, which is the one case where `work-on` spawns instead of taking its cached path

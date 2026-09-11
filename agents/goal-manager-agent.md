@@ -71,7 +71,7 @@ Extract success criteria checkboxes.
 
 ### status
 
-Show goal status. Accepts an explicit goal name/path, or detects from conversation if none given.
+Show goal status. Accepts an explicit goal name/path, or detects from conversation if none given. The slash command (`commands/goal-status.md`) resolves the goal inline and passes it as `ARGS` — when `ARGS` is provided, use it directly and do NOT detect from conversation (sub-agents cannot see the parent conversation). The command also emits the Async State Closer anchor pair (`🎯 Goal:` / `📌 Task:` clickable lines) above this agent's body; do NOT emit links here.
 
 **Arguments:** Optional goal name or path. If empty, detect from conversation.
 

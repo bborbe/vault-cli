@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.131.4
 
 - fix: `plan-task` sub-check 3 (Falsifiable) now names a second failure shape — a constructed probe whose input shape the system never produces. A hand-built case passes for reasons unrelated to the claim when the shape it exercises never occurs, and it reads as a positive control, which is worse than having none. Observed 2026-09-11: a criterion required flagging a worktree carrying commits beyond base; a probe was built to exactly that shape and passed, but these repos merge with merge commits only, so every real orphan's tip stays an ancestor of master and the count reads **0** — probe shape and real population disjoint, caught by a peer review rather than by the gate. The check now asks whether the exercised input exists in the real population, and requires the evidence to be drawn from the population the claim quantifies over.
 

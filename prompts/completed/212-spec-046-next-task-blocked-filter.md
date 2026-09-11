@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [046-blocked-by-frontmatter-model]
+summary: Rewrote the /vault-cli:next-task command template to derive blocked state from the typed blocked/blocked_by JSON fields (worker + boss mode), deleted the content-scanning blocker heuristic, and appended the CHANGELOG entry under Unreleased
+execution_id: vault-cli-blocked-by-exec-212-spec-046-next-task-blocked-filter
+dark-factory-version: dev
 created: "2026-09-11T07:53:52Z"
 queued: "2026-09-11T09:20:10Z"
+started: "2026-09-11T09:33:06Z"
+completed: "2026-09-11T09:35:24Z"
 ---
 
 # next-task reads the typed blocked flag instead of content-scanning

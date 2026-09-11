@@ -11,7 +11,7 @@ created: "2026-09-11T08:20:00Z"
 - It reads the typed `blocked` flag from the task listing it already fetches — no extra call, no extra read.
 - The Blocked group becomes `status == hold` OR the typed `blocked` flag: one source of truth, matching `next-task`.
 - The recommendation cascade keeps its shape; only the source of the blocked signal changes.
-- The Blocked output line names the blocker from the task's `blocked_by` list.
+- A task blocked by a dependency names that dependency; a task parked on hold renders as `○ <task> — on hold` instead of inventing a blocker.
 - No Go code changes — the agent definition and the changelog are the only files touched.
 - The changelog records the change.
 </summary>
@@ -42,6 +42,7 @@ Read these files as well:
 
 - `commands/next-task.md` as prompt 2 of spec 046 left it — the sibling implementation of the same single-source-of-truth rule; match its vocabulary ("the typed `blocked` flag", "unmet dependency") so the two commands read alike.
 - `pkg/ops/list.go` — confirm the emitted JSON field names (`blocked_by`, `blocked`) and that `blocked` is omitted when the entity has no `blocked_by`.
+- `/home/node/.claude/plugins/marketplaces/coding/docs/agent-command-development-guide.md` — the `agent-cmd/single-source-of-truth` rule this prompt implements, plus the agent-file conventions (`agent-cmd/agent-frontmatter`, agent body structure).
 </context>
 
 <requirements>
@@ -86,7 +87,7 @@ In the `<output_format>` block, the dependency-blocked entry template is already
 ○ <task> — blocked by [[<blocker>]] (<status>)
 ```
 
-`<blocker>` is the first entry of the task's `blocked_by` list (strip the `[[` `]]` brackets for display, as the rest of the file already does for task names), and `<status>` is that blocker's `status` from the same listing call.
+`<blocker>` is the first entry of the task's `blocked_by` list with the `[[` `]]` brackets stripped (the template already wraps the name in `[[ ]]`, so a kept pair would render doubled brackets). `<status>` is that blocker's `status` from the same listing call — and that call is goal-filtered (`--goal`), so a blocker belonging to another goal, or one renamed or deleted, has no entry there: render its status as `unknown` in that case, never blank and never guessed, and keep the task in the Blocked group.
 
 There is no `on hold` rendering in the file today — add one. Directly below the template line above, insert this second entry form:
 
@@ -102,7 +103,7 @@ Do not touch the frontmatter (`description`, `tools`), the `not_found` verdict b
 
 ## 6. Changelog
 
-Read the top of `CHANGELOG.md` first. The `## Unreleased` section already exists (created by prompt 1 of spec 046). Append one bullet describing the change:
+Read the top of `CHANGELOG.md` first. The `## Unreleased` section already exists (created by prompt 1 of spec 046) — if it is somehow still absent, create it directly **below** the preamble block and **above** the newest `## vX.Y.Z` section. Append one bullet describing the change:
 
 ```
 - feat: `work-on-goal-assistant` groups and recommends from the typed `blocked` flag emitted by `vault-cli task list --output json` instead of scanning task file contents for blocker patterns — every plugin recommendation path now reads blocked state from one typed source.
@@ -159,7 +160,7 @@ grep -n 'blocked == true' agents/work-on-goal-assistant.md
 grep -c 'blocked_by' agents/work-on-goal-assistant.md
 ```
 
-The first must print a line; the second must print a number `>= 2` (the grouping prose note and the cascade step). `blocked_by` currently appears zero times in the file, so this count is evidence the edit landed rather than a pre-existing match.
+The first must print a line; the second must print a number `>= 2` (expect 4). `blocked_by` currently appears zero times in the file, so this count is evidence the edit landed rather than a pre-existing match.
 
 **4. The rest of the file is intact:**
 

@@ -8,6 +8,12 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: the `work-on-task` → `plan-task` chain no longer plans or edits a task a live sibling session already owns — `plan-task` reads the owner's session state at step 2 and re-checks it before every mutation, hard-stopping in NO-ASK mode and requiring an explicit answer in interactive mode
+- fix: `work-on-task-assistant` no longer spawns a second session onto a task the calling session is already working — the status flip stops routing through `vault-cli task work-on` when session-connect left `claude_session_id` empty, which is the one case where `work-on` spawns instead of taking its cached path
+- docs: three inline session-liveness definitions (`work-on-goal-assistant.md`, `output-formatting.md`, `task-status.md`) collapse into `docs/session-liveness.md`; fresh-transcript-with-no-process is now `indeterminate`, not `live`
+
 ## v0.131.1
 
 - fix: `session-close` Phase 7 invoked its checker by a cwd-relative path, so the check never ran in a real session. `scripts/daily-note-has-entry.sh` ships inside the plugin, but Phase 7 executes from a vault — which has no `scripts/` — so `bash scripts/daily-note-has-entry.sh` resolved to nothing and the phase silently degraded to a hand-check. It passed under `make test` only because there the cwd *is* the plugin repo. The script is now resolved under the plugin root, independent of cwd. (`CLAUDE_PLUGIN_ROOT` is not set in a session, so it could not be used.) Separately, Phase 3.5 called a freshly-created worktree "orphaned": a branch absent from the remote has two causes, and the bare `ls-remote` test could not tell a merged-and-deleted branch from one never pushed. A worktree with **zero commits beyond its base** is now recognised as just-created and left alone — observed 2026-09-11, where two such worktrees both read "remote gone", one of them a sibling session's created minutes earlier, and the closer would have named live work for removal.

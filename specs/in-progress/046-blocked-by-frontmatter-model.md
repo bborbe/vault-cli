@@ -1,6 +1,7 @@
 ---
-status: draft
-created: 2026-09-11
+status: approved
+approved: "2026-09-11T07:46:07Z"
+branch: dark-factory/blocked-by-frontmatter-model
 ---
 
 ## Blocked-by frontmatter model for tasks and goals

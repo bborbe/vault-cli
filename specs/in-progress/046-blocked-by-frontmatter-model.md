@@ -1,8 +1,9 @@
 ---
-status: prompted
+status: verifying
 approved: "2026-09-11T07:46:07Z"
 generating: "2026-09-11T08:00:32Z"
 prompted: "2026-09-11T08:00:32Z"
+verifying: "2026-09-11T09:42:02Z"
 branch: dark-factory/blocked-by-frontmatter-model
 ---
 

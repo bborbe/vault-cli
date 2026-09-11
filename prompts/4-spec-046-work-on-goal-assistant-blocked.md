@@ -8,11 +8,11 @@ created: "2026-09-11T08:20:00Z"
 
 <summary>
 - The work-on-goal-assistant agent stops guessing blocked state by scanning task file contents.
-- It reads the typed `blocked` flag from the `vault-cli task list --goal … --all --output json` call it already makes — no extra call, no extra read.
+- It reads the typed `blocked` flag from the task listing it already fetches — no extra call, no extra read.
 - The Blocked group becomes `status == hold` OR the typed `blocked` flag: one source of truth, matching `next-task`.
 - The recommendation cascade keeps its shape; only the source of the blocked signal changes.
 - The Blocked output line names the blocker from the task's `blocked_by` list.
-- No Go code changes — the agent definition is the only file touched.
+- No Go code changes — the agent definition and the changelog are the only files touched.
 - The changelog records the change.
 </summary>
 
@@ -34,9 +34,9 @@ Then read `agents/work-on-goal-assistant.md` in full — it is the only file you
   ```
   and its prose says the returned values drive "the defer filter, the grouping, the progress line, and the recommendation". The typed `blocked` field arrives on exactly this response.
 - The `Group:` list defines `- **Blocked**: `status == hold` OR any active blocker`.
-- `## Phase 5: Recommendation logic` is a three-step cascade; step 2 already reads `Else if any unblocked pending → …` and step 3 reads `Else if only blocked tasks remain → recommend first blocker to resolve`.
+- `## Phase 5: Recommendation logic` is a four-step cascade; step 2 already reads `Else if any unblocked pending → …`, step 3 reads `Else if only blocked tasks remain → recommend first blocker to resolve`, and step 4 (`Else (all completed) → recommend marking goal complete`) is untouched by this prompt.
 - The `<output_format>` block renders `Blocked (n):` followed by `○ <task> — blocked by [[<blocker>]] (<status>)`.
-- `grep -n -i 'block' agents/work-on-goal-assistant.md` returns exactly these hits plus the terminal-status line at 27 and the `not_found` prose at 81 — neither mentions blockers and neither changes.
+- `grep -n -i 'block' agents/work-on-goal-assistant.md` returns 11 hits: the ones above, the terminal-status line at 27, the `not_found` prose at 81 and its output-format explanation at 229, the Phase 6 "goal-context block" prose at 191, and the success-criteria "context block" at 256. None of those four mentions blockers; none changes. Line 131 is the only content-scan site in the file — `grep -n -i 'scan\|prerequisite'` returns nothing else blocker-related.
 
 Read these files as well:
 
@@ -64,10 +64,10 @@ Replace the Group list's Blocked entry so the grouping reads:
 - **Blocked**: `status == hold` OR `blocked == true`
 ```
 
-Leave the In Progress, Pending and Completed entries byte-identical. Add one sentence directly below the list, in the existing prose style:
+Leave the In Progress, Pending and Completed entries byte-identical. Add these two sentences directly below the list, in the existing prose style:
 
 ```
-The `blocked` flag comes from the same `task list --goal … --output json` call that supplies `status` — a task with no `blocked_by` list has no `blocked` key and is never blocked by this rule. `hold` remains an operator decision and is independent of the derived flag.
+The `blocked` flag comes from the same `task list --goal … --output json` call that supplies `status` — a task with no `blocked_by` list has no `blocked` key and is never blocked by this rule. `hold` remains an operator decision and is independent of the derived flag. The per-task fallback (`vault-cli task get "<name>" status --output json`) returns `status` only and carries no `blocked` value — for a task resolved that way, group on `status == hold` alone and never infer `blocked`; state the flag as unavailable rather than guessing.
 ```
 
 ## 3. Recommendation cascade — reference the typed flag
@@ -75,18 +75,26 @@ The `blocked` flag comes from the same `task list --goal … --output json` call
 Leave steps 1 and 2 unchanged. Rewrite step 3 so it names the source rather than an undefined "blocker":
 
 ```
-3. Else if only blocked tasks remain → recommend nothing actionable; name the unmet dependency (from the task's `blocked_by` list) and the task that declares it, so the operator knows what to resolve. Do not recommend the blocked task itself.
+3. Else if only blocked tasks remain → recommend nothing actionable; name the unmet dependency (from the task's `blocked_by` list) so the operator knows what to resolve. Do not recommend the blocked task itself.
 ```
 
-## 4. Output format — name the blocker from `blocked_by`
+## 4. Output format — keep the blocked line, add the hold line
 
-In the `<output_format>` block, keep the `Blocked (n):` header and change the entry template to name the blocker from the typed list:
+In the `<output_format>` block, the dependency-blocked entry template is already correct — keep it byte-identical:
 
 ```
 ○ <task> — blocked by [[<blocker>]] (<status>)
 ```
 
-`<blocker>` is the first entry of the task's `blocked_by` list (strip the `[[` `]]` brackets for display, as the rest of the file already does for task names), and `<status>` is that blocker's `status` from the same listing call. When the task is blocked by `status == hold` rather than by a dependency, render the existing `○ <task> — on hold` form instead — do not invent a blocker name.
+`<blocker>` is the first entry of the task's `blocked_by` list (strip the `[[` `]]` brackets for display, as the rest of the file already does for task names), and `<status>` is that blocker's `status` from the same listing call.
+
+There is no `on hold` rendering in the file today — add one. Directly below the template line above, insert this second entry form:
+
+```
+○ <task> — on hold
+```
+
+Use it when the task is in the Blocked group by `status == hold` alone. A task that is both `hold` and `blocked == true` uses the `blocked by` form. Never render `blocked by [[…]]` for a task with no `blocked_by` list, and never invent a blocker name.
 
 ## 5. No other behavior changes
 
@@ -109,7 +117,7 @@ Before finishing, re-run every command in `<verification>` and confirm each pass
 </requirements>
 
 <constraints>
-- Do NOT commit — dark-factory handles git. Do NOT bump any version string and do NOT create a git tag.
+- Do NOT commit — dark-factory handles git. Do NOT bump any version string and do NOT create a git tag — the release agent owns those.
 - No Go code changes: `pkg/`, `commands/` and `integration/` are out of scope for this prompt.
 - Do not widen scope to other agents or commands — `commands/next-task.md` is handled by prompt 2 of this spec and is read-only here.
 - Do not restate the deleted content-scan patterns (`Blocker:`, `Blocked by:`) anywhere in the file, including in comments or explanatory prose.
@@ -120,14 +128,13 @@ Before finishing, re-run every command in `<verification>` and confirm each pass
 <verification>
 Run everything from the repository root.
 
-**0. The sibling prompts landed** — this prompt consumes the typed flag, it does not create it. Both commands must print output; the second must print at least `1`:
+**0. The sibling prompt landed** — this prompt consumes the typed flag, it does not create it. This command must print output:
 
 ```
 grep -n 'json:"blocked' pkg/ops/list.go
-grep -n 'unmet blocked_by' commands/next-task.md
 ```
 
-If either fails, stop: prompt 1 or 2 of spec 046 has not landed on this branch, and the typed flag this prompt reads does not exist yet.
+If it fails, stop: prompt 1 of spec 046 has not landed on this branch, and the typed flag this prompt reads does not exist yet.
 
 **1. Nothing else broke:**
 
@@ -149,10 +156,10 @@ grep -n 'Scan content for blocker patterns' agents/work-on-goal-assistant.md
 
 ```
 grep -n 'blocked == true' agents/work-on-goal-assistant.md
-grep -c 'blocked' agents/work-on-goal-assistant.md
+grep -c 'blocked_by' agents/work-on-goal-assistant.md
 ```
 
-The first must print a line; the second must print a number `>= 3` (the grouping rule, the prose note and the cascade step).
+The first must print a line; the second must print a number `>= 2` (the grouping prose note and the cascade step). `blocked_by` currently appears zero times in the file, so this count is evidence the edit landed rather than a pre-existing match.
 
 **4. The rest of the file is intact:**
 
@@ -163,12 +170,21 @@ grep -n 'not_found:' agents/work-on-goal-assistant.md
 
 Both must print a line — the cascade and the not-found verdict survived the edit.
 
+**4b. The output format renders both blocked forms:**
+
+```
+grep -n '○ <task> — on hold' agents/work-on-goal-assistant.md
+grep -n '○ <task> — blocked by \[\[<blocker>\]\] (<status>)' agents/work-on-goal-assistant.md
+```
+
+Both must print a line.
+
 **5. Changelog:**
 
 ```
 grep -n '^## ' CHANGELOG.md | head -1
-grep -c 'work-on-goal-assistant' CHANGELOG.md
+grep -c 'instead of scanning task file contents for blocker patterns' CHANGELOG.md
 ```
 
-The first must print `## Unreleased`; if it prints a version heading instead, the bullet was placed between released sections — move it into the existing `## Unreleased` section. The second must print a number `>= 1`.
+The first must print a line containing `## Unreleased`; if it prints a version heading instead, the bullet was placed between released sections — move it into the existing `## Unreleased` section. The second must print `1`.
 </verification>

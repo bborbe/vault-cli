@@ -128,7 +128,6 @@ Extract task references from the goal file:
 
 For each task ref:
 - Resolve to a file across active + sibling vaults
-- Scan content for blocker patterns (`Blocker:`, `Blocked by:`, `⚠️ Blocked by:`)
 
 Fetch `status`, `defer_date`, and `priority` for ALL child tasks in one call — never read them from frontmatter directly:
 
@@ -148,9 +147,11 @@ Defer filter: if `defer_date > today`, exclude from active lists; track as "defe
 
 Group:
 - **In Progress**: `status == in_progress`
-- **Blocked**: `status == hold` OR any active blocker
+- **Blocked**: `status == hold` OR `blocked == true`
 - **Pending**: `status in (next, todo)`   ← both accepted (vault-cli normalize)
 - **Completed**: `status == completed` (count only)
+
+The `blocked` flag comes from the same `task list --goal … --output json` call that supplies `status` — a task with no `blocked_by` list has no `blocked` key and is never blocked by this rule. `hold` remains an operator decision and is independent of the derived flag. The per-task fallback (`vault-cli task get "<name>" status --output json`) returns `status` only and carries no `blocked` value — for a task resolved that way, group on `status == hold` alone and never infer `blocked`; state the flag as unavailable rather than guessing.
 
 Progress line: `X/Y completed (Z deferred)`.
 
@@ -167,7 +168,7 @@ Present option list and wait for selection.
 In priority order:
 1. If any task is `in_progress` → recommend it ("Continue in-progress — avoid context switching")
 2. Else if any unblocked pending → recommend first by priority/order ("Next step in the goal sequence")
-3. Else if only blocked tasks remain → recommend first blocker to resolve
+3. Else if only blocked tasks remain → recommend nothing actionable; name the unmet dependency (from the task's `blocked_by` list) so the operator knows what to resolve. Do not recommend the blocked task itself.
 4. Else (all completed) → recommend marking goal complete
 
 ## Phase 5.5: Classify the recommended task's session state
@@ -217,6 +218,7 @@ In Progress (n):
 → <task>
 Blocked (n):
 ○ <task> — blocked by [[<blocker>]] (<status>)
+○ <task> — on hold
 Pending (n):
 ○ <task>
 [Completed: hidden from list, counted in progress line]

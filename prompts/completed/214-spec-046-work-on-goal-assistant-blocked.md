@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [046-blocked-by-frontmatter-model]
+summary: work-on-goal-assistant now derives blocked state from the typed `blocked` flag in `vault-cli task list --output json` — content-scan heuristics deleted, group/recursive/rendering updated, `on hold` form added, changelog updated; no Go code touched.
+execution_id: vault-cli-blocked-by-exec-214-spec-046-work-on-goal-assistant-blocked
+dark-factory-version: dev
 created: "2026-09-11T08:20:00Z"
 queued: "2026-09-11T09:20:11Z"
+started: "2026-09-11T09:39:25Z"
+completed: "2026-09-11T09:42:02Z"
 ---
 
 # work-on-goal-assistant reads the typed blocked flag instead of content-scanning

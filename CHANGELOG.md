@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.130.2
 
 - fix: `session-close` verdict mode 2 ("clean, but reflect/self-improve fired") now emits a **numbered** list instead of bullets, and its closer offers `pick — 1. … · 2. … · 3. nothing — close` instead of `nothing — session closed`. Mode 3 has always been numbered; mode 2's bullets were an inconsistency, and the items are invocable commands the operator answers by pointing at (`do 1 + 2`). The old closer also asserted "nothing" directly above a list of actions, which the global closer rule already forbids.
 

@@ -10,9 +10,9 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 
 ## Unreleased
 
-- Guard the `work-on-task` → `plan-task` chain against a task a live session already owns: `plan-task` reads the owner's session state at step 2 and re-checks it before every mutation — hard stop in NO-ASK mode, explicit answer required in interactive mode
-- Stop `work-on-task-assistant` spawning a second session onto a task the calling session is already working: the status flip no longer routes through `vault-cli task work-on` when session-connect left `claude_session_id` empty
-- Collapse three inline session-liveness definitions (`work-on-goal-assistant.md`, `output-formatting.md`, `task-status.md`) into `docs/session-liveness.md`; fresh-transcript-with-no-process is now `indeterminate`, not `live`
+- fix: the `work-on-task` → `plan-task` chain no longer plans or edits a task a live sibling session already owns — `plan-task` reads the owner's session state at step 2 and re-checks it before every mutation, hard-stopping in NO-ASK mode and requiring an explicit answer in interactive mode
+- fix: `work-on-task-assistant` no longer spawns a second session onto a task the calling session is already working — the status flip stops routing through `vault-cli task work-on` when session-connect left `claude_session_id` empty, which is the one case where `work-on` spawns instead of taking its cached path
+- docs: three inline session-liveness definitions (`work-on-goal-assistant.md`, `output-formatting.md`, `task-status.md`) collapse into `docs/session-liveness.md`; fresh-transcript-with-no-process is now `indeterminate`, not `live`
 
 ## v0.131.1
 

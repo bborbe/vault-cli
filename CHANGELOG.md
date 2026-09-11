@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.131.5
 
 - docs: Correct scenario 005's trust precondition — it listed "a fresh tmux session" among the environments that do not inherit Claude Code's folder-trust decision, which is false and stopped an operator from running a walk that would have passed. The decision is path-keyed in `~/.claude.json`, not tied to a terminal, so a same-`HOME` tmux inherits it; only an isolated `HOME` or a sub-agent shell loses it. A tmux walk of this scenario then passed end to end.
 

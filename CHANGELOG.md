@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: `plan-task` sub-check 3 (Falsifiable) now names a second failure shape — a constructed probe whose input shape the system never produces. A hand-built case passes for reasons unrelated to the claim when the shape it exercises never occurs, and it reads as a positive control, which is worse than having none. Observed 2026-09-11: a criterion required flagging a worktree carrying commits beyond base; a probe was built to exactly that shape and passed, but these repos merge with merge commits only, so every real orphan's tip stays an ancestor of master and the count reads **0** — probe shape and real population disjoint, caught by a peer review rather than by the gate. The check now asks whether the exercised input exists in the real population, and requires the evidence to be drawn from the population the claim quantifies over.
+
 ## v0.131.3
 
 - fix: `session-close` Phase 3.5 no longer reads a merged worktree as freshly created. v0.131.1 added a commit-count test to stop the phase flagging never-pushed worktrees, but that test is not a merge detector on these repos: they merge with merge commits only, so a merged branch's tip stays an *ancestor* of master, `git merge-base HEAD origin/master` returns HEAD itself, and the count reads **0** for precisely the case the phase exists to catch. The guard therefore classified every merged worktree as just-created and silently disabled orphan detection — observed 2026-09-11, where all ten orphaned worktrees in `vault-cli` computed 0 commits beyond base and none would have been flagged. Phase 3.5 now runs a second test beside the count — a merge commit on `origin/master` naming the branch — and flags the worktree when **either** is positive; both negative is the only "leave alone". Verified against a freshly-created probe (both negative → left alone) and all ten orphans (merge record positive → flagged).

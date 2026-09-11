@@ -69,7 +69,7 @@ Two or three lines, not a paragraph:
 - `MINE` = `$CLAUDE_CODE_SESSION_ID` (harness-set), kept only when the transcript `~/.claude/projects/<enc-session-project-dir>/<MINE>.jsonl` exists (transcript dir name is canonical, per `session-close.md`).
 - `IDS` = the linked file's `claude_session_id` ∪ `metrics_sessions[].session_id` frontmatter values.
 - Always render `, session <MINE8> (this one)` when `MINE` is set; when unset, render `, session <first id8>` (no "(this one)" — can't identify self).
-- **Peer clause** — append ` · ⚠️ also claimed by peer <id8>` for each `IDS` id ≠ `MINE` whose session is LIVE (transcript mtime < ~5 min, or a `claude --resume <id>` process; liveness per `work-on-goal-assistant.md` Phase 5.5). Comma-join multiple peers.
+- **Peer clause** — append ` · ⚠️ also claimed by peer <id8>` for each `IDS` id ≠ `MINE` whose session state is `live`. Liveness per [`session-liveness.md`](session-liveness.md) — the single definition; do not restate it inline. Comma-join multiple peers.
 
 ### Counts
 

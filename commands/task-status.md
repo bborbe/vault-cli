@@ -79,7 +79,7 @@ GOAL_FILE="$VAULT_PATH/$GOALS_DIR/$GOAL_TITLE.md"
 - No `goals:` frontmatter → `🎯 Goal: (no goal linked)` (pair still emitted).
 - Goal file missing → `🎯 Goal: <title> — (goal file missing)`.
 
-**Session suffix + peer claim** — see `docs/output-formatting.md` § Anchor pair: `MINE` = `$CLAUDE_CODE_SESSION_ID` (kept only when the transcript `~/.claude/projects/<enc>/<MINE>.jsonl` exists), `IDS` = task's `claude_session_id` ∪ `metrics_sessions[].session_id`; `, session <MINE8> (this one)` always, ` · ⚠️ also claimed by peer <id8>` for each foreign id whose session is LIVE (<5-min transcript mtime or `claude --resume <id>` process).
+**Session suffix + peer claim** — see `docs/output-formatting.md` § Anchor pair: `MINE` = `$CLAUDE_CODE_SESSION_ID` (kept only when the transcript `~/.claude/projects/<enc>/<MINE>.jsonl` exists), `IDS` = task's `claude_session_id` ∪ `metrics_sessions[].session_id`; `, session <MINE8> (this one)` always, ` · ⚠️ also claimed by peer <id8>` for each foreign id whose session state is `live` — per [`docs/session-liveness.md`](../docs/session-liveness.md), the single definition.
 
 ## Phase 2.5: Re-evaluate phase & plan state
 

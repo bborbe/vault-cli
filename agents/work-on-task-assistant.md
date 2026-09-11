@@ -121,7 +121,7 @@ Record each result for the final report (✅ / ℹ️ / ⚠️). Errors do NOT b
 If found:
 - Read frontmatter (capture `status`, `claude_session_id`)
 - **Session connect FIRST** (see below) — so the status mutation below reuses this session id instead of spawning a nested one
-- If `status != in_progress`: `vault-cli task work-on "{task_name}"` (reuses the just-set `claude_session_id` — cached path, no new session)
+- If `status != in_progress`: flip the status **without** `work-on` unless session-connect above wrote a `claude_session_id` for this session — `vault-cli task set "{task_name}" status in_progress`. `vault-cli task work-on "{task_name}"` takes the cached no-spawn path **only** when the field is non-empty; on an empty field it spawns a second session that claims the task (observed 2026-09-11: an interactive `work-on-task` whose title-match missed left the field empty, and this call spawned session `bf2411b6` onto a task the calling session was already working)
 - Report: `✅ Status: {old} → in_progress`
 
 ### Session connect (MANDATORY when Obsidian task file exists)
@@ -141,7 +141,7 @@ Connect the current session to the task so the task's `claude_session_id` points
    done | sort -u
    ```
    - If EXACTLY ONE UUID is returned: `vault-cli task set "<task_name>" claude_session_id "<uuid>"`
-   - If zero OR multiple UUIDs are returned (ambiguous / no match — e.g. the task is not the session's current title, or several sessions share the title): do NOT write the field, and report `ℹ️ Session: not connected — <n> matching session(s), refusing to guess`. Do NOT fall back to the task name: a name is not a UUID and the vault-ui resolver would then mis-resolve it. The headless Start path pre-sets this field via vault-cli before the turn, so a miss here is safe — leave it for vault-cli.
+   - If zero OR multiple UUIDs are returned (ambiguous / no match — e.g. the task is not the session's current title, or several sessions share the title): do NOT write the field, and report `ℹ️ Session: not connected — <n> matching session(s), refusing to guess`. Do NOT fall back to the task name: a name is not a UUID and the vault-ui resolver would then mis-resolve it. A miss is safe **only** on the headless Start path, which pre-sets this field via vault-cli before the turn. From an interactive session nothing pre-set it, so a miss leaves the field empty — and the status flip below must then not route through `work-on`, or it spawns a second session onto this task.
    - Report: `✅ Session: connected (<uuid>)`
 3. If `claude_session_id` is **already set**: report `ℹ️ Session: already connected (<value>)` — do NOT overwrite.
 4. Add to the report (always, found case): `💡 Suggest: run /rename "<task_name>" to name this session after the task` — connects the session to the task by name.

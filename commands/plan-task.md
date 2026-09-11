@@ -47,12 +47,21 @@ Resolve the detected name via `Glob` same as the with-argument path. Multiple ma
 
 When detection succeeds without explicit argument, print the resolved task name on first line of output (`Detected task: <name>`) so the owner can interrupt if wrong before any state mutation.
 
-### 2. Read status + phase
+### 2. Read status + phase + ownership
 
 ```bash
 vault-cli task get "<name>" status --output json
 vault-cli task get "<name>" phase --output json
 ```
+
+**Ownership gate.** Classify the task's `claude_session_id` per [`docs/session-liveness.md`](../docs/session-liveness.md) — the single liveness definition; do not restate it here.
+
+- Owner is `live` **and** names a session other than this one → stop before any mutation:
+  - **ASK mode** → surface the owner and require an explicit answer before continuing.
+  - **NO-ASK** (`--non-interactive`) → print `❌ <name> is live under session <id8> — refusing to plan it.` and STOP. Never call `AskUserQuestion`; a headless caller cannot answer, and an ask is a hang.
+- `quiet`, `indeterminate`, `none` → continue. `indeterminate` is **not** a block — it cannot be proven dead, so it proceeds, but say so (`ℹ️ Session state: indeterminate — owner unproven`) so the operator can abort.
+
+**Re-run this gate immediately before every mutation** — the step 3 entry-contract flips and every step 6 `Edit`. The step 2 read is stale by construction: a claim arriving mid-run is exactly the case this guards, and it is also the only case that matters under NO-ASK, where step 6 is skipped but step 3 still writes.
 
 ### 3. Entry contract — flip if needed
 
@@ -134,7 +143,7 @@ Translate findings (auditor + non-negotiable checks) into questions. Rules:
 - Quote the offending line/section so owner sees what triggered the question
 - Use `AskUserQuestion` for the actual ask
 
-Apply each answer via `Edit`. Re-run auditor after each batch. Print delta `Score: X → Y`. Loop until score ≥ 8 AND all four hard non-negotiables pass OR owner says "good enough."
+Apply each answer via `Edit` — re-running the step 2 ownership gate first (see there). Re-run auditor after each batch. Print delta `Score: X → Y`. Loop until score ≥ 8 AND all four hard non-negotiables pass OR owner says "good enough."
 
 ### 7. Exit — hand off to execute-task (no phase flip)
 

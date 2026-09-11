@@ -173,17 +173,9 @@ In priority order:
 
 ## Phase 5.5: Classify the recommended task's session state
 
-For the recommended task (skip if the recommendation is "mark goal complete"), classify its session per vault-ui's `classify_session_state` contract, keyed on the task's `claude_session_id` frontmatter. This is the goal session's handoff signal (Start / Resume / leave-alone) — it is NEVER the task's `status` field:
+For the recommended task (skip if the recommendation is "mark goal complete"), classify its session state from the task's `claude_session_id` frontmatter. This is the goal session's handoff signal (Start / Resume / leave-alone) — it is NEVER the task's `status` field.
 
-1. Read the task's `claude_session_id` frontmatter. Absent → state `none`.
-2. **Transcript liveness:** the transcript at `<vault path>/.claude/projects/<uuid>.jsonl` (or `session_project_dir` if set). `live` if its mtime is within the ~5-minute `LIVE_WINDOW` (vault-ui `vault_ui/activity.py`); `quiet` if it exists and is older.
-3. **Process cross-check:** `ps` for a live `claude --resume <uuid>` process closes the open-but-idle gap (a resumed session's transcript goes quiet while its process lives). A live process upgrades `quiet` → `live`; an idle transcript with no process stays `quiet`.
-4. **Ambiguity:** conflicting signals (fresh transcript vs no process, or vice versa) → `indeterminate` — report and let the operator decide.
-
-**Hard rules:**
-- NEVER infer liveness from `status: in_progress` — measured 2026-09-06: of 171 `in_progress` tasks, only 13 had a live session. `in_progress` is a queue state, not a liveness signal.
-- `ListAgents` is a secondary display signal only, never the decision input (the name→task join is fuzzy).
-- The task file's mtime is never a liveness signal.
+**The rule lives in [`docs/session-liveness.md`](../docs/session-liveness.md)** — the single definition of `live` / `quiet` / `indeterminate` / `none`. Read it there; do not restate it here. The state that matters most for this handoff is `indeterminate` (a fresh transcript with no process, or an id with no transcript): it cannot be proven dead, so surface it rather than offering a Start that would collide.
 
 Report the state in the output format as `🔌 Session state: <live|quiet|indeterminate|none>`.
 

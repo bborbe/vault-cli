@@ -160,8 +160,15 @@ For each non-durable worktree, check if its branch still exists on the remote:
 cd <worktree> && git ls-remote --exit-code --heads origin "$(git branch --show-current)" >/dev/null 2>&1
 ```
 
-- Exit-code **non-zero** → remote branch deleted (typical after `gh pr merge --delete-branch`). The worktree is **orphaned** — kept work is committed and merged; the worktree itself is now garbage.
 - Exit-code **zero** → branch still on remote → work in flight, **leave alone** (could be a parked session).
+- Exit-code **non-zero** → the branch is absent from the remote, which has two very different causes. **Split them before flagging** — a fresh worktree reads identically to a cleaned-up one:
+
+  ```bash
+  cd <worktree> && git rev-list --count "$(git merge-base HEAD origin/master)"..HEAD
+  ```
+
+  - **Zero commits beyond the base** → the worktree was **just created** and its branch was never pushed. Nothing was ever merged, so nothing was cleaned up; it cannot be an orphan. **Leave it alone.** Observed 2026-09-11: `feature/status-toggle-icons` and `feature/status-toggle-lines` both read "remote gone" while both had 0 commits beyond master — one of them a sibling session's worktree created minutes earlier. Flagging it would have named live work for removal.
+  - **Commits beyond the base** → remote branch deleted (typical after `gh pr merge --delete-branch`). The worktree is **orphaned** — kept work is committed and merged; the worktree itself is now garbage.
 
 Cross-check against other still-active Claude sessions: a worktree from a sibling session (different cwd, different conversation) may be active — don't flag those. Use a conservative test: if any process under the worktree path is running (`lsof +D <worktree>` shows hits, or any `cwd` in `/proc` or via `ps -o pid,cwd` matches), assume it's actively used.
 
@@ -371,7 +378,14 @@ Instead, take Phase 1's touched `Tasks` + `Goals` list and require that at least
 ```bash
 # Exits 0 if an entry for T exists under "What happened today", 1 if not,
 # 2 on input error (missing note) — which is NOT the same as "absent".
-bash scripts/daily-note-has-entry.sh "$DAILY" "$T"
+#
+# Resolve the script under the PLUGIN root, never the cwd. It ships inside the
+# plugin, and this phase runs from a vault — which has no scripts/ — so a bare
+# `bash scripts/…` resolves to nothing and the check silently never runs. It
+# works under `make test` only because there the cwd IS the plugin repo.
+# (CLAUDE_PLUGIN_ROOT is not set in a session, so it cannot be used here.)
+VAULT_CLI_SCRIPTS="$(ls -d ~/.claude/plugins/cache/vault-cli/vault-cli/*/scripts 2>/dev/null | sort -V | tail -1)"
+bash "$VAULT_CLI_SCRIPTS/daily-note-has-entry.sh" "$DAILY" "$T"
 ```
 
 **The check lives in `scripts/daily-note-has-entry.sh`, not inline here, and it

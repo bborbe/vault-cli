@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: `session-close` Phase 7 invoked its checker by a cwd-relative path, so the check never ran in a real session. `scripts/daily-note-has-entry.sh` ships inside the plugin, but Phase 7 executes from a vault — which has no `scripts/` — so `bash scripts/daily-note-has-entry.sh` resolved to nothing and the phase silently degraded to a hand-check. It passed under `make test` only because there the cwd *is* the plugin repo. The script is now resolved under the plugin root, independent of cwd. (`CLAUDE_PLUGIN_ROOT` is not set in a session, so it could not be used.) Separately, Phase 3.5 called a freshly-created worktree "orphaned": a branch absent from the remote has two causes, and the bare `ls-remote` test could not tell a merged-and-deleted branch from one never pushed. A worktree with **zero commits beyond its base** is now recognised as just-created and left alone — observed 2026-09-11, where two such worktrees both read "remote gone", one of them a sibling session's created minutes earlier, and the closer would have named live work for removal.
+
 ## v0.131.0
 
 - feat: `blocked_by` frontmatter on tasks and goals is now a typed dependency list — `vault-cli task list --output json` and `vault-cli goal list --output json` emit the raw `blocked_by` array plus a computed `blocked` boolean (blocked iff any named blocker is not `completed`; a missing, unreadable or status-less blocker counts as blocked). Additive only: an entity without `blocked_by` emits neither key and every existing field is unchanged.

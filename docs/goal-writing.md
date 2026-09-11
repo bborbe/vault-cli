@@ -114,6 +114,9 @@ timeline: 2026-MM-DD to 2026-MM-DD               # optional, ≤ 4 weeks for tac
 objective: "[[Parent Objective]]"                # optional
 themes:                                          # optional
   - "[[Parent Theme]]"
+binding: <free text>                             # optional — the hard deadline/constraint
+                                                 # gating the completion verdict; rendered on
+                                                 # the status anchor line ("binding: <value>")
 ---
 ```
 

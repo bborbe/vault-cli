@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## v0.130.3
+
+- fix: `task-status` and `goal-status` output now always leads with the Async State Closer anchor pair — a clickable `🎯 Goal:` line (goal link, SC + subtask counts, optional `binding:` segment from goal frontmatter) and a clickable `📌 Task:` line (task link, phase, session suffix `(this one)` plus `⚠️ also claimed by peer <prefix>` when a live foreign session id is recorded). Both lines use `obsidian://open?vault=<vault>&file=<percent-encoded relpath>` links per the Obsidian rules; the pair sits above the existing assessment block and replaces the standalone `📎` task-link line. `goal-status` now resolves the goal inline and passes it to the agent, fixing sub-agent goal detection. Anchor-pair recipe codified in `docs/output-formatting.md` § Anchor pair; `binding:` documented as an optional goal frontmatter field in `docs/goal-writing.md`.
+
 ## v0.130.2
 
 - fix: `session-close` verdict mode 2 ("clean, but reflect/self-improve fired") now emits a **numbered** list instead of bullets, and its closer offers `pick — 1. … · 2. … · 3. nothing — close` instead of `nothing — session closed`. Mode 3 has always been numbered; mode 2's bullets were an inconsistency, and the items are invocable commands the operator answers by pointing at (`do 1 + 2`). The old closer also asserted "nothing" directly above a list of actions, which the global closer rule already forbids.

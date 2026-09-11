@@ -247,6 +247,34 @@ var _ = Describe("TaskFrontmatter", func() {
 		})
 	})
 
+	Describe("BlockedBy", func() {
+		DescribeTable("reads a list and rejects scalars",
+			func(stored any, expected []string) {
+				fm = domain.NewTaskFrontmatter(map[string]any{"blocked_by": stored})
+				Expect(fm.BlockedBy()).To(Equal(expected))
+			},
+			Entry("plain names", []any{"A", "B"}, []string{"A", "B"}),
+			Entry("wikilink names", []any{"[[A]]", "[[B]]"}, []string{"[[A]]", "[[B]]"}),
+			Entry("string slice", []string{"A"}, []string{"A"}),
+			Entry("mixed types coerce to strings", []any{"A", 1}, []string{"A", "1"}),
+			Entry("empty list", []any{}, []string{}),
+			Entry("nil value", nil, nil),
+			Entry("scalar string is malformed", "A", nil),
+			Entry("scalar comma string is malformed", "A,B", nil),
+		)
+
+		It("returns an empty list for a missing key", func() {
+			fm = domain.NewTaskFrontmatter(map[string]any{"status": "todo"})
+			Expect(fm.BlockedBy()).To(BeEmpty())
+		})
+
+		It("reads back empty after the documented clear path", func() {
+			fm = domain.NewTaskFrontmatter(map[string]any{"blocked_by": []any{"A"}})
+			Expect(fm.SetField(ctx, "blocked_by", "")).To(Succeed())
+			Expect(fm.BlockedBy()).To(BeEmpty())
+		})
+	})
+
 	Describe("SetGoals", func() {
 		It("stores goals", func() {
 			fm.SetGoals([]string{"g1", "g2"})
@@ -948,5 +976,41 @@ var _ = Describe("TaskFrontmatter flag YAML round-trip", func() {
 		data, err := yaml.Marshal(fm.RawMap())
 		Expect(err).NotTo(HaveOccurred())
 		Expect(string(data)).To(ContainSubstring("flag: banana"))
+	})
+})
+
+var _ = Describe("TaskFrontmatter blocked_by YAML round-trip", func() {
+	var fm domain.TaskFrontmatter
+
+	BeforeEach(func() {
+		fm = domain.NewTaskFrontmatter(map[string]any{
+			"status":     "todo",
+			"blocked_by": []any{"[[Blocker Task]]", "Plain Blocker"},
+		})
+	})
+
+	It("writes blocked_by as a YAML list", func() {
+		data, err := yaml.Marshal(fm.RawMap())
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(data)).To(ContainSubstring("blocked_by:"))
+		Expect(string(data)).To(ContainSubstring("Blocker Task"))
+		Expect(string(data)).To(ContainSubstring("Plain Blocker"))
+	})
+
+	It("round-trips blocked_by through marshal and unmarshal", func() {
+		data, err := yaml.Marshal(fm.RawMap())
+		Expect(err).NotTo(HaveOccurred())
+
+		var raw map[string]any
+		Expect(yaml.Unmarshal(data, &raw)).To(Succeed())
+		re := domain.NewTaskFrontmatter(raw)
+		Expect(re.BlockedBy()).To(Equal([]string{"[[Blocker Task]]", "Plain Blocker"}))
+	})
+
+	It("emits no blocked_by key when the field is absent", func() {
+		plain := domain.NewTaskFrontmatter(map[string]any{"status": "todo"})
+		data, err := yaml.Marshal(plain.RawMap())
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(data)).NotTo(ContainSubstring("blocked_by"))
 	})
 })

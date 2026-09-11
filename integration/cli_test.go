@@ -1343,6 +1343,170 @@ body
 		})
 	})
 
+	Describe("vault-cli blocked_by JSON surface", func() {
+		var vaultPath, configPath string
+		var cleanup func()
+
+		runTaskListJSON := func() []map[string]any {
+			cmd := exec.Command(
+				binPath,
+				"--config", configPath,
+				"--vault", "test",
+				"task", "list",
+				"--output", "json",
+			)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(0))
+			var items []map[string]any
+			Expect(json.Unmarshal(session.Out.Contents(), &items)).To(Succeed())
+			return items
+		}
+
+		AfterEach(func() {
+			cleanup()
+		})
+
+		It("AC1: task list emits the raw blocked_by list and the computed blocked flag", func() {
+			_, configPath, cleanup = createTempVault(map[string]string{
+				"dep-a": `---
+status: todo
+blocked_by:
+  - "A"
+  - "B"
+---
+`,
+			})
+			items := runTaskListJSON()
+			Expect(items).To(HaveLen(1))
+			item := items[0]
+			Expect(item).To(HaveKeyWithValue("name", "dep-a"))
+			Expect(item).To(HaveKeyWithValue("blocked_by", []any{"A", "B"}))
+			Expect(item).To(HaveKeyWithValue("blocked", true))
+		})
+
+		It("AC2: goal list emits both fields", func() {
+			_, configPath, cleanup = createTempVaultWithGoals(
+				map[string]string{},
+				map[string]string{
+					"dep-goal": `---
+status: next
+blocked_by:
+  - "Absent Goal"
+---
+`,
+				},
+			)
+			cmd := exec.Command(
+				binPath,
+				"--config", configPath,
+				"--vault", "test",
+				"goal", "list",
+				"--output", "json",
+			)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(0))
+			var items []map[string]any
+			Expect(json.Unmarshal(session.Out.Contents(), &items)).To(Succeed())
+			Expect(items).To(HaveLen(1))
+			item := items[0]
+			Expect(item).To(HaveKeyWithValue("name", "dep-goal"))
+			Expect(item).To(HaveKeyWithValue("blocked_by", []any{"Absent Goal"}))
+			Expect(item).To(HaveKeyWithValue("blocked", true))
+		})
+
+		It("AC3: no dependency list means no new keys", func() {
+			_, configPath, cleanup = createTempVault(map[string]string{
+				"plain-task": `---
+status: todo
+---
+`,
+			})
+			cmd := exec.Command(
+				binPath,
+				"--config", configPath,
+				"--vault", "test",
+				"task", "list",
+				"--output", "json",
+			)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(0))
+			var items []map[string]any
+			Expect(json.Unmarshal(session.Out.Contents(), &items)).To(Succeed())
+			Expect(items).To(HaveLen(1))
+			item := items[0]
+			Expect(item).To(HaveLen(4))
+			Expect(item).To(HaveKey("name"))
+			Expect(item).To(HaveKey("status"))
+			Expect(item).To(HaveKey("vault"))
+			Expect(item).To(HaveKey("modified_date"))
+			Expect(string(session.Out.Contents())).NotTo(ContainSubstring("blocked"))
+		})
+
+		It("AC5: blocked transitions to unblocked once the blocker is completed", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"dependent": `---
+status: todo
+blocked_by:
+  - "Blocker"
+---
+`,
+			})
+			blocked := runTaskListJSON()
+			Expect(blocked).To(HaveLen(1))
+			Expect(blocked[0]).To(HaveKeyWithValue("blocked", true))
+
+			// Complete the blocker by writing its file directly into the Tasks dir.
+			err := os.WriteFile(
+				filepath.Join(vaultPath, "Tasks", "Blocker.md"),
+				[]byte("---\nstatus: completed\n---\n"),
+				0600,
+			)
+			Expect(err).NotTo(HaveOccurred())
+
+			unblocked := runTaskListJSON()
+			Expect(unblocked).To(HaveLen(1))
+			Expect(unblocked[0]).To(HaveKey("blocked"))
+			Expect(unblocked[0]).To(HaveKeyWithValue("blocked", false))
+		})
+
+		It("AC6: wikilink and case-insensitive blocker names resolve through the real binary", func() {
+			_, configPath, cleanup = createTempVault(map[string]string{
+				"dependent": `---
+status: todo
+blocked_by:
+  - "[[blocker-task]]"
+---
+`,
+				"Blocker-Task": `---
+status: completed
+---
+`,
+			})
+			items := runTaskListJSON()
+			Expect(items).To(HaveLen(1))
+			Expect(items[0]).To(HaveKeyWithValue("name", "dependent"))
+			Expect(items[0]).To(HaveKeyWithValue("blocked", false))
+		})
+
+		It("malformed scalar blocked_by is inert", func() {
+			_, configPath, cleanup = createTempVault(map[string]string{
+				"scalar-dep": `---
+status: todo
+blocked_by: A
+---
+`,
+			})
+			items := runTaskListJSON()
+			Expect(items).To(HaveLen(1))
+			item := items[0]
+			Expect(item).NotTo(HaveKey("blocked"))
+			Expect(item).NotTo(HaveKey("blocked_by"))
+		})
+	})
+
 	Describe("vault-cli defer", func() {
 		var vaultPath, configPath string
 		var cleanup func()

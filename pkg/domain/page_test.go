@@ -37,3 +37,29 @@ var _ = Describe("Page Flag", func() {
 		Expect(page.Flag()).To(BeFalse())
 	})
 })
+
+var _ = Describe("Page BlockedBy", func() {
+	DescribeTable("reads the stored blocked_by value via blockedByList",
+		func(stored any, expected []string) {
+			page := domain.NewPage(
+				map[string]any{"status": "todo", "blocked_by": stored},
+				domain.FileMetadata{Name: "Task"},
+				domain.Content(""),
+			)
+			Expect(page.BlockedBy()).To(Equal(expected))
+		},
+		Entry("plain names", []any{"A", "B"}, []string{"A", "B"}),
+		Entry("wikilink names", []any{"[[A]]"}, []string{"[[A]]"}),
+		Entry("nil value", nil, nil),
+		Entry("scalar string is malformed", "A", nil),
+	)
+
+	It("returns an empty list for a missing key", func() {
+		page := domain.NewPage(
+			map[string]any{"status": "todo"},
+			domain.FileMetadata{Name: "Task"},
+			domain.Content(""),
+		)
+		Expect(page.BlockedBy()).To(BeEmpty())
+	})
+})

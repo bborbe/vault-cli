@@ -758,4 +758,137 @@ var _ = Describe("ListOperation JSON output", func() {
 			Expect(string(data)).NotTo(ContainSubstring(`"flag"`))
 		})
 	})
+
+	Context("BlockedBy and Blocked fields in TaskListItem", func() {
+		It("marks an item blocked when a named blocker page is absent", func() {
+			dependent := domain.NewPage(
+				map[string]any{"status": "todo", "blocked_by": []any{"A", "B"}},
+				domain.FileMetadata{Name: "Dependent"},
+				domain.Content(""),
+			)
+			mockPageStorage.ListPagesReturns([]*domain.Page{dependent}, nil)
+			items, execErr := listOp.Execute(ctx, "/vault", "my-vault", "Tasks", nil, true, "", "")
+			Expect(execErr).To(BeNil())
+			Expect(items).To(HaveLen(1))
+			Expect(items[0].Blocked).NotTo(BeNil())
+			Expect(*items[0].Blocked).To(BeTrue())
+			Expect(items[0].BlockedBy).To(Equal([]string{"A", "B"}))
+			data, marshalErr := json.Marshal(items[0])
+			Expect(marshalErr).To(BeNil())
+			Expect(string(data)).To(ContainSubstring(`"blocked":true`))
+			Expect(string(data)).To(ContainSubstring(`"blocked_by":["A","B"]`))
+		})
+
+		It("marks an item unblocked when all named blockers are completed", func() {
+			dependent := domain.NewPage(
+				map[string]any{"status": "todo", "blocked_by": []any{"A"}},
+				domain.FileMetadata{Name: "Dependent"},
+				domain.Content(""),
+			)
+			blocker := domain.NewPage(
+				map[string]any{"status": "completed"},
+				domain.FileMetadata{Name: "A"},
+				domain.Content(""),
+			)
+			mockPageStorage.ListPagesReturns([]*domain.Page{dependent, blocker}, nil)
+			items, execErr := listOp.Execute(ctx, "/vault", "my-vault", "Tasks", nil, true, "", "")
+			Expect(execErr).To(BeNil())
+			// showAll=true lists both pages; Dependent (todo) sorts before the
+			// completed blocker A, so items[0] is the dependent.
+			Expect(items).To(HaveLen(2))
+			Expect(items[0].Name).To(Equal("Dependent"))
+			Expect(items[0].Blocked).NotTo(BeNil())
+			Expect(*items[0].Blocked).To(BeFalse())
+			data, marshalErr := json.Marshal(items[0])
+			Expect(marshalErr).To(BeNil())
+			Expect(string(data)).To(ContainSubstring(`"blocked":false`))
+		})
+
+		It("omits both keys when the task has no dependency list", func() {
+			plain := domain.NewPage(
+				map[string]any{"status": "todo"},
+				domain.FileMetadata{Name: "Plain Task"},
+				domain.Content(""),
+			)
+			mockPageStorage.ListPagesReturns([]*domain.Page{plain}, nil)
+			items, execErr := listOp.Execute(ctx, "/vault", "my-vault", "Tasks", nil, true, "", "")
+			Expect(execErr).To(BeNil())
+			Expect(items).To(HaveLen(1))
+			Expect(items[0].BlockedBy).To(BeNil())
+			Expect(items[0].Blocked).To(BeNil())
+			data, marshalErr := json.Marshal(items[0])
+			Expect(marshalErr).To(BeNil())
+			Expect(string(data)).NotTo(ContainSubstring(`"blocked_by"`))
+			Expect(string(data)).NotTo(ContainSubstring(`"blocked"`))
+		})
+
+		It("omits both keys for an explicit empty dependency list", func() {
+			empty := domain.NewPage(
+				map[string]any{"status": "todo", "blocked_by": []any{}},
+				domain.FileMetadata{Name: "Empty Deps Task"},
+				domain.Content(""),
+			)
+			mockPageStorage.ListPagesReturns([]*domain.Page{empty}, nil)
+			items, execErr := listOp.Execute(ctx, "/vault", "my-vault", "Tasks", nil, true, "", "")
+			Expect(execErr).To(BeNil())
+			Expect(items).To(HaveLen(1))
+			Expect(items[0].BlockedBy).To(BeEmpty())
+			Expect(items[0].Blocked).To(BeNil())
+			data, marshalErr := json.Marshal(items[0])
+			Expect(marshalErr).To(BeNil())
+			Expect(string(data)).NotTo(ContainSubstring(`"blocked_by"`))
+			Expect(string(data)).NotTo(ContainSubstring(`"blocked"`))
+		})
+
+		It("treats a malformed scalar blocked_by as no dependency list", func() {
+			scalar := domain.NewPage(
+				map[string]any{"status": "todo", "blocked_by": "A"},
+				domain.FileMetadata{Name: "Scalar Deps Task"},
+				domain.Content(""),
+			)
+			mockPageStorage.ListPagesReturns([]*domain.Page{scalar}, nil)
+			items, execErr := listOp.Execute(ctx, "/vault", "my-vault", "Tasks", nil, true, "", "")
+			Expect(execErr).To(BeNil())
+			Expect(items).To(HaveLen(1))
+			Expect(items[0].Blocked).To(BeNil())
+			data, marshalErr := json.Marshal(items[0])
+			Expect(marshalErr).To(BeNil())
+			Expect(string(data)).NotTo(ContainSubstring(`"blocked_by"`))
+			Expect(string(data)).NotTo(ContainSubstring(`"blocked"`))
+		})
+
+		It("resolves against the unfiltered page set even when the blocker is filtered out of the listing", func() {
+			dependent := domain.NewPage(
+				map[string]any{"status": "todo", "blocked_by": []any{"A"}},
+				domain.FileMetadata{Name: "Dependent"},
+				domain.Content(""),
+			)
+			blocker := domain.NewPage(
+				map[string]any{"status": "completed"},
+				domain.FileMetadata{Name: "A"},
+				domain.Content(""),
+			)
+			mockPageStorage.ListPagesReturns([]*domain.Page{dependent, blocker}, nil)
+			items, execErr := listOp.Execute(ctx, "/vault", "my-vault", "Tasks", nil, false, "", "")
+			Expect(execErr).To(BeNil())
+			Expect(items).To(HaveLen(1))
+			Expect(items[0].Name).To(Equal("Dependent"))
+			Expect(items[0].Blocked).NotTo(BeNil())
+			Expect(*items[0].Blocked).To(BeFalse())
+		})
+
+		It("still lists an item that is blocked", func() {
+			dependent := domain.NewPage(
+				map[string]any{"status": "todo", "blocked_by": []any{"Ghost"}},
+				domain.FileMetadata{Name: "Dependent"},
+				domain.Content(""),
+			)
+			mockPageStorage.ListPagesReturns([]*domain.Page{dependent}, nil)
+			items, execErr := listOp.Execute(ctx, "/vault", "my-vault", "Tasks", nil, true, "", "")
+			Expect(execErr).To(BeNil())
+			Expect(items).To(HaveLen(1))
+			Expect(items[0].Blocked).NotTo(BeNil())
+			Expect(*items[0].Blocked).To(BeTrue())
+		})
+	})
 })

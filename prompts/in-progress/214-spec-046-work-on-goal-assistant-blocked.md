@@ -1,7 +1,8 @@
 ---
-spec: ["046-blocked-by-frontmatter-model"]
-status: draft
+status: approved
+spec: [046-blocked-by-frontmatter-model]
 created: "2026-09-11T08:20:00Z"
+queued: "2026-09-11T09:20:11Z"
 ---
 
 # work-on-goal-assistant reads the typed blocked flag instead of content-scanning

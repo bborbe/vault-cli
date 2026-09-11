@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat: `blocked_by` frontmatter on tasks and goals is now a typed dependency list — `vault-cli task list --output json` and `vault-cli goal list --output json` emit the raw `blocked_by` array plus a computed `blocked` boolean (blocked iff any named blocker is not `completed`; a missing, unreadable or status-less blocker counts as blocked). Additive only: an entity without `blocked_by` emits neither key and every existing field is unchanged.
+
 ## v0.130.3
 
 - fix: `task-status` and `goal-status` output now always leads with the Async State Closer anchor pair — a clickable `🎯 Goal:` line (goal link, SC + subtask counts, optional `binding:` segment from goal frontmatter) and a clickable `📌 Task:` line (task link, phase, session suffix `(this one)` plus `⚠️ also claimed by peer <prefix>` when a live foreign session id is recorded). Both lines use `obsidian://open?vault=<vault>&file=<percent-encoded relpath>` links per the Obsidian rules; the pair sits above the existing assessment block and replaces the standalone `📎` task-link line. `goal-status` now resolves the goal inline and passes it to the agent, fixing sub-agent goal detection. Anchor-pair recipe codified in `docs/output-formatting.md` § Anchor pair; `binding:` documented as an optional goal frontmatter field in `docs/goal-writing.md`.

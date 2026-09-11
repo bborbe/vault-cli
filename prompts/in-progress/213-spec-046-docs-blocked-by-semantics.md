@@ -1,7 +1,8 @@
 ---
-spec: ["046-blocked-by-frontmatter-model"]
-status: draft
+status: approved
+spec: [046-blocked-by-frontmatter-model]
 created: "2026-09-11T07:53:52Z"
+queued: "2026-09-11T09:20:10Z"
 ---
 
 # Document blocked_by as a dependency list orthogonal to status

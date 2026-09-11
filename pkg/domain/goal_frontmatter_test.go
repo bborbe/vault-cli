@@ -160,6 +160,25 @@ var _ = Describe("GoalFrontmatter", func() {
 		})
 	})
 
+	Describe("BlockedBy", func() {
+		DescribeTable("reads a list and rejects scalars",
+			func(stored any, expected []string) {
+				fm = domain.NewGoalFrontmatter(map[string]any{"blocked_by": stored})
+				Expect(fm.BlockedBy()).To(Equal(expected))
+			},
+			Entry("plain names", []any{"A", "B"}, []string{"A", "B"}),
+			Entry("wikilink names", []any{"[[A]]", "[[B]]"}, []string{"[[A]]", "[[B]]"}),
+			Entry("empty list", []any{}, []string{}),
+			Entry("nil value", nil, nil),
+			Entry("scalar string is malformed", "A", nil),
+		)
+
+		It("returns an empty list for a missing key", func() {
+			fm = domain.NewGoalFrontmatter(map[string]any{"status": "active"})
+			Expect(fm.BlockedBy()).To(BeEmpty())
+		})
+	})
+
 	Describe("StartDate", func() {
 		It("returns nil for missing start_date", func() {
 			Expect(fm.StartDate()).To(BeNil())

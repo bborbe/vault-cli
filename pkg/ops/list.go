@@ -60,6 +60,8 @@ type TaskListItem struct {
 	CompletedDate   string   `json:"completed_date,omitempty"`
 	Goals           []string `json:"goals,omitempty"`
 	Flag            bool     `json:"flag,omitempty"`
+	BlockedBy       []string `json:"blocked_by,omitempty"`
+	Blocked         *bool    `json:"blocked,omitempty"`
 }
 
 // Execute lists tasks from the vault, optionally filtered by status, assignee, and goal.
@@ -131,6 +133,12 @@ func (l *listOperation) Execute(
 			items[i].CompletedDate = d.String()
 		}
 		items[i].Goals = task.Goals()
+		blockedBy := task.BlockedBy()
+		items[i].BlockedBy = blockedBy
+		if len(blockedBy) > 0 {
+			blocked := IsBlocked(blockedBy, tasks)
+			items[i].Blocked = &blocked
+		}
 	}
 	return items, nil
 }

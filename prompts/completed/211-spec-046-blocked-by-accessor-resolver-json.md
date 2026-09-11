@@ -1,7 +1,13 @@
 ---
-spec: ["046-blocked-by-frontmatter-model"]
-status: draft
+status: completed
+spec: [046-blocked-by-frontmatter-model]
+summary: 'Implemented blocked_by dependency model: typed BlockedBy accessors on task/goal/page frontmatter, pure IsBlocked resolver, and blocked_by/blocked emission on task & goal list JSON output with full unit + integration coverage'
+execution_id: vault-cli-blocked-by-exec-211-spec-046-blocked-by-accessor-resolver-json
+dark-factory-version: dev
 created: "2026-09-11T07:53:52Z"
+queued: "2026-09-11T09:20:10Z"
+started: "2026-09-11T09:21:23Z"
+completed: "2026-09-11T09:33:04Z"
 ---
 
 # Blocked-by dependency model: typed accessors, blocked-state resolver, list JSON emission

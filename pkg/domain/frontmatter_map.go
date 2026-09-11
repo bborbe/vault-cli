@@ -147,6 +147,28 @@ func (f FrontmatterMap) GetStringSlice(key string) []string {
 	}
 }
 
+// blockedByList reads the "blocked_by" frontmatter value as a list of blocker
+// names. Only YAML list shapes are accepted: []any as produced by the YAML
+// parser, []string as produced by in-memory setters. A scalar value — including
+// a plain string — is malformed data rather than a one-element list, so it reads
+// as an empty list and the entity stays unblocked. GetStringSlice is deliberately
+// NOT used here: it comma-splits a scalar string, which would turn a malformed
+// `blocked_by: A` into a real blocker.
+func blockedByList(f FrontmatterMap) []string {
+	switch v := f.Get("blocked_by").(type) {
+	case []string:
+		return v
+	case []any:
+		result := make([]string, 0, len(v))
+		for _, item := range v {
+			result = append(result, fmt.Sprintf("%v", item))
+		}
+		return result
+	default:
+		return nil
+	}
+}
+
 // Set stores value under key. A nil value is equivalent to Delete.
 func (f *FrontmatterMap) Set(key string, value any) {
 	if f.data == nil {

@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: `session-close` verdict mode 2 ("clean, but reflect/self-improve fired") now emits a **numbered** list instead of bullets, and its closer offers `pick — 1. … · 2. … · 3. nothing — close` instead of `nothing — session closed`. Mode 3 has always been numbered; mode 2's bullets were an inconsistency, and the items are invocable commands the operator answers by pointing at (`do 1 + 2`). The old closer also asserted "nothing" directly above a list of actions, which the global closer rule already forbids.
+
 ## v0.130.1
 
 - fix: `task-status` output now always leads with a clickable `obsidian://` link to the resolved task (emitted on every run, including `Next:` / `✅ Task complete` / `❌` branches). The link is built from the resolved task path — vault basename + path from `vault-cli config list`, percent-encoded per Obsidian links rules.

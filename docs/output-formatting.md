@@ -46,6 +46,43 @@ Two or three lines, not a paragraph:
    plan: <validated · N/M subtasks | not started (missing SC/Tasks)>
 ```
 
+## Anchor pair (Async State Closer)
+
+`task-status` and `goal-status` ALWAYS lead their output with the two-line anchor pair — clickable `obsidian://` links to the goal and the task, so the operator can open either from any status run:
+
+```
+🎯 Goal: [<goal name>](obsidian://open?vault=<V>&file=<enc relpath>) — <n>/<m> SC · <n>/<m> subtasks · binding: <value>
+📌 Task: [<task name>](obsidian://open?vault=<V>&file=<enc relpath>) — <phase>, session <id8> (this one) · ⚠️ also claimed by peer <id8>
+```
+
+**Emitted on every run** — `Next:` / complete / error branches alike. Only the Phase-2 zero-match `❌` branch omits it (nothing to link). The pair sits ABOVE the assessment block (`Phase:`/`Plan:`/`Recommend:`), one blank line after.
+
+### Link rule
+
+- `vault` = basename of the matching vault's `path` from `vault-cli config list --output json` (NOT the lowercase config `name`).
+- `relpath` = file path minus `<vault.path>`, no leading slash, no `.md` suffix.
+- Percent-encode every char outside the unreserved set `[A-Za-z0-9-_.~]` (space `%20`, `/` `%2F`, `—` `%E2%80%94`, `+` `%2B`). Never encode the literal `?`/`=` separators between query keys.
+- One-liner: `printf '%s' "${FILE#$VAULT_PATH/}" | sed 's/\.md$//' | python3 -c "import sys,urllib.parse; print(urllib.parse.quote(sys.stdin.read(), safe=''))"`
+
+### Session suffix + peer claim
+
+- `MINE` = `$CLAUDE_CODE_SESSION_ID` (harness-set), kept only when the transcript `~/.claude/projects/<enc-session-project-dir>/<MINE>.jsonl` exists (transcript dir name is canonical, per `session-close.md`).
+- `IDS` = the linked file's `claude_session_id` ∪ `metrics_sessions[].session_id` frontmatter values.
+- Always render `, session <MINE8> (this one)` when `MINE` is set; when unset, render `, session <first id8>` (no "(this one)" — can't identify self).
+- **Peer clause** — append ` · ⚠️ also claimed by peer <id8>` for each `IDS` id ≠ `MINE` whose session is LIVE (transcript mtime < ~5 min, or a `claude --resume <id>` process; liveness per `work-on-goal-assistant.md` Phase 5.5). Comma-join multiple peers.
+
+### Counts
+
+- `SC <n>/<m>` = goal `# Success Criteria` checkbox lines; done = verbatim `[x]` only, total = `[x]`+`[/]`+`[ ]`.
+- `subtasks <n>/<m>` = goal `# Tasks` section. Checkbox items (`- [x] [[Task]] …`): same token rule. Fallback when the section has no checkboxes (plain `- [[Task]] ✅ completed` lists): count leading-`[[...]]` items, done = task file `status: completed` via `vault-cli task get "<title>" status --output json`.
+- Omit a count when its total is 0 and no fallback applies.
+
+### Conditional segments
+
+- ` · binding: <value>` — only when goal frontmatter has a `binding:` field (see `docs/goal-writing.md` § Frontmatter).
+- `📌 Task:` for `goal-status` names the goal's next open task (leading-`[[...]]` walk per `execute-goal.md` step 7, first status ∉ {completed, aborted}); none open → `📌 Task: none — all tasks complete`.
+- `task-status` with no `goals:` frontmatter → `🎯 Goal: (no goal linked)`; goal file missing → `🎯 Goal: <title> — (goal file missing)`. The pair is still emitted.
+
 ## In-progress (`[/]`) handling
 
 `[/]` counts as **not done** for all progress math (only verbatim `[x]` counts). It renders as `⏳` so a stuck-in-progress item is visible without reading the raw file.

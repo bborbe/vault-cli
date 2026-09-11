@@ -45,13 +45,41 @@ Inline. Scan the parent conversation in priority order:
 
 Resolve the detected name via `Glob` `<tasks_dir>/*<arg>*.md`. Multiple matches → list candidates, ask via `AskUserQuestion`. Zero → `❌ No active task detected. Pass a task identifier or name.` STOP.
 
-Print `Detected task: <name>` on first line so the owner can interrupt if wrong before Phase 3 runs, followed by the always-shown clickable link to the task file:
+Print `Detected task: <name>` on first line so the owner can interrupt if wrong before Phase 3 runs, followed by the always-shown Async State Closer anchor pair:
 
 ```
-📎 [<name>](obsidian://open?vault=<vault>&file=<percent-encoded relpath>)
+🎯 Goal: [<goal name>](obsidian://open?vault=<vault>&file=<percent-encoded relpath>) — <n>/<m> SC · <n>/<m> subtasks · binding: <value>
+📌 Task: [<task name>](obsidian://open?vault=<vault>&file=<percent-encoded relpath>) — <phase>, session <id8> (this one) · ⚠️ also claimed by peer <id8>
 ```
 
-**The link line is emitted on EVERY run** — on the `Next:` / `✅ Task complete` / `❌` branches alike — so the operator can always open the task from the status output. Build it from the resolved task path: strip `<vault.path>` and the `.md` suffix to get `relpath`, resolve `<vault>` (vault basename) and `<vault.path>` from `vault-cli config list --output json`, then percent-encode per the Obsidian Links rules (spaces `%20`, slashes `%2F`, drop `.md`).
+**The anchor pair is emitted on EVERY run** — on the `Next:` / `✅ Task complete` / `❌` branches alike — so the operator can always open the task and its parent goal from the status output. It sits above the assessment block, one blank line after. The `📌` line supersedes the former standalone `📎` task link; the always-emit guarantee is preserved by it.
+
+### Building the anchor pair
+
+Build it inline per `docs/output-formatting.md` § Anchor pair (link rule, session suffix, peer claim, counts — same recipe for `goal-status`). Task-specific pieces:
+
+**Vault identity** — obsidian vault name = basename of the matching vault's `path` from `vault-cli config list --output json` (NOT the lowercase config `name`):
+
+```bash
+read -r VAULT_NAME VAULT_PATH GOALS_DIR <<< "$(vault-cli config list --output json | python3 -c "
+import sys, json, os
+vs = json.load(sys.stdin); cwd = os.getcwd()
+v = next((x for x in vs if cwd.startswith(x['path'])), vs[0])
+print(v['path'].rstrip('/').split('/')[-1], v['path'], v.get('goals_dir','23 Goals'))")"
+```
+
+**Goal resolution** — the task's `goals:` frontmatter, first entry, `|alias` stripped:
+
+```bash
+GOAL_TITLE="$(grep -m1 '^goals:' -A1 "$TASK_PATH" | grep -oE '\[\[[^]]*\]\]' | head -1 | sed 's/\[\[//; s/\]\]//; s/|.*//')"
+GOAL_FILE="$VAULT_PATH/$GOALS_DIR/$GOAL_TITLE.md"
+[ -f "$GOAL_FILE" ] || GOAL_FILE="$VAULT_PATH/22 Goals/$GOAL_TITLE.md"
+```
+
+- No `goals:` frontmatter → `🎯 Goal: (no goal linked)` (pair still emitted).
+- Goal file missing → `🎯 Goal: <title> — (goal file missing)`.
+
+**Session suffix + peer claim** — see `docs/output-formatting.md` § Anchor pair: `MINE` = `$CLAUDE_CODE_SESSION_ID` (kept only when the transcript `~/.claude/projects/<enc>/<MINE>.jsonl` exists), `IDS` = task's `claude_session_id` ∪ `metrics_sessions[].session_id`; `, session <MINE8> (this one)` always, ` · ⚠️ also claimed by peer <id8>` for each foreign id whose session is LIVE (<5-min transcript mtime or `claude --resume <id>` process).
 
 ## Phase 2.5: Re-evaluate phase & plan state
 
@@ -80,10 +108,11 @@ The agent does NOT detect from conversation in this phase — Phase 2 already re
 
 ## Output shape (from task-manager-agent)
 
-The final output ALWAYS leads with the clickable task link from Phase 2, then the agent's grouped report:
+The final output ALWAYS leads with the Async State Closer anchor pair from Phase 2 (goal link + counts + binding; task link + phase + session/peer), then the agent's grouped report:
 
 ```
-📎 [<name>](obsidian://open?vault=<vault>&file=<percent-encoded relpath>) — always emitted, task link
+🎯 Goal: [<name>](obsidian://open?vault=<vault>&file=<percent-encoded relpath>) — <n>/<m> SC · <n>/<m> subtasks · binding: <value>
+📌 Task: [<name>](obsidian://open?vault=<vault>&file=<percent-encoded relpath>) — <phase>, session <id8> (this one) · ⚠️ also claimed by peer <id8>
 
 Phase: <branch>
 Plan: <validated · N/M subtasks · complete|not complete | not started (missing SC/Tasks)>

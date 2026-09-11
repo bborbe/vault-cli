@@ -63,7 +63,7 @@ grep -n "^- \[[ x/]\]" "{task_path}"
 
 ### status
 
-Emit a grouped-checkbox status report for a resolved task path, including a read-only phase/plan assessment. The slash command (`commands/task-status.md`) handles conversation-based task detection AND the inline `/sync-progress` step before invoking this action; this agent only reads, parses, classifies, and formats.
+Emit a grouped-checkbox status report for a resolved task path, including a read-only phase/plan assessment. The slash command (`commands/task-status.md`) handles conversation-based task detection, the inline `/sync-progress` step, AND the Async State Closer anchor pair (`🎯 Goal:` / `📌 Task:` clickable lines) before invoking this action; this agent only reads, parses, classifies, and formats. Do NOT emit links — the anchor pair is the command's output, not the agent's.
 
 **Arguments:**
 - `TASK_PATH` (required) — absolute path to the task file. The slash command resolves this in Phase 2; do NOT attempt to detect from conversation here (sub-agents can't see the parent conversation).

@@ -255,13 +255,19 @@ Examples (make sure haiku doesn't paraphrase):
 
 Else fall back: `Glob: 65 Runbooks/*{keyword}*.md`, `Glob: 50*Knowledge*/*{keyword}*Guide*.md`.
 
-For each result with score ≥ 0.5, read the file and extract **two kinds of content**. **List ALL hits ≥ 0.5 in the report** — don't filter to one.
+For each result with score ≥ 0.5, read the file and extract **three kinds of content**. **List ALL hits ≥ 0.5 in the report** — don't filter to one.
 
 **Runbook content (procedural)** — slash commands, quick checks, fix procedures: read the first ~100 lines, where procedures live.
 
 **Methodology content (decision rules)** — the rules that gate analysis *conclusions*, not just actions: decision-rule tables, numeric thresholds, sample-size minimums, classification checklists (e.g. "30-trade minimum recent-window", "±5–10% variance = STABLE", "DECLINING → REDUCE/MONITOR at 5–10% allocation"). These live anywhere in the file, often past line 100. Read the **whole file** (guides ≤300 lines, runbooks ≤200) and extract decision tables (`| … |` rows), numeric thresholds, and classification checklists **verbatim**, naming the source section so the reader can verify against the file.
 
 Observed 2026-07-21: the 30-trade minimum sample rule, the REDUCE/MONITOR option, and the ±5–10% win-rate variance bands were all present in surfaced guides but missed because extraction stopped at runbook content — methodology rules must be extracted too, not just commands.
+
+**Traps (load-bearing warnings)** — the lines that make a *correct* run look broken, or a *broken* run look correct: latency and delay budgets, "this will appear to fail", known-false signals, silent-failure modes, "confirm X before concluding Y". Extract **verbatim**, naming the source section, and carry each into the runbook digest as a `⚠️` line.
+
+Read for **failure-shape**, not structure: any sentence predicting what the operator will *wrongly* conclude is a trap. They sit anywhere in the file — the trap in `Agent - Re-Drive Parked Tasks` lives at line 144 of a ~200-line runbook, well past where a first-100-lines read stops, which is why the procedural channel never sees it.
+
+Observed 2026-09-13: that runbook's line 144 reads *"Treat the delay as unbounded, not as a ~90 s constant… **Do not size a watcher's timeout from the 90 s figure**… During the wait the re-drive looks like it silently failed."* The digest carried only the quick action, so the trap never reached the session. Working from the digest, the session sized a 5–6 min watch against a ~10–13 min dispatch, declared two levers dead, and built a §5 Axis A split proposal on that conclusion — all against a warning already sitting in the file the digest was built from. The runbook was correct; the digest was the defect.
 
 If zero hits ≥ 0.5 across all queries, report `ℹ️ No matching runbooks/guides found` — but only after running all three searches.
 
@@ -422,6 +428,7 @@ Prerequisites (N, verified via CLI):
 📋 Runbooks (N) — ⚠️ DIGEST, not a substitute for the file. Open before executing:
 1. <name> (<absolute path>)
    - <quick action>
+   - ⚠️ <load-bearing trap, verbatim — omit the line if the runbook has none>
    - ↪ Links onward to: <runbook names, or "none"> — open these too; a summary of one
      runbook inside another omits its preflight steps
 

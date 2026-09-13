@@ -45,8 +45,8 @@ vault-cli goal get "<name>" phase --output json
 
 Refuse and STOP if any apply:
 
-- `status: completed` OR `status: aborted` → `❌ Goal closed (status: <value>). Run reopen if you need to continue work.`
-- `phase: done` → `❌ Goal phase is done. Run reopen if work needs to resume.`
+- `status: completed` OR `status: aborted` → `❌ Goal closed (status: <value>). Reopen: vault-cli goal set "<name>" status in_progress; vault-cli goal set "<name>" phase planning; vault-cli goal clear "<name>" completed_date — there is no reopen subcommand.`
+- `phase: done` → `❌ Goal phase is done. Reopen with the same three commands as above.`
 - `phase: todo` OR `phase` empty AND `status: in_progress` → `❌ Planning gate not run. Run /vault-cli:plan-goal first.` (planning is non-skippable)
 
 ### 4. Status entry contract (mutate, then continue)
@@ -149,5 +149,5 @@ Output ends with one of:
 - `✅ All tasks complete — the goal has drained. → /vault-cli:verify-goal → /vault-cli:complete-goal.` (drained)
 - `❌ Plan not ready. Run /vault-cli:plan-goal first.` (hard checks failed)
 - `❌ Planning gate not run. Run /vault-cli:plan-goal first.` (phase: todo)
-- `❌ Goal closed (...).` (status/phase terminal)
+- `❌ Goal closed (...).` + the reopen sequence (status/phase terminal)
 - `❌ No goal detected. Pass a goal identifier or name.` (input error)

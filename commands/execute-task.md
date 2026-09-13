@@ -56,8 +56,8 @@ vault-cli task get "<name>" phase --output json
 
 Refuse and STOP if any apply:
 
-- `status: completed` OR `status: aborted` → `❌ Task closed (status: <value>). Run reopen if you need to continue work.`
-- `phase: done` → `❌ Task phase is done. Run reopen if work needs to resume.`
+- `status: completed` OR `status: aborted` → `❌ Task closed (status: <value>). Reopen: vault-cli task set "<name>" status in_progress; vault-cli task set "<name>" phase execution; vault-cli task clear "<name>" completed_date — there is no reopen subcommand.`
+- `phase: done` → `❌ Task phase is done. Reopen with the same three commands as above.`
 - `phase: todo` OR `phase` empty AND `status: in_progress` → `❌ Planning gate not run. Run /vault-cli:plan-task first.` (planning is non-skippable per [[Phase-Gated Task Flow]])
 
 ### 4. Status entry contract (mutate, then continue)
@@ -204,6 +204,6 @@ Output ends with one of:
 - `🚀 Running: <command>` followed by that command's own output (first unchecked subtask was a bare allowlisted slash-command call)
 - `🎯 Start with: <subtask>` + `📋 When done, verify: <DoD>` (gate passed or idempotent re-entry)
 - `❌ Plan not ready. Run /vault-cli:plan-task first.` (hard checks failed)
-- `❌ Task closed (...). Run reopen if you need to continue work.` (status/phase terminal)
+- `❌ Task closed (...).` + the reopen sequence (status/phase terminal)
 - `❌ Planning gate not run. Run /vault-cli:plan-task first.` (phase: todo)
 - `❌ No task detected. Pass a task identifier or name.` (input error)

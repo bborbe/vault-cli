@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: `execute-task` and `execute-goal` no longer tell the operator to run `reopen`, a command that does not exist. Five refusal messages across the two commands instructed `Run reopen if you need to continue work` / `if work needs to resume`, and there is no such subcommand — not among the 34 shipped commands, and not in `vault-cli task` or `vault-cli goal`. An operator who hit a closed task followed the instruction and failed, and the real recovery sequence was documented nowhere. Both commands now carry it inline: `vault-cli task set "<name>" status in_progress`, then `phase execution`, then `vault-cli task clear "<name>" completed_date` — the last step because `task complete` writes that stamp and nothing removes it on reopen, leaving a stale completion date on an active task. `execute-goal.md`'s output list is also brought in line: it had dropped the instruction its sibling refusal case still carried, so the command was inconsistent with itself as well as with the CLI. Text-only change to two command files.
+
 ## v0.131.8
 
 - fix: `session-close` Phase 3.5 now detects detached-HEAD worktrees, which the branch-based orphan tests cannot classify. For a detached worktree `git branch --show-current` returns an empty string, so the remote-branch probe matches nothing, the merge-commit name comparison never fires, and the commit count reads zero because a release tag is an ancestor of master. All three negatives are read by the existing rule as "leave it alone". These worktrees are common: rebuilding a component at its deployed pin creates one per component, and a single fleet rebuild creates a dozen. Observed 2026-09-13 with 15 such worktrees across 11 repos, none of them flagged; they were found only by listing worktrees by hand. Phase 3.5 now flags a detached worktree outright and skips the two branch tests, since it holds no branch and therefore no unpushed work. Text-only change to one command file.

@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.131.8
 
 - fix: `session-close` Phase 3.5 now detects detached-HEAD worktrees, which the branch-based orphan tests cannot classify. For a detached worktree `git branch --show-current` returns an empty string, so the remote-branch probe matches nothing, the merge-commit name comparison never fires, and the commit count reads zero because a release tag is an ancestor of master. All three negatives are read by the existing rule as "leave it alone". These worktrees are common: rebuilding a component at its deployed pin creates one per component, and a single fleet rebuild creates a dozen. Observed 2026-09-13 with 15 such worktrees across 11 repos, none of them flagged; they were found only by listing worktrees by hand. Phase 3.5 now flags a detached worktree outright and skips the two branch tests, since it holds no branch and therefore no unpushed work. Text-only change to one command file.
 

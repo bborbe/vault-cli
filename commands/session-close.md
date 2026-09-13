@@ -154,7 +154,29 @@ cd <repo> && git worktree list
 
 Filter to **non-durable worktrees** — paths whose final component does NOT match `master`, `main`, `dev`, `prod` (these are the deployment-locked worktrees and stay forever).
 
-For each non-durable worktree, check if its branch still exists on the remote:
+**Check for a detached HEAD first — the branch-based tests below cannot classify one.**
+
+```bash
+cd <worktree> && git symbolic-ref -q HEAD >/dev/null || echo "DETACHED"
+```
+
+A detached worktree comes from the build-at-a-pin pattern (`git worktree add /tmp/<svc>-<tag> <tag>`, then `VERSION=<tag> make build upload`) that operational runbooks prescribe for rebuilding a component at its deployed pin without moving that pin. One fleet rebuild can create a dozen.
+
+Every test below silently no-ops on it, and all three negatives read as "leave it alone":
+
+| Test | On a detached HEAD |
+|---|---|
+| `ls-remote --heads origin "$(git branch --show-current)"` | branch name is **empty** → matches nothing → non-zero |
+| (a) `rev-list --count $(merge-base HEAD origin/master)..HEAD` | **0** — a release tag is an ancestor of master |
+| (b) merge-commit name match | compares against an **empty** branch name → never fires |
+
+Treat a detached worktree as **orphaned outright** — flag it, and skip (a)/(b) entirely. It has no branch and therefore no unpushed work: its commits are by construction already reachable from the tag it was created at, so removing it cannot lose anything. Observed 2026-09-13: a fleet rebuild left **15** such worktrees across 11 repos; by the branch rules alone every one read as "leave it alone" and would have been stranded.
+
+```
+N. Orphan worktree (detached at <tag>): <path> — `cd <parent> && git worktree remove --force <path>`
+```
+
+For each non-durable worktree **that is on a branch**, check if its branch still exists on the remote:
 
 ```bash
 cd <worktree> && git ls-remote --exit-code --heads origin "$(git branch --show-current)" >/dev/null 2>&1

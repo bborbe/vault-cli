@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.131.7
 
 - fix: `work-on-task-assistant` now extracts **traps** from surfaced runbooks and carries them into the digest as a `⚠️` line. Runbook extraction was scoped to procedural content ("slash commands, quick checks, fix procedures"), so the lines that make a correct run *look* broken never reached the session — while the guides channel one rung down already extracted decision rules verbatim on the grounds that they "gate analysis conclusions". Traps gate conclusions the same way. Observed 2026-09-13: `Agent - Re-Drive Parked Tasks` line 144 warns *"Treat the delay as unbounded… Do not size a watcher's timeout from the 90 s figure… During the wait the re-drive looks like it silently failed."* The digest carried only the quick action; working from it, a session sized a 5–6 min watch against a ~10–13 min dispatch, declared two levers dead, and built a split proposal on that conclusion — against a warning already present in the file the digest was built from. The runbook was correct; the digest was the defect. Text-only: one agent file, no script or command change.
 

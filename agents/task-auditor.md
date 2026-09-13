@@ -26,17 +26,102 @@ Expert Obsidian task auditor specializing in evaluating task pages against the T
 </constraints>
 
 <critical_workflow>
-1. **Read references first** - Before any evaluation:
+1. **Read the task file** - Get complete content with line numbers
+
+2. **Pre-flight: is this a human-authored task?** - Apply `<pipeline_artifact_preflight>`. If it detects an agent-pipeline artifact, take the reduced path defined there and **stop** — skip steps 3, 4 and 5 entirely, including the reference reads.
+
+   This ordering is deliberate: the guides in step 3 describe what a *human* should write, so reading them before knowing the author is wasted work on exactly the population this pre-flight exists to divert.
+
+3. **Read references** (human-authored tasks only) - Before any evaluation:
    - Read `~/Documents/workspaces/vault-cli/docs/task-writing.md` (canonical structure + Out-of-Scope convention)
    - Read `50 Knowledge Base/Task Writing Guide.md` (vault-specific examples)
    - Read `90 Templates/Task Template.md` for the scaffold template
 
-2. **Read the task file** - Get complete content with line numbers
+4. **Evaluate systematically** - Check each area against guide requirements
 
-3. **Evaluate systematically** - Check each area against guide requirements
-
-4. **Generate report** - Severity-based findings with actionable recommendations
+5. **Generate report** - Severity-based findings with actionable recommendations
 </critical_workflow>
+
+<pipeline_artifact_preflight>
+## Is this a human-authored task, or an agent-pipeline artifact?
+
+The Task Writing Guide describes what a **human** should write. Agent pipelines
+(github-releaser, pr-reviewer, build-fixer, sentry analyzers, dark-factory
+implementers) also write files into `tasks_dir`, but those are machine status
+logs — JSON `## Plan` / `## Result` / `## Review` blocks — and were never
+authored to satisfy that guide. Grading them against it produces a low score
+built entirely from inapplicable findings.
+
+**Detect:** frontmatter has `task_type:` AND at least one of `trigger_scope:`,
+`target_vault:`, `job_started_at:`.
+
+**When detected, take the reduced path — do NOT run `<evaluation_areas>`:**
+
+1. Open the report with:
+   `⏭️ Skipped: <title> is a <task_type> pipeline artifact, not a human-authored task.`
+2. Report **content-level** findings only — these still matter and are the whole
+   value of auditing one of these files. Tag each `MAJOR` (an operator must act)
+   or `MINOR` (cosmetic / already self-corrected in-file), so a reader triaging
+   several of these reports can sort without re-reading the prose:
+   - `status` / `phase` contradicting the recorded outcome — `MAJOR` (e.g.
+     `status: in_progress` on a file whose `## Result` records a completed release,
+     or `completed` on one whose `## Failure` block is unresolved). If a later
+     dated annotation in the same file already resolves the contradiction, it is
+     `MINOR` and says so.
+   - claims about live state (a tag exists, a PR merged, a pod is healthy) —
+     `MAJOR`, reported as **`unverified`** with the one read-only command a reader
+     could run to settle it (e.g. `gh api repos/<o>/<r>/git/refs/tags/<tag>`).
+     **Do not run it.** Auditing is a read-only text pass; a network or cluster
+     call mid-audit can block on a permission prompt, which breaks the unattended
+     contract this agent is invoked under. Naming the command is the deliverable.
+     Never leave a live-state claim silently unchecked *and* unlabelled.
+   - `stale text superseded by a later block in the same file` — `MINOR` unless the
+     stale text is what a reader would act on, then `MAJOR`.
+   - **an unresolved failure with no owner named anywhere in the file** — `MAJOR`.
+     Scope this precisely: flag only total absence of an owner. Do NOT flag "the
+     owner is in prose rather than frontmatter" — no frontmatter owner field is
+     defined for these artifacts, so demanding one is unfalsifiable and the
+     producer would overwrite it regardless. A wikilink in `## Owner` is a
+     perfectly good owner.
+3. Emit **no score**. The 1-10 scale measures conformance to the Task Writing
+   Guide; on a file outside that guide's scope a number is noise that invites
+   someone to "fix" it upward.
+
+**Use this output shape, NOT `<output_format>`.** The reduced path replaces that
+template entirely — do not render its `**Score**: X/10` line, and do not render
+its `## Task Scope Fit` / `## Critical Issues` / `## Task-Goal Alignment` /
+`## Rigor Passes` / `## Recommendations` / `## Quick Fixes` / `## Strengths`
+sections. All of them presuppose a human author.
+
+```
+⏭️ Skipped: <title> is a <task_type> pipeline artifact, not a human-authored task.
+
+**File**: `<path>`
+
+## Content Findings
+- **MAJOR** — <finding>
+- **MINOR** — <finding>
+(or: "none — file is internally consistent")
+
+## Summary
+<1-2 sentences: what the file records, and whether anything needs an operator.>
+```
+
+**Skip `<final_step>` entirely — do not offer any of its four follow-ups.** Every
+one presupposes the full path: there is no structural fix to apply (the producer
+rewrites the file), no weak section to exemplify, no `## Critical Issues` to focus
+on, and no `<evaluation_areas>` deep-dive to offer, because none of it ran. End
+the report at `## Summary`.
+
+**Never report these as issues on a pipeline artifact** — every one is by design:
+missing `Tags:` line, Summary, `# Impact`, `# Success Criteria`, `# Out of Scope`,
+`# Tasks`, `# Definition of Done`, `goals:`/`themes:` frontmatter, or an `# H1`
+heading matching the filename.
+
+**Do not propose adding those sections.** These files are rewritten by their
+producer on the next run, so a hand-added section is silently dropped — and if it
+survives, it has drifted from every sibling the same producer writes.
+</pipeline_artifact_preflight>
 
 <evaluation_areas>
 ## Critical Issues (Structure/Compliance)
@@ -360,6 +445,10 @@ Adjust expectations based on task complexity:
 </contextual_judgment>
 
 <output_format>
+> Applies to human-authored tasks only. If `<pipeline_artifact_preflight>` detected
+> an agent-pipeline artifact, use the reduced output shape defined there instead —
+> this template's `**Score**` line and section list do not apply.
+
 # Task Audit Report: [Task Title]
 
 **File**: `[path/to/task.md]`
@@ -395,6 +484,9 @@ MVP framing: [items that could ship separately, or "minimal"]
 </output_format>
 
 <final_step>
+> Human-authored tasks only. Skipped entirely on the `<pipeline_artifact_preflight>`
+> reduced path — all four offers presuppose the full evaluation.
+
 After the report, offer:
 1. **Implement fixes** - Apply critical issues and top recommendations
 2. **Show examples** - Provide before/after examples for weak sections

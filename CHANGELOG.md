@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.131.9
 
 - fix: `execute-task` and `execute-goal` no longer tell the operator to run `reopen`, a command that does not exist. Five refusal messages across the two commands instructed `Run reopen if you need to continue work` / `if work needs to resume`, and there is no such subcommand — not among the 34 shipped commands, and not in `vault-cli task` or `vault-cli goal`. An operator who hit a closed task followed the instruction and failed, and the real recovery sequence was documented nowhere. Both commands now carry it inline: `vault-cli task set "<name>" status in_progress`, then `phase execution`, then `vault-cli task clear "<name>" completed_date` — the last step because `task complete` writes that stamp and nothing removes it on reopen, leaving a stale completion date on an active task. `execute-goal.md`'s output list is also brought in line: it had dropped the instruction its sibling refusal case still carried, so the command was inconsistent with itself as well as with the CLI. Text-only change to two command files.
 

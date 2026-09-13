@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: `work-on-task-assistant` now extracts **traps** from surfaced runbooks and carries them into the digest as a `⚠️` line. Runbook extraction was scoped to procedural content ("slash commands, quick checks, fix procedures"), so the lines that make a correct run *look* broken never reached the session — while the guides channel one rung down already extracted decision rules verbatim on the grounds that they "gate analysis conclusions". Traps gate conclusions the same way. Observed 2026-09-13: `Agent - Re-Drive Parked Tasks` line 144 warns *"Treat the delay as unbounded… Do not size a watcher's timeout from the 90 s figure… During the wait the re-drive looks like it silently failed."* The digest carried only the quick action; working from it, a session sized a 5–6 min watch against a ~10–13 min dispatch, declared two levers dead, and built a split proposal on that conclusion — against a warning already present in the file the digest was built from. The runbook was correct; the digest was the defect. Text-only: one agent file, no script or command change.
+
 ## v0.131.6
 
 - fix: task-auditor skips agent-pipeline task artifacts (`task_type:` + one of `trigger_scope:`/`target_vault:`/`job_started_at:`) instead of grading them against the human Task Writing Guide, which they were never written to satisfy. Takes a reduced path before the reference reads: no score, no structural findings, MAJOR/MINOR-tagged content findings only (status-vs-outcome contradictions, live-state contradictions, stale superseded text, missing owner). Human-authored tasks are unaffected.

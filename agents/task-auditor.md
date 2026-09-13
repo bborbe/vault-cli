@@ -68,13 +68,13 @@ built entirely from inapplicable findings.
      or `completed` on one whose `## Failure` block is unresolved). If a later
      dated annotation in the same file already resolves the contradiction, it is
      `MINOR` and says so.
-   - claims contradicted by live state — `MAJOR`. **"Cheap" means exactly one
-     read-only command** against something the file already names: `gh api`/`git
-     ls-remote` for a cited tag/PR/SHA, or a `kubectl get` for a cited resource.
-     One command, no cloning, no chained investigation. If checking would take
-     more than that, do not check — report the claim as `unverified` and name the
-     command a reader could run. Never leave a live-state claim silently
-     unchecked *and* unlabelled.
+   - claims about live state (a tag exists, a PR merged, a pod is healthy) —
+     `MAJOR`, reported as **`unverified`** with the one read-only command a reader
+     could run to settle it (e.g. `gh api repos/<o>/<r>/git/refs/tags/<tag>`).
+     **Do not run it.** Auditing is a read-only text pass; a network or cluster
+     call mid-audit can block on a permission prompt, which breaks the unattended
+     contract this agent is invoked under. Naming the command is the deliverable.
+     Never leave a live-state claim silently unchecked *and* unlabelled.
    - `stale text superseded by a later block in the same file` — `MINOR` unless the
      stale text is what a reader would act on, then `MAJOR`.
    - **an unresolved failure with no owner named anywhere in the file** — `MAJOR`.

@@ -45,6 +45,45 @@ func getVaults(
 	return (*configLoader).GetAllVaults(ctx)
 }
 
+// getWatchVaults returns the vaults the watch command should watch.
+//
+// A comma-separated value selects exactly the named vaults: whitespace around
+// each name is ignored and empty entries between commas are skipped. A value
+// that yields no usable name (for example "," or " ") is an error, not a silent
+// fallback to every vault. The empty string means the flag was not set and
+// selects every configured vault, exactly as getVaults does.
+func getWatchVaults(
+	ctx context.Context,
+	configLoader *config.Loader,
+	vaultName *string,
+) ([]*config.Vault, error) {
+	if *vaultName == "" {
+		return (*configLoader).GetAllVaults(ctx)
+	}
+
+	names := make([]string, 0, strings.Count(*vaultName, ",")+1)
+	for _, entry := range strings.Split(*vaultName, ",") {
+		name := strings.TrimSpace(entry)
+		if name == "" {
+			continue
+		}
+		names = append(names, name)
+	}
+	if len(names) == 0 {
+		return nil, errors.Errorf(ctx, "no vault name in --vault %q", *vaultName)
+	}
+
+	vaults := make([]*config.Vault, 0, len(names))
+	for _, name := range names {
+		vault, err := (*configLoader).GetVault(ctx, name)
+		if err != nil {
+			return nil, err
+		}
+		vaults = append(vaults, vault)
+	}
+	return vaults, nil
+}
+
 // mutationRunner is the function signature for running a mutation on a single vault.
 type mutationRunner func(ctx context.Context, vault *config.Vault) (ops.MutationResult, error)
 
@@ -2363,6 +2402,10 @@ Each event includes:
   path   - vault-relative file path
   type   - entity kind: task, goal, theme, objective
 
+Use --vault with a comma-separated vault list to watch several vaults in one
+process, e.g. --vault personal,trading. Omit --vault to watch every configured
+vault. Every event names its own vault in the vault field.
+
 Use --types to filter to a subset of entity kinds.
 Valid type values: task, goal, theme, objective`,
 		Args: cobra.NoArgs,
@@ -2372,7 +2415,7 @@ Valid type values: task, goal, theme, objective`,
 				return err
 			}
 
-			vaults, err := getVaults(ctx, configLoader, vaultName)
+			vaults, err := getWatchVaults(ctx, configLoader, vaultName)
 			if err != nil {
 				return errors.Wrap(ctx, err, "get vaults")
 			}

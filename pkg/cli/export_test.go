@@ -41,3 +41,12 @@ func CreateResolveCommandForTest(
 ) *cobra.Command {
 	return createResolveCommand(ctx, configLoader, vaultName, outputFormat, newResolveOp)
 }
+
+// GetWatchVaultsForTest exposes getWatchVaults for testing.
+func GetWatchVaultsForTest(
+	ctx context.Context,
+	configLoader *config.Loader,
+	vaultName *string,
+) ([]*config.Vault, error) {
+	return getWatchVaults(ctx, configLoader, vaultName)
+}

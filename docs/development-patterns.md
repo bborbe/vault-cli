@@ -80,10 +80,13 @@ Each entity (Task, Goal, Theme, Objective, Vision) cleanly separates three conce
 
 ## Multi-Vault Pattern
 
-All commands use `getVaults()` to resolve vaults:
+All commands except `watch` use `getVaults()` to resolve vaults:
 
 - `--vault NAME` → single vault
 - No flag → all configured vaults
+
+- `watch --vault a,b` accepts a comma-separated vault list and resolves it through `getWatchVaults`; every other command keeps `getVaults` and a single vault name.
+  A value that yields no usable name is an error; the empty string means every configured vault.
 
 Commands iterate vaults and call operations per vault. For mutation commands (complete, defer, ack), try each vault until the item is found.
 

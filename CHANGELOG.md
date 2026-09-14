@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.132.0
 
 - feat: `vault-cli watch --vault a,b` accepts a comma-separated vault list, watching every named vault in one process and stamping each event with its own `vault`. Whitespace around names is ignored, empty entries between commas are skipped, and a value that names no vault (for example `,`) fails with an error naming the value instead of silently widening to every vault. A single name and an omitted flag behave exactly as before, and every other command keeps single-vault `--vault` semantics through `getVaults`.
 

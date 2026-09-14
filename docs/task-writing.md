@@ -38,7 +38,7 @@ Use the slash command:
 /vault-cli:create-task "<title>"
 ```
 
-The command invokes `task-creator`, which scaffolds a file in the configured vault's `tasks_dir` (typically `24 Tasks/`). The agent reads vault config via `vault-cli config list --output json` — never hardcode paths.
+The command invokes `task-creator`, which scaffolds a file in the configured vault's `tasks_dir`. The agent reads vault config via `vault-cli config list --output json` — never hardcode paths.
 
 ## Title & Filename
 
@@ -80,7 +80,7 @@ This is the task-level variant of the **outcome-vs-mechanism sniff test** in `go
 
 ```yaml
 ---
-status: todo
+status: next
 page_type: task
 priority: 3                                      # 1 (highest) – 3
 category: <domain>                               # optional
@@ -96,7 +96,7 @@ blocked_by:                                      # optional — dependencies; un
 ---
 ```
 
-`status` valid values: `in_progress`, `todo`, `backlog`, `hold`, `completed`, `aborted`.
+`status` valid values: `next`, `in_progress`, `backlog`, `hold`, `completed`, `aborted`. `todo` is accepted as a legacy alias for `next` on read; do not write it.
 
 `assignee` semantics: empty (`""`) means **unclaimed inbox** (anyone with vault access can pick up); an agent name means the executor should spawn that agent; a human name means that human is currently doing the work.
 
@@ -360,7 +360,7 @@ The auditor (`task-auditor` agent) checks structure, success-criteria binary-nes
 
 | Status | Meaning | Trigger to enter |
 |--------|---------|------------------|
-| `todo` | Defined, not started | Task file created with required sections filled |
+| `next` | Defined, not started | Task file created with required sections filled |
 | `in_progress` | Actively working | `/vault-cli:work-on-task` or `assignee` set + first subtask started |
 | `hold` | Blocked long-term (weeks+, external dependency, unresolved upstream) | Operator sets manually when the block outlives the current week |
 | `completed` | All success criteria met | `/vault-cli:complete-task` — checks every `# Success Criteria` checkbox is `[x]`; no close-out fields required |

@@ -9,7 +9,7 @@ A theme is an ongoing strategic direction — never truly "complete." Multiple r
 ## TL;DR
 
 - **Use for**: perpetual strategic direction, organizes related goals
-- **Create**: `/vault-cli:create-theme "<title>"`
+- **Create**: hand-author the file in the configured `themes_dir` (default `21 Themes/`) — vault-cli ships no theme-creation command or agent. A vault may point `theme_template` at its own template.
 - **Audit**: `/vault-cli:audit-theme "<title>"`
 - **Sections**: Summary → Impact → Sub-Goals → Related
 - **Forcing functions**: present-tense title (no time-bound suffix); links to a parent vision; 5+ goals cluster naturally over time

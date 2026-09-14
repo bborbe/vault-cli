@@ -9,7 +9,7 @@ An objective is a 3-to-12-month strategic outcome that organizes multiple goals 
 ## TL;DR
 
 - **Use for**: quarterly/annual strategic outcomes, 3–12 months, 3–10 contributing goals
-- **Create**: `/vault-cli:create-objective "<title>"`
+- **Create**: hand-author the file in the configured `objectives_dir` (default `22 Objectives/`) — vault-cli ships no objective-creation command or agent. A vault may point `objective_template` at its own template.
 - **Audit**: `/vault-cli:audit-objective "<title>"`
 - **Sections**: Summary → Impact → Status Summary → Success Criteria → Non-goals → Contributing Goals → Related
 - **Forcing functions**: time-horizon in the title; observable end-state; ladders under exactly one vision

@@ -38,7 +38,7 @@ Use the slash command:
 /vault-cli:create-goal "<title>"
 ```
 
-The command invokes `goal-creator`, which scaffolds a file in the configured vault's `goals_dir` (typically `23 Goals/`). The agent reads vault config via `vault-cli config list --output json` — never hardcode paths.
+The command invokes `goal-creator`, which scaffolds a file in the configured vault's `goals_dir`. The agent reads vault config via `vault-cli config list --output json` — never hardcode paths.
 
 ## Title & Filename
 
@@ -106,7 +106,7 @@ When the summary still reads as activity after one rewrite, check whether the ti
 
 ```yaml
 ---
-status: todo
+status: next
 page_type: goal
 priority: 3                                      # optional, 1-3
 category: <domain>                               # optional
@@ -122,7 +122,7 @@ binding: <free text>                             # optional — the hard deadlin
 ---
 ```
 
-`status` valid values: `in_progress`, `todo`, `backlog`, `hold`, `completed`, `aborted`.
+`status` valid values: `next`, `in_progress`, `backlog`, `hold`, `completed`, `aborted`. `todo` is accepted as a legacy alias for `next` on read; do not write it.
 
 ### Dependencies (`blocked_by`)
 
@@ -132,7 +132,7 @@ Names match goal files in the goals directory, ignoring case and stripping the `
 
 The goal is blocked while at least one named blocker is not `status: completed`. A blocker whose file is missing, unreadable, or carries no parseable status counts as **not** completed: the safe default is "cannot verify it is done, so do not start". Only a single status read is performed per blocker — a blocker's own `blocked_by` is never followed, so a dependency cycle leaves both goals blocked and terminates immediately rather than hanging.
 
-Blocked state is derived and is never written. Nothing sets `status: hold` from `blocked_by`, and no command flips a status when a blocker completes. A blocked goal is not moved to `hold`; `hold` stays an operator decision, and a blocked goal usually stays `todo` or `in_progress`.
+Blocked state is derived and is never written. Nothing sets `status: hold` from `blocked_by`, and no command flips a status when a blocker completes. A blocked goal is not moved to `hold`; `hold` stays an operator decision, and a blocked goal usually stays `next` or `in_progress`.
 
 Where it surfaces: `vault-cli goal list --output json` emits `blocked_by` (the raw list) and a computed `blocked` boolean for any goal that declares a dependency list; a goal with no `blocked_by` emits neither key. `/vault-cli:next-task` does not recommend a goal or task whose `blocked` flag is true.
 
@@ -408,7 +408,7 @@ The auditor (`goal-auditor` agent) checks structure, SMART criteria, Non-goals p
 
 | Status | Meaning | Trigger to enter |
 |--------|---------|------------------|
-| `todo` | Defined, not started | Goal file created with required sections filled |
+| `next` | Defined, not started | Goal file created with required sections filled |
 | `in_progress` | Actively working (limit to 3-5 in flight) | First linked task transitions to `in_progress` |
 | `hold` | Blocked or paused | Operator sets manually when the block outlives the current week |
 | `completed` | All success criteria met | `/vault-cli:complete-goal` — checks every `# Success Criteria` checkbox is `[x]` |

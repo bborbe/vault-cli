@@ -5,14 +5,14 @@
   },
   "metadata": {
     "description": "Task management commands for Obsidian vaults using vault-cli",
-    "version": "0.131.9"
+    "version": "0.131.10"
   },
   "plugins": [
     {
       "name": "vault-cli",
       "description": "Task management commands for Obsidian vaults using vault-cli",
       "source": "./",
-      "version": "0.131.9",
+      "version": "0.131.10",
       "strict": true
     }
   ]

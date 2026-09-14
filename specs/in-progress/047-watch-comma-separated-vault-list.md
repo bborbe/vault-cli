@@ -1,8 +1,9 @@
 ---
-status: prompted
+status: verifying
 approved: "2026-09-14T19:04:43Z"
 generating: "2026-09-14T19:29:06Z"
 prompted: "2026-09-14T20:08:46Z"
+verifying: "2026-09-14T20:21:08Z"
 branch: dark-factory/watch-comma-separated-vault-list
 ---
 

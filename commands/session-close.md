@@ -239,6 +239,8 @@ Everything else touched and `in_progress` still hard-flags. Condition 2 is load-
 
 Observed 2026-09-02: a session completed its anchor, filed two follow-up tasks, and close flagged both — the operator reported it as near-daily (*"You do it every day nearly"*), and the proposed resolution was to flip both to `next` purely to clear the flag. The originating task [[Make Session-Close Refuse to Close While the Anchor Task Is In_progress]] weighed *mine vs sibling-session* and never considered *created-this-session*; this is that unconsidered third category, not a reversal of its Out of Scope.
 
+**A task the fleet owns is not an anchor either — exclude it.** "Touched" also covers a `vault-cli task set` that parked, re-drove, or otherwise nudged a *bot-created* queue task: an `Analyze Sentry issue …` alert, a healthcheck probe, any file carrying a producer's `task_type` with **no `claude_session_id` naming this session** and not created here. The session used it as an operational lever — park it to stop a dispatch loop, re-drive it to run a probe — and it is not the session's work. Resolving it at close asks the operator to adjudicate the fleet's queue, and the only lever is the same status flip that changes nothing real. Observed 2026-09-14: closing a session that had parked two `sentry-fix` probes forced the operator to resolve both before the verdict could go clean, while the session's own anchor was already `completed`. The same scope test as above applies — if the `claude_session_id` names this session, or the file was created here, it is an anchor and the gate runs normally.
+
 For each touched task `T`, capture status AND error state:
 
 ```bash

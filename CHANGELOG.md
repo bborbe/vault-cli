@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: `session-close` no longer hard-flags a bot-created queue task the session merely nudged. Phase 4.5's in-progress gate counts any `vault-cli task set` as "touched", so a session that parked or re-drove a fleet task — an `Analyze Sentry issue …` alert, a healthcheck probe — made the operator resolve it before the verdict could go clean, even though the session's own anchor was `completed`. Such a task is now excluded on the same terms as the created-this-session exclusion: no `claude_session_id` naming this session, not created here, carrying a producer's `task_type`. Observed 2026-09-14: two parked `sentry-fix` probes forced exactly that round trip.
+
 ## v0.132.0
 
 - feat: `vault-cli watch --vault a,b` accepts a comma-separated vault list, watching every named vault in one process and stamping each event with its own `vault`. Whitespace around names is ignored, empty entries between commas are skipped, and a value that names no vault (for example `,`) fails with an error naming the value instead of silently widening to every vault. A single name and an omitted flag behave exactly as before, and every other command keeps single-vault `--vault` semantics through `getVaults`.

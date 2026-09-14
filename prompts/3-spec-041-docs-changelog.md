@@ -1,7 +1,7 @@
 ---
 spec: ["041-bug-resume-races-live-headless-turn"]
 status: draft
-created: "2026-09-14T19:13:16Z"
+created: "2026-09-14T20:23:00Z"
 ---
 
 # Lifecycle doc reword, CHANGELOG bullet, and the batch's full gate (spec 041, prompt 3 of 3)
@@ -11,10 +11,11 @@ created: "2026-09-14T19:13:16Z"
 - Removes the reverted vocabulary the previous release left behind in that document — the pre-spawn write, the compensating clear, and the liveness-window wording — so the document describes one ordering, not two.
 - Corrects one more stale sentence in the same document that still says the compensating clear "still fires on every error" — that sentence is in a section the earlier drafts missed.
 - Confirms the task-lifecycle scenario already says the headless turn blocks until completion, with no "returns in ~10s" claim.
-- Creates the missing `## Unreleased` changelog section and adds the single bullet describing the inversion.
+- Adds the changelog bullet describing the inversion, appending it to the `## Unreleased` section that is on disk at authoring time (another prompt created it), and creating that section only if a release has consumed it by execution time.
 - Flags for the reviewer that this bullet and the document reword contradict the release note that shipped the reversion, and that both are wrong if prompt 2 is rejected at audit.
 - Runs the batch's full gate, and re-verifies the resume scenario is untouched by content hash (this container's git is masked, so the spec's `git diff` guard cannot run).
 - Documentation and changelog only — no code, no tests.
+</summary>
 
 <objective>
 Bring `docs/work-on-session-lifecycle.md` in line with the post-exit ordering this batch re-applies, record the change under `## Unreleased` in `CHANGELOG.md`, and run the batch's full gate. Covers spec 041 Acceptance Criteria 11, 12 and 13.
@@ -23,13 +24,13 @@ Bring `docs/work-on-session-lifecycle.md` in line with the post-exit ordering th
 <context>
 This prompt depends on prompts 1 and 2 having shipped: the document must describe what is actually on disk on this branch, not an intention.
 
-Read `CLAUDE.md` and `docs/dod.md` first. `docs/dod.md` carries the changelog placement rule that is load-bearing here: `## Unreleased` goes **below** the preamble block (the `All notable changes…` line and the `* MAJOR / MINOR / PATCH` lines) and **above** the newest `## vX.Y.Z` section — never between the `# Changelog` title and the preamble. `scripts/check-changelog.sh` enforces exactly that shape and runs inside `make precommit`.
+Read `CLAUDE.md` and `docs/dod.md` first. `docs/dod.md` carries the changelog placement rule that is load-bearing here: `## Unreleased` goes **below** the preamble block (the `All notable changes…` line and the `* MAJOR / MINOR / PATCH` lines) and **above** the newest `## vX.Y.Z` section — never between the `# Changelog` title and the preamble. `make check-changelog` (a target inside `make precommit`) enforces exactly that shape.
 
 Then read in full:
 
 - `docs/work-on-session-lifecycle.md` — the whole file. This is the file under edit.
 - `scenarios/002-task-lifecycle.md` — the whole file. Confirm it; do not edit it.
-- `CHANGELOG.md` — read the top ~30 lines (the preamble and the newest version sections). There is **no** `## Unreleased` section at authoring time; the top section is `## v0.131.10`. `.maintainer.yaml` sets `autoRelease: true`, so re-read the top of the file before editing rather than trusting this note — the section may have appeared (or been consumed) since.
+- `CHANGELOG.md` — read the top ~30 lines (the preamble and the newest sections). At authoring time a `## Unreleased` section **does** exist, holding another prompt's bullet; the section below it is `## v0.131.10`. `.maintainer.yaml` sets `release.autoRelease: true`, so the top of the file moves between now and execution — re-read it before editing rather than trusting this note, and handle both cases: section present (append the bullet) or absent (create the section, then add the bullet).
 - `pkg/ops/workon.go` and `pkg/ops/goal_workon.go` as prompts 1 and 2 left them — the document must describe the real implementation, including the real predicate wording in `pkg/ops/claude_session.go`.
 - `specs/in-progress/041-bug-resume-races-live-headless-turn.md` — the spec, for Acceptance Criteria 11-13 and the Failure Modes table.
 
@@ -121,23 +122,26 @@ After 2a-2d, the file must contain none of: `livenessWindow`, the prose form `li
 
 Its work-on note must already say the headless turn blocks until completion — it does (`**Both branches block until the turn completes** … bounded by a 30m turn timeout`, plus `A fast return is a FAIL, not a pass`). Verify `~10s` does not appear in the file. If it does, replace that wording with the blocking statement; otherwise make no edit. No other change to this file.
 
-## 4. Create `## Unreleased` in `CHANGELOG.md` and add the spec-041 bullet
+## 4. Add the spec-041 bullet to `## Unreleased` in `CHANGELOG.md`
 
-There is no `## Unreleased` section today, so **create** one: insert `## Unreleased` immediately after the preamble block (after the `* PATCH version when you make backwards-compatible bug fixes.` line) and immediately before the newest `## vX.Y.Z` section, with exactly one bullet:
+Add exactly one bullet:
 
 ```
 - fix: non-interactive `task work-on` / `goal work-on` now wait for the detached headless turn to exit before persisting `claude_session_id`, bounded by a 30m turn timeout (a wait bound, never a kill), so the Vault UI offers Resume only against a complete, single-writer transcript; a failed or zero-turn session persists no id. The interactive TTY branch is unchanged.
 ```
 
-If `## Unreleased` already exists when you run (a concurrent change may have created it), append the bullet to it instead — do not create a second section and do not delete or reword any existing bullet. Either way the spec-041 bullet must sit within the first 15 lines of the section, and it must keep the substrings `wait for the detached headless turn` and `Resume` (case-insensitive).
+Placement, in this order:
 
-Rules that bind this edit: write `## Unreleased` only — never a `## vX.Y.Z` heading, never a plugin-manifest version bump, never a git tag. `scripts/check-changelog.sh` (inside `make precommit`) fails the build if a `## ` section appears above the preamble.
+1. Re-read the top of `CHANGELOG.md` at execution time. If `## Unreleased` exists, APPEND the bullet as the last bullet of that section — do not delete, reword, or reorder any existing bullet. If it does not exist (a release consumed it), CREATE the section immediately after the preamble block (after the `* PATCH version when you make backwards-compatible bug fixes.` line) and immediately before the newest `## vX.Y.Z` section, with the bullet as its first bullet.
+2. Then run the AC12 check: `grep -A15 '^## Unreleased' CHANGELOG.md | grep -ci 'resume'` must be ≥ 1. If the appended bullet falls outside that 15-line window because the section already carried other bullets, move the spec-041 bullet to be the FIRST bullet under the heading (a move, not a rewrite — no existing bullet is deleted, reworded, or reordered relative to its siblings) and re-run the check. Say in the completion report which placement you used.
 
-<!-- OPEN QUESTION FOR THE HUMAN REVIEWER: this bullet re-describes the post-exit inversion that v0.117.1 shipped, but the v0.118.3 release note in this same file documents the task-side REVERSION back to persist-before-spawn (commit dae6563, "fix(workon): persist the fresh session id before the headless turn"). The bullet is written to satisfy AC12 and to describe what prompt 2 re-applies; if prompt 2 is rejected at audit (see the reviewer block in prompt 2), then this bullet and requirement 2's reword are both wrong and the spec should be re-scoped instead — the doc's current bodies and the v0.118.3 note already describe the reverted behaviour. Also note spec Open Question 2 (the vault-ui "Creating session… up to 2 minutes" modal copy) lives in a different repo and is out of scope here — this prompt makes no vault-ui change. -->
+Rules that bind this edit: write `## Unreleased` only — never a `## vX.Y.Z` heading, never a plugin-manifest version bump, never a git tag. `make check-changelog` (inside `make precommit`) fails the build if a `## ` section appears above the preamble.
+
+<!-- OPEN QUESTION FOR THE HUMAN REVIEWER: this bullet re-describes the post-exit inversion that v0.117.1 shipped, but the v0.118.3 release note in this same file documents the task-side REVERSION back to persist-before-spawn. The bullet is written to satisfy AC12 and to describe what prompt 2 re-applies; if prompt 2 is rejected at audit (see the reviewer block in prompt 2), then this bullet and requirement 2's reword are both wrong and the spec should be re-scoped instead — the doc's current bodies and the v0.118.3 note already describe the reverted behaviour. Also note spec Open Question 2 (the vault-ui "Creating session… up to 2 minutes" modal copy) lives in a different repo and is out of scope here — this prompt makes no vault-ui change. -->
 
 ## 5. Full gate (AC13)
 
-Run `make precommit` at the repo root; it must exit 0. This is the batch's final validation. If it fails on a spec-041-related check, fix it, then re-run ONLY the failing target (`make lint`, `make gosec`, `make test`, …) until it passes, then run `make precommit` once more. Note that `check-versions` is NOT part of `make precommit` (it is in `release-check`), so this prompt must not hand-bump any plugin manifest.
+Run `make precommit` at the repo root; it must exit 0. This is the batch's final validation. If it fails on a spec-041-related check, fix it, then re-run ONLY the failing target (`make lint`, `make gosec`, `make test`, `make check-changelog`, …) until it passes, then run `make precommit` once more. Note that `check-versions` is NOT part of `make precommit` (it is in `release-check`), so this prompt must not hand-bump any plugin manifest.
 
 ## 6. Self-check
 
@@ -186,7 +190,7 @@ AC12 — the changelog section exists and carries the bullet:
 test "$(grep -c '^## Unreleased' CHANGELOG.md)" = "1"
 test "$(grep -A15 '^## Unreleased' CHANGELOG.md | grep -ci 'resume')" -ge 1
 test "$(grep -c 'wait for the detached headless turn' CHANGELOG.md)" -ge 1
-bash scripts/check-changelog.sh
+make check-changelog
 ```
 
 AC10 — `scenarios/005` untouched. The spec's guard is `git diff --exit-code HEAD -- scenarios/005-work-on-resume-auto-invokes-subtask.md`, which cannot run here: this container's `.git` is a character device, so every git command dies with `fatal: not a git repository`. The hash and byte count below are the substitute and pin the file exactly as it stands at authoring time. If a check fails you edited the scenario — revert your edit; do NOT update the expected value and do NOT add a git command.

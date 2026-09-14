@@ -1,7 +1,7 @@
 ---
 spec: ["041-bug-resume-races-live-headless-turn"]
 status: draft
-created: "2026-09-14T20:20:06Z"
+created: "2026-09-14T20:23:00Z"
 ---
 
 # Session layer: confirm block-until-exit, backfill the two missing test pieces (spec 041, prompt 1 of 3)

@@ -1,7 +1,7 @@
 ---
 spec: ["041-bug-resume-races-live-headless-turn"]
 status: draft
-created: "2026-09-14T19:13:16Z"
+created: "2026-09-14T20:23:00Z"
 ---
 
 # Task path: persist the session id only after the headless turn exits (spec 041, prompt 2 of 3)
@@ -12,9 +12,10 @@ created: "2026-09-14T19:13:16Z"
 - Reworks the task-path tests: the "persisted before the spawn" test becomes "persisted after the child exits" and asserts the write timestamp is later than the child's exit, the write-vs-spawn sequencing assertion inverts, and the clear-based failure tests are replaced by one test proving a failed turn persists nothing.
 - Rewords the stale pre-spawn comments and section titles in the task tests and in the session write-back tests so they describe the post-exit, no-clear ordering; no assertion in the write-back file changes.
 - Confirms the goal path and its tests are already in the target state and leaves them untouched.
-- WARNING for the human reviewer: the task-side half of this spec was deliberately REVERTED in the tree after approval, because persisting after the exit caused a live regression — with no id on disk during the turn, the child's own session-connect bound the task to a live unrelated session. This prompt implements the spec AS APPROVED and re-introduces that ordering. The conflict, the evidence, and the two adjudication options are in the reviewer block at the top of `<requirements>`. Prompt 3 is coupled to that decision.
-- A later spec (045) was written against the reverted ordering and explicitly preserved the compensating clear on the task path; the reviewer block records that too, because it is the strongest evidence that the reversion is the live intent.
+- WARNING for the human reviewer: the task-side half of this spec was deliberately REVERTED in the tree after approval, because persisting after the exit caused a live regression. This prompt implements the spec AS APPROVED and re-introduces that ordering. The conflict, the evidence, the later change that may neutralise it, and the two adjudication options are in the reviewer block at the top of `<requirements>`. Prompt 3 is coupled to that decision.
+- A later spec (045) was written against the reverted ordering and explicitly preserved the compensating clear on the task path; the reviewer block records that too, because it is strong evidence that the reversion is the live intent.
 - Runs the spec-041 AC7-9 evidence gate plus `make precommit`.
+</summary>
 
 <objective>
 Make the task path of `work-on` persist `claude_session_id` only after the detached headless turn has finished, so no failure leaves a resumable-looking id behind — matching the goal path, which already ships this behaviour. This prompt covers spec 041 Acceptance Criteria 7-9 and depends on prompt 1 having shipped (its block-until-exit `StartSession` is what these tests exercise).
@@ -47,27 +48,77 @@ Environment notes:
 
 The task-side half of spec 041 was REVERTED in the tree AFTER this spec was approved.
 
-- Commit 247a789 (released v0.117.1) applied spec 041 to workon.go: persist claude_session_id only AFTER the turn, no compensating clear.
-- Commit dae6563 (released v0.118.3) REVERTED that task-side half — "fix(workon): persist the fresh session id before the headless turn". Its rationale, verbatim: persist-after-exit left claude_session_id empty during the turn, and the child's own /vault-cli:work-on-task session-connect scanned the transcript directory by mtime and wrote a LIVE UNRELATED session's id into the field (reproduced live 2026-09-01). It re-adopted spec 040's persist-before-spawn plus a re-read-based compensating clear, on the task path ONLY.
-- What the reversion KEPT (not reverted): claude_session.go's block-until-exit + shared validator (spec 041, confirmed by prompt 1), the spec-042 per-session lock, and the vault-ui-side "gate Resume on live cards" resolver. goal_workon.go was never reverted and still matches spec 041.
+1. What the spec asks. Spec 041's Goal is "no claude_session_id on disk while a detached child exists".
+   Its Design applies that to BOTH paths: workon.go reorders to start-then-persist and deletes
+   clearSessionAndMetrics.
 
-NEW EVIDENCE since the previous draft of this prompt was written — a LATER spec was authored against the reverted design:
+2. What the tree says. `pkg/ops/goal_workon.go` already ships start-then-persist (never reverted).
+   `pkg/ops/workon.go` does NOT: it pre-persists the id before the spawn and runs a compensating clear
+   on failure. That is not drift — it is a deliberate, released reversion. The CHANGELOG's v0.118.3
+   entry documents it, verbatim: "`task work-on` now persists the fresh `claude_session_id` and its
+   `metrics_sessions` entry to the task file before the headless Claude session is spawned, so the
+   session's own `/vault-cli:work-on-task` session-connect reads the field already set and keeps the
+   fresh session instead of scanning the transcript directory and attaching whichever transcript was
+   most recently modified ... a failed spawn now triggers a re-read-based compensating clear".
+   What the reversion KEPT: claude_session.go's block-until-exit + shared validator (spec 041,
+   confirmed by prompt 1), the spec-042 per-session lock, and the vault-ui-side "gate Resume on live
+   cards" resolver.
 
-- Spec 045 (prompts 208/209, completed 2026-09-06, i.e. after dae6563) states in its own Constraints, on the task path: "The compensating clear is not weakened: runDetachedTurn must still return an error for a genuinely failed turn" and "The compensating clear is not weakened by this spec — a genuinely failed turn must still clear the id. These tests are the proof, not a relaxation." Two subsequent specs were written on the assumption that the task path pre-persists and clears.
-- docs/work-on-session-lifecycle.md currently carries BOTH states at once: the heading `## Post-exit write ordering` (spec 041) over a body that describes the pre-spawn persist and the compensating clear (the reversion), and `## What the turn timeout does and does not cover` still says "The compensating clear is unchanged: it still fires on every error the detached turn returns." Prompt 3 rewrites those bodies.
+3. A LATER spec was authored against the reverted design. Spec 045
+   (`specs/in-progress/045-bug-exit-code-outranks-validated-turn.md`; its prompts 208/209 are
+   completed) states in its Constraints, on the task path: "Removing or weakening the compensating
+   clear. This spec narrows *when* a turn counts as failed; a genuinely failed turn must still clear
+   the id." and "`handleClaudeSession`'s compensating clear continues to fire on every error
+   `runDetachedTurn` returns". Spec 045's acceptance criteria require the clear to fire on both paths.
 
-The current tree therefore FAILS spec 041 AC7 (`grep -c 'After(childExitAt)' pkg/ops/workon_test.go` == 0) and AC9 (`grep -c 'clearSessionAndMetrics' pkg/ops/workon.go` == 3).
+4. BUT the mechanism the reversion cited may no longer exist. The v0.118.3 rationale names the mtime
+   scan: the child's session-connect used to attach "whichever transcript was most recently
+   modified". That scan is now explicitly forbidden. `agents/work-on-task-assistant.md` (step 2 of
+   session-connect) reads: "detect the current session's UUID by title-match, never by
+   newest-transcript. The `ls -t ... | head -1` mtime scan is forbidden — in a fleet of concurrent
+   sessions the newest transcript is almost never the current session (observed: a fresh headless
+   Start session got bound to a live unrelated session this way)." `commands/work-on-task.md` agrees:
+   title-match only, and "A title-match miss leaves the field empty ... that is safe only on the
+   headless Start path, which pre-sets the field via vault-cli".
+   The reviewer must weigh this: the unrelated-session-attach regression that forced the reversion may
+   no longer be reachable. Note the residual either way — under start-then-persist the field IS empty
+   during the turn, so the child's session-connect will run; on a title-match hit it writes its OWN
+   session id mid-turn (the correct id, but on disk before the turn ends, which is the window spec 041
+   exists to close — gated today by the vault-ui resolver, shipped separately, and by spec 042's lock,
+   which the Vault UI's direct `claude --resume` does not take).
 
-This prompt implements the spec AS APPROVED: it re-applies start-then-persist to workon.go and deletes clearSessionAndMetrics. That re-introduces the session-connect regression v0.118.3 fixed UNLESS a separate mechanism ships in the same batch (for example, making the child's session-connect read the id from a non-frontmatter source, or vault-ui writing the id earlier). No such mechanism exists in this spec.
+5. The doc currently carries BOTH orderings: the heading `## Post-exit write ordering` (spec 041) over
+   a body describing the pre-spawn persist and the compensating clear (the reversion), and
+   `## What the turn timeout does and does not cover` still says "The compensating clear is
+   unchanged: it still fires on every error the detached turn returns." Prompt 3 rewrites those
+   bodies.
+
+The current tree therefore FAILS spec 041 AC7 (`grep -c 'After(childExitAt)' pkg/ops/workon_test.go`
+== 0) and AC9 (`grep -c 'clearSessionAndMetrics' pkg/ops/workon.go` == 3).
+
+This prompt implements the spec AS APPROVED: it re-applies start-then-persist to workon.go and deletes
+clearSessionAndMetrics, making the task path match the goal path. No separate mechanism that would
+neutralise the v0.118.3 regression is named by this spec.
 
 The reviewer must decide at audit time between:
 
-  (A) Approve this prompt — spec 041 wins; the reorder is re-applied, spec 045's "compensating clear is not weakened" constraints are superseded, and the session-connect regression is accepted and owned as a follow-up. Prompt 3 must be approved with it (prompt 3 rewrites the doc and the changelog back to post-exit).
-  (B) Reject and re-scope spec 041 — treat dae6563 as the new target. AC7 and AC9 would need rewording to assert the pre-spawn persist plus the compensating clear, which the current tree already satisfies; this prompt would be dropped, and prompt 3's doc reword and changelog bullet would be dropped with it (the doc's current bodies and the v0.118.3 release note already describe the reverted behaviour).
+  (A) Approve this prompt — spec 041 wins; the reorder is re-applied, spec 045's "compensating clear is
+      not weakened" constraint is superseded on the task path, and any residual session-connect risk
+      is accepted and owned as a follow-up. Prompt 3 must be approved with it (prompt 3 rewrites the
+      doc and the changelog to post-exit).
+  (B) Reject and re-scope spec 041 — treat the v0.118.3 ordering as the new target. AC7 and AC9 would
+      need rewording to assert the pre-spawn persist plus the compensating clear, which the current
+      tree already satisfies; this prompt would be dropped, and prompt 3's doc reword and changelog
+      bullet would be dropped with it (the doc's current bodies and the v0.118.3 release note already
+      describe the reverted behaviour).
 
-Note the second-order effect either way: re-applying the reorder makes the changelog history self-contradictory (v0.118.3 documents the opposite ordering), and it invalidates the prose — though not the assertions — of the two spec-045 write-back specs, which requirement 11 reworks.
+Second-order effect either way: re-applying the reorder makes the changelog history self-contradictory
+(v0.118.3 documents the opposite ordering), and it invalidates the prose — though not the assertions —
+of the two spec-045 write-back specs, which requirement 11 reworks.
 
-For the executing agent: implement the requirements below as written. The spec is the source of truth for this batch; the reviewer adjudicates the conflict at audit time. Do not "fix" the requirements to preserve the reversion, and do not add any mechanism the spec does not name.
+For the executing agent: implement the requirements below as written. The spec is the source of truth
+for this batch; the reviewer adjudicates the conflict at audit time. Do not "fix" the requirements to
+preserve the reversion, and do not add any mechanism the spec does not name.
 -->
 
 ## 1. Guard — prompt 1 must have shipped

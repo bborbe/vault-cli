@@ -63,9 +63,10 @@ func (s *searchOperation) Execute(
 	) // #nosec G204 -- args are passed via Cmd.Args, never through a shell; query is a plain string, not a shell expression
 	cmd.Env = append(os.Environ(), fmt.Sprintf("CONTENT_PATH=%s", contentPath))
 
-	// Add top-k parameter if specified
+	// Add top-k parameter if specified.
+	// semantic-search-mcp spells this flag `-n`; `--limit` exits 2 with "unrecognized arguments".
 	if topK > 0 {
-		cmd.Args = append(cmd.Args, "--limit", strconv.Itoa(topK))
+		cmd.Args = append(cmd.Args, "-n", strconv.Itoa(topK))
 	}
 
 	// Capture output

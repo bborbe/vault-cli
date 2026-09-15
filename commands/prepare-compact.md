@@ -49,7 +49,8 @@ git rev-parse --abbrev-ref @{u} >/dev/null 2>&1 \
   && git log --oneline @{u}.. || echo "no upstream / nothing un-pushed"
 
 # Live background state — background shells, sub-agents, watchers
-pgrep -af 'dark-factory|docker' || echo "no matching background processes"
+# PIDs only: `-a` / `-l` print full command lines, and MCP process args carry Authorization headers
+pgrep -f 'dark-factory|docker' || echo "no matching background processes"
 
 # Daemon and containers — each falls back rather than aborting
 dark-factory status || echo "no daemon"

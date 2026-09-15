@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: `vault-cli task search` no longer exits 2 on every query. `pkg/ops/search.go` passed `--limit <n>` to `semantic-search-mcp`, which accepts `-n TOP_K`; the mismatch made the documented operator command fail with `unrecognized arguments: --limit 5` for any vault, and `--top-k` was unusable. The flag is now `-n`, so `--top-k 1` and `--top-k 3` return 1 and 3 results as documented. `--limit` was the only emitter outside `vendor/`. Separately, `prepare-compact` and `post-compact` prescribed `pgrep -af 'dark-factory|docker'` for the live-background check; `-a` prints full command lines and the pattern matched ~46 processes on a loaded machine, so following the checklist copied MCP `Authorization` headers into the transcript. Both now use PIDs-only `pgrep -f`, matching the rule `and.md` already documented, with a comment recording why.
+
 ## v0.132.1
 
 - fix: `session-close` no longer hard-flags a bot-created queue task the session merely nudged. Phase 4.5's in-progress gate counts any `vault-cli task set` as "touched", so a session that parked or re-drove a fleet task — an `Analyze Sentry issue …` alert, a healthcheck probe — made the operator resolve it before the verdict could go clean, even though the session's own anchor was `completed`. Such a task is now excluded on the same terms as the created-this-session exclusion: no `claude_session_id` naming this session, not created here, carrying a producer's `task_type`. Observed 2026-09-14: two parked `sentry-fix` probes forced exactly that round trip.

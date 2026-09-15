@@ -29,7 +29,7 @@ The checkpoint path template is `~/.claude/compact-checkpoints/<session-id>.md`.
 Read the `## Carry-over items` section. For each item, re-run the live check prepare-compact recorded and confirm the state still matches:
 
 - `uncommitted` / `un-pushed` → `git status --short` / `git log @{u}..` (upstream via `git rev-parse`)
-- `background` → `dark-factory status`, `docker ps`, `pgrep -af 'dark-factory|docker'`
+- `background` → `dark-factory status`, `docker ps`, `pgrep -f 'dark-factory|docker'` (PIDs only — `-a`/`-l` would print command lines carrying MCP `Authorization` headers)
 - `gate` → no live check; confirm the open question is still unanswered and re-surface it
 
 Report each as `✅ verified` (state matches the checkpoint) or `⚠️ changed` (state differs — name the delta). A changed item is not an error; it means work progressed during compaction. Note it and move on.
@@ -46,7 +46,8 @@ dark-factory status || echo "no daemon"
 docker ps || echo "no containers"
 
 # Live background state — background shells, sub-agents, watchers
-pgrep -af 'dark-factory|docker' || echo "no matching background processes"
+# PIDs only: `-a` / `-l` print full command lines, and MCP process args carry Authorization headers
+pgrep -f 'dark-factory|docker' || echo "no matching background processes"
 ```
 
 This check block mirrors `prepare-compact.md` § Compact-safety checks — keep the two in sync when one changes.

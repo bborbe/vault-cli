@@ -32,6 +32,7 @@ type Vault struct {
 	VisionDir         string   `yaml:"vision_dir,omitempty"           json:"vision_dir,omitempty"`
 	DailyDir          string   `yaml:"daily_dir,omitempty"            json:"daily_dir,omitempty"`
 	KnowledgeDir      string   `yaml:"knowledge_dir,omitempty"        json:"knowledge_dir,omitempty"`
+	TopicsDir         string   `yaml:"topics_dir,omitempty"           json:"topics_dir,omitempty"`
 	ClaudeScript      string   `yaml:"claude_script,omitempty"        json:"claude_script,omitempty"`
 	SessionProjectDir string   `yaml:"session_project_dir,omitempty"  json:"session_project_dir,omitempty"`
 	WorkOnCommand     string   `yaml:"work_on_command,omitempty"      json:"work_on_command,omitempty"`
@@ -98,6 +99,14 @@ func (v *Vault) GetKnowledgeDir() string {
 		return v.KnowledgeDir
 	}
 	return "50 Knowledge Base"
+}
+
+// GetTopicsDir returns the topics directory, defaulting to "23 Topics" if not set.
+func (v *Vault) GetTopicsDir() string {
+	if v.TopicsDir != "" {
+		return v.TopicsDir
+	}
+	return "23 Topics"
 }
 
 // GetExcludes returns the list of excluded directory prefixes.

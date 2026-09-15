@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat: a vault's config accepts a `topics_dir` key naming its topic-pages folder, read through `GetTopicsDir` and defaulting to `23 Topics` when the key is absent or empty. `vault-cli config list --output json` reports the key for a vault that sets it and omits it otherwise, exactly like the seven sibling directory keys. No command, flag, output format or existing config file changes.
+
 ## v0.132.2
 
 - fix: `vault-cli task search` no longer exits 2 on every query. `pkg/ops/search.go` passed `--limit <n>` to `semantic-search-mcp`, which accepts `-n TOP_K`; the mismatch made the documented operator command fail with `unrecognized arguments: --limit 5` for any vault, and `--top-k` was unusable. The flag is now `-n`, so `--top-k 1` and `--top-k 3` return 1 and 3 results as documented. `--limit` was the only emitter outside `vendor/`. Separately, `prepare-compact` and `post-compact` prescribed `pgrep -af 'dark-factory|docker'` for the live-background check; `-a` prints full command lines and the pattern matched ~46 processes on a loaded machine, so following the checklist copied MCP `Authorization` headers into the transcript. Both now use PIDs-only `pgrep -f`, matching the rule `and.md` already documented, with a comment recording why.

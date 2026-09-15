@@ -116,6 +116,26 @@ vaults:
 			})
 		})
 
+		Context("topics_dir in vault config", func() {
+			BeforeEach(func() {
+				configData := `vaults:
+  main:
+    name: main
+    path: /vault/main
+    topics_dir: "23 Topics"
+`
+				err := os.WriteFile(configPath, []byte(configData), 0600)
+				Expect(err).To(BeNil())
+				loader = config.NewLoader(configPath)
+			})
+
+			It("loads topics_dir from YAML", func() {
+				vault, err := loader.GetVault(ctx, "main")
+				Expect(err).To(BeNil())
+				Expect(vault.TopicsDir).To(Equal("23 Topics"))
+			})
+		})
+
 		Context("missing config file", func() {
 			BeforeEach(func() {
 				loader = config.NewLoader(configPath) // File doesn't exist

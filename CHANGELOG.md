@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.133.0
 
 - feat: a vault's config accepts a `topics_dir` key naming its topic-pages folder, read through `GetTopicsDir` and defaulting to `23 Topics` when the key is absent or empty. `vault-cli config list --output json` reports the key for a vault that sets it and omits it otherwise, exactly like the seven sibling directory keys. No command, flag, output format or existing config file changes.
 

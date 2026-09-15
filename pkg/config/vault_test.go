@@ -99,6 +99,18 @@ var _ = Describe("Vault", func() {
 		})
 	})
 
+	Describe("GetTopicsDir", func() {
+		It("returns custom topics dir when set", func() {
+			vault := &config.Vault{TopicsDir: "Custom Topics"}
+			Expect(vault.GetTopicsDir()).To(Equal("Custom Topics"))
+		})
+
+		It("returns default 23 Topics when empty", func() {
+			vault := &config.Vault{}
+			Expect(vault.GetTopicsDir()).To(Equal("23 Topics"))
+		})
+	})
+
 	Describe("GetClaudeScript", func() {
 		It("returns custom claude script when set", func() {
 			vault := &config.Vault{ClaudeScript: "/usr/local/bin/my-claude"}

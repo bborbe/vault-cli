@@ -44,6 +44,7 @@ vaults:
     path: ~/Documents/Obsidian/Personal
     tasks_dir: "24 Tasks"
     goals_dir: "23 Goals"
+    topics_dir: "23 Topics"
     daily_dir: "60 Periodic Notes/Daily"
     excludes:
       - "90 Templates"

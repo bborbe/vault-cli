@@ -24,6 +24,7 @@ vaults:
     name: full
     tasks_dir: "24 Tasks"
     goals_dir: "23 Goals"
+    topics_dir: "23 Topics"
     themes_dir: "21 Themes"
     objectives_dir: "22 Objectives"
     vision_dir: "20 Vision"
@@ -54,7 +55,7 @@ CONFIG="$WORK_DIR/config.yaml"
 
 ### JSON output — full vault has all fields
 - [ ] `$VAULT_CLI --config $CONFIG config list --output json` returns valid JSON
-- [ ] Output for vault `full` contains: `path`, `name`, `tasks_dir`, `goals_dir`, `themes_dir`, `objectives_dir`, `vision_dir`, `daily_dir`, `session_project_dir`, `claude_script`, `excludes`, `task_template`, `goal_template`, `theme_template`, `objective_template`, `vision_template`
+- [ ] Output for vault `full` contains: `path`, `name`, `tasks_dir`, `goals_dir`, `topics_dir`, `themes_dir`, `objectives_dir`, `vision_dir`, `daily_dir`, `session_project_dir`, `claude_script`, `excludes`, `task_template`, `goal_template`, `theme_template`, `objective_template`, `vision_template`
 
 ### Path resolution — template fields
 - [ ] `task_template` (relative `templates/Task Template.md`) → resolves to `$WORK_DIR/vault/templates/Task Template.md`
@@ -68,7 +69,7 @@ CONFIG="$WORK_DIR/config.yaml"
 - [ ] `session_project_dir` returned as absolute path (no `~`)
 
 ### Omitempty — minimal vault
-- [ ] JSON entry for `minimal` does NOT contain keys: `tasks_dir`, `goals_dir`, `themes_dir`, `objectives_dir`, `vision_dir`, `daily_dir`, `session_project_dir`, `claude_script`, `excludes`, `task_template`, `goal_template`, `theme_template`, `objective_template`, `vision_template`
+- [ ] JSON entry for `minimal` does NOT contain keys: `tasks_dir`, `goals_dir`, `topics_dir`, `themes_dir`, `objectives_dir`, `vision_dir`, `daily_dir`, `session_project_dir`, `claude_script`, `excludes`, `task_template`, `goal_template`, `theme_template`, `objective_template`, `vision_template`
 - [ ] JSON entry for `minimal` contains only: `path`, `name`
 
 ### Single-vault filter
@@ -77,7 +78,7 @@ CONFIG="$WORK_DIR/config.yaml"
 
 ## Expected
 
-- [ ] All 16 documented `Vault` fields appear in JSON output for `full` vault
+- [ ] All 17 documented `Vault` fields appear in JSON output for `full` vault
 - [ ] All omitempty fields absent from JSON output for `minimal` vault
 - [ ] All template paths resolved (relative → vault-relative, ~ → home, absolute → unchanged)
 - [ ] Single-vault filter returns matching vault only

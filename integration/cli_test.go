@@ -78,6 +78,39 @@ vaults:
 	}
 }
 
+// createTempVaultWithTopics creates a temporary vault whose config sets
+// topics_dir, and returns the vault path, the config path and a cleanup func.
+func createTempVaultWithTopics(topicsDir string) (vaultPath string, configPath string, cleanup func()) {
+	var err error
+	vaultPath, err = os.MkdirTemp("", "vault-*")
+	Expect(err).NotTo(HaveOccurred())
+
+	tasksDir := filepath.Join(vaultPath, "Tasks")
+	err = os.MkdirAll(tasksDir, 0755)
+	Expect(err).NotTo(HaveOccurred())
+
+	configContent := fmt.Sprintf(`default_vault: test
+vaults:
+  test:
+    name: test
+    path: %s
+    tasks_dir: Tasks
+    topics_dir: "%s"
+`, vaultPath, topicsDir)
+
+	configFile, err := os.CreateTemp("", "vault-config-*.yaml")
+	Expect(err).NotTo(HaveOccurred())
+	_, err = configFile.WriteString(configContent)
+	Expect(err).NotTo(HaveOccurred())
+	err = configFile.Close()
+	Expect(err).NotTo(HaveOccurred())
+
+	return vaultPath, configFile.Name(), func() {
+		_ = os.RemoveAll(vaultPath)
+		_ = os.Remove(configFile.Name())
+	}
+}
+
 // createTwoTempVaults creates two temporary vaults (alpha and beta) each with
 // Tasks and Goals directories, plus a shared config file with
 // default_vault: alpha and both vaults configured.
@@ -237,6 +270,41 @@ var _ = Describe("vault-cli integration tests", func() {
 			Entry("config list", "config", "list"),
 			Entry("config current-user", "config", "current-user"),
 		)
+	})
+
+	Describe("vault-cli config list --output json topics_dir", func() {
+		It("config list --output json includes topics_dir for a vault that sets it", func() {
+			_, configPath, cleanup := createTempVaultWithTopics("23 Topics")
+			defer cleanup()
+
+			cmd := exec.Command(binPath, "--config", configPath, "config", "list", "--output", "json")
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(0))
+
+			out := string(session.Out.Contents())
+			Expect(out).To(ContainSubstring(`"name": "test"`))
+			Expect(out).To(ContainSubstring(`"topics_dir": "23 Topics"`))
+		})
+
+		It("config list still lists a vault without topics_dir", func() {
+			vaultPath, configPath, cleanup := createTempVault(map[string]string{})
+			defer cleanup()
+
+			jsonCmd := exec.Command(binPath, "--config", configPath, "config", "list", "--output", "json")
+			jsonSession, err := gexec.Start(jsonCmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(jsonSession).Should(gexec.Exit(0))
+			jsonOut := string(jsonSession.Out.Contents())
+			Expect(jsonOut).To(ContainSubstring(`"name": "test"`))
+			Expect(jsonOut).NotTo(ContainSubstring("topics_dir"))
+
+			plainCmd := exec.Command(binPath, "--config", configPath, "config", "list")
+			plainSession, err := gexec.Start(plainCmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(plainSession).Should(gexec.Exit(0))
+			Expect(string(plainSession.Out.Contents())).To(ContainSubstring("test\t" + vaultPath))
+		})
 	})
 
 	Describe("frontmatter round-trip", func() {

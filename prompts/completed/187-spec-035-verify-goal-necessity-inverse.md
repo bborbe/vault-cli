@@ -1,6 +1,8 @@
 ---
-status: approved
+status: completed
 spec: [035-verify-goal-necessity-checks]
+reconciled: "2026-09-15"
+reconciledReason: 'Work shipped in 79a6949 "feat: add goal-necessity inverse check to verify-goal; record spec-035 pipeline state" (2026-08-21) — the same commit that left this prompt in in-progress/. Verified on master: agents/goal-manager-agent.md carries "8. **Check goal-necessity (inverse):**" and commands/verify-goal.md documents it. Status reconciled to completed — the prompt was never run.'
 created: "2026-08-21T09:48:00Z"
 queued: "2026-08-21T10:07:08Z"
 branch: dark-factory/verify-goal-necessity-checks

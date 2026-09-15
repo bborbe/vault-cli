@@ -1,5 +1,5 @@
 ---
-status: failed
+status: completed
 spec: [035-verify-goal-necessity-checks]
 execution_id: vault-cli-verify-necessity-exec-186-spec-035-verify-goal-necessity-forward
 dark-factory-version: dev
@@ -9,6 +9,8 @@ started: "2026-08-21T10:07:10Z"
 completed: "2026-08-21T10:15:02Z"
 branch: dark-factory/verify-goal-necessity-checks
 lastFailReason: 'validate completion report: completion report status: failed'
+reconciled: "2026-09-15"
+reconciledReason: 'Work shipped in c70d170 "feat: add goal-necessity forward check to verify-task" (2026-08-21); only the completion report failed validation. Verified on master: agents/task-manager-agent.md carries "5. **Check goal-necessity (forward):**" and commands/verify-task.md documents it. Status reconciled to completed — the prompt was never re-run.'
 ---
 
 # Add a goal-necessity forward check to verify-task

@@ -100,6 +100,8 @@ blocked_by:                                      # optional — dependencies; un
 
 `assignee` semantics: empty (`""`) means **unclaimed inbox** (anyone with vault access can pick up); an agent name means the executor should spawn that agent; a human name means that human is currently doing the work.
 
+An empty `assignee` means two different things depending on how it became empty. A task that has never been assigned is the **unclaimed inbox** above — anyone with vault access can pick it up. A task whose assignee was cleared was *parked*: the baton went back to the operator, and `vault-cli task set "<name>" assignee ""` (or `vault-cli task clear "<name>" assignee`) publishes one `agent-escalation` notification into the shared notification core when the config file names brokers, so the agent side learns the task was handed back. The unclaimed-inbox reading applies at creation; the park reading applies at clear.
+
 `vault-cli task work-on` applies a three-case matrix to `assignee` (so one person picking up a task never silently overrides a teammate's assignment):
 
 | Existing `assignee` | Action |

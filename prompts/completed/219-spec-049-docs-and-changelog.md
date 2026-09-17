@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [049-publish-escalation-on-assignee-clear]
+summary: Amended the README's standalone and pipeline promises to name the opt-in broker gate, documented the optional notification config, reconciled the two readings of an empty assignee in docs/task-writing.md, and added the changelog bullet under the existing Unreleased section
+execution_id: vault-cli-exec-219-spec-049-docs-and-changelog
+dark-factory-version: v0.193.0
 created: "2026-09-17T13:30:00Z"
 queued: "2026-09-17T15:50:49Z"
+started: "2026-09-17T17:20:18Z"
+completed: "2026-09-17T17:21:57Z"
 ---
 
 # Documentation: the amended standalone promise, the opt-in gate, and the park semantics

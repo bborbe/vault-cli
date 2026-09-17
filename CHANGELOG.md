@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.133.1
 - fix: teach `/vault-cli:reflect`'s ENHANCE path to handle numbered-sequence pages. The step said only "append as a subsection", which is right for `## Additional Insights` and silent for a page whose sections are a numbered list — so the next number gets guessed from whatever listing happened to be on screen. Observed 2026-09-17: a structure survey run as `grep -nE '^#{2,3} ' <page> | head -20` showed 17 numbered shapes on a page that had **37**, the new section was appended as `### 18.`, and it collided with an existing one; the duplicate was caught only by an unprompted re-validation. ENHANCE now derives the next number from the whole file (`grep -oE '^#+ [0-9]+\.' | sort -n | tail -1`), appends at `max + 1`, and verifies with `uniq -d` — renumbering its own entry on collision, never the existing one, whose number may already be cited elsewhere. Same read → write → verify shape `/email-inbox` already applies to its rule table. The `head` trap is named explicitly in the step, because a truncated structure grep reads exactly like a complete outline
 
 ## v0.133.0

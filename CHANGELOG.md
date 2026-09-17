@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: the `agent-escalation` body the CLI publishes on an assignee clear is now byte-identical to the body `bborbe/agent-task-controller` publishes for the same transition — it names the task's status and phase and carries an Obsidian link into the parked task file, and it no longer repeats the task name and identifier that already travel in the notification metadata.
+
 ## v0.134.0
 
 - feat: add an opt-in, bounded escalation transport. `pkg/config` gains a top-level `notification: {brokers, topic_prefix}` section, and `pkg/ops/escalation.go` adds `EscalationPublisher`/`NewEscalationPublisher` plus `NewKafkaNotificationSenderFactory`, which publishes an `agent-escalation` notification through the shared notification core on `<prefix>-core-notification-v1-request` — the same transport `bborbe/agent-task-controller` uses. An empty `brokers` value publishes nothing and opens no broker connection, so a standalone vault-cli is unchanged; a publish is a single attempt bounded to `EscalationPublishTimeout` (5s) and a failure is logged through `log/slog` and swallowed. Nothing publishes yet — the assignee-clear write paths are wired in a follow-up.

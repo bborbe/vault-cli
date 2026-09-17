@@ -349,7 +349,7 @@ var _ = Describe("FrontmatterSetOperation", func() {
 		mockTaskStorage = &mocks.TaskStorage{}
 		mockFactory := &mocks.NotificationSenderFactory{}
 		publisher := ops.NewEscalationPublisher("", "", mockFactory)
-		setOp = ops.NewFrontmatterSetOperation(mockTaskStorage, publisher)
+		setOp = ops.NewFrontmatterSetOperation(mockTaskStorage, publisher, "personal", "25 Tasks")
 		vaultPath = "/path/to/vault"
 		taskName = "my-task"
 
@@ -914,7 +914,7 @@ var _ = Describe("FrontmatterClearOperation", func() {
 		mockTaskStorage = &mocks.TaskStorage{}
 		mockFactory := &mocks.NotificationSenderFactory{}
 		publisher := ops.NewEscalationPublisher("", "", mockFactory)
-		clearOp = ops.NewFrontmatterClearOperation(mockTaskStorage, publisher)
+		clearOp = ops.NewFrontmatterClearOperation(mockTaskStorage, publisher, "personal", "25 Tasks")
 		vaultPath = "/path/to/vault"
 		taskName = "my-task"
 
@@ -1164,6 +1164,8 @@ var _ = Describe("Frontmatter assignee-clear escalation", func() {
 		taskName         string
 		previousAssignee string
 		taskIdentifier   string
+		vaultName        string
+		tasksDir         string
 		task             *domain.Task
 	)
 
@@ -1175,8 +1177,10 @@ var _ = Describe("Frontmatter assignee-clear escalation", func() {
 		mockFactory = &mocks.NotificationSenderFactory{}
 		mockFactory.CreateReturns(mockSender, nil)
 		publisher = ops.NewEscalationPublisher("broker-1:9092", "master", mockFactory)
-		setOp = ops.NewFrontmatterSetOperation(mockTaskStorage, publisher)
-		clearOp = ops.NewFrontmatterClearOperation(mockTaskStorage, publisher)
+		vaultName = "personal"
+		tasksDir = "25 Tasks"
+		setOp = ops.NewFrontmatterSetOperation(mockTaskStorage, publisher, vaultName, tasksDir)
+		clearOp = ops.NewFrontmatterClearOperation(mockTaskStorage, publisher, vaultName, tasksDir)
 		vaultPath = "/path/to/vault"
 		taskName = "my-task"
 		previousAssignee = "alice"
@@ -1184,6 +1188,7 @@ var _ = Describe("Frontmatter assignee-clear escalation", func() {
 		task = domain.NewTask(
 			map[string]any{
 				"status":          "in_progress",
+				"phase":           "human_review",
 				"assignee":        previousAssignee,
 				"task_identifier": taskIdentifier,
 			},
@@ -1230,6 +1235,10 @@ var _ = Describe("Frontmatter assignee-clear escalation", func() {
 			"taskName":         taskName,
 			"previousAssignee": previousAssignee,
 		}))
+		Expect(command.Message).To(Equal(notifcore.NotificationMessage(
+			"escalation: alice cleared its assignee — status in_progress, phase human_review\n" +
+				"obsidian://open?vault=personal&file=25+Tasks%2Fmy-task",
+		)))
 	})
 
 	It("publishes one escalation when task clear removes a non-empty assignee", func() {
@@ -1248,6 +1257,10 @@ var _ = Describe("Frontmatter assignee-clear escalation", func() {
 			"taskName":         taskName,
 			"previousAssignee": previousAssignee,
 		}))
+		Expect(command.Message).To(Equal(notifcore.NotificationMessage(
+			"escalation: alice cleared its assignee — status in_progress, phase human_review\n" +
+				"obsidian://open?vault=personal&file=25+Tasks%2Fmy-task",
+		)))
 	})
 
 	It("publishes nothing when task set writes an empty assignee over an empty assignee", func() {

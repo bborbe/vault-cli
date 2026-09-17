@@ -1,8 +1,9 @@
 ---
-status: prompted
+status: verifying
 approved: "2026-09-17T13:01:52Z"
 generating: "2026-09-17T13:21:21Z"
 prompted: "2026-09-17T13:21:21Z"
+verifying: "2026-09-17T17:21:57Z"
 branch: dark-factory/publish-escalation-on-assignee-clear
 ---
 

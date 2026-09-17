@@ -116,6 +116,7 @@ body
 			return ops.NewFrontmatterSetOperation(
 				storage.NewTaskStorage(cfg),
 				ops.NewEscalationPublisher("", "", &mocks.NotificationSenderFactory{}),
+				"personal", "25 Tasks",
 			).Execute(ctx, vaultPath, name, key, value, "", "", false)
 		}),
 		Entry("goal", "23 Goals", func(

@@ -9,6 +9,9 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net/url"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/bborbe/cqrs/base"
@@ -44,6 +47,20 @@ type Escalation struct {
 	TaskName string
 	// PreviousAssignee is the assignee value the task held before the clear.
 	PreviousAssignee string
+	// Status is the task's status after the clear, as the normalizing Status()
+	// accessor reads it. Empty when the frontmatter carries no recognizable
+	// status — the peer renders the same empty string in that case.
+	Status string
+	// Phase is the task's phase after the clear, or the empty string when the
+	// frontmatter carries no phase. The peer renders an absent phase the same
+	// way, so this is deliberately not defaulted to anything.
+	Phase string
+	// VaultName is the vault's configured name — the lowercased slug the peer's
+	// VAULT_NAME carries — and is what the Obsidian link opens.
+	VaultName string
+	// TasksDir is the vault's configured tasks directory, joined with the task
+	// name to form the vault-relative path the link points at.
+	TasksDir string
 }
 
 //counterfeiter:generate -o ../../mocks/notification-publish-command-sender.go --fake-name NotificationPublishCommandSender . NotificationPublishCommandSender
@@ -192,14 +209,33 @@ func (p *escalationPublisher) publish(ctx context.Context, escalation Escalation
 	})
 }
 
-// escalationMessage renders the notification body. The routing table owns the
-// channel, so the body carries what the operator needs to recognise the task.
-func escalationMessage(escalation Escalation) string {
+// vaultDeeplink renders an Obsidian URI for the task file, so the escalation
+// message is one click from the notification into the parked task. It is a
+// deliberate byte-for-byte copy of the working peer's helper of the same name
+// in bborbe/agent-task-controller's pkg/result/result_writer.go, escaping
+// included: the two producers must render one link for one task, and a
+// differently escaped link is a different link.
+func vaultDeeplink(vaultName, relPath string) string {
 	return fmt.Sprintf(
-		"escalation: %s cleared its assignee on task %s (%s)",
+		"obsidian://open?vault=%s&file=%s",
+		url.QueryEscape(vaultName),
+		url.QueryEscape(strings.TrimSuffix(relPath, ".md")),
+	)
+}
+
+// escalationMessage renders the notification body. It is a deliberate
+// byte-for-byte copy of the working peer's body in bborbe/agent-task-controller's
+// pkg/result/result_writer.go, so one park renders one message whichever side
+// performed it. The task name and the task identifier are NOT in the body — the
+// peer carries them in Metadata only, and so does this repository.
+func escalationMessage(escalation Escalation) string {
+	relPath := filepath.Join(escalation.TasksDir, escalation.TaskName+".md")
+	return fmt.Sprintf(
+		"escalation: %s cleared its assignee — status %s, phase %s\n%s",
 		escalation.PreviousAssignee,
-		escalation.TaskName,
-		escalation.TaskIdentifier,
+		escalation.Status,
+		escalation.Phase,
+		vaultDeeplink(escalation.VaultName, relPath),
 	)
 }
 

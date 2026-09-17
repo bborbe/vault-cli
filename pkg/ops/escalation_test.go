@@ -7,6 +7,7 @@ package ops_test
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"time"
@@ -44,9 +45,24 @@ var _ = Describe("EscalationPublisher", func() {
 			TaskIdentifier:   "0f6a3a0e-0000-4000-8000-000000000001",
 			TaskName:         "Park the Escalation Task",
 			PreviousAssignee: "alice",
+			Status:           "in_progress",
+			Phase:            "human_review",
+			VaultName:        "personal",
+			TasksDir:         "25 Tasks",
 		}
 		publisher = ops.NewEscalationPublisher("broker-1:9092", "master", mockFactory)
 	})
+
+	// recordedCommand waits for the asynchronous publish and returns the single
+	// command it recorded. PublishEscalation performs the publish in a goroutine,
+	// so every positive assertion must go through Eventually.
+	recordedCommand := func() notifcmd.NotificationPublishCommand {
+		Eventually(func() int {
+			return mockSender.SendPublishNotificationCommandCallCount()
+		}).Should(Equal(1))
+		_, command := mockSender.SendPublishNotificationCommandArgsForCall(0)
+		return command
+	}
 
 	It("publishes exactly one agent-escalation command with no target", func() {
 		publisher.PublishEscalation(ctx, escalation)
@@ -57,7 +73,11 @@ var _ = Describe("EscalationPublisher", func() {
 		_, command := mockSender.SendPublishNotificationCommandArgsForCall(0)
 		Expect(command.Type).To(Equal(notifcore.AgentEscalationNotificationType))
 		Expect(command.Target).To(BeNil())
-		Expect(command.Message).NotTo(BeEmpty())
+		Expect(command.Message).To(Equal(notifcore.NotificationMessage(
+			"escalation: alice cleared its assignee — status in_progress, phase human_review\n" +
+				"obsidian://open?vault=personal&file=25+Tasks%2FPark+the+Escalation+Task",
+		)))
+		Expect(command.Validate(ctx)).To(Succeed())
 		Expect(command.Metadata).To(Equal(map[string]string{
 			"taskIdentifier":   escalation.TaskIdentifier,
 			"taskName":         escalation.TaskName,
@@ -151,5 +171,69 @@ var _ = Describe("EscalationPublisher", func() {
 		}).Should(Equal(1))
 		_, message := producer.SendMessageArgsForCall(0)
 		Expect(message.Topic).To(Equal("master-core-notification-v1-request"))
+		value, err := message.Value.Encode()
+		Expect(err).NotTo(HaveOccurred())
+		// The body survives the production serializer. The envelope is decoded
+		// rather than substring-matched because encoding/json HTML-escapes the
+		// link's ampersand inside the JSON string, which is a property of the
+		// encoder and not of the body — the peer's envelope escapes it the same
+		// way, so the published bytes stay identical.
+		var envelope struct {
+			Data struct {
+				Message string `json:"message"`
+			} `json:"data"`
+		}
+		Expect(json.Unmarshal(value, &envelope)).To(Succeed())
+		Expect(envelope.Data.Message).To(Equal(
+			"escalation: alice cleared its assignee — status in_progress, phase human_review\n" +
+				"obsidian://open?vault=personal&file=25+Tasks%2FPark+the+Escalation+Task",
+		))
 	})
+
+	DescribeTable("renders the agent-side escalation body",
+		func(e ops.Escalation, expected string) {
+			publisher.PublishEscalation(ctx, e)
+
+			command := recordedCommand()
+			Expect(command.Message).To(Equal(notifcore.NotificationMessage(expected)))
+			Expect(command.Validate(ctx)).To(Succeed())
+		},
+		Entry("a task name and tasks dir carrying spaces",
+			ops.Escalation{
+				TaskIdentifier:   "0f6a3a0e-0000-4000-8000-000000000001",
+				TaskName:         "Park the Escalation Task",
+				PreviousAssignee: "alice",
+				Status:           "in_progress",
+				Phase:            "human_review",
+				VaultName:        "personal",
+				TasksDir:         "25 Tasks",
+			},
+			"escalation: alice cleared its assignee — status in_progress, phase human_review\n"+
+				"obsidian://open?vault=personal&file=25+Tasks%2FPark+the+Escalation+Task",
+		),
+		Entry("characters the link must escape",
+			ops.Escalation{
+				TaskIdentifier:   "0f6a3a0e-0000-4000-8000-000000000002",
+				TaskName:         "Sync & Review #3",
+				PreviousAssignee: "bob",
+				Status:           "in_progress",
+				Phase:            "execution",
+				VaultName:        "personal",
+				TasksDir:         "25 Tasks",
+			},
+			"escalation: bob cleared its assignee — status in_progress, phase execution\n"+
+				"obsidian://open?vault=personal&file=25+Tasks%2FSync+%26+Review+%233",
+		),
+		Entry("an absent status and phase render empty, exactly as the peer renders them",
+			ops.Escalation{
+				TaskIdentifier:   "0f6a3a0e-0000-4000-8000-000000000003",
+				TaskName:         "Park the Escalation Task",
+				PreviousAssignee: "alice",
+				VaultName:        "personal",
+				TasksDir:         "25 Tasks",
+			},
+			"escalation: alice cleared its assignee — status , phase \n"+
+				"obsidian://open?vault=personal&file=25+Tasks%2FPark+the+Escalation+Task",
+		),
+	)
 })

@@ -53,16 +53,21 @@ type FrontmatterSetOperation interface {
 func NewFrontmatterSetOperation(
 	taskStorage storage.TaskStorage,
 	publisher EscalationPublisher,
+	vaultName, tasksDir string,
 ) FrontmatterSetOperation {
 	return &frontmatterSetOperation{
 		taskStorage: taskStorage,
 		publisher:   publisher,
+		vaultName:   vaultName,
+		tasksDir:    tasksDir,
 	}
 }
 
 type frontmatterSetOperation struct {
 	taskStorage storage.TaskStorage
 	publisher   EscalationPublisher
+	vaultName   string
+	tasksDir    string
 }
 
 // Execute sets the value of a frontmatter field on a task.
@@ -107,7 +112,7 @@ func (o *frontmatterSetOperation) Execute(
 		return errors.Wrap(ctx, err, "write task")
 	}
 
-	publishAssigneeClearEscalation(ctx, o.publisher, task, key, value, previousAssignee)
+	publishAssigneeClearEscalation(ctx, o.publisher, task, key, value, previousAssignee, o.vaultName, o.tasksDir)
 
 	return nil
 }
@@ -147,16 +152,21 @@ type FrontmatterClearOperation interface {
 func NewFrontmatterClearOperation(
 	taskStorage storage.TaskStorage,
 	publisher EscalationPublisher,
+	vaultName, tasksDir string,
 ) FrontmatterClearOperation {
 	return &frontmatterClearOperation{
 		taskStorage: taskStorage,
 		publisher:   publisher,
+		vaultName:   vaultName,
+		tasksDir:    tasksDir,
 	}
 }
 
 type frontmatterClearOperation struct {
 	taskStorage storage.TaskStorage
 	publisher   EscalationPublisher
+	vaultName   string
+	tasksDir    string
 }
 
 // Execute clears (removes) the value of a frontmatter field on a task.
@@ -179,7 +189,7 @@ func (o *frontmatterClearOperation) Execute(
 		return errors.Wrap(ctx, err, "write task")
 	}
 
-	publishAssigneeClearEscalation(ctx, o.publisher, task, key, "", previousAssignee)
+	publishAssigneeClearEscalation(ctx, o.publisher, task, key, "", previousAssignee, o.vaultName, o.tasksDir)
 
 	return nil
 }
@@ -218,19 +228,32 @@ func checkPhaseRegression(ctx context.Context, task *domain.Task, key, value str
 // leaves the key present and empty while `task clear <task> assignee` deletes it,
 // so a read taken after the mutation yields "" on both paths and the notification
 // would lose the one value it exists to carry. value is always "" on the clear
-// path, which has no value argument.
+// path, which has no value argument. vaultName and tasksDir are the vault's
+// configured identity, carried so the body can render the same Obsidian link the
+// agent-side peer renders.
 func publishAssigneeClearEscalation(
 	ctx context.Context,
 	publisher EscalationPublisher,
 	task *domain.Task,
-	key, value, previousAssignee string,
+	key, value, previousAssignee, vaultName, tasksDir string,
 ) {
 	if key != "assignee" || value != "" || previousAssignee == "" {
 		return
+	}
+	// An absent phase renders as the empty string, exactly as the peer renders
+	// it: the two producers must agree on the body for a task with no phase, so
+	// this is not defaulted, not skipped, and not replaced by a placeholder.
+	escalatedPhase := ""
+	if p := task.Phase(); p != nil {
+		escalatedPhase = string(*p)
 	}
 	publisher.PublishEscalation(ctx, Escalation{
 		TaskIdentifier:   task.TaskIdentifier(),
 		TaskName:         task.Name,
 		PreviousAssignee: previousAssignee,
+		Status:           string(task.Status()),
+		Phase:            escalatedPhase,
+		VaultName:        vaultName,
+		TasksDir:         tasksDir,
 	})
 }

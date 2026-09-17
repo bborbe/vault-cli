@@ -2192,7 +2192,7 @@ func createTaskSetCommand(
 			err = dispatcher.FirstSuccess(ctx, vaults, func(vault *config.Vault) error {
 				storageConfig := storage.NewConfigFromVault(vault)
 				taskStore := storage.NewTaskStorage(storageConfig)
-				setOp := ops.NewFrontmatterSetOperation(taskStore, publisher)
+				setOp := ops.NewFrontmatterSetOperation(taskStore, publisher, vault.Name, vault.GetTasksDir())
 				if err := setOp.Execute(ctx, vault.Path, taskName, key, value, reason, gateSuccessor, force); err != nil {
 					return err
 				}
@@ -2256,7 +2256,7 @@ func createTaskClearCommand(
 			err = dispatcher.FirstSuccess(ctx, vaults, func(vault *config.Vault) error {
 				storageConfig := storage.NewConfigFromVault(vault)
 				taskStore := storage.NewTaskStorage(storageConfig)
-				clearOp := ops.NewFrontmatterClearOperation(taskStore, publisher)
+				clearOp := ops.NewFrontmatterClearOperation(taskStore, publisher, vault.Name, vault.GetTasksDir())
 				if err := clearOp.Execute(ctx, vault.Path, taskName, key); err != nil {
 					return err
 				}

@@ -166,12 +166,14 @@ Wait for user confirmation.
 
    ```bash
    # next number
-   grep -oE '^#+ [0-9]+\.' <page> | grep -oE '[0-9]+' | sort -n | tail -1
+   grep -oE '^#{2,6} [0-9]+\.' <page> | grep -oE '[0-9]+' | sort -n | tail -1
    # after appending: must print nothing
-   grep -oE '^#+ [0-9]+\.' <page> | grep -oE '[0-9]+' | sort -n | uniq -d
+   grep -oE '^#{2,6} [0-9]+\.' <page> | grep -oE '[0-9]+' | sort -n | uniq -d
    ```
 
    Append at `max + 1`, then run the `uniq -d` check; any output is a collision you just created — renumber yours, never the existing one (its number may already be cited elsewhere). Same read → write → verify shape as `/email-inbox`'s rule-table numbering.
+
+   **`#{2,6}`, not `#+` — a fenced `# 1.` bash comment is not a heading.** `^#+` matches any depth, so a code block containing `# 1. what is suppressed` / `# 2. the unfiltered source` is counted as sections 1 and 2, and `uniq -d` then reports collisions that do not exist. Observed 2026-09-17 on the first real run of this step: the check returned `1 2 17` on a page whose only true duplicate was `17`. Excluding depth-1 is safe because vault notes never use `# H1` — the filename is the title. Note the synthetic fixtures used to test this step all passed, because they had no code fences; only a real page exposed it.
 
    **The trap is surveying the page with `head`.** A structure grep piped through `head -N` reads exactly like a complete outline and is not. Observed 2026-09-17: `grep -nE '^#{2,3} ' <page> | head -20` showed 17 numbered shapes on a page that had **37**, and the new section was appended as `### 18.` — colliding with an existing one. Survey the headings unpiped, or compute the max directly with the command above.
 

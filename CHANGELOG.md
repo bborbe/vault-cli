@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.133.2
 - fix: narrow the numbered-sequence match in `/vault-cli:reflect`'s ENHANCE path from `^#+` to `^#{2,6}`, so a `#`-prefixed line inside a fenced code block is no longer counted as a section heading. v0.133.1 shipped `^#+`, which matches any heading depth — on a page whose code blocks contain `# 1. what is suppressed` / `# 2. the unfiltered source`, those comments were read as sections 1 and 2 and `uniq -d` reported collisions that do not exist. Observed on the **first real run** of the step it had just added: the check returned `1 2 17` against a page whose only true duplicate is `17`. The `tail -1` max is exposed to the same defect — a numbered comment higher than any real heading would silently inflate the next number. Excluding depth-1 is safe because vault notes never carry `# H1` (the filename is the title), and it leaves the collision detector working: a fabricated `### 5.` duplicate is still caught. **Worth recording why this reached a release:** the step was verified before shipping with a positive and a negative control, both synthetic, and neither contained a code fence — the failure mode existed only in real input. Fails safe in the meantime (it over-reports collisions, so a reader investigates a phantom rather than missing a real one), which is why this is a follow-up rather than a revert
 
 ## v0.133.1

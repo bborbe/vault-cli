@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.134.1
 
 - fix: the `agent-escalation` body the CLI publishes on an assignee clear is now byte-identical to the body `bborbe/agent-task-controller` publishes for the same transition — it names the task's status and phase and carries an Obsidian link into the parked task file, and it no longer repeats the task name and identifier that already travel in the notification metadata.
 

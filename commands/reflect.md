@@ -162,6 +162,19 @@ Wait for user confirmation.
    - <key point 2>
    ```
 
+4. **If the page uses a numbered sequence** (`### 1.`, `### 2.` …), derive the next number from the WHOLE file — never from a truncated listing:
+
+   ```bash
+   # next number
+   grep -oE '^#+ [0-9]+\.' <page> | grep -oE '[0-9]+' | sort -n | tail -1
+   # after appending: must print nothing
+   grep -oE '^#+ [0-9]+\.' <page> | grep -oE '[0-9]+' | sort -n | uniq -d
+   ```
+
+   Append at `max + 1`, then run the `uniq -d` check; any output is a collision you just created — renumber yours, never the existing one (its number may already be cited elsewhere). Same read → write → verify shape as `/email-inbox`'s rule-table numbering.
+
+   **The trap is surveying the page with `head`.** A structure grep piped through `head -N` reads exactly like a complete outline and is not. Observed 2026-09-17: `grep -nE '^#{2,3} ' <page> | head -20` showed 17 numbered shapes on a page that had **37**, and the new section was appended as `### 18.` — colliding with an existing one. Survey the headings unpiped, or compute the max directly with the command above.
+
 **CREATE (new page):**
 
 1. Pick a filename (PascalCase or natural language matching existing KB pages)

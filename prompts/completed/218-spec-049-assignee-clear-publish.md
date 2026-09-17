@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [049-publish-escalation-on-assignee-clear]
+summary: Wired both documented assignee-clear paths (task set assignee "" and task clear assignee) to publish exactly one agent-escalation notification through prompt 1's transport, gated on a shared transition rule, captured before the mutation, and emitted only after a successful write
+execution_id: vault-cli-exec-218-spec-049-assignee-clear-publish
+dark-factory-version: v0.193.0
 created: "2026-09-17T13:25:00Z"
 queued: "2026-09-17T15:50:49Z"
+started: "2026-09-17T17:14:36Z"
+completed: "2026-09-17T17:20:17Z"
 ---
 
 # Assignee clear publishes one escalation from both documented clear paths

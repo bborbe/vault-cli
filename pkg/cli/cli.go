@@ -45,6 +45,25 @@ func getVaults(
 	return (*configLoader).GetAllVaults(ctx)
 }
 
+// escalationPublisher builds the optional escalation publisher from the
+// operator's config. A config that names no brokers yields a publisher that
+// publishes nothing and opens no connection, so a standalone vault-cli behaves
+// exactly as it did before this feature existed.
+func escalationPublisher(
+	ctx context.Context,
+	configLoader *config.Loader,
+) (ops.EscalationPublisher, error) {
+	cfg, err := (*configLoader).Load(ctx)
+	if err != nil {
+		return nil, errors.Wrap(ctx, err, "load config")
+	}
+	return ops.NewEscalationPublisher(
+		cfg.Notification.Brokers,
+		cfg.Notification.TopicPrefix,
+		ops.NewKafkaNotificationSenderFactory(),
+	), nil
+}
+
 // getWatchVaults returns the vaults the watch command should watch.
 //
 // A comma-separated value selects exactly the named vaults: whitespace around
@@ -2164,11 +2183,16 @@ func createTaskSetCommand(
 				return errors.Wrap(ctx, err, "get vaults")
 			}
 
+			publisher, err := escalationPublisher(ctx, configLoader)
+			if err != nil {
+				return err
+			}
+
 			dispatcher := ops.NewVaultDispatcher()
 			err = dispatcher.FirstSuccess(ctx, vaults, func(vault *config.Vault) error {
 				storageConfig := storage.NewConfigFromVault(vault)
 				taskStore := storage.NewTaskStorage(storageConfig)
-				setOp := ops.NewFrontmatterSetOperation(taskStore)
+				setOp := ops.NewFrontmatterSetOperation(taskStore, publisher)
 				if err := setOp.Execute(ctx, vault.Path, taskName, key, value, reason, gateSuccessor, force); err != nil {
 					return err
 				}
@@ -2223,11 +2247,16 @@ func createTaskClearCommand(
 				return errors.Wrap(ctx, err, "get vaults")
 			}
 
+			publisher, err := escalationPublisher(ctx, configLoader)
+			if err != nil {
+				return err
+			}
+
 			dispatcher := ops.NewVaultDispatcher()
 			err = dispatcher.FirstSuccess(ctx, vaults, func(vault *config.Vault) error {
 				storageConfig := storage.NewConfigFromVault(vault)
 				taskStore := storage.NewTaskStorage(storageConfig)
-				clearOp := ops.NewFrontmatterClearOperation(taskStore)
+				clearOp := ops.NewFrontmatterClearOperation(taskStore, publisher)
 				if err := clearOp.Execute(ctx, vault.Path, taskName, key); err != nil {
 					return err
 				}

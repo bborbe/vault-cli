@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -97,6 +98,44 @@ vaults:
     tasks_dir: Tasks
     topics_dir: "%s"
 `, vaultPath, topicsDir)
+
+	configFile, err := os.CreateTemp("", "vault-config-*.yaml")
+	Expect(err).NotTo(HaveOccurred())
+	_, err = configFile.WriteString(configContent)
+	Expect(err).NotTo(HaveOccurred())
+	err = configFile.Close()
+	Expect(err).NotTo(HaveOccurred())
+
+	return vaultPath, configFile.Name(), func() {
+		_ = os.RemoveAll(vaultPath)
+		_ = os.Remove(configFile.Name())
+	}
+}
+
+// createTempVaultWithBrokers creates a temporary vault whose config carries a
+// notification section naming the given brokers, and returns the vault path, the
+// config path and a cleanup func.
+func createTempVaultWithBrokers(
+	brokers, topicPrefix string,
+) (vaultPath string, configPath string, cleanup func()) {
+	var err error
+	vaultPath, err = os.MkdirTemp("", "vault-*")
+	Expect(err).NotTo(HaveOccurred())
+
+	tasksDir := filepath.Join(vaultPath, "Tasks")
+	err = os.MkdirAll(tasksDir, 0755)
+	Expect(err).NotTo(HaveOccurred())
+
+	configContent := fmt.Sprintf(`default_vault: test
+vaults:
+  test:
+    name: test
+    path: %s
+    tasks_dir: Tasks
+notification:
+  brokers: "%s"
+  topic_prefix: "%s"
+`, vaultPath, brokers, topicPrefix)
 
 	configFile, err := os.CreateTemp("", "vault-config-*.yaml")
 	Expect(err).NotTo(HaveOccurred())
@@ -1913,6 +1952,56 @@ page_type: goal
 				Expect(raw).NotTo(ContainSubstring("not found in any vault"))
 				Expect(string(session.Err.Contents())).NotTo(ContainSubstring("not found in any vault"))
 			})
+		})
+	})
+
+	Describe("vault-cli task assignee clear escalation", func() {
+		It("task set assignee empty exits 0 and reports the failure when the broker is unreachable", func() {
+			vaultPath, configPath, cleanup := createTempVaultWithBrokers("127.0.0.1:1", "master")
+			defer cleanup()
+
+			taskPath := filepath.Join(vaultPath, "Tasks", "Park Me.md")
+			Expect(os.WriteFile(taskPath, []byte(
+				"---\nstatus: in_progress\nassignee: alice\ntask_identifier: 0f6a3a0e-0000-4000-8000-000000000001\n---\n",
+			), 0600)).To(Succeed())
+
+			cmd := exec.Command(binPath, "--config", configPath, "task", "set", "Park Me", "assignee", "")
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session, 30*time.Second).Should(gexec.Exit(0))
+
+			Expect(string(session.Out.Contents())).To(Equal("✅ Set assignee= on: Park Me\n"))
+			Expect(string(session.Err.Contents())).
+				To(ContainSubstring("publish agent-escalation notification for task"))
+			Expect(string(session.Err.Contents())).
+				To(ContainSubstring("escalated by alice failed:"))
+
+			content, err := os.ReadFile(taskPath)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(content)).NotTo(ContainSubstring("alice"))
+			Expect(string(content)).To(ContainSubstring("status: in_progress"))
+		})
+
+		It("task clear assignee exits 0 with unchanged output when no broker is configured", func() {
+			vaultPath, configPath, cleanup := createTempVault(map[string]string{
+				"Park Me": "---\nstatus: in_progress\nassignee: alice\n---\n",
+			})
+			defer cleanup()
+
+			taskPath := filepath.Join(vaultPath, "Tasks", "Park Me.md")
+
+			cmd := exec.Command(binPath, "--config", configPath, "task", "clear", "Park Me", "assignee")
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session, 10*time.Second).Should(gexec.Exit(0))
+
+			Expect(string(session.Out.Contents())).To(Equal("✅ Cleared assignee on: Park Me\n"))
+			Expect(session.Err.Contents()).To(BeEmpty())
+
+			content, err := os.ReadFile(taskPath)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(content)).NotTo(ContainSubstring("assignee"))
+			Expect(string(content)).To(ContainSubstring("status: in_progress"))
 		})
 	})
 

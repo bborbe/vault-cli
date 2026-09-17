@@ -9,6 +9,8 @@ import (
 	"errors"
 	"time"
 
+	notifcore "github.com/bborbe/notification"
+	notifcmd "github.com/bborbe/notification/command/notification"
 	libtime "github.com/bborbe/time"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -345,7 +347,9 @@ var _ = Describe("FrontmatterSetOperation", func() {
 	BeforeEach(func() {
 		ctx = context.Background()
 		mockTaskStorage = &mocks.TaskStorage{}
-		setOp = ops.NewFrontmatterSetOperation(mockTaskStorage)
+		mockFactory := &mocks.NotificationSenderFactory{}
+		publisher := ops.NewEscalationPublisher("", "", mockFactory)
+		setOp = ops.NewFrontmatterSetOperation(mockTaskStorage, publisher)
 		vaultPath = "/path/to/vault"
 		taskName = "my-task"
 
@@ -908,7 +912,9 @@ var _ = Describe("FrontmatterClearOperation", func() {
 	BeforeEach(func() {
 		ctx = context.Background()
 		mockTaskStorage = &mocks.TaskStorage{}
-		clearOp = ops.NewFrontmatterClearOperation(mockTaskStorage)
+		mockFactory := &mocks.NotificationSenderFactory{}
+		publisher := ops.NewEscalationPublisher("", "", mockFactory)
+		clearOp = ops.NewFrontmatterClearOperation(mockTaskStorage, publisher)
 		vaultPath = "/path/to/vault"
 		taskName = "my-task"
 
@@ -1141,5 +1147,192 @@ var _ = Describe("FrontmatterClearOperation", func() {
 		It("returns an error", func() {
 			Expect(err).To(MatchError(ContainSubstring("write task")))
 		})
+	})
+})
+
+var _ = Describe("Frontmatter assignee-clear escalation", func() {
+	var (
+		ctx              context.Context
+		err              error
+		mockTaskStorage  *mocks.TaskStorage
+		mockSender       *mocks.NotificationPublishCommandSender
+		mockFactory      *mocks.NotificationSenderFactory
+		publisher        ops.EscalationPublisher
+		setOp            ops.FrontmatterSetOperation
+		clearOp          ops.FrontmatterClearOperation
+		vaultPath        string
+		taskName         string
+		previousAssignee string
+		taskIdentifier   string
+		task             *domain.Task
+	)
+
+	BeforeEach(func() {
+		ctx = context.Background()
+		mockTaskStorage = &mocks.TaskStorage{}
+		mockSender = &mocks.NotificationPublishCommandSender{}
+		mockSender.SendPublishNotificationCommandReturns(nil)
+		mockFactory = &mocks.NotificationSenderFactory{}
+		mockFactory.CreateReturns(mockSender, nil)
+		publisher = ops.NewEscalationPublisher("broker-1:9092", "master", mockFactory)
+		setOp = ops.NewFrontmatterSetOperation(mockTaskStorage, publisher)
+		clearOp = ops.NewFrontmatterClearOperation(mockTaskStorage, publisher)
+		vaultPath = "/path/to/vault"
+		taskName = "my-task"
+		previousAssignee = "alice"
+		taskIdentifier = "0f6a3a0e-0000-4000-8000-000000000001"
+		task = domain.NewTask(
+			map[string]any{
+				"status":          "in_progress",
+				"assignee":        previousAssignee,
+				"task_identifier": taskIdentifier,
+			},
+			domain.FileMetadata{Name: taskName},
+			domain.Content(""),
+		)
+		mockTaskStorage.FindTaskByNameReturns(task, nil)
+		mockTaskStorage.WriteTaskReturns(nil)
+	})
+
+	// recordedCommand waits for the asynchronous publish and returns the single
+	// command it recorded. PublishEscalation performs the publish in a goroutine,
+	// so every positive assertion must go through Eventually.
+	recordedCommand := func() notifcmd.NotificationPublishCommand {
+		Eventually(func() int {
+			return mockSender.SendPublishNotificationCommandCallCount()
+		}).Should(Equal(1))
+		_, command := mockSender.SendPublishNotificationCommandArgsForCall(0)
+		return command
+	}
+
+	// assertSilent asserts that nothing was published and no connection was
+	// attempted, for the whole duration a stray asynchronous publish would need.
+	assertSilent := func() {
+		Consistently(func() int {
+			return mockSender.SendPublishNotificationCommandCallCount()
+		}, "200ms", "50ms").Should(Equal(0))
+		Expect(mockFactory.CreateCallCount()).To(Equal(0))
+	}
+
+	It("publishes one escalation when task set empties a non-empty assignee", func() {
+		err = setOp.Execute(ctx, vaultPath, taskName, "assignee", "", "", "", false)
+
+		Expect(err).To(BeNil())
+		Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+		_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
+		Expect(writtenTask.Assignee()).To(Equal(""))
+
+		command := recordedCommand()
+		Expect(command.Type).To(Equal(notifcore.AgentEscalationNotificationType))
+		Expect(command.Target).To(BeNil())
+		Expect(command.Metadata).To(Equal(map[string]string{
+			"taskIdentifier":   taskIdentifier,
+			"taskName":         taskName,
+			"previousAssignee": previousAssignee,
+		}))
+	})
+
+	It("publishes one escalation when task clear removes a non-empty assignee", func() {
+		err = clearOp.Execute(ctx, vaultPath, taskName, "assignee")
+
+		Expect(err).To(BeNil())
+		Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+		_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
+		Expect(writtenTask.Assignee()).To(Equal(""))
+
+		command := recordedCommand()
+		Expect(command.Type).To(Equal(notifcore.AgentEscalationNotificationType))
+		Expect(command.Target).To(BeNil())
+		Expect(command.Metadata).To(Equal(map[string]string{
+			"taskIdentifier":   taskIdentifier,
+			"taskName":         taskName,
+			"previousAssignee": previousAssignee,
+		}))
+	})
+
+	It("publishes nothing when task set writes an empty assignee over an empty assignee", func() {
+		task.ClearField("assignee")
+
+		err = setOp.Execute(ctx, vaultPath, taskName, "assignee", "", "", "", false)
+
+		Expect(err).To(BeNil())
+		Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+		assertSilent()
+	})
+
+	It("publishes nothing when task clear removes an already-absent assignee", func() {
+		task.ClearField("assignee")
+
+		err = clearOp.Execute(ctx, vaultPath, taskName, "assignee")
+
+		Expect(err).To(BeNil())
+		Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+		assertSilent()
+	})
+
+	It("publishes nothing when task set replaces one assignee with another", func() {
+		err = setOp.Execute(ctx, vaultPath, taskName, "assignee", "bob", "", "", false)
+
+		Expect(err).To(BeNil())
+		Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+		assertSilent()
+	})
+
+	It("publishes nothing when a different frontmatter key is set through task set", func() {
+		err = setOp.Execute(ctx, vaultPath, taskName, "priority", "3", "", "", false)
+
+		Expect(err).To(BeNil())
+		Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+		assertSilent()
+	})
+
+	It("publishes nothing when a different frontmatter key is cleared through task clear", func() {
+		err = clearOp.Execute(ctx, vaultPath, taskName, "status")
+
+		Expect(err).To(BeNil())
+		Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+		assertSilent()
+	})
+
+	It("publishes nothing when task set fails to write", func() {
+		mockTaskStorage.WriteTaskReturns(errors.New("write failed"))
+
+		err = setOp.Execute(ctx, vaultPath, taskName, "assignee", "", "", "", false)
+
+		Expect(err).To(MatchError(ContainSubstring("write task")))
+		assertSilent()
+	})
+
+	It("publishes nothing when task clear fails to write", func() {
+		mockTaskStorage.WriteTaskReturns(errors.New("write failed"))
+
+		err = clearOp.Execute(ctx, vaultPath, taskName, "assignee")
+
+		Expect(err).To(MatchError(ContainSubstring("write task")))
+		assertSilent()
+	})
+
+	It("returns success within the publish bound when the sender blocks past it", func() {
+		blocked := make(chan struct{})
+		DeferCleanup(func() {
+			close(blocked)
+		})
+		mockSender.SendPublishNotificationCommandStub = func(
+			context.Context, notifcmd.NotificationPublishCommand,
+		) error {
+			<-blocked
+			return nil
+		}
+
+		start := time.Now()
+		err = setOp.Execute(ctx, vaultPath, taskName, "assignee", "", "", "", false)
+		elapsed := time.Since(start)
+
+		Expect(err).To(BeNil())
+		Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+		_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
+		Expect(writtenTask.Assignee()).To(Equal(""))
+		Expect(elapsed).To(BeNumerically(">=", ops.EscalationPublishTimeout))
+		Expect(elapsed).To(BeNumerically("<", ops.EscalationPublishTimeout+3*time.Second))
 	})
 })

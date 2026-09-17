@@ -50,14 +50,19 @@ type FrontmatterSetOperation interface {
 }
 
 // NewFrontmatterSetOperation creates a new frontmatter set operation.
-func NewFrontmatterSetOperation(taskStorage storage.TaskStorage) FrontmatterSetOperation {
+func NewFrontmatterSetOperation(
+	taskStorage storage.TaskStorage,
+	publisher EscalationPublisher,
+) FrontmatterSetOperation {
 	return &frontmatterSetOperation{
 		taskStorage: taskStorage,
+		publisher:   publisher,
 	}
 }
 
 type frontmatterSetOperation struct {
 	taskStorage storage.TaskStorage
+	publisher   EscalationPublisher
 }
 
 // Execute sets the value of a frontmatter field on a task.
@@ -69,6 +74,11 @@ func (o *frontmatterSetOperation) Execute(
 	if err != nil {
 		return errors.Wrap(ctx, err, "find task")
 	}
+
+	// Read the assignee before the mutation. `task set <task> assignee ""` leaves
+	// the key present and empty, so a read taken after the write can no longer
+	// tell a cleared assignee from one that was never set.
+	previousAssignee := task.Assignee()
 
 	// One-step close-out: when this invocation sets a close-out status, persist
 	// reason and successor first so both land in a single WriteTask. Fields are
@@ -96,6 +106,8 @@ func (o *frontmatterSetOperation) Execute(
 	if err := o.taskStorage.WriteTask(ctx, task); err != nil {
 		return errors.Wrap(ctx, err, "write task")
 	}
+
+	publishAssigneeClearEscalation(ctx, o.publisher, task, key, value, previousAssignee)
 
 	return nil
 }
@@ -132,14 +144,19 @@ type FrontmatterClearOperation interface {
 }
 
 // NewFrontmatterClearOperation creates a new frontmatter clear operation.
-func NewFrontmatterClearOperation(taskStorage storage.TaskStorage) FrontmatterClearOperation {
+func NewFrontmatterClearOperation(
+	taskStorage storage.TaskStorage,
+	publisher EscalationPublisher,
+) FrontmatterClearOperation {
 	return &frontmatterClearOperation{
 		taskStorage: taskStorage,
+		publisher:   publisher,
 	}
 }
 
 type frontmatterClearOperation struct {
 	taskStorage storage.TaskStorage
+	publisher   EscalationPublisher
 }
 
 // Execute clears (removes) the value of a frontmatter field on a task.
@@ -152,11 +169,17 @@ func (o *frontmatterClearOperation) Execute(
 		return errors.Wrap(ctx, err, "find task")
 	}
 
+	// Read the assignee before the deletion. ClearField removes the key outright,
+	// so a read taken after the write always yields "".
+	previousAssignee := task.Assignee()
+
 	task.ClearField(key)
 
 	if err := o.taskStorage.WriteTask(ctx, task); err != nil {
 		return errors.Wrap(ctx, err, "write task")
 	}
+
+	publishAssigneeClearEscalation(ctx, o.publisher, task, key, "", previousAssignee)
 
 	return nil
 }
@@ -185,4 +208,29 @@ func checkPhaseRegression(ctx context.Context, task *domain.Task, key, value str
 			canonical, task.Name, *current)
 	}
 	return nil
+}
+
+// publishAssigneeClearEscalation emits one agent-escalation notification when a
+// frontmatter write cleared a non-empty assignee. It is the single transition
+// rule both clear paths share.
+//
+// previousAssignee MUST be read before the mutation: `task set <task> assignee ""`
+// leaves the key present and empty while `task clear <task> assignee` deletes it,
+// so a read taken after the mutation yields "" on both paths and the notification
+// would lose the one value it exists to carry. value is always "" on the clear
+// path, which has no value argument.
+func publishAssigneeClearEscalation(
+	ctx context.Context,
+	publisher EscalationPublisher,
+	task *domain.Task,
+	key, value, previousAssignee string,
+) {
+	if key != "assignee" || value != "" || previousAssignee == "" {
+		return
+	}
+	publisher.PublishEscalation(ctx, Escalation{
+		TaskIdentifier:   task.TaskIdentifier(),
+		TaskName:         task.Name,
+		PreviousAssignee: previousAssignee,
+	})
 }

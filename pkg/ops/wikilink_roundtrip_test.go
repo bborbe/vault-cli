@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/bborbe/vault-cli/mocks"
 	"github.com/bborbe/vault-cli/pkg/ops"
 	"github.com/bborbe/vault-cli/pkg/storage"
 )
@@ -112,8 +113,10 @@ body
 		Entry("task", "24 Tasks", func(
 			ctx context.Context, cfg *storage.Config, vaultPath, name, key, value string,
 		) error {
-			return ops.NewFrontmatterSetOperation(storage.NewTaskStorage(cfg)).
-				Execute(ctx, vaultPath, name, key, value, "", "", false)
+			return ops.NewFrontmatterSetOperation(
+				storage.NewTaskStorage(cfg),
+				ops.NewEscalationPublisher("", "", &mocks.NotificationSenderFactory{}),
+			).Execute(ctx, vaultPath, name, key, value, "", "", false)
 		}),
 		Entry("goal", "23 Goals", func(
 			ctx context.Context, cfg *storage.Config, vaultPath, name, key, value string,

@@ -19,6 +19,15 @@ type Config struct {
 	CurrentUser  string           `yaml:"current_user"`
 	DefaultVault string           `yaml:"default_vault"`
 	Vaults       map[string]Vault `yaml:"vaults"`
+	Notification Notification     `yaml:"notification,omitempty"`
+}
+
+// Notification carries the optional escalation-publish settings. An empty
+// Brokers value means vault-cli publishes nothing and opens no broker
+// connection, which is what keeps the tool usable as a standalone local binary.
+type Notification struct {
+	Brokers     string `yaml:"brokers,omitempty"      json:"brokers,omitempty"`
+	TopicPrefix string `yaml:"topic_prefix,omitempty" json:"topic_prefix,omitempty"`
 }
 
 // Vault represents a single vault configuration.

@@ -136,6 +136,47 @@ vaults:
 			})
 		})
 
+		Context("notification in config", func() {
+			BeforeEach(func() {
+				configData := `default_vault: main
+vaults:
+  main:
+    name: main
+    path: /vault/main
+notification:
+  brokers: "broker-1:9092,broker-2:9092"
+  topic_prefix: "master"
+`
+				err := os.WriteFile(configPath, []byte(configData), 0600)
+				Expect(err).To(BeNil())
+				loader = config.NewLoader(configPath)
+			})
+
+			It("loads the notification broker settings", func() {
+				cfg, err := loader.Load(ctx)
+				Expect(err).To(BeNil())
+				Expect(cfg.Notification.Brokers).To(Equal("broker-1:9092,broker-2:9092"))
+				Expect(cfg.Notification.TopicPrefix).To(Equal("master"))
+			})
+
+			It("leaves the notification settings empty when the section is absent", func() {
+				configData := `default_vault: main
+vaults:
+  main:
+    name: main
+    path: /vault/main
+`
+				err := os.WriteFile(configPath, []byte(configData), 0600)
+				Expect(err).To(BeNil())
+				loader = config.NewLoader(configPath)
+
+				cfg, err := loader.Load(ctx)
+				Expect(err).To(BeNil())
+				Expect(cfg.Notification.Brokers).To(BeEmpty())
+				Expect(cfg.Notification.TopicPrefix).To(BeEmpty())
+			})
+		})
+
 		Context("missing config file", func() {
 			BeforeEach(func() {
 				loader = config.NewLoader(configPath) // File doesn't exist

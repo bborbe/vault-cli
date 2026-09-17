@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.134.0
 
 - feat: add an opt-in, bounded escalation transport. `pkg/config` gains a top-level `notification: {brokers, topic_prefix}` section, and `pkg/ops/escalation.go` adds `EscalationPublisher`/`NewEscalationPublisher` plus `NewKafkaNotificationSenderFactory`, which publishes an `agent-escalation` notification through the shared notification core on `<prefix>-core-notification-v1-request` — the same transport `bborbe/agent-task-controller` uses. An empty `brokers` value publishes nothing and opens no broker connection, so a standalone vault-cli is unchanged; a publish is a single attempt bounded to `EscalationPublishTimeout` (5s) and a failure is logged through `log/slog` and swallowed. Nothing publishes yet — the assignee-clear write paths are wired in a follow-up.
 - feat: clearing a task's assignee through `vault-cli task set "<task>" assignee ""` or `vault-cli task clear "<task>" assignee` now publishes one `agent-escalation` notification into the shared notification core, so a park performed by hand reaches the operator's chat instead of staying silent. The publish is opt-in — with no `notification.brokers` in the config file vault-cli publishes nothing and opens no connection — and bounded to a single five-second attempt whose failure is logged and never fails the command, never changes its exit code or output, and never delays it past the bound.

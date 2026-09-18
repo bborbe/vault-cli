@@ -316,6 +316,7 @@ Two kinds, report both, don't conflate:
 |---|---|---|
 | **Task prerequisite** — names another vault task | "Rebuild Trading Dev+Prod must be Done" | `vault-cli task get "<name>" status`; match by meaning, since runbook wording lags task titles |
 | **State pre-check** — a condition on the live system | "no active builds", "no other SSH sessions" | Do NOT run these. Report that they exist and that the operator runs them at execution time. |
+| **Deploy-shape claim** — an assertion about what a deploy will do, derived from repo state | "no image change → no `make mirror`", "the tag is already in the registry", "`apply` will roll the pod" | Treat it as a state pre-check, never as a fact. Repo state cannot see the **running** pod: a manifest may name a tag the cluster never pulled, and the restart is what forces the first pull. State the check the operator must run — compare the pod's `.status.containerStatuses[0].image` against the spec's — instead of asserting the outcome. Bit 2026-09-18: "no image change → no `make mirror`" was true of the repo and false of the cluster; a token-only change plus `rollout restart` took prod down ~40 min on an unmirrored tag, and `rollout undo` could not recover it. |
 
 If the runbook names an **escape path** for a prerequisite ("skippable when…"), report the prerequisite as blocking *and* quote the escape path. Never apply an escape path unilaterally — it is the operator's call.
 

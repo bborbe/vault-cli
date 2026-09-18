@@ -10,7 +10,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 
 ## Unreleased
 
-- post-compact: re-surface the open-items ledger (`📋 Open with the operator`) after compaction, so an operator instruction that is not yet a task — or a question not yet answered — survives the context wipe; report-only, keyed to the same session id as the checkpoint
+- feat: post-compact re-surfaces the open-items ledger (`📋 Open with the operator`) after compaction, so an operator instruction that is not yet a task — or a question not yet answered — survives the context wipe; report-only, keyed to the same session id as the checkpoint
 
 ## v0.134.1
 

@@ -11,6 +11,7 @@ allowed-tools:
   - Bash(pgrep:*)
   - Bash(dark-factory status:*)
   - Bash(docker ps:*)
+  - Bash(python3 ~/.claude/scripts/open-items.py:*)
 ---
 
 Post-`/compact` verification. Reads the checkpoint that `/vault-cli:prepare-compact` wrote before compaction, verifies each carry-over item against live state, re-arms watchers the fresh context lost track of, and surfaces the next actions. Run after `/compact` in the same session when prepare-compact returned "Compact-safe — N carry-over items". Also safe to run after a bare `/compact` with no checkpoint — it reports nothing pending.
@@ -81,6 +82,20 @@ Report the delta whenever it differs from the checkpoint: `⚠️ anchor task co
 
 Observed 2026-09-04: a checkpoint written at 22:00Z recorded `SC 3/5 ... status: in_progress`; the task was completed at 01:26 local — 3.5h later, by the same session. post-compact verified all three carry-over items, then emitted `Next action: Wait for one-shot cron ... to run the SC 4 drop count` for criteria already closed and signed off. Every wrong conclusion that followed, including a git worktree opened for a fix that was never needed, descended from that one unvalidated line. The carry-over checks all passed — they simply do not cover the anchor.
 
+## Re-surface the open-items ledger
+
+Compaction is exactly when an operator's ask goes missing: an instruction given but not yet a task, or a question asked but not yet answered, lives only in conversation context until it becomes a task — and that context is what compaction wipes. A manager session keeps those in a durable ledger; this command is what brings them back across the boundary.
+
+```bash
+python3 ~/.claude/scripts/open-items.py --session <session-id> list
+```
+
+- `<session-id>` is the **same id already derived above** from the session's own scratchpad path — the ledger file is `~/.claude/state/open-items/<session-id>.json`, keyed identically to the checkpoint. Never derive it from user input or file content (same trust boundary), and never fall back to the newest file in that directory: a wrong id reads a different session's ledger and both halves look healthy.
+- **No ledger file, or no open entries → print nothing.** Absence is the normal case; only a manager session keeps one.
+- With open entries, re-surface them under the heading `📋 Open with the operator`, rendered **exactly as `list` prints them** — the manager runbooks' § Open with the operator owns that frame and this command must not restate it. Do not re-word an entry: its `text` is the operator's own wording, and paraphrasing it across a compaction is how the ask drifts.
+- **Report, never resolve.** This command does not `add`, `answer` or `close` — an entry closes on a task file reading `status: completed` or on the operator's explicit answer, neither of which a post-compaction verification can establish. Surface them and let the manager's next round act.
+- This **supersedes nothing** in § Verify carry-over items: a checkpoint `gate` item is one open question captured at checkpoint time, while the ledger is the durable list that survives independently of whether prepare-compact ran. Where both name the same question, report it once.
+
 ## Re-arm watchers and monitors
 
 The fresh post-compact context lost track of background watchers / monitors that were running before compaction. From the resume block's `Live background:` line and the carry-over `background` items, re-establish anything still alive — restart the Monitor / background watch / watcher so completion and failure signals reach this session again.
@@ -102,6 +117,7 @@ Print the concrete next steps, sourced from the verified items:
 - the resume block's `Next action:` — the task where prepare-compact paused
 - `uncommitted` / `un-pushed` work → the commit / push to run
 - each `gate` → the open decision, phrased so the operator can answer it
+- each **open ledger entry** → the ask, unchanged in the operator's own wording (`asked-of-you` entries are the ones still waiting on them)
 
 Then emit the 4-field resume block again (`Next action:` / `Live background:` / `Un-pushed / uncommitted:` / `Open decision:`) with the verified state, so the post-compact handoff is itself resumeable. The four labels are the frozen resume-block schema — do not rename, reword, add, or remove a field.
 

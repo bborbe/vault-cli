@@ -104,6 +104,7 @@ Rules:
 - **Wikilink the task/goal name in the heading.** `session-close` Phase 7 verifies this session's work is represented under "What happened today" by matching `[[wikilink]]` against the touched task/goal titles — a plain-text heading fails that check even though the entry is present, and the operator has to hand-patch it before close passes
 - Quote exact numbers/versions/metrics from the conversation
 - 2-3 sentence summary max; link to content pages for full context
+- **Never wikilink a file from another vault.** `[[Name]]` resolves within the *current* vault only, so a cross-vault reference is at best dead and at worst silently wrong: a dated filename like `[[2026-09-18]]` resolves to THIS vault's own daily note rather than the file you meant, producing a self-link that looks correct in the rendered note and in the graph. Write cross-vault files as a plain path — `` `Trading/IBKR Scans/2026-09-18.md` `` — and reserve `[[wikilinks]]` for pages in the vault being written to. Observed 2026-09-18, on an entry generated from the `Files updated:` block above.
 
 ### 3.2 Task / goal pages
 

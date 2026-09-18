@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.135.0
 
 - feat: post-compact re-surfaces the open-items ledger (`📋 Open with the operator`) after compaction, so an operator instruction that is not yet a task — or a question not yet answered — survives the context wipe; report-only, keyed to the same session id as the checkpoint
 

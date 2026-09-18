@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.136.0
 
 - work-on-task-assistant: treat a **deploy-shape claim** as a state pre-check, never as a fact. An assertion derived from repo state — "no image change → no `make mirror`" — cannot see the *running* pod, and stating it flatly invites a restart against a tag the cluster never pulled. The agent now surfaces the check the operator must run (compare the pod's `image` against the spec's) instead of asserting the outcome. Bit 2026-09-18: a token-only re-point plus `rollout restart` took prod Telegram delivery down ~40 minutes on an unmirrored tag, and `rollout undo` could not recover it because every revision named the same tag.
 

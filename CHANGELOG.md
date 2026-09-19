@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.138.0
 
 - worker manager channel, second pass: **the block alone did not bind.** Verified live 2026-09-19 on a spawned worker — it loaded v0.137.0's `## You are a worker` section, hit a genuine content question ("a literal reading records a pre-runbook number as the post-runbook measurement — pin SC1 to the first rep after the runbook landed?"), and still raised it with `AskUserQuestion` in its own tab, never calling `ListAgents` once. The tool sequence says why: the question came from **`plan-task`'s** fix loop, whose body explicitly directs `AskUserQuestion` — a more specific and more recent instruction than a block at the top of `work-on-task`, ~130 lines earlier in the same context. So the redirect now lands where the asking happens: `plan-task` § 6 sends each gap question to the manager as well, both commands name the `AskUserQuestion` case explicitly, and the claim is scoped to `/plan-task` rather than to "any chained command" — `execute-task` also asks, and a claim it does not implement is worse than a narrower true one. `plan-task` gains `ListAgents`/`SendMessage` for the same reason `work-on-task` did.
 

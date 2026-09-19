@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.139.1
 
 - fix: `vault-cli task set <task> phase planning` silently regressed finished tasks. `checkPhaseRegression` rejected only a **`todo`** target, so a write back to `planning` passed unguarded on any task already at `execution`, `ai_review` or `human_review` — and on a `status: completed` task the guard was never consulted at all. Observed 2026-09-19 in the Personal vault: six finished tasks had `phase` flipped from `execution` back to `planning` in a single obsidian-git autocommit (`bd76e6b4b1`), which is the state a reader trusts least — a merged PR and a deployed plugin beside `phase: planning`, indistinguishable on disk from a task that genuinely needs re-planning. The writer was **vault-ui's `PATCH /api/tasks/{id}/phase`**, which shells out to exactly this command, so a drag back to the planning column on the board was sufficient; the vault-ui access log names four of the six affected files, and the direction was established by port order against the known commit rather than assumed. Two prior guards missed it for independent reasons: this one knew only about `todo`, and the `work-on-task-assistant` stale-read fix is a *reader* repair with no write path at all. The guard now rejects a `planning` target on an in-progress task past planning and on a completed task, while leaving forward moves (`todo` -> `planning`, `planning` -> `execution`) untouched so the entry contract keeps working. `--force` remains the deliberate escape, and the error names it.
 

@@ -194,17 +194,44 @@ func (o *frontmatterClearOperation) Execute(
 	return nil
 }
 
-// checkPhaseRegression rejects setting phase "todo" on a task whose status is
-// in_progress and whose current phase is execution, ai_review, or human_review.
-// Such a write silently regresses the lifecycle and stalls the execution
-// pipeline (observed 2026-09-02: a bulk `task set phase todo` loop regressed 80
-// active tasks in the Personal vault). A deliberate reset must pass force=true.
+// checkPhaseRegression rejects a backward phase write on a task that has already
+// moved past that phase. Such a write silently regresses the lifecycle: a human
+// or agent reader treats the task as un-started and may re-open subtasks or
+// re-ask answered questions on work that already shipped.
+//
+// Two observed incidents motivated the two halves of this guard:
+//   - 2026-09-02: a bulk `task set phase todo` loop regressed 80 active tasks in
+//     the Personal vault.
+//   - 2026-09-19: vault-ui's PATCH /api/tasks/{id}/phase shells out to
+//     `vault-cli task set <id> phase <value>`, so a board drag back to the
+//     planning column regressed six finished Personal-vault tasks in a single
+//     autocommit (bd76e6b4b1). The original guard rejected only a `todo` target,
+//     so `planning` passed unguarded.
+//
+// A deliberate reset must pass force=true. A forward move (`todo` -> `planning`,
+// `planning` -> `execution`) is never a regression and always passes.
 func checkPhaseRegression(ctx context.Context, task *domain.Task, key, value string, force bool) error {
-	if force || key != "phase" || task.Status() != domain.TaskStatusInProgress {
+	if force || key != "phase" {
 		return nil
 	}
 	canonical, ok := domain.NormalizeTaskPhase(value)
-	if !ok || canonical != domain.TaskPhaseTodo {
+	if !ok {
+		return nil
+	}
+
+	// A completed task is terminal. Moving its phase back to planning re-opens
+	// finished work without touching its status, which is the state a reader
+	// trusts least: `status: completed` beside `phase: planning`.
+	if task.Status() == domain.TaskStatusCompleted && canonical == domain.TaskPhasePlanning {
+		return errors.Wrapf(ctx, validation.Error,
+			"refusing to set phase %q on %q: task is completed; this regression would silently re-open finished work. Pass --force to override",
+			canonical, task.Name)
+	}
+
+	if task.Status() != domain.TaskStatusInProgress {
+		return nil
+	}
+	if canonical != domain.TaskPhaseTodo && canonical != domain.TaskPhasePlanning {
 		return nil
 	}
 	current := task.Phase()

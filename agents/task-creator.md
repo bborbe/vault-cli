@@ -191,6 +191,22 @@ Decommission MinIO on Hell`, and the line had to be added by hand. Every goal-li
 created by this agent hits the same warning, and a goal whose task list silently omits its
 own tasks under-reports its own progress.
 
+> **Decision 2026-09-19 — this step is to be removed, not fixed.**
+> Measured against the Personal vault ([[Goal Task Lists Are Missing 112 of Their Own
+> Tasks]]): of 111 non-terminal task→goal declarations absent from their goal's `# Tasks`
+> list, 56 predate this step, 21 postdate it, and **32 were attached to an existing task
+> after creation — a path on which no code of ours runs at all.** `markGoalCheckbox`, the
+> only writer of a goal's `# Tasks` list, is called from exactly one place,
+> `pkg/ops/complete.go:158`. A hand edit in Obsidian, or `vault-cli task add goals`, can
+> therefore never reach this step. Backfilling and repairing this step both leave the
+> largest ongoing class producing.
+> **Decision:** demote `# Tasks` to a derived view of `goals:` frontmatter, which makes the
+> hand-attach path automatically correct. **Rejected:** backfill (answers a question about
+> the past), repairing this step alone (21 of 111, none of the ongoing class), and a
+> reconciliation sweep (re-repairs a denormalised copy forever).
+> Full argument, per-class evidence, and the costs of demotion — including that Dataview
+> output is invisible to every tool — are in that task's `# Results`.
+
 ## 12. Audit (interactive only)
 
 Run a light self-audit against the file:

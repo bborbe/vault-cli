@@ -12,7 +12,7 @@ If a manager session watches your topic, it is the channel for questions you wou
 
 Reach it by name with `SendMessage`, setting `to` to exactly what `ListAgents` prints. An explicit name given at spawn wins; otherwise take the `ListAgents` row matching your task's topic (`<Topic>` or `<Topic> Manager`; your `goals:` name the goals, and the topic page listing them is your topic). Nothing resolves, or the tools are absent → raise the question in this chat and keep working. **Never block on a manager reply** — it drains at the manager's next tool round, not yours.
 
-**This covers the questions raised inside `/plan-task`**, which this command chains into and which is where a spawned worker most often asks. Send it *as well as* asking it in this tab: the ask is what unblocks you, the send is what makes the question visible without the operator visiting this tab.
+**This covers the questions raised inside both chained commands** — `/plan-task` § 6, where a spawned worker most often asks, and `/execute-task`'s step 1 ambiguity ask. Send it *as well as* asking it in this tab: the ask is what unblocks you, the send is what makes the question visible without the operator visiting this tab.
 
 ## Usage
 

@@ -442,6 +442,150 @@ var _ = Describe("FrontmatterSetOperation", func() {
 		})
 	})
 
+	// Observed 2026-09-19: vault-ui's PATCH /api/tasks/{id}/phase shells out to
+	// `vault-cli task set <id> phase <value>`, so a board drag back to the
+	// planning column silently regressed six finished Personal-vault tasks in one
+	// autocommit (bd76e6b4b1). The original guard only rejected a `todo` target,
+	// so `planning` passed unguarded.
+	Context("rejecting phase regression execution -> planning on in_progress task", func() {
+		BeforeEach(func() {
+			task = domain.NewTask(
+				map[string]any{"status": "in_progress", "phase": "execution"},
+				domain.FileMetadata{Name: taskName},
+				domain.Content(""),
+			)
+			mockTaskStorage.FindTaskByNameReturns(task, nil)
+			key = "phase"
+			value = "planning"
+		})
+
+		It("returns a regression error", func() {
+			Expect(err).NotTo(BeNil())
+			Expect(err.Error()).To(ContainSubstring("refusing to set phase"))
+			Expect(err.Error()).To(ContainSubstring("--force"))
+		})
+
+		It("does not write the task", func() {
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(0))
+		})
+	})
+
+	Context("rejecting phase regression ai_review -> planning on in_progress task", func() {
+		BeforeEach(func() {
+			task = domain.NewTask(
+				map[string]any{"status": "in_progress", "phase": "ai_review"},
+				domain.FileMetadata{Name: taskName},
+				domain.Content(""),
+			)
+			mockTaskStorage.FindTaskByNameReturns(task, nil)
+			key = "phase"
+			value = "planning"
+		})
+
+		It("returns a regression error", func() {
+			Expect(err).NotTo(BeNil())
+			Expect(err.Error()).To(ContainSubstring("refusing to set phase"))
+		})
+	})
+
+	Context("rejecting phase regression human_review -> planning on in_progress task", func() {
+		BeforeEach(func() {
+			task = domain.NewTask(
+				map[string]any{"status": "in_progress", "phase": "human_review"},
+				domain.FileMetadata{Name: taskName},
+				domain.Content(""),
+			)
+			mockTaskStorage.FindTaskByNameReturns(task, nil)
+			key = "phase"
+			value = "planning"
+		})
+
+		It("returns a regression error", func() {
+			Expect(err).NotTo(BeNil())
+			Expect(err.Error()).To(ContainSubstring("refusing to set phase"))
+		})
+	})
+
+	Context("rejecting phase planning on a completed task", func() {
+		BeforeEach(func() {
+			task = domain.NewTask(
+				map[string]any{"status": "completed", "phase": "done"},
+				domain.FileMetadata{Name: taskName},
+				domain.Content(""),
+			)
+			mockTaskStorage.FindTaskByNameReturns(task, nil)
+			key = "phase"
+			value = "planning"
+		})
+
+		It("returns a regression error", func() {
+			Expect(err).NotTo(BeNil())
+			Expect(err.Error()).To(ContainSubstring("refusing to set phase"))
+		})
+
+		It("does not write the task", func() {
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(0))
+		})
+	})
+
+	// The two must-still-pass cases. Broadening the guard must not break the
+	// legitimate entry contract (`todo` -> `planning` when starting work) nor a
+	// forward move out of planning.
+	Context("allowing todo -> planning on in_progress task", func() {
+		BeforeEach(func() {
+			task = domain.NewTask(
+				map[string]any{"status": "in_progress", "phase": "todo"},
+				domain.FileMetadata{Name: taskName},
+				domain.Content(""),
+			)
+			mockTaskStorage.FindTaskByNameReturns(task, nil)
+			key = "phase"
+			value = "planning"
+		})
+
+		It("writes the phase", func() {
+			Expect(err).To(BeNil())
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+		})
+	})
+
+	Context("allowing planning -> execution on in_progress task", func() {
+		BeforeEach(func() {
+			task = domain.NewTask(
+				map[string]any{"status": "in_progress", "phase": "planning"},
+				domain.FileMetadata{Name: taskName},
+				domain.Content(""),
+			)
+			mockTaskStorage.FindTaskByNameReturns(task, nil)
+			key = "phase"
+			value = "execution"
+		})
+
+		It("writes the phase", func() {
+			Expect(err).To(BeNil())
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+		})
+	})
+
+	Context("allowing execution -> planning with --force on in_progress task", func() {
+		BeforeEach(func() {
+			task = domain.NewTask(
+				map[string]any{"status": "in_progress", "phase": "execution"},
+				domain.FileMetadata{Name: taskName},
+				domain.Content(""),
+			)
+			mockTaskStorage.FindTaskByNameReturns(task, nil)
+			key = "phase"
+			value = "planning"
+			force = true
+		})
+
+		It("writes the phase", func() {
+			Expect(err).To(BeNil())
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+		})
+	})
+
 	Context("allowing execution -> todo with --force on in_progress task", func() {
 		BeforeEach(func() {
 			task = domain.NewTask(

@@ -7,7 +7,9 @@
 # ones where the obvious implementation is wrong:
 #
 #   - terminal tasks excluded from the denominator
-#   - a declaration whose goal FILE is absent counts as missing, subtotalled
+#   - a declaration whose goal FILE is absent is EXCLUDED and reported as its own
+#     `dangling parent` figure — asserted from both sides, since an exclusion
+#     that still shows up in the per-goal breakdown is cosmetic
 #   - `|alias`, `#heading`, `dir/` wikilink forms all resolve to one title
 #   - membership is the UNION of every `# Tasks` section (a goal in the real
 #     corpus has two, and first-heading-only moves the count by 2)
@@ -45,8 +47,11 @@ check() { # check <label> <want> <got>
 # num <output> <key> — the leading integer of a `<key>: <n> ...` line.
 num() { printf '%s\n' "$1" | awk -F': *' -v k="$2" '$1 == k { print $2 + 0; exit }'; }
 
-# absent <output> — the "goal file absent" subtotal.
-absent() { printf '%s\n' "$1" | awk '/goal file absent:/ { print $NF; exit }'; }
+# dangling <output> — the `dangling parent` figure, excluded from the counts by
+# canonical rule (a). Anchored to column 0: the printed rule text also contains
+# the phrase "dangling parent", and an unanchored match reads the prose instead
+# of the figure.
+dangling() { printf '%s\n' "$1" | awk '/^dangling parent/ { print $NF; exit }'; }
 
 # pergoal <output> <goal> — the missing count for one goal, or empty.
 pergoal() { printf '%s\n' "$1" | grep -E "^ *[0-9]+ +$2\$" | head -1 | awk '{ print $1 }'; }
@@ -57,19 +62,28 @@ check "fixture exit 0" 0 "$rc"
 
 # --- headline. The fixture holds 12 task files; 2 are terminal, leaving 10.
 # `No Goals Task` declares nothing and `Two Goals Task` declares two, so 9
-# contributing files yield 10 declarations.
+# contributing files yield 10 declarations — of which one names a goal file that
+# does not exist and is excluded by canonical rule (a), leaving 9.
 # The two terminal files are LISTED in Alpha on purpose: if status filtering
 # breaks they become linked, and the denominator moves to 12 — which is the
 # signal this case exists to catch.
-check "declarations" 10 "$(num "$out" declarations)"
+check "declarations" 9 "$(num "$out" declarations)"
 check "linked" 5 "$(num "$out" linked)"
-check "missing" 5 "$(num "$out" missing)"
-check "goal-file-absent subtotal" 1 "$(absent "$out")"
+check "missing" 4 "$(num "$out" missing)"
+check "dangling parent excluded" 1 "$(dangling "$out")"
 
 # --- per-goal breakdown
 check "per-goal Alpha" 3 "$(pergoal "$out" Alpha)"
 check "per-goal Outside" 1 "$(pergoal "$out" Outside)"
-check "per-goal No Such Goal" 1 "$(pergoal "$out" 'No Such Goal')"
+# rule (a) again, from the other side: an excluded declaration must not appear in
+# the breakdown either, or the exclusion is cosmetic.
+check "dangling goal absent from breakdown" "" "$(pergoal "$out" 'No Such Goal')"
+
+# --- the rule set ships WITH the numbers. SC1 requires the script to print its
+# own counting rules; a figure quoted without them is not reproducible, since
+# rule (a) alone moves the real vault's headline by 14.
+check "prints rule a" 1 "$(printf '%s\n' "$out" | grep -c 'a declaration naming a goal file that does NOT exist')"
+check "prints rule b (union)" 1 "$(printf '%s\n' "$out" | grep -c 'UNION of every')"
 
 # --- union of duplicated `# Tasks`: Dup Section Task is listed only under the
 # SECOND heading. First-heading-only would move it to missing and print a Dup row.
@@ -101,8 +115,8 @@ goals:
 body
 EOF
 mout=$(bash "$SCRIPT" "$MUT" --tasks-dir Tasks --goals-dir Goals 2>&1)
-check "mutation: declarations +1" 11 "$(num "$mout" declarations)"
-check "mutation: missing +1" 6 "$(num "$mout" missing)"
+check "mutation: declarations +1" 10 "$(num "$mout" declarations)"
+check "mutation: missing +1" 5 "$(num "$mout" missing)"
 check "mutation: per-goal Alpha +1" 4 "$(pergoal "$mout" Alpha)"
 
 # --- determinism: "run twice with the same result" is one of the properties the

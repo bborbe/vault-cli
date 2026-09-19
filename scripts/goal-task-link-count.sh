@@ -30,9 +30,12 @@
 #   1. "Declaration" is one (task, goal) pair — a task naming two goals is two.
 #   2. Terminal tasks are excluded. `completed` / `aborted` are done declaring;
 #      counting them would inflate the denominator with rows nothing can fix.
-#   3. A declaration whose goal file does not exist counts as missing (there is
-#      no `# Tasks` list to be in), but is reported as its own subtotal — it is a
-#      different defect with a different fix.
+#   3. A declaration whose goal file does not exist is EXCLUDED from the counts
+#      and reported separately as `dangling parent`. It is a different defect
+#      with a different remedy: neither candidate fix for this count applies,
+#      since no link can be backfilled into a file that is not there, and a
+#      rendered view of a missing goal renders nothing. Folding those into the
+#      headline makes one number describe two problems while only one is fixable.
 #   4. Wikilinks are normalised: `|alias`, `#heading` and any `dir/` prefix are
 #      stripped, so `[[25 Tasks/Foo|bar]]` and `[[Foo]]` are the same title.
 #   5. Membership is the UNION of every `# Tasks` section in a goal file. A goal
@@ -42,10 +45,9 @@
 #      implementation — silently moves 2 declarations from linked to missing and
 #      changes the headline by 2, so the rule is stated rather than implied.
 #
-# The headline is rule-sensitive, which is why the rules above are enumerated:
-# counting declarations whose goal FILE is absent moves the figure by 14 on the
-# 2026-09-19 corpus. Both readings are reported (headline + subtotal) so neither
-# is hidden.
+# The headline is rule-sensitive: on the 2026-09-19 corpus, rule 3 alone moves it
+# by 14. A figure quoted without its rule set is therefore not reproducible, which
+# is why the rules are printed on every run rather than documented once here.
 #
 # Two awk passes over the whole corpus, not one process per file: at ~2400 task
 # files the per-file form spends most of its time in fork().
@@ -225,11 +227,14 @@ result=$(
 		}
 		$1 == "G" {
 			f = $2; g = $3
-			# terminal tasks do not declare (definition 2)
+			# terminal tasks do not declare (rule d)
 			if (st[f] == "completed" || st[f] == "aborted") next
 			title = base(f); sub(/\.md$/, "", title)
+			# rule (a): a dangling parent is a DIFFERENT defect with a different
+			# remedy — no link can be backfilled into a file that is not there —
+			# so it is counted separately and kept out of this denominator.
+			if (!(g in gfile)) { dangling++; next }
 			total++
-			if (!(g in gfile)) { missing++; nogfile++; bygoal[g]++ ; next }
 			if ((g "\t" title) in member) { linked++; next }
 			missing++; bygoal[g]++
 		}
@@ -237,7 +242,7 @@ result=$(
 			printf "total\t%d\n", total
 			printf "linked\t%d\n", linked
 			printf "missing\t%d\n", missing
-			printf "nogfile\t%d\n", nogfile
+			printf "dangling\t%d\n", dangling
 			for (g in bygoal) printf "goal\t%d\t%s\n", bygoal[g], g
 		}
 	' | sort -t$'\t' -k1,1
@@ -248,25 +253,41 @@ val() { printf '%s\n' "$result" | awk -F'\t' -v k="$1" '$1==k {print $2; exit}';
 total=$(val total)
 linked=$(val linked)
 missing=$(val missing)
-nogfile=$(val nogfile)
+dangling=$(val dangling)
 
 total=${total:-0}
 linked=${linked:-0}
 missing=${missing:-0}
-nogfile=${nogfile:-0}
+dangling=${dangling:-0}
 
 pct="0.0"
 if [ "$total" -gt 0 ]; then
 	pct=$(awk -v m="$missing" -v t="$total" 'BEGIN { printf "%.1f", 100 * m / t }')
 fi
 
+# The numbers are only meaningful next to the rules that produced them: the
+# headline moves by 14 on rule (a) alone, so a figure quoted without its rule
+# set is not reproducible. Printed every run, not documented once.
+cat <<'RULES'
+counting rules (canonical, decided 2026-09-19):
+  a. a declaration naming a goal file that does NOT exist is EXCLUDED from the
+     counts below and reported separately as `dangling parent` — it is a
+     different defect with a different remedy, since no link can be backfilled
+     into a file that is not there
+  b. membership is the UNION of every `# Tasks` section in the goal file
+  c. a wikilink outside `# Tasks` is a mention, not a declaration
+  d. terminal tasks (status `completed` / `aborted`) are excluded entirely
+  e. `|alias`, `#heading` and `dir/` wikilink forms all resolve to one title
+RULES
+
+echo
 echo "vault:        $VAULT"
 echo "tasks dir:    $TASKS_DIR"
 echo "goals dir:    $GOALS_DIR"
 echo "declarations: $total"
 echo "linked:       $linked"
 echo "missing:      $missing (${pct}%)"
-echo "  goal file absent: $nogfile"
+echo "dangling parent (excluded by rule a): $dangling"
 echo
 echo "missing per goal:"
 

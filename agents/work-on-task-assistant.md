@@ -157,7 +157,7 @@ Connect the current session to the task so the task's `claude_session_id` points
    - If zero OR multiple UUIDs are returned (ambiguous / no match — the task is not the session's current title, several *live* sessions share it, or the session has already ended): do NOT write the field, and report `ℹ️ Session: not connected — <n> matching session(s), refusing to guess`. Do NOT fall back to the task name: a name is not a UUID and the vault-ui resolver would then mis-resolve it. Do not widen the window or drop the strip to force a match either — a miss here means no *live* session carries this title, and a guessed id is worse than an empty field (see the third failure face in the session-id gotcha). A miss is safe **only** on the headless Start path, which pre-sets this field via vault-cli before the turn; from an interactive session nothing pre-set it, so the status flip below must then not route through `work-on`, or it spawns a second session onto this task.
    - Report: `✅ Session: connected (<uuid>)`
 3. If `claude_session_id` is **already set**: report `ℹ️ Session: already connected (<value>)` — do NOT overwrite.
-4. Add to the report (always, found case): `💡 Suggest: run /rename "<task_name>" to name this session after the task` — connects the session to the task by name.
+4. Add to the report (always, found case): `💡 Suggest: run /rename <task_name> to name this session after the task` — connects the session to the task by name. No quotes: /rename takes the rest of the line verbatim, so a quoted suggestion names the session with literal quote characters.
 
 If not found AND task came from Jira:
 - The Jira issue exists but there is no local Obsidian task file. This is a `not_found` case for the Obsidian side — the calling slash command's Phase 4 owns task creation. Emit the `not_found:` verdict (see Phase 1 and `<output_format>`) including the Jira summary as the `Suggested task name:` value and STOP — do NOT call AskUserQuestion, do NOT invoke `Skill: vault-cli:create-task`. The slash command creates the file (always, on `not_found`).
@@ -415,7 +415,7 @@ Jira:
 
 [Session — Obsidian task file exists:]
 ✅ Session: connected (<uuid | task_name>) | ℹ️ Session: already connected (<value>) | ⚠️ Could not set: <error>
-💡 Suggest: run /rename "<task_name>" to name this session after the task
+💡 Suggest: run /rename <task_name> to name this session after the task
 
 [Daily Note:]
 ✅ Tracked on today's page | ℹ️ Already tracked | ℹ️ Daily note missing

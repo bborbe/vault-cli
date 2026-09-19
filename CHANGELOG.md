@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: the `/rename` hint in the work-on artifacts told the operator to run `/rename "<task>"`, but `/rename` takes the rest of the line verbatim — so following the suggestion named the session with literal quote characters. `commands/work-on-task.md` already carried the corrected form and the rationale; `agents/work-on-task-assistant.md` (×2), `agents/work-on-goal-assistant.md` (×2) and `commands/work-on.md` still emitted the quoted one. All five sites now emit the unquoted form. Found 2026-09-19 by `/coding:self-improve` on a probe session.
+
 ## v0.138.2
 
 - fix: `execute-task` carried no manager redirect, so half of `work-on-task`'s chain still asked in the worker's own tab. v0.138.0 put the redirect in `plan-task` § 6 and narrowed `work-on-task`'s claim to `/plan-task` to match — honest, but it left `execute-task`'s step 1 ambiguity ask (the `Multiple matches → AskUserQuestion` site) as a question that goes nowhere, and `execute-task` already declared `AskUserQuestion` in `allowed-tools` without the paragraph that says where else to send it. It now carries the same redirect and declares `ListAgents`/`SendMessage`; `work-on-task`'s scoping sentence names both chained commands again, which is now true rather than narrowed. Found 2026-09-19 by `/coding:audit-slash-command` while reviewing PR #180.

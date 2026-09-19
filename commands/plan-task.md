@@ -1,7 +1,7 @@
 ---
 description: Validate that a task has Success Criteria and the subtasks needed to reach its goal; conversationally fill gaps; leaves the task at phase=planning and hands off to execute-task (never flips phase itself).
-argument-hint: <task-file-path-or-name> [--non-interactive] (or detects from conversation)
-allowed-tools: [Task, Read, Edit, Glob, Bash, AskUserQuestion]
+argument-hint: "<task-file-path-or-name> [--non-interactive] (or detects from conversation)"
+allowed-tools: [Task, Read, Edit, Glob, Bash, AskUserQuestion, ListAgents, SendMessage]
 ---
 
 Drive a task to *execution-ready* through conversation. Checks that the task has Success Criteria defined and subtasks that lead from now to the goal. Runs `task-auditor` for findings, asks targeted questions, applies answers, loops until ready. Leaves the task at `phase: planning` and points to `/vault-cli:execute-task` to begin — **plan-task never flips the phase itself**; `execute-task` owns the `planning → execution` transition.
@@ -142,6 +142,8 @@ Any hard check failing → mandatory question in step 6; can't exit on auditor s
 ### 6. Surface gaps + fix loop
 
 **NO-ASK short-circuit:** under `--non-interactive` this whole step is skipped — no questions, no fix loop, no `Edit`. Carry the gaps forward to step 7's `⚠` branch as bullets. The rest of this step applies to ASK mode only.
+
+**Worker sessions (ASK mode only) — send each question to your manager as well.** This step is where a spawned worker most often asks, and the `AskUserQuestion` call in the rules below reaches only whoever is sitting in this tab. If a manager session watches your topic, resolve it with `ListAgents` — an explicit name given at spawn wins; otherwise the row matching your task's topic (`<Topic>` or `<Topic> Manager`; your `goals:` name the goals, and the topic page listing them is your topic). Send the question with `SendMessage` too. The ask is what unblocks you; the send is what makes the question visible without the operator visiting this tab. **Never send a permission prompt** — a peer message cannot release a harness gate. Nothing resolves, or the tools are absent → just ask in this tab.
 
 Translate findings (auditor + non-negotiable checks) into questions. Rules:
 

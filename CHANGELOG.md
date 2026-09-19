@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.138.3
 
 - fix: the `/rename` hint in the work-on artifacts told the operator to run `/rename "<task>"`, but `/rename` takes the rest of the line verbatim — so following the suggestion named the session with literal quote characters. `commands/work-on-task.md` already carried the corrected form and the rationale; `agents/work-on-task-assistant.md` (×2), `agents/work-on-goal-assistant.md` (×2) and `commands/work-on.md` still emitted the quoted one. All five sites now emit the unquoted form. Found 2026-09-19 by `/coding:self-improve` on a probe session.
 

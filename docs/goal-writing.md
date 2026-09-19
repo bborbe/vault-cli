@@ -311,6 +311,20 @@ Why: Obsidian renders `[[Wikilinks]]` as clickable; clicking auto-creates the ta
 - No `/`, `.`, backticks, `:`, `*`, `?`, `"`, `<`, `>`, `|` (Obsidian filename rules)
 - Optional one-line context after the wikilink: `1. [[Task Title]] — context (→ SC2)`
 
+> **2026-09-19 — the goal-side list is no longer written by tooling.**
+> `# Tasks` is a denormalised copy of the tasks' own `goals:` frontmatter, and it drifted
+> from it: measured in the Personal vault, **111 of 259** non-terminal declarations had no
+> matching entry, and the largest ongoing class was attached to tasks *after* creation, on
+> a path where no code runs at all (a hand edit in Obsidian). `task-creator` no longer
+> appends here and `vault-cli task complete` no longer flips a checkbox here. The list is
+> **derived from `goals:` frontmatter**; a copy that no writer can keep in step is not
+> repaired by writing harder on the one path that does run.
+>
+> The format rules above still describe what a rendered entry looks like, because existing
+> pages still carry a stored list. Migrating them to the derived form is a separate batch.
+> Until it lands, **treat a stored `# Tasks` entry as a cache that may be stale, not as the
+> membership record** — the membership record is `goals:` frontmatter on the tasks.
+
 ### Foundation/skeleton work
 
 Tasks that enable but don't directly advance an SC are allowed when **explicitly framed** as foundation:

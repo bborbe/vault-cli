@@ -37,16 +37,18 @@ type CompleteOperation interface {
 }
 
 // NewCompleteOperation creates a new complete operation.
+//
+// No GoalStorage: completion no longer writes the goal's `# Tasks` list. The
+// dependency is absent rather than ignored so that nothing can quietly start
+// writing it again — see the comment in Execute for why.
 func NewCompleteOperation(
 	taskStorage storage.TaskStorage,
-	goalStorage storage.GoalStorage,
 	dailyNoteStorage storage.DailyNoteStorage,
 	currentDateTime libtime.CurrentDateTime,
 	interactionCounter InteractionCounter,
 ) CompleteOperation {
 	return &completeOperation{
 		taskStorage:        taskStorage,
-		goalStorage:        goalStorage,
 		dailyNoteStorage:   dailyNoteStorage,
 		currentDateTime:    currentDateTime,
 		interactionCounter: interactionCounter,
@@ -55,7 +57,6 @@ func NewCompleteOperation(
 
 type completeOperation struct {
 	taskStorage        storage.TaskStorage
-	goalStorage        storage.GoalStorage
 	dailyNoteStorage   storage.DailyNoteStorage
 	currentDateTime    libtime.CurrentDateTime
 	interactionCounter InteractionCounter
@@ -140,27 +141,24 @@ func (c *completeOperation) Execute(
 		)
 	}
 
-	// Update associated goals
-	for _, goalName := range task.Goals() {
-		select {
-		case <-ctx.Done():
-			// The task file is already written and some goals may already be
-			// updated; carry the warnings so far rather than reporting nothing.
-			return MutationResult{
-				Success:  false,
-				Name:     task.Name,
-				Error:    ctx.Err().Error(),
-				Warnings: warnings,
-			}, errors.Wrap(ctx, ctx.Err(), "context cancelled")
-		default:
-		}
-
-		if err := c.markGoalCheckbox(ctx, vaultPath, goalName, task.Name); err != nil {
-			warning := fmt.Sprintf("failed to update goal %s: %v", goalName, err)
-			warnings = append(warnings, warning)
-			slog.Warn("complete warning", "warning", warning)
-		}
-	}
+	// The goal's `# Tasks` list is deliberately NOT written here any more.
+	//
+	// A task declares its parent in `goals:` frontmatter; the goal-side list is a
+	// denormalised copy of that relation, and it drifted from it. Measured
+	// 2026-09-19 in the Personal vault: 111 of 259 non-terminal declarations had
+	// no matching entry. The largest ongoing class was not created by this
+	// command's counterpart at all — those declarations were attached to an
+	// existing task *after* creation, on a path where no code of ours runs (a
+	// hand edit in Obsidian, or `vault-cli task add goals`, which writes the
+	// task's own frontmatter). A copy that no writer can keep in step is not
+	// repaired by writing harder on the one path that does run.
+	//
+	// So the list is derived from `goals:` frontmatter, and rollup reads the
+	// frontmatter rather than flipping a checkbox that may never have existed.
+	// Removing the write also removes the `checkbox not found for task %s in
+	// goal %s` warning, which was the only signal that the two directions had
+	// diverged — a signal that fired on every completion of an unregistered task
+	// and so could not be acted on.
 
 	// Update today's daily note
 	today := c.currentDateTime.Now().Format("2006-01-02")
@@ -396,72 +394,6 @@ func countCheckboxStates(content string) (completed, inProgress, pending int) {
 	}
 
 	return completed, inProgress, pending
-}
-
-// goalCheckboxMarkers are the unchecked checkbox markers a goal may use for a
-// task: pending and in-progress. Both roll up to "- [x]" on completion.
-var goalCheckboxMarkers = []string{"- [ ]", "- [/]"}
-
-// goalCheckboxMarker returns the unchecked checkbox marker present in line, or
-// an empty string when the line carries none.
-func goalCheckboxMarker(line string) string {
-	for _, marker := range goalCheckboxMarkers {
-		if strings.Contains(line, marker) {
-			return marker
-		}
-	}
-	return ""
-}
-
-// markGoalCheckbox marks the checkbox for a task in the goal file.
-func (c *completeOperation) markGoalCheckbox(
-	ctx context.Context,
-	vaultPath string,
-	goalName string,
-	taskName string,
-) error {
-	goal, err := c.goalStorage.FindGoalByName(ctx, vaultPath, goalName)
-	if err != nil {
-		return errors.Wrap(ctx, err, "find goal")
-	}
-
-	// Find checkbox that matches task name
-	lines := strings.Split(string(goal.Content), "\n")
-	modified := false
-
-	for i, line := range lines {
-		// Match checkbox with task name (case-insensitive). Both the pending
-		// marker and the in-progress marker are accepted: a task that is
-		// actively being worked is marked "- [/]" on its goal, so matching only
-		// "- [ ]" skipped exactly the tasks most likely to be completed.
-		marker := goalCheckboxMarker(line)
-		if marker == "" {
-			continue
-		}
-		if strings.Contains(strings.ToLower(line), strings.ToLower(taskName)) {
-			lines[i] = strings.Replace(line, marker, "- [x]", 1)
-			modified = true
-			break
-		}
-	}
-
-	if !modified {
-		return errors.Errorf(ctx,
-			"checkbox not found for task %s in goal %s",
-			taskName,
-			goalName,
-		)
-	}
-
-	// Update goal content
-	goal.Content = domain.Content(strings.Join(lines, "\n"))
-
-	// Write updated goal
-	if err := c.goalStorage.WriteGoal(ctx, goal); err != nil {
-		return errors.Wrap(ctx, err, "write goal")
-	}
-
-	return nil
 }
 
 // updateDailyNote updates the daily note to mark the task as complete.

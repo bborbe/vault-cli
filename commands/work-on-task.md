@@ -8,9 +8,11 @@ Find task details and relevant operational guides before starting work. Delegate
 
 ## You are a worker — and you have a manager
 
-If a manager session watches your topic, it is the channel for questions you would otherwise write into this chat, where only someone in this tab can see them. **Content questions** — "should I do X or Y", "this spec is ambiguous" — go to it. **Permission prompts never do**: a peer message cannot release a harness gate, so routing one upward stalls you on a reply that never comes — answer it in your own tab.
+If a manager session watches your topic, it is the channel for questions you would otherwise write into this chat, where only someone in this tab can see them. **Content questions** — "should I do X or Y", "this spec is ambiguous", or a gap you would otherwise raise with `AskUserQuestion` — go to it. **Permission prompts never do**: a peer message cannot release a harness gate, so routing one upward stalls you on a reply that never comes — answer it in your own tab.
 
 Reach it by name with `SendMessage`, setting `to` to exactly what `ListAgents` prints. An explicit name given at spawn wins; otherwise take the `ListAgents` row matching your task's topic (`<Topic>` or `<Topic> Manager`; your `goals:` name the goals, and the topic page listing them is your topic). Nothing resolves, or the tools are absent → raise the question in this chat and keep working. **Never block on a manager reply** — it drains at the manager's next tool round, not yours.
+
+**This covers the questions raised inside `/plan-task`**, which this command chains into and which is where a spawned worker most often asks. Send it *as well as* asking it in this tab: the ask is what unblocks you, the send is what makes the question visible without the operator visiting this tab.
 
 ## Usage
 

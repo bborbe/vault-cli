@@ -1,7 +1,7 @@
 ---
 description: Gate planning → execution. Re-runs plan-task's hard non-negotiables; on pass, flips phase + prints first subtask + DoD reminder; auto-invokes a bare allowlisted slash-command subtask.
 argument-hint: "<task-file-path-or-name> [--non-interactive] (or detects from conversation)"
-allowed-tools: [Read, Edit, Glob, Bash, AskUserQuestion, Task, Skill]
+allowed-tools: [Read, Edit, Glob, Bash, AskUserQuestion, Task, Skill, ListAgents, SendMessage]
 ---
 
 The **hard gate** between planning and execution. Refuses to flip `phase: planning → execution` unless plan-task's 4 hard non-negotiables pass. Idempotent on `phase: execution` — re-prints first subtask + DoD as a session-start reminder. Closes the lifecycle's final operational gap: every phase transition now has an enforced command.
@@ -42,6 +42,8 @@ After `/vault-cli:plan-task` (or any time the plan is genuinely complete) to for
 4. Most recently modified file in `<tasks_dir>/`.
 
 Multiple matches → ask via `AskUserQuestion`. Zero → `❌ No task detected. Pass a task identifier or name.` STOP.
+
+**Worker sessions (ASK mode only) — send the question to your manager as well.** The `AskUserQuestion` call above reaches only whoever is sitting in this tab. If a manager session watches your topic, resolve it with `ListAgents` — an explicit name given at spawn wins; otherwise the row matching your task's topic (`<Topic>` or `<Topic> Manager`; your `goals:` name the goals, and the topic page listing them is your topic). Send the question with `SendMessage` too. The ask is what unblocks you; the send is what makes the question visible without the operator visiting this tab. **Never send a permission prompt** — a peer message cannot release a harness gate. Nothing resolves, or the tools are absent → just ask in this tab.
 
 Print `Detected task: <name>` on first line so owner can interrupt before any state mutation.
 

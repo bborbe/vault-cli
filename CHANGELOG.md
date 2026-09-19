@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- work-on-task: tell a worker it is a worker. The entry path stated nothing about the role — measured 2026-09-19 at v0.136.0 it was 128 lines with zero occurrences of "manager" — so a worker with a question wrote it into its own chat, where only someone sitting in that tab could see it, and the operator had to go find it. It now states the role, names the manager channel, and separates the two classes: **content questions** go upward via `SendMessage`, **permission prompts** never do — a peer message cannot release a harness gate, so routing one upward stalls the worker on a reply that never comes. Adds the resolution rule (an explicit name given at spawn wins; otherwise the `ListAgents` row matching the worker's topic, accepting either `<Topic>` or `<Topic> Manager`; nothing resolves → raise it in chat and keep working) and `ListAgents`/`SendMessage` to `allowed-tools`, without which the channel is not callable.
+
 ## v0.136.0
 
 - work-on-task-assistant: treat a **deploy-shape claim** as a state pre-check, never as a fact. An assertion derived from repo state — "no image change → no `make mirror`" — cannot see the *running* pod, and stating it flatly invites a restart against a tag the cluster never pulled. The agent now surfaces the check the operator must run (compare the pod's `image` against the spec's) instead of asserting the outcome. Bit 2026-09-18: a token-only re-point plus `rollout restart` took prod Telegram delivery down ~40 minutes on an unmirrored tag, and `rollout undo` could not recover it because every revision named the same tag.

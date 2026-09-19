@@ -255,7 +255,6 @@ func createCompleteCommand(
 				func(ctx context.Context, vault *config.Vault) (ops.MutationResult, error) {
 					storageConfig := storage.NewConfigFromVault(vault)
 					taskStore := storage.NewTaskStorage(storageConfig)
-					goalStore := storage.NewGoalStorage(storageConfig)
 					dailyStore := storage.NewDailyNoteStorage(storageConfig)
 					interactionCounter, err := completeInteractionCounter(ctx, vault)
 					if err != nil {
@@ -263,7 +262,6 @@ func createCompleteCommand(
 					}
 					completeOp := ops.NewCompleteOperation(
 						taskStore,
-						goalStore,
 						dailyStore,
 						currentDateTime,
 						interactionCounter,

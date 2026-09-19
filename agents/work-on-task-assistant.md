@@ -129,19 +129,32 @@ If found:
 Connect the current session to the task so the task's `claude_session_id` points at the session working on it, and the session is renamed after the task. This makes the task↔session link visible in the session list / Vault UI.
 
 1. Read the task's `claude_session_id` frontmatter.
-2. If it is **empty or absent**: detect the current session's UUID by title-match, never by newest-transcript. The `ls -t ... | head -1` mtime scan is forbidden — in a fleet of concurrent sessions the newest transcript is almost never the current session (observed: a fresh headless Start session got bound to a live unrelated session this way). Match the task's name against each transcript's CURRENT title (the `customTitle` of the LAST `custom-title` line — transcripts are append-only, so last is newest; ignore `custom-title` lines with no `customTitle` key):
+2. If it is **empty or absent**: detect the current session's UUID by title-match, never by newest-transcript. The `ls -t ... | head -1` mtime scan is forbidden — in a fleet of concurrent sessions the newest transcript is almost never the current session (observed: a fresh headless Start session got bound to a live unrelated session this way).
+
+   The match is **strip + scope + require uniqueness**, and all three parts are load-bearing:
+
+   - **Strip leading decoration.** A supervisor prefixes the title it gives a spawned session (e.g. `⚙ <task>`), set at spawn — before this step runs. An exact compare against the bare task name therefore returns **zero**, and this guard silently refuses to connect the task at all. `claude-supervisor` § Subject resolution already carries this rule (*"Strip leading decoration before matching"*); this step needs it too.
+   - **Scope to live sessions.** A title can match a transcript whose session has ended. Binding that id leaves the task owned by a dead session, and the id is then not resumable — which is the whole point of writing it. Use **transcript recency** for this: fresh within `LIVE_WINDOW` = 5 minutes, per `docs/session-liveness.md`. Do **not** add that doc's process cross-check here — it cannot see this session's own process. Sessions are launched with `--resume <uuid>`, `--resume <name>`, or neither, so a uuid-keyed `pgrep` returns nothing for the very session running this step (measured 2026-09-19: `pgrep -f <own-uuid>` = 0 while the transcript was fresh) and would filter out the correct answer. Recency is the usable half from *inside* a session; the doc's two-signal rule is for classifying a task from outside.
+   - **Still refuse on zero or multiple.** Do NOT add a "pick the newest" tiebreak; that is the mtime scan this guard exists to replace. Stripping alone is not enough — across a real fleet many titles collide, so uniqueness is checked *after* both filters, never instead of them.
+
+   Match the task's name against each **live** transcript's CURRENT title (the `customTitle` of the LAST `custom-title` line — transcripts are append-only, so last is newest; ignore `custom-title` lines with no `customTitle` key):
+
    ```bash
    # active vault from config; use session_project_dir if set, else vault path
    SESSION_DIR=$(vault-cli config list --output json | python3 -c "import sys,json; vs=json.load(sys.stdin); v=[x for x in vs if x['path']=='<active vault path>'][0]; print(v.get('session_project_dir') or v['path'])")
    ENC=$(printf '%s' "$SESSION_DIR" | sed 's|/|-|g')
-   ls "$HOME/.claude/projects/$ENC/"*.jsonl 2>/dev/null | while read -r f; do
+   DIR="$HOME/.claude/projects/$ENC"
+   # live only: LIVE_WINDOW = 5 min, per docs/session-liveness.md — a stale transcript is a dead session
+   find "$DIR" -name '*.jsonl' -mmin -5 2>/dev/null | while read -r f; do
      stem=$(basename "$f" .jsonl)
      cur=$(grep '"type":"custom-title"' "$f" 2>/dev/null | grep '"customTitle"' | tail -1 | sed 's/.*"customTitle":"//; s/".*$//')
-     [ "$cur" = "<task_name>" ] && echo "$stem"
+     # strip the leading decoration a supervisor adds at spawn ("⚙ <task>"); skip untitled (subagent) transcripts
+     cur=$(printf '%s' "$cur" | sed 's/^[^[:alnum:]]*//')
+     [ -n "$cur" ] && [ "$cur" = "<task_name>" ] && echo "$stem"
    done | sort -u
    ```
    - If EXACTLY ONE UUID is returned: `vault-cli task set "<task_name>" claude_session_id "<uuid>"`
-   - If zero OR multiple UUIDs are returned (ambiguous / no match — e.g. the task is not the session's current title, or several sessions share the title): do NOT write the field, and report `ℹ️ Session: not connected — <n> matching session(s), refusing to guess`. Do NOT fall back to the task name: a name is not a UUID and the vault-ui resolver would then mis-resolve it. A miss is safe **only** on the headless Start path, which pre-sets this field via vault-cli before the turn. From an interactive session nothing pre-set it, so a miss leaves the field empty — and the status flip below must then not route through `work-on`, or it spawns a second session onto this task.
+   - If zero OR multiple UUIDs are returned (ambiguous / no match — the task is not the session's current title, several *live* sessions share it, or the session has already ended): do NOT write the field, and report `ℹ️ Session: not connected — <n> matching session(s), refusing to guess`. Do NOT fall back to the task name: a name is not a UUID and the vault-ui resolver would then mis-resolve it. Do not widen the window or drop the strip to force a match either — a miss here means no *live* session carries this title, and a guessed id is worse than an empty field (see the third failure face in the session-id gotcha). A miss is safe **only** on the headless Start path, which pre-sets this field via vault-cli before the turn; from an interactive session nothing pre-set it, so the status flip below must then not route through `work-on`, or it spawns a second session onto this task.
    - Report: `✅ Session: connected (<uuid>)`
 3. If `claude_session_id` is **already set**: report `ℹ️ Session: already connected (<value>)` — do NOT overwrite.
 4. Add to the report (always, found case): `💡 Suggest: run /rename "<task_name>" to name this session after the task` — connects the session to the task by name.

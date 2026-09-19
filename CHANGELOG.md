@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.140.0
 
 - feat: `commands/complete-goal.md` gains a recorded route past its Success-Criteria gate, distinct from `--force`. The command doc has always parsed the criteria (step 2a) and offered only `--force` (step 2b) — and `--force` records nothing, so a goal with real on-disk evidence for a criterion nobody will rubber-stamp was unclosable except by a silent flip. The new step 2b runs **before** `--force` is ever offered: it reads the goal's tasks from **frontmatter** (`vault-cli task list --goal "[[<Goal>]]" --all` — the page's `# Tasks` list has had no writer since v0.139.0 and may be stale or absent), compares **rows rather than totals** (a count difference is never drift; a per-row `status: completed` paired with `[ ]` is), and reads an `unticked_criteria:` frontmatter register whose entries must be `evidenced-not-ticked` with a matching `# Results` quote at their cited source. An `evidenced-and-tickable` entry **refuses** closure — leaving it unticked is a defect, not a choice — which is what stops the route quietly converting "should tick" into "won't tick". Both modes honour it: `--non-interactive` returns `success: false` on a refusal rather than falling through to `--force`. The mechanism and its precedence rule are documented vault-side in `Goal Closure Checklist` § Closing with evidenced-but-unticked criteria.
 

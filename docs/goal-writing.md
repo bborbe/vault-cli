@@ -311,6 +311,45 @@ Why: Obsidian renders `[[Wikilinks]]` as clickable; clicking auto-creates the ta
 - No `/`, `.`, backticks, `:`, `*`, `?`, `"`, `<`, `>`, `|` (Obsidian filename rules)
 - Optional one-line context after the wikilink: `1. [[Task Title]] — context (→ SC2)`
 
+> **2026-09-19 — the goal-side list is no longer written by tooling.**
+> `# Tasks` is a denormalised copy of the tasks' own `goals:` frontmatter, and it drifted
+> from it: measured in the Personal vault, **111 of 259** non-terminal declarations had no
+> matching entry, and the largest ongoing class was attached to tasks *after* creation, on
+> a path where no code runs at all (a hand edit in Obsidian). `task-creator` no longer
+> appends here and `vault-cli task complete` no longer flips a checkbox here. The list is
+> **derived from `goals:` frontmatter**; a copy that no writer can keep in step is not
+> repaired by writing harder on the one path that does run.
+>
+> The format rules above still describe what a rendered entry looks like, because existing
+> pages still carry a stored list. Migrating them to the derived form is a separate batch.
+> Until it lands, **treat a stored `# Tasks` entry as a cache that may be stale, not as the
+> membership record** — the membership record is `goals:` frontmatter on the tasks.
+>
+> **How a program enumerates a goal's tasks** (the contract, unchanged and already
+> available — no consumer needs to scan the directory itself):
+>
+> ```bash
+> vault-cli task list --goal "[[Goal Name]]" --all
+> ```
+>
+> The filter compares the **raw frontmatter value** (`taskHasGoal` is a plain `g == goal`),
+> so the wikilink brackets are required — and the failure mode is worse than an empty
+> result. Verified 2026-09-19:
+>
+> ```
+> --goal "[[Fleet Communication]]"  →  a list of 56
+> --goal "Fleet Communication"      →  JSON null, exit 0
+> ```
+>
+> **`null`, not `[]`.** A consumer calling `len()` on it crashes with a type error pointing
+> nowhere near the cause; one testing truthiness reads it as *"this goal has no tasks"* and
+> reports a clean sweep. Both wrong, neither loud. Any implementation must treat `null` as
+> an **error**, not as empty.
+>
+> Consumers that used to cross-check the stored `# Tasks` list against frontmatter —
+> `/supervisor:worker-manager`'s goal branch is one — now have one side only, and must read
+> both sides from frontmatter.
+
 ### Foundation/skeleton work
 
 Tasks that enable but don't directly advance an SC are allowed when **explicitly framed** as foundation:

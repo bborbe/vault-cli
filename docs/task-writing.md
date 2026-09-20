@@ -127,7 +127,20 @@ Where it surfaces:
 - `vault-cli task list --output json` emits `blocked_by` (the raw list) and a computed `blocked` boolean for any task that declares a dependency list; a task with no `blocked_by` emits neither key.
 - `/vault-cli:next-task` does not recommend a task whose `blocked` flag is true.
 
-To clear a dependency list, `vault-cli task clear "<name>" blocked_by` removes the key; `vault-cli task set "<name>" blocked_by ""` empties the effective list. Either makes the task read as unblocked again.
+**Recording a dependency.** One entry per invocation, appended to whatever list is already there:
+
+```
+vault-cli task add "<name>" blocked_by "[[Blocker Task]]"
+```
+
+`add` never clobbers an existing entry; drop one with `vault-cli task remove "<name>" blocked_by "[[Blocker Task]]"`. `set` is not the recording path — `vault-cli task set "<name>" blocked_by "[[Blocker Task]]"` is refused, because `set` has no list form for this field and a scalar is exactly the malformed shape described above. `set "<name>" blocked_by ""` and `clear "<name>" blocked_by` remain the two clears.
+
+**Repairing a scalar-shaped file.** A scalar `blocked_by` is reported by `vault-cli task validate "<name>"` and by `vault-cli task lint` as one issue naming the field and the expected list shape; `task lint --fix` deliberately cannot repair it. Repair it by hand — clear the malformed value first, then record the entry you meant:
+
+```
+vault-cli task set "<name>" blocked_by ""     # or: vault-cli task clear "<name>" blocked_by
+vault-cli task add "<name>" blocked_by "[[Blocker Task]]"
+```
 
 ### Required sections
 
@@ -331,6 +344,8 @@ Before committing to a task, verify these signals:
 - **Title is problem-framed** (names the problem or observable outcome — see [[#Title & Filename]]). Action-verb-led titles are OK when the action IS the deliverable (e.g. "Write … runbook"), for routine operational tasks ("Backup Database - 2026W25-sat"), or when the solution is mandated. Always wrong: "Stuff about X"
 
 - **Recurring task carries only standing criteria.** On a task with `recurring:` frontmatter or a cadence-marked title — period token trailing (`- 2026W35-sat`, `- 2026-09-08`) *or* embedded (`ORB DE40 W35 … to W36`) — apply the test to each criterion: *would this be true again next firing?* Standing criteria describe what the cadence does every time ("closing positions reviewed"). One-off criteria resolve once and stay resolved — a one-time decision ("decide whether to extend to W37"), a migration, drafting a document, anything naming a specific week, incident or version. Move those to a separate one-off task; the work is real, just misfiled. **Check the successor instance too:** each instance is scaffolded from its predecessor, so a one-off criterion added in week N is usually already sitting in week N+1 — fix both, or the clone re-seeds it.
+
+- **CR-materialized instance — label each finding template-level or instance-level.** A recurring instance whose body ends in a `# Source` section naming `bborbe/nuke/task/recurring-schedules/prod/<slug>.yaml` was materialized from that schedule template, so a defect inherited from the template re-emits on every future firing. Label each finding accordingly: only **template-level** findings are coverable by a recorded template verdict (see `commands/plan-task.md` § Template-verdict check); an instance-level finding always asks. Fix template-level findings in the template — never in the instance, and never in the successor file, which is discarded at the next materialization. Key on the slug (the basename), not the printed repo path: instances materialized before 2026-08-21 carry a dead `bborbe/quant` footer.
 
 If 3+ smells fail → split or promote to a goal. The recurring-kind check is the exception: one one-off criterion on a recurring task is a defect on its own, not a size signal, so act on it without waiting for a third smell.
 

@@ -169,6 +169,27 @@ func blockedByList(f FrontmatterMap) []string {
 	}
 }
 
+// BlockedByIsScalar reports whether a raw "blocked_by" frontmatter value is a
+// non-empty scalar — the legacy malformed shape. An absent key (nil), a YAML
+// list ([]any as produced by the YAML parser, []string as produced by the
+// in-memory setters) and the empty string are all legal. The empty string is
+// legal because `set <name> blocked_by ""` is the documented clear: it reads as
+// an empty list and is not malformed data. Everything else is a scalar and is
+// reported. This is the single definition of "malformed" for this field — the
+// write path (pkg/ops) and the lint detector both call it.
+func BlockedByIsScalar(raw any) bool {
+	switch v := raw.(type) {
+	case nil:
+		return false
+	case []any, []string:
+		return false
+	case string:
+		return v != ""
+	default:
+		return true
+	}
+}
+
 // Set stores value under key. A nil value is equivalent to Delete.
 func (f *FrontmatterMap) Set(key string, value any) {
 	if f.data == nil {

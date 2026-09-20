@@ -126,7 +126,7 @@ binding: <free text>                             # optional — the hard deadlin
 
 ### Dependencies (`blocked_by`)
 
-`blocked_by` declares the goals this goal cannot start before. It is a YAML list of goal names; each entry may be a plain name (`Blocker Goal`) or a wikilink (`[[Blocker Goal]]`) — both forms resolve the same way. A scalar value (`blocked_by: Blocker Goal`) is malformed and reads as an empty list, so it never blocks.
+`blocked_by` declares the goals this goal cannot start before. It is a YAML list of goal names; each entry may be a plain name (`Blocker Goal`) or a wikilink (`[[Blocker Goal]]`) — both forms resolve the same way. A scalar value (`blocked_by: Blocker Goal`) is malformed and reads as an empty list, so it never blocks. `vault-cli goal lint` reports a goal whose `blocked_by` is shaped this way; `vault-cli task validate` and `vault-cli task lint` report the task-side equivalent.
 
 Names match goal files in the goals directory, ignoring case and stripping the `[[` `]]` brackets. Resolution is same-kind only: a goal's blockers are goals, never tasks, and never another kind; the lookup is exact-name — a substring is not a match.
 
@@ -136,7 +136,20 @@ Blocked state is derived and is never written. Nothing sets `status: hold` from 
 
 Where it surfaces: `vault-cli goal list --output json` emits `blocked_by` (the raw list) and a computed `blocked` boolean for any goal that declares a dependency list; a goal with no `blocked_by` emits neither key. `/vault-cli:next-task` does not recommend a goal or task whose `blocked` flag is true.
 
-To clear a dependency list, `vault-cli goal clear "<name>" blocked_by` removes the key; `vault-cli goal set "<name>" blocked_by ""` empties the effective list. Either makes the goal read as unblocked again.
+**Recording a dependency.** One entry per invocation, appended to whatever list is already there:
+
+```
+vault-cli goal add "<name>" blocked_by "[[Blocker Goal]]"
+```
+
+`add` never clobbers an existing entry; drop one with `vault-cli goal remove "<name>" blocked_by "[[Blocker Goal]]"`. `set` is not the recording path — `vault-cli goal set "<name>" blocked_by "[[Blocker Goal]]"` is refused, because `set` has no list form for this field. `set "<name>" blocked_by ""` and `clear "<name>" blocked_by` remain the two clears.
+
+**Repairing a scalar-shaped file.** Clear the malformed value first, then record the entry you meant:
+
+```
+vault-cli goal set "<name>" blocked_by ""     # or: vault-cli goal clear "<name>" blocked_by
+vault-cli goal add "<name>" blocked_by "[[Blocker Goal]]"
+```
 
 ### Required sections
 

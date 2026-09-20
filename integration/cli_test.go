@@ -5,6 +5,7 @@
 package integration_test
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -815,6 +816,239 @@ task_identifier: 90909090-9090-4909-a090-909090909090
 		})
 	})
 
+	Describe("vault-cli blocked_by scalar detector", func() {
+		var vaultPath, configPath string
+		var cleanup func()
+
+		AfterEach(func() {
+			cleanup()
+		})
+
+		// scalarTaskFixture is the AC7 fixture: base keys only, so the only issue
+		// any run can report is the scalar blocked_by under test.
+		scalarTaskFixture := `---
+status: in_progress
+page_type: task
+priority: 1
+task_identifier: 22222222-2222-4222-8222-222222222222
+blocked_by: Blocker A
+---
+# Alpha
+`
+
+		// listTaskFixture is byte-identical except that blocked_by is a YAML list.
+		listTaskFixture := `---
+status: in_progress
+page_type: task
+priority: 1
+task_identifier: 22222222-2222-4222-8222-222222222222
+blocked_by:
+  - "Blocker A"
+---
+# Alpha
+`
+
+		runValidate := func(taskName string, extraArgs ...string) *gexec.Session {
+			args := make([]string, 0, 7+len(extraArgs))
+			args = append(
+				args,
+				"--config", configPath,
+				"--vault", "test",
+				"task", "validate", taskName,
+			)
+			args = append(args, extraArgs...)
+			session, err := gexec.Start(
+				exec.Command(binPath, args...),
+				GinkgoWriter,
+				GinkgoWriter,
+			)
+			Expect(err).NotTo(HaveOccurred())
+			return session
+		}
+
+		runTaskLint := func(extraArgs ...string) *gexec.Session {
+			args := make([]string, 0, 6+len(extraArgs))
+			args = append(
+				args,
+				"--config", configPath,
+				"--vault", "test",
+				"task", "lint",
+			)
+			args = append(args, extraArgs...)
+			session, err := gexec.Start(
+				exec.Command(binPath, args...),
+				GinkgoWriter,
+				GinkgoWriter,
+			)
+			Expect(err).NotTo(HaveOccurred())
+			return session
+		}
+
+		runGoalLint := func() *gexec.Session {
+			session, err := gexec.Start(
+				exec.Command(
+					binPath,
+					"--config", configPath,
+					"--vault", "test",
+					"goal", "lint",
+				),
+				GinkgoWriter,
+				GinkgoWriter,
+			)
+			Expect(err).NotTo(HaveOccurred())
+			return session
+		}
+
+		fileSHA256 := func(path string) string {
+			content, err := os.ReadFile(path) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			sum := sha256.Sum256(content)
+			return fmt.Sprintf("%x", sum)
+		}
+
+		It("AC7: task validate on a scalar blocked_by exits non-zero with exactly one issue line", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": scalarTaskFixture,
+			})
+
+			session := runValidate("Alpha")
+			Eventually(session).Should(gexec.Exit(1))
+
+			lines := strings.Split(strings.TrimSpace(string(session.Out.Contents())), "\n")
+			Expect(lines).To(HaveLen(1))
+			Expect(lines[0]).To(ContainSubstring("blocked_by"))
+			Expect(lines[0]).To(ContainSubstring("YAML list"))
+
+			// Negative evidence: the scalar still reads as unblocked, so neither
+			// the raw list key nor the computed boolean is emitted.
+			listCmd := exec.Command(
+				binPath,
+				"--config", configPath,
+				"--vault", "test",
+				"task", "list",
+				"--output", "json",
+			)
+			listSession, err := gexec.Start(listCmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(listSession).Should(gexec.Exit(0))
+			var items []map[string]any
+			Expect(json.Unmarshal(listSession.Out.Contents(), &items)).To(Succeed())
+			Expect(items).To(HaveLen(1))
+			Expect(items[0]).NotTo(HaveKey("blocked_by"))
+			Expect(items[0]).NotTo(HaveKey("blocked"))
+		})
+
+		It("AC8a: task validate on a list-shaped blocked_by exits 0 with no blocked_by line", func() {
+			_, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": listTaskFixture,
+			})
+
+			session := runValidate("Alpha")
+			Eventually(session).Should(gexec.Exit(0))
+			Expect(string(session.Out.Contents())).NotTo(ContainSubstring("blocked_by"))
+		})
+
+		It("AC8b: task validate on the empty scalar blocked_by exits 0", func() {
+			_, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": `---
+status: in_progress
+page_type: task
+priority: 1
+task_identifier: 22222222-2222-4222-8222-222222222222
+blocked_by: ""
+---
+# Alpha
+`,
+			})
+
+			session := runValidate("Alpha")
+			Eventually(session).Should(gexec.Exit(0))
+		})
+
+		It("AC8c: task validate --output json exits 0 and lists the issue", func() {
+			_, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": scalarTaskFixture,
+			})
+
+			session := runValidate("Alpha", "--output", "json")
+			Eventually(session).Should(gexec.Exit(0))
+
+			var result struct {
+				Name   string `json:"name"`
+				Vault  string `json:"vault"`
+				Issues []struct {
+					Type        string `json:"type"`
+					IssueType   string `json:"issue_type"`
+					Description string `json:"description"`
+				} `json:"issues"`
+			}
+			Expect(json.Unmarshal(session.Out.Contents(), &result)).To(Succeed())
+			Expect(result.Issues).To(HaveLen(1))
+			Expect(result.Issues[0].IssueType).To(Equal("BLOCKED_BY_SCALAR"))
+			Expect(result.Issues[0].Type).To(Equal("ERROR"))
+			Expect(result.Issues[0].Description).To(ContainSubstring("blocked_by"))
+		})
+
+		It("AC9: task lint reports the scalar blocked_by, and --fix leaves the file byte-identical", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": scalarTaskFixture,
+			})
+			taskPath := filepath.Join(vaultPath, "Tasks", "Alpha.md")
+
+			session := runTaskLint()
+			Eventually(session).Should(gexec.Exit(1))
+			Expect(string(session.Out.Contents())).To(ContainSubstring("blocked_by"))
+
+			before := fileSHA256(taskPath)
+
+			fixSession := runTaskLint("--fix")
+			Eventually(fixSession).Should(gexec.Exit(1))
+
+			Expect(fileSHA256(taskPath)).To(Equal(before))
+		})
+
+		It("AC10a: goal lint reports a scalar blocked_by", func() {
+			_, configPath, cleanup = createTempVaultWithGoals(
+				map[string]string{},
+				map[string]string{
+					"Beta": `---
+status: next
+page_type: goal
+priority: 1
+blocked_by: Blocker C
+---
+# Beta
+`,
+				},
+			)
+
+			session := runGoalLint()
+			Eventually(session).Should(gexec.Exit(1))
+			Expect(string(session.Out.Contents())).To(ContainSubstring("blocked_by"))
+		})
+
+		It("AC10b: goal lint passes a list-shaped blocked_by", func() {
+			_, configPath, cleanup = createTempVaultWithGoals(
+				map[string]string{},
+				map[string]string{
+					"Beta": `---
+status: next
+page_type: goal
+priority: 1
+blocked_by:
+  - "Blocker C"
+---
+# Beta
+`,
+				},
+			)
+
+			session := runGoalLint()
+			Eventually(session).Should(gexec.Exit(0))
+			Expect(string(session.Out.Contents())).NotTo(ContainSubstring("blocked_by"))
+		})
+	})
+
 	Describe("vault-cli complete", func() {
 		var vaultPath, configPath string
 		var cleanup func()
@@ -1611,6 +1845,308 @@ blocked_by: A
 			item := items[0]
 			Expect(item).NotTo(HaveKey("blocked"))
 			Expect(item).NotTo(HaveKey("blocked_by"))
+		})
+	})
+
+	Describe("vault-cli blocked_by list add and remove", func() {
+		var vaultPath, configPath string
+		var cleanup func()
+
+		AfterEach(func() {
+			cleanup()
+		})
+
+		runListJSON := func(entityType string) []map[string]any {
+			cmd := exec.Command(
+				binPath,
+				"--config", configPath,
+				"--vault", "test",
+				entityType, "list",
+				"--output", "json",
+			)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(0))
+			var items []map[string]any
+			Expect(json.Unmarshal(session.Out.Contents(), &items)).To(Succeed())
+			return items
+		}
+
+		runEntityCommand := func(args ...string) *gexec.Session {
+			fullArgs := append(
+				[]string{"--config", configPath, "--vault", "test"},
+				args...,
+			)
+			session, err := gexec.Start(exec.Command(binPath, fullArgs...), GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			return session
+		}
+
+		sha256OfFile := func(path string) string {
+			data, err := os.ReadFile(path)
+			Expect(err).NotTo(HaveOccurred())
+			sum := sha256.Sum256(data)
+			return fmt.Sprintf("%x", sum)
+		}
+
+		It("AC1: task add appends to an existing blocked_by list without clobbering it", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": `---
+status: in_progress
+page_type: task
+priority: 1
+task_identifier: 22222222-2222-4222-8222-222222222222
+blocked_by:
+  - "[[Blocker A]]"
+---
+`,
+			})
+
+			session := runEntityCommand("task", "add", "Alpha", "blocked_by", "[[Blocker B]]")
+			Eventually(session).Should(gexec.Exit(0))
+
+			items := runListJSON("task")
+			Expect(items).To(HaveLen(1))
+			Expect(items[0]).To(HaveKeyWithValue("name", "Alpha"))
+			Expect(items[0]).To(HaveKeyWithValue(
+				"blocked_by",
+				[]any{"[[Blocker A]]", "[[Blocker B]]"},
+			))
+
+			raw, err := os.ReadFile(filepath.Join(vaultPath, "Tasks", "Alpha.md"))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(raw)).To(ContainSubstring("Blocker A"))
+			Expect(string(raw)).To(ContainSubstring("Blocker B"))
+		})
+
+		It("AC2: task remove drops exactly one entry from a two-entry blocked_by list", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": `---
+status: in_progress
+page_type: task
+priority: 1
+task_identifier: 22222222-2222-4222-8222-222222222222
+blocked_by:
+  - "[[Blocker A]]"
+  - "[[Blocker B]]"
+---
+`,
+			})
+
+			session := runEntityCommand("task", "remove", "Alpha", "blocked_by", "[[Blocker B]]")
+			Eventually(session).Should(gexec.Exit(0))
+
+			items := runListJSON("task")
+			Expect(items).To(HaveLen(1))
+			Expect(items[0]).To(HaveKeyWithValue("blocked_by", []any{"[[Blocker A]]"}))
+
+			raw, err := os.ReadFile(filepath.Join(vaultPath, "Tasks", "Alpha.md"))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(raw)).NotTo(ContainSubstring("Blocker B"))
+		})
+
+		It("AC3a: goal add appends to an existing blocked_by list", func() {
+			_, configPath, cleanup = createTempVaultWithGoals(
+				map[string]string{},
+				map[string]string{
+					"Beta": `---
+status: next
+page_type: goal
+priority: 1
+blocked_by:
+  - "[[Blocker E]]"
+---
+`,
+				},
+			)
+
+			session := runEntityCommand("goal", "add", "Beta", "blocked_by", "[[Blocker C]]")
+			Eventually(session).Should(gexec.Exit(0))
+
+			items := runListJSON("goal")
+			Expect(items).To(HaveLen(1))
+			Expect(items[0]).To(HaveKeyWithValue("name", "Beta"))
+			Expect(items[0]).To(HaveKeyWithValue(
+				"blocked_by",
+				[]any{"[[Blocker E]]", "[[Blocker C]]"},
+			))
+		})
+
+		It("AC4: task add on a scalar blocked_by is refused and writes nothing", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": `---
+status: in_progress
+page_type: task
+priority: 1
+task_identifier: 22222222-2222-4222-8222-222222222222
+blocked_by: Blocker A
+---
+`,
+			})
+
+			taskFile := filepath.Join(vaultPath, "Tasks", "Alpha.md")
+			before := sha256OfFile(taskFile)
+
+			session := runEntityCommand("task", "add", "Alpha", "blocked_by", "[[Blocker B]]")
+			Eventually(session).Should(gexec.Exit())
+			Expect(session.ExitCode()).NotTo(Equal(0))
+
+			stderr := string(session.Err.Contents())
+			Expect(stderr).To(ContainSubstring("blocked_by"))
+			Expect(stderr).To(ContainSubstring("YAML list"))
+			Expect(stderr).To(ContainSubstring("clear"))
+
+			Expect(sha256OfFile(taskFile)).To(Equal(before))
+		})
+	})
+
+	Describe("vault-cli blocked_by set refusal", func() {
+		var vaultPath, configPath string
+		var cleanup func()
+
+		AfterEach(func() {
+			cleanup()
+		})
+
+		runEntityCommand := func(args ...string) *gexec.Session {
+			fullArgs := append(
+				[]string{"--config", configPath, "--vault", "test"},
+				args...,
+			)
+			session, err := gexec.Start(exec.Command(binPath, fullArgs...), GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			return session
+		}
+
+		runTaskListJSON := func() []map[string]any {
+			session := runEntityCommand("task", "list", "--output", "json")
+			Eventually(session).Should(gexec.Exit(0))
+			var items []map[string]any
+			Expect(json.Unmarshal(session.Out.Contents(), &items)).To(Succeed())
+			return items
+		}
+
+		sha256OfFile := func(path string) string {
+			data, err := os.ReadFile(path) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			sum := sha256.Sum256(data)
+			return fmt.Sprintf("%x", sum)
+		}
+
+		// Alpha holds only the base keys plus a one-entry blocked_by list, so no
+		// unrelated issue can appear in any of these assertions.
+		alphaWithList := `---
+status: in_progress
+page_type: task
+priority: 1
+task_identifier: 22222222-2222-4222-8222-222222222222
+blocked_by:
+  - "[[Blocker A]]"
+---
+`
+
+		It("AC5: task set refuses a non-empty blocked_by, names the field, points at add, and writes nothing", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": alphaWithList,
+			})
+			taskFile := filepath.Join(vaultPath, "Tasks", "Alpha.md")
+			before := sha256OfFile(taskFile)
+
+			session := runEntityCommand("task", "set", "Alpha", "blocked_by", "[[Blocker A]]")
+			Eventually(session).Should(gexec.Exit(1))
+
+			stderr := string(session.Err.Contents())
+			Expect(stderr).To(ContainSubstring("blocked_by"))
+			Expect(stderr).To(ContainSubstring("add"))
+
+			Expect(sha256OfFile(taskFile)).To(Equal(before))
+		})
+
+		It("AC5b: task set keeps the tags and goals comma-split coercion", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": alphaWithList,
+			})
+
+			Eventually(runEntityCommand("task", "set", "Alpha", "tags", "a,b")).Should(gexec.Exit(0))
+			Eventually(runEntityCommand("task", "set", "Alpha", "goals", "g1,g2")).
+				Should(gexec.Exit(0))
+
+			items := runTaskListJSON()
+			Expect(items).To(HaveLen(1))
+			Expect(items[0]).To(HaveKeyWithValue("goals", []any{"g1", "g2"}))
+
+			getSession := runEntityCommand("task", "get", "Alpha", "tags")
+			Eventually(getSession).Should(gexec.Exit(0))
+			Expect(string(getSession.Out.Contents())).To(ContainSubstring("a,b"))
+
+			content, err := os.ReadFile(filepath.Join(vaultPath, "Tasks", "Alpha.md")) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(content)).To(MatchRegexp(`(?m)^[[:space:]]*- a$`))
+		})
+
+		It("AC6: task set blocked_by with the empty value stays legal", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": alphaWithList,
+			})
+
+			Eventually(runEntityCommand("task", "set", "Alpha", "blocked_by", "")).
+				Should(gexec.Exit(0))
+
+			items := runTaskListJSON()
+			Expect(items).To(HaveLen(1))
+			Expect(items[0]).NotTo(HaveKey("blocked_by"))
+			Expect(items[0]).NotTo(HaveKey("blocked"))
+		})
+
+		It("AC6b: task clear blocked_by removes the key", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": alphaWithList,
+			})
+
+			Eventually(runEntityCommand("task", "clear", "Alpha", "blocked_by")).
+				Should(gexec.Exit(0))
+
+			content, err := os.ReadFile(filepath.Join(vaultPath, "Tasks", "Alpha.md")) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(content)).NotTo(ContainSubstring("blocked_by"))
+		})
+
+		It("AC3b: goal set refuses a non-empty blocked_by", func() {
+			_, configPath, cleanup = createTempVaultWithGoals(nil, map[string]string{
+				"Beta": `---
+status: next
+page_type: goal
+priority: 1
+blocked_by:
+  - "[[Blocker E]]"
+---
+`,
+			})
+
+			session := runEntityCommand("goal", "set", "Beta", "blocked_by", "[[Blocker D]]")
+			Eventually(session).Should(gexec.Exit(1))
+
+			stderr := string(session.Err.Contents())
+			Expect(stderr).To(ContainSubstring("blocked_by"))
+			Expect(stderr).To(ContainSubstring("add"))
+		})
+
+		It(`AC6c: goal set blocked_by "" and goal clear blocked_by stay legal`, func() {
+			_, configPath, cleanup = createTempVaultWithGoals(nil, map[string]string{
+				"Beta": `---
+status: next
+page_type: goal
+priority: 1
+blocked_by:
+  - "[[Blocker E]]"
+---
+`,
+			})
+
+			Eventually(runEntityCommand("goal", "set", "Beta", "blocked_by", "")).
+				Should(gexec.Exit(0))
+			Eventually(runEntityCommand("goal", "clear", "Beta", "blocked_by")).
+				Should(gexec.Exit(0))
 		})
 	})
 

@@ -19,13 +19,67 @@ tags:
 
 `blocked_by` is the vault's only machine-readable dependency signal: `/open --flagged` and the batch opener read it as JSON to decide what may start. Both write paths are broken, in three linked places, and nothing catches it. `vault-cli task add <task> blocked_by '[[X]]'` fails with `unknown field: "blocked_by"` because the task list-field allowlist holds only `goals` and `tags`, so a dependency cannot be recorded at all. `vault-cli task set <task> blocked_by '[[X]]'` takes the unknown-field branch and writes a scalar YAML value, which the dedicated list reader discards by design — so `set` records a dependency in a shape the system is built to ignore, and reports success while doing it. `vault-cli task validate` passes on both shapes, so the divergence has no detector. The observed cost: an ordering inversion in the Sunday shutdown maintenance chain went undetected because the dependency data was silently absent from the files that were supposed to declare it. The same defect exists for goals, whose documentation sanctions the same `set` and `clear` commands for the same field.
 
+## Reproduction
+
+Smallest config: the Personal vault as configured in `~/.config/vault-cli/config.yaml` (a `vaults:` mapping with `tasks_dir: "25 Tasks"` and `goals_dir: "24 Goals"`). A bare `tasks_dir:`/`goals_dir:` file is not a valid config — the CLI exits `Error: no vaults configured`.
+
+A scratch task with only `status`, `page_type`, `priority`, and `task_identifier` in its frontmatter. Against `vault-cli version v0.139.1`:
+
+```
+$ vault-cli task add "ZZ Scratch Repro Blockedby" blocked_by "[[Blocker A]]"
+Error: unknown field: "blocked_by"
+Error: unknown field: "blocked_by"
+exit=1
+
+$ vault-cli task set "ZZ Scratch Repro Blockedby" blocked_by "[[Blocker B]]"
+✅ Set blocked_by=[[Blocker B]] on: ZZ Scratch Repro Blockedby
+exit=0
+```
+
+The file after `set` — the write reported success and produced a scalar:
+
+```
+---
+blocked_by: '[[Blocker B]]'
+page_type: task
+priority: 1
+status: in_progress
+task_identifier: 22222222-2222-2222-2222-222222222222
+---
+```
+
+Every reader then discards it. `task get` echoes the raw scalar, and `task list --output json` emits **neither** key — no `blocked_by`, no `blocked`:
+
+```
+$ vault-cli task get "ZZ Scratch Repro Blockedby" blocked_by --output json
+{ "key": "blocked_by", "name": "ZZ Scratch Repro Blockedby", "value": "[[Blocker B]]" }
+
+$ vault-cli task list --output json | <this task>
+{ "name": "ZZ Scratch Repro Blockedby", "status": "in_progress", "priority": 1,
+  "vault": "personal", "category": "task", "modified_date": "2026-09-20T09:49:48Z" }
+```
+
+And nothing reports the divergence:
+
+```
+$ vault-cli task validate "ZZ Scratch Repro Blockedby"
+✅ ZZ Scratch Repro Blockedby: no lint issues found
+exit=0
+```
+
+## Expected vs Actual
+
+Expected, per `docs/task-writing.md` § Dependencies: a dependency is recorded by `vault-cli task add <t> blocked_by '<[[Other]]>'`, and "a scalar value (`blocked_by: Blocker Task`) is malformed and reads as an empty list, so it never blocks" — the docs sanction `set` only for the empty-string clear. So `add` must append a list entry, and a scalar must be reported rather than silently accepted.
+
+Actual: `add` rejects the field as unknown (exit 1), `set` writes the scalar and reports success (exit 0), the scalar is discarded by every reader, and `validate` passes on both shapes. The recorded dependency is invisible and the command that wrote it claimed success.
+
 ## Goal
 
-A task or goal file can record "I cannot start until these are done" with one command, the recorded value is a YAML list that the existing readers actually see, and any file whose `blocked_by` is shaped so that no reader can see it is reported by `vault-cli task validate` with the field named and the expected shape stated. No command silently writes a shape the read side ignores.
+A task or goal file can record "I cannot start until these are done" with one command, the recorded value is a YAML list that the existing readers actually see, and any file whose `blocked_by` is shaped so that no reader can see it is reported — tasks by `vault-cli task validate` and `vault-cli task lint`, goals by `vault-cli goal lint` — with the field named and the expected shape stated. No command silently writes a shape the read side ignores.
 
 ## Non-goals
 
-- Rewriting the existing `blocked_by`-bearing task and goal files — this fixes the write path going forward and surfaces the malformed files; converting them is an operator action.
+- Rewriting the existing `blocked_by`-bearing task and goal files — this fixes the write path going forward and surfaces the malformed files (tasks via `task validate` / `task lint`, goals via `goal lint`); converting them is an operator action.
 - Auditing or fixing every list-typed field across goals, themes, objectives, and visions beyond the enumeration in Desired Behavior 1.
 - A general schema-validation framework — the validate rule is a targeted list-versus-scalar check for this field.
 - Changing the read side: the scalar rejection in the `blocked_by` list reader, the computed `blocked` flag, its JSON emission, and `next-task` filtering stay exactly as spec 046 specified them.
@@ -35,23 +89,35 @@ A task or goal file can record "I cannot start until these are done" with one co
 - Do NOT introduce a second issue type for the same condition — one rule, one issue type, reported by both `task validate` and `task lint` through their shared detector.
 - No new scenario (see the scenario-coverage note under Acceptance Criteria).
 
+## Alternatives Considered
+
+| Alternative | Why rejected |
+|---|---|
+| Relax `blockedByList` to accept a scalar as a one-element list | Makes malformed data silently valid, and it is the exact failure mode this spec closes. Spec 046 specified the scalar rejection deliberately so a bad write fails safe; the write path is the thing that is wrong, not the reader. |
+| Make `set` coerce a non-empty `blocked_by` value into a list | `set` would silently reinterpret a scalar — the same class of bug being fixed, just moved. It also diverges from `docs/task-writing.md` § Dependencies, which sanctions `set` only for the empty-string clear. |
+| Add `blocked_by` to the `tags`/`goals` comma-split coercion | Comma-splitting a wikilink name would corrupt names containing commas and hides the "one entry per invocation" contract the `add` verb already expresses. |
+| Leave the write path broken and only add the validate rule | Detects the divergence but does not close it — operators would still have no command that records a dependency. Detection without a recording path makes the field report-only. |
+| Do nothing | See the Do-Nothing Option below. |
+
 ## Acceptance Criteria
 
-Fixture vault for ACs 1, 3, 4, 5, 6, 7, 8: a temp vault with `Tasks/Alpha.md` and `Goals/Beta.md`, plus a config naming `tasks_dir: Tasks` and `goals_dir: Goals` (the shape the existing `integration/` harness builds). `<bin>` is the binary built from HEAD — `gexec.Build` inside `integration/`, or `/tmp/new-vault-cli` on the host. `Alpha`'s frontmatter holds exactly `status: in_progress`, `page_type: task`, `priority: 1`, `task_identifier: <a well-formed UUID>` and no other key, so the only issue any `validate` run can report is the one under test.
+Fixture vault for ACs 1, 2, 3, 4, 5, 6, 7, 8, 9: a temp vault with `Tasks/Alpha.md` and `Goals/Beta.md`, plus a config naming `tasks_dir: Tasks` and `goals_dir: Goals` (the shape the existing `integration/` harness builds). `<bin>` is the binary built from HEAD — `gexec.Build` inside `integration/`, or `/tmp/new-vault-cli` on the host. `Alpha`'s frontmatter holds exactly `status: in_progress`, `page_type: task`, `priority: 1`, `task_identifier: <a well-formed UUID>` and no other key, so the only issue any `validate` run can report is the one under test.
 
 - [ ] `Alpha` whose frontmatter holds `blocked_by:` with one list entry `[[Blocker A]]`; `<bin> --config <cfg> task add Alpha blocked_by "[[Blocker B]]"` exits 0, and `<bin> --config <cfg> task list --output json` emits for `Alpha` a `blocked_by` array containing both `[[Blocker A]]` and `[[Blocker B]]`, in that order — evidence: exit code 0 plus stdout JSON match (the pre-existing entry surviving is the not-clobbering proof; the file content of `Tasks/Alpha.md` also contains both names).
 - [ ] `Beta` whose frontmatter holds a `blocked_by` list with one entry; `<bin> --config <cfg> goal add Beta blocked_by "[[Blocker C]]"` exits 0 and `goal list --output json` emits both entries, while `<bin> --config <cfg> goal set Beta blocked_by "[[Blocker D]]"` exits non-zero with stderr naming `blocked_by` — evidence: exit codes plus stdout JSON match plus stderr match.
-- [ ] `Alpha` whose frontmatter holds the scalar `blocked_by: Blocker A`; `<bin> --config <cfg> task add Alpha blocked_by "[[Blocker B]]"` exits non-zero, stderr names `blocked_by` and the expected list shape, and the sha256 of `Tasks/Alpha.md` is unchanged; a second invocation whose value contains a newline (`"Blocker B\nstatus: completed"`) also exits non-zero with the sha256 unchanged — evidence: exit code non-zero, stderr match, negative evidence (file hash identical before and after).
-- [ ] `<bin> --config <cfg> task set Alpha blocked_by "[[Blocker A]]"` exits non-zero, stderr names `blocked_by` and contains the token `add`, and the sha256 of `Tasks/Alpha.md` is unchanged; in the same run `<bin> --config <cfg> task set Alpha tags "a,b"` and `task set Alpha goals "g1,g2"` both exit 0, and `task list --output json` for `Alpha` shows `"tags":["a","b"]` and `"goals":["g1","g2"]` — evidence: exit codes, stderr match, negative evidence (file hash identical), stdout JSON match (the `tags`/`goals` assertions are the regression lock against an over-broad refusal).
+- [ ] `Alpha` whose frontmatter holds the scalar `blocked_by: Blocker A`; `<bin> --config <cfg> task add Alpha blocked_by "[[Blocker B]]"` exits non-zero, stderr names `blocked_by`, states the expected list shape, and contains the token `clear`, and the sha256 of `Tasks/Alpha.md` is unchanged — evidence: exit code non-zero, stderr match on all three tokens, negative evidence (file hash identical before and after).
+- [ ] `<bin> --config <cfg> task set Alpha blocked_by "[[Blocker A]]"` exits non-zero, stderr names `blocked_by` and contains the token `add`, and the sha256 of `Tasks/Alpha.md` is unchanged; in the same run `<bin> --config <cfg> task set Alpha tags "a,b"` and `task set Alpha goals "g1,g2"` both exit 0, `task list --output json` for `Alpha` shows a `goals` array containing `g1` and `g2`, and `grep -c '^  - a$' Tasks/Alpha.md` returns ≥ 1 — evidence: exit codes, stderr match, negative evidence (file hash identical), stdout JSON match on `goals` plus file content for `tags` (the `tags`/`goals` assertions are the regression lock against an over-broad refusal; `tags` is asserted on the file and `task get`, not on `task list --output json`, which structurally emits no `tags` key — `TaskListItem` in `pkg/ops/list.go` has no `Tags` field).
 - [ ] `<bin> --config <cfg> task set Alpha blocked_by ""` exits 0 and `task list --output json` emits neither a `blocked_by` key nor a `blocked` key for `Alpha`; on a task whose frontmatter holds a `blocked_by` list, `<bin> --config <cfg> task clear Alpha blocked_by` exits 0 and `grep -c '^blocked_by:' Tasks/Alpha.md` returns 0 — evidence: exit codes plus negative evidence (JSON keys absent, grep count 0).
 - [ ] `<bin> --config <cfg> task validate Alpha` on the scalar fixture (`blocked_by: Blocker A`) exits non-zero, and its stdout contains exactly one issue line, which names `blocked_by` and the expected list shape — evidence: exit code non-zero plus stdout line count and content (the "exactly one line" assertion is what rules out an unrelated issue causing the non-zero exit).
 - [ ] `<bin> --config <cfg> task validate Alpha` on the list fixture — byte-identical to the scalar fixture except that the `blocked_by` line is a YAML list with one entry — exits 0 and its stdout contains no `blocked_by` line; the same command on a fixture whose only `blocked_by` line is the empty scalar `blocked_by: ""` exits 0; and on the scalar fixture `<bin> --config <cfg> task validate Alpha --output json` exits 0 with a non-empty `issues` array whose description names `blocked_by` — evidence: exit codes plus stdout content plus negative evidence (the scalar fixture still reads as unblocked: `task list --output json` emits no `blocked_by` and no `blocked` key for it).
 - [ ] `<bin> --config <cfg> task lint --fix` over the fixture vault (which contains the scalar fixture) exits non-zero, and the sha256 of the scalar fixture file is unchanged — evidence: exit code non-zero plus negative evidence (file hash identical — the rule reports and never mutates).
-- [ ] `go test ./pkg/ops/...` exits 0 and the suite contains `DescribeTable` blocks with `Entry` rows covering the append case (including the append onto a non-empty list that must keep its existing entries) and the `set` refusal case — evidence: exit code 0 plus `grep -c 'Entry(' pkg/ops/frontmatter_entity_test.go` returning ≥ 2 and `grep -c 'DescribeTable' pkg/ops/frontmatter_entity_test.go` returning ≥ 1.
-- [ ] `docs/task-writing.md` and `docs/goal-writing.md` each name `vault-cli task add` / `vault-cli goal add` as the way to record a dependency, state that a scalar value is reported by `vault-cli task validate`, and give the repair sequence for a scalar-shaped file (`set … blocked_by ""` or `clear … blocked_by`, then `add`); `CHANGELOG.md` carries an `## Unreleased` bullet prefixed `fix:` describing the write-path repair — evidence: file content — `grep -c 'blocked_by' docs/task-writing.md docs/goal-writing.md` returns ≥ 1 for each file, `grep -n 'task add' docs/task-writing.md` returns a line, and `grep -A20 '^## Unreleased' CHANGELOG.md` returns a line starting with `- fix:`.
-- [ ] **Post-Deploy (Rung-2):** the released binary is installed and the reproduction replay runs against it — on a scratch task in a temp vault, `vault-cli task add "<scratch>" blocked_by "[[Blocker]]"` exits 0 and `vault-cli task list --output json` then emits `"blocked_by":["[[Blocker]]"]` for that task; and the `vault-cli task lint --vault personal` sweep count for the new rule is recorded in the source task's `# Results` section — evidence: exit code plus stdout JSON match plus file content.
+- [ ] `Goals/Beta.md` whose frontmatter holds the scalar `blocked_by: Blocker C`; `<bin> --config <cfg> goal lint` over the fixture vault exits non-zero and its output contains a line naming `blocked_by`, while the same command on the list-shaped goal fixture exits 0 with no `blocked_by` line — evidence: exit codes plus stdout match. This AC exists because `task lint` walks only the tasks directory (`lintOperation.Execute` in `pkg/ops/lint.go` does `filepath.Walk(tasksDirPath)`) and `task validate` cannot resolve a goal at all (`FindTaskByName`), so `goal lint` — registered separately at `pkg/cli/cli.go` with `GoalsDir` as its walk root — is the only surface that can report a scalar-shaped goal.
+- [ ] `go test ./pkg/ops/...` exits 0, and the suite contains behavioral cases — table-driven per repository convention — asserting: (a) `add` on a task whose `blocked_by` is absent yields a one-entry list; (b) `add` on a task whose `blocked_by` holds one entry yields a two-entry list in order with the pre-existing entry first; (c) `add` on a task whose `blocked_by` is a non-empty scalar returns an error naming `blocked_by`; (d) `set` with a non-empty `blocked_by` value returns an error naming the field and `add` — evidence: exit code 0 plus each case asserting on the resulting file content or the returned error, not on the presence of test syntax. The cases may live in any `pkg/ops` test file; the assertion is what the cases prove, not which file holds them.
+- [ ] `docs/task-writing.md` and `docs/goal-writing.md` each name `vault-cli task add` / `vault-cli goal add` as the way to record a dependency, state that a scalar value is reported by `vault-cli task validate`, and give the repair sequence for a scalar-shaped file (`set … blocked_by ""` or `clear … blocked_by`, then `add`); `CHANGELOG.md` carries an `## Unreleased` bullet prefixed `fix:` describing the write-path repair — evidence: file content — `grep -nE 'task add[^|]*blocked_by' docs/task-writing.md` returns ≥ 1 line and `grep -nE 'goal add[^|]*blocked_by' docs/goal-writing.md` returns ≥ 1 line (the recording path is stated, not merely the field mentioned), `grep -nE 'blocked_by' docs/task-writing.md docs/goal-writing.md` piped to a check for a `validate` co-occurrence returns ≥ 1 line per file (the validate rule is stated), `grep -nE 'set .*blocked_by ""|clear .*blocked_by' docs/task-writing.md` returns ≥ 1 line (the repair sequence is stated), and `grep -A20 '^## Unreleased' CHANGELOG.md` returns a line starting with `- fix:`. A bare `grep -c 'blocked_by'` is explicitly NOT sufficient evidence: both files already contain seven occurrences before this change, so a count passes on an untouched file.
+- [ ] **Post-Deploy (Rung-2):** the released binary is installed and the reproduction replay runs against it — on a scratch task in a temp vault, `vault-cli task add "<scratch>" blocked_by "[[Blocker]]"` exits 0 and `vault-cli task list --output json` then emits a `blocked_by` array containing `[[Blocker]]` for that task (the CLI pretty-prints with two-space indent, so the assertion is on the parsed array, not on a literal compact-JSON string); and the pre-existing reproduction from the Problem section no longer reproduces — evidence: exit code plus parsed stdout JSON plus the recorded replay transcript in the source task's `# Results` section.
   - `deploy_check:` `vault-cli --version | awk '{print $NF}'`
-  - `deploy_target:` `$(git describe --tags --abbrev=0)`
+  - `deploy_target:` `$(git fetch --tags -q && git describe --tags --abbrev=0)`
+  - **Sweep (recorded, not an assertion):** `vault-cli task lint --vault personal` and `vault-cli goal lint --vault personal` are run and their output for the new rule is recorded in the source task's `# Results`. This is recorded rather than asserted because the Personal vault currently holds zero scalar-shaped `blocked_by` files (25 list-shaped, 0 scalar), so a zero count is true by construction and proves nothing on its own; the reproduction-replay half above is the real evidence, and the sweep detects a regression only when re-run on a planted fixture.
 
 **Scenario coverage: no new scenario.** The append and refusal rules are reachable by unit tests over the list operations, and the validate exit-code contract is reachable by the existing `integration/` harness, which builds the real binary and asserts exit codes against a temp vault — no Docker, no cluster, no `gh`, no external service. No essential user journey beyond that CLI contract depends on this, and the repository's existing `scenarios/001`–`005` still run unchanged as part of the release gate. None of the four conditions in dark-factory `docs/rules/scenario-writing.md` holds, so the default applies: no new scenario.
 
@@ -63,8 +129,9 @@ Fixture vault for ACs 1, 3, 4, 5, 6, 7, 8: a temp vault with `Tasks/Alpha.md` an
 make precommit
 make test
 grep -n 'blocked_by' pkg/ops/frontmatter_entity.go          # ≥1 line (smoke; the ACs carry the functional proof)
-grep -c 'Entry(' pkg/ops/frontmatter_entity_test.go         # ≥2
-grep -n 'blocked_by' docs/task-writing.md docs/goal-writing.md   # ≥1 line each
+grep -nE 'task add[^|]*blocked_by' docs/task-writing.md     # ≥1 line (recording path stated)
+grep -nE 'goal add[^|]*blocked_by' docs/goal-writing.md     # ≥1 line
+grep -nE 'set .*blocked_by ""|clear .*blocked_by' docs/task-writing.md   # ≥1 line (repair sequence stated)
 grep -A20 '^## Unreleased' CHANGELOG.md                     # must contain a "- fix:" bullet
 ```
 
@@ -89,8 +156,9 @@ vault-cli --version
 # Install the Claude Code plugin manifests (separate artifact)
 claude plugin update vault-cli@vault-cli   # then restart Claude Code
 
-# Sweep — record the count for the source task's Results
+# Sweep — recorded, not asserted (the vault holds zero scalar-shaped blocked_by files today)
 vault-cli task lint --vault personal
+vault-cli goal lint --vault personal
 ```
 
 ## Desired Behavior
@@ -107,11 +175,11 @@ vault-cli task lint --vault personal
    | `blocked_by` | theme, objective, vision | no accessor | excluded — no `blocked_by` in their model | excluded — same |
    | `theme`, `status`, `assignee`, `priority`, dates | all | no — scalar | excluded — `not a list field` | scalar (unchanged) |
 
-2. `add` refuses when the field's current value is a non-empty scalar: it exits non-zero, its message names the field, states the expected list shape, and names the `clear` remedy, and it writes nothing. `set` refuses any non-empty value for `blocked_by`: it exits non-zero and its message names the field and points at `add`. Neither refusal touches the file — no partial frontmatter, no key reordering. `add` also refuses a value containing a newline or a carriage return, with no write. `set <name> blocked_by ""` and `clear <name> blocked_by` remain the legal clears and keep their current effect: the first empties the effective list, the second removes the key.
+2. `add` refuses when the field's current value is a non-empty scalar: it exits non-zero, its message names the field, states the expected list shape, and names the `clear` remedy, and it writes nothing. `set` refuses any non-empty value for `blocked_by`: it exits non-zero and its message names the field and points at `add`. Neither refusal touches the file — no partial frontmatter, no key reordering. `set <name> blocked_by ""` and `clear <name> blocked_by` remain the legal clears and keep their current effect: the first empties the effective list, the second removes the key.
 3. `tags` and `goals` keep their existing `set` behavior (a non-empty value comma-splits into a list) and their existing `add` behavior — the refusal rule applies only to list-typed fields with no list form in `set`, which today is `blocked_by` alone. Duplicate detection keeps the existing exact-string semantics of the shared list-mutation helper: `X` and `[[X]]` are two distinct entries that resolve to the same blocker, and blocked state is unaffected.
-4. `vault-cli task validate <name>` and `vault-cli task lint` report a `blocked_by` whose value is a non-empty scalar as one issue that names the field and the expected list shape. The check does not fire for a YAML list value, for the empty scalar value, or for an absent key. The check is not fixable: `task lint --fix` reports it and leaves the file byte-identical.
+4. `vault-cli task validate <name>`, `vault-cli task lint`, and `vault-cli goal lint` report a `blocked_by` whose value is a non-empty scalar as one issue that names the field and the expected list shape. Tasks are reached by `task validate` and `task lint`; goals are reached by `goal lint` alone, since `task lint` walks only the tasks directory and `task validate` resolves only task names. The check does not fire for a YAML list value, for the empty scalar value, or for an absent key. The check is not fixable: `task lint --fix` reports it and leaves the file byte-identical.
 5. `vault-cli task validate <name>` in plain output exits non-zero when that issue fires and exits 0 when it does not. `vault-cli task validate <name> --output json` keeps exit code 0 when the issue fires and lists the issue in its `issues` array — the existing JSON exit contract is unchanged.
-6. The two new behaviors carry Ginkgo v2 `DescribeTable`/`Entry` coverage: an append row set that includes the append-onto-a-non-empty-list case, and a refusal row set for `set`. `docs/task-writing.md` and `docs/goal-writing.md` name the `add` recording path, state the validate rule, and give the repair sequence for a scalar-shaped file; `CHANGELOG.md` carries an `## Unreleased` `fix:` bullet.
+6. The two new behaviors carry Ginkgo v2 `DescribeTable`/`Entry` coverage: an append row set that includes the append-onto-a-non-empty-list case, and a refusal row set for `set`. The assertions are behavioral — they exercise `add` and `set` and assert the resulting file content and returned error, not the presence of test syntax. `docs/task-writing.md` and `docs/goal-writing.md` name the `add` recording path, state the validate rule, and give the repair sequence for a scalar-shaped file; `CHANGELOG.md` carries an `## Unreleased` `fix:` bullet.
 
 ## Assumptions
 
@@ -128,7 +196,8 @@ vault-cli task lint --vault personal
 - `task lint --fix` must not become able to repair a malformed `blocked_by`; the new issue is reported with the not-fixable flag so the fix path skips it.
 - `vault-cli task validate --output json` keeps exit code 0 when issues exist; only the plain path exits non-zero, as it does today.
 - Entity-name resolution, file permissions (0600), and the symlink refusal in the write path are unchanged.
-- Tests follow repository convention: Ginkgo v2 / Gomega with `DescribeTable` and `Entry` for the new table-driven coverage; existing stdlib `TestXxx` tests elsewhere are untouched.
+- Tests follow repository convention: Ginkgo v2 / Gomega with `DescribeTable` and `Entry` for the new table-driven coverage; existing stdlib `TestXxx` tests elsewhere are untouched. The test cases may live in any `pkg/ops` test file — the spec does not pin a file.
+- `docs/task-writing.md` and `docs/goal-writing.md` § Dependencies already own this field's semantics and are the docs this spec updates; no new `docs/` page is introduced.
 
 ## Failure Modes
 
@@ -137,27 +206,26 @@ vault-cli task lint --vault personal
 | `add` on a file whose `blocked_by` is a non-empty scalar (legacy shape) | Refused; message names the field, the expected list shape, and the `clear` remedy; file byte-identical | `set <name> blocked_by ""` (or `clear <name> blocked_by`), then `add` | Exit code non-zero plus the stderr message; `task validate` also names the file | Reversible — nothing written | Two concurrent `add` calls on the same task: last write wins, one entry is lost (same last-write-wins class the existing `goals`/`tags` add already has; no lock is added) |
 | Operator passes a comma-joined value to `set … blocked_by "A,B"` | Refused; no coercion | Run `add` once per entry | Exit code non-zero plus stderr naming `add` | Reversible | — |
 | Operator adds the same blocker twice in different spellings (`X` and `[[X]]`) | Two entries that resolve to the same blocker; blocked state unaffected | `task remove <name> blocked_by "[[X]]"` | `task list --output json` shows both entries | Reversible | — |
-| `add` value contains a newline or carriage return | Refused; no write | Re-invoke with a single-line value | Exit code non-zero | Reversible | — |
-| Vault-wide `task lint` now exits non-zero because a legacy scalar file exists | Intended surfacing: the issue is reported and the sweep fails until the files are repaired | Repair each flagged file (`set ""` then `add`), or accept the non-zero exit until then | `task lint` exit code plus the per-file issue line | Reversible | — |
+| A legacy scalar-shaped `blocked_by` file exists in a vault | Intended surfacing: the issue is reported on the next `task validate` / `task lint` (tasks) or `goal lint` (goals) run over that file | Repair the flagged file (`set ""` then `add`) | The per-file issue line naming `blocked_by` and the expected shape | Reversible | — |
 | Crash mid-write (pre-existing property of the storage layer, unchanged by this spec) | Task file can be truncated; no new partial state is introduced by this spec | Restore the file from the vault's autocommit history, then re-run the command | `task get <name>` fails or the frontmatter parse error is reported | Partial — the write path is not atomic today; making it atomic is out of scope | — |
 
 ## Security / Abuse Cases
 
-- **Attacker-controllable input:** the `<value>` argument of `add` and `set`, and the entity name used for file resolution. Values reach YAML frontmatter; a value carrying a newline or carriage return is refused outright so it cannot introduce a frontmatter key or a second list entry, and values are stored as YAML list items, so a crafted string cannot escape into a top-level key.
+- **Attacker-controllable input:** the `<value>` argument of `add` and `set`, and the entity name used for file resolution. Values reach YAML frontmatter as YAML list items, so a crafted string cannot escape into a top-level key — a value containing a newline is serialized by the YAML encoder as a block scalar (`- |-`), which nests under the list item and cannot introduce a sibling key. No newline-specific guard is added; the list-item encoding is the containment.
 - **Trust boundaries:** the CLI writes only inside the configured vault directories, resolved through the existing entity-name lookup — no shell interpolation, no path traversal beyond what the existing commands already do. The symlink refusal in the write path stays in force.
 - **What can hang or retry forever:** nothing — both commands are single find, mutate, write sequences with no retry loop and no network I/O.
-- **What must be validated:** the field name against the list-field allowlist (an unknown or scalar field still fails), the value against the newline/CR rule, and the existing frontmatter value's shape before appending (a non-empty scalar is refused rather than overwritten).
+- **What must be validated:** the field name against the list-field allowlist (an unknown or scalar field still fails), and the existing frontmatter value's shape before appending (a non-empty scalar is refused rather than overwritten).
 
 ## Suggested Decomposition
 
 | # | Prompt focus | Covers DBs | Covers ACs | Depends on |
 |---|---|---|---|---|
-| 1 | `add blocked_by` append for tasks and goals; refusal when the current value is a non-empty scalar; value sanitization; `DescribeTable` append rows | 1, 2 | 1, 2, 3, 9 | — |
-| 2 | `set` refusal for `blocked_by` (task + goal) with a pointer to `add`; clears unchanged; `tags`/`goals` coercion regression-locked; `DescribeTable` refusal rows | 2, 3 | 4, 5, 9 | prompt 1 (shares the list-typed-field classification the refusal keys on) |
-| 3 | `task validate` / `task lint` scalar-list detector: names the field and the expected shape, non-fixable, plain exit non-zero, JSON exit unchanged | 4, 5 | 6, 7, 8 | — |
+| 1 | `add blocked_by` append for tasks and goals; refusal when the current value is a non-empty scalar; behavioral append/refusal test rows | 1, 2 | 1, 2 (add half), 3, 11 | — |
+| 2 | `set` refusal for `blocked_by` (task + goal) with a pointer to `add`; clears unchanged; `tags`/`goals` coercion regression-locked; behavioral refusal test rows | 2, 3 | 2 (set half), 4, 5, 11 | prompt 1 (shares the list-typed-field classification the refusal keys on) |
+| 3 | `task validate` / `task lint` / `goal lint` scalar-list detector: names the field and the expected shape, non-fixable, plain exit non-zero, JSON exit unchanged, goals reachable via `goal lint` | 4, 5 | 6, 7, 8, 9 | — |
 | 4 | Docs (`task-writing.md`, `goal-writing.md`) + `CHANGELOG.md` `## Unreleased` bullet | 6 | 10 | prompts 1–3 |
 
-Rationale: prompt 1 establishes the recording path and the shape rule it enforces; prompt 2 reuses that same list-typed-field classification for the `set` refusal, so it must land after; prompt 3 is the detector and is independent of both, but its ACs assert the read side still rejects scalars, which is what makes prompt 1's refusal necessary rather than cosmetic; prompt 4 documents the surface prompts 1–3 created. AC 11 is operator-executed after merge and is not a prompt.
+Rationale: prompt 1 establishes the recording path and the shape rule it enforces; prompt 2 reuses that same list-typed-field classification for the `set` refusal, so it must land after; prompt 3 is the detector and is independent of both, but its ACs assert the read side still rejects scalars, which is what makes prompt 1's refusal necessary rather than cosmetic; prompt 4 documents the surface prompts 1–3 created. AC 11 (test coverage) is split across prompts 1 and 2 because each prompt owns the behavior it tests. AC 12 is operator-executed after merge and is not a prompt.
 
 ## Do-Nothing Option
 

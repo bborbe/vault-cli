@@ -1,7 +1,7 @@
 ---
 description: Validate that a task has Success Criteria and the subtasks needed to reach its goal; conversationally fill gaps; leaves the task at phase=planning and hands off to execute-task (never flips phase itself).
 argument-hint: "<task-file-path-or-name> [--non-interactive] (or detects from conversation)"
-allowed-tools: [Task, Read, Edit, Glob, Bash, AskUserQuestion, ListAgents, SendMessage]
+allowed-tools: [Task, Read, Edit, Write, Glob, Bash, AskUserQuestion, ListAgents, SendMessage]
 ---
 
 Drive a task to *execution-ready* through conversation. Checks that the task has Success Criteria defined and subtasks that lead from now to the goal. Runs `task-auditor` for findings, asks targeted questions, applies answers, loops until ready. Leaves the task at `phase: planning` and points to `/vault-cli:execute-task` to begin — **plan-task never flips the phase itself**; `execute-task` owns the `planning → execution` transition.
@@ -76,7 +76,7 @@ The goal is to land at `status: in_progress, phase: planning` for fresh tasks; r
 ```
 Task tool with:
   subagent_type: 'vault-cli:task-auditor'
-  prompt: 'Audit <resolved-path>. Return: score (1-10), Critical Issues, Task Scope Fit findings, Task-Goal Alignment, top 5 Recommendations.'
+  prompt: 'Audit <resolved-path>. Return: score (1-10), Critical Issues, Task Scope Fit findings, Task-Goal Alignment, top 5 Recommendations, and — when the task carries a `# Source` footer — the `**Template**:` line plus the [template-level]/[instance-level] label on each finding (omit both otherwise).'
 ```
 
 ### 5. Check the non-negotiables
@@ -141,9 +141,32 @@ Any hard check failing → mandatory question in step 6; can't exit on auditor s
 
 ### 6. Surface gaps + fix loop
 
-**NO-ASK short-circuit:** under `--non-interactive` this whole step is skipped — no questions, no fix loop, no `Edit`. Carry the gaps forward to step 7's `⚠` branch as bullets. The rest of this step applies to ASK mode only.
+**NO-ASK short-circuit:** under `--non-interactive` no question is asked, no fix loop runs, and nothing is `Edit`ed from an assumed answer. Carry the gaps forward to step 7's `⚠` branch as bullets. **The template-verdict check below still runs** — it is a lookup, not a question, and a current verdict is what lets a headless run reach `✅ Plan ready` instead of parking. Everything else in this step applies to ASK mode only.
 
 **Worker sessions (ASK mode only) — send each question to your manager as well.** This step is where a spawned worker most often asks, and the `AskUserQuestion` call in the rules below reaches only whoever is sitting in this tab. If a manager session watches your topic, resolve it with `ListAgents` — an explicit name given at spawn wins; otherwise the row matching your task's topic (`<Topic>` or `<Topic> Manager`; your `goals:` name the goals, and the topic page listing them is your topic). Send the question with `SendMessage` too. The ask is what unblocks you; the send is what makes the question visible without the operator visiting this tab. **Never send a permission prompt** — a peer message cannot release a harness gate. Nothing resolves, or the tools are absent → just ask in this tab.
+
+**Template-verdict check — run before translating any auditor finding.** A CR-materialized recurring instance is audited once per period, but the artifact the auditor is judging — its schedule template — does not change between periods, so the same template-level finding re-asks every week. Resolve a verdict before entering the fix loop:
+
+**Run this check in both modes.** It is a lookup, not a question — and under NO-ASK a current verdict is exactly what lets a headless run reach `✅ Plan ready` instead of parking on a gap report.
+
+1. **Take the slug from the auditor's report.** On a CR-materialized task the auditor emits a `**Template**: \`<slug>\`` line and labels every finding `[template-level]` or `[instance-level]`. No `**Template**` line → the task is not CR-materialized → skip this whole block. The auditor owns detection (see `agents/task-auditor.md` § Finding Classification); do not re-derive the shape here.
+2. **Hash the template as materialized** — the instance body with the substituted period values normalized out:
+   ```bash
+   sed -E 's/[0-9]{4}-[0-9]{2}-[0-9]{2}/<DATE>/g; s/[0-9]{4}W[0-9]{2}/<PERIOD>/g' "<instance-file>" | shasum
+   ```
+   The normalization is deliberately blunt: every ISO date in the body is masked, so a template edit that only rewrites a date literal will *not* invalidate a verdict. That is the accepted trade — hashing the raw body would instead re-ask on every period roll, which is the defect this check exists to remove.
+3. **Look for the verdict file** at `<vault>/50 Knowledge Base/Recurring Template Verdicts/<slug>.md` — a vault-relative directory, so it travels with the vault on sync. Branch on what you find:
+   - **Verdict present, `body_hash` matches** → the template is unchanged and already adjudicated. **Skip the auditor-derived questions**: do not translate auditor findings into questions, do not enter the fix loop for them. Print `ℹ️ Template verdict current for <slug> (recorded <date>) — auditor findings already adjudicated; no re-ask.` and go straight to step 7. A current verdict also satisfies step 7's score gate for the findings it covers; without that clause an adjudicated 7/10 would still exit on the `⚠` branch and the skip would buy nothing.
+     **Order matters.** Step 5's hard non-negotiables are checked first and always apply in full — they are structural, independent of template content, and a failure there is a different defect from the one the verdict covers. Take the skip only on a clean pass.
+   - **Verdict present, `body_hash` differs** → the template changed since the verdict. Raise **exactly one** question: does the new template state supersede the recorded verdict? On the answer, update `body_hash` and the verdict text, then continue to step 7. Under NO-ASK, emit this as the single gap bullet instead of asking. This is the only case in which a verdicted template asks.
+   - **No verdict** → normal path. After the operator answers, **record the verdict** — write `<vault>/50 Knowledge Base/Recurring Template Verdicts/<slug>.md` carrying `template_slug`, `template_source`, the current `body_hash`, the date, and what was adjudicated. When the answer is to port the change into the source YAML, **auto-file exactly one follow-up task** naming the slug:
+     ```
+     Task tool with subagent_type: 'vault-cli:task-creator',
+       prompt: '<slug> — port the adjudicated change into its schedule template --non-interactive'
+     ```
+     Dedupe by slug: if the verdict file already records a filed follow-up, or an open task already names the slug, file nothing — and later periods of that template ask nothing.
+
+Only findings the auditor labelled `[template-level]` are verdict-coverable. An `[instance-level]` finding always asks, verdict or not.
 
 Translate findings (auditor + non-negotiable checks) into questions. Rules:
 
@@ -153,13 +176,13 @@ Translate findings (auditor + non-negotiable checks) into questions. Rules:
 - Quote the offending line/section so owner sees what triggered the question
 - Use `AskUserQuestion` for the actual ask
 
-Apply each answer via `Edit` — re-running the step 2 ownership gate first (see there). Re-run auditor after each batch. Print delta `Score: X → Y`. Loop until score ≥ 8 AND all four hard non-negotiables pass OR owner says "good enough."
+Apply each answer via `Edit` — re-running the step 2 ownership gate first (see there). Re-run auditor after each batch. Print delta `Score: X → Y`. Loop until score ≥ 8 AND all five hard non-negotiables pass OR owner says "good enough." A current template verdict (see the template-verdict check above) satisfies the score gate for the findings it covers.
 
 ### 7. Exit — hand off to execute-task (no phase flip)
 
 **plan-task never flips the phase.** It validates and reports; `/vault-cli:execute-task` owns the `planning → execution` transition. This keeps each lifecycle command to one job and makes "start executing" a deliberate operator action.
 
-**Phase is `planning` AND score ≥ 8 AND hard non-negotiables pass:**
+**Phase is `planning` AND (score ≥ 8 OR a current template verdict covers the auditor findings) AND hard non-negotiables pass:**
 
 Print: `✅ Plan ready. Score: X/10. Phase stays: planning. → Run /vault-cli:execute-task to begin execution.`
 
@@ -167,7 +190,7 @@ Print: `✅ Plan ready. Score: X/10. Phase stays: planning. → Run /vault-cli:e
 
 Print: `✅ Task sharpened. Score: X/10. Phase unchanged (was <phase>).`
 
-**Owner abort OR score < 8 after loop (ASK mode) — OR any unresolved gap (NO-ASK mode):**
+**Owner abort OR (score < 8 after loop AND no current template verdict covers the findings) — OR any unresolved gap (NO-ASK mode):**
 
 Print: `⚠ Task improved to X/10. Phase unchanged. Remaining: <bullets>. Re-run /vault-cli:plan-task when ready.`
 
@@ -175,7 +198,7 @@ Under NO-ASK the score is whatever the auditor returned (nothing was fixed, so t
 
 ## Notes
 
-- **Scope is focused on what blocks safe execution.** Plan-task enforces five planning-gate checks (SC defined, subtasks reach goal, e2e verify subtask, subtask-goal alignment, KISS ceiling) because each one prevents a specific failure mode: missing outcomes, missing path, dishonest-tick verification, scope creep, oversize task. Other heuristics (MVP framing, Out-of-Scope capture quality, evidence shape) stay in `task-auditor` and `task-writing.md` as canonical rules — surfaced via the auditor in step 4, not promoted to dedicated gates. Letting the auditor enforce general structure while plan-task enforces the five named gates keeps the command short and the gates legible.
+- **Scope is focused on what blocks safe execution.** Plan-task enforces five hard planning-gate checks (SC defined, subtasks reach goal, e2e verify subtask, subtask-goal alignment, blast radius named) plus the KISS ceiling as a soft sixth, because each one prevents a specific failure mode: missing outcomes, missing path, dishonest-tick verification, scope creep, an unnamed blast radius, oversize task. Other heuristics (MVP framing, Out-of-Scope capture quality, evidence shape) stay in `task-auditor` and `task-writing.md` as canonical rules — surfaced via the auditor in step 4, not promoted to dedicated gates. Letting the auditor enforce general structure while plan-task enforces the five named gates keeps the command short and the gates legible.
 - **Questions stay tight, with consequence visible.** 2-3 lines of setup → short options. "Tight" doesn't mean stripping context — owner must see what each answer *changes*. Quote the offending line, name the trade-off, then options.
 - **Subtask granularity = session-sized.** When proposing or sharpening `# Tasks` items, target *work-block size* (a session's worth of work), not CLI-step size. Aim for 3-6 items per task. Reject auditor-suggested over-decomposition like "run precommit / open PR / merge PR" as separate subtasks — those collapse into one "ship the change" block.
 - **Reads `~/.claude/plugins/marketplaces/vault-cli/docs/task-writing.md` as the canonical rule source** — same rules `task-auditor` enforces.

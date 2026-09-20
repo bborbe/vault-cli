@@ -1,8 +1,12 @@
 ---
-status: approved
+status: completed
 spec: [051-topic-command-ladder]
+execution_id: vault-cli-topic-ladder-exec-223-spec-051-topic-ops-and-command-group
+dark-factory-version: v0.196.0
 created: "2026-09-20T20:29:34Z"
 queued: "2026-09-20T21:28:57Z"
+started: "2026-09-20T21:40:10Z"
+completed: "2026-09-20T21:53:41Z"
 branch: dark-factory/topic-command-ladder
 ---
 

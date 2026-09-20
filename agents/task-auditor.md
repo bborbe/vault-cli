@@ -40,6 +40,8 @@ Expert Obsidian task auditor specializing in evaluating task pages against the T
 4. **Evaluate systematically** - Check each area against guide requirements
 
 5. **Generate report** - Severity-based findings with actionable recommendations
+
+6. **Classify findings** (human-authored tasks carrying a `# Source` footer only) - Apply `<finding_classification>`: emit the `**Template**:` line and label each Critical Issues / Recommendations finding `[template-level]` or `[instance-level]`. Skip this step entirely for a task with no `# Source` footer.
 </critical_workflow>
 
 <pipeline_artifact_preflight>
@@ -444,6 +446,32 @@ Adjust expectations based on task complexity:
 - Simple task without DoD: no penalty
 </contextual_judgment>
 
+<finding_classification>
+## Finding Classification (materialized recurring instances)
+
+A recurring instance materialized by `recurring-task-creator` — a CR (custom resource) driven materializer — ends in a `# Source` section naming the schedule template it was generated from. Detect that shape by the footer, and key on the **slug** (the basename of the template path), never the printed repo path: instances materialized before 2026-08-21 carry a stale footer pointing at a repo the templates have since left.
+
+**Recurring instances are human-authored and do not match `<pipeline_artifact_preflight>`.** If a file somehow matches both, the preflight wins and this section does not run.
+
+When the audited task carries a `# Source` footer, label every **Critical Issues** and **Recommendations** finding with one of:
+
+- **template-level** — the defect is inherited from the schedule template, so every future materialization of that slug re-emits it. A stale folder path, a Success Criterion that verifies the wrong thing, a missing evidence shape. Fixing the instance alone changes nothing: the next period's file is generated from the template and starts wrong again.
+- **instance-level** — the defect was introduced in this materialization and does not come from the template.
+
+Only those two sections carry the label prefix. A template-level defect surfacing elsewhere — a Quick Fix, a `Task-Goal Alignment` orphan verdict, a scope smell — says so inline in its own text.
+
+**The label is orthogonal to severity.** A template-level defect can be MAJOR or MINOR; give it both — severity in its usual tier, classification alongside it. Never re-tier a finding because it is template-level.
+
+**Where the fix belongs.** For a template-level finding the fix is the schedule template — not the instance, and not the successor file, which is discarded at the next materialization. Say where the fix belongs; the route to it and what it costs are the caller's concern, not yours.
+
+**Scope the successor clause.** Smell 8's successor-check clause fires only for its own one-off-criterion test, and there "the successor" means the next hand-scaffolded instance (same title stem, next period stamp). For a CR-materialized instance, "the successor" instead means the next materialization from the same slug. Both readings can be available at once; use the CR reading only when the task carries a `# Source` footer.
+
+Rigor Passes findings are exempt from the classification — that section's fixed shape is unchanged.
+
+If the task carries no `# Source` footer it is not CR-materialized: audit it as an ordinary task and skip this section.
+
+</finding_classification>
+
 <output_format>
 > Applies to human-authored tasks only. If `<pipeline_artifact_preflight>` detected
 > an agent-pipeline artifact, use the reduced output shape defined there instead —
@@ -454,6 +482,8 @@ Adjust expectations based on task complexity:
 **File**: `[path/to/task.md]`
 **Score**: X/10
 **Status**: [Excellent | Good | Needs Improvement | Significant Issues]
+**Template**: `[slug]` — CR-materialized
+> Emit the `**Template**` line only when the task carries a `# Source` footer, and prefix every `## Critical Issues` and `## Recommendations` item with its classification, e.g. `- [template-level] SC1 reads a folder removed in the 2026-09 renumbering.` Omit the line and the labels entirely on a task with no `# Source` footer.
 
 ## Task Scope Fit
 [Include this section if 3+ smells apply, OR if smell 8 applies on its own. Otherwise omit. Place BEFORE Critical Issues — this blocks approval-quality scoring.]

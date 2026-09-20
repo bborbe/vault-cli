@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [051-topic-command-ladder]
+summary: Added storage.TopicStorage with the TopicsDir config plumbing and a traversal-refusing FindTopicByName, plus 21 Ginkgo specs covering the configured-directory, absent-directory and traversal paths
+execution_id: vault-cli-topic-ladder-exec-222-spec-051-topic-storage-topics-dir
+dark-factory-version: v0.196.0
 created: "2026-09-20T20:29:34Z"
 queued: "2026-09-20T21:28:57Z"
+started: "2026-09-20T21:34:02Z"
+completed: "2026-09-20T21:40:08Z"
 branch: dark-factory/topic-command-ladder
 ---
 

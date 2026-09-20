@@ -10,8 +10,8 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 
 ## Unreleased
 
-* Stop `/vault-cli:plan-task` re-asking the same auditor question for every materialized instance of an unchanged recurring schedule template. A per-template verdict keyed on the `# Source` slug now suppresses already-adjudicated template-level findings, detects staleness with a date-normalized hash of the materialized body, and auto-files one deduped port-to-YAML follow-up.
-* `task-auditor` labels every finding on a CR-materialized instance as template-level or instance-level and reports the template slug, so the caller knows which findings a verdict can cover.
+- feat: stop `/vault-cli:plan-task` re-asking the same auditor question for every materialized instance of an unchanged recurring schedule template. A per-template verdict keyed on the `# Source` slug now suppresses already-adjudicated template-level findings, detects staleness with a date-normalized hash of the materialized body, and auto-files one deduped port-to-YAML follow-up.
+- feat: `task-auditor` labels every finding on a CR-materialized instance as template-level or instance-level and reports the template slug, so the caller knows which findings a verdict can cover.
 
 ## v0.140.0
 

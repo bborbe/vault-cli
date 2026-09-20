@@ -122,6 +122,10 @@ The task is blocked while at least one named blocker is not `status: completed`.
 
 Blocked state is derived and is never written. Nothing sets `status: hold` from `blocked_by`, and no command flips a status when a blocker completes. `hold` remains an operator decision for a wait measured in weeks (see `Hold vs in_progress` under `## Lifecycle`); a blocked task usually stays `next` or `in_progress`.
 
+**When not to use it.** `blocked_by` is **unconditional** as every consumer reads it — the field has no vocabulary for "usually", "skippable", or "applies unless X". Listing a dependency that is *conditionally* skipped does not merely overstate the constraint; it produces a **wrong answer**. The task computes `blocked: true` while it is due, so `/vault-cli:next-task` never surfaces it — the work is invisible on its own due date, and from the outside a blocked task is indistinguishable from a not-yet-due one.
+
+Record a **conditional** dependency as prose in the task body **plus an explicit blocking checkbox** naming the condition — `- [ ] Confirm <prereq> resolved — completed, or <skip condition> (BLOCKING)` — and keep the field for **absolute** dependencies only. The test: could this dependency legitimately be skipped in a normal period? If yes, it is conditional and does not belong in the field. Before removing an over-broad entry, verify that in-task checkbox exists — a task with no machine-visible prerequisite at all is worse than one carrying an over-broad gate.
+
 Where it surfaces:
 
 - `vault-cli task list --output json` emits `blocked_by` (the raw list) and a computed `blocked` boolean for any task that declares a dependency list; a task with no `blocked_by` emits neither key.

@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [051-topic-command-ladder]
+summary: 'Recorded the topic command family in CHANGELOG.md under ## Unreleased and documented all twelve leaves in the README''s ### topic subsection, then passed the full precommit gate plus the spec''s container-executable verification rung.'
+execution_id: vault-cli-topic-ladder-exec-224-spec-051-changelog-readme-precommit
+dark-factory-version: v0.196.0
 created: "2026-09-20T20:29:34Z"
 queued: "2026-09-20T21:28:57Z"
+started: "2026-09-20T21:53:43Z"
+completed: "2026-09-20T21:56:25Z"
 branch: dark-factory/topic-command-ladder
 ---
 

@@ -108,6 +108,13 @@ func (o *goalSetOperation) Execute(
 		return errors.Wrap(ctx, err, "find goal")
 	}
 
+	// Refuse a non-empty blocked_by before anything is mutated — see
+	// blockedBySetRefusal. Nothing below runs on this path, so the goal file
+	// stays byte-identical.
+	if err := blockedBySetRefusal(ctx, "goal", entityName, key, value); err != nil {
+		return err
+	}
+
 	// One-step close-out: when this invocation sets a close-out goal status,
 	// persist reason and successor first so both land in a single WriteGoal.
 	if err := writeGoalCloseOutFieldsIfCloseOut(ctx, goal, value, reason, gateSuccessor); err != nil {
@@ -384,15 +391,35 @@ func (o *goalTagsListOperation) Execute(
 	if knownGoalScalarFields[key] {
 		return errors.Errorf(ctx, "not a list field: %q", key)
 	}
-	if key != "tags" {
+	if key != "tags" && key != "blocked_by" {
 		return errors.Errorf(ctx, "unknown field: %q", key)
 	}
-	current := goal.Tags()
+
+	if key == "blocked_by" {
+		if err := blockedByAppendRefusal(ctx, "goal", entityName, goal.Get("blocked_by")); err != nil {
+			return err
+		}
+	}
+
+	var current []string
+	switch key {
+	case "tags":
+		current = goal.Tags()
+	case "blocked_by":
+		current = goal.BlockedBy()
+	}
+
 	updated, err := applyListMutation(ctx, current, value, o.mode)
 	if err != nil {
 		return errors.Wrap(ctx, err, fmt.Sprintf("%s field %q", o.mode, key))
 	}
-	goal.SetTags(updated)
+
+	switch key {
+	case "tags":
+		goal.SetTags(updated)
+	case "blocked_by":
+		goal.SetBlockedBy(updated)
+	}
 	if err := o.goalStorage.WriteGoal(ctx, goal); err != nil {
 		return errors.Wrap(ctx, err, "write goal")
 	}
@@ -578,8 +605,9 @@ type taskListOperation struct {
 
 // knownTaskListFields are task fields that hold a list.
 var knownTaskListFields = map[string]bool{
-	"goals": true,
-	"tags":  true,
+	"goals":      true,
+	"tags":       true,
+	"blocked_by": true,
 }
 
 // knownTaskScalarFields are task fields that hold a scalar (not a list).
@@ -608,12 +636,20 @@ func (o *taskListOperation) Execute(
 		return errors.Errorf(ctx, "unknown field: %q", key)
 	}
 
+	if key == "blocked_by" {
+		if err := blockedByAppendRefusal(ctx, "task", taskName, task.Get("blocked_by")); err != nil {
+			return err
+		}
+	}
+
 	var current []string
 	switch key {
 	case "goals":
 		current = task.Goals()
 	case "tags":
 		current = task.Tags()
+	case "blocked_by":
+		current = task.BlockedBy()
 	}
 
 	updated, err := applyListMutation(ctx, current, value, o.mode)
@@ -626,6 +662,8 @@ func (o *taskListOperation) Execute(
 		task.SetGoals(updated)
 	case "tags":
 		task.SetTags(updated)
+	case "blocked_by":
+		task.SetBlockedBy(updated)
 	}
 
 	if err := o.taskStorage.WriteTask(ctx, task); err != nil {

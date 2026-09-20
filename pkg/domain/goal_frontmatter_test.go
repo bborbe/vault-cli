@@ -13,6 +13,7 @@ import (
 	"github.com/bborbe/validation"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"gopkg.in/yaml.v3"
 
 	"github.com/bborbe/vault-cli/pkg/domain"
 )
@@ -490,5 +491,36 @@ var _ = Describe("GoalFrontmatter", func() {
 			Expect(d).NotTo(BeNil())
 			Expect(d.Time().UTC().Format("2006-01-02")).To(Equal("2026-04-13"))
 		})
+	})
+})
+
+var _ = Describe("GoalFrontmatter SetBlockedBy", func() {
+	DescribeTable("stores a list and deletes the key when emptied",
+		func(input []string, expected []string, keyPresent bool) {
+			fm := domain.NewGoalFrontmatter(map[string]any{"status": "next"})
+			fm.SetBlockedBy(input)
+			if len(expected) == 0 {
+				Expect(fm.BlockedBy()).To(BeEmpty())
+			} else {
+				Expect(fm.BlockedBy()).To(Equal(expected))
+			}
+			Expect(fm.Get("blocked_by") != nil).To(Equal(keyPresent))
+		},
+		Entry("one entry", []string{"[[A]]"}, []string{"[[A]]"}, true),
+		Entry("two entries keep order", []string{"[[A]]", "[[B]]"}, []string{"[[A]]", "[[B]]"}, true),
+		Entry("empty slice deletes the key", []string{}, nil, false),
+		Entry("nil deletes the key", nil, nil, false),
+	)
+
+	It("round-trips the list through YAML marshal and unmarshal", func() {
+		fm := domain.NewGoalFrontmatter(map[string]any{"status": "next"})
+		fm.SetBlockedBy([]string{"[[Blocker Task]]", "Plain Blocker"})
+
+		data, err := yaml.Marshal(fm.RawMap())
+		Expect(err).NotTo(HaveOccurred())
+
+		var raw map[string]any
+		Expect(yaml.Unmarshal(data, &raw)).To(Succeed())
+		Expect(domain.NewGoalFrontmatter(raw).BlockedBy()).To(Equal([]string{"[[Blocker Task]]", "Plain Blocker"}))
 	})
 })

@@ -227,6 +227,17 @@ func (f *GoalFrontmatter) SetTags(v []string) {
 	f.Set("tags", stringSliceToAny(v))
 }
 
+// SetBlockedBy stores the blocked_by dependency list in the map. Deletes the key
+// if v is nil or empty, mirroring SetGoals / SetTags, so a list emptied by
+// `remove` leaves no key behind and the entity reads as unblocked.
+func (f *GoalFrontmatter) SetBlockedBy(v []string) {
+	if len(v) == 0 {
+		f.Delete("blocked_by")
+		return
+	}
+	f.Set("blocked_by", stringSliceToAny(v))
+}
+
 // SetCompleted stores the completed date in the map. Deletes key if d is nil.
 func (f *GoalFrontmatter) SetCompleted(d *libtime.Date) {
 	if d == nil {

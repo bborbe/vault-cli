@@ -127,7 +127,20 @@ Where it surfaces:
 - `vault-cli task list --output json` emits `blocked_by` (the raw list) and a computed `blocked` boolean for any task that declares a dependency list; a task with no `blocked_by` emits neither key.
 - `/vault-cli:next-task` does not recommend a task whose `blocked` flag is true.
 
-To clear a dependency list, `vault-cli task clear "<name>" blocked_by` removes the key; `vault-cli task set "<name>" blocked_by ""` empties the effective list. Either makes the task read as unblocked again.
+**Recording a dependency.** One entry per invocation, appended to whatever list is already there:
+
+```
+vault-cli task add "<name>" blocked_by "[[Blocker Task]]"
+```
+
+`add` never clobbers an existing entry; drop one with `vault-cli task remove "<name>" blocked_by "[[Blocker Task]]"`. `set` is not the recording path — `vault-cli task set "<name>" blocked_by "[[Blocker Task]]"` is refused, because `set` has no list form for this field and a scalar is exactly the malformed shape described above. `set "<name>" blocked_by ""` and `clear "<name>" blocked_by` remain the two clears.
+
+**Repairing a scalar-shaped file.** A scalar `blocked_by` is reported by `vault-cli task validate "<name>"` and by `vault-cli task lint` as one issue naming the field and the expected list shape; `task lint --fix` deliberately cannot repair it. Repair it by hand — clear the malformed value first, then record the entry you meant:
+
+```
+vault-cli task set "<name>" blocked_by ""     # or: vault-cli task clear "<name>" blocked_by
+vault-cli task add "<name>" blocked_by "[[Blocker Task]]"
+```
 
 ### Required sections
 

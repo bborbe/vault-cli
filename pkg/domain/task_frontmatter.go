@@ -301,6 +301,17 @@ func (f *TaskFrontmatter) SetTags(v []string) {
 	f.Set("tags", stringSliceToAny(v))
 }
 
+// SetBlockedBy stores the blocked_by dependency list in the map. Deletes the key
+// if v is nil or empty, mirroring SetGoals / SetTags, so a list emptied by
+// `remove` leaves no key behind and the entity reads as unblocked.
+func (f *TaskFrontmatter) SetBlockedBy(v []string) {
+	if len(v) == 0 {
+		f.Delete("blocked_by")
+		return
+	}
+	f.Set("blocked_by", stringSliceToAny(v))
+}
+
 // SetPriority validates the priority and stores it in the map.
 // Returns an error when the value is negative, per spec AC #6.
 func (f *TaskFrontmatter) SetPriority(ctx context.Context, p Priority) error {

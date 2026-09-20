@@ -76,6 +76,7 @@ const (
 	IssueTypeMissingTaskIdentifier  IssueType = "MISSING_TASK_IDENTIFIER"
 	IssueTypeStatusDateMismatch     IssueType = "STATUS_DATE_MISMATCH"
 	IssueTypeInvalidTaskIdentifier  IssueType = "INVALID_TASK_IDENTIFIER"
+	IssueTypeBlockedByScalar        IssueType = "BLOCKED_BY_SCALAR"
 )
 
 // PageTypeTask is the lint page type that carries the task-identifier invariants.
@@ -306,6 +307,14 @@ func (l *lintOperation) collectLintIssues(
 		string(content),
 	); mismatchIssue {
 		add(IssueTypeStatusCheckboxMismatch, mismatchDesc, mismatchFixable)
+	}
+
+	// Check for a scalar-shaped blocked_by — the malformed shape every reader
+	// discards. Non-fixable on purpose: the repair is a deliberate operator
+	// action (`set ""` or `clear`, then `add`), and an automatic rewrite would
+	// either guess the intended list or silently drop the entry.
+	if blockedByIssue, blockedByDesc := l.detectBlockedByScalar(frontmatterYAML); blockedByIssue {
+		add(IssueTypeBlockedByScalar, blockedByDesc, false)
 	}
 
 	// Identifier checks are task-only — see PageTypeTask.
@@ -542,6 +551,37 @@ func (l *lintOperation) detectStatusCheckboxMismatch(
 	}
 
 	return false, "", false
+}
+
+// detectBlockedByScalar reports a blocked_by value that is a non-empty scalar —
+// the legacy malformed shape. A scalar reads as an empty list in every reader
+// (see domain.blockedByList), so the dependency it names is invisible; the rule
+// exists to make that divergence visible instead of silent (spec 050).
+//
+// A YAML list, the empty string and an absent key are all legal and are not
+// reported: the empty string is the documented clear, which reads as an empty
+// list rather than as malformed data.
+//
+// The check fails open on unparseable frontmatter: a file whose YAML does not
+// parse is already reported by the duplicate-key and invalid-value checks, and
+// inventing a second issue for it here would be a different rule wearing this
+// one's name.
+func (l *lintOperation) detectBlockedByScalar(frontmatterYAML string) (bool, string) {
+	var raw map[string]any
+	if err := yaml.Unmarshal([]byte(frontmatterYAML), &raw); err != nil {
+		return false, ""
+	}
+	value, ok := raw["blocked_by"]
+	if !ok {
+		return false, ""
+	}
+	if !domain.BlockedByIsScalar(value) {
+		return false, ""
+	}
+	return true, fmt.Sprintf(
+		"blocked_by is %v, expected a YAML list — a scalar reads as an empty list, so the dependency is invisible",
+		value,
+	)
 }
 
 // detectStatusPhaseMismatch detects mismatches between status and phase fields.

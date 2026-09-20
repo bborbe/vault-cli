@@ -80,6 +80,15 @@ func (o *frontmatterSetOperation) Execute(
 		return errors.Wrap(ctx, err, "find task")
 	}
 
+	// Refuse a non-empty blocked_by before anything is mutated: `set` has no
+	// list form for this field, and writing the scalar would record a dependency
+	// every reader discards. Nothing below runs on this path, so the file stays
+	// byte-identical. --force does not bypass this — it is scoped to the phase
+	// guard, and the refusal is deliberately absolute (spec 050 Non-goal).
+	if err := blockedBySetRefusal(ctx, "task", taskName, key, value); err != nil {
+		return err
+	}
+
 	// Read the assignee before the mutation. `task set <task> assignee ""` leaves
 	// the key present and empty, so a read taken after the write can no longer
 	// tell a cleared assignee from one that was never set.

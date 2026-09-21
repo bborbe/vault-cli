@@ -200,6 +200,8 @@ cd <worktree> && git ls-remote --exit-code --heads origin "$(git branch --show-c
 
 Cross-check against other still-active Claude sessions: a worktree from a sibling session (different cwd, different conversation) may be active — don't flag those. Use a conservative test: if any process under the worktree path is running (`lsof +D <worktree>` shows hits, or any `cwd` in `/proc` or via `ps -o pid,cwd` matches), assume it's actively used.
 
+**Exclude your own process tree before believing a hit.** A sweep that has `cd`'d into a worktree makes that worktree look occupied *to itself* — the harness shell sits there with its `cwd` inside, and `lsof +D` reports it. Observed 2026-09-21 on `tts-mcp`: two orphaned worktrees each showed a live `zsh` inside them, and both were the checking session's own shell, left by a `cd` one command earlier. Compare each hit's pid against `$$` and its parent chain, then re-check with `ps -p <pid> -o pid=,etime=,command=` — a pid that has already exited (`(gone)`) proves the hit was transient. Unfiltered, this guard silently disables itself on exactly the worktrees the sweep just visited, which are the ones it is closest to judging.
+
 Surface in Phase 9 as outstanding:
 
 ```

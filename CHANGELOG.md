@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.143.0
 
 - feat: topics carry a validated `phase` frontmatter field — `todo`, `planning`, `execution` or `done` — set through `vault-cli topic set <page> phase <value>` and surfaced by `topic show` in plain and `--output json` output. The topic phase is its own type, member-for-member identical in shape to the goal phase and sharing none of it; a non-canonical value is refused before any write with the validator's own wording, an empty value clears the `phase:` line, and a topic page that predates the field parses, shows and mutates unchanged with no phase value invented and no file backfilled. The goal and task phase types, their constants, their normalizers and their commands are untouched.
 

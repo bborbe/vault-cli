@@ -1,9 +1,10 @@
 ---
-status: verifying
+status: completed
 approved: "2026-09-21T07:18:35Z"
 generating: "2026-09-21T14:21:05Z"
 prompted: "2026-09-21T14:21:05Z"
 verifying: "2026-09-21T14:41:48Z"
+completed: "2026-09-21T16:31:57Z"
 branch: dark-factory/topic-phase-field
 ---
 
@@ -143,3 +144,17 @@ Single-layer (Domain-only) footprint — one prompt suffices. If the generator s
 ## Do-Nothing Option
 
 If we do nothing, "Phase-Gated Topic Flow" cannot begin — the gate commands would have no topic-level field to read or write, and would have to either invent an ad-hoc key (diverging from the goal-level convention) or track topic phase outside the vault files. The command family would ship with a `phase` key that looks settable but accepts any string, so a typo would write silently and the field's whole purpose — being a value both agent and operator can trust from frontmatter — would be defeated by the first bad write.
+
+## Verification Result
+
+**Verified:** 2026-09-21T16:31:38Z (HEAD 79b5d5c)
+**Binary:** `/tmp/vault-cli-052-fresh` — fresh `go build` of HEAD 79b5d5c; cross-checked against installed `/Users/bborbe/Documents/workspaces/go/bin/vault-cli` (`v0.142.2-5-g79b5d5c`, module `v0.142.3-0.20260921150720-79b5d5cf863f`). Identical results on every behavioural AC. 79b5d5c is the merged feature tip: `git diff 79b5d5c 80ac2fb` (PR #194 merge commit) is empty, and `origin/master` has not touched the topic phase files since the merge.
+**Scenario:** No scenario declared (spec: "NO new scenario"). All 10 ACs walked directly against a scratch vault `/tmp/df-052-vault` holding copies of the real Personal `23 Topics/` pages, driven by the real binary.
+**Evidence:**
+- AC3/AC5: `topic set "Attention Routing" phase execution` exit 0, page gained `phase: execution`; `… phase ""` exit 0, line removed, `topic show --output json` `.fields` had no `phase` key (`grep -c '"phase"'` = 0).
+- AC4 falsifier: `topic set … phase bogus` exit 1, stderr `set field "phase": invalid topic phase: unknown topic phase 'bogus': validation error` (the domain validator's wording, no inline list in the command layer); page sha256 `726d49dc…` identical before and after.
+- AC6: legacy page with no `phase:` key — `topic show --output json` and an unrelated `topic set status in_progress` both exit 0; round-tripped file still had no `phase:` line.
+- AC7: `topic lint` → 0 `STATUS_PHASE_MISMATCH` for `phase: execution` + `status: in_progress`, 1 for `phase: done` + `status: in_progress`. Note: `topic lint` takes no page argument, so the AC's per-page evidence command does not exist as written; verified at vault level.
+- AC1/AC2/AC8/AC9/AC10: grep on `topic_phase.go` → 4 constants; `go test ./pkg/domain/...` exit 0; `git diff 40a87ed..79b5d5c` touches none of `goal_phase.go` / `task_phase.go` / `goal_frontmatter.go`; `make precommit` exit 0; CHANGELOG awk → `## Unreleased`.
+- Integration: 10/10 topic-phase specs pass (`go test ./integration/ -ginkgo.focus="phase"`), including the refusal spec that execs the real binary and asserts exit 1 + wording + byte-identical page.
+**Verdict:** PASS

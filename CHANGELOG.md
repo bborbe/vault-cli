@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.142.2
 
 - fix: `/vault-cli:plan-task` step 6 hashed the **whole instance file** when checking a recurring template's recorded verdict, while its own prose said "the instance **body**" — so the per-instance `task_identifier` UUID the creator writes was folded into the hash and every materialization hashed differently. A recorded verdict could therefore never match, which made the de-duplication the mechanism exists for *unreachable* rather than merely flaky. Measured across three firings of the same template: the shipped whole-file command returned three distinct hashes (`e1625c1c…` / `cb4646af…` / `8a7a8a4a…`) where the body-only basis returned one (`971dd148…`). The command now strips frontmatter before the date normalization, matching its own prose, with a note stating why the strip is not optional.
 

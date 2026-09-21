@@ -49,11 +49,11 @@ If absent, fall back to `Glob` / `Grep` for guide discovery — never error.
 </runtime_detection>
 
 <vault_layout>
-Read paths from `vault-cli config list --output json`:
-- `goals_dir`   (default: `23 Goals`)
-- `tasks_dir`   (default: `24 Tasks`)
+Read paths from `vault-cli config list --output json` — each `(default: …)` is the fallback `vault-cli` itself applies when the key is absent (`pkg/config/config.go`), so never substitute a folder name of your own:
+- `goals_dir`   (default: `Goals`)
+- `tasks_dir`   (default: `Tasks`)
 - `themes_dir`  (default: `21 Themes`)
-- `daily_dir`   (default: `60 Periodic Notes/Daily`)
+- `daily_dir`   (default: `Daily Notes`)
 
 For cross-vault discovery: iterate each entry under `~/Documents/Obsidian/` to find sibling vaults that may contain the goal or related tasks.
 </vault_layout>

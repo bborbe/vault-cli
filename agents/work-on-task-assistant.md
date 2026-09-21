@@ -62,12 +62,12 @@ Read folder paths from vault-cli config for the active vault:
 vault-cli config list --output json
 ```
 
-Identify active vault by matching cwd against each `path`. Use these fields:
-- `tasks_dir`     (default: `24 Tasks`)
-- `goals_dir`     (default: `23 Goals`)
+Identify active vault by matching cwd against each `path`. Use these fields — each `(default: …)` is the fallback `vault-cli` itself applies when the key is absent (`pkg/config/config.go`), so never substitute a folder name of your own:
+- `tasks_dir`     (default: `Tasks`)
+- `goals_dir`     (default: `Goals`)
 - `themes_dir`    (default: `21 Themes`)
 - `objectives_dir`(default: `22 Objectives`)
-- `daily_dir`     (default: `60 Periodic Notes/Daily`)
+- `daily_dir`     (default: `Daily Notes`)
 
 For cross-vault discovery, iterate every entry under `~/Documents/Obsidian/` to find sibling vaults.
 </vault_layout>

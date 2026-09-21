@@ -29,8 +29,8 @@ Handles task operations: status, verify.
 
 ## Constants
 
-- Tasks directory: `24 Tasks/`
-- Goals directory: `23 Goals/`
+- Tasks directory: `<tasks_dir>` (resolved from vault-cli config — never a hardcoded folder name)
+- Goals directory: `<goals_dir>` (resolved from vault-cli config — never a hardcoded folder name)
 
 **ALWAYS get current date/weekday at start:** `date +"%Y-%m-%d %A %u"`
 
@@ -42,8 +42,8 @@ Search for task file by name or path.
 
 **Algorithm:**
 1. If input has `.md` extension and path exists → return path
-2. If input starts with `24 Tasks/` → try that path
-3. Otherwise search: `Glob pattern="24 Tasks/*.md"`, filter by name match
+2. If input starts with `<tasks_dir>/` → try that path
+3. Otherwise search: `Glob pattern="<tasks_dir>/*.md"`, filter by name match
 4. If 0 matches → error "Task not found"
 5. If >1 matches → AskUserQuestion to select
 6. Return single match
@@ -206,7 +206,7 @@ Quick validation checks for task integrity.
    - Verify linked files exist
 
 5. **Check goal-necessity (forward):**
-   - For each goal linked in the `goals` field (resolved in step 4), locate the goal file under `23 Goals/` (fall back to `22 Goals/` for compatibility) and read its `# Success Criteria` section. Skip any linked goal whose file was already flagged unresolvable in step 4.
+   - For each goal linked in the `goals` field (resolved in step 4), locate the goal file under `<goals_dir>` (resolved from vault-cli config — never a hardcoded folder name) and read its `# Success Criteria` section. Skip any linked goal whose file was already flagged unresolvable in step 4.
    - For each readable linked goal, evaluate whether ANY success criterion needs this task's outcome — does completing this task advance, produce evidence for, or unblock at least one success criterion of that goal?
    - Judge with this fixed semantic anchor (cite it when reasoning; see `docs/goal-writing.md` § Non-goals — the scope-creep guard and § Tasks as Business-Value Milestones → Foundation/skeleton work): a task is *needed* iff it advances ≥ 1 success criterion of the linked goal OR is explicitly framed as a needed foundation task (e.g. "foundation; enables iteration"). Work-breakdown slices, scope-creep items, and padding are NOT needed. A task whose domain the goal's `# Non-goals` section explicitly excludes is also NOT needed.
    - If NO success criterion needs the task's outcome → report issue: `✗ task not needed by linked goal <goal> — correlation-only (advances no success criterion)`. If the goal's `# Non-goals` explicitly exclude the task's domain → report instead: `✗ task not needed by linked goal <goal> — goal Non-goals exclude this task's domain`. In both cases the issue names the specific linked goal (`<goal>`) and the reason, so a misread is visible to the operator.

@@ -23,7 +23,7 @@ Inline. If the command was invoked with a goal argument, use it directly. Otherw
 2. Most recent `[[Goal Name]]` wikilink referenced as a goal subject (not generic prose mention).
 3. Daily note's first `[/]` checkbox's linked goal.
 
-Resolve the detected name via `Glob` `<goals_dir>/*<arg>*.md` (fallback `<goals_dir>` = `23 Goals/`, then `22 Goals/` for compatibility). Multiple matches → list candidates, ask via `AskUserQuestion`. Zero → `❌ No active goal detected. Pass a goal name or path.` STOP.
+Resolve the detected name via `Glob` `<goals_dir>/*<arg>*.md`, with `<goals_dir>` read from vault-cli config — never a hardcoded folder name, because vaults renumber their directories and a stale literal silently resolves nothing. Multiple matches → list candidates, ask via `AskUserQuestion`. Zero → `❌ No active goal detected. Pass a goal name or path.` STOP.
 
 Print `Detected goal: <name>` on first line so the owner can interrupt if wrong before Phase 3 runs, followed by the always-shown Async State Closer anchor pair:
 
@@ -45,7 +45,7 @@ read -r VAULT_NAME VAULT_PATH GOALS_DIR TASKS_DIR <<< "$(vault-cli config list -
 import sys, json, os
 vs = json.load(sys.stdin); cwd = os.getcwd()
 v = next((x for x in vs if cwd.startswith(x['path'])), vs[0])
-print(v['path'].rstrip('/').split('/')[-1], v['path'], v.get('goals_dir','23 Goals'), v.get('tasks_dir','24 Tasks'))")"
+print(v['path'].rstrip('/').split('/')[-1], v['path'], v.get('goals_dir','Goals'), v.get('tasks_dir','Tasks'))")"
 ```
 
 **Next-task resolution** — walk the goal's `# Tasks` list items **in listed order** (same rule as `execute-goal.md` step 7): each item's task is its **leading `[[...]]` only** (`|alias` stripped). For each task resolve to `<TASKS_DIR>/<Task Title>.md` and read its status via `vault-cli task get "<title>" status --output json`. **Next open task** = the first *resolving* task whose status is NOT `completed` and NOT `aborted`:

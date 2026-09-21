@@ -1,8 +1,9 @@
 ---
-status: prompted
+status: verifying
 approved: "2026-09-20T20:15:32Z"
 generating: "2026-09-20T20:26:42Z"
 prompted: "2026-09-20T20:50:27Z"
+verifying: "2026-09-20T21:56:25Z"
 branch: dark-factory/topic-command-ladder
 ---
 

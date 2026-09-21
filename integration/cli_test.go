@@ -3094,7 +3094,7 @@ page_type: goal
 			Expect(string(cleanSession.Out.Contents())).To(ContainSubstring("No lint issues found"))
 		})
 
-		It("topic search dispatches to the semantic search operation scoped to the topics directory", func() {
+		It("topic search reaches the semantic search operation under a PATH that cannot resolve semantic-search-mcp", func() {
 			_, configPath, cleanup := createTempVaultWithTopicPages(
 				"Topics",
 				map[string]string{
@@ -3108,13 +3108,33 @@ page_type: goal
 				binPath, "--config", configPath, "--vault", "test",
 				"topic", "search", "attention routing",
 			)
+			// Run the command with an environment whose PATH cannot resolve
+			// semantic-search-mcp. The inherited PATH is removed rather than
+			// shadowed, so exactly one PATH reaches the child and the lookup fails
+			// deterministically on every host — the container and a developer
+			// machine alike.
+			env := make([]string, 0, len(os.Environ())+1)
+			for _, entry := range os.Environ() {
+				if strings.HasPrefix(entry, "PATH=") {
+					continue
+				}
+				env = append(env, entry)
+			}
+			cmd.Env = append(env, "PATH=/usr/bin:/bin")
 			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 			Expect(err).NotTo(HaveOccurred())
-			Eventually(session).Should(gexec.Exit())
 
-			// The leaf must be registered and reach the search operation. Exit 0 is
-			// NOT asserted: semantic-search-mcp may be absent from this container, in
-			// which case a non-zero exit naming the missing binary is correct.
+			// The child runs with a PATH that cannot resolve semantic-search-mcp, so
+			// exec.LookPath fails on every host — the container and a developer
+			// machine alike — and this spec no longer depends on where the binary
+			// happens to be installed. The failure names the missing binary, which
+			// is what proves the invocation reached the search operation rather than
+			// stopping at the CLI layer.
+			Eventually(session).Should(gexec.Exit(1))
+
+			combined := string(session.Out.Contents()) + string(session.Err.Contents())
+			Expect(combined).To(ContainSubstring("semantic-search-mcp not found on PATH"))
+
 			Expect(string(session.Out.Contents())).NotTo(ContainSubstring("unknown command"))
 			Expect(string(session.Err.Contents())).NotTo(ContainSubstring("unknown command"))
 		})

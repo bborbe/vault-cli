@@ -54,6 +54,44 @@ func (f *TopicFrontmatter) SetDeferDate(d *libtime.DateOrDateTime) {
 	f.Set("defer_date", *d)
 }
 
+// Phase reads "phase" key as string, returns *TopicPhase.
+// Returns nil when the key is absent. The raw value is returned as-is
+// (no validation, no default substitution) so legacy/hand-typed values survive display.
+func (f TopicFrontmatter) Phase() *TopicPhase {
+	raw := f.GetString("phase")
+	if raw == "" {
+		return nil
+	}
+	p := TopicPhase(raw)
+	return &p
+}
+
+// SetPhase stores the phase pointer in the map. Deletes the key if p is nil.
+func (f *TopicFrontmatter) SetPhase(p *TopicPhase) {
+	if p == nil {
+		f.Delete("phase")
+		return
+	}
+	f.Set("phase", string(*p))
+}
+
+// setPhaseField validates the value against the topic phase enum and stores it,
+// or clears the key on empty. Topic phases have no aliases — a non-canonical value is
+// rejected. The rejection is the validator's own error, so the canonical set and the
+// refusal's wording are defined in exactly one place and are not restated here.
+func (f *TopicFrontmatter) setPhaseField(ctx context.Context, value string) error {
+	if value == "" {
+		f.SetPhase(nil)
+		return nil
+	}
+	phase := TopicPhase(value)
+	if err := phase.Validate(ctx); err != nil {
+		return errors.Wrap(ctx, err, "invalid topic phase")
+	}
+	f.SetPhase(&phase)
+	return nil
+}
+
 func (f *TopicFrontmatter) setDeferDateFromString(ctx context.Context, value string) error {
 	if value == "" {
 		f.SetDeferDate(nil)
@@ -73,9 +111,13 @@ func (f TopicFrontmatter) GetField(key string) string {
 	switch key {
 	case "phase":
 		// Raw on-disk read: no validation, no default, no normalisation.
-		// A topic page with no `phase` line has no key in the map, so this
-		// returns "" and the key stays absent from Keys().
-		return f.GetString("phase")
+		// A topic page with no `phase` line has no key in the map, so Phase()
+		// returns nil, this returns "", and the key stays absent from Keys().
+		ph := f.Phase()
+		if ph == nil {
+			return ""
+		}
+		return string(*ph)
 	case "tags":
 		return strings.Join(f.Tags(), ",")
 	case "defer_date":
@@ -88,6 +130,8 @@ func (f TopicFrontmatter) GetField(key string) string {
 // SetField sets a frontmatter field by key from a string value.
 func (f *TopicFrontmatter) SetField(ctx context.Context, key, value string) error {
 	switch key {
+	case "phase":
+		return f.setPhaseField(ctx, value)
 	case "defer_date":
 		return f.setDeferDateFromString(ctx, value)
 	default:

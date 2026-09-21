@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [052-topic-phase-field]
+summary: Wired the validated topic phase field into TopicFrontmatter — typed Phase()/SetPhase() plus a setPhaseField validator propagating the enum's own error — with unit, ops and end-to-end specs and a CHANGELOG Unreleased entry.
+execution_id: vault-cli-topic-phase-exec-227-spec-052-topic-frontmatter-phase
+dark-factory-version: v0.196.0
 created: "2026-09-21T13:01:16Z"
 queued: "2026-09-21T14:27:52Z"
+started: "2026-09-21T14:36:09Z"
+completed: "2026-09-21T14:41:47Z"
 ---
 
 # Topic phase field: a validated set, a raw read and an empty-clears rule on the topic frontmatter

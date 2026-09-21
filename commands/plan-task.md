@@ -87,7 +87,7 @@ Six checks beyond the auditor's general scoring — first five are hard (any fai
 
 - **Success Criteria defined** — `# Success Criteria` section exists with ≥ 2 binary checkboxes.
 - **Subtasks reach the goal** — `# Tasks` section (or equivalent) lists concrete steps that, if completed, produce the SC outcomes. If subtasks are missing or vague ("Implement feature" alone), flag.
-- **E2E verify subtask present** — for shipping-class tasks (PR / release / plugin update / agent / deploy / library publish; or subtasks reference a git repo / marketplace / registry — see `task-writing.md` "Shipping Checklist"), `# Tasks` must include a subtask that runs the shipped artifact in its real environment. Two sub-checks on that subtask:
+- **E2E verify subtask present** — for shipping-class tasks (PR / release / plugin update / agent / deploy / library publish; or subtasks reference a git repo / marketplace / registry — see `task-writing.md` "Shipping Checklist"), `# Tasks` must include a subtask that runs the shipped artifact in its real environment. Four sub-checks on that subtask:
 
     1. **No dishonest-tick phrases.** Reject if the body contains a case-insensitive substring match of any phrase from `task-writing.md:122-134`:
         - *"deferred to first use"*
@@ -129,6 +129,18 @@ Six checks beyond the auditor's general scoring — first five are hard (any fai
 
         Sibling test: `/vault-cli:drive` § "Challenge the acceptance criteria" Axis B applies the same question — but only once work is already underway. This gate is the cheaper place to catch it.
 
+    4. **Shape-matched — the claim's shape must fit the evidence's shape.** Sub-checks 2 and 3 interrogate the **probe**; this one interrogates the **claim**. Ask: *will the evidence that will exist support a verdict, or only a mechanism / an elimination?* A criterion demanding a frequency verdict — *"is this one-off or structural"*, *"does it recur on ordinary days"* — over a population that has aged out, or that has not yet accrued, is unsound however concrete its probe.
+
+        **Repetition is the diagnostic.** The same criterion failing audits in *different* ways is the signature that the claim, not the probe, is wrong — not three separate defects, and not three probe patches. Observed 2026-09-21: an SC2 demanding a one-off-vs-structural verdict failed three consecutive audits three different ways — no probe; then a probe naming weeks that had already aged out, making "zero further orphans" trivially true; then a fallback tickable without running the sweep. Three probe patches, each satisfying this gate as written, none producing an answerable criterion. Reframing the claim — deriving the call from the *nature* of the identified cause rather than from a count — moved the audit 6 → 8 and flipped the adversarial-laziness pass to PASS.
+
+        Two honest repairs, whichever the evidence supports:
+        - **Reframe the claim to what the evidence can carry.** Derive a verdict from the *nature* of the identified cause (a dated event vs a standing property of the config or account) rather than from a count — or record an **eliminative** result: what was ruled out, by which probe, and what remains.
+        - **State the investigation depth required**, when the verdict genuinely may not be reachable. The criterion then asserts the question was pursued to a named depth, not that it was answered.
+
+        Never accept a fallback satisfiable without running the probe: *"undetermined"* must be recorded alongside the quoted result that establishes the loss, never asserted on its own.
+
+        **Note the scope of this item.** It sits inside a block that is skipped for non-shipping-class tasks (next line), yet the defect it catches is not shipping-specific — the 2026-09-21 case was a diagnosis task, where this gate never ran. `agents/task-auditor.md` § 15 carries the same check and runs on every task; this item is the shipping-class enforcement, not the universal home.
+
     Skip this whole check for non-shipping-class tasks (pure research, decision, doc-only with no published artifact).
 - **Subtask-goal alignment** — every `# Tasks` checkbox must either (a) map by topic to ≥ 1 `# Success Criteria` outcome, or (b) be the e2e verify subtask. Flag any orphan as a scope-creep candidate; in step 6 the owner can link it to an SC, move it to `# Out of Scope`, or split it into a separate task.
 - **Blast radius named** — if any subtask pushes to a registry, deploys, mutates a cluster, or needs a credential/secret, the task must name the external system AND the account written to (e.g. *"pushes `docker.io/bborbe/<img>` under the bborbe Docker Hub account"*). A credential requirement with no named target is a scope gap: the owner discovers what was automated at the secrets request, after the work has shipped. Observed 2026-08-27 — a publish-on-tag CI was designed, merged and released; the owner objected (*"Is the agent trying to push a docker image? I don't think that I want this"*) only when its Docker Hub secrets were requested, costing two reversal PRs for a net deletion. Flag → mandatory question in step 6.
@@ -152,9 +164,11 @@ Any hard check failing → mandatory question in step 6; can't exit on auditor s
 1. **Take the slug from the auditor's report.** On a CR-materialized task the auditor emits a `**Template**: \`<slug>\`` line and labels every finding `[template-level]` or `[instance-level]`. No `**Template**` line → the task is not CR-materialized → skip this whole block. The auditor owns detection (see `agents/task-auditor.md` § Finding Classification); do not re-derive the shape here.
 2. **Hash the template as materialized** — the instance body with the substituted period values normalized out:
    ```bash
-   sed -E 's/[0-9]{4}-[0-9]{2}-[0-9]{2}/<DATE>/g; s/[0-9]{4}W[0-9]{2}/<PERIOD>/g' "<instance-file>" | shasum
+   awk 'BEGIN{n=0} /^---$/{n++; next} n>=2' "<instance-file>" \
+     | sed -E 's/[0-9]{4}-[0-9]{2}-[0-9]{2}/<DATE>/g; s/[0-9]{4}W[0-9]{2}/<PERIOD>/g' | shasum
    ```
    The normalization is deliberately blunt: every ISO date in the body is masked, so a template edit that only rewrites a date literal will *not* invalidate a verdict. That is the accepted trade — hashing the raw body would instead re-ask on every period roll, which is the defect this check exists to remove.
+   **Frontmatter is stripped for the same reason, and it is not optional.** The whole file would fold in the per-instance `task_identifier` UUID the creator writes, so every materialization would hash differently and a recorded verdict could never match — the comparison would be *unreachable*, not merely flaky.
 3. **Look for the verdict file** at `<vault>/50 Knowledge Base/Recurring Template Verdicts/<slug>.md` — a vault-relative directory, so it travels with the vault on sync. Branch on what you find:
    - **Verdict present, `body_hash` matches** → the template is unchanged and already adjudicated. **Skip the auditor-derived questions**: do not translate auditor findings into questions, do not enter the fix loop for them. Print `ℹ️ Template verdict current for <slug> (recorded <date>) — auditor findings already adjudicated; no re-ask.` and go straight to step 7. A current verdict also satisfies step 7's score gate for the findings it covers; without that clause an adjudicated 7/10 would still exit on the `⚠` branch and the skip would buy nothing.
      **Order matters.** Step 5's hard non-negotiables are checked first and always apply in full — they are structural, independent of template content, and a failure there is a different defect from the one the verdict covers. Take the skip only on a clean pass.

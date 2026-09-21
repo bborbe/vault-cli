@@ -2866,6 +2866,166 @@ page_type: goal
 			Expect(string(session.Out.Contents())).To(Equal("planning\n"))
 		})
 
+		It("topic set writes a canonical phase to the page on disk and topic show surfaces it", func() {
+			vaultPath, configPath, cleanup := createTempVaultWithTopicPages(
+				"Topics",
+				map[string]string{
+					"Phase Target": "---\nstatus: in_progress\n---\n# Phase Target\n",
+				},
+				nil,
+			)
+			defer cleanup()
+
+			cmd := exec.Command(
+				binPath, "--config", configPath, "--vault", "test",
+				"topic", "set", "Phase Target", "phase", "execution",
+			)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(0))
+
+			content, err := os.ReadFile(filepath.Join(vaultPath, "Topics", "Phase Target.md"))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(content)).To(ContainSubstring("phase: execution"))
+
+			Expect(showPhaseField(configPath, "topic", "Phase Target")).To(Equal("execution"))
+		})
+
+		It("topic set refuses a non-canonical phase with the validator's wording and leaves the page byte-identical", func() {
+			vaultPath, configPath, cleanup := createTempVaultWithTopicPages(
+				"Topics",
+				map[string]string{
+					"Phase Target": "---\nstatus: in_progress\n---\n# Phase Target\n",
+				},
+				nil,
+			)
+			defer cleanup()
+
+			sha256OfFile := func(path string) string {
+				data, err := os.ReadFile(path)
+				Expect(err).NotTo(HaveOccurred())
+				sum := sha256.Sum256(data)
+				return fmt.Sprintf("%x", sum)
+			}
+
+			topicPath := filepath.Join(vaultPath, "Topics", "Phase Target.md")
+			before := sha256OfFile(topicPath)
+
+			cmd := exec.Command(
+				binPath, "--config", configPath, "--vault", "test",
+				"topic", "set", "Phase Target", "phase", "bogus",
+			)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(1))
+
+			Expect(string(session.Err.Contents())).To(ContainSubstring("unknown topic phase 'bogus'"))
+			Expect(sha256OfFile(topicPath)).To(Equal(before))
+		})
+
+		It("topic set with an empty phase value removes the phase line from the page", func() {
+			vaultPath, configPath, cleanup := createTempVaultWithTopicPages(
+				"Topics",
+				map[string]string{
+					"Phase Target": "---\nstatus: in_progress\nphase: execution\n---\n# Phase Target\n",
+				},
+				nil,
+			)
+			defer cleanup()
+
+			cmd := exec.Command(
+				binPath, "--config", configPath, "--vault", "test",
+				"topic", "set", "Phase Target", "phase", "",
+			)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(0))
+
+			content, err := os.ReadFile(filepath.Join(vaultPath, "Topics", "Phase Target.md"))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(content)).NotTo(ContainSubstring("phase:"))
+
+			showCmd := exec.Command(
+				binPath, "--config", configPath, "--vault", "test",
+				"topic", "show", "Phase Target", "--output", "json",
+			)
+			showSession, err := gexec.Start(showCmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(showSession).Should(gexec.Exit(0))
+
+			var parsed map[string]any
+			Expect(json.Unmarshal(showSession.Out.Contents(), &parsed)).To(Succeed())
+			fields, ok := parsed["fields"].(map[string]any)
+			Expect(ok).To(BeTrue())
+			// Anchor on a key that IS present so the negative check cannot pass on
+			// empty output.
+			Expect(fields).To(HaveKey("status"))
+			_, present := fields["phase"]
+			Expect(present).To(BeFalse())
+		})
+
+		It("topic set on an unrelated key leaves a page with no phase line without inventing a phase", func() {
+			vaultPath, configPath, cleanup := createTempVaultWithTopicPages(
+				"Topics",
+				map[string]string{
+					"No Phase": "---\nstatus: backlog\n---\n# No Phase\n",
+				},
+				nil,
+			)
+			defer cleanup()
+
+			cmd := exec.Command(
+				binPath, "--config", configPath, "--vault", "test",
+				"topic", "set", "No Phase", "assignee", "alice",
+			)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(0))
+
+			content, err := os.ReadFile(filepath.Join(vaultPath, "Topics", "No Phase.md"))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(content)).NotTo(ContainSubstring("phase:"))
+			Expect(string(content)).To(ContainSubstring("assignee: alice"))
+		})
+
+		It("topic lint reports no phase mismatch for a consistent pair and one for an inconsistent pair", func() {
+			_, configPath, cleanup := createTempVaultWithTopicPages(
+				"Topics",
+				map[string]string{
+					"Phase Target": "---\nstatus: in_progress\nphase: execution\n---\n# Phase Target\n",
+				},
+				nil,
+			)
+			defer cleanup()
+
+			cleanCmd := exec.Command(
+				binPath, "--config", configPath, "--vault", "test", "topic", "lint",
+			)
+			cleanSession, err := gexec.Start(cleanCmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(cleanSession).Should(gexec.Exit(0))
+			Expect(string(cleanSession.Out.Contents())).NotTo(ContainSubstring("STATUS_PHASE_MISMATCH"))
+
+			setCmd := exec.Command(
+				binPath, "--config", configPath, "--vault", "test",
+				"topic", "set", "Phase Target", "phase", "done",
+			)
+			setSession, err := gexec.Start(setCmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(setSession).Should(gexec.Exit(0))
+
+			badCmd := exec.Command(
+				binPath, "--config", configPath, "--vault", "test", "topic", "lint",
+			)
+			badSession, err := gexec.Start(badCmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(badSession).Should(gexec.Exit(1))
+
+			out := string(badSession.Out.Contents())
+			Expect(out).To(ContainSubstring("STATUS_PHASE_MISMATCH"))
+			Expect(out).To(ContainSubstring("Phase Target.md"))
+		})
+
 		It("topic set, get and clear round-trip a frontmatter key on disk", func() {
 			vaultPath, configPath, cleanup := createTempVaultWithTopicPages(
 				"Topics",

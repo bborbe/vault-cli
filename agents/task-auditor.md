@@ -390,6 +390,14 @@ Two shapes the triad does not yet name, both legitimate and both commonly needed
 
 **Negative criteria need an explicit probe.** "Config Y is not mutated" is unverifiable as written; "`git diff config/Y.yaml` returns empty, confirmed by `git status` showing no modified files" is not.
 
+**Claim shape, not only probe shape.** A criterion can name a perfectly concrete probe and still be unanswerable, because the **claim** is shaped for evidence that will not exist. Ask: *will the evidence that will exist support a verdict, or only a mechanism / an elimination?* The recurring case is a criterion demanding a **frequency verdict** — *"is this one-off or structural"*, *"does it recur on ordinary days"* — over a population that has aged out, or that has not yet accrued.
+
+**Repetition is the diagnostic.** The same criterion failing audits in *different* ways is the signature that the claim, not the probe, is wrong — not three separate defects, and not three probe patches. Observed 2026-09-21: an SC2 demanding a one-off-vs-structural verdict failed three consecutive audits three different ways — no probe; then a probe naming weeks that had already aged out, making "zero further orphans" trivially true; then a fallback tickable without running the sweep. Each fix satisfied the plan-task gate as written; none produced an answerable criterion. Reframing the claim — deriving the call from the *nature* of the identified cause rather than from a count — moved the score 6 → 8 and flipped the adversarial-laziness pass to PASS.
+
+Name the two honest repairs when flagging it: **reframe the claim to what the evidence can carry** (derive a verdict from the *nature* of the identified cause — a dated event vs a standing property of the config or account — or record an **eliminative** result: what was ruled out, by which probe, and what remains), or **state the investigation depth required** when the verdict may genuinely be unreachable. Reject any fallback satisfiable without running the probe: *"undetermined"* must be recorded alongside the quoted result that establishes the loss, never asserted on its own.
+
+Unlike a merely missing shape (a Recommendation, below), a **claim-shape mismatch is Critical** — no amount of work answers it, so it survives every probe fix.
+
 **What does NOT count:** "unit test covers this" (that is the test plan, not the observation), "it works", "functionality verified", "tests pass" without naming the behaviour asserted.
 
 Raise a missing evidence shape as a **Recommendation**, not Critical — many tasks predate this rule and the shape is often inferable.

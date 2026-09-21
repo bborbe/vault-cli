@@ -1158,6 +1158,54 @@ var _ = Describe("NewTopicSetOperation", func() {
 		})
 	})
 
+	Context("setting each canonical phase value", func() {
+		DescribeTableSubtree("accepts each canonical topic phase value",
+			func(canonical string) {
+				BeforeEach(func() {
+					key = "phase"
+					value = canonical
+				})
+
+				It("writes the canonical phase", func() {
+					Expect(err).To(BeNil())
+					Expect(mockTopicStorage.WriteTopicCallCount()).To(Equal(1))
+					_, written := mockTopicStorage.WriteTopicArgsForCall(0)
+					Expect(written.GetField("phase")).To(Equal(canonical))
+				})
+			},
+			Entry("todo", "todo"),
+			Entry("planning", "planning"),
+			Entry("execution", "execution"),
+			Entry("done", "done"),
+		)
+	})
+
+	Context("setting an invalid phase value", func() {
+		Context("a non-canonical value", func() {
+			BeforeEach(func() {
+				key = "phase"
+				value = "bogus"
+			})
+
+			It("rejects a non-canonical value and does not write", func() {
+				Expect(err).To(MatchError(ContainSubstring("unknown topic phase 'bogus'")))
+				Expect(mockTopicStorage.WriteTopicCallCount()).To(Equal(0))
+			})
+		})
+
+		Context("the task-only phase in_progress", func() {
+			BeforeEach(func() {
+				key = "phase"
+				value = "in_progress"
+			})
+
+			It("rejects the task-only phase in_progress", func() {
+				Expect(err).To(MatchError(ContainSubstring("unknown topic phase")))
+				Expect(mockTopicStorage.WriteTopicCallCount()).To(Equal(0))
+			})
+		})
+	})
+
 	Context("setting defer_date with an ISO date", func() {
 		BeforeEach(func() {
 			key = "defer_date"

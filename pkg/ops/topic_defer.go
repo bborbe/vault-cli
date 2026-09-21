@@ -15,42 +15,42 @@ import (
 	"github.com/bborbe/vault-cli/pkg/storage"
 )
 
-//counterfeiter:generate -o ../../mocks/goal-defer-operation.go --fake-name GoalDeferOperation . GoalDeferOperation
-type GoalDeferOperation interface {
+//counterfeiter:generate -o ../../mocks/topic-defer-operation.go --fake-name TopicDeferOperation . TopicDeferOperation
+type TopicDeferOperation interface {
 	Execute(
 		ctx context.Context,
 		vaultPath string,
-		goalName string,
+		topicName string,
 		dateStr string,
 		vaultName string,
 	) (MutationResult, error)
 }
 
-// NewGoalDeferOperation creates a new goal defer operation.
-func NewGoalDeferOperation(
-	goalStorage storage.GoalStorage,
+// NewTopicDeferOperation creates a new topic defer operation.
+func NewTopicDeferOperation(
+	topicStorage storage.TopicStorage,
 	currentDateTime libtime.CurrentDateTime,
-) GoalDeferOperation {
-	return &goalDeferOperation{
-		goalStorage:     goalStorage,
+) TopicDeferOperation {
+	return &topicDeferOperation{
+		topicStorage:    topicStorage,
 		currentDateTime: currentDateTime,
 	}
 }
 
-type goalDeferOperation struct {
-	goalStorage     storage.GoalStorage
+type topicDeferOperation struct {
+	topicStorage    storage.TopicStorage
 	currentDateTime libtime.CurrentDateTime
 }
 
-// Execute sets defer_date on a goal without updating daily notes.
-func (g *goalDeferOperation) Execute(
+// Execute sets defer_date on a topic without updating daily notes.
+func (o *topicDeferOperation) Execute(
 	ctx context.Context,
 	vaultPath string,
-	goalName string,
+	topicName string,
 	dateStr string,
 	vaultName string,
 ) (MutationResult, error) {
-	now := g.currentDateTime.Now().Time()
+	now := o.currentDateTime.Now().Time()
 
 	targetDate, err := parseDeferDate(ctx, dateStr, now)
 	if err != nil {
@@ -74,27 +74,27 @@ func (g *goalDeferOperation) Execute(
 		)
 	}
 
-	goal, err := g.goalStorage.FindGoalByName(ctx, vaultPath, goalName)
+	topic, err := o.topicStorage.FindTopicByName(ctx, vaultPath, topicName)
 	if err != nil {
 		return MutationResult{
 			Success: false,
 			Error:   err.Error(),
-		}, errors.Wrap(ctx, err, "find goal")
+		}, errors.Wrap(ctx, err, "find topic")
 	}
 
-	goal.SetDeferDate(targetDate.Ptr())
+	topic.SetDeferDate(targetDate.Ptr())
 
-	if err := g.goalStorage.WriteGoal(ctx, goal); err != nil {
+	if err := o.topicStorage.WriteTopic(ctx, topic); err != nil {
 		return MutationResult{
 			Success: false,
 			Error:   err.Error(),
-		}, errors.Wrap(ctx, err, "write goal")
+		}, errors.Wrap(ctx, err, "write topic")
 	}
 
 	formattedDate := targetDate.Time().Format("2006-01-02")
 	return MutationResult{
 		Success: true,
-		Name:    goal.Name,
+		Name:    topic.Name,
 		Vault:   vaultName,
 		Message: formattedDate,
 	}, nil

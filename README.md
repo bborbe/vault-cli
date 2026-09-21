@@ -142,6 +142,23 @@ vault-cli vision lint                      # Detect frontmatter issues
 vault-cli vision search "long-term growth" # Semantic search in vision
 ```
 
+### topic
+
+```bash
+vault-cli topic list                                  # List topics
+vault-cli topic lint                                  # Detect frontmatter issues
+vault-cli topic search "attention routing"            # Semantic search in topics
+vault-cli topic show "Attention Routing"              # Show full topic detail
+vault-cli topic get "Attention Routing" phase         # Get a frontmatter field
+vault-cli topic set "Attention Routing" owner alice   # Set a frontmatter field
+vault-cli topic clear "Attention Routing" owner       # Clear a frontmatter field
+vault-cli topic add "Attention Routing" tags focus    # Add a value to a list field
+vault-cli topic remove "Attention Routing" tags focus # Remove a value from a list field
+vault-cli topic complete "Attention Routing"          # Mark a topic as complete
+vault-cli topic defer "Attention Routing" +7d         # Defer a topic to a specific date
+vault-cli topic work-on "Attention Routing"           # Mark in_progress and start a Claude session
+```
+
 ### decision
 
 ```bash

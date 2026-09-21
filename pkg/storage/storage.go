@@ -19,6 +19,7 @@ type Config struct {
 	ObjectivesDir string
 	VisionDir     string
 	DailyDir      string
+	TopicsDir     string
 	Excludes      []string
 }
 
@@ -31,6 +32,7 @@ func NewConfigFromVault(vault *config.Vault) *Config {
 		ObjectivesDir: vault.GetObjectivesDir(),
 		VisionDir:     vault.GetVisionDir(),
 		DailyDir:      vault.GetDailyDir(),
+		TopicsDir:     vault.GetTopicsDir(),
 		Excludes:      vault.GetExcludes(),
 	}
 }
@@ -44,6 +46,7 @@ func DefaultConfig() *Config {
 		ObjectivesDir: "22 Objectives",
 		VisionDir:     "20 Vision",
 		DailyDir:      "Daily Notes",
+		TopicsDir:     "23 Topics",
 	}
 }
 
@@ -82,6 +85,12 @@ type VisionStorage interface {
 	FindVisionByName(ctx context.Context, vaultPath string, name string) (*domain.Vision, error)
 }
 
+//counterfeiter:generate -o ../../mocks/topic-storage.go --fake-name TopicStorage . TopicStorage
+type TopicStorage interface {
+	WriteTopic(ctx context.Context, topic *domain.Topic) error
+	FindTopicByName(ctx context.Context, vaultPath string, name string) (*domain.Topic, error)
+}
+
 //counterfeiter:generate -o ../../mocks/daily-note-storage.go --fake-name DailyNoteStorage . DailyNoteStorage
 type DailyNoteStorage interface {
 	ReadDailyNote(ctx context.Context, vaultPath string, date string) (string, error)
@@ -107,6 +116,7 @@ type Storage interface {
 	ThemeStorage
 	ObjectiveStorage
 	VisionStorage
+	TopicStorage
 	DailyNoteStorage
 	PageStorage
 	DecisionStorage
@@ -143,6 +153,7 @@ func NewStorage(storageConfig *Config) Storage {
 		themeStorage:     &themeStorage{baseStorage: base},
 		objectiveStorage: &objectiveStorage{baseStorage: base},
 		visionStorage:    &visionStorage{baseStorage: base},
+		topicStorage:     &topicStorage{baseStorage: base},
 	}
 }
 
@@ -155,6 +166,7 @@ type markdownStorage struct {
 	*themeStorage
 	*objectiveStorage
 	*visionStorage
+	*topicStorage
 }
 
 // NewTaskStorage creates a storage for task operations only.
@@ -195,6 +207,14 @@ func NewVisionStorage(storageConfig *Config) VisionStorage {
 		storageConfig = DefaultConfig()
 	}
 	return &visionStorage{baseStorage: &baseStorage{config: storageConfig}}
+}
+
+// NewTopicStorage creates a storage for topic operations only.
+func NewTopicStorage(storageConfig *Config) TopicStorage {
+	if storageConfig == nil {
+		storageConfig = DefaultConfig()
+	}
+	return &topicStorage{baseStorage: &baseStorage{config: storageConfig}}
 }
 
 // NewDailyNoteStorage creates a storage for daily note operations only.

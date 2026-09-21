@@ -957,3 +957,675 @@ var _ = Describe("NewGoalShowOperation", func() {
 		})
 	})
 })
+
+var _ = Describe("NewTopicGetOperation", func() {
+	var (
+		ctx              context.Context
+		err              error
+		result           string
+		getOp            ops.EntityGetOperation
+		mockTopicStorage *mocks.TopicStorage
+		vaultPath        string
+		topicName        string
+		key              string
+		topic            *domain.Topic
+	)
+
+	BeforeEach(func() {
+		ctx = context.Background()
+		mockTopicStorage = &mocks.TopicStorage{}
+		getOp = ops.NewTopicGetOperation(mockTopicStorage)
+		vaultPath = "/path/to/vault"
+		topicName = "my-topic"
+
+		topic = domain.NewTopic(
+			map[string]any{
+				"status":    "in_progress",
+				"page_type": "topic",
+				"phase":     "planning",
+				"assignee":  "alice",
+				"tags":      []string{"attention", "routing"},
+			},
+			domain.FileMetadata{Name: topicName, FilePath: "/vault/Topics/my-topic.md"},
+			domain.Content("---\nstatus: in_progress\n---\n"),
+		)
+		mockTopicStorage.FindTopicByNameReturns(topic, nil)
+	})
+
+	JustBeforeEach(func() {
+		result, err = getOp.Execute(ctx, vaultPath, topicName, key)
+	})
+
+	Context("getting the status field", func() {
+		BeforeEach(func() {
+			key = "status"
+		})
+
+		It("returns the status value", func() {
+			Expect(err).To(BeNil())
+			Expect(result).To(Equal("in_progress"))
+		})
+	})
+
+	Context("getting the phase field", func() {
+		BeforeEach(func() {
+			key = "phase"
+		})
+
+		It("returns the raw on-disk phase value", func() {
+			Expect(err).To(BeNil())
+			Expect(result).To(Equal("planning"))
+		})
+	})
+
+	Context("getting the phase field when the page carries none", func() {
+		BeforeEach(func() {
+			key = "phase"
+			topic = domain.NewTopic(
+				map[string]any{"status": "in_progress"},
+				domain.FileMetadata{Name: topicName, FilePath: "/vault/Topics/my-topic.md"},
+				domain.Content(""),
+			)
+			mockTopicStorage.FindTopicByNameReturns(topic, nil)
+		})
+
+		It("returns an empty string with no error and no default substituted", func() {
+			Expect(err).To(BeNil())
+			Expect(result).To(Equal(""))
+		})
+
+		It("leaves the phase key absent from the topic", func() {
+			Expect(topic.Keys()).NotTo(ContainElement("phase"))
+		})
+	})
+
+	Context("getting a non-canonical phase value", func() {
+		BeforeEach(func() {
+			key = "phase"
+			topic = domain.NewTopic(
+				map[string]any{"phase": "whatever-the-vault-holds"},
+				domain.FileMetadata{Name: topicName, FilePath: "/vault/Topics/my-topic.md"},
+				domain.Content(""),
+			)
+			mockTopicStorage.FindTopicByNameReturns(topic, nil)
+		})
+
+		It("surfaces the raw string without rejecting the page", func() {
+			Expect(err).To(BeNil())
+			Expect(result).To(Equal("whatever-the-vault-holds"))
+		})
+	})
+
+	Context("getting the tags field", func() {
+		BeforeEach(func() {
+			key = "tags"
+		})
+
+		It("returns comma-joined tags", func() {
+			Expect(err).To(BeNil())
+			Expect(result).To(Equal("attention,routing"))
+		})
+	})
+
+	Context("getting an unset optional field", func() {
+		BeforeEach(func() {
+			key = "defer_date"
+		})
+
+		It("returns an empty string with no error", func() {
+			Expect(err).To(BeNil())
+			Expect(result).To(Equal(""))
+		})
+	})
+
+	Context("unknown key", func() {
+		BeforeEach(func() {
+			key = "xyz"
+		})
+
+		It("returns an empty string with no error", func() {
+			Expect(err).To(BeNil())
+			Expect(result).To(Equal(""))
+		})
+	})
+
+	Context("FindTopicByName fails", func() {
+		BeforeEach(func() {
+			key = "status"
+			mockTopicStorage.FindTopicByNameReturns(nil, errors.New("not found"))
+		})
+
+		It("returns an error wrapped with find topic", func() {
+			Expect(err).To(MatchError(ContainSubstring("find topic")))
+		})
+	})
+})
+
+var _ = Describe("NewTopicSetOperation", func() {
+	var (
+		ctx              context.Context
+		err              error
+		setOp            ops.EntitySetOperation
+		mockTopicStorage *mocks.TopicStorage
+		vaultPath        string
+		topicName        string
+		key              string
+		value            string
+		topic            *domain.Topic
+	)
+
+	BeforeEach(func() {
+		ctx = context.Background()
+		mockTopicStorage = &mocks.TopicStorage{}
+		setOp = ops.NewTopicSetOperation(mockTopicStorage)
+		vaultPath = "/path/to/vault"
+		topicName = "my-topic"
+		key = "status"
+		value = "in_progress"
+
+		topic = domain.NewTopic(
+			map[string]any{"status": "backlog"},
+			domain.FileMetadata{Name: topicName, FilePath: "/vault/Topics/my-topic.md"},
+			domain.Content(""),
+		)
+		mockTopicStorage.FindTopicByNameReturns(topic, nil)
+		mockTopicStorage.WriteTopicReturns(nil)
+	})
+
+	JustBeforeEach(func() {
+		err = setOp.Execute(ctx, vaultPath, topicName, key, value, "", "")
+	})
+
+	Context("setting a string field", func() {
+		It("sets the field and calls WriteTopic", func() {
+			Expect(err).To(BeNil())
+			Expect(mockTopicStorage.WriteTopicCallCount()).To(Equal(1))
+			_, written := mockTopicStorage.WriteTopicArgsForCall(0)
+			Expect(written.GetField("status")).To(Equal("in_progress"))
+		})
+	})
+
+	Context("setting the phase field", func() {
+		BeforeEach(func() {
+			key = "phase"
+			value = "planning"
+		})
+
+		It("stores the value verbatim", func() {
+			Expect(err).To(BeNil())
+			_, written := mockTopicStorage.WriteTopicArgsForCall(0)
+			Expect(written.GetField("phase")).To(Equal("planning"))
+		})
+	})
+
+	Context("setting defer_date with an ISO date", func() {
+		BeforeEach(func() {
+			key = "defer_date"
+			value = "2026-12-31"
+		})
+
+		It("sets defer_date and calls WriteTopic", func() {
+			Expect(err).To(BeNil())
+			_, written := mockTopicStorage.WriteTopicArgsForCall(0)
+			Expect(written.DeferDate()).NotTo(BeNil())
+			Expect(written.DeferDate().Time()).To(Equal(time.Date(2026, 12, 31, 0, 0, 0, 0, time.UTC)))
+		})
+	})
+
+	Context("setting defer_date with an invalid date", func() {
+		BeforeEach(func() {
+			key = "defer_date"
+			value = "not-a-date"
+		})
+
+		It("returns an error and does not call WriteTopic", func() {
+			Expect(err).To(MatchError(ContainSubstring("set field \"defer_date\"")))
+			Expect(mockTopicStorage.WriteTopicCallCount()).To(Equal(0))
+		})
+	})
+
+	Context("setting an unknown field stores it as a custom key", func() {
+		BeforeEach(func() {
+			key = "custom_field"
+			value = "custom-value"
+		})
+
+		It("stores the value and calls WriteTopic", func() {
+			Expect(err).To(BeNil())
+			_, written := mockTopicStorage.WriteTopicArgsForCall(0)
+			Expect(written.GetField("custom_field")).To(Equal("custom-value"))
+		})
+	})
+
+	Context("reason and gateSuccessor are ignored", func() {
+		It("writes no close-out fields", func() {
+			Expect(err).To(BeNil())
+			_, written := mockTopicStorage.WriteTopicArgsForCall(0)
+			Expect(written.GetField("aborted_reason")).To(Equal(""))
+			Expect(written.GetField("gate_successor")).To(Equal(""))
+		})
+	})
+
+	Context("FindTopicByName fails", func() {
+		BeforeEach(func() {
+			mockTopicStorage.FindTopicByNameReturns(nil, errors.New("not found"))
+		})
+
+		It("returns an error wrapped with find topic", func() {
+			Expect(err).To(MatchError(ContainSubstring("find topic")))
+		})
+	})
+
+	Context("WriteTopic fails", func() {
+		BeforeEach(func() {
+			mockTopicStorage.WriteTopicReturns(errors.New("write failed"))
+		})
+
+		It("returns an error wrapped with write topic", func() {
+			Expect(err).To(MatchError(ContainSubstring("write topic")))
+		})
+	})
+})
+
+var _ = Describe("NewTopicClearOperation", func() {
+	var (
+		ctx              context.Context
+		err              error
+		clearOp          ops.EntityClearOperation
+		mockTopicStorage *mocks.TopicStorage
+		vaultPath        string
+		topicName        string
+		key              string
+		topic            *domain.Topic
+	)
+
+	BeforeEach(func() {
+		ctx = context.Background()
+		mockTopicStorage = &mocks.TopicStorage{}
+		clearOp = ops.NewTopicClearOperation(mockTopicStorage)
+		vaultPath = "/path/to/vault"
+		topicName = "my-topic"
+		key = "status"
+
+		topic = domain.NewTopic(
+			map[string]any{"status": "in_progress", "assignee": "alice"},
+			domain.FileMetadata{Name: topicName, FilePath: "/vault/Topics/my-topic.md"},
+			domain.Content(""),
+		)
+		mockTopicStorage.FindTopicByNameReturns(topic, nil)
+		mockTopicStorage.WriteTopicReturns(nil)
+	})
+
+	JustBeforeEach(func() {
+		err = clearOp.Execute(ctx, vaultPath, topicName, key)
+	})
+
+	Context("clearing a string field", func() {
+		It("removes the key and calls WriteTopic", func() {
+			Expect(err).To(BeNil())
+			Expect(mockTopicStorage.WriteTopicCallCount()).To(Equal(1))
+			_, written := mockTopicStorage.WriteTopicArgsForCall(0)
+			Expect(written.GetField("status")).To(Equal(""))
+			Expect(written.Keys()).NotTo(ContainElement("status"))
+		})
+	})
+
+	Context("clearing the phase field", func() {
+		BeforeEach(func() {
+			key = "phase"
+			topic = domain.NewTopic(
+				map[string]any{"status": "in_progress", "phase": "planning"},
+				domain.FileMetadata{Name: topicName, FilePath: "/vault/Topics/my-topic.md"},
+				domain.Content(""),
+			)
+			mockTopicStorage.FindTopicByNameReturns(topic, nil)
+		})
+
+		It("removes the phase key entirely", func() {
+			Expect(err).To(BeNil())
+			_, written := mockTopicStorage.WriteTopicArgsForCall(0)
+			Expect(written.Keys()).NotTo(ContainElement("phase"))
+		})
+	})
+
+	Context("clearing an unknown field is a no-op that still calls WriteTopic", func() {
+		BeforeEach(func() {
+			key = "nonexistent"
+		})
+
+		It("calls WriteTopic without error", func() {
+			Expect(err).To(BeNil())
+			Expect(mockTopicStorage.WriteTopicCallCount()).To(Equal(1))
+		})
+	})
+
+	Context("FindTopicByName fails", func() {
+		BeforeEach(func() {
+			mockTopicStorage.FindTopicByNameReturns(nil, errors.New("not found"))
+		})
+
+		It("returns an error wrapped with find topic", func() {
+			Expect(err).To(MatchError(ContainSubstring("find topic")))
+		})
+	})
+
+	Context("WriteTopic fails", func() {
+		BeforeEach(func() {
+			mockTopicStorage.WriteTopicReturns(errors.New("write failed"))
+		})
+
+		It("returns an error wrapped with write topic", func() {
+			Expect(err).To(MatchError(ContainSubstring("write topic")))
+		})
+	})
+})
+
+var _ = Describe("NewTopicListAddOperation", func() {
+	var (
+		ctx              context.Context
+		err              error
+		addOp            ops.EntityListAddOperation
+		mockTopicStorage *mocks.TopicStorage
+		vaultPath        string
+		topicName        string
+		field            string
+		value            string
+		topic            *domain.Topic
+	)
+
+	BeforeEach(func() {
+		ctx = context.Background()
+		mockTopicStorage = &mocks.TopicStorage{}
+		addOp = ops.NewTopicListAddOperation(mockTopicStorage)
+		vaultPath = "/path/to/vault"
+		topicName = "my-topic"
+		field = "tags"
+		value = "new-tag"
+
+		topic = domain.NewTopic(
+			map[string]any{"status": "in_progress", "tags": []string{"existing"}},
+			domain.FileMetadata{Name: topicName, FilePath: "/vault/Topics/my-topic.md"},
+			domain.Content(""),
+		)
+		mockTopicStorage.FindTopicByNameReturns(topic, nil)
+		mockTopicStorage.WriteTopicReturns(nil)
+	})
+
+	JustBeforeEach(func() {
+		err = addOp.Execute(ctx, vaultPath, topicName, field, value)
+	})
+
+	Context("adding a value to the tags field", func() {
+		It("calls FindTopicByName and WriteTopic with updated tags", func() {
+			Expect(err).To(BeNil())
+			Expect(mockTopicStorage.FindTopicByNameCallCount()).To(Equal(1))
+			Expect(mockTopicStorage.WriteTopicCallCount()).To(Equal(1))
+			_, written := mockTopicStorage.WriteTopicArgsForCall(0)
+			Expect(written.Tags()).To(ConsistOf("existing", "new-tag"))
+		})
+	})
+
+	Context("value already in the list", func() {
+		BeforeEach(func() {
+			value = "existing"
+		})
+
+		It("returns an error containing 'already exists' and does not call WriteTopic", func() {
+			Expect(err).To(MatchError(ContainSubstring("already exists")))
+			Expect(mockTopicStorage.WriteTopicCallCount()).To(Equal(0))
+		})
+	})
+
+	Context("field is a scalar (not a list)", func() {
+		BeforeEach(func() {
+			field = "phase"
+			value = "planning"
+		})
+
+		It("returns an error containing 'not a list field' and does not call WriteTopic", func() {
+			Expect(err).To(MatchError(ContainSubstring("not a list field")))
+			Expect(mockTopicStorage.WriteTopicCallCount()).To(Equal(0))
+		})
+	})
+
+	Context("unknown field", func() {
+		BeforeEach(func() {
+			field = "goals"
+			value = "some-goal"
+		})
+
+		It("returns an error containing 'unknown field' and does not call WriteTopic", func() {
+			Expect(err).To(MatchError(ContainSubstring("unknown field")))
+			Expect(mockTopicStorage.WriteTopicCallCount()).To(Equal(0))
+		})
+	})
+
+	Context("FindTopicByName fails", func() {
+		BeforeEach(func() {
+			mockTopicStorage.FindTopicByNameReturns(nil, errors.New("not found"))
+		})
+
+		It("returns an error wrapped with find topic", func() {
+			Expect(err).To(MatchError(ContainSubstring("find topic")))
+		})
+	})
+
+	Context("WriteTopic fails", func() {
+		BeforeEach(func() {
+			mockTopicStorage.WriteTopicReturns(errors.New("write failed"))
+		})
+
+		It("returns an error wrapped with write topic", func() {
+			Expect(err).To(MatchError(ContainSubstring("write topic")))
+		})
+	})
+})
+
+var _ = Describe("NewTopicListRemoveOperation", func() {
+	var (
+		ctx              context.Context
+		err              error
+		removeOp         ops.EntityListRemoveOperation
+		mockTopicStorage *mocks.TopicStorage
+		vaultPath        string
+		topicName        string
+		field            string
+		value            string
+		topic            *domain.Topic
+	)
+
+	BeforeEach(func() {
+		ctx = context.Background()
+		mockTopicStorage = &mocks.TopicStorage{}
+		removeOp = ops.NewTopicListRemoveOperation(mockTopicStorage)
+		vaultPath = "/path/to/vault"
+		topicName = "my-topic"
+		field = "tags"
+		value = "existing"
+
+		topic = domain.NewTopic(
+			map[string]any{"status": "in_progress", "tags": []string{"existing", "keep"}},
+			domain.FileMetadata{Name: topicName, FilePath: "/vault/Topics/my-topic.md"},
+			domain.Content(""),
+		)
+		mockTopicStorage.FindTopicByNameReturns(topic, nil)
+		mockTopicStorage.WriteTopicReturns(nil)
+	})
+
+	JustBeforeEach(func() {
+		err = removeOp.Execute(ctx, vaultPath, topicName, field, value)
+	})
+
+	Context("removing a value from the tags field", func() {
+		It("calls WriteTopic with the remaining tags", func() {
+			Expect(err).To(BeNil())
+			Expect(mockTopicStorage.WriteTopicCallCount()).To(Equal(1))
+			_, written := mockTopicStorage.WriteTopicArgsForCall(0)
+			Expect(written.Tags()).To(ConsistOf("keep"))
+		})
+	})
+
+	Context("value not in the list", func() {
+		BeforeEach(func() {
+			value = "absent"
+		})
+
+		It("returns an error containing 'not found' and does not call WriteTopic", func() {
+			Expect(err).To(MatchError(ContainSubstring("not found")))
+			Expect(mockTopicStorage.WriteTopicCallCount()).To(Equal(0))
+		})
+	})
+
+	Context("field is a scalar (not a list)", func() {
+		BeforeEach(func() {
+			field = "status"
+			value = "in_progress"
+		})
+
+		It("returns an error containing 'not a list field' and does not call WriteTopic", func() {
+			Expect(err).To(MatchError(ContainSubstring("not a list field")))
+			Expect(mockTopicStorage.WriteTopicCallCount()).To(Equal(0))
+		})
+	})
+
+	Context("unknown field", func() {
+		BeforeEach(func() {
+			field = "nonexistent"
+			value = "val"
+		})
+
+		It("returns an error containing 'unknown field' and does not call WriteTopic", func() {
+			Expect(err).To(MatchError(ContainSubstring("unknown field")))
+			Expect(mockTopicStorage.WriteTopicCallCount()).To(Equal(0))
+		})
+	})
+
+	Context("FindTopicByName fails", func() {
+		BeforeEach(func() {
+			mockTopicStorage.FindTopicByNameReturns(nil, errors.New("not found"))
+		})
+
+		It("returns an error wrapped with find topic", func() {
+			Expect(err).To(MatchError(ContainSubstring("find topic")))
+		})
+	})
+
+	Context("WriteTopic fails", func() {
+		BeforeEach(func() {
+			mockTopicStorage.WriteTopicReturns(errors.New("write failed"))
+		})
+
+		It("returns an error wrapped with write topic", func() {
+			Expect(err).To(MatchError(ContainSubstring("write topic")))
+		})
+	})
+})
+
+var _ = Describe("NewTopicShowOperation", func() {
+	var (
+		ctx              context.Context
+		err              error
+		result           ops.EntityShowResult
+		showOp           ops.EntityShowOperation
+		mockTopicStorage *mocks.TopicStorage
+		vaultPath        string
+		vaultName        string
+		topicName        string
+		topic            *domain.Topic
+	)
+
+	BeforeEach(func() {
+		ctx = context.Background()
+		mockTopicStorage = &mocks.TopicStorage{}
+		showOp = ops.NewTopicShowOperation(mockTopicStorage)
+		vaultPath = "/path/to/vault"
+		vaultName = "my-vault"
+		topicName = "my-topic"
+
+		topic = domain.NewTopic(
+			map[string]any{
+				"status":    "in_progress",
+				"page_type": "topic",
+				"phase":     "planning",
+				"tags":      []string{"attention"},
+			},
+			domain.FileMetadata{Name: topicName, FilePath: "/vault/Topics/my-topic.md"},
+			domain.Content("---\nstatus: in_progress\n---\n"),
+		)
+		mockTopicStorage.FindTopicByNameReturns(topic, nil)
+	})
+
+	JustBeforeEach(func() {
+		result, err = showOp.Execute(ctx, vaultPath, vaultName, topicName)
+	})
+
+	Context("success", func() {
+		It("succeeds without error", func() {
+			Expect(err).To(BeNil())
+		})
+
+		It("returns the topic name", func() {
+			Expect(result.Name).To(Equal(topicName))
+		})
+
+		It("returns the vault name", func() {
+			Expect(result.Vault).To(Equal(vaultName))
+		})
+
+		It("returns the file path and content", func() {
+			Expect(result.FilePath).To(Equal("/vault/Topics/my-topic.md"))
+			Expect(result.Content).To(Equal("---\nstatus: in_progress\n---\n"))
+		})
+
+		It("returns fields including the raw phase value", func() {
+			Expect(result.Fields).NotTo(BeEmpty())
+			Expect(result.Fields["phase"]).To(Equal("planning"))
+			Expect(result.FieldOrder).To(ContainElement("phase"))
+		})
+	})
+
+	Context("when the page carries no phase line", func() {
+		BeforeEach(func() {
+			topic = domain.NewTopic(
+				map[string]any{"status": "in_progress"},
+				domain.FileMetadata{Name: topicName, FilePath: "/vault/Topics/my-topic.md"},
+				domain.Content(""),
+			)
+			mockTopicStorage.FindTopicByNameReturns(topic, nil)
+		})
+
+		It("omits the phase key entirely rather than emitting it empty", func() {
+			Expect(err).To(BeNil())
+			Expect(result.Fields).To(HaveKey("status"))
+			_, ok := result.Fields["phase"]
+			Expect(ok).To(BeFalse())
+			Expect(result.FieldOrder).NotTo(ContainElement("phase"))
+		})
+	})
+
+	Context("when the page carries a non-canonical phase value", func() {
+		BeforeEach(func() {
+			topic = domain.NewTopic(
+				map[string]any{"phase": "whatever-the-vault-holds"},
+				domain.FileMetadata{Name: topicName, FilePath: "/vault/Topics/my-topic.md"},
+				domain.Content(""),
+			)
+			mockTopicStorage.FindTopicByNameReturns(topic, nil)
+		})
+
+		It("surfaces the raw string without rejecting the page", func() {
+			Expect(err).To(BeNil())
+			Expect(result.Fields["phase"]).To(Equal("whatever-the-vault-holds"))
+		})
+	})
+
+	Context("find fails", func() {
+		BeforeEach(func() {
+			mockTopicStorage.FindTopicByNameReturns(nil, errors.New("not found"))
+		})
+
+		It("returns an error wrapped with find topic", func() {
+			Expect(err).To(MatchError(ContainSubstring("find topic")))
+		})
+	})
+})

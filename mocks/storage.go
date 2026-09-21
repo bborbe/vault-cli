@@ -85,6 +85,21 @@ type Storage struct {
 		result1 *domain.Theme
 		result2 error
 	}
+	FindTopicByNameStub        func(context.Context, string, string) (*domain.Topic, error)
+	findTopicByNameMutex       sync.RWMutex
+	findTopicByNameArgsForCall []struct {
+		arg1 context.Context
+		arg2 string
+		arg3 string
+	}
+	findTopicByNameReturns struct {
+		result1 *domain.Topic
+		result2 error
+	}
+	findTopicByNameReturnsOnCall map[int]struct {
+		result1 *domain.Topic
+		result2 error
+	}
 	FindVisionByNameStub        func(context.Context, string, string) (*domain.Vision, error)
 	findVisionByNameMutex       sync.RWMutex
 	findVisionByNameArgsForCall []struct {
@@ -305,6 +320,18 @@ type Storage struct {
 		result1 error
 	}
 	writeThemeReturnsOnCall map[int]struct {
+		result1 error
+	}
+	WriteTopicStub        func(context.Context, *domain.Topic) error
+	writeTopicMutex       sync.RWMutex
+	writeTopicArgsForCall []struct {
+		arg1 context.Context
+		arg2 *domain.Topic
+	}
+	writeTopicReturns struct {
+		result1 error
+	}
+	writeTopicReturnsOnCall map[int]struct {
 		result1 error
 	}
 	WriteVisionStub        func(context.Context, *domain.Vision) error
@@ -649,6 +676,72 @@ func (fake *Storage) FindThemeByNameReturnsOnCall(i int, result1 *domain.Theme, 
 	}
 	fake.findThemeByNameReturnsOnCall[i] = struct {
 		result1 *domain.Theme
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *Storage) FindTopicByName(arg1 context.Context, arg2 string, arg3 string) (*domain.Topic, error) {
+	fake.findTopicByNameMutex.Lock()
+	ret, specificReturn := fake.findTopicByNameReturnsOnCall[len(fake.findTopicByNameArgsForCall)]
+	fake.findTopicByNameArgsForCall = append(fake.findTopicByNameArgsForCall, struct {
+		arg1 context.Context
+		arg2 string
+		arg3 string
+	}{arg1, arg2, arg3})
+	stub := fake.FindTopicByNameStub
+	fakeReturns := fake.findTopicByNameReturns
+	fake.recordInvocation("FindTopicByName", []interface{}{arg1, arg2, arg3})
+	fake.findTopicByNameMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *Storage) FindTopicByNameCallCount() int {
+	fake.findTopicByNameMutex.RLock()
+	defer fake.findTopicByNameMutex.RUnlock()
+	return len(fake.findTopicByNameArgsForCall)
+}
+
+func (fake *Storage) FindTopicByNameCalls(stub func(context.Context, string, string) (*domain.Topic, error)) {
+	fake.findTopicByNameMutex.Lock()
+	defer fake.findTopicByNameMutex.Unlock()
+	fake.FindTopicByNameStub = stub
+}
+
+func (fake *Storage) FindTopicByNameArgsForCall(i int) (context.Context, string, string) {
+	fake.findTopicByNameMutex.RLock()
+	defer fake.findTopicByNameMutex.RUnlock()
+	argsForCall := fake.findTopicByNameArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *Storage) FindTopicByNameReturns(result1 *domain.Topic, result2 error) {
+	fake.findTopicByNameMutex.Lock()
+	defer fake.findTopicByNameMutex.Unlock()
+	fake.FindTopicByNameStub = nil
+	fake.findTopicByNameReturns = struct {
+		result1 *domain.Topic
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *Storage) FindTopicByNameReturnsOnCall(i int, result1 *domain.Topic, result2 error) {
+	fake.findTopicByNameMutex.Lock()
+	defer fake.findTopicByNameMutex.Unlock()
+	fake.FindTopicByNameStub = nil
+	if fake.findTopicByNameReturnsOnCall == nil {
+		fake.findTopicByNameReturnsOnCall = make(map[int]struct {
+			result1 *domain.Topic
+			result2 error
+		})
+	}
+	fake.findTopicByNameReturnsOnCall[i] = struct {
+		result1 *domain.Topic
 		result2 error
 	}{result1, result2}
 }
@@ -1681,6 +1774,68 @@ func (fake *Storage) WriteThemeReturnsOnCall(i int, result1 error) {
 		})
 	}
 	fake.writeThemeReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *Storage) WriteTopic(arg1 context.Context, arg2 *domain.Topic) error {
+	fake.writeTopicMutex.Lock()
+	ret, specificReturn := fake.writeTopicReturnsOnCall[len(fake.writeTopicArgsForCall)]
+	fake.writeTopicArgsForCall = append(fake.writeTopicArgsForCall, struct {
+		arg1 context.Context
+		arg2 *domain.Topic
+	}{arg1, arg2})
+	stub := fake.WriteTopicStub
+	fakeReturns := fake.writeTopicReturns
+	fake.recordInvocation("WriteTopic", []interface{}{arg1, arg2})
+	fake.writeTopicMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *Storage) WriteTopicCallCount() int {
+	fake.writeTopicMutex.RLock()
+	defer fake.writeTopicMutex.RUnlock()
+	return len(fake.writeTopicArgsForCall)
+}
+
+func (fake *Storage) WriteTopicCalls(stub func(context.Context, *domain.Topic) error) {
+	fake.writeTopicMutex.Lock()
+	defer fake.writeTopicMutex.Unlock()
+	fake.WriteTopicStub = stub
+}
+
+func (fake *Storage) WriteTopicArgsForCall(i int) (context.Context, *domain.Topic) {
+	fake.writeTopicMutex.RLock()
+	defer fake.writeTopicMutex.RUnlock()
+	argsForCall := fake.writeTopicArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2
+}
+
+func (fake *Storage) WriteTopicReturns(result1 error) {
+	fake.writeTopicMutex.Lock()
+	defer fake.writeTopicMutex.Unlock()
+	fake.WriteTopicStub = nil
+	fake.writeTopicReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *Storage) WriteTopicReturnsOnCall(i int, result1 error) {
+	fake.writeTopicMutex.Lock()
+	defer fake.writeTopicMutex.Unlock()
+	fake.WriteTopicStub = nil
+	if fake.writeTopicReturnsOnCall == nil {
+		fake.writeTopicReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.writeTopicReturnsOnCall[i] = struct {
 		result1 error
 	}{result1}
 }

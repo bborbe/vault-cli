@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.144.1
 
 - fix: `commands/session-close.md` § Phase 3.5 — the worktree-liveness guard no longer believes a hit from the checking session's own process tree. `lsof +D <worktree>` reports the sweep's own harness shell once the sweep has `cd`'d into a worktree, so an orphaned worktree reads as "actively used" *because* the sweep just visited it — the guard silently disabling itself on exactly the worktrees it is closest to judging. Observed 2026-09-21 on `tts-mcp`: two orphaned worktrees each showed a live `zsh` inside them, and both were the checking session's own shell, left by a `cd` one command earlier. The step now compares each hit's pid against `$$` and its parent chain, then re-checks with `ps -p <pid> -o pid=,etime=,command=`, where an already-exited pid proves the hit was transient.
 

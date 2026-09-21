@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat: topics carry a validated `phase` frontmatter field — `todo`, `planning`, `execution` or `done` — set through `vault-cli topic set <page> phase <value>` and surfaced by `topic show` in plain and `--output json` output. The topic phase is its own type, member-for-member identical in shape to the goal phase and sharing none of it; a non-canonical value is refused before any write with the validator's own wording, an empty value clears the `phase:` line, and a topic page that predates the field parses, shows and mutates unchanged with no phase value invented and no file backfilled. The goal and task phase types, their constants, their normalizers and their commands are untouched.
+
 ## v0.142.2
 
 - fix: `/vault-cli:plan-task` step 6 hashed the **whole instance file** when checking a recurring template's recorded verdict, while its own prose said "the instance **body**" — so the per-instance `task_identifier` UUID the creator writes was folded into the hash and every materialization hashed differently. A recorded verdict could therefore never match, which made the de-duplication the mechanism exists for *unreachable* rather than merely flaky. Measured across three firings of the same template: the shipped whole-file command returned three distinct hashes (`e1625c1c…` / `cb4646af…` / `8a7a8a4a…`) where the body-only basis returned one (`971dd148…`). The command now strips frontmatter before the date normalization, matching its own prose, with a note stating why the strip is not optional.

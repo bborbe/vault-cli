@@ -64,6 +64,76 @@ var _ = Describe("TopicFrontmatter", func() {
 		})
 	})
 
+	Describe("Phase", func() {
+		It("returns nil for a topic with no phase line", func() {
+			Expect(domain.NewTopicFrontmatter(nil).Phase()).To(BeNil())
+			Expect(
+				domain.NewTopicFrontmatter(map[string]any{"status": "in_progress"}).Phase(),
+			).To(BeNil())
+		})
+
+		It("returns a pointer for a canonical topic phase value", func() {
+			fm = domain.NewTopicFrontmatter(map[string]any{"phase": "execution"})
+			Expect(fm.Phase()).NotTo(BeNil())
+			Expect(*fm.Phase()).To(Equal(domain.TopicPhaseExecution))
+		})
+
+		It("returns a pointer for a non-canonical on-disk value without rejecting the page", func() {
+			fm = domain.NewTopicFrontmatter(map[string]any{"phase": "in_progress"})
+			Expect(fm.Phase()).NotTo(BeNil())
+			Expect(*fm.Phase()).To(Equal(domain.TopicPhase("in_progress")))
+		})
+	})
+
+	Describe("SetPhase", func() {
+		It("stores the topic phase string via pointer", func() {
+			fm.SetPhase(domain.TopicPhaseDone.Ptr())
+			Expect(fm.GetField("phase")).To(Equal("done"))
+		})
+
+		It("a nil topic phase pointer deletes the key", func() {
+			fm = domain.NewTopicFrontmatter(map[string]any{"phase": "todo"})
+			fm.SetPhase(nil)
+			Expect(fm.GetField("phase")).To(Equal(""))
+			Expect(fm.Keys()).NotTo(ContainElement("phase"))
+		})
+	})
+
+	Describe("SetField phase", func() {
+		DescribeTable("accepts each canonical topic phase value",
+			func(value string) {
+				fm = domain.NewTopicFrontmatter(nil)
+				Expect(fm.SetField(ctx, "phase", value)).To(Succeed())
+				Expect(fm.GetField("phase")).To(Equal(value))
+			},
+			Entry("todo", "todo"),
+			Entry("planning", "planning"),
+			Entry("execution", "execution"),
+			Entry("done", "done"),
+		)
+
+		It("rejects a non-canonical value with the validator's wording", func() {
+			err := fm.SetField(ctx, "phase", "bogus")
+			Expect(err).NotTo(BeNil())
+			Expect(err.Error()).To(ContainSubstring("unknown topic phase 'bogus'"))
+			Expect(fm.GetField("phase")).To(Equal(""))
+			Expect(fm.Keys()).NotTo(ContainElement("phase"))
+		})
+
+		It("rejects the task-only phase in_progress", func() {
+			err := fm.SetField(ctx, "phase", "in_progress")
+			Expect(err).NotTo(BeNil())
+			Expect(err.Error()).To(ContainSubstring("unknown topic phase"))
+		})
+
+		It("clears the phase key on an empty value", func() {
+			fm = domain.NewTopicFrontmatter(map[string]any{"phase": "execution"})
+			Expect(fm.SetField(ctx, "phase", "")).To(Succeed())
+			Expect(fm.GetField("phase")).To(Equal(""))
+			Expect(fm.Keys()).NotTo(ContainElement("phase"))
+		})
+	})
+
 	Describe("SetField / GetField - unknown field round-trip", func() {
 		It("round-trips an unknown key", func() {
 			Expect(fm.SetField(ctx, "custom_note", "hello")).To(Succeed())

@@ -29,8 +29,8 @@ Handles goal operations: status, verify.
 
 ## Constants
 
-- Goals directory: `23 Goals/` (also check `22 Goals/` for compatibility)
-- Tasks directory: `24 Tasks/`
+- Goals directory: `<goals_dir>` (resolved from vault-cli config — never a hardcoded folder name)
+- Tasks directory: `<tasks_dir>` (resolved from vault-cli config — never a hardcoded folder name)
 
 ## Shared Operations
 
@@ -40,12 +40,11 @@ Search for goal file by name or path.
 
 **Algorithm:**
 1. If input has `.md` extension and path exists → return path
-2. If input starts with `23 Goals/` or `22 Goals/` → try that path
-3. Otherwise search: `Glob pattern="23 Goals/*.md"`, filter by name match
-4. Try fallback: `Glob pattern="22 Goals/*.md"` if nothing found
-5. If 0 matches → error "Goal not found"
-6. If >1 matches → AskUserQuestion to select
-7. Return single match
+2. If input starts with `<goals_dir>/` → try that path
+3. Otherwise search: `Glob pattern="<goals_dir>/*.md"`, filter by name match
+4. If 0 matches → error "Goal not found"
+5. If >1 matches → AskUserQuestion to select
+6. Return single match
 
 ### get_subtask_statuses(goal_path)
 
@@ -148,7 +147,7 @@ Quick validation checks for goal integrity.
 
 5. **Check subtask existence:**
    - For each `[[Task Name]]` in Tasks section
-   - Verify file exists in `24 Tasks/`
+   - Verify file exists in `<tasks_dir>` (resolved from vault-cli config)
    - If not found → report missing task
 
 6. **Check status consistency** (a task must not outrank its goal):

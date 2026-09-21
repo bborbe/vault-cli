@@ -65,7 +65,7 @@ read -r VAULT_NAME VAULT_PATH GOALS_DIR <<< "$(vault-cli config list --output js
 import sys, json, os
 vs = json.load(sys.stdin); cwd = os.getcwd()
 v = next((x for x in vs if cwd.startswith(x['path'])), vs[0])
-print(v['path'].rstrip('/').split('/')[-1], v['path'], v.get('goals_dir','23 Goals'))")"
+print(v['path'].rstrip('/').split('/')[-1], v['path'], v.get('goals_dir','Goals'))")"
 ```
 
 **Goal resolution** — the task's `goals:` frontmatter, first entry, `|alias` stripped:
@@ -73,7 +73,6 @@ print(v['path'].rstrip('/').split('/')[-1], v['path'], v.get('goals_dir','23 Goa
 ```bash
 GOAL_TITLE="$(grep -m1 '^goals:' -A1 "$TASK_PATH" | grep -oE '\[\[[^]]*\]\]' | head -1 | sed 's/\[\[//; s/\]\]//; s/|.*//')"
 GOAL_FILE="$VAULT_PATH/$GOALS_DIR/$GOAL_TITLE.md"
-[ -f "$GOAL_FILE" ] || GOAL_FILE="$VAULT_PATH/22 Goals/$GOAL_TITLE.md"
 ```
 
 - No `goals:` frontmatter → `🎯 Goal: (no goal linked)` (pair still emitted).

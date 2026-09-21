@@ -152,9 +152,11 @@ Any hard check failing → mandatory question in step 6; can't exit on auditor s
 1. **Take the slug from the auditor's report.** On a CR-materialized task the auditor emits a `**Template**: \`<slug>\`` line and labels every finding `[template-level]` or `[instance-level]`. No `**Template**` line → the task is not CR-materialized → skip this whole block. The auditor owns detection (see `agents/task-auditor.md` § Finding Classification); do not re-derive the shape here.
 2. **Hash the template as materialized** — the instance body with the substituted period values normalized out:
    ```bash
-   sed -E 's/[0-9]{4}-[0-9]{2}-[0-9]{2}/<DATE>/g; s/[0-9]{4}W[0-9]{2}/<PERIOD>/g' "<instance-file>" | shasum
+   awk 'BEGIN{n=0} /^---$/{n++; next} n>=2' "<instance-file>" \
+     | sed -E 's/[0-9]{4}-[0-9]{2}-[0-9]{2}/<DATE>/g; s/[0-9]{4}W[0-9]{2}/<PERIOD>/g' | shasum
    ```
    The normalization is deliberately blunt: every ISO date in the body is masked, so a template edit that only rewrites a date literal will *not* invalidate a verdict. That is the accepted trade — hashing the raw body would instead re-ask on every period roll, which is the defect this check exists to remove.
+   **Frontmatter is stripped for the same reason, and it is not optional.** The whole file would fold in the per-instance `task_identifier` UUID the creator writes, so every materialization would hash differently and a recorded verdict could never match — the comparison would be *unreachable*, not merely flaky.
 3. **Look for the verdict file** at `<vault>/50 Knowledge Base/Recurring Template Verdicts/<slug>.md` — a vault-relative directory, so it travels with the vault on sync. Branch on what you find:
    - **Verdict present, `body_hash` matches** → the template is unchanged and already adjudicated. **Skip the auditor-derived questions**: do not translate auditor findings into questions, do not enter the fix loop for them. Print `ℹ️ Template verdict current for <slug> (recorded <date>) — auditor findings already adjudicated; no re-ask.` and go straight to step 7. A current verdict also satisfies step 7's score gate for the findings it covers; without that clause an adjudicated 7/10 would still exit on the `⚠` branch and the skip would buy nothing.
      **Order matters.** Step 5's hard non-negotiables are checked first and always apply in full — they are structural, independent of template content, and a failure there is a different defect from the one the verdict covers. Take the skip only on a clean pass.

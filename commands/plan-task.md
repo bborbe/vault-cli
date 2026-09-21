@@ -87,7 +87,7 @@ Six checks beyond the auditor's general scoring — first five are hard (any fai
 
 - **Success Criteria defined** — `# Success Criteria` section exists with ≥ 2 binary checkboxes.
 - **Subtasks reach the goal** — `# Tasks` section (or equivalent) lists concrete steps that, if completed, produce the SC outcomes. If subtasks are missing or vague ("Implement feature" alone), flag.
-- **E2E verify subtask present** — for shipping-class tasks (PR / release / plugin update / agent / deploy / library publish; or subtasks reference a git repo / marketplace / registry — see `task-writing.md` "Shipping Checklist"), `# Tasks` must include a subtask that runs the shipped artifact in its real environment. Two sub-checks on that subtask:
+- **E2E verify subtask present** — for shipping-class tasks (PR / release / plugin update / agent / deploy / library publish; or subtasks reference a git repo / marketplace / registry — see `task-writing.md` "Shipping Checklist"), `# Tasks` must include a subtask that runs the shipped artifact in its real environment. Four sub-checks on that subtask:
 
     1. **No dishonest-tick phrases.** Reject if the body contains a case-insensitive substring match of any phrase from `task-writing.md:122-134`:
         - *"deferred to first use"*
@@ -128,6 +128,18 @@ Six checks beyond the auditor's general scoring — first five are hard (any fai
         - **Assert on a signal the real path emits**, not the manufactured one — draw the evidence from the population the claim quantifies over.
 
         Sibling test: `/vault-cli:drive` § "Challenge the acceptance criteria" Axis B applies the same question — but only once work is already underway. This gate is the cheaper place to catch it.
+
+    4. **Shape-matched — the claim's shape must fit the evidence's shape.** Sub-checks 2 and 3 interrogate the **probe**; this one interrogates the **claim**. Ask: *will the evidence that will exist support a verdict, or only a mechanism / an elimination?* A criterion demanding a frequency verdict — *"is this one-off or structural"*, *"does it recur on ordinary days"* — over a population that has aged out, or that has not yet accrued, is unsound however concrete its probe.
+
+        **Repetition is the diagnostic.** The same criterion failing audits in *different* ways is the signature that the claim, not the probe, is wrong — not three separate defects, and not three probe patches. Observed 2026-09-21: an SC2 demanding a one-off-vs-structural verdict failed three consecutive audits three different ways — no probe; then a probe naming weeks that had already aged out, making "zero further orphans" trivially true; then a fallback tickable without running the sweep. Three probe patches, each satisfying this gate as written, none producing an answerable criterion. Reframing the claim — deriving the call from the *nature* of the identified cause rather than from a count — moved the audit 6 → 8 and flipped the adversarial-laziness pass to PASS.
+
+        Two honest repairs, whichever the evidence supports:
+        - **Reframe the claim to what the evidence can carry.** Derive a verdict from the *nature* of the identified cause (a dated event vs a standing property of the config or account) rather than from a count — or record an **eliminative** result: what was ruled out, by which probe, and what remains.
+        - **State the investigation depth required**, when the verdict genuinely may not be reachable. The criterion then asserts the question was pursued to a named depth, not that it was answered.
+
+        Never accept a fallback satisfiable without running the probe: *"undetermined"* must be recorded alongside the quoted result that establishes the loss, never asserted on its own.
+
+        **Note the scope of this item.** It sits inside a block that is skipped for non-shipping-class tasks (next line), yet the defect it catches is not shipping-specific — the 2026-09-21 case was a diagnosis task, where this gate never ran. `agents/task-auditor.md` § 15 carries the same check and runs on every task; this item is the shipping-class enforcement, not the universal home.
 
     Skip this whole check for non-shipping-class tasks (pure research, decision, doc-only with no published artifact).
 - **Subtask-goal alignment** — every `# Tasks` checkbox must either (a) map by topic to ≥ 1 `# Success Criteria` outcome, or (b) be the e2e verify subtask. Flag any orphan as a scope-creep candidate; in step 6 the owner can link it to an SC, move it to `# Out of Scope`, or split it into a separate task.

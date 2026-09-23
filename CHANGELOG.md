@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- docs: `plan-task` and `session-close` name the user-level `/worker-drive` command (renamed from `/drive`, session-tier naming); `plan-task`'s `/vault-cli:drive` reference never resolved.
+
 ## v0.145.0
 
 - feat: `plan-task` gains a sixth hard check, **resolution steps are resolvable**. A subtask naming a lookup, join or key (*"resolve the gate to its store `item_id`"*) is now checked against whether that key exists and is derivable by the actor that will run it — the one hard check about the plan's *premise* rather than its shape. A subtask can name a concrete verb, artifact and outcome and still be unsatisfiable by construction, and the cost is paid at execution, where the premise has already collapsed and the task file needs revising mid-flight. Observed 2026-09-21: a subtask assumed a gate→item join that did not exist — the store wrote `item_id` itself, the producer's dedup key hashed a value the manager never holds, and the third candidate field was documented as `<session id or pane id>`, two kinds of value in one field. Two unsatisfiable-by-construction subtasks in one task is the signal this check was missing, not that the author was careless.

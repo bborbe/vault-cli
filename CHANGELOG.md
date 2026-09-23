@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: `/vault-cli:plan-task` now records a template verdict's `body_hash` from the **fresh materialization** (the step-2 value) instead of re-hashing after the fix loop's edits. The most common answer is "fix the instance + port to YAML", which edits the instance *before* the verdict is written — so the recorded hash described a corrected body that no future materialization could reproduce, making the comparison unreachable and re-asking the same question every period. Observed in production 2026-09-22 on `cleanup-obsidian-inbox`, whose verdict page documents the failure and was re-baselined by hand.
+
 ## v0.146.0
 
 - feat: `/plan-task` hard check *Premise matches the ask* — flags a task whose Summary/Success Criteria diverge from, or exclude a reading of, the operator's verbatim quote in `# Impact`

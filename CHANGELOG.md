@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.145.1
 
 - docs: `plan-task` and `session-close` name the user-level `/worker-drive` command (renamed from `/drive`, session-tier naming); `plan-task`'s `/vault-cli:drive` reference never resolved.
 

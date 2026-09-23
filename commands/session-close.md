@@ -671,7 +671,7 @@ Append below the verdict. This command is terminal; without a fixed closer the t
 
 Include only the options whose signals actually fired, renumbered from 1, and keep `nothing — close` last so closing stays one keystroke away.
 
-**`nothing — session closed` is wrong for mode 2** — it asserts there is nothing to do directly above a list of things to do. The global closer rule already forbids `nothing` while something is pending; mode 2 is exactly that case. This is not a "fork" in the `/drive` sense either: these are optional follow-ups on a finished task, which is precisely what a `pick` is for.
+**`nothing — session closed` is wrong for mode 2** — it asserts there is nothing to do directly above a list of things to do. The global closer rule already forbids `nothing` while something is pending; mode 2 is exactly that case. This is not a "fork" in the `/worker-drive` sense either: these are optional follow-ups on a finished task, which is precisely what a `pick` is for.
 
 **Goal-anchored clean verdict** (Phase 1's `GOAL_ANCHORED` and the anchor goal still has open tasks — exempted in Phase 4.5, so the session can close clean): the `⏰ Next:` line names the next open task under the anchor goal instead of deferring to the orchestrator:
 

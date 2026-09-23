@@ -127,7 +127,7 @@ Six checks beyond the auditor's general scoring — first five are hard (any fai
         - **Sample the population before trusting a hand-built case** — confirm the system actually emits that shape. Here one `git log --merges origin/master` over the real fleet would have shown every orphan is merge-committed.
         - **Assert on a signal the real path emits**, not the manufactured one — draw the evidence from the population the claim quantifies over.
 
-        Sibling test: `/vault-cli:drive` § "Challenge the acceptance criteria" Axis B applies the same question — but only once work is already underway. This gate is the cheaper place to catch it.
+        Sibling test: `/worker-drive` § "Challenge the acceptance criteria" Axis B applies the same question — but only once work is already underway. This gate is the cheaper place to catch it.
 
     4. **Shape-matched — the claim's shape must fit the evidence's shape.** Sub-checks 2 and 3 interrogate the **probe**; this one interrogates the **claim**. Ask: *will the evidence that will exist support a verdict, or only a mechanism / an elimination?* A criterion demanding a frequency verdict — *"is this one-off or structural"*, *"does it recur on ordinary days"* — over a population that has aged out, or that has not yet accrued, is unsound however concrete its probe.
 

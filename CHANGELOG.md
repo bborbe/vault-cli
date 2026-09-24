@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.146.2
 
 - docs: **`task-writing.md` § Shipping Checklist now warns against prescribing a manual version bump on an auto-releasing repo.** Item 2 covered auto-release only for *subtask necessity* — whether a standalone "verify tag exists" step is needed — and said nothing about the clause *prescribing the bump itself*. Observed 2026-09-24 on a `claude-supervisor` task whose Definition of Done read *"release bumping all four version strings together"* while the repo carries `release: autoRelease: true`: the releaser owns both the bump and the tag, so following the clause literally races the releaser and can duplicate a tag. Caught at execution; the guard now names the check (`.maintainer.yaml`) and states the clause is correct only where `autoRelease` is off.
 

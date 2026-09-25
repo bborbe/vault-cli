@@ -11,6 +11,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 ## Unreleased
 
 - feat: `vault-cli rollup weekly` reports a week's human interactions, unattended deliveries and per-family median interactions from task frontmatter, stating the unattended-delivery rule and the filename-stem grouping rule in its output. It reads one vault — the `--vault` flag, or the config's `default_vault` when the flag is omitted, never every configured vault — accepts `--week YYYY-Wnn` and defaults to the last complete ISO week, supports `--output plain|json`, and writes nothing to the vault.
+- feat: `vault-cli task append-metrics-session <task> <session-id>` appends one `{session_id, started_at}` entry to a task's `metrics_sessions` through the existing domain append, so a run whose session-connect does not route through `task work-on` — a fleet-spawned worker — records its session in the same shape and the same accumulate-never-replace semantics as the older path; the plugin's session-connect step invokes it after writing `claude_session_id`, and a non-zero exit is a warning that leaves the id write in place. The session id is validated as a well-formed UUID before the task is read, so an empty, non-UUID or path-bearing id is refused with nothing written. `task set`, `task add` and `task remove` now refuse the field before any mutation, with a message naming the field and pointing at the new verb, because a scalar or a comma-split list is a shape every reader discards; `--force` does not bypass the refusal.
 
 ## v0.146.5
 

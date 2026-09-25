@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -19,6 +20,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
+	"gopkg.in/yaml.v3"
 )
 
 // createTempVault creates a temporary vault with tasks, goals, and config file
@@ -66,6 +68,55 @@ vaults:
     path: %s
     tasks_dir: Tasks
     goals_dir: Goals
+`, vaultPath)
+
+	configFile, err := os.CreateTemp("", "vault-config-*.yaml")
+	Expect(err).NotTo(HaveOccurred())
+	_, err = configFile.WriteString(configContent)
+	Expect(err).NotTo(HaveOccurred())
+	err = configFile.Close()
+	Expect(err).NotTo(HaveOccurred())
+
+	return vaultPath, configFile.Name(), func() {
+		_ = os.RemoveAll(vaultPath)
+		_ = os.Remove(configFile.Name())
+	}
+}
+
+// createTempVaultWithCurrentUser creates a temporary vault with tasks, a config
+// that names current_user, and a claude_script that is deliberately not installed.
+//
+// current_user is load-bearing: `task work-on` calls config.GetCurrentUser and
+// errors out when it is unset, so the work-on specs need this shape.
+// The uninstalled claude_script keeps the work-on path's starter nil, which is the
+// same guard createTempVaultWithTopicPages uses — these specs drive the
+// cached-session branch, which spawns nothing.
+func createTempVaultWithCurrentUser(
+	tasks map[string]string,
+) (vaultPath string, configPath string, cleanup func()) {
+	var err error
+	vaultPath, err = os.MkdirTemp("", "vault-*")
+	Expect(err).NotTo(HaveOccurred())
+
+	tasksDir := filepath.Join(vaultPath, "Tasks")
+	err = os.MkdirAll(tasksDir, 0755)
+	Expect(err).NotTo(HaveOccurred())
+
+	for name, content := range tasks {
+		taskPath := filepath.Join(tasksDir, name+".md")
+		err = os.WriteFile(taskPath, []byte(content), 0600)
+		Expect(err).NotTo(HaveOccurred())
+	}
+
+	configContent := fmt.Sprintf(`default_vault: test
+current_user: tester@example.com
+vaults:
+  test:
+    name: test
+    path: %s
+    tasks_dir: Tasks
+    goals_dir: Goals
+    claude_script: "claude-not-installed-for-tests"
 `, vaultPath)
 
 	configFile, err := os.CreateTemp("", "vault-config-*.yaml")
@@ -421,6 +472,7 @@ var _ = Describe("vault-cli integration tests", func() {
 			Entry("task watch", "task", "watch"),
 			Entry("task add", "task", "add"),
 			Entry("task remove", "task", "remove"),
+			Entry("task append-metrics-session", "task", "append-metrics-session"),
 			// Goal subcommands
 			Entry("goal list", "goal", "list"),
 			Entry("goal lint", "goal", "lint"),
@@ -2529,6 +2581,291 @@ blocked_by:
 				Should(gexec.Exit(0))
 			Eventually(runEntityCommand("goal", "clear", "Beta", "blocked_by")).
 				Should(gexec.Exit(0))
+		})
+	})
+
+	Describe("task append-metrics-session", func() {
+		const (
+			s1 = "11111111-1111-4111-8111-111111111111"
+			s2 = "22222222-2222-4222-8222-222222222222"
+			s3 = "33333333-3333-4333-8333-333333333333"
+		)
+
+		var vaultPath, configPath string
+		var cleanup func()
+
+		AfterEach(func() {
+			cleanup()
+		})
+
+		runEntityCommand := func(args ...string) *gexec.Session {
+			fullArgs := append(
+				[]string{"--config", configPath, "--vault", "test"},
+				args...,
+			)
+			session, err := gexec.Start(exec.Command(binPath, fullArgs...), GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			return session
+		}
+
+		sha256OfFile := func(path string) string {
+			data, err := os.ReadFile(path) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			sum := sha256.Sum256(data)
+			return fmt.Sprintf("%x", sum)
+		}
+
+		readFile := func(path string) string {
+			content, err := os.ReadFile(path) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			return string(content)
+		}
+
+		// countMetricsEntries counts the entries under the `metrics_sessions:`
+		// frontmatter key as written on disk: every block-sequence item opens with a
+		// `- session_id:` line.
+		countMetricsEntries := func(content string) int {
+			count := 0
+			for _, line := range strings.Split(content, "\n") {
+				if strings.HasPrefix(strings.TrimSpace(line), "- session_id:") {
+					count++
+				}
+			}
+			return count
+		}
+
+		// frontmatterOf unmarshals only the frontmatter block of a page file.
+		// Unmarshalling the whole file would fail on the markdown body.
+		frontmatterOf := func(path string) map[string]any {
+			text := readFile(path)
+			Expect(strings.HasPrefix(text, "---\n")).To(BeTrue(), "no frontmatter opening")
+			rest := strings.TrimPrefix(text, "---\n")
+			end := strings.Index(rest, "\n---\n")
+			Expect(end).To(BeNumerically(">=", 0), "no frontmatter closing")
+			var parsed map[string]any
+			Expect(yaml.Unmarshal([]byte(rest[:end]), &parsed)).To(Succeed())
+			return parsed
+		}
+
+		sortedKeys := func(m map[string]any) []string {
+			keys := make([]string, 0, len(m))
+			for k := range m {
+				keys = append(keys, k)
+			}
+			sort.Strings(keys)
+			return keys
+		}
+
+		// yaml.v3 resolves a timestamp-shaped plain scalar to !!timestamp and
+		// therefore quotes it, so the quote is present by construction.
+		quotedStartedAtPattern := regexp.MustCompile(`started_at: "\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}`)
+		startedAtTimePattern := regexp.MustCompile(`started_at: "?\d{4}-\d{2}-\d{2}T(\d{2}:\d{2}:\d{2})`)
+
+		// Every fixture's frontmatter keys are authored in alphabetical order, and
+		// its metrics_sessions block in the writer's own shape. The storage writer
+		// re-serializes the whole frontmatter in alphabetical key order on every
+		// write, so a hand-authored non-alphabetical fixture would be reordered and
+		// every byte comparison below would be meaningless.
+		baseFrontmatter := `---
+page_type: task
+priority: 1
+status: in_progress
+task_identifier: 11111111-1111-4111-8111-111111111111
+---
+body line
+`
+
+		twoEntryFrontmatter := `---
+metrics_sessions:
+    - session_id: 11111111-1111-4111-8111-111111111111
+      started_at: "2026-09-01T08:00:00Z"
+    - session_id: 22222222-2222-4222-8222-222222222222
+      started_at: "2026-09-02T08:00:00Z"
+page_type: task
+priority: 1
+status: in_progress
+task_identifier: 11111111-1111-4111-8111-111111111111
+---
+body line
+`
+
+		betaWithSessionID := `---
+claude_session_id: 11111111-1111-4111-8111-111111111111
+page_type: task
+priority: 1
+status: in_progress
+task_identifier: 11111111-1111-4111-8111-111111111111
+---
+body line
+`
+
+		alphaWithDuplicateSession := `---
+claude_session_id: 11111111-1111-4111-8111-111111111111
+metrics_sessions:
+    - session_id: 11111111-1111-4111-8111-111111111111
+      started_at: "2026-09-01T08:00:00Z"
+page_type: task
+priority: 1
+status: in_progress
+task_identifier: 11111111-1111-4111-8111-111111111111
+---
+body line
+`
+
+		It("AC1: task append-metrics-session appends exactly one entry and preserves every base key", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": baseFrontmatter,
+			})
+			taskFile := filepath.Join(vaultPath, "Tasks", "Alpha.md")
+			before := readFile(taskFile)
+			beforeTail := before[strings.Index(before, "page_type:"):]
+
+			session := runEntityCommand("task", "append-metrics-session", "Alpha", s3)
+			Eventually(session).Should(gexec.Exit(0))
+
+			after := readFile(taskFile)
+			// Every base key and the body are byte-identical, and they are contiguous
+			// because metrics_sessions sorts before page_type.
+			Expect(strings.Contains(after, beforeTail)).To(BeTrue(),
+				"a base key or the body changed:\n%s", after)
+			Expect(countMetricsEntries(after)).To(Equal(1))
+			Expect(after).To(ContainSubstring("session_id: " + s3))
+			Expect(after).To(MatchRegexp(quotedStartedAtPattern.String()))
+			match := startedAtTimePattern.FindStringSubmatch(after)
+			Expect(match).NotTo(BeNil(), "no started_at line in:\n%s", after)
+			Expect(match[1]).NotTo(Equal("00:00:00"))
+		})
+
+		It("AC2: task append-metrics-session accumulates with the prior entry blocks byte-identical", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": twoEntryFrontmatter,
+			})
+			taskFile := filepath.Join(vaultPath, "Tasks", "Alpha.md")
+			before := readFile(taskFile)
+			beforeBlock := before[strings.Index(before, "metrics_sessions:"):strings.Index(before, "page_type:")]
+
+			Eventually(runEntityCommand("task", "append-metrics-session", "Alpha", s3)).
+				Should(gexec.Exit(0))
+
+			after := readFile(taskFile)
+			Expect(countMetricsEntries(after)).To(Equal(3))
+			Expect(strings.Index(after, "session_id: "+s1)).
+				To(BeNumerically("<", strings.Index(after, "session_id: "+s2)))
+			Expect(strings.Index(after, "session_id: "+s2)).
+				To(BeNumerically("<", strings.Index(after, "session_id: "+s3)))
+			Expect(strings.Contains(after, beforeBlock)).To(BeTrue(),
+				"the pre-existing entries changed:\n%s", after)
+			Expect(strings.Contains(after, before[strings.Index(before, "page_type:"):])).To(BeTrue(),
+				"a base key or the body changed:\n%s", after)
+		})
+
+		It("AC3: the new verb's entry is schema-identical to the work-on path's entry", func() {
+			vaultPath, configPath, cleanup = createTempVaultWithCurrentUser(map[string]string{
+				"Alpha": baseFrontmatter,
+				"Beta":  betaWithSessionID,
+			})
+
+			Eventually(runEntityCommand("task", "append-metrics-session", "Alpha", s2)).
+				Should(gexec.Exit(0))
+
+			// The cached-session branch appends through the existing work-on path and
+			// spawns nothing: claude_script is not installed, so the starter is nil.
+			session := runEntityCommand("task", "work-on", "Beta", "--mode", "headless")
+			Eventually(session, 30*time.Second).Should(gexec.Exit(0))
+
+			alphaSessions, ok := frontmatterOf(
+				filepath.Join(vaultPath, "Tasks", "Alpha.md"),
+			)["metrics_sessions"].([]any)
+			Expect(ok).To(BeTrue(), "Alpha metrics_sessions is not a list")
+			Expect(alphaSessions).To(HaveLen(1))
+
+			betaSessions, ok := frontmatterOf(
+				filepath.Join(vaultPath, "Tasks", "Beta.md"),
+			)["metrics_sessions"].([]any)
+			Expect(ok).To(BeTrue(), "Beta metrics_sessions is not a list")
+			Expect(betaSessions).To(HaveLen(1))
+
+			alphaEntry, ok := alphaSessions[0].(map[string]any)
+			Expect(ok).To(BeTrue(), "Alpha entry is not a map")
+			betaEntry, ok := betaSessions[0].(map[string]any)
+			Expect(ok).To(BeTrue(), "Beta entry is not a map")
+
+			Expect(sortedKeys(alphaEntry)).To(Equal(sortedKeys(betaEntry)))
+			Expect(sortedKeys(alphaEntry)).To(Equal([]string{"session_id", "started_at"}))
+
+			// Values differ by design — assert shapes, not equality.
+			for _, entry := range []map[string]any{alphaEntry, betaEntry} {
+				sessionID, ok := entry["session_id"].(string)
+				Expect(ok).To(BeTrue(), "session_id is not a string")
+				Expect(sessionID).NotTo(BeEmpty())
+				startedAt, ok := entry["started_at"].(string)
+				Expect(ok).To(BeTrue(), "started_at is not a string")
+				Expect(startedAt).To(MatchRegexp(`^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}`))
+				Expect(startedAt).NotTo(ContainSubstring("T00:00:00"))
+			}
+		})
+
+		It("AC4: task set, add and remove each refuse metrics_sessions and leave the file byte-identical", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": baseFrontmatter,
+			})
+			taskFile := filepath.Join(vaultPath, "Tasks", "Alpha.md")
+			before := sha256OfFile(taskFile)
+
+			for _, args := range [][]string{
+				{"task", "set", "Alpha", "metrics_sessions", `{"session_id":"x"}`},
+				{"task", "add", "Alpha", "metrics_sessions", "x"},
+				{"task", "remove", "Alpha", "metrics_sessions", "x"},
+			} {
+				session := runEntityCommand(args...)
+				Eventually(session).Should(gexec.Exit(1))
+				stderr := string(session.Err.Contents())
+				Expect(stderr).To(ContainSubstring("metrics_sessions"))
+				Expect(stderr).To(ContainSubstring("append-metrics-session"))
+			}
+
+			forceSession := runEntityCommand(
+				"task", "set", "Alpha", "metrics_sessions", "x", "--force",
+			)
+			Eventually(forceSession).Should(gexec.Exit(1))
+			forceStderr := string(forceSession.Err.Contents())
+			Expect(forceStderr).To(ContainSubstring("metrics_sessions"))
+			Expect(forceStderr).To(ContainSubstring("append-metrics-session"))
+
+			Expect(sha256OfFile(taskFile)).To(Equal(before))
+		})
+
+		It("AC5: an empty, non-UUID or path-bearing session id is refused with nothing written", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": baseFrontmatter,
+			})
+			taskFile := filepath.Join(vaultPath, "Tasks", "Alpha.md")
+			before := sha256OfFile(taskFile)
+
+			for _, sessionID := range []string{"", "not-a-uuid", "../escape"} {
+				session := runEntityCommand("task", "append-metrics-session", "Alpha", sessionID)
+				Eventually(session).Should(gexec.Exit(1))
+				Expect(string(session.Err.Contents())).
+					To(ContainSubstring("expected a well-formed UUID"))
+			}
+
+			Expect(sha256OfFile(taskFile)).To(Equal(before))
+		})
+
+		It("AC8: task work-on appends a second entry for an already-recorded session id", func() {
+			vaultPath, configPath, cleanup = createTempVaultWithCurrentUser(map[string]string{
+				"Alpha": alphaWithDuplicateSession,
+			})
+
+			session := runEntityCommand("task", "work-on", "Alpha", "--mode", "headless")
+			Eventually(session, 30*time.Second).Should(gexec.Exit(0))
+
+			after := readFile(filepath.Join(vaultPath, "Tasks", "Alpha.md"))
+			Expect(countMetricsEntries(after)).To(Equal(2))
+			// The entry-line prefix is load-bearing: `claude_session_id: <s1>` also
+			// contains the substring `session_id: <s1>`, so a bare Count over the
+			// file would report 3 and prove nothing about the accumulator.
+			Expect(strings.Count(after, "- session_id: "+s1)).To(Equal(2))
 		})
 	})
 

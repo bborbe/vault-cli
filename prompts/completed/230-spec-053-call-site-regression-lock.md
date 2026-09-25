@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [053-fleet-spawned-metrics-sessions]
+summary: Added scripts/metrics-append-call-site-test.sh, a section-scoped self-checking regression lock for the session-connect metrics call site, and wired it into the Makefile test target
+execution_id: vault-cli-metrics-exec-230-spec-053-call-site-regression-lock
+dark-factory-version: v0.196.0
 created: "2026-09-25T17:18:12Z"
 queued: "2026-09-25T17:37:23Z"
+started: "2026-09-25T17:51:02Z"
+completed: "2026-09-25T17:54:22Z"
 branch: dark-factory/fleet-spawned-metrics-sessions
 ---
 

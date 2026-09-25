@@ -18,3 +18,9 @@ const SessionTurnTimeout = sessionTurnTimeout
 // assert the default lock directory resolves under the user's home. Test-only:
 // this file is a _test.go file and is not part of the package's public API.
 var DefaultSessionLockDir = defaultSessionLockDir
+
+// RollupFamilyName exposes rollupFamilyName for the external ops_test package.
+var RollupFamilyName = rollupFamilyName
+
+// RollupMedian exposes rollupMedian for the external ops_test package.
+var RollupMedian = rollupMedian

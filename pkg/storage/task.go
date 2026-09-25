@@ -76,13 +76,68 @@ func (t *taskStorage) FindTaskByName(
 }
 
 // ListTasks returns all tasks from the vault, including subdirectories.
+// An unreadable task file is skipped rather than failing the listing.
 func (t *taskStorage) ListTasks(
 	ctx context.Context,
 	vaultPath string,
 ) ([]*domain.Task, error) {
+	var tasks []*domain.Task
+	if err := t.walkTaskFiles(
+		ctx,
+		vaultPath,
+		func(task *domain.Task, name, _ string, err error) error {
+			if err != nil {
+				slog.Debug("skipping unreadable task", "file", name, "error", err)
+				return nil
+			}
+			tasks = append(tasks, task)
+			return nil
+		},
+	); err != nil {
+		return nil, err
+	}
+
+	return tasks, nil
+}
+
+// ListTasksStrict returns all tasks from the vault, including subdirectories.
+// Unlike ListTasks it does not skip an unreadable task file: the error is
+// returned instead, naming the file, so a caller that must not report a
+// silently smaller set fails loudly.
+func (t *taskStorage) ListTasksStrict(
+	ctx context.Context,
+	vaultPath string,
+) ([]*domain.Task, error) {
+	var tasks []*domain.Task
+	if err := t.walkTaskFiles(
+		ctx,
+		vaultPath,
+		func(task *domain.Task, _, path string, err error) error {
+			if err != nil {
+				return errors.Wrapf(ctx, err, "read task file %s", path)
+			}
+			tasks = append(tasks, task)
+			return nil
+		},
+	); err != nil {
+		return nil, err
+	}
+
+	return tasks, nil
+}
+
+// walkTaskFiles walks the vault's configured tasks_dir recursively and calls
+// onFile for every *.md file found, with the filename stem as name. A per-file
+// read error is handed to onFile as err rather than handled here, so ListTasks
+// and ListTasksStrict can differ only in what they do with it. A walk error
+// (a missing or unreadable directory) is returned wrapped, naming the directory.
+func (t *taskStorage) walkTaskFiles(
+	ctx context.Context,
+	vaultPath string,
+	onFile func(task *domain.Task, name string, path string, err error) error,
+) error {
 	tasksDir := filepath.Join(vaultPath, t.config.TasksDir)
 
-	var tasks []*domain.Task
 	err := filepath.WalkDir(tasksDir, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return errors.Wrapf(ctx, err, "walk tasks dir")
@@ -95,17 +150,12 @@ func (t *taskStorage) ListTasks(
 		}
 
 		fileName := strings.TrimSuffix(d.Name(), ".md")
-		task, err := t.readTaskFromPath(ctx, path, fileName, vaultPath)
-		if err != nil {
-			slog.Debug("skipping unreadable task", "file", fileName, "error", err)
-			return nil
-		}
-		tasks = append(tasks, task)
-		return nil
+		task, readErr := t.readTaskFromPath(ctx, path, fileName, vaultPath)
+		return onFile(task, fileName, path, readErr)
 	})
 	if err != nil {
-		return nil, errors.Wrap(ctx, err, fmt.Sprintf("walk tasks directory %s", tasksDir))
+		return errors.Wrap(ctx, err, fmt.Sprintf("walk tasks directory %s", tasksDir))
 	}
 
-	return tasks, nil
+	return nil
 }

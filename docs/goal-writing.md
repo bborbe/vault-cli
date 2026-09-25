@@ -396,6 +396,8 @@ Borrowed from `~/Documents/workspaces/dark-factory/docs/rules/spec-writing.md` �
 | Negative evidence | "`grep ERROR run.log` returns 0 lines during the test window" |
 | File artifact | "task file under `tasks_dir/` exists with frontmatter `goal: [[X]]`" |
 
+**Every shape above is also a producibility claim.** Before accepting one, confirm the mechanism the SC names can emit that kind of artifact *at all* — an inline slash command has no subprocess, so the `Exit code` row above is unavailable to it; a file the system never writes cannot evidence anything. Stated once in `docs/task-writing.md` § Evidence Shape; cited here, not restated.
+
 ### Bad SCs (no evidence shape)
 
 - ❌ "Tests pass" — what test, what assertion, evidence shape?

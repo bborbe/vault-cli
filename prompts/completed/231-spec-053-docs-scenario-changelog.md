@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [053-fleet-spawned-metrics-sessions]
+summary: 'Recorded the second metrics_sessions writer in README, work-on-task § Passive metrics and the session-lifecycle doc, authored scenarios/006 as draft, and reconciled the existing ## Unreleased entry'
+execution_id: vault-cli-metrics-exec-231-spec-053-docs-scenario-changelog
+dark-factory-version: v0.196.0
 created: "2026-09-25T17:18:12Z"
 queued: "2026-09-25T17:37:23Z"
+started: "2026-09-25T17:54:24Z"
+completed: "2026-09-25T17:58:05Z"
 branch: dark-factory/fleet-spawned-metrics-sessions
 ---
 

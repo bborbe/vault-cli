@@ -47,6 +47,43 @@ On the task path the pre-spawn re-read before writing is load-bearing: the task 
 is a shared, concurrently-written vault file (the headless turn mutates it too), so
 writing the stale in-memory copy would revert those changes.
 
+## The second writer: the session-connect append
+
+`vault-cli task work-on` is no longer the only writer of a task's `metrics_sessions`.
+The plugin's session-connect step in `agents/work-on-task-assistant.md` § Session
+connect invokes `vault-cli task append-metrics-session "<task>" "<session-id>"` in the
+branch that writes `claude_session_id`, after that write has landed. The verb lives in
+`pkg/ops/metrics_session_append.go`; it appends through the same domain append
+(`domain.TaskFrontmatter.AppendMetricsSession`) the work-on path uses, so the two
+producers emit one shape rather than a lookalike.
+
+The second writer exists because a fleet-spawned worker's session-connect is the only
+party that can record a session the spawn shape deliberately does not pre-mint. Without
+the append, the runs the manager layer exists to produce are exactly the ones missing
+from session-cost analytics.
+
+**The entry accumulates; it never replaces.** A session id already present is appended
+again rather than suppressed. The accumulator is frozen by spec 036 AC 2 and spec 038's
+Constraints, and the duplicate-id double-count is handled on the read side — the
+interaction counter's per-distinct-session dedupe — never by a write-side guard.
+
+**The append is non-fatal by decision.** A non-zero exit from the verb is a warning,
+not a `⚠️` failure: the `claude_session_id` write stays in place and the run continues.
+The id is the load-bearing field — an id on disk means the session is resumable — while
+the metrics entry is analytics. The append is deliberately not in the agent
+definition's `<critical_writes>` list.
+
+**The generic write verbs refuse the field.** `task set`, `task add` and `task remove`
+refuse `metrics_sessions` before any mutation, with no `--force` bypass, because `set`
+stores a scalar and `add` / `remove` comma-split into a list of scalars — both shapes
+the dedicated list reader discards. That refusal lives in
+`pkg/ops/metrics_session_write.go`.
+
+**The concurrent-append race is accepted.** Two processes appending to the same task
+file are last-write-wins, the same read-modify-write race the existing `work-on` path
+has; a lost row is re-appended by re-running the verb. No lock, no re-read and no dedup
+were added.
+
 ## Why stream-json was rejected
 
 `--output-format stream-json --verbose` would deliver the session id in an init

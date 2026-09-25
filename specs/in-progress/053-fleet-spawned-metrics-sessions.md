@@ -1,11 +1,12 @@
 ---
-status: prompted
+status: verifying
 tags:
     - dark-factory
     - spec
 approved: "2026-09-25T16:46:01Z"
 generating: "2026-09-25T17:13:03Z"
 prompted: "2026-09-25T17:28:26Z"
+verifying: "2026-09-25T17:58:05Z"
 branch: dark-factory/fleet-spawned-metrics-sessions
 ---
 

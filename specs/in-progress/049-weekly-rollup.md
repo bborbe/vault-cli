@@ -1,8 +1,9 @@
 ---
-status: prompted
+status: verifying
 approved: "2026-09-16T12:50:32Z"
 generating: "2026-09-16T13:08:22Z"
 prompted: "2026-09-16T13:08:22Z"
+verifying: "2026-09-25T19:14:51Z"
 branch: dark-factory/weekly-rollup
 ---
 

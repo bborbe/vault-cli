@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat: `vault-cli rollup weekly` reports a week's human interactions, unattended deliveries and per-family median interactions from task frontmatter, stating the unattended-delivery rule and the filename-stem grouping rule in its output. It reads one vault — the `--vault` flag, or the config's `default_vault` when the flag is omitted, never every configured vault — accepts `--week YYYY-Wnn` and defaults to the last complete ISO week, supports `--output plain|json`, and writes nothing to the vault.
+
 ## v0.147.0
 
 - fix: **the README's Personal-vault config example still named the pre-renumber folders.** It listed `tasks_dir: "24 Tasks"` and `goals_dir: "23 Goals"`, but the Personal vault renumbered to `25 Tasks` / `24 Goals` on 2026-09-13, and neither old path exists on disk (verified 2026-09-25) — a reader copying the example would point vault-cli at two directories that are not there. This is the documentation half of the same renumbering that produced the silent `GOALS_DIR=24` / `TASKS_DIR=Goals 25 Tasks` split fixed in v0.146.5: that release repaired the code path, this one repairs the example that would recreate the bad config.

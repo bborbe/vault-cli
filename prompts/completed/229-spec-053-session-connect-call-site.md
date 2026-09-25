@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [053-fleet-spawned-metrics-sessions]
+summary: Wired the vault-cli task append-metrics-session invocation into the EXACTLY ONE UUID branch of § Session connect in agents/work-on-task-assistant.md as a single new actionable line ordered after the claude_session_id write, with a non-fatal ℹ️ warning on non-zero exit, and extended step 3 to invoke nothing; make precommit exited 0.
+execution_id: vault-cli-metrics-exec-229-spec-053-session-connect-call-site
+dark-factory-version: v0.196.0
 created: "2026-09-25T17:18:12Z"
 queued: "2026-09-25T17:37:23Z"
+started: "2026-09-25T17:47:23Z"
+completed: "2026-09-25T17:51:00Z"
 branch: dark-factory/fleet-spawned-metrics-sessions
 ---
 

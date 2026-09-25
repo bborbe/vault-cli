@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.146.5
 
 - fix: **the vault-identity snippet in `goal-status` and `task-status` no longer splits directory names containing a space.** Both commands built `VAULT_NAME` / `VAULT_PATH` / `GOALS_DIR` / `TASKS_DIR` with `read -r … <<< "$(… print(a, b, c, d))"` — four space-separated fields read back under the shell's default `IFS`. A vault whose `goals_dir` is `24 Goals` therefore read as `GOALS_DIR=24` and `TASKS_DIR=Goals 25 Tasks`, and every path built from them pointed at a directory that does not exist. Measured 2026-09-25 on the Personal vault: the snippet printed `Personal /Users/bborbe/Documents/Obsidian/Personal 24 Goals 25 Tasks` and yielded exactly those wrong values, with **no error** — the failure is silent, which is why it survived. Both sites now emit tab-separated fields and read with `IFS=$'\t'`, and each carries a one-line note naming the tab as deliberate so it is not "simplified" back. `mapfile` was rejected as the repair — absent from bash 3.2 (macOS) and from zsh. A sweep of every `read -r` under `commands/`, `agents/` and `skills/` found exactly these two sites affected; the rest are `while read -r <var>` filename loops, which have no field-splitting ambiguity. ⚠️ **The first sweep used `read -r [A-Z_]+ [A-Z_]+` as its test and reported the two *fixed* files as hits** — a fixed line still carries several variables after `read -r`, so the separator, not the read, is the discriminating fact; the check is now stated as *unguarded* (`^read -r …`, no `IFS=`).
 

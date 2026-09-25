@@ -1339,6 +1339,7 @@ func createTaskCommands(
 			return ops.NewTaskListRemoveOperation(storage.NewTaskStorage(cfg))
 		},
 	))
+	cmd.AddCommand(createTaskAppendMetricsSessionCommand(ctx, configLoader, vaultName, outputFormat))
 	cmd.AddCommand(createTaskWatchCommand(ctx, configLoader, vaultName))
 	cmd.AddCommand(
 		createGenericSearchCommand(
@@ -2403,6 +2404,57 @@ func createTaskGetCommand(
 }
 
 //nolint:dupl,gocognit,nestif // Mutation commands have similar structure but different operations
+//nolint:dupl,gocognit,nestif // Mutation commands have similar structure but different operations
+func createTaskAppendMetricsSessionCommand(
+	ctx context.Context,
+	configLoader *config.Loader,
+	vaultName *string,
+	outputFormat *string,
+) *cobra.Command {
+	return &cobra.Command{
+		Use:   "append-metrics-session <task-name> <session-id>",
+		Short: "Append one metrics_sessions entry to a task",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			taskName := args[0]
+			sessionID := args[1]
+
+			vaults, err := getVaults(ctx, configLoader, vaultName)
+			if err != nil {
+				return errors.Wrap(ctx, err, "get vaults")
+			}
+
+			dispatcher := ops.NewVaultDispatcher()
+			err = dispatcher.FirstSuccess(ctx, vaults, func(vault *config.Vault) error {
+				storageConfig := storage.NewConfigFromVault(vault)
+				appendOp := ops.NewAppendMetricsSessionOperation(
+					storage.NewTaskStorage(storageConfig),
+					libtime.NewCurrentDateTime(),
+				)
+				return appendOp.Execute(ctx, vault.Path, taskName, sessionID)
+			})
+			if err != nil {
+				if OutputFormat(*outputFormat).IsJSON() {
+					return PrintJSON(map[string]any{
+						"success": false,
+						"error":   err.Error(),
+					})
+				}
+				return err
+			}
+			if OutputFormat(*outputFormat).IsJSON() {
+				return PrintJSON(map[string]any{
+					"success":    true,
+					"name":       taskName,
+					"session_id": sessionID,
+				})
+			}
+			fmt.Printf("✅ Appended metrics session %s to: %s\n", sessionID, taskName)
+			return nil
+		},
+	}
+}
+
 func createTaskSetCommand(
 	ctx context.Context,
 	configLoader *config.Loader,

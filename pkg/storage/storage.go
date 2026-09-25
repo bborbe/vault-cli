@@ -54,7 +54,15 @@ func DefaultConfig() *Config {
 type TaskStorage interface {
 	WriteTask(ctx context.Context, task *domain.Task) error
 	FindTaskByName(ctx context.Context, vaultPath string, name string) (*domain.Task, error)
+	// ListTasks returns every task in the vault's configured tasks_dir. An
+	// unreadable task file is skipped (logged at debug level) so a listing still
+	// succeeds — see ListTasksStrict for the caller that must not lose a file.
 	ListTasks(ctx context.Context, vaultPath string) ([]*domain.Task, error)
+	// ListTasksStrict returns every task in the vault's configured tasks_dir and
+	// fails on an unreadable task file instead of skipping it. A caller whose
+	// result must not silently describe a smaller set (the weekly rollup) uses
+	// this; the error names the offending file.
+	ListTasksStrict(ctx context.Context, vaultPath string) ([]*domain.Task, error)
 }
 
 //counterfeiter:generate -o ../../mocks/goal-storage.go --fake-name GoalStorage . GoalStorage

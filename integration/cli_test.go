@@ -484,6 +484,8 @@ var _ = Describe("vault-cli integration tests", func() {
 			Entry("search", "search"),
 			Entry("resolve", "resolve"),
 			Entry("watch", "watch"),
+			// Rollup subcommands
+			Entry("rollup weekly", "rollup", "weekly"),
 			// Config subcommands
 			Entry("config list", "config", "list"),
 			Entry("config current-user", "config", "current-user"),
@@ -522,6 +524,208 @@ var _ = Describe("vault-cli integration tests", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Eventually(plainSession).Should(gexec.Exit(0))
 			Expect(string(plainSession.Out.Contents())).To(ContainSubstring("test\t" + vaultPath))
+		})
+	})
+
+	Describe("vault-cli rollup weekly", func() {
+		rollupFixtureTasks := map[string]string{
+			"Rollup Fixture A - 2026-09-08": `---
+status: completed
+page_type: task
+metrics_completed_at: "2026-09-08T10:00:00+02:00"
+metrics_interaction_count: 7
+---
+Fixture body.
+`,
+			"Rollup Fixture B - 2026-09-09": `---
+status: completed
+page_type: task
+metrics_completed_at: "2026-09-09T10:00:00+02:00"
+metrics_interaction_count: 0
+---
+Fixture body.
+`,
+			"Rollup Fixture C - 2026-09-10": `---
+status: completed
+page_type: task
+metrics_completed_at: "2026-09-10T10:00:00+02:00"
+---
+Fixture body.
+`,
+		}
+
+		It("rollup weekly prints the three figures with the rule and the grouping", func() {
+			_, configPath, cleanup := createTempVault(rollupFixtureTasks)
+			defer cleanup()
+
+			cmd := exec.Command(
+				binPath, "--config", configPath,
+				"rollup", "weekly", "--week", "2026-W37",
+			)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(0))
+
+			out := string(session.Out.Contents())
+			Expect(out).To(MatchRegexp(`(?m)^Human interactions: `))
+			Expect(out).To(MatchRegexp(`(?m)^Unattended deliveries: `))
+			Expect(out).To(MatchRegexp(`(?m)^Per-family median: `))
+			Expect(out).To(ContainSubstring(
+				"A task is an unattended delivery when its status is completed and its metrics_interaction_count is exactly 0",
+			))
+			Expect(out).To(MatchRegexp(`(?m)^Grouping rule: `))
+			Expect(out).To(MatchRegexp(`(?m)^  [^:]+: .+$`))
+
+			// The absent-count task is excluded: only the recorded zero counts.
+			Expect(out).To(ContainSubstring("Unattended deliveries: 1"))
+		})
+
+		It("rollup weekly reports no data for a week with no metrics", func() {
+			_, configPath, cleanup := createTempVault(map[string]string{
+				"Rollup Plain Task - 2026-05-12": `---
+status: completed
+page_type: task
+---
+Fixture body.
+`,
+			})
+			defer cleanup()
+
+			cmd := exec.Command(
+				binPath, "--config", configPath,
+				"rollup", "weekly", "--week", "2026-W20",
+			)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(0))
+
+			out := string(session.Out.Contents())
+			Expect(out).To(ContainSubstring("no data"))
+			Expect(out).NotTo(MatchRegexp(`(?m)^Human interactions: 0$`))
+			Expect(out).NotTo(MatchRegexp(`(?m)^Human interactions: no recorded counts$`))
+			Expect(out).NotTo(MatchRegexp(`(?m)^\s+[^:]+: 0$`))
+		})
+
+		It("rollup weekly prints the same bytes on two runs", func() {
+			_, configPath, cleanup := createTempVault(rollupFixtureTasks)
+			defer cleanup()
+
+			run := func(args ...string) string {
+				cmd := exec.Command(binPath, append([]string{"--config", configPath}, args...)...)
+				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+				Expect(err).NotTo(HaveOccurred())
+				Eventually(session).Should(gexec.Exit(0))
+				return string(session.Out.Contents())
+			}
+
+			args := []string{"rollup", "weekly", "--week", "2026-W37"}
+			Expect(run(args...)).To(Equal(run(args...)))
+
+			jsonArgs := []string{"rollup", "weekly", "--week", "2026-W37", "--output", "json"}
+			Expect(run(jsonArgs...)).To(Equal(run(jsonArgs...)))
+		})
+
+		It("rollup weekly --output json carries the same three figures as plain", func() {
+			_, configPath, cleanup := createTempVault(rollupFixtureTasks)
+			defer cleanup()
+
+			run := func(args ...string) []byte {
+				cmd := exec.Command(binPath, append([]string{"--config", configPath}, args...)...)
+				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+				Expect(err).NotTo(HaveOccurred())
+				Eventually(session).Should(gexec.Exit(0))
+				return session.Out.Contents()
+			}
+
+			plain := string(run("rollup", "weekly", "--week", "2026-W37"))
+			rawJSON := run("rollup", "weekly", "--week", "2026-W37", "--output", "json")
+
+			var figures struct {
+				HumanInteractions    string `json:"human_interactions"`
+				UnattendedDeliveries string `json:"unattended_deliveries"`
+				PerFamilyMedian      string `json:"per_family_median"`
+			}
+			Expect(json.Unmarshal(rawJSON, &figures)).To(Succeed())
+
+			Expect(figures.HumanInteractions).NotTo(BeEmpty())
+			Expect(figures.UnattendedDeliveries).NotTo(BeEmpty())
+			Expect(figures.PerFamilyMedian).NotTo(BeEmpty())
+
+			Expect(plain).To(ContainSubstring("Human interactions: " + figures.HumanInteractions))
+			Expect(plain).To(ContainSubstring("Unattended deliveries: " + figures.UnattendedDeliveries))
+			Expect(plain).To(ContainSubstring("Per-family median: " + figures.PerFamilyMedian))
+		})
+
+		It("rollup weekly without --vault reads only the default vault", func() {
+			_, _, configPath, cleanup := createTwoTempVaults(
+				map[string]string{
+					"Alpha Rollup Task - 2026-09-08": `---
+status: completed
+page_type: task
+metrics_completed_at: "2026-09-08T10:00:00+02:00"
+metrics_interaction_count: 5
+---
+Alpha body.
+`,
+				},
+				nil,
+				map[string]string{
+					"Beta Rollup Task - 2026-09-08": `---
+status: completed
+page_type: task
+metrics_completed_at: "2026-09-08T10:00:00+02:00"
+metrics_interaction_count: 999
+---
+Beta body.
+`,
+				},
+				nil,
+			)
+			defer cleanup()
+
+			run := func(args ...string) string {
+				cmd := exec.Command(binPath, append([]string{"--config", configPath}, args...)...)
+				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+				Expect(err).NotTo(HaveOccurred())
+				Eventually(session).Should(gexec.Exit(0))
+				return string(session.Out.Contents())
+			}
+
+			defaultOut := run("rollup", "weekly", "--week", "2026-W37")
+			Expect(defaultOut).To(ContainSubstring("Human interactions: 5"))
+			Expect(defaultOut).NotTo(ContainSubstring("Human interactions: 1004"))
+			Expect(defaultOut).NotTo(ContainSubstring("999"))
+
+			betaOut := run("rollup", "weekly", "--vault", "beta", "--week", "2026-W37")
+			Expect(betaOut).To(ContainSubstring("Human interactions: 999"))
+		})
+
+		It("rollup weekly rejects a malformed --week", func() {
+			_, configPath, cleanup := createTempVault(rollupFixtureTasks)
+			defer cleanup()
+
+			cmd := exec.Command(
+				binPath, "--config", configPath,
+				"rollup", "weekly", "--week", "2026-W5",
+			)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(1))
+
+			Expect(string(session.Err.Contents())).To(ContainSubstring("YYYY-Wnn"))
+			out := string(session.Out.Contents())
+			Expect(out).NotTo(ContainSubstring("Human interactions:"))
+			Expect(out).NotTo(ContainSubstring("Unattended deliveries:"))
+			Expect(out).NotTo(ContainSubstring("Per-family median:"))
+
+			// 2026 has 53 ISO weeks, so W53 is a valid token, not an out-of-range one.
+			validCmd := exec.Command(
+				binPath, "--config", configPath,
+				"rollup", "weekly", "--week", "2026-W53",
+			)
+			validSession, err := gexec.Start(validCmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(validSession).Should(gexec.Exit(0))
 		})
 	})
 

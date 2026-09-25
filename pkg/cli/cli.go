@@ -192,6 +192,7 @@ func NewRootCommand(ctx context.Context) *cobra.Command {
 	rootCmd.AddCommand(createVisionCommands(ctx, &configLoader, &vaultName, &outputFormat))
 	rootCmd.AddCommand(createDecisionCommands(ctx, &configLoader, &vaultName, &outputFormat))
 	rootCmd.AddCommand(createWatchCommand(ctx, &configLoader, &vaultName))
+	rootCmd.AddCommand(createRollupCommands(ctx, &configLoader, &vaultName, &outputFormat))
 
 	configCmd := &cobra.Command{
 		Use:   "config",

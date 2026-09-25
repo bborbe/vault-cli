@@ -42,6 +42,11 @@ func CreateResolveCommandForTest(
 	return createResolveCommand(ctx, configLoader, vaultName, outputFormat, newResolveOp)
 }
 
+// FormatRollupWeeklyPlainForTest exposes formatRollupWeeklyPlain for testing.
+func FormatRollupWeeklyPlainForTest(result ops.RollupWeeklyResult) string {
+	return formatRollupWeeklyPlain(result)
+}
+
 // GetWatchVaultsForTest exposes getWatchVaults for testing.
 func GetWatchVaultsForTest(
 	ctx context.Context,

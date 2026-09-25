@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.146.3
 
 - docs: **`task-writing.md` § Evidence Shape gains the producibility rule** — naming an evidence shape is not enough; the named artifact must be one the mechanism can produce. An inline slash command has no subprocess, so it emits no exit code, yet `exit 0` sits unqualified in the canonical Observable list and `goal-writing.md` lists `Exit code` among its acceptable shapes — both actively invite the claim. Measured across six instances on 2026-09-21, three of them criteria on one goal in one night; the worst shipped closed, a criterion requiring a wrapper to *"exit non-zero"* ticked with that wording intact on a command that has no exit code. `goal-writing.md` carries a cross-reference rather than a restatement — `task-writing.md` § Evidence Shape is the canonical list and `plan-task` / `task-auditor` cite it.
 

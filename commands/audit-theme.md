@@ -9,7 +9,7 @@ Invoke the theme-auditor agent to audit the theme at $ARGUMENTS for compliance w
 
 <process>
 1. Parse theme path from $ARGUMENTS
-   - If no path prefix, prepend `21 Themes/`
+   - If no path prefix, prepend `<themes_dir>` (resolved from vault-cli config — never a hardcoded folder name)
    - If no `.md` extension, append it
 2. Invoke theme-auditor agent with the theme path
 3. Agent reads Theme Writing Guide and Theme Template first

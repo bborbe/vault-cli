@@ -9,7 +9,7 @@ Invoke the objective-auditor agent to audit the objective at $ARGUMENTS for comp
 
 <process>
 1. Resolve objective file path from $ARGUMENTS
-   - If no directory prefix, prepend `22 Objectives/`
+   - If no directory prefix, prepend `<objectives_dir>` (resolved from vault-cli config — never a hardcoded folder name)
    - If no `.md` extension, append `.md`
    - Fail with clear error if file does not exist or is unreadable
 

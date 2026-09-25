@@ -200,6 +200,8 @@ cd <worktree> && git ls-remote --exit-code --heads origin "$(git branch --show-c
 
 Cross-check against other still-active Claude sessions: a worktree from a sibling session (different cwd, different conversation) may be active — don't flag those. Use a conservative test: if any process under the worktree path is running (`lsof +D <worktree>` shows hits, or any `cwd` in `/proc` or via `ps -o pid,cwd` matches), assume it's actively used.
 
+**Exclude your own process tree before believing a hit.** A sweep that has `cd`'d into a worktree makes that worktree look occupied *to itself* — the harness shell sits there with its `cwd` inside, and `lsof +D` reports it. Observed 2026-09-21 on `tts-mcp`: two orphaned worktrees each showed a live `zsh` inside them, and both were the checking session's own shell, left by a `cd` one command earlier. Compare each hit's pid against `$$` and its parent chain, then re-check with `ps -p <pid> -o pid=,etime=,command=` — a pid that has already exited (`(gone)`) proves the hit was transient. Unfiltered, this guard silently disables itself on exactly the worktrees the sweep just visited, which are the ones it is closest to judging.
+
 Surface in Phase 9 as outstanding:
 
 ```
@@ -310,7 +312,7 @@ A goal legitimately outliving the session is common — goals span 1–4 weeks, 
 
 **Goal-anchored sessions are exempt from the flag.** When Phase 1's `GOAL_ANCHORED` is true, the anchor goal is NOT an outstanding item — a goal session exists to manage a 1–4-week goal, so the goal ending `in_progress` is the expected steady state (mirrors the 2026-09-06 `work-on-goal` fix: a goal session hands tasks off, it does not complete the goal). Instead resolve the anchor goal's open-task state:
 
-1. Walk its `# Tasks` wikilinks (leading `[[...]]` of each list item — same rule as `execute-goal.md` step 7), resolve each to `<tasks_dir>/<Title>.md`, read each task's `status`:
+1. Walk its `# Tasks` wikilinks (leading `[[...]]` of each list item — same rule as `execute-goal.md` step 7), **skipping struck rows** (`- [ ] ~~[[Task]]~~`) — a task retired from the tracked set is not an open task, so counting it would report the goal as still draining and name a retired task as the next one (`docs/output-formatting.md` § Conditional segments). Resolve each remaining wikilink to `<tasks_dir>/<Title>.md`, read each task's `status`:
    ```bash
    vault-cli task get "<Title>" status --output json
    ```
@@ -669,7 +671,7 @@ Append below the verdict. This command is terminal; without a fixed closer the t
 
 Include only the options whose signals actually fired, renumbered from 1, and keep `nothing — close` last so closing stays one keystroke away.
 
-**`nothing — session closed` is wrong for mode 2** — it asserts there is nothing to do directly above a list of things to do. The global closer rule already forbids `nothing` while something is pending; mode 2 is exactly that case. This is not a "fork" in the `/drive` sense either: these are optional follow-ups on a finished task, which is precisely what a `pick` is for.
+**`nothing — session closed` is wrong for mode 2** — it asserts there is nothing to do directly above a list of things to do. The global closer rule already forbids `nothing` while something is pending; mode 2 is exactly that case. This is not a "fork" in the `/supervisor:worker-drive` sense either: these are optional follow-ups on a finished task, which is precisely what a `pick` is for.
 
 **Goal-anchored clean verdict** (Phase 1's `GOAL_ANCHORED` and the anchor goal still has open tasks — exempted in Phase 4.5, so the session can close clean): the `⏰ Next:` line names the next open task under the anchor goal instead of deferring to the orchestrator:
 

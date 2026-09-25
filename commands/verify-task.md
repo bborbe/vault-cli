@@ -9,7 +9,7 @@ Invoke task-manager-agent for fast sanity checks: status valid, parent goal exis
 
 <process>
 1. Parse task path from $ARGUMENTS
-   - If no path prefix, prepend `24 Tasks/`
+   - If no path prefix, prepend `<tasks_dir>` (resolved from vault-cli config — never a hardcoded folder name)
    - If no `.md` extension, append it
 2. Invoke task-manager-agent with:
    - ACTION: "verify"

@@ -9,7 +9,7 @@ Fast sanity checks: status valid, required sections present, goals linked.
 
 <process>
 1. Parse theme path from $ARGUMENTS
-   - If no path prefix, prepend `21 Themes/`
+   - If no path prefix, prepend `<themes_dir>` (resolved from vault-cli config — never a hardcoded folder name)
    - If no `.md` extension, append it
 2. Read the theme file
 3. Check:

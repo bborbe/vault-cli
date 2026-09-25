@@ -87,6 +87,16 @@ func NewVisionGetOperation(visionStorage storage.VisionStorage) EntityGetOperati
 	}
 }
 
+// NewTopicGetOperation creates an EntityGetOperation for topics.
+func NewTopicGetOperation(topicStorage storage.TopicStorage) EntityGetOperation {
+	return &entityGetOperation{
+		findFn: func(ctx context.Context, vaultPath, name string) (FrontmatterEntity, error) {
+			return topicStorage.FindTopicByName(ctx, vaultPath, name)
+		},
+		entityType: "topic",
+	}
+}
+
 // EntitySetOperation sets a single frontmatter field value on an entity.
 //
 //counterfeiter:generate -o ../../mocks/entity-set-operation.go --fake-name EntitySetOperation . EntitySetOperation
@@ -106,6 +116,13 @@ func (o *goalSetOperation) Execute(
 	goal, err := o.goalStorage.FindGoalByName(ctx, vaultPath, entityName)
 	if err != nil {
 		return errors.Wrap(ctx, err, "find goal")
+	}
+
+	// Refuse a non-empty blocked_by before anything is mutated — see
+	// blockedBySetRefusal. Nothing below runs on this path, so the goal file
+	// stays byte-identical.
+	if err := blockedBySetRefusal(ctx, "goal", entityName, key, value); err != nil {
+		return err
 	}
 
 	// One-step close-out: when this invocation sets a close-out goal status,
@@ -240,6 +257,37 @@ func NewVisionSetOperation(visionStorage storage.VisionStorage) EntitySetOperati
 	return &visionSetOperation{visionStorage: visionStorage}
 }
 
+type topicSetOperation struct {
+	topicStorage storage.TopicStorage
+}
+
+// Execute sets the value of a frontmatter field on the named topic.
+//
+// reason and gateSuccessor are part of the frozen EntitySetOperation signature but
+// carry no meaning for topics: there is no blocked_by list contract and no close-out
+// status, so neither is consulted here.
+func (o *topicSetOperation) Execute(
+	ctx context.Context,
+	vaultPath, entityName, key, value, reason, gateSuccessor string,
+) error {
+	topic, err := o.topicStorage.FindTopicByName(ctx, vaultPath, entityName)
+	if err != nil {
+		return errors.Wrap(ctx, err, "find topic")
+	}
+	if err := topic.SetField(ctx, key, value); err != nil {
+		return errors.Wrap(ctx, err, fmt.Sprintf("set field %q", key))
+	}
+	if err := o.topicStorage.WriteTopic(ctx, topic); err != nil {
+		return errors.Wrap(ctx, err, "write topic")
+	}
+	return nil
+}
+
+// NewTopicSetOperation creates an EntitySetOperation for topics.
+func NewTopicSetOperation(topicStorage storage.TopicStorage) EntitySetOperation {
+	return &topicSetOperation{topicStorage: topicStorage}
+}
+
 // EntityClearOperation clears a single frontmatter field value on an entity.
 //
 //counterfeiter:generate -o ../../mocks/entity-clear-operation.go --fake-name EntityClearOperation . EntityClearOperation
@@ -347,6 +395,28 @@ func NewVisionClearOperation(visionStorage storage.VisionStorage) EntityClearOpe
 	return &visionClearOperation{visionStorage: visionStorage}
 }
 
+type topicClearOperation struct {
+	topicStorage storage.TopicStorage
+}
+
+// Execute clears the value of a frontmatter field on the named topic.
+func (o *topicClearOperation) Execute(ctx context.Context, vaultPath, entityName, key string) error {
+	topic, err := o.topicStorage.FindTopicByName(ctx, vaultPath, entityName)
+	if err != nil {
+		return errors.Wrap(ctx, err, "find topic")
+	}
+	topic.ClearField(key)
+	if err := o.topicStorage.WriteTopic(ctx, topic); err != nil {
+		return errors.Wrap(ctx, err, "write topic")
+	}
+	return nil
+}
+
+// NewTopicClearOperation creates an EntityClearOperation for topics.
+func NewTopicClearOperation(topicStorage storage.TopicStorage) EntityClearOperation {
+	return &topicClearOperation{topicStorage: topicStorage}
+}
+
 // EntityListAddOperation appends a value to a list frontmatter field on an entity.
 //
 //counterfeiter:generate -o ../../mocks/entity-list-add-operation.go --fake-name EntityListAddOperation . EntityListAddOperation
@@ -384,15 +454,35 @@ func (o *goalTagsListOperation) Execute(
 	if knownGoalScalarFields[key] {
 		return errors.Errorf(ctx, "not a list field: %q", key)
 	}
-	if key != "tags" {
+	if key != "tags" && key != "blocked_by" {
 		return errors.Errorf(ctx, "unknown field: %q", key)
 	}
-	current := goal.Tags()
+
+	if key == "blocked_by" {
+		if err := blockedByAppendRefusal(ctx, "goal", entityName, goal.Get("blocked_by")); err != nil {
+			return err
+		}
+	}
+
+	var current []string
+	switch key {
+	case "tags":
+		current = goal.Tags()
+	case "blocked_by":
+		current = goal.BlockedBy()
+	}
+
 	updated, err := applyListMutation(ctx, current, value, o.mode)
 	if err != nil {
 		return errors.Wrap(ctx, err, fmt.Sprintf("%s field %q", o.mode, key))
 	}
-	goal.SetTags(updated)
+
+	switch key {
+	case "tags":
+		goal.SetTags(updated)
+	case "blocked_by":
+		goal.SetBlockedBy(updated)
+	}
 	if err := o.goalStorage.WriteGoal(ctx, goal); err != nil {
 		return errors.Wrap(ctx, err, "write goal")
 	}
@@ -553,6 +643,54 @@ func NewVisionListRemoveOperation(visionStorage storage.VisionStorage) EntityLis
 	return &visionTagsListOperation{visionStorage: visionStorage, mode: "remove"}
 }
 
+// knownTopicScalarFields are topic fields that hold a scalar (not a list).
+var knownTopicScalarFields = map[string]bool{
+	"status": true, "page_type": true, "phase": true,
+	"assignee": true, "defer_date": true, "claude_session_id": true,
+}
+
+type topicTagsListOperation struct {
+	topicStorage storage.TopicStorage
+	mode         string
+}
+
+// Execute applies the list operation (add or remove) to the named field on the topic.
+func (o *topicTagsListOperation) Execute(
+	ctx context.Context,
+	vaultPath, entityName, key, value string,
+) error {
+	topic, err := o.topicStorage.FindTopicByName(ctx, vaultPath, entityName)
+	if err != nil {
+		return errors.Wrap(ctx, err, "find topic")
+	}
+	if knownTopicScalarFields[key] {
+		return errors.Errorf(ctx, "not a list field: %q", key)
+	}
+	if key != "tags" {
+		return errors.Errorf(ctx, "unknown field: %q", key)
+	}
+	current := topic.Tags()
+	updated, err := applyListMutation(ctx, current, value, o.mode)
+	if err != nil {
+		return errors.Wrap(ctx, err, fmt.Sprintf("%s field %q", o.mode, key))
+	}
+	topic.SetTags(updated)
+	if err := o.topicStorage.WriteTopic(ctx, topic); err != nil {
+		return errors.Wrap(ctx, err, "write topic")
+	}
+	return nil
+}
+
+// NewTopicListAddOperation creates an EntityListAddOperation for topics.
+func NewTopicListAddOperation(topicStorage storage.TopicStorage) EntityListAddOperation {
+	return &topicTagsListOperation{topicStorage: topicStorage, mode: "add"}
+}
+
+// NewTopicListRemoveOperation creates an EntityListRemoveOperation for topics.
+func NewTopicListRemoveOperation(topicStorage storage.TopicStorage) EntityListRemoveOperation {
+	return &topicTagsListOperation{topicStorage: topicStorage, mode: "remove"}
+}
+
 // NewTaskListAddOperation creates an EntityListAddOperation for tasks.
 func NewTaskListAddOperation(taskStorage storage.TaskStorage) EntityListAddOperation {
 	return &taskListOperation{
@@ -578,8 +716,9 @@ type taskListOperation struct {
 
 // knownTaskListFields are task fields that hold a list.
 var knownTaskListFields = map[string]bool{
-	"goals": true,
-	"tags":  true,
+	"goals":      true,
+	"tags":       true,
+	"blocked_by": true,
 }
 
 // knownTaskScalarFields are task fields that hold a scalar (not a list).
@@ -608,12 +747,20 @@ func (o *taskListOperation) Execute(
 		return errors.Errorf(ctx, "unknown field: %q", key)
 	}
 
+	if key == "blocked_by" {
+		if err := blockedByAppendRefusal(ctx, "task", taskName, task.Get("blocked_by")); err != nil {
+			return err
+		}
+	}
+
 	var current []string
 	switch key {
 	case "goals":
 		current = task.Goals()
 	case "tags":
 		current = task.Tags()
+	case "blocked_by":
+		current = task.BlockedBy()
 	}
 
 	updated, err := applyListMutation(ctx, current, value, o.mode)
@@ -626,6 +773,8 @@ func (o *taskListOperation) Execute(
 		task.SetGoals(updated)
 	case "tags":
 		task.SetTags(updated)
+	case "blocked_by":
+		task.SetBlockedBy(updated)
 	}
 
 	if err := o.taskStorage.WriteTask(ctx, task); err != nil {
@@ -738,6 +887,14 @@ func (o *entityShowOperation) Execute(
 			fields[k] = e.GetField(k)
 			fieldOrder = append(fieldOrder, k)
 		}
+	case *domain.Topic:
+		nameVal = e.Name
+		filePathVal = e.FilePath
+		contentVal = string(e.Content)
+		for _, k := range e.Keys() {
+			fields[k] = e.GetField(k)
+			fieldOrder = append(fieldOrder, k)
+		}
 	default:
 		return EntityShowResult{}, errors.Errorf(ctx, "unsupported entity type %T", entity)
 	}
@@ -789,5 +946,15 @@ func NewVisionShowOperation(visionStorage storage.VisionStorage) EntityShowOpera
 			return visionStorage.FindVisionByName(ctx, vaultPath, name)
 		},
 		entityType: "vision",
+	}
+}
+
+// NewTopicShowOperation creates an EntityShowOperation for topics.
+func NewTopicShowOperation(topicStorage storage.TopicStorage) EntityShowOperation {
+	return &entityShowOperation{
+		findFn: func(ctx context.Context, vaultPath, name string) (any, error) {
+			return topicStorage.FindTopicByName(ctx, vaultPath, name)
+		},
+		entityType: "topic",
 	}
 }

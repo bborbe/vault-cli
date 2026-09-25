@@ -49,11 +49,11 @@ If absent, fall back to `Glob` / `Grep` for guide discovery — never error.
 </runtime_detection>
 
 <vault_layout>
-Read paths from `vault-cli config list --output json`:
-- `goals_dir`   (default: `23 Goals`)
-- `tasks_dir`   (default: `24 Tasks`)
+Read paths from `vault-cli config list --output json` — each `(default: …)` is the fallback `vault-cli` itself applies when the key is absent (`pkg/config/config.go`), so never substitute a folder name of your own:
+- `goals_dir`   (default: `Goals`)
+- `tasks_dir`   (default: `Tasks`)
 - `themes_dir`  (default: `21 Themes`)
-- `daily_dir`   (default: `60 Periodic Notes/Daily`)
+- `daily_dir`   (default: `Daily Notes`)
 
 For cross-vault discovery: iterate each entry under `~/Documents/Obsidian/` to find sibling vaults that may contain the goal or related tasks.
 </vault_layout>
@@ -104,7 +104,7 @@ If not found: emit the structured `not_found:` verdict block (literal `not_found
    - If zero OR multiple UUIDs are returned (ambiguous / no match — e.g. the goal is not the session's current title, or several sessions share the title): do NOT write the field, and report `ℹ️ Session: not connected — <n> matching session(s), refusing to guess`. Do NOT fall back to the goal name: a name is not a UUID and the vault-ui resolver would then mis-resolve it. The headless Start path pre-sets this field via vault-cli before the turn, so a miss here is safe — leave it for vault-cli.
    - Report: `✅ Session: connected (<uuid>)`
 3. If `claude_session_id` is **already set**: report `ℹ️ Session: already connected (<value>)` — do NOT overwrite.
-4. Add to the report (always, found case): `💡 Suggest: run /rename "<goal_name>" to name this session after the goal` — connects the session to the goal by name.
+4. Add to the report (always, found case): `💡 Suggest: run /rename <goal_name> to name this session after the goal` — connects the session to the goal by name. No quotes: /rename takes the rest of the line verbatim, so a quoted suggestion names the session with literal quote characters.
 
 ## Phase 2: Search domain guides
 
@@ -194,7 +194,7 @@ Progress: X/Y completed [(Z deferred)]
 Status: <status>
 ✅ Goal status: <old> → in_progress | ℹ️ Already in_progress | ⚠️ Could not set status: <error>
 ✅ Session: connected (<uuid | goal_name>) | ℹ️ Session: already connected (<value>) | ⚠️ Could not set: <error>
-💡 Suggest: run /rename "<goal_name>" to name this session after the goal
+💡 Suggest: run /rename <goal_name> to name this session after the goal
 
 Summary: <1-3 sentences>
 

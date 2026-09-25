@@ -5,12 +5,15 @@
 package integration_test
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -97,6 +100,208 @@ vaults:
     tasks_dir: Tasks
     topics_dir: "%s"
 `, vaultPath, topicsDir)
+
+	configFile, err := os.CreateTemp("", "vault-config-*.yaml")
+	Expect(err).NotTo(HaveOccurred())
+	_, err = configFile.WriteString(configContent)
+	Expect(err).NotTo(HaveOccurred())
+	err = configFile.Close()
+	Expect(err).NotTo(HaveOccurred())
+
+	return vaultPath, configFile.Name(), func() {
+		_ = os.RemoveAll(vaultPath)
+		_ = os.Remove(configFile.Name())
+	}
+}
+
+// createTempVaultWithTopicPages creates a temporary vault whose config sets
+// topics_dir, current_user and a claude_script that is deliberately not installed,
+// and whose topics and goals directories contain the given pages.
+//
+// The uninstalled claude_script is load-bearing: ops.NewClaudeSessionStarter calls
+// exec.LookPath on it, which fails, so the starter is nil and the work-on path takes
+// ErrStarterUnavailable as a soft warning instead of spawning a real headless turn.
+func createTempVaultWithTopicPages(
+	topicsDir string,
+	topics map[string]string,
+	goals map[string]string,
+) (vaultPath string, configPath string, cleanup func()) {
+	var err error
+	vaultPath, err = os.MkdirTemp("", "vault-*")
+	Expect(err).NotTo(HaveOccurred())
+
+	tasksDir := filepath.Join(vaultPath, "Tasks")
+	err = os.MkdirAll(tasksDir, 0755)
+	Expect(err).NotTo(HaveOccurred())
+
+	topicsDirPath := filepath.Join(vaultPath, topicsDir)
+	err = os.MkdirAll(topicsDirPath, 0755)
+	Expect(err).NotTo(HaveOccurred())
+
+	for name, content := range topics {
+		topicPath := filepath.Join(topicsDirPath, name+".md")
+		err = os.WriteFile(topicPath, []byte(content), 0600)
+		Expect(err).NotTo(HaveOccurred())
+	}
+
+	goalsDir := filepath.Join(vaultPath, "Goals")
+	err = os.MkdirAll(goalsDir, 0755)
+	Expect(err).NotTo(HaveOccurred())
+
+	for name, content := range goals {
+		goalPath := filepath.Join(goalsDir, name+".md")
+		err = os.WriteFile(goalPath, []byte(content), 0600)
+		Expect(err).NotTo(HaveOccurred())
+	}
+
+	configContent := fmt.Sprintf(`default_vault: test
+current_user: tester@example.com
+vaults:
+  test:
+    name: test
+    path: %s
+    tasks_dir: Tasks
+    goals_dir: Goals
+    topics_dir: "%s"
+    claude_script: "claude-not-installed-for-tests"
+`, vaultPath, topicsDir)
+
+	configFile, err := os.CreateTemp("", "vault-config-*.yaml")
+	Expect(err).NotTo(HaveOccurred())
+	_, err = configFile.WriteString(configContent)
+	Expect(err).NotTo(HaveOccurred())
+	err = configFile.Close()
+	Expect(err).NotTo(HaveOccurred())
+
+	return vaultPath, configFile.Name(), func() {
+		_ = os.RemoveAll(vaultPath)
+		_ = os.Remove(configFile.Name())
+	}
+}
+
+// helpLeafNames parses the `Available Commands:` block out of a cobra help output
+// and returns the leaf names in the order cobra prints them.
+//
+// The block runs from the `Available Commands:` line to the next blank line; only
+// lines beginning with two spaces and a lowercase letter are leaves. Returning the
+// names in print order lets a caller compare two command groups member for member.
+func helpLeafNames(help string) []string {
+	lines := strings.Split(help, "\n")
+	inBlock := false
+	var leaves []string
+	for _, line := range lines {
+		if strings.HasPrefix(line, "Available Commands:") {
+			inBlock = true
+			continue
+		}
+		if !inBlock {
+			continue
+		}
+		if strings.TrimSpace(line) == "" {
+			break
+		}
+		if len(line) < 3 || !strings.HasPrefix(line, "  ") {
+			continue
+		}
+		if line[2] < 'a' || line[2] > 'z' {
+			continue
+		}
+		leaves = append(leaves, strings.Fields(line)[0])
+	}
+	return leaves
+}
+
+// showPhaseField runs `<entityType> show <name> --output json` against the given
+// config and returns the value at `.fields.phase`.
+//
+// It fails the spec if the field is absent, so a caller comparing a topic's phase to
+// a goal's phase cannot pass vacuously on two missing keys.
+func showPhaseField(configPath, entityType, name string) string {
+	cmd := exec.Command(
+		binPath, "--config", configPath, "--vault", "test",
+		entityType, "show", name, "--output", "json",
+	)
+	session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+	Expect(err).NotTo(HaveOccurred())
+	Eventually(session).Should(gexec.Exit(0))
+
+	var parsed map[string]any
+	Expect(json.Unmarshal(session.Out.Contents(), &parsed)).To(Succeed())
+	fields, ok := parsed["fields"].(map[string]any)
+	Expect(ok).To(BeTrue(), "%s show emitted no fields object", entityType)
+	phase, present := fields["phase"]
+	Expect(present).To(BeTrue(), "%s show emitted no phase key", entityType)
+	phaseStr, ok := phase.(string)
+	Expect(ok).To(BeTrue(), "%s show phase is not a string", entityType)
+	return phaseStr
+}
+
+// countTagEntries counts the entries under the `tags:` frontmatter key of a page
+// file as written on disk, in both the inline (`tags: [a, b]`) and the block
+// (`tags:` followed by indented `- a` lines) shapes.
+//
+// Asserting against the file rather than against the command's own output is what
+// makes the add/remove spec a state-transition test.
+func countTagEntries(filePath string) int {
+	content, err := os.ReadFile(filePath) //#nosec G304 -- test file
+	Expect(err).NotTo(HaveOccurred())
+
+	count := 0
+	inBlock := false
+	for _, line := range strings.Split(string(content), "\n") {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "tags:") {
+			inline := strings.Trim(strings.TrimSpace(strings.TrimPrefix(trimmed, "tags:")), "[]")
+			inBlock = inline == ""
+			count += countCommaSeparated(inline)
+			continue
+		}
+		if inBlock && strings.HasPrefix(trimmed, "- ") {
+			count++
+			continue
+		}
+		if trimmed != "" {
+			inBlock = false
+		}
+	}
+	return count
+}
+
+// countCommaSeparated counts the non-empty comma-separated items in s.
+func countCommaSeparated(s string) int {
+	count := 0
+	for _, item := range strings.Split(s, ",") {
+		if strings.TrimSpace(item) != "" {
+			count++
+		}
+	}
+	return count
+}
+
+// createTempVaultWithBrokers creates a temporary vault whose config carries a
+// notification section naming the given brokers, and returns the vault path, the
+// config path and a cleanup func.
+func createTempVaultWithBrokers(
+	brokers, topicPrefix string,
+) (vaultPath string, configPath string, cleanup func()) {
+	var err error
+	vaultPath, err = os.MkdirTemp("", "vault-*")
+	Expect(err).NotTo(HaveOccurred())
+
+	tasksDir := filepath.Join(vaultPath, "Tasks")
+	err = os.MkdirAll(tasksDir, 0755)
+	Expect(err).NotTo(HaveOccurred())
+
+	configContent := fmt.Sprintf(`default_vault: test
+vaults:
+  test:
+    name: test
+    path: %s
+    tasks_dir: Tasks
+notification:
+  brokers: "%s"
+  topic_prefix: "%s"
+`, vaultPath, brokers, topicPrefix)
 
 	configFile, err := os.CreateTemp("", "vault-config-*.yaml")
 	Expect(err).NotTo(HaveOccurred())
@@ -228,6 +433,19 @@ var _ = Describe("vault-cli integration tests", func() {
 			Entry("goal add", "goal", "add"),
 			Entry("goal remove", "goal", "remove"),
 			Entry("goal work-on", "goal", "work-on"),
+			// Topic subcommands
+			Entry("topic list", "topic", "list"),
+			Entry("topic lint", "topic", "lint"),
+			Entry("topic search", "topic", "search"),
+			Entry("topic show", "topic", "show"),
+			Entry("topic get", "topic", "get"),
+			Entry("topic set", "topic", "set"),
+			Entry("topic clear", "topic", "clear"),
+			Entry("topic complete", "topic", "complete"),
+			Entry("topic defer", "topic", "defer"),
+			Entry("topic add", "topic", "add"),
+			Entry("topic remove", "topic", "remove"),
+			Entry("topic work-on", "topic", "work-on"),
 			// Theme subcommands
 			Entry("theme list", "theme", "list"),
 			Entry("theme lint", "theme", "lint"),
@@ -773,6 +991,239 @@ task_identifier: 90909090-9090-4909-a090-909090909090
 				Expect(string(content)).To(ContainSubstring("priority: 1"))
 				Expect(string(content)).NotTo(ContainSubstring("priority: high"))
 			})
+		})
+	})
+
+	Describe("vault-cli blocked_by scalar detector", func() {
+		var vaultPath, configPath string
+		var cleanup func()
+
+		AfterEach(func() {
+			cleanup()
+		})
+
+		// scalarTaskFixture is the AC7 fixture: base keys only, so the only issue
+		// any run can report is the scalar blocked_by under test.
+		scalarTaskFixture := `---
+status: in_progress
+page_type: task
+priority: 1
+task_identifier: 22222222-2222-4222-8222-222222222222
+blocked_by: Blocker A
+---
+# Alpha
+`
+
+		// listTaskFixture is byte-identical except that blocked_by is a YAML list.
+		listTaskFixture := `---
+status: in_progress
+page_type: task
+priority: 1
+task_identifier: 22222222-2222-4222-8222-222222222222
+blocked_by:
+  - "Blocker A"
+---
+# Alpha
+`
+
+		runValidate := func(taskName string, extraArgs ...string) *gexec.Session {
+			args := make([]string, 0, 7+len(extraArgs))
+			args = append(
+				args,
+				"--config", configPath,
+				"--vault", "test",
+				"task", "validate", taskName,
+			)
+			args = append(args, extraArgs...)
+			session, err := gexec.Start(
+				exec.Command(binPath, args...),
+				GinkgoWriter,
+				GinkgoWriter,
+			)
+			Expect(err).NotTo(HaveOccurred())
+			return session
+		}
+
+		runTaskLint := func(extraArgs ...string) *gexec.Session {
+			args := make([]string, 0, 6+len(extraArgs))
+			args = append(
+				args,
+				"--config", configPath,
+				"--vault", "test",
+				"task", "lint",
+			)
+			args = append(args, extraArgs...)
+			session, err := gexec.Start(
+				exec.Command(binPath, args...),
+				GinkgoWriter,
+				GinkgoWriter,
+			)
+			Expect(err).NotTo(HaveOccurred())
+			return session
+		}
+
+		runGoalLint := func() *gexec.Session {
+			session, err := gexec.Start(
+				exec.Command(
+					binPath,
+					"--config", configPath,
+					"--vault", "test",
+					"goal", "lint",
+				),
+				GinkgoWriter,
+				GinkgoWriter,
+			)
+			Expect(err).NotTo(HaveOccurred())
+			return session
+		}
+
+		fileSHA256 := func(path string) string {
+			content, err := os.ReadFile(path) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			sum := sha256.Sum256(content)
+			return fmt.Sprintf("%x", sum)
+		}
+
+		It("AC7: task validate on a scalar blocked_by exits non-zero with exactly one issue line", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": scalarTaskFixture,
+			})
+
+			session := runValidate("Alpha")
+			Eventually(session).Should(gexec.Exit(1))
+
+			lines := strings.Split(strings.TrimSpace(string(session.Out.Contents())), "\n")
+			Expect(lines).To(HaveLen(1))
+			Expect(lines[0]).To(ContainSubstring("blocked_by"))
+			Expect(lines[0]).To(ContainSubstring("YAML list"))
+
+			// Negative evidence: the scalar still reads as unblocked, so neither
+			// the raw list key nor the computed boolean is emitted.
+			listCmd := exec.Command(
+				binPath,
+				"--config", configPath,
+				"--vault", "test",
+				"task", "list",
+				"--output", "json",
+			)
+			listSession, err := gexec.Start(listCmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(listSession).Should(gexec.Exit(0))
+			var items []map[string]any
+			Expect(json.Unmarshal(listSession.Out.Contents(), &items)).To(Succeed())
+			Expect(items).To(HaveLen(1))
+			Expect(items[0]).NotTo(HaveKey("blocked_by"))
+			Expect(items[0]).NotTo(HaveKey("blocked"))
+		})
+
+		It("AC8a: task validate on a list-shaped blocked_by exits 0 with no blocked_by line", func() {
+			_, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": listTaskFixture,
+			})
+
+			session := runValidate("Alpha")
+			Eventually(session).Should(gexec.Exit(0))
+			Expect(string(session.Out.Contents())).NotTo(ContainSubstring("blocked_by"))
+		})
+
+		It("AC8b: task validate on the empty scalar blocked_by exits 0", func() {
+			_, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": `---
+status: in_progress
+page_type: task
+priority: 1
+task_identifier: 22222222-2222-4222-8222-222222222222
+blocked_by: ""
+---
+# Alpha
+`,
+			})
+
+			session := runValidate("Alpha")
+			Eventually(session).Should(gexec.Exit(0))
+		})
+
+		It("AC8c: task validate --output json exits 0 and lists the issue", func() {
+			_, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": scalarTaskFixture,
+			})
+
+			session := runValidate("Alpha", "--output", "json")
+			Eventually(session).Should(gexec.Exit(0))
+
+			var result struct {
+				Name   string `json:"name"`
+				Vault  string `json:"vault"`
+				Issues []struct {
+					Type        string `json:"type"`
+					IssueType   string `json:"issue_type"`
+					Description string `json:"description"`
+				} `json:"issues"`
+			}
+			Expect(json.Unmarshal(session.Out.Contents(), &result)).To(Succeed())
+			Expect(result.Issues).To(HaveLen(1))
+			Expect(result.Issues[0].IssueType).To(Equal("BLOCKED_BY_SCALAR"))
+			Expect(result.Issues[0].Type).To(Equal("ERROR"))
+			Expect(result.Issues[0].Description).To(ContainSubstring("blocked_by"))
+		})
+
+		It("AC9: task lint reports the scalar blocked_by, and --fix leaves the file byte-identical", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": scalarTaskFixture,
+			})
+			taskPath := filepath.Join(vaultPath, "Tasks", "Alpha.md")
+
+			session := runTaskLint()
+			Eventually(session).Should(gexec.Exit(1))
+			Expect(string(session.Out.Contents())).To(ContainSubstring("blocked_by"))
+
+			before := fileSHA256(taskPath)
+
+			fixSession := runTaskLint("--fix")
+			Eventually(fixSession).Should(gexec.Exit(1))
+
+			Expect(fileSHA256(taskPath)).To(Equal(before))
+		})
+
+		It("AC10a: goal lint reports a scalar blocked_by", func() {
+			_, configPath, cleanup = createTempVaultWithGoals(
+				map[string]string{},
+				map[string]string{
+					"Beta": `---
+status: next
+page_type: goal
+priority: 1
+blocked_by: Blocker C
+---
+# Beta
+`,
+				},
+			)
+
+			session := runGoalLint()
+			Eventually(session).Should(gexec.Exit(1))
+			Expect(string(session.Out.Contents())).To(ContainSubstring("blocked_by"))
+		})
+
+		It("AC10b: goal lint passes a list-shaped blocked_by", func() {
+			_, configPath, cleanup = createTempVaultWithGoals(
+				map[string]string{},
+				map[string]string{
+					"Beta": `---
+status: next
+page_type: goal
+priority: 1
+blocked_by:
+  - "Blocker C"
+---
+# Beta
+`,
+				},
+			)
+
+			session := runGoalLint()
+			Eventually(session).Should(gexec.Exit(0))
+			Expect(string(session.Out.Contents())).NotTo(ContainSubstring("blocked_by"))
 		})
 	})
 
@@ -1575,6 +2026,308 @@ blocked_by: A
 		})
 	})
 
+	Describe("vault-cli blocked_by list add and remove", func() {
+		var vaultPath, configPath string
+		var cleanup func()
+
+		AfterEach(func() {
+			cleanup()
+		})
+
+		runListJSON := func(entityType string) []map[string]any {
+			cmd := exec.Command(
+				binPath,
+				"--config", configPath,
+				"--vault", "test",
+				entityType, "list",
+				"--output", "json",
+			)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(0))
+			var items []map[string]any
+			Expect(json.Unmarshal(session.Out.Contents(), &items)).To(Succeed())
+			return items
+		}
+
+		runEntityCommand := func(args ...string) *gexec.Session {
+			fullArgs := append(
+				[]string{"--config", configPath, "--vault", "test"},
+				args...,
+			)
+			session, err := gexec.Start(exec.Command(binPath, fullArgs...), GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			return session
+		}
+
+		sha256OfFile := func(path string) string {
+			data, err := os.ReadFile(path)
+			Expect(err).NotTo(HaveOccurred())
+			sum := sha256.Sum256(data)
+			return fmt.Sprintf("%x", sum)
+		}
+
+		It("AC1: task add appends to an existing blocked_by list without clobbering it", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": `---
+status: in_progress
+page_type: task
+priority: 1
+task_identifier: 22222222-2222-4222-8222-222222222222
+blocked_by:
+  - "[[Blocker A]]"
+---
+`,
+			})
+
+			session := runEntityCommand("task", "add", "Alpha", "blocked_by", "[[Blocker B]]")
+			Eventually(session).Should(gexec.Exit(0))
+
+			items := runListJSON("task")
+			Expect(items).To(HaveLen(1))
+			Expect(items[0]).To(HaveKeyWithValue("name", "Alpha"))
+			Expect(items[0]).To(HaveKeyWithValue(
+				"blocked_by",
+				[]any{"[[Blocker A]]", "[[Blocker B]]"},
+			))
+
+			raw, err := os.ReadFile(filepath.Join(vaultPath, "Tasks", "Alpha.md"))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(raw)).To(ContainSubstring("Blocker A"))
+			Expect(string(raw)).To(ContainSubstring("Blocker B"))
+		})
+
+		It("AC2: task remove drops exactly one entry from a two-entry blocked_by list", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": `---
+status: in_progress
+page_type: task
+priority: 1
+task_identifier: 22222222-2222-4222-8222-222222222222
+blocked_by:
+  - "[[Blocker A]]"
+  - "[[Blocker B]]"
+---
+`,
+			})
+
+			session := runEntityCommand("task", "remove", "Alpha", "blocked_by", "[[Blocker B]]")
+			Eventually(session).Should(gexec.Exit(0))
+
+			items := runListJSON("task")
+			Expect(items).To(HaveLen(1))
+			Expect(items[0]).To(HaveKeyWithValue("blocked_by", []any{"[[Blocker A]]"}))
+
+			raw, err := os.ReadFile(filepath.Join(vaultPath, "Tasks", "Alpha.md"))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(raw)).NotTo(ContainSubstring("Blocker B"))
+		})
+
+		It("AC3a: goal add appends to an existing blocked_by list", func() {
+			_, configPath, cleanup = createTempVaultWithGoals(
+				map[string]string{},
+				map[string]string{
+					"Beta": `---
+status: next
+page_type: goal
+priority: 1
+blocked_by:
+  - "[[Blocker E]]"
+---
+`,
+				},
+			)
+
+			session := runEntityCommand("goal", "add", "Beta", "blocked_by", "[[Blocker C]]")
+			Eventually(session).Should(gexec.Exit(0))
+
+			items := runListJSON("goal")
+			Expect(items).To(HaveLen(1))
+			Expect(items[0]).To(HaveKeyWithValue("name", "Beta"))
+			Expect(items[0]).To(HaveKeyWithValue(
+				"blocked_by",
+				[]any{"[[Blocker E]]", "[[Blocker C]]"},
+			))
+		})
+
+		It("AC4: task add on a scalar blocked_by is refused and writes nothing", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": `---
+status: in_progress
+page_type: task
+priority: 1
+task_identifier: 22222222-2222-4222-8222-222222222222
+blocked_by: Blocker A
+---
+`,
+			})
+
+			taskFile := filepath.Join(vaultPath, "Tasks", "Alpha.md")
+			before := sha256OfFile(taskFile)
+
+			session := runEntityCommand("task", "add", "Alpha", "blocked_by", "[[Blocker B]]")
+			Eventually(session).Should(gexec.Exit())
+			Expect(session.ExitCode()).NotTo(Equal(0))
+
+			stderr := string(session.Err.Contents())
+			Expect(stderr).To(ContainSubstring("blocked_by"))
+			Expect(stderr).To(ContainSubstring("YAML list"))
+			Expect(stderr).To(ContainSubstring("clear"))
+
+			Expect(sha256OfFile(taskFile)).To(Equal(before))
+		})
+	})
+
+	Describe("vault-cli blocked_by set refusal", func() {
+		var vaultPath, configPath string
+		var cleanup func()
+
+		AfterEach(func() {
+			cleanup()
+		})
+
+		runEntityCommand := func(args ...string) *gexec.Session {
+			fullArgs := append(
+				[]string{"--config", configPath, "--vault", "test"},
+				args...,
+			)
+			session, err := gexec.Start(exec.Command(binPath, fullArgs...), GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			return session
+		}
+
+		runTaskListJSON := func() []map[string]any {
+			session := runEntityCommand("task", "list", "--output", "json")
+			Eventually(session).Should(gexec.Exit(0))
+			var items []map[string]any
+			Expect(json.Unmarshal(session.Out.Contents(), &items)).To(Succeed())
+			return items
+		}
+
+		sha256OfFile := func(path string) string {
+			data, err := os.ReadFile(path) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			sum := sha256.Sum256(data)
+			return fmt.Sprintf("%x", sum)
+		}
+
+		// Alpha holds only the base keys plus a one-entry blocked_by list, so no
+		// unrelated issue can appear in any of these assertions.
+		alphaWithList := `---
+status: in_progress
+page_type: task
+priority: 1
+task_identifier: 22222222-2222-4222-8222-222222222222
+blocked_by:
+  - "[[Blocker A]]"
+---
+`
+
+		It("AC5: task set refuses a non-empty blocked_by, names the field, points at add, and writes nothing", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": alphaWithList,
+			})
+			taskFile := filepath.Join(vaultPath, "Tasks", "Alpha.md")
+			before := sha256OfFile(taskFile)
+
+			session := runEntityCommand("task", "set", "Alpha", "blocked_by", "[[Blocker A]]")
+			Eventually(session).Should(gexec.Exit(1))
+
+			stderr := string(session.Err.Contents())
+			Expect(stderr).To(ContainSubstring("blocked_by"))
+			Expect(stderr).To(ContainSubstring("add"))
+
+			Expect(sha256OfFile(taskFile)).To(Equal(before))
+		})
+
+		It("AC5b: task set keeps the tags and goals comma-split coercion", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": alphaWithList,
+			})
+
+			Eventually(runEntityCommand("task", "set", "Alpha", "tags", "a,b")).Should(gexec.Exit(0))
+			Eventually(runEntityCommand("task", "set", "Alpha", "goals", "g1,g2")).
+				Should(gexec.Exit(0))
+
+			items := runTaskListJSON()
+			Expect(items).To(HaveLen(1))
+			Expect(items[0]).To(HaveKeyWithValue("goals", []any{"g1", "g2"}))
+
+			getSession := runEntityCommand("task", "get", "Alpha", "tags")
+			Eventually(getSession).Should(gexec.Exit(0))
+			Expect(string(getSession.Out.Contents())).To(ContainSubstring("a,b"))
+
+			content, err := os.ReadFile(filepath.Join(vaultPath, "Tasks", "Alpha.md")) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(content)).To(MatchRegexp(`(?m)^[[:space:]]*- a$`))
+		})
+
+		It("AC6: task set blocked_by with the empty value stays legal", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": alphaWithList,
+			})
+
+			Eventually(runEntityCommand("task", "set", "Alpha", "blocked_by", "")).
+				Should(gexec.Exit(0))
+
+			items := runTaskListJSON()
+			Expect(items).To(HaveLen(1))
+			Expect(items[0]).NotTo(HaveKey("blocked_by"))
+			Expect(items[0]).NotTo(HaveKey("blocked"))
+		})
+
+		It("AC6b: task clear blocked_by removes the key", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": alphaWithList,
+			})
+
+			Eventually(runEntityCommand("task", "clear", "Alpha", "blocked_by")).
+				Should(gexec.Exit(0))
+
+			content, err := os.ReadFile(filepath.Join(vaultPath, "Tasks", "Alpha.md")) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(content)).NotTo(ContainSubstring("blocked_by"))
+		})
+
+		It("AC3b: goal set refuses a non-empty blocked_by", func() {
+			_, configPath, cleanup = createTempVaultWithGoals(nil, map[string]string{
+				"Beta": `---
+status: next
+page_type: goal
+priority: 1
+blocked_by:
+  - "[[Blocker E]]"
+---
+`,
+			})
+
+			session := runEntityCommand("goal", "set", "Beta", "blocked_by", "[[Blocker D]]")
+			Eventually(session).Should(gexec.Exit(1))
+
+			stderr := string(session.Err.Contents())
+			Expect(stderr).To(ContainSubstring("blocked_by"))
+			Expect(stderr).To(ContainSubstring("add"))
+		})
+
+		It(`AC6c: goal set blocked_by "" and goal clear blocked_by stay legal`, func() {
+			_, configPath, cleanup = createTempVaultWithGoals(nil, map[string]string{
+				"Beta": `---
+status: next
+page_type: goal
+priority: 1
+blocked_by:
+  - "[[Blocker E]]"
+---
+`,
+			})
+
+			Eventually(runEntityCommand("goal", "set", "Beta", "blocked_by", "")).
+				Should(gexec.Exit(0))
+			Eventually(runEntityCommand("goal", "clear", "Beta", "blocked_by")).
+				Should(gexec.Exit(0))
+		})
+	})
+
 	Describe("vault-cli defer", func() {
 		var vaultPath, configPath string
 		var cleanup func()
@@ -1913,6 +2666,800 @@ page_type: goal
 				Expect(raw).NotTo(ContainSubstring("not found in any vault"))
 				Expect(string(session.Err.Contents())).NotTo(ContainSubstring("not found in any vault"))
 			})
+		})
+	})
+
+	Describe("vault-cli task assignee clear escalation", func() {
+		It("task set assignee empty exits 0 and reports the failure when the broker is unreachable", func() {
+			vaultPath, configPath, cleanup := createTempVaultWithBrokers("127.0.0.1:1", "master")
+			defer cleanup()
+
+			taskPath := filepath.Join(vaultPath, "Tasks", "Park Me.md")
+			Expect(os.WriteFile(taskPath, []byte(
+				"---\nstatus: in_progress\nassignee: alice\ntask_identifier: 0f6a3a0e-0000-4000-8000-000000000001\n---\n",
+			), 0600)).To(Succeed())
+
+			cmd := exec.Command(binPath, "--config", configPath, "task", "set", "Park Me", "assignee", "")
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session, 30*time.Second).Should(gexec.Exit(0))
+
+			Expect(string(session.Out.Contents())).To(Equal("✅ Set assignee= on: Park Me\n"))
+			Expect(string(session.Err.Contents())).
+				To(ContainSubstring("publish agent-escalation notification for task"))
+			Expect(string(session.Err.Contents())).
+				To(ContainSubstring("escalated by alice failed:"))
+
+			content, err := os.ReadFile(taskPath)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(content)).NotTo(ContainSubstring("alice"))
+			Expect(string(content)).To(ContainSubstring("status: in_progress"))
+		})
+
+		It("task clear assignee exits 0 with unchanged output when no broker is configured", func() {
+			vaultPath, configPath, cleanup := createTempVault(map[string]string{
+				"Park Me": "---\nstatus: in_progress\nassignee: alice\n---\n",
+			})
+			defer cleanup()
+
+			taskPath := filepath.Join(vaultPath, "Tasks", "Park Me.md")
+
+			cmd := exec.Command(binPath, "--config", configPath, "task", "clear", "Park Me", "assignee")
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session, 10*time.Second).Should(gexec.Exit(0))
+
+			Expect(string(session.Out.Contents())).To(Equal("✅ Cleared assignee on: Park Me\n"))
+			Expect(session.Err.Contents()).To(BeEmpty())
+
+			content, err := os.ReadFile(taskPath)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(content)).NotTo(ContainSubstring("assignee"))
+			Expect(string(content)).To(ContainSubstring("status: in_progress"))
+		})
+	})
+
+	Describe("vault-cli topic command family", func() {
+		It("topic --help lists exactly the twelve leaves", func() {
+			cmd := exec.Command(binPath, "topic", "--help")
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(0))
+
+			leaves := helpLeafNames(string(session.Out.Contents()))
+			Expect(leaves).NotTo(BeEmpty())
+			Expect(leaves).To(HaveLen(12))
+			Expect(leaves).To(ConsistOf(
+				"add", "clear", "complete", "defer", "get", "lint", "list",
+				"remove", "search", "set", "show", "work-on",
+			))
+		})
+
+		It("topic --help leaf set equals the goal --help leaf set", func() {
+			topicCmd := exec.Command(binPath, "topic", "--help")
+			topicSession, err := gexec.Start(topicCmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(topicSession).Should(gexec.Exit(0))
+
+			goalCmd := exec.Command(binPath, "goal", "--help")
+			goalSession, err := gexec.Start(goalCmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(goalSession).Should(gexec.Exit(0))
+
+			topicLeaves := helpLeafNames(string(topicSession.Out.Contents()))
+			goalLeaves := helpLeafNames(string(goalSession.Out.Contents()))
+
+			// Non-empty on both sides first: two empty sets would otherwise satisfy
+			// an equality check if the help format ever changed.
+			Expect(topicLeaves).NotTo(BeEmpty())
+			Expect(goalLeaves).NotTo(BeEmpty())
+
+			topicSorted := append([]string(nil), topicLeaves...)
+			goalSorted := append([]string(nil), goalLeaves...)
+			sort.Strings(topicSorted)
+			sort.Strings(goalSorted)
+			Expect(topicSorted).To(Equal(goalSorted))
+		})
+
+		It("topic --help contains none of the eleven goal slash-command names", func() {
+			cmd := exec.Command(binPath, "topic", "--help")
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(0))
+
+			out := string(session.Out.Contents())
+			for _, name := range []string{
+				"plan-goal", "execute-goal", "verify-goal", "audit-goal",
+				"create-goal", "update-goal", "goal-status", "launch-goal",
+				"work-on-goal", "complete-goal", "defer-goal",
+			} {
+				Expect(out).NotTo(ContainSubstring(name), "topic help must not mention %s", name)
+			}
+		})
+
+		It("topic show emits phase at .fields.phase, equal to what goal show emits", func() {
+			_, configPath, cleanup := createTempVaultWithTopicPages(
+				"Topics",
+				map[string]string{
+					"With Phase": "---\nstatus: in_progress\nphase: planning\n---\n# With Phase\n",
+				},
+				map[string]string{
+					"With Phase": "---\nstatus: in_progress\nphase: planning\n---\n# With Phase\n",
+				},
+			)
+			defer cleanup()
+
+			topicPhase := showPhaseField(configPath, "topic", "With Phase")
+			goalPhase := showPhaseField(configPath, "goal", "With Phase")
+
+			Expect(topicPhase).To(Equal("planning"))
+			Expect(topicPhase).To(Equal(goalPhase))
+		})
+
+		It("topic show omits the phase key entirely when the page carries none", func() {
+			_, configPath, cleanup := createTempVaultWithTopicPages(
+				"Topics",
+				map[string]string{
+					"Without Phase": "---\nstatus: in_progress\n---\n# Without Phase\n",
+				},
+				nil,
+			)
+			defer cleanup()
+
+			cmd := exec.Command(
+				binPath, "--config", configPath, "--vault", "test",
+				"topic", "show", "Without Phase", "--output", "json",
+			)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(0))
+
+			var parsed map[string]any
+			Expect(json.Unmarshal(session.Out.Contents(), &parsed)).To(Succeed())
+			fields, ok := parsed["fields"].(map[string]any)
+			Expect(ok).To(BeTrue())
+			// Anchor on a key that IS present so the negative check cannot pass on
+			// empty output.
+			Expect(fields).To(HaveKey("status"))
+			_, present := fields["phase"]
+			Expect(present).To(BeFalse())
+		})
+
+		It("topic get prints an empty line and exits 0 for an absent phase", func() {
+			_, configPath, cleanup := createTempVaultWithTopicPages(
+				"Topics",
+				map[string]string{
+					"Without Phase": "---\nstatus: in_progress\n---\n",
+					"With Phase":    "---\nstatus: in_progress\nphase: planning\n---\n",
+				},
+				nil,
+			)
+			defer cleanup()
+
+			cmd := exec.Command(
+				binPath, "--config", configPath, "--vault", "test",
+				"topic", "get", "Without Phase", "phase",
+			)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(0))
+			Expect(string(session.Out.Contents())).To(Equal("\n"))
+		})
+
+		It("topic get prints the on-disk phase value and exits 0 when the page carries one", func() {
+			_, configPath, cleanup := createTempVaultWithTopicPages(
+				"Topics",
+				map[string]string{
+					"With Phase": "---\nstatus: in_progress\nphase: planning\n---\n",
+				},
+				nil,
+			)
+			defer cleanup()
+
+			cmd := exec.Command(
+				binPath, "--config", configPath, "--vault", "test",
+				"topic", "get", "With Phase", "phase",
+			)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(0))
+			Expect(string(session.Out.Contents())).To(Equal("planning\n"))
+		})
+
+		It("topic set writes a canonical phase to the page on disk and topic show surfaces it", func() {
+			vaultPath, configPath, cleanup := createTempVaultWithTopicPages(
+				"Topics",
+				map[string]string{
+					"Phase Target": "---\nstatus: in_progress\n---\n# Phase Target\n",
+				},
+				nil,
+			)
+			defer cleanup()
+
+			cmd := exec.Command(
+				binPath, "--config", configPath, "--vault", "test",
+				"topic", "set", "Phase Target", "phase", "execution",
+			)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(0))
+
+			content, err := os.ReadFile(filepath.Join(vaultPath, "Topics", "Phase Target.md"))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(content)).To(ContainSubstring("phase: execution"))
+
+			Expect(showPhaseField(configPath, "topic", "Phase Target")).To(Equal("execution"))
+		})
+
+		It("topic set refuses a non-canonical phase with the validator's wording and leaves the page byte-identical", func() {
+			vaultPath, configPath, cleanup := createTempVaultWithTopicPages(
+				"Topics",
+				map[string]string{
+					"Phase Target": "---\nstatus: in_progress\n---\n# Phase Target\n",
+				},
+				nil,
+			)
+			defer cleanup()
+
+			sha256OfFile := func(path string) string {
+				data, err := os.ReadFile(path)
+				Expect(err).NotTo(HaveOccurred())
+				sum := sha256.Sum256(data)
+				return fmt.Sprintf("%x", sum)
+			}
+
+			topicPath := filepath.Join(vaultPath, "Topics", "Phase Target.md")
+			before := sha256OfFile(topicPath)
+
+			cmd := exec.Command(
+				binPath, "--config", configPath, "--vault", "test",
+				"topic", "set", "Phase Target", "phase", "bogus",
+			)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(1))
+
+			Expect(string(session.Err.Contents())).To(ContainSubstring("unknown topic phase 'bogus'"))
+			Expect(sha256OfFile(topicPath)).To(Equal(before))
+		})
+
+		It("topic set with an empty phase value removes the phase line from the page", func() {
+			vaultPath, configPath, cleanup := createTempVaultWithTopicPages(
+				"Topics",
+				map[string]string{
+					"Phase Target": "---\nstatus: in_progress\nphase: execution\n---\n# Phase Target\n",
+				},
+				nil,
+			)
+			defer cleanup()
+
+			cmd := exec.Command(
+				binPath, "--config", configPath, "--vault", "test",
+				"topic", "set", "Phase Target", "phase", "",
+			)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(0))
+
+			content, err := os.ReadFile(filepath.Join(vaultPath, "Topics", "Phase Target.md"))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(content)).NotTo(ContainSubstring("phase:"))
+
+			showCmd := exec.Command(
+				binPath, "--config", configPath, "--vault", "test",
+				"topic", "show", "Phase Target", "--output", "json",
+			)
+			showSession, err := gexec.Start(showCmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(showSession).Should(gexec.Exit(0))
+
+			var parsed map[string]any
+			Expect(json.Unmarshal(showSession.Out.Contents(), &parsed)).To(Succeed())
+			fields, ok := parsed["fields"].(map[string]any)
+			Expect(ok).To(BeTrue())
+			// Anchor on a key that IS present so the negative check cannot pass on
+			// empty output.
+			Expect(fields).To(HaveKey("status"))
+			_, present := fields["phase"]
+			Expect(present).To(BeFalse())
+		})
+
+		It("topic set on an unrelated key leaves a page with no phase line without inventing a phase", func() {
+			vaultPath, configPath, cleanup := createTempVaultWithTopicPages(
+				"Topics",
+				map[string]string{
+					"No Phase": "---\nstatus: backlog\n---\n# No Phase\n",
+				},
+				nil,
+			)
+			defer cleanup()
+
+			cmd := exec.Command(
+				binPath, "--config", configPath, "--vault", "test",
+				"topic", "set", "No Phase", "assignee", "alice",
+			)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(0))
+
+			content, err := os.ReadFile(filepath.Join(vaultPath, "Topics", "No Phase.md"))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(content)).NotTo(ContainSubstring("phase:"))
+			Expect(string(content)).To(ContainSubstring("assignee: alice"))
+		})
+
+		It("topic lint reports no phase mismatch for a consistent pair and one for an inconsistent pair", func() {
+			_, configPath, cleanup := createTempVaultWithTopicPages(
+				"Topics",
+				map[string]string{
+					"Phase Target": "---\nstatus: in_progress\nphase: execution\n---\n# Phase Target\n",
+				},
+				nil,
+			)
+			defer cleanup()
+
+			cleanCmd := exec.Command(
+				binPath, "--config", configPath, "--vault", "test", "topic", "lint",
+			)
+			cleanSession, err := gexec.Start(cleanCmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(cleanSession).Should(gexec.Exit(0))
+			Expect(string(cleanSession.Out.Contents())).NotTo(ContainSubstring("STATUS_PHASE_MISMATCH"))
+
+			setCmd := exec.Command(
+				binPath, "--config", configPath, "--vault", "test",
+				"topic", "set", "Phase Target", "phase", "done",
+			)
+			setSession, err := gexec.Start(setCmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(setSession).Should(gexec.Exit(0))
+
+			badCmd := exec.Command(
+				binPath, "--config", configPath, "--vault", "test", "topic", "lint",
+			)
+			badSession, err := gexec.Start(badCmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(badSession).Should(gexec.Exit(1))
+
+			out := string(badSession.Out.Contents())
+			Expect(out).To(ContainSubstring("STATUS_PHASE_MISMATCH"))
+			Expect(out).To(ContainSubstring("Phase Target.md"))
+		})
+
+		It("topic set, get and clear round-trip a frontmatter key on disk", func() {
+			vaultPath, configPath, cleanup := createTempVaultWithTopicPages(
+				"Topics",
+				map[string]string{
+					"Round Trip": "---\nstatus: in_progress\n---\n# Round Trip\n",
+				},
+				nil,
+			)
+			defer cleanup()
+
+			topicPath := filepath.Join(vaultPath, "Topics", "Round Trip.md")
+
+			setCmd := exec.Command(
+				binPath, "--config", configPath, "--vault", "test",
+				"topic", "set", "Round Trip", "owner", "alice",
+			)
+			setSession, err := gexec.Start(setCmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(setSession).Should(gexec.Exit(0))
+
+			content, err := os.ReadFile(topicPath)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(content)).To(ContainSubstring("owner: alice"))
+
+			getCmd := exec.Command(
+				binPath, "--config", configPath, "--vault", "test",
+				"topic", "get", "Round Trip", "owner",
+			)
+			getSession, err := gexec.Start(getCmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(getSession).Should(gexec.Exit(0))
+			Expect(string(getSession.Out.Contents())).To(Equal("alice\n"))
+
+			clearCmd := exec.Command(
+				binPath, "--config", configPath, "--vault", "test",
+				"topic", "clear", "Round Trip", "owner",
+			)
+			clearSession, err := gexec.Start(clearCmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(clearSession).Should(gexec.Exit(0))
+
+			cleared, err := os.ReadFile(topicPath)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(cleared)).NotTo(ContainSubstring("owner"))
+			Expect(string(cleared)).To(ContainSubstring("status: in_progress"))
+		})
+
+		It("topic add and topic remove round-trip a list field on disk", func() {
+			vaultPath, configPath, cleanup := createTempVaultWithTopicPages(
+				"Topics",
+				map[string]string{
+					"Round Trip": "---\nstatus: in_progress\n---\n# Round Trip\n",
+				},
+				nil,
+			)
+			defer cleanup()
+
+			topicPath := filepath.Join(vaultPath, "Topics", "Round Trip.md")
+
+			addAlpha := exec.Command(
+				binPath, "--config", configPath, "--vault", "test",
+				"topic", "add", "Round Trip", "tags", "alpha",
+			)
+			addAlphaSession, err := gexec.Start(addAlpha, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(addAlphaSession).Should(gexec.Exit(0))
+
+			afterFirst := countTagEntries(topicPath)
+
+			addBeta := exec.Command(
+				binPath, "--config", configPath, "--vault", "test",
+				"topic", "add", "Round Trip", "tags", "beta",
+			)
+			addBetaSession, err := gexec.Start(addBeta, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(addBetaSession).Should(gexec.Exit(0))
+
+			afterSecond := countTagEntries(topicPath)
+			Expect(afterSecond).To(Equal(afterFirst + 1))
+
+			removeCmd := exec.Command(
+				binPath, "--config", configPath, "--vault", "test",
+				"topic", "remove", "Round Trip", "tags", "alpha",
+			)
+			removeSession, err := gexec.Start(removeCmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(removeSession).Should(gexec.Exit(0))
+
+			afterRemove := countTagEntries(topicPath)
+			Expect(afterRemove).To(Equal(afterSecond - 1))
+		})
+
+		It("topic complete moves the status to completed and refuses a second complete", func() {
+			vaultPath, configPath, cleanup := createTempVaultWithTopicPages(
+				"Topics",
+				map[string]string{
+					"Round Trip": "---\nstatus: in_progress\n---\n# Round Trip\n",
+				},
+				nil,
+			)
+			defer cleanup()
+
+			topicPath := filepath.Join(vaultPath, "Topics", "Round Trip.md")
+
+			completeCmd := exec.Command(
+				binPath, "--config", configPath, "--vault", "test",
+				"topic", "complete", "Round Trip",
+			)
+			completeSession, err := gexec.Start(completeCmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(completeSession).Should(gexec.Exit(0))
+
+			completed, err := os.ReadFile(topicPath)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(completed)).To(ContainSubstring("status: completed"))
+
+			secondCmd := exec.Command(
+				binPath, "--config", configPath, "--vault", "test",
+				"topic", "complete", "Round Trip",
+			)
+			secondSession, err := gexec.Start(secondCmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(secondSession).Should(gexec.Exit(1))
+
+			afterSecond, err := os.ReadFile(topicPath)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(afterSecond).To(Equal(completed))
+		})
+
+		It("topic defer writes defer_date for a relative and an absolute date", func() {
+			vaultPath, configPath, cleanup := createTempVaultWithTopicPages(
+				"Topics",
+				map[string]string{
+					"Round Trip": "---\nstatus: in_progress\n---\n# Round Trip\n",
+				},
+				nil,
+			)
+			defer cleanup()
+
+			topicPath := filepath.Join(vaultPath, "Topics", "Round Trip.md")
+
+			relativeCmd := exec.Command(
+				binPath, "--config", configPath, "--vault", "test",
+				"topic", "defer", "Round Trip", "+7d",
+			)
+			relativeSession, err := gexec.Start(relativeCmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(relativeSession).Should(gexec.Exit(0))
+
+			// The run date is not pinnable in a subprocess, so the expected date is
+			// computed here rather than asserted as a literal. The value is stored as
+			// a quoted YAML string, hence the quotes in the substring.
+			expectedRelative := time.Now().UTC().AddDate(0, 0, 7).Format("2006-01-02")
+			relative, err := os.ReadFile(topicPath)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(relative)).To(ContainSubstring(`defer_date: "` + expectedRelative + `"`))
+
+			absoluteCmd := exec.Command(
+				binPath, "--config", configPath, "--vault", "test",
+				"topic", "defer", "Round Trip", "2027-03-19",
+			)
+			absoluteSession, err := gexec.Start(absoluteCmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(absoluteSession).Should(gexec.Exit(0))
+
+			absolute, err := os.ReadFile(topicPath)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(absolute)).To(ContainSubstring("2027-03-19"))
+		})
+
+		It("topic defer refuses a past date and leaves the page byte-identical", func() {
+			vaultPath, configPath, cleanup := createTempVaultWithTopicPages(
+				"Topics",
+				map[string]string{
+					"Round Trip": "---\nstatus: in_progress\n---\n# Round Trip\n",
+				},
+				nil,
+			)
+			defer cleanup()
+
+			topicPath := filepath.Join(vaultPath, "Topics", "Round Trip.md")
+
+			before, err := os.ReadFile(topicPath)
+			Expect(err).NotTo(HaveOccurred())
+
+			cmd := exec.Command(
+				binPath, "--config", configPath, "--vault", "test",
+				"topic", "defer", "Round Trip", "2000-01-01",
+			)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(1))
+
+			after, err := os.ReadFile(topicPath)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(after).To(Equal(before))
+		})
+
+		It("topic lint reports a seeded duplicate key and passes a clean page", func() {
+			vaultPath, configPath, cleanup := createTempVaultWithTopicPages(
+				"Topics",
+				map[string]string{
+					"Dupe":  "---\nstatus: in_progress\nstatus: in_progress\n---\n# Dupe\n",
+					"Clean": "---\nstatus: in_progress\n---\n# Clean\n",
+				},
+				nil,
+			)
+			defer cleanup()
+
+			cmd := exec.Command(binPath, "--config", configPath, "--vault", "test", "topic", "lint")
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(1))
+
+			out := string(session.Out.Contents())
+			Expect(out).To(ContainSubstring("Dupe.md"))
+			Expect(out).To(ContainSubstring("DUPLICATE_KEY"))
+			Expect(out).NotTo(ContainSubstring("Clean.md"))
+
+			Expect(os.Remove(filepath.Join(vaultPath, "Topics", "Dupe.md"))).To(Succeed())
+
+			cleanCmd := exec.Command(binPath, "--config", configPath, "--vault", "test", "topic", "lint")
+			cleanSession, err := gexec.Start(cleanCmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(cleanSession).Should(gexec.Exit(0))
+			Expect(string(cleanSession.Out.Contents())).To(ContainSubstring("No lint issues found"))
+		})
+
+		It("topic search reaches the semantic search operation under a PATH that cannot resolve semantic-search-mcp", func() {
+			_, configPath, cleanup := createTempVaultWithTopicPages(
+				"Topics",
+				map[string]string{
+					"Attention Routing": "---\nstatus: in_progress\n---\nattention routing marker\n",
+				},
+				nil,
+			)
+			defer cleanup()
+
+			cmd := exec.Command(
+				binPath, "--config", configPath, "--vault", "test",
+				"topic", "search", "attention routing",
+			)
+			// Run the command with an environment whose PATH cannot resolve
+			// semantic-search-mcp. The inherited PATH is removed rather than
+			// shadowed, so exactly one PATH reaches the child and the lookup fails
+			// deterministically on every host — the container and a developer
+			// machine alike.
+			env := make([]string, 0, len(os.Environ())+1)
+			for _, entry := range os.Environ() {
+				if strings.HasPrefix(entry, "PATH=") {
+					continue
+				}
+				env = append(env, entry)
+			}
+			cmd.Env = append(env, "PATH=/usr/bin:/bin")
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+
+			// The child runs with a PATH that cannot resolve semantic-search-mcp, so
+			// exec.LookPath fails on every host — the container and a developer
+			// machine alike — and this spec no longer depends on where the binary
+			// happens to be installed. The failure names the missing binary, which
+			// is what proves the invocation reached the search operation rather than
+			// stopping at the CLI layer.
+			Eventually(session).Should(gexec.Exit(1))
+
+			combined := string(session.Out.Contents()) + string(session.Err.Contents())
+			Expect(combined).To(ContainSubstring("semantic-search-mcp not found on PATH"))
+
+			Expect(string(session.Out.Contents())).NotTo(ContainSubstring("unknown command"))
+			Expect(string(session.Err.Contents())).NotTo(ContainSubstring("unknown command"))
+		})
+
+		It("topic list returns exactly the pages on disk in the configured directory", func() {
+			vaultPath, configPath, cleanup := createTempVaultWithTopicPages(
+				"Topics",
+				map[string]string{
+					"Attention Routing": "---\nstatus: in_progress\n---\n",
+					"Second Topic":      "---\nstatus: backlog\n---\n",
+				},
+				nil,
+			)
+			defer cleanup()
+
+			topicsDirPath := filepath.Join(vaultPath, "Topics")
+			Expect(os.WriteFile(
+				filepath.Join(topicsDirPath, "notes.txt"), []byte("not a page"), 0600,
+			)).To(Succeed())
+			Expect(os.MkdirAll(filepath.Join(topicsDirPath, "Nested"), 0755)).To(Succeed())
+			Expect(os.WriteFile(
+				filepath.Join(topicsDirPath, "Nested", "Hidden.md"), []byte("---\n---\n"), 0600,
+			)).To(Succeed())
+
+			// --all so the backlog page is not dropped by the default
+			// next/todo/in_progress status filter the generic list shares with goals.
+			cmd := exec.Command(
+				binPath, "--config", configPath, "--vault", "test",
+				"topic", "list", "--all", "--output", "json",
+			)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(0))
+
+			var items []map[string]any
+			Expect(json.Unmarshal(session.Out.Contents(), &items)).To(Succeed())
+			Expect(items).To(HaveLen(2))
+		})
+
+		It("topic list uses a configured-but-absent directory verbatim without falling back", func() {
+			vaultPath, configPath, cleanup := createTempVaultWithTopics("Absent Topics")
+			defer cleanup()
+
+			cmd := exec.Command(
+				binPath, "--config", configPath, "--vault", "test",
+				"topic", "list", "--output", "json",
+			)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(0))
+
+			var items []map[string]any
+			Expect(json.Unmarshal(session.Out.Contents(), &items)).To(Succeed())
+			Expect(items).To(BeEmpty())
+
+			// The default topics directory must not have been created as a fallback.
+			_, statErr := os.Stat(filepath.Join(vaultPath, "23 Topics"))
+			Expect(os.IsNotExist(statErr)).To(BeTrue())
+		})
+
+		It("topic show refuses a nonexistent topic with a non-zero exit", func() {
+			_, configPath, cleanup := createTempVaultWithTopicPages(
+				"Topics",
+				map[string]string{
+					"Real Topic": "---\nstatus: in_progress\n---\n",
+				},
+				nil,
+			)
+			defer cleanup()
+
+			cmd := exec.Command(
+				binPath, "--config", configPath, "--vault", "test",
+				"topic", "show", "Nonexistent",
+			)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(1))
+		})
+
+		It("topic show surfaces a non-canonical phase value without rejecting the page", func() {
+			_, configPath, cleanup := createTempVaultWithTopicPages(
+				"Topics",
+				map[string]string{
+					"Odd Phase": "---\nstatus: in_progress\nphase: whatever-the-vault-holds\n---\n",
+				},
+				nil,
+			)
+			defer cleanup()
+
+			cmd := exec.Command(
+				binPath, "--config", configPath, "--vault", "test",
+				"topic", "show", "Odd Phase", "--output", "json",
+			)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(0))
+
+			var parsed map[string]any
+			Expect(json.Unmarshal(session.Out.Contents(), &parsed)).To(Succeed())
+			fields, ok := parsed["fields"].(map[string]any)
+			Expect(ok).To(BeTrue())
+			Expect(fields["phase"]).To(Equal("whatever-the-vault-holds"))
+		})
+
+		It("topic show and topic set refuse a traversal name and touch nothing outside the topics directory", func() {
+			vaultPath, configPath, cleanup := createTempVaultWithTopicPages(
+				"Topics",
+				map[string]string{
+					"Real Topic": "---\nstatus: in_progress\n---\n",
+				},
+				nil,
+			)
+			defer cleanup()
+
+			outsidePath := filepath.Join(vaultPath, "outside-file.md")
+			outsideContent := []byte("---\nstatus: in_progress\nowner: untouched\n---\n# Outside\n")
+			Expect(os.WriteFile(outsidePath, outsideContent, 0600)).To(Succeed())
+
+			showCmd := exec.Command(
+				binPath, "--config", configPath, "--vault", "test",
+				"topic", "show", "../outside-file",
+			)
+			showSession, err := gexec.Start(showCmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(showSession).Should(gexec.Exit(1))
+
+			setCmd := exec.Command(
+				binPath, "--config", configPath, "--vault", "test",
+				"topic", "set", "../outside-file", "owner", "alice",
+			)
+			setSession, err := gexec.Start(setCmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(setSession).Should(gexec.Exit(1))
+
+			after, err := os.ReadFile(outsidePath)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(after).To(Equal(outsideContent))
+		})
+
+		It("topic work-on moves the page into its in-progress state and reports a session outcome", func() {
+			vaultPath, configPath, cleanup := createTempVaultWithTopicPages(
+				"Topics",
+				map[string]string{
+					"Round Trip": "---\nstatus: backlog\n---\n# Round Trip\n",
+				},
+				nil,
+			)
+			defer cleanup()
+
+			cmd := exec.Command(
+				binPath, "--config", configPath, "--vault", "test",
+				"topic", "work-on", "Round Trip", "--mode", "headless",
+			)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session, 30*time.Second).Should(gexec.Exit(0))
+
+			out := string(session.Out.Contents())
+			Expect(out).NotTo(ContainSubstring("Usage:"))
+			Expect(out).To(ContainSubstring("Now working on:"))
+
+			content, err := os.ReadFile(filepath.Join(vaultPath, "Topics", "Round Trip.md"))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(content)).To(ContainSubstring("status: in_progress"))
+			Expect(string(content)).To(ContainSubstring("assignee: tester@example.com"))
 		})
 	})
 

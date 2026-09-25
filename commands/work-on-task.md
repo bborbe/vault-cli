@@ -1,10 +1,18 @@
 ---
 description: Find task details, transition Jira, set status, track on daily note, discover guides, then auto-chain planning → execution (non-interactive chains too, printing gaps instead of asking)
 argument-hint: "<jira-id-or-text> [--non-interactive]"
-allowed-tools: [Task, AskUserQuestion, Skill, Bash(vault-cli *)]
+allowed-tools: [Task, AskUserQuestion, Skill, ListAgents, SendMessage, Bash(vault-cli *)]
 ---
 
 Find task details and relevant operational guides before starting work. Delegates to the `vault-cli:work-on-task-assistant` agent (which is the heavy lifter).
+
+## You are a worker — and you have a manager
+
+If a manager session watches your topic, it is the channel for questions you would otherwise write into this chat, where only someone in this tab can see them. **Content questions** — "should I do X or Y", "this spec is ambiguous", or a gap you would otherwise raise with `AskUserQuestion` — go to it. **Permission prompts never do**: a peer message cannot release a harness gate, so routing one upward stalls you on a reply that never comes — answer it in your own tab.
+
+Reach it by name with `SendMessage`, setting `to` to exactly what `ListAgents` prints. An explicit name given at spawn wins; otherwise take the `ListAgents` row matching your task's topic (`<Topic>` or `<Topic> Manager`; your `goals:` name the goals, and the topic page listing them is your topic). Nothing resolves, or the tools are absent → raise the question in this chat and keep working. **Never block on a manager reply** — it drains at the manager's next tool round, not yours.
+
+**This covers the questions raised inside both chained commands** — `/plan-task` § 6, where a spawned worker most often asks, and `/execute-task`'s step 1 ambiguity ask. Send it *as well as* asking it in this tab: the ask is what unblocks you, the send is what makes the question visible without the operator visiting this tab.
 
 ## Usage
 

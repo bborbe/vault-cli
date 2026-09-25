@@ -10,7 +10,7 @@ Invoke goal-manager-agent for fast sanity checks: status valid, subtasks exist, 
 
 <process>
 1. Parse goal path from $ARGUMENTS
-   - If no path prefix, prepend `23 Goals/`
+   - If no path prefix, prepend `<goals_dir>` (resolved from vault-cli config — never a hardcoded folder name)
    - If no `.md` extension, append it
 2. Invoke goal-manager-agent with:
    - ACTION: "verify"

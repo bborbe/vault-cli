@@ -126,7 +126,7 @@ binding: <free text>                             # optional — the hard deadlin
 
 ### Dependencies (`blocked_by`)
 
-`blocked_by` declares the goals this goal cannot start before. It is a YAML list of goal names; each entry may be a plain name (`Blocker Goal`) or a wikilink (`[[Blocker Goal]]`) — both forms resolve the same way. A scalar value (`blocked_by: Blocker Goal`) is malformed and reads as an empty list, so it never blocks.
+`blocked_by` declares the goals this goal cannot start before. It is a YAML list of goal names; each entry may be a plain name (`Blocker Goal`) or a wikilink (`[[Blocker Goal]]`) — both forms resolve the same way. A scalar value (`blocked_by: Blocker Goal`) is malformed and reads as an empty list, so it never blocks. `vault-cli goal lint` reports a goal whose `blocked_by` is shaped this way; `vault-cli task validate` and `vault-cli task lint` report the task-side equivalent.
 
 Names match goal files in the goals directory, ignoring case and stripping the `[[` `]]` brackets. Resolution is same-kind only: a goal's blockers are goals, never tasks, and never another kind; the lookup is exact-name — a substring is not a match.
 
@@ -136,7 +136,20 @@ Blocked state is derived and is never written. Nothing sets `status: hold` from 
 
 Where it surfaces: `vault-cli goal list --output json` emits `blocked_by` (the raw list) and a computed `blocked` boolean for any goal that declares a dependency list; a goal with no `blocked_by` emits neither key. `/vault-cli:next-task` does not recommend a goal or task whose `blocked` flag is true.
 
-To clear a dependency list, `vault-cli goal clear "<name>" blocked_by` removes the key; `vault-cli goal set "<name>" blocked_by ""` empties the effective list. Either makes the goal read as unblocked again.
+**Recording a dependency.** One entry per invocation, appended to whatever list is already there:
+
+```
+vault-cli goal add "<name>" blocked_by "[[Blocker Goal]]"
+```
+
+`add` never clobbers an existing entry; drop one with `vault-cli goal remove "<name>" blocked_by "[[Blocker Goal]]"`. `set` is not the recording path — `vault-cli goal set "<name>" blocked_by "[[Blocker Goal]]"` is refused, because `set` has no list form for this field. `set "<name>" blocked_by ""` and `clear "<name>" blocked_by` remain the two clears.
+
+**Repairing a scalar-shaped file.** Clear the malformed value first, then record the entry you meant:
+
+```
+vault-cli goal set "<name>" blocked_by ""     # or: vault-cli goal clear "<name>" blocked_by
+vault-cli goal add "<name>" blocked_by "[[Blocker Goal]]"
+```
 
 ### Required sections
 
@@ -311,6 +324,45 @@ Why: Obsidian renders `[[Wikilinks]]` as clickable; clicking auto-creates the ta
 - No `/`, `.`, backticks, `:`, `*`, `?`, `"`, `<`, `>`, `|` (Obsidian filename rules)
 - Optional one-line context after the wikilink: `1. [[Task Title]] — context (→ SC2)`
 
+> **2026-09-19 — the goal-side list is no longer written by tooling.**
+> `# Tasks` is a denormalised copy of the tasks' own `goals:` frontmatter, and it drifted
+> from it: measured in the Personal vault, **111 of 259** non-terminal declarations had no
+> matching entry, and the largest ongoing class was attached to tasks *after* creation, on
+> a path where no code runs at all (a hand edit in Obsidian). `task-creator` no longer
+> appends here and `vault-cli task complete` no longer flips a checkbox here. The list is
+> **derived from `goals:` frontmatter**; a copy that no writer can keep in step is not
+> repaired by writing harder on the one path that does run.
+>
+> The format rules above still describe what a rendered entry looks like, because existing
+> pages still carry a stored list. Migrating them to the derived form is a separate batch.
+> Until it lands, **treat a stored `# Tasks` entry as a cache that may be stale, not as the
+> membership record** — the membership record is `goals:` frontmatter on the tasks.
+>
+> **How a program enumerates a goal's tasks** (the contract, unchanged and already
+> available — no consumer needs to scan the directory itself):
+>
+> ```bash
+> vault-cli task list --goal "[[Goal Name]]" --all
+> ```
+>
+> The filter compares the **raw frontmatter value** (`taskHasGoal` is a plain `g == goal`),
+> so the wikilink brackets are required — and the failure mode is worse than an empty
+> result. Verified 2026-09-19:
+>
+> ```
+> --goal "[[Fleet Communication]]"  →  a list of 56
+> --goal "Fleet Communication"      →  JSON null, exit 0
+> ```
+>
+> **`null`, not `[]`.** A consumer calling `len()` on it crashes with a type error pointing
+> nowhere near the cause; one testing truthiness reads it as *"this goal has no tasks"* and
+> reports a clean sweep. Both wrong, neither loud. Any implementation must treat `null` as
+> an **error**, not as empty.
+>
+> Consumers that used to cross-check the stored `# Tasks` list against frontmatter —
+> `/supervisor:worker-manager`'s goal branch is one — now have one side only, and must read
+> both sides from frontmatter.
+
 ### Foundation/skeleton work
 
 Tasks that enable but don't directly advance an SC are allowed when **explicitly framed** as foundation:
@@ -343,6 +395,8 @@ Borrowed from `~/Documents/workspaces/dark-factory/docs/rules/spec-writing.md` �
 | Metric delta | "counter `foo_total{label=x}` increments by N after action" |
 | Negative evidence | "`grep ERROR run.log` returns 0 lines during the test window" |
 | File artifact | "task file under `tasks_dir/` exists with frontmatter `goal: [[X]]`" |
+
+**Every shape above is also a producibility claim.** Before accepting one, confirm the mechanism the SC names can emit that kind of artifact *at all* — an inline slash command has no subprocess, so the `Exit code` row above is unavailable to it; a file the system never writes cannot evidence anything. Stated once in `docs/task-writing.md` § Evidence Shape; cited here, not restated.
 
 ### Bad SCs (no evidence shape)
 

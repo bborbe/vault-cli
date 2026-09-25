@@ -9,7 +9,7 @@ Invoke the task-auditor agent to audit the task at $ARGUMENTS for compliance wit
 
 <process>
 1. Parse task path from $ARGUMENTS
-   - If no path prefix, prepend `24 Tasks/`
+   - If no path prefix, prepend `<tasks_dir>` (resolved from vault-cli config — never a hardcoded folder name)
    - If no `.md` extension, append it
 2. Invoke task-auditor agent with the task path
 3. Agent reads Task Writing Guide and Task Template first

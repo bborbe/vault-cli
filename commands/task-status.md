@@ -61,19 +61,20 @@ Build it inline per `docs/output-formatting.md` § Anchor pair (link rule, sessi
 **Vault identity** — obsidian vault name = basename of the matching vault's `path` from `vault-cli config list --output json` (NOT the lowercase config `name`):
 
 ```bash
-read -r VAULT_NAME VAULT_PATH GOALS_DIR <<< "$(vault-cli config list --output json | python3 -c "
+IFS=$'\t' read -r VAULT_NAME VAULT_PATH GOALS_DIR <<< "$(vault-cli config list --output json | python3 -c "
 import sys, json, os
 vs = json.load(sys.stdin); cwd = os.getcwd()
 v = next((x for x in vs if cwd.startswith(x['path'])), vs[0])
-print(v['path'].rstrip('/').split('/')[-1], v['path'], v.get('goals_dir','23 Goals'))")"
+print('\t'.join([v['path'].rstrip('/').split('/')[-1], v['path'], v.get('goals_dir','Goals')]))")"
 ```
+
+The separator is a **tab**, not a space: `goals_dir` legitimately contains a space (`24 Goals`), and a space-separated `read` splits it — yielding `GOALS_DIR=24`, silently, with no error. Do not "simplify" the join back to a space.
 
 **Goal resolution** — the task's `goals:` frontmatter, first entry, `|alias` stripped:
 
 ```bash
 GOAL_TITLE="$(grep -m1 '^goals:' -A1 "$TASK_PATH" | grep -oE '\[\[[^]]*\]\]' | head -1 | sed 's/\[\[//; s/\]\]//; s/|.*//')"
 GOAL_FILE="$VAULT_PATH/$GOALS_DIR/$GOAL_TITLE.md"
-[ -f "$GOAL_FILE" ] || GOAL_FILE="$VAULT_PATH/22 Goals/$GOAL_TITLE.md"
 ```
 
 - No `goals:` frontmatter → `🎯 Goal: (no goal linked)` (pair still emitted).

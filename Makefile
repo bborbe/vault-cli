@@ -64,6 +64,8 @@ endif
 test:
 	go test -mod=mod -count=1 -p=$${GO_TEST_PARALLEL:-1} -cover $(TESTFLAGS_RACE) $(shell go list -mod=mod ./... | grep -v /vendor/)
 	@bash scripts/daily-note-has-entry-test.sh
+	@bash scripts/goal-task-link-count-test.sh
+	@bash scripts/struck-row-rule-test.sh
 
 .PHONY: check
 check: lint vet vulncheck osv-scanner trivy check-changelog
@@ -76,7 +78,10 @@ lint:
 vet:
 	go vet -mod=mod $(shell go list -mod=mod ./... | grep -v /vendor/)
 
-VULNCHECK_IGNORE ?= GO-2026-4923 GO-2026-4514 GO-2022-0470 GO-2026-4772 GO-2026-4771
+# GO-2026-5932: golang.org/x/crypto/openpgp is unmaintained and unsafe by design;
+# reached transitively through the escalation transport's new deps (bborbe/cqrs,
+# bborbe/kafka, bborbe/notification), no fixed version is published.
+VULNCHECK_IGNORE ?= GO-2026-4923 GO-2026-4514 GO-2022-0470 GO-2026-4772 GO-2026-4771 GO-2026-5932
 
 .PHONY: vulncheck
 vulncheck:

@@ -23,7 +23,7 @@ Inline. If the command was invoked with a goal argument, use it directly. Otherw
 2. Most recent `[[Goal Name]]` wikilink referenced as a goal subject (not generic prose mention).
 3. Daily note's first `[/]` checkbox's linked goal.
 
-Resolve the detected name via `Glob` `<goals_dir>/*<arg>*.md` (fallback `<goals_dir>` = `23 Goals/`, then `22 Goals/` for compatibility). Multiple matches → list candidates, ask via `AskUserQuestion`. Zero → `❌ No active goal detected. Pass a goal name or path.` STOP.
+Resolve the detected name via `Glob` `<goals_dir>/*<arg>*.md`, with `<goals_dir>` read from vault-cli config — never a hardcoded folder name, because vaults renumber their directories and a stale literal silently resolves nothing. Multiple matches → list candidates, ask via `AskUserQuestion`. Zero → `❌ No active goal detected. Pass a goal name or path.` STOP.
 
 Print `Detected goal: <name>` on first line so the owner can interrupt if wrong before Phase 3 runs, followed by the always-shown Async State Closer anchor pair:
 
@@ -41,14 +41,16 @@ Build it inline per `docs/output-formatting.md` § Anchor pair (link rule, sessi
 **Vault identity** — obsidian vault name = basename of the matching vault's `path` from `vault-cli config list --output json` (NOT the lowercase config `name`):
 
 ```bash
-read -r VAULT_NAME VAULT_PATH GOALS_DIR TASKS_DIR <<< "$(vault-cli config list --output json | python3 -c "
+IFS=$'\t' read -r VAULT_NAME VAULT_PATH GOALS_DIR TASKS_DIR <<< "$(vault-cli config list --output json | python3 -c "
 import sys, json, os
 vs = json.load(sys.stdin); cwd = os.getcwd()
 v = next((x for x in vs if cwd.startswith(x['path'])), vs[0])
-print(v['path'].rstrip('/').split('/')[-1], v['path'], v.get('goals_dir','23 Goals'), v.get('tasks_dir','24 Tasks'))")"
+print('\t'.join([v['path'].rstrip('/').split('/')[-1], v['path'], v.get('goals_dir','Goals'), v.get('tasks_dir','Tasks')]))")"
 ```
 
-**Next-task resolution** — walk the goal's `# Tasks` list items **in listed order** (same rule as `execute-goal.md` step 7): each item's task is its **leading `[[...]]` only** (`|alias` stripped). For each task resolve to `<TASKS_DIR>/<Task Title>.md` and read its status via `vault-cli task get "<title>" status --output json`. **Next open task** = the first *resolving* task whose status is NOT `completed` and NOT `aborted`:
+The separator is a **tab**, not a space: `goals_dir` and `tasks_dir` legitimately contain spaces (`24 Goals`, `25 Tasks`), and a space-separated `read` splits them — yielding `GOALS_DIR=24` and `TASKS_DIR=Goals 25 Tasks`, silently, with no error. Do not "simplify" the join back to a space.
+
+**Next-task resolution** — walk the goal's `# Tasks` list items **in listed order** (same rule as `execute-goal.md` step 7): each item's task is its **leading `[[...]]` only** (`|alias` stripped). **Skip struck rows** (`- [ ] ~~[[Task]]~~`) — a task retired from the tracked set is not the goal's next open task, and the walk keys on list items rather than checkboxes, so without the skip it resolves and wins (`docs/output-formatting.md` § Conditional segments). For each remaining task resolve to `<TASKS_DIR>/<Task Title>.md` and read its status via `vault-cli task get "<title>" status --output json`. **Next open task** = the first *resolving* task whose status is NOT `completed` and NOT `aborted`:
 
 - No task wikilinks at all under `# Tasks` → `📌 Task: none — no tasks under # Tasks`.
 - No open task (all complete / only aborted remain) → `📌 Task: none — all tasks complete`.

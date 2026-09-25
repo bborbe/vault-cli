@@ -11,7 +11,7 @@ Go CLI tool for managing Obsidian vault tasks, goals, themes, objectives, vision
 
 Fast CRUD operations for Obsidian markdown files (tasks, goals, themes, objectives, visions, decisions) without spawning full Claude Code sessions.
 
-Standalone-usable — pure local filesystem I/O against an Obsidian vault. No Kafka, no Kubernetes, no cluster. Works against any Obsidian vault that follows the bborbe frontmatter conventions.
+Standalone-usable — local filesystem I/O against an Obsidian vault. No Kubernetes, no cluster. Works against any Obsidian vault that follows the bborbe frontmatter conventions. It opens a Kafka broker connection only when the optional `notification` section of the config file names brokers; with no brokers configured it publishes nothing and connects nowhere.
 
 ## Where this fits in the bigger picture
 
@@ -22,7 +22,7 @@ vault-cli is the **operator-side surface** for the bborbe task / agent system:
 - The reference AI agents in [bborbe/agent](https://github.com/bborbe/agent) import `vault-cli/pkg/domain` for the shared vault types
 - Manual `/vault-cli:create-task` is one of the ways a task enters the broader Kafka task pipeline
 
-vault-cli itself is **not** a pipeline participant: it never produces or consumes Kafka events. It reads and mutates the vault that the pipeline materializes.
+vault-cli reads and mutates the vault that the pipeline materializes. Its only pipeline write is opt-in and narrow: when the config file names brokers, clearing a task's assignee publishes one `agent-escalation` notification into the shared notification core, so a park performed by hand tells the agent side what happened.
 
 Full system map: [recurring-task-creator/docs/system-map.md](https://github.com/bborbe/recurring-task-creator/blob/master/docs/system-map.md).
 
@@ -55,6 +55,21 @@ vaults:
     tasks_dir: "40 Tasks"
     daily_dir: "60 Periodic Notes/Daily"
 ```
+
+### Notification (optional)
+
+Clearing a task's assignee — `vault-cli task set "<task>" assignee ""` or `vault-cli task clear "<task>" assignee` — publishes one `agent-escalation` notification into the shared notification core, so a park performed by hand reaches the operator's chat. This is opt-in and off by default: omit the section and vault-cli never opens a broker connection.
+
+```yaml
+notification:
+  brokers: "broker-1:9092,broker-2:9092"
+  topic_prefix: "master"
+```
+
+- `brokers` — comma-separated broker addresses. Empty or absent means no publish and no connection attempt.
+- `topic_prefix` — the deployment's Kafka topic prefix, the same value the consuming services derive from their branch (`master` in prod, `develop` in dev). A producer that omits it publishes into a topic nothing consumes.
+
+The publish is bounded to a single attempt of five seconds. A failure or an unreachable broker is logged, never fails the command, never changes its exit code or output, and never delays it past that bound.
 
 ## Usage
 
@@ -125,6 +140,23 @@ vault-cli objective search "Q2 goals"      # Semantic search in objectives
 vault-cli vision list                      # List vision items
 vault-cli vision lint                      # Detect frontmatter issues
 vault-cli vision search "long-term growth" # Semantic search in vision
+```
+
+### topic
+
+```bash
+vault-cli topic list                                  # List topics
+vault-cli topic lint                                  # Detect frontmatter issues
+vault-cli topic search "attention routing"            # Semantic search in topics
+vault-cli topic show "Attention Routing"              # Show full topic detail
+vault-cli topic get "Attention Routing" phase         # Get a frontmatter field
+vault-cli topic set "Attention Routing" owner alice   # Set a frontmatter field
+vault-cli topic clear "Attention Routing" owner       # Clear a frontmatter field
+vault-cli topic add "Attention Routing" tags focus    # Add a value to a list field
+vault-cli topic remove "Attention Routing" tags focus # Remove a value from a list field
+vault-cli topic complete "Attention Routing"          # Mark a topic as complete
+vault-cli topic defer "Attention Routing" +7d         # Defer a topic to a specific date
+vault-cli topic work-on "Attention Routing"           # Mark in_progress and start a Claude session
 ```
 
 ### decision

@@ -45,6 +45,25 @@ func getVaults(
 	return (*configLoader).GetAllVaults(ctx)
 }
 
+// escalationPublisher builds the optional escalation publisher from the
+// operator's config. A config that names no brokers yields a publisher that
+// publishes nothing and opens no connection, so a standalone vault-cli behaves
+// exactly as it did before this feature existed.
+func escalationPublisher(
+	ctx context.Context,
+	configLoader *config.Loader,
+) (ops.EscalationPublisher, error) {
+	cfg, err := (*configLoader).Load(ctx)
+	if err != nil {
+		return nil, errors.Wrap(ctx, err, "load config")
+	}
+	return ops.NewEscalationPublisher(
+		cfg.Notification.Brokers,
+		cfg.Notification.TopicPrefix,
+		ops.NewKafkaNotificationSenderFactory(),
+	), nil
+}
+
 // getWatchVaults returns the vaults the watch command should watch.
 //
 // A comma-separated value selects exactly the named vaults: whitespace around
@@ -167,6 +186,7 @@ func NewRootCommand(ctx context.Context) *cobra.Command {
 	rootCmd.AddCommand(createTaskCommands(ctx, &configLoader, &vaultName, &outputFormat))
 
 	rootCmd.AddCommand(createGoalCommands(ctx, &configLoader, &vaultName, &outputFormat))
+	rootCmd.AddCommand(createTopicCommands(ctx, &configLoader, &vaultName, &outputFormat))
 	rootCmd.AddCommand(createThemeCommands(ctx, &configLoader, &vaultName, &outputFormat))
 	rootCmd.AddCommand(createObjectiveCommands(ctx, &configLoader, &vaultName, &outputFormat))
 	rootCmd.AddCommand(createVisionCommands(ctx, &configLoader, &vaultName, &outputFormat))
@@ -236,7 +256,6 @@ func createCompleteCommand(
 				func(ctx context.Context, vault *config.Vault) (ops.MutationResult, error) {
 					storageConfig := storage.NewConfigFromVault(vault)
 					taskStore := storage.NewTaskStorage(storageConfig)
-					goalStore := storage.NewGoalStorage(storageConfig)
 					dailyStore := storage.NewDailyNoteStorage(storageConfig)
 					interactionCounter, err := completeInteractionCounter(ctx, vault)
 					if err != nil {
@@ -244,7 +263,6 @@ func createCompleteCommand(
 					}
 					completeOp := ops.NewCompleteOperation(
 						taskStore,
-						goalStore,
 						dailyStore,
 						currentDateTime,
 						interactionCounter,
@@ -1476,6 +1494,7 @@ func createGoalCompleteCommand(
 	return cmd
 }
 
+//nolint:dupl // Structurally parallel to the topic variant; frozen entity-specific strings prevent dedup
 func createGoalDeferCommand(
 	ctx context.Context,
 	configLoader *config.Loader,
@@ -1583,6 +1602,248 @@ func createWorkOnGoalCommand(
 					ctx,
 					vault.Path,
 					goalName,
+					currentUser,
+					vault.Name,
+					isInteractive,
+					sessionDir,
+					vault,
+				)
+				return formatWorkOnResult(result, err, currentUser, *outputFormat)
+			})
+		},
+	}
+
+	cmd.Flags().StringVar(&mode, "mode", "auto", "Session mode: auto, interactive, or headless")
+	return cmd
+}
+
+//nolint:dupl // Command groups are structurally similar but manage distinct entity types
+func createTopicCommands(
+	ctx context.Context,
+	configLoader *config.Loader,
+	vaultName *string,
+	outputFormat *string,
+) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "topic",
+		Short: "Manage topics in the vault",
+	}
+	cmd.AddCommand(
+		createGenericListCommand(
+			ctx, configLoader, vaultName, "topics",
+			func(c *storage.Config) string { return c.TopicsDir },
+			outputFormat,
+		),
+	)
+	cmd.AddCommand(
+		createGenericLintCommand(
+			ctx, configLoader, vaultName, "topic",
+			func(c *storage.Config) string { return c.TopicsDir },
+			func(c *storage.Config) string { return c.TopicsDir },
+			outputFormat,
+		),
+	)
+	cmd.AddCommand(
+		createGenericSearchCommand(
+			ctx, configLoader, vaultName, "topics",
+			func(c *storage.Config) string { return c.TopicsDir },
+			outputFormat,
+		),
+	)
+	cmd.AddCommand(createEntityGetCommand(ctx, configLoader, vaultName, outputFormat, "topic",
+		func(cfg *storage.Config) ops.EntityGetOperation {
+			return ops.NewTopicGetOperation(storage.NewTopicStorage(cfg))
+		},
+	))
+	cmd.AddCommand(createEntitySetCommand(ctx, configLoader, vaultName, outputFormat, "topic",
+		func(cfg *storage.Config) ops.EntitySetOperation {
+			return ops.NewTopicSetOperation(storage.NewTopicStorage(cfg))
+		},
+	))
+	cmd.AddCommand(createEntityClearCommand(ctx, configLoader, vaultName, outputFormat, "topic",
+		func(cfg *storage.Config) ops.EntityClearOperation {
+			return ops.NewTopicClearOperation(storage.NewTopicStorage(cfg))
+		},
+	))
+	cmd.AddCommand(createEntityShowCommand(ctx, configLoader, vaultName, outputFormat, "topic",
+		func(cfg *storage.Config) ops.EntityShowOperation {
+			return ops.NewTopicShowOperation(storage.NewTopicStorage(cfg))
+		},
+	))
+	cmd.AddCommand(createEntityListAddCommand(ctx, configLoader, vaultName, outputFormat, "topic",
+		func(cfg *storage.Config) ops.EntityListAddOperation {
+			return ops.NewTopicListAddOperation(storage.NewTopicStorage(cfg))
+		},
+	))
+	cmd.AddCommand(createEntityListRemoveCommand(ctx, configLoader, vaultName, outputFormat, "topic",
+		func(cfg *storage.Config) ops.EntityListRemoveOperation {
+			return ops.NewTopicListRemoveOperation(storage.NewTopicStorage(cfg))
+		},
+	))
+	cmd.AddCommand(createTopicCompleteCommand(ctx, configLoader, vaultName, outputFormat))
+	cmd.AddCommand(createTopicDeferCommand(ctx, configLoader, vaultName, outputFormat))
+	cmd.AddCommand(createWorkOnTopicCommand(ctx, configLoader, vaultName, outputFormat))
+	return cmd
+}
+
+// createTopicCompleteCommand marks a topic complete.
+//
+// No --force, --reason or --gate-successor: all three are goal close-out machinery
+// for an open-task gate and a status guard topics do not have. An inert flag would
+// be a placeholder rather than the real operation the leaf promises.
+func createTopicCompleteCommand(
+	ctx context.Context,
+	configLoader *config.Loader,
+	vaultName *string,
+	outputFormat *string,
+) *cobra.Command {
+	return &cobra.Command{
+		Use:   "complete <topic-name>",
+		Short: "Mark a topic as complete",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			topicName := args[0]
+
+			vaults, err := getVaults(ctx, configLoader, vaultName)
+			if err != nil {
+				return errors.Wrap(ctx, err, "get vaults")
+			}
+
+			return runMutation(
+				ctx,
+				vaults,
+				*outputFormat,
+				func(ctx context.Context, vault *config.Vault) (ops.MutationResult, error) {
+					storageConfig := storage.NewConfigFromVault(vault)
+					topicStore := storage.NewTopicStorage(storageConfig)
+					completeOp := ops.NewTopicCompleteOperation(topicStore)
+					result, err := completeOp.Execute(ctx, vault.Path, topicName, vault.Name)
+					if err != nil {
+						return result, err
+					}
+					if !OutputFormat(*outputFormat).IsJSON() {
+						fmt.Printf("✅ Topic completed: %s\n", result.Name)
+					}
+					return result, nil
+				},
+			)
+		},
+	}
+}
+
+// createTopicDeferCommand defers a topic to a date.
+//
+//nolint:dupl // Structurally parallel to the goal variant; frozen entity-specific strings prevent dedup
+func createTopicDeferCommand(
+	ctx context.Context,
+	configLoader *config.Loader,
+	vaultName *string,
+	outputFormat *string,
+) *cobra.Command {
+	return &cobra.Command{
+		Use:   "defer <topic-name> [date]",
+		Short: "Defer a topic to a specific date",
+		Long: `Defer a topic to a specific date.
+
+If no date is provided, defaults to +1d (tomorrow).
+
+Date formats:
+  +Nd                        - Relative days (e.g., +7d for 7 days from now)
+  monday                     - Next occurrence of weekday
+  2024-12-31                 - ISO date format (YYYY-MM-DD)
+  2026-03-19T16:00:00+01:00  - Full datetime with timezone`,
+		Args: cobra.RangeArgs(1, 2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			topicName := args[0]
+			dateStr := "+1d"
+			if len(args) > 1 {
+				dateStr = args[1]
+			}
+
+			vaults, err := getVaults(ctx, configLoader, vaultName)
+			if err != nil {
+				return errors.Wrap(ctx, err, "get vaults")
+			}
+
+			currentDateTime := libtime.NewCurrentDateTime()
+
+			return runMutation(
+				ctx,
+				vaults,
+				*outputFormat,
+				func(ctx context.Context, vault *config.Vault) (ops.MutationResult, error) {
+					storageConfig := storage.NewConfigFromVault(vault)
+					topicStore := storage.NewTopicStorage(storageConfig)
+					deferOp := ops.NewTopicDeferOperation(topicStore, currentDateTime)
+					result, err := deferOp.Execute(
+						ctx,
+						vault.Path,
+						topicName,
+						dateStr,
+						vault.Name,
+					)
+					if err != nil {
+						return result, err
+					}
+					if !OutputFormat(*outputFormat).IsJSON() {
+						fmt.Printf("📅 Topic deferred to %s: %s\n", result.Message, result.Name)
+					}
+					return result, nil
+				},
+			)
+		},
+	}
+}
+
+// createWorkOnTopicCommand marks a topic in_progress and starts a Claude session.
+//
+//nolint:dupl // Structurally parallel to the goal variant; frozen entity-specific strings prevent dedup
+func createWorkOnTopicCommand(
+	ctx context.Context,
+	configLoader *config.Loader,
+	vaultName *string,
+	outputFormat *string,
+) *cobra.Command {
+	var mode string
+
+	cmd := &cobra.Command{
+		Use:   "work-on <topic-name>",
+		Short: "Mark a topic as in_progress and start a Claude session",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			topicName := args[0]
+
+			isInteractive, err := resolveSessionMode(ctx, mode)
+			if err != nil {
+				return err
+			}
+
+			currentUser, err := (*configLoader).GetCurrentUser(ctx)
+			if err != nil {
+				return errors.Wrap(ctx, err, "get current user")
+			}
+
+			vaults, err := getVaults(ctx, configLoader, vaultName)
+			if err != nil {
+				return errors.Wrap(ctx, err, "get vaults")
+			}
+
+			dispatcher := ops.NewVaultDispatcher()
+			return dispatcher.FirstSuccess(ctx, vaults, func(vault *config.Vault) error {
+				locker := ops.NewSessionLocker()
+				starter := ops.NewClaudeSessionStarter(vault.GetClaudeScript(), locker)
+				resumer := ops.NewClaudeResumer(vault.GetClaudeScript(), locker)
+				storageConfig := storage.NewConfigFromVault(vault)
+				topicStore := storage.NewTopicStorage(storageConfig)
+				workOnOp := ops.NewTopicWorkOnOperation(topicStore, uuid.NewString, starter, resumer)
+				sessionDir := vault.Path
+				if dir := vault.GetSessionProjectDir(); dir != "" {
+					sessionDir = dir
+				}
+				result, err := workOnOp.Execute(
+					ctx,
+					vault.Path,
+					topicName,
 					currentUser,
 					vault.Name,
 					isInteractive,
@@ -2164,11 +2425,16 @@ func createTaskSetCommand(
 				return errors.Wrap(ctx, err, "get vaults")
 			}
 
+			publisher, err := escalationPublisher(ctx, configLoader)
+			if err != nil {
+				return err
+			}
+
 			dispatcher := ops.NewVaultDispatcher()
 			err = dispatcher.FirstSuccess(ctx, vaults, func(vault *config.Vault) error {
 				storageConfig := storage.NewConfigFromVault(vault)
 				taskStore := storage.NewTaskStorage(storageConfig)
-				setOp := ops.NewFrontmatterSetOperation(taskStore)
+				setOp := ops.NewFrontmatterSetOperation(taskStore, publisher, vault.Name, vault.GetTasksDir())
 				if err := setOp.Execute(ctx, vault.Path, taskName, key, value, reason, gateSuccessor, force); err != nil {
 					return err
 				}
@@ -2223,11 +2489,16 @@ func createTaskClearCommand(
 				return errors.Wrap(ctx, err, "get vaults")
 			}
 
+			publisher, err := escalationPublisher(ctx, configLoader)
+			if err != nil {
+				return err
+			}
+
 			dispatcher := ops.NewVaultDispatcher()
 			err = dispatcher.FirstSuccess(ctx, vaults, func(vault *config.Vault) error {
 				storageConfig := storage.NewConfigFromVault(vault)
 				taskStore := storage.NewTaskStorage(storageConfig)
-				clearOp := ops.NewFrontmatterClearOperation(taskStore)
+				clearOp := ops.NewFrontmatterClearOperation(taskStore, publisher, vault.Name, vault.GetTasksDir())
 				if err := clearOp.Execute(ctx, vault.Path, taskName, key); err != nil {
 					return err
 				}

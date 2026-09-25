@@ -100,6 +100,8 @@ blocked_by:                                      # optional — dependencies; un
 
 `assignee` semantics: empty (`""`) means **unclaimed inbox** (anyone with vault access can pick up); an agent name means the executor should spawn that agent; a human name means that human is currently doing the work.
 
+An empty `assignee` means two different things depending on how it became empty. A task that has never been assigned is the **unclaimed inbox** above — anyone with vault access can pick it up. A task whose assignee was cleared was *parked*: the baton went back to the operator, and `vault-cli task set "<name>" assignee ""` (or `vault-cli task clear "<name>" assignee`) publishes one `agent-escalation` notification into the shared notification core when the config file names brokers, so the agent side learns the task was handed back. The unclaimed-inbox reading applies at creation; the park reading applies at clear.
+
 `vault-cli task work-on` applies a three-case matrix to `assignee` (so one person picking up a task never silently overrides a teammate's assignment):
 
 | Existing `assignee` | Action |
@@ -120,12 +122,29 @@ The task is blocked while at least one named blocker is not `status: completed`.
 
 Blocked state is derived and is never written. Nothing sets `status: hold` from `blocked_by`, and no command flips a status when a blocker completes. `hold` remains an operator decision for a wait measured in weeks (see `Hold vs in_progress` under `## Lifecycle`); a blocked task usually stays `next` or `in_progress`.
 
+**When not to use it.** `blocked_by` is **unconditional** as every consumer reads it — the field has no vocabulary for "usually", "skippable", or "applies unless X". Listing a dependency that is *conditionally* skipped does not merely overstate the constraint; it produces a **wrong answer**. The task computes `blocked: true` while it is due, so `/vault-cli:next-task` never surfaces it — the work is invisible on its own due date, and from the outside a blocked task is indistinguishable from a not-yet-due one.
+
+Record a **conditional** dependency as prose in the task body **plus an explicit blocking checkbox** naming the condition — `- [ ] Confirm <prereq> resolved — completed, or <skip condition> (BLOCKING)` — and keep the field for **absolute** dependencies only. The test: could this dependency legitimately be skipped in a normal period? If yes, it is conditional and does not belong in the field. Before removing an over-broad entry, verify that in-task checkbox exists — a task with no machine-visible prerequisite at all is worse than one carrying an over-broad gate.
+
 Where it surfaces:
 
 - `vault-cli task list --output json` emits `blocked_by` (the raw list) and a computed `blocked` boolean for any task that declares a dependency list; a task with no `blocked_by` emits neither key.
 - `/vault-cli:next-task` does not recommend a task whose `blocked` flag is true.
 
-To clear a dependency list, `vault-cli task clear "<name>" blocked_by` removes the key; `vault-cli task set "<name>" blocked_by ""` empties the effective list. Either makes the task read as unblocked again.
+**Recording a dependency.** One entry per invocation, appended to whatever list is already there:
+
+```
+vault-cli task add "<name>" blocked_by "[[Blocker Task]]"
+```
+
+`add` never clobbers an existing entry; drop one with `vault-cli task remove "<name>" blocked_by "[[Blocker Task]]"`. `set` is not the recording path — `vault-cli task set "<name>" blocked_by "[[Blocker Task]]"` is refused, because `set` has no list form for this field and a scalar is exactly the malformed shape described above. `set "<name>" blocked_by ""` and `clear "<name>" blocked_by` remain the two clears.
+
+**Repairing a scalar-shaped file.** A scalar `blocked_by` is reported by `vault-cli task validate "<name>"` and by `vault-cli task lint` as one issue naming the field and the expected list shape; `task lint --fix` deliberately cannot repair it. Repair it by hand — clear the malformed value first, then record the entry you meant:
+
+```
+vault-cli task set "<name>" blocked_by ""     # or: vault-cli task clear "<name>" blocked_by
+vault-cli task add "<name>" blocked_by "[[Blocker Task]]"
+```
 
 ### Required sections
 
@@ -249,7 +268,7 @@ Detect shipping flavor via signals: title or impact mentions `PR`, `release`, `t
 When the task is shipping-class, the `# Tasks` section **must explicitly enumerate** these three items:
 
 1. **Merge / land the change** — PR merged, code on default branch
-2. **Release fired** — version tagged, artifact published. When the repo auto-releases on merge (CI workflow, dark-factory `autoRelease: true`, conventional-commits action), a separate "verify tag exists" subtask is bookkeeping — the merge subtask covers it as long as the tag is cited in `# Results` or `# Pull Requests` (e.g. "merged → `v0.66.0`"). Only require a standalone release subtask when the repo does NOT auto-release. Verify with `git tag --sort=-creatordate | head` or `gh release list` if uncertain.
+2. **Release fired** — version tagged, artifact published. When the repo auto-releases on merge (CI workflow, dark-factory `autoRelease: true`, conventional-commits action), a separate "verify tag exists" subtask is bookkeeping — the merge subtask covers it as long as the tag is cited in `# Results` or `# Pull Requests` (e.g. "merged → `v0.66.0`"). Only require a standalone release subtask when the repo does NOT auto-release. Verify with `git tag --sort=-creatordate | head` or `gh release list` if uncertain. ⚠️ **Never prescribe a manual version bump when the repo auto-releases.** Check `.maintainer.yaml` for `release: autoRelease: true` *before* writing the clause: the releaser owns both the bump and the tag, so a clause saying "bump the version strings" is a collision rather than a step — it races the releaser and can duplicate a tag. The clause is correct only for a repo whose `autoRelease` is off, so state which case the task is in.
 3. **End-to-end verification** — the shipped artifact runs in its real environment.
 
 ### End-to-end verification: dev → prod ladder
@@ -311,6 +330,8 @@ A criterion's evidence takes one of these shapes. Any one is sufficient; combina
 
 **A criterion needs a procedure *and* a result a reader could independently confirm.** "Verify the endpoint" names a target but no action and no expected result. "Run a check on the endpoint" names an action but no result. "`curl /widgets`, confirm 200 and body matches the schema" satisfies both.
 
+**The artifact must be one the mechanism can produce.** Naming a shape is not enough — confirm the mechanism the criterion names can emit that kind of artifact *at all*. An inline slash command has no subprocess, so it emits no exit code; substitute the observable it does emit (its terminal refusal line, the absent mutation). A write-only path cannot evidence a validation. A command that never flips cannot evidence a flip. A log file the system does not write cannot evidence a quiet window. The `exit 0` example above is valid only where a subprocess exists — check that first, because the criterion's own wording will not tell you.
+
 **Negative criteria need an explicit probe.** "Config Y is not mutated" is unverifiable as written — name the diff, grep or probe that must come back empty, and say what you ran to establish it.
 
 **A negative criterion must also be able to fail.** Naming the probe is necessary, not sufficient: the observation window must be longer than the period of the event it claims to rule out, or the probe comes back empty on a working system and a broken one alike. *"No writes in 15 min"* proves nothing when writes fire every ~25 min — it passes on a build that never writes at all. Two fixes, apply both: widen the window past one full period of the underlying event, and **lead with a positive assertion** (the expected signal appears N times) keeping the absence as the secondary clause. A positive count cannot be satisfied by a no-op. `/vault-cli:plan-task` enforces this as the third sub-check on the e2e-verify gate.
@@ -329,6 +350,8 @@ Before committing to a task, verify these signals:
 - **Title is problem-framed** (names the problem or observable outcome — see [[#Title & Filename]]). Action-verb-led titles are OK when the action IS the deliverable (e.g. "Write … runbook"), for routine operational tasks ("Backup Database - 2026W25-sat"), or when the solution is mandated. Always wrong: "Stuff about X"
 
 - **Recurring task carries only standing criteria.** On a task with `recurring:` frontmatter or a cadence-marked title — period token trailing (`- 2026W35-sat`, `- 2026-09-08`) *or* embedded (`ORB DE40 W35 … to W36`) — apply the test to each criterion: *would this be true again next firing?* Standing criteria describe what the cadence does every time ("closing positions reviewed"). One-off criteria resolve once and stay resolved — a one-time decision ("decide whether to extend to W37"), a migration, drafting a document, anything naming a specific week, incident or version. Move those to a separate one-off task; the work is real, just misfiled. **Check the successor instance too:** each instance is scaffolded from its predecessor, so a one-off criterion added in week N is usually already sitting in week N+1 — fix both, or the clone re-seeds it.
+
+- **CR-materialized instance — label each finding template-level or instance-level.** A recurring instance whose body ends in a `# Source` section naming `bborbe/nuke/task/recurring-schedules/prod/<slug>.yaml` was materialized from that schedule template, so a defect inherited from the template re-emits on every future firing. Label each finding accordingly: only **template-level** findings are coverable by a recorded template verdict (see `commands/plan-task.md` § Template-verdict check); an instance-level finding always asks. Fix template-level findings in the template — never in the instance, and never in the successor file, which is discarded at the next materialization. Key on the slug (the basename), not the printed repo path: instances materialized before 2026-08-21 carry a dead `bborbe/quant` footer.
 
 If 3+ smells fail → split or promote to a goal. The recurring-kind check is the exception: one one-off criterion on a recurring task is a defect on its own, not a size signal, so act on it without waiting for a third smell.
 

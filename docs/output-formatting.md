@@ -75,12 +75,13 @@ Two or three lines, not a paragraph:
 
 - `SC <n>/<m>` = goal `# Success Criteria` checkbox lines; done = verbatim `[x]` only, total = `[x]`+`[/]`+`[ ]`.
 - `subtasks <n>/<m>` = goal `# Tasks` section. Checkbox items (`- [x] [[Task]] …`): same token rule. Fallback when the section has no checkboxes (plain `- [[Task]] ✅ completed` lists): count leading-`[[...]]` items, done = task file `status: completed` via `vault-cli task get "<title>" status --output json`.
+  - **Struck rows are excluded from both the numerator and the denominator.** A struck row — `- [ ] ~~[[Task]]~~` — is the goal page's convention for a task deliberately removed from the tracked set: struck rather than deleted, so the two lists stop disagreeing without erasing the provenance. It is still a checkbox carrying a wikilink, so the literal token rule reads it as an **unmet** subtask and reports work where there is none, and a fully-closed goal renders as partially open. Measured 2026-09-22 on a goal whose `# Tasks` holds **16** checkbox rows (**12 live + 4 struck**): the literal rule scores **12/16**, where the truth is **12/12**. A session that excludes struck rows by hand must say so in its report — a hand-corrected count with no note reads as an instrument defect rather than as a convention the frame does not know about.
 - Omit a count when its total is 0 and no fallback applies.
 
 ### Conditional segments
 
 - ` · binding: <value>` — only when goal frontmatter has a `binding:` field (see `docs/goal-writing.md` § Frontmatter).
-- `📌 Task:` for `goal-status` names the goal's next open task (leading-`[[...]]` walk per `execute-goal.md` step 7, first status ∉ {completed, aborted}); none open → `📌 Task: none — all tasks complete`.
+- `📌 Task:` for `goal-status` names the goal's next open task (leading-`[[...]]` walk per `execute-goal.md` step 7, first status ∉ {completed, aborted}); none open → `📌 Task: none — all tasks complete`. **A struck row — `- [ ] ~~[[Task]]~~` — is skipped by the walk**, on the same rule as § Counts. The walk keys on list items, not on checkboxes, and a struck row is still a list item with a leading wikilink, so without the exclusion it resolves and wins. Naming it points the reader at a task its owner has already retired, which is the failure the struck-row convention exists to prevent.
 - `task-status` with no `goals:` frontmatter → `🎯 Goal: (no goal linked)`; goal file missing → `🎯 Goal: <title> — (goal file missing)`. The pair is still emitted.
 
 ## In-progress (`[/]`) handling

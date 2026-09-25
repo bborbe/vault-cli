@@ -47,7 +47,6 @@ var _ = Describe("CompleteOperation", func() {
 		currentDateTime.SetNow(libtimetest.ParseDateTime("2026-03-03T12:00:00Z"))
 		completeOp = ops.NewCompleteOperation(
 			mockTaskStorage,
-			mockGoalStorage,
 			mockDailyNoteStorage,
 			currentDateTime,
 			mockInteractionCounter,
@@ -267,165 +266,45 @@ var _ = Describe("CompleteOperation", func() {
 		})
 	})
 
-	Context("task with associated goal", func() {
-		var goal *domain.Goal
-
+	Context("task with associated goals", func() {
+		// Completion deliberately does NOT write the goal's `# Tasks` list any
+		// more. That list is a denormalised copy of the `goals:` relation and it
+		// drifted from it — 111 of 259 non-terminal declarations in the Personal
+		// vault had no matching entry on 2026-09-19, and the largest ongoing
+		// class was attached to tasks *after* creation, on a path where no code
+		// of ours runs at all. The list is derived from frontmatter instead, so
+		// there is no checkbox to flip and no `checkbox not found` warning to
+		// emit.
+		//
+		// These cases previously asserted the opposite: that the checkbox WAS
+		// flipped (including the `- [/]` in-progress form), that a numbered-list
+		// goal was left alone, and that a missing goal or a failing WriteGoal
+		// produced a warning rather than an error. All four are now the same
+		// claim — no goal is read and none is written — and they are kept as a
+		// negative assertion rather than deleted, so that reintroducing a goal
+		// write fails here instead of silently restoring the drift.
 		BeforeEach(func() {
 			task.SetGoals([]string{"Test Goal"})
-
-			goal = domain.NewGoal(
-				map[string]any{"status": "active"},
-				domain.FileMetadata{Name: "Test Goal"},
-				domain.Content(`---
-status: active
----
-# Test Goal
-
-## Tasks
-- [ ] my-task
-`),
-			)
-			mockGoalStorage.FindGoalByNameReturns(goal, nil)
-			mockGoalStorage.WriteGoalReturns(nil)
 		})
 
-		It("attempts to update goal checkbox", func() {
+		It("completes the task without reading any goal", func() {
 			Expect(err).To(BeNil())
-			Expect(mockGoalStorage.FindGoalByNameCallCount() > 0).To(BeTrue())
+			Expect(mockGoalStorage.FindGoalByNameCallCount()).To(Equal(0))
 		})
 
-		It("marks checkbox in goal as complete", func() {
-			Expect(err).To(BeNil())
-			if mockGoalStorage.WriteGoalCallCount() > 0 {
-				_, updatedGoal := mockGoalStorage.WriteGoalArgsForCall(0)
-				Expect(string(updatedGoal.Content)).To(ContainSubstring("- [x]"))
-			}
-		})
-	})
-
-	Context("task with an in-progress goal checkbox", func() {
-		var goal *domain.Goal
-
-		BeforeEach(func() {
-			task.SetGoals([]string{"Test Goal"})
-
-			goal = domain.NewGoal(
-				map[string]any{"status": "active"},
-				domain.FileMetadata{Name: "Test Goal"},
-				domain.Content(`---
-status: active
----
-# Test Goal
-
-## Tasks
-- [/] my-task
-`),
-			)
-			mockGoalStorage.FindGoalByNameReturns(goal, nil)
-			mockGoalStorage.WriteGoalReturns(nil)
-		})
-
-		It("marks the in-progress checkbox as complete", func() {
-			Expect(err).To(BeNil())
-			Expect(mockGoalStorage.WriteGoalCallCount()).To(BeNumerically(">", 0))
-			_, updatedGoal := mockGoalStorage.WriteGoalArgsForCall(0)
-			Expect(string(updatedGoal.Content)).To(ContainSubstring("- [x] my-task"))
-			Expect(string(updatedGoal.Content)).NotTo(ContainSubstring("- [/] my-task"))
-		})
-	})
-
-	Context("task whose goal entry carries no checkbox", func() {
-		var goal *domain.Goal
-
-		BeforeEach(func() {
-			task.SetGoals([]string{"Test Goal"})
-
-			goal = domain.NewGoal(
-				map[string]any{"status": "active"},
-				domain.FileMetadata{Name: "Test Goal"},
-				domain.Content(`---
-status: active
----
-# Test Goal
-
-## Tasks
-
-1. my-task — written as a plain numbered list, no checkbox
-
-`),
-			)
-			mockGoalStorage.FindGoalByNameReturns(goal, nil)
-			mockGoalStorage.WriteGoalReturns(nil)
-		})
-
-		It("completes the task without rewriting the goal", func() {
+		It("completes the task without writing any goal", func() {
 			Expect(err).To(BeNil())
 			Expect(mockGoalStorage.WriteGoalCallCount()).To(Equal(0))
 		})
-	})
 
-	Context("task whose goal checkbox is already complete", func() {
-		var goal *domain.Goal
-
-		BeforeEach(func() {
-			task.SetGoals([]string{"Test Goal"})
-
-			goal = domain.NewGoal(
-				map[string]any{"status": "active"},
-				domain.FileMetadata{Name: "Test Goal"},
-				domain.Content(`---
-status: active
----
-# Test Goal
-
-## Tasks
-- [x] my-task
-`),
-			)
-			mockGoalStorage.FindGoalByNameReturns(goal, nil)
-			mockGoalStorage.WriteGoalReturns(nil)
-		})
-
-		It("completes the task without rewriting the goal", func() {
+		It("emits no goal warning", func() {
 			Expect(err).To(BeNil())
-			Expect(mockGoalStorage.WriteGoalCallCount()).To(Equal(0))
-		})
-	})
-
-	Context("task with goal not found", func() {
-		BeforeEach(func() {
-			task.SetGoals([]string{"Missing Goal"})
-			mockGoalStorage.FindGoalByNameReturns(nil, ErrTest)
+			Expect(result.Warnings).To(BeEmpty())
 		})
 
-		It("completes task despite goal error", func() {
-			// Operation should succeed even if goal update fails
+		It("still completes the task itself", func() {
 			Expect(err).To(BeNil())
-		})
-	})
-
-	Context("task with goal WriteGoal error", func() {
-		BeforeEach(func() {
-			task.SetGoals([]string{"Test Goal"})
-			goal := domain.NewGoal(
-				map[string]any{"status": "active"},
-				domain.FileMetadata{Name: "Test Goal"},
-				domain.Content(`---
-status: active
----
-# Test Goal
-
-## Tasks
-- [ ] my-task
-`),
-			)
-			mockGoalStorage.FindGoalByNameReturns(goal, nil)
-			mockGoalStorage.WriteGoalReturns(ErrTest)
-		})
-
-		It("completes task despite goal write error", func() {
-			// Operation should succeed even if goal write fails
-			Expect(err).To(BeNil())
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(BeNumerically(">", 0))
 		})
 	})
 

@@ -10,7 +10,7 @@ Invoke the goal-auditor agent to audit the goal at $ARGUMENTS for compliance wit
 
 <process>
 1. Parse goal path from $ARGUMENTS
-   - If no path prefix, prepend `23 Goals/`
+   - If no path prefix, prepend `<goals_dir>` (resolved from vault-cli config — never a hardcoded folder name)
    - If no `.md` extension, append it
 2. Invoke goal-auditor agent with the goal path
 3. Agent reads Goal Writing Guide and Goal Template first

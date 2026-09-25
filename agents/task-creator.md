@@ -168,28 +168,27 @@ Compose the full file content (frontmatter + body) and write it via the `Write` 
 {vault.path}/{tasks_dir}/{filename}
 ```
 
-## 11b. Link the parent goal back
+**Do not write the goal side.** Earlier revisions carried a step 11b that appended
+`- [ ] [[{task title}]]` to each parent goal's `# Tasks` list. It is removed, and writing it
+back would undo the fix it was meant to be.
 
-`goals:` in the task's frontmatter is only half the link. `vault-cli task complete` ticks
-the task's checkbox **in the goal file** and warns when it cannot find one, so the creator
-must write that side too.
+The goal-side list is a denormalised copy of the `goals:` relation, and it drifted from it.
+Measured 2026-09-19 in the Personal vault: **111 of 259** non-terminal declarations had no
+matching entry. The largest ongoing class was not this agent's output at all — those
+declarations were attached to an existing task *after* creation, on a path where **no code
+of ours runs**: a hand edit in Obsidian, or `vault-cli task add goals`, which writes the
+task's own frontmatter. `markGoalCheckbox` was the only writer of a goal's `# Tasks` list
+and was called from exactly one place, so no hook on this step could ever have reached
+them.
 
-For each entry in `goals:`, resolve `{vault.path}/{goals_dir}/{goal title}.md` and append
-to its `# Tasks` section (create the section above `# Related` if absent):
+The list is therefore **derived from `goals:` frontmatter**, and `vault-cli task complete`
+no longer flips a checkbox or warns when it cannot find one. A copy that no writer can keep
+in step is not repaired by writing harder on the one path that does run.
 
-```
-- [ ] [[{task title}]]
-```
-
-Skip silently when the task has no parent goal, when the goal file does not exist, or when
-a checkbox for this task is already present (re-runs must not duplicate).
-
-**Why.** Observed 2026-08-16: `Decommission MinIO on Hell` was created with
-`goals: ['[[Eliminate MinIO EOL Risk]]']` and the goal was never touched. Completing it
-emitted `failed to update goal [[Eliminate MinIO EOL Risk]]: checkbox not found for task
-Decommission MinIO on Hell`, and the line had to be added by hand. Every goal-linked task
-created by this agent hits the same warning, and a goal whose task list silently omits its
-own tasks under-reports its own progress.
+Rejected alternatives, for the next reader: backfilling the missing entries (answers a
+question about the past, and leaves the ongoing class producing), repairing step 11b alone
+(21 of 111, none of the ongoing class), and a reconciliation sweep (re-repairs a
+denormalised copy forever). See `docs/goal-writing.md` for the replacement shape.
 
 ## 12. Audit (interactive only)
 
@@ -199,7 +198,7 @@ Run a light self-audit against the file:
 - Title file matches title-case rule
 - Body has Success Criteria + Tasks sections (or template body)
 - No accidental empty sections
-- Every `goals:` entry has a matching `- [ ] [[{task title}]]` checkbox in the goal file (step 11b)
+- Every `goals:` entry names a goal file that exists (the goal-side `# Tasks` list is derived from that frontmatter, so there is nothing to write or verify there)
 
 Skip in MODE=non_interactive.
 

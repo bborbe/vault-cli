@@ -183,6 +183,28 @@ vault-cli config list          # List configured vaults
 vault-cli config current-user  # Print the current user
 ```
 
+### rollup
+
+```bash
+vault-cli rollup weekly                        # Last complete ISO week, plain report
+vault-cli rollup weekly --week 2026-W37        # A named ISO week
+vault-cli rollup weekly --vault personal       # A named vault (default_vault when omitted)
+vault-cli rollup weekly --output json          # The same figures as JSON
+```
+
+`rollup weekly` reports three figures for one ISO week: the week's **human
+interactions** (the sum of `metrics_interaction_count` over the tasks completed
+in that week), its **unattended deliveries** (completed tasks whose recorded
+interaction count is exactly zero), and the **median interactions of a recurring
+task family** — the headline median of the per-family medians, with each family
+listed beneath it.
+
+The command reads only task frontmatter from one vault — the vault named by
+`--vault`, or the config's `default_vault` when the flag is omitted, never every
+configured vault at once — and writes nothing. A figure with no measurement
+behind it reads `undefined` or `no data` in both plain and JSON output, never a
+zero.
+
 ## Claude Code Plugin
 
 vault-cli includes a Claude Code plugin for task management commands.

@@ -1,14 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [049-weekly-rollup]
+summary: Wired `vault-cli rollup weekly` (single-vault resolution via GetVault, --week flag, plain report stating both rule sentences, and JSON via PrintJSON) with unit and real-binary integration specs, README, changelog and docs updates
+execution_id: vault-cli-weekly-rollup-exec-218-spec-049-rollup-cli-surface
+dark-factory-version: v0.196.0
 created: "2026-09-16T12:57:14Z"
 queued: "2026-09-25T18:16:58Z"
-completed: "2026-09-25T18:58:11Z"
-lastFailReason: |-
-    setup workflow: git merge origin default branch: merge origin/master: error: Merging is not possible because you have unmerged files.
-    hint: Fix them up in the work tree, and then use 'git add/rm <file>'
-    hint: as appropriate to mark resolution and make a commit.
-    fatal: Exiting because of an unresolved conflict.: git merge origin/master failed: exit status 128
+started: "2026-09-25T19:10:26Z"
+completed: "2026-09-25T19:14:49Z"
 ---
 
 # `vault-cli rollup weekly`: the command, its plain and JSON reports, docs (spec 049, prompt 2 of 2)

@@ -41,12 +41,14 @@ Build it inline per `docs/output-formatting.md` § Anchor pair (link rule, sessi
 **Vault identity** — obsidian vault name = basename of the matching vault's `path` from `vault-cli config list --output json` (NOT the lowercase config `name`):
 
 ```bash
-read -r VAULT_NAME VAULT_PATH GOALS_DIR TASKS_DIR <<< "$(vault-cli config list --output json | python3 -c "
+IFS=$'\t' read -r VAULT_NAME VAULT_PATH GOALS_DIR TASKS_DIR <<< "$(vault-cli config list --output json | python3 -c "
 import sys, json, os
 vs = json.load(sys.stdin); cwd = os.getcwd()
 v = next((x for x in vs if cwd.startswith(x['path'])), vs[0])
-print(v['path'].rstrip('/').split('/')[-1], v['path'], v.get('goals_dir','Goals'), v.get('tasks_dir','Tasks'))")"
+print('\t'.join([v['path'].rstrip('/').split('/')[-1], v['path'], v.get('goals_dir','Goals'), v.get('tasks_dir','Tasks')]))")"
 ```
+
+The separator is a **tab**, not a space: `goals_dir` and `tasks_dir` legitimately contain spaces (`24 Goals`, `25 Tasks`), and a space-separated `read` splits them — yielding `GOALS_DIR=24` and `TASKS_DIR=Goals 25 Tasks`, silently, with no error. Do not "simplify" the join back to a space.
 
 **Next-task resolution** — walk the goal's `# Tasks` list items **in listed order** (same rule as `execute-goal.md` step 7): each item's task is its **leading `[[...]]` only** (`|alias` stripped). **Skip struck rows** (`- [ ] ~~[[Task]]~~`) — a task retired from the tracked set is not the goal's next open task, and the walk keys on list items rather than checkboxes, so without the skip it resolves and wins (`docs/output-formatting.md` § Conditional segments). For each remaining task resolve to `<TASKS_DIR>/<Task Title>.md` and read its status via `vault-cli task get "<title>" status --output json`. **Next open task** = the first *resolving* task whose status is NOT `completed` and NOT `aborted`:
 

@@ -312,7 +312,7 @@ A goal legitimately outliving the session is common — goals span 1–4 weeks, 
 
 **Goal-anchored sessions are exempt from the flag.** When Phase 1's `GOAL_ANCHORED` is true, the anchor goal is NOT an outstanding item — a goal session exists to manage a 1–4-week goal, so the goal ending `in_progress` is the expected steady state (mirrors the 2026-09-06 `work-on-goal` fix: a goal session hands tasks off, it does not complete the goal). Instead resolve the anchor goal's open-task state:
 
-1. Walk its `# Tasks` wikilinks (leading `[[...]]` of each list item — same rule as `execute-goal.md` step 7), resolve each to `<tasks_dir>/<Title>.md`, read each task's `status`:
+1. Walk its `# Tasks` wikilinks (leading `[[...]]` of each list item — same rule as `execute-goal.md` step 7), **skipping struck rows** (`- [ ] ~~[[Task]]~~`) — a task retired from the tracked set is not an open task, so counting it would report the goal as still draining and name a retired task as the next one (`docs/output-formatting.md` § Conditional segments). Resolve each remaining wikilink to `<tasks_dir>/<Title>.md`, read each task's `status`:
    ```bash
    vault-cli task get "<Title>" status --output json
    ```

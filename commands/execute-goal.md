@@ -96,7 +96,7 @@ Continue to step 7.
 
 ### 7. Recommend the next open task (or signal drain-complete) — final output
 
-Walk the `# Tasks` section's list items **in listed order**. Each item's task is its **leading `[[...]]` only** (wikilinks later in the item's description — guide / SC / goal cross-references — are ignored; inline-code spans skipped, `|alias` stripped). For each task, resolve to `<tasks_dir>/<Task Title>.md` and read its status:
+Walk the `# Tasks` section's list items **in listed order**. Each item's task is its **leading `[[...]]` only** (wikilinks later in the item's description — guide / SC / goal cross-references — are ignored; inline-code spans skipped, `|alias` stripped). **Skip struck rows** (`- [ ] ~~[[Task]]~~`) — a task retired from the tracked set is not a candidate for the next open task, and because this walk keys on list items rather than checkboxes a struck row would otherwise resolve and win (`docs/output-formatting.md` § Conditional segments). For each remaining task, resolve to `<tasks_dir>/<Task Title>.md` and read its status:
 
 ```bash
 vault-cli task get "<Task Title>" status --output json

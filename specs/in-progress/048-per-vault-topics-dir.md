@@ -1,11 +1,12 @@
 ---
-status: prompted
+status: verifying
 tags:
     - dark-factory
     - spec
 approved: "2026-09-15T12:34:22Z"
 generating: "2026-09-15T12:47:42Z"
 prompted: "2026-09-15T12:47:42Z"
+verifying: "2026-09-25T18:44:00Z"
 branch: dark-factory/per-vault-topics-dir
 ---
 

@@ -10,6 +10,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 
 ## Unreleased
 
+- fix: **the README's Brogrammers config example still named a folder that does not exist.** It listed `tasks_dir: "40 Tasks"`, but the Brogrammers vault uses `25 Tasks` (verified on disk 2026-09-26) — the same renumbering the Personal-vault example was corrected for in v0.147.0, missed on the sibling block of the same snippet.
 - feat: `vault-cli rollup weekly` reports a week's human interactions, unattended deliveries and per-family median interactions from task frontmatter, stating the unattended-delivery rule and the filename-stem grouping rule in its output. It reads one vault — the `--vault` flag, or the config's `default_vault` when the flag is omitted, never every configured vault — accepts `--week YYYY-Wnn` and defaults to the last complete ISO week, supports `--output plain|json`, and writes nothing to the vault.
 
 ## v0.147.0

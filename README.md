@@ -52,7 +52,7 @@ vaults:
   brogrammers:
     name: brogrammers
     path: ~/Documents/Obsidian/Brogrammers
-    tasks_dir: "40 Tasks"
+    tasks_dir: "25 Tasks"
     daily_dir: "60 Periodic Notes/Daily"
 ```
 

@@ -740,6 +740,10 @@ func (o *taskListOperation) Execute(
 		return errors.Wrap(ctx, err, "find task")
 	}
 
+	if err := metricsSessionsWriteRefusal(ctx, taskName, key); err != nil {
+		return err
+	}
+
 	if knownTaskScalarFields[key] {
 		return errors.Errorf(ctx, "not a list field: %q", key)
 	}

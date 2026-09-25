@@ -100,6 +100,7 @@ vault-cli task work-on "Build vault-cli Go Tool"   # Mark in_progress; assignee:
 vault-cli task get "Build vault-cli Go Tool" status         # Get a frontmatter field
 vault-cli task set "Build vault-cli Go Tool" status done --reason "..." --gate-successor none    # Set a frontmatter field
 vault-cli task clear "Build vault-cli Go Tool" assignee     # Clear a frontmatter field
+vault-cli task append-metrics-session "Build vault-cli Go Tool" <session-id>   # Append one metrics_sessions entry (use this, not set/add/remove)
 
 vault-cli task lint                                # Detect frontmatter issues
 vault-cli task lint --fix                          # Auto-fix frontmatter issues

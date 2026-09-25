@@ -132,5 +132,16 @@ Task lifecycle:
 ## Passive metrics
 
 Each work-on run appends one entry to the task's `metrics_sessions` frontmatter field
-(session id + start timestamp). These metrics fields are written passively by vault-cli
-and must not be hand-edited.
+(session id + start timestamp). **Two writers append it, and both accumulate** — an
+entry is never replaced, and a session id that already has an entry is appended again
+rather than suppressed:
+
+- `vault-cli task work-on` appends an entry for the session it starts or resumes.
+- The session-connect step in `agents/work-on-task-assistant.md` appends an entry
+  through `vault-cli task append-metrics-session "<task>" "<session-id>"` after it
+  writes `claude_session_id`. This is the writer a fleet-spawned run uses.
+
+The field's entries are maps (`session_id` + `started_at`), so `task set`, `task add`
+and `task remove` refuse the field and point at `task append-metrics-session`.
+
+These metrics fields are written passively by vault-cli and must not be hand-edited.

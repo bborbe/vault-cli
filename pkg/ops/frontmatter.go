@@ -89,6 +89,13 @@ func (o *frontmatterSetOperation) Execute(
 		return err
 	}
 
+	// Refuse metrics_sessions before anything is mutated — see
+	// metricsSessionsWriteRefusal. Nothing below runs on this path, so the task
+	// file stays byte-identical, and --force does not bypass the refusal.
+	if err := metricsSessionsWriteRefusal(ctx, taskName, key); err != nil {
+		return err
+	}
+
 	// Read the assignee before the mutation. `task set <task> assignee ""` leaves
 	// the key present and empty, so a read taken after the write can no longer
 	// tell a cleared assignee from one that was never set.

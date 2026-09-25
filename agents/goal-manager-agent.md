@@ -53,7 +53,7 @@ Get status for all subtasks in goal.
 **Algorithm:**
 1. Read goal file
 2. Find `# Tasks` section
-3. Extract all `- [x/ ] [[Task Name]]` lines
+3. Extract all `- [x/ ] [[Task Name]]` lines — **excluding struck rows** (`- [ ] ~~[[Task Name]]~~`), which are excluded from the subtask count on the same rule as `docs/output-formatting.md` § Counts
 4. For each task: find file, read status, parse checkboxes
 5. Return list with details
 

@@ -48,7 +48,7 @@ v = next((x for x in vs if cwd.startswith(x['path'])), vs[0])
 print(v['path'].rstrip('/').split('/')[-1], v['path'], v.get('goals_dir','Goals'), v.get('tasks_dir','Tasks'))")"
 ```
 
-**Next-task resolution** — walk the goal's `# Tasks` list items **in listed order** (same rule as `execute-goal.md` step 7): each item's task is its **leading `[[...]]` only** (`|alias` stripped). For each task resolve to `<TASKS_DIR>/<Task Title>.md` and read its status via `vault-cli task get "<title>" status --output json`. **Next open task** = the first *resolving* task whose status is NOT `completed` and NOT `aborted`:
+**Next-task resolution** — walk the goal's `# Tasks` list items **in listed order** (same rule as `execute-goal.md` step 7): each item's task is its **leading `[[...]]` only** (`|alias` stripped). **Skip struck rows** (`- [ ] ~~[[Task]]~~`) — a task retired from the tracked set is not the goal's next open task, and the walk keys on list items rather than checkboxes, so without the skip it resolves and wins (`docs/output-formatting.md` § Conditional segments). For each remaining task resolve to `<TASKS_DIR>/<Task Title>.md` and read its status via `vault-cli task get "<title>" status --output json`. **Next open task** = the first *resolving* task whose status is NOT `completed` and NOT `aborted`:
 
 - No task wikilinks at all under `# Tasks` → `📌 Task: none — no tasks under # Tasks`.
 - No open task (all complete / only aborted remain) → `📌 Task: none — all tasks complete`.

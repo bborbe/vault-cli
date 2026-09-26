@@ -1,6 +1,7 @@
 ---
-status: draft
-created: 2026-09-26
+status: approved
+approved: "2026-09-26T15:04:34Z"
+branch: dark-factory/rollup-weekly-baseline-delta
 ---
 
 ## Summary

@@ -1,7 +1,8 @@
 ---
-status: draft
+status: approved
 spec: [054-rollup-weekly-baseline-delta]
 created: "2026-09-26T15:48:55Z"
+queued: "2026-09-26T16:45:22Z"
 ---
 
 # `vault-cli config set-baseline <vault> <path>`: the config key, its validation and its atomic write (spec 054, prompt 1 of 3)

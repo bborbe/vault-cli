@@ -1,7 +1,8 @@
 ---
+status: approved
 spec: [054-rollup-weekly-baseline-delta]
-status: draft
 created: "2026-09-26T15:48:55Z"
+queued: "2026-09-26T16:45:22Z"
 ---
 
 # The baseline and delta blocks in `rollup weekly`, and the shipped changelog entry (spec 054, prompt 3 of 3)

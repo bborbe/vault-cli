@@ -8,6 +8,11 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat: `vault-cli task remove-metrics-session <task> <session-id>` removes every `metrics_sessions` entry carrying that session id, preserving every other entry, and is the removal counterpart of `append-metrics-session`. It is the only path that clears one entry by id: `task set`, `task add` and `task remove` still refuse the field absolutely — their scalar and comma-split shapes cannot express a map entry — so clearing a shared-session collision previously meant hand-editing a field whose own docs forbid it. The id is validated as a well-formed UUID before the task is read, and a call matching no entry exits 1 with the file byte-identical, because a silent no-op is the exact defect this verb exists to fix. When the last entry is removed the key is deleted rather than left as an empty list.
+- fix: **`task-auditor` no longer recommends a goal link its own orphan test then scores as MAJOR.** The Task-Goal Alignment section flagged any goal link advancing none of its criteria, while the advice beside it suggested linking on family resemblance — two predicates for one decision, which on 2026-09-15 cost two extra audit cycles and an operator ruling on a single task. The section now carries the orphan test as a guard on the recommendation itself: if the goal can be marked complete without the task, recommend theme-only linkage and say so.
+
 ## v0.149.0
 
 - docs: document the rollup baseline file (`docs/baseline-file.md`) — its location and config rules, the frozen five-key frontmatter contract, the mapping of each stored figure to the rollup figure it has an analogue in, the recorded definitional mismatches, and the frozen report layout.

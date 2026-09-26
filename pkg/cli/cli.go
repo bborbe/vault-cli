@@ -1342,6 +1342,7 @@ func createTaskCommands(
 		},
 	))
 	cmd.AddCommand(createTaskAppendMetricsSessionCommand(ctx, configLoader, vaultName, outputFormat))
+	cmd.AddCommand(createTaskRemoveMetricsSessionCommand(ctx, configLoader, vaultName, outputFormat))
 	cmd.AddCommand(createTaskWatchCommand(ctx, configLoader, vaultName))
 	cmd.AddCommand(
 		createGenericSearchCommand(
@@ -2452,6 +2453,55 @@ func createTaskAppendMetricsSessionCommand(
 				})
 			}
 			fmt.Printf("✅ Appended metrics session %s to: %s\n", sessionID, taskName)
+			return nil
+		},
+	}
+}
+
+func createTaskRemoveMetricsSessionCommand(
+	ctx context.Context,
+	configLoader *config.Loader,
+	vaultName *string,
+	outputFormat *string,
+) *cobra.Command {
+	return &cobra.Command{
+		Use:   "remove-metrics-session <task-name> <session-id>",
+		Short: "Remove metrics_sessions entries carrying a session id from a task",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			taskName := args[0]
+			sessionID := args[1]
+
+			vaults, err := getVaults(ctx, configLoader, vaultName)
+			if err != nil {
+				return errors.Wrap(ctx, err, "get vaults")
+			}
+
+			dispatcher := ops.NewVaultDispatcher()
+			err = dispatcher.FirstSuccess(ctx, vaults, func(vault *config.Vault) error {
+				storageConfig := storage.NewConfigFromVault(vault)
+				removeOp := ops.NewRemoveMetricsSessionOperation(
+					storage.NewTaskStorage(storageConfig),
+				)
+				return removeOp.Execute(ctx, vault.Path, taskName, sessionID)
+			})
+			if err != nil {
+				if OutputFormat(*outputFormat).IsJSON() {
+					return PrintJSON(map[string]any{
+						"success": false,
+						"error":   err.Error(),
+					})
+				}
+				return err
+			}
+			if OutputFormat(*outputFormat).IsJSON() {
+				return PrintJSON(map[string]any{
+					"success":    true,
+					"name":       taskName,
+					"session_id": sessionID,
+				})
+			}
+			fmt.Printf("✅ Removed metrics session %s from: %s\n", sessionID, taskName)
 			return nil
 		},
 	}

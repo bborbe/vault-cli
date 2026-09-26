@@ -51,6 +51,36 @@ func (f *TaskFrontmatter) AppendMetricsSession(entry MetricsSession) {
 	f.Set("metrics_sessions", append(f.MetricsSessions(), entry))
 }
 
+// RemoveMetricsSession removes every "metrics_sessions" entry whose SessionID matches,
+// preserving every other entry, and reports how many entries it removed. An empty
+// sessionID removes nothing. Nothing is written when no entry matches, so a call that
+// removes nothing leaves the field byte-identical. When the last entry is removed the
+// key is deleted entirely rather than left as an empty list.
+func (f *TaskFrontmatter) RemoveMetricsSession(sessionID string) int {
+	if sessionID == "" {
+		return 0
+	}
+	current := f.MetricsSessions()
+	remaining := make([]MetricsSession, 0, len(current))
+	removed := 0
+	for _, entry := range current {
+		if entry.SessionID == sessionID {
+			removed++
+			continue
+		}
+		remaining = append(remaining, entry)
+	}
+	if removed == 0 {
+		return 0
+	}
+	if len(remaining) == 0 {
+		f.Delete("metrics_sessions")
+		return removed
+	}
+	f.Set("metrics_sessions", remaining)
+	return removed
+}
+
 // ClearMetricsSessions removes the "metrics_sessions" key entirely.
 func (f *TaskFrontmatter) ClearMetricsSessions() { f.Delete("metrics_sessions") }
 

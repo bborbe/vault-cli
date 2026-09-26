@@ -79,6 +79,16 @@ stores a scalar and `add` / `remove` comma-split into a list of scalars — both
 the dedicated list reader discards. That refusal lives in
 `pkg/ops/metrics_session_write.go`.
 
+**Removal is its own verb, and for the same reason.** `task remove-metrics-session
+<task> <session-id>` removes every entry carrying that id and preserves the rest — the
+counterpart of the append, and the only path that clears one entry by id. It exists
+because the generic verbs cannot express a map entry, so clearing a shared-session
+collision would otherwise mean hand-editing a field whose own docs forbid it. The id is
+validated as a well-formed UUID before the task is read, and a call matching no entry
+exits non-zero with the file byte-identical: a silent no-op is the defect the verb
+exists to fix, so an absent id must be visible rather than reported as success. When the
+last entry goes the key is deleted rather than left as an empty list.
+
 **The concurrent-append race is accepted.** Two processes appending to the same task
 file are last-write-wins, the same read-modify-write race the existing `work-on` path
 has; a lost row is re-appended by re-running the verb. No lock, no re-read and no dedup

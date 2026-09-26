@@ -136,6 +136,52 @@ var _ = Describe("TaskFrontmatter metrics", func() {
 		})
 	})
 
+	Describe("RemoveMetricsSession", func() {
+		start1 := libtime.DateOrDateTime(time.Date(2026, 8, 24, 9, 0, 0, 0, time.UTC))
+		start2 := libtime.DateOrDateTime(time.Date(2026, 8, 24, 10, 30, 0, 0, time.UTC))
+
+		BeforeEach(func() {
+			fm.AppendMetricsSession(domain.MetricsSession{SessionID: "s1", StartedAt: start1})
+			fm.AppendMetricsSession(domain.MetricsSession{SessionID: "s2", StartedAt: start2})
+		})
+
+		It("removes only the matching entry and preserves the survivor's timestamp", func() {
+			Expect(fm.RemoveMetricsSession("s1")).To(Equal(1))
+
+			sessions := fm.MetricsSessions()
+			Expect(sessions).To(HaveLen(1))
+			Expect(sessions[0].SessionID).To(Equal("s2"))
+			Expect(sessions[0].StartedAt.Time().Equal(start2.Time())).To(BeTrue())
+		})
+
+		It("deletes the key entirely when the last entry is removed", func() {
+			Expect(fm.RemoveMetricsSession("s1")).To(Equal(1))
+			Expect(fm.RemoveMetricsSession("s2")).To(Equal(1))
+
+			Expect(fm.MetricsSessions()).To(BeNil())
+			Expect(fm.Get("metrics_sessions")).To(BeNil())
+		})
+
+		It("removes every entry carrying a duplicated id", func() {
+			fm.AppendMetricsSession(domain.MetricsSession{SessionID: "s1", StartedAt: start2})
+			Expect(fm.RemoveMetricsSession("s1")).To(Equal(2))
+
+			sessions := fm.MetricsSessions()
+			Expect(sessions).To(HaveLen(1))
+			Expect(sessions[0].SessionID).To(Equal("s2"))
+		})
+
+		It("reports zero and leaves the field untouched for an absent or empty id", func() {
+			Expect(fm.RemoveMetricsSession("absent")).To(Equal(0))
+			Expect(fm.RemoveMetricsSession("")).To(Equal(0))
+
+			sessions := fm.MetricsSessions()
+			Expect(sessions).To(HaveLen(2))
+			Expect(sessions[0].SessionID).To(Equal("s1"))
+			Expect(sessions[1].SessionID).To(Equal("s2"))
+		})
+	})
+
 	Describe("MetricsInteractionCount", func() {
 		It("unknown is never forged as zero", func() {
 			Expect(fm.MetricsInteractionCount()).To(BeNil())

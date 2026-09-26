@@ -2870,6 +2870,167 @@ body line
 		})
 	})
 
+	Describe("task remove-metrics-session", func() {
+		const (
+			s1 = "11111111-1111-4111-8111-111111111111"
+			s2 = "22222222-2222-4222-8222-222222222222"
+		)
+
+		var vaultPath, configPath string
+		var cleanup func()
+
+		AfterEach(func() {
+			cleanup()
+		})
+
+		runEntityCommand := func(args ...string) *gexec.Session {
+			fullArgs := append(
+				[]string{"--config", configPath, "--vault", "test"},
+				args...,
+			)
+			session, err := gexec.Start(exec.Command(binPath, fullArgs...), GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			return session
+		}
+
+		sha256OfFile := func(path string) string {
+			data, err := os.ReadFile(path) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			sum := sha256.Sum256(data)
+			return fmt.Sprintf("%x", sum)
+		}
+
+		readFile := func(path string) string {
+			content, err := os.ReadFile(path) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			return string(content)
+		}
+
+		// countMetricsEntries counts the entries under the `metrics_sessions:`
+		// frontmatter key as written on disk: every block-sequence item opens with a
+		// `- session_id:` line.
+		countMetricsEntries := func(content string) int {
+			count := 0
+			for _, line := range strings.Split(content, "\n") {
+				if strings.HasPrefix(strings.TrimSpace(line), "- session_id:") {
+					count++
+				}
+			}
+			return count
+		}
+
+		// Authored in alphabetical key order like every fixture above: the storage
+		// writer re-serializes the whole frontmatter on every write, so a
+		// non-alphabetical fixture would be reordered and byte comparisons meaningless.
+		twoEntryFrontmatter := `---
+metrics_sessions:
+    - session_id: 11111111-1111-4111-8111-111111111111
+      started_at: "2026-09-01T08:00:00Z"
+    - session_id: 22222222-2222-4222-8222-222222222222
+      started_at: "2026-09-02T08:00:00Z"
+page_type: task
+priority: 1
+status: in_progress
+task_identifier: 11111111-1111-4111-8111-111111111111
+---
+body line
+`
+
+		It("AC-R1: drops exactly one entry from a two-entry list and leaves the other intact", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": twoEntryFrontmatter,
+			})
+			taskFile := filepath.Join(vaultPath, "Tasks", "Alpha.md")
+
+			session := runEntityCommand("task", "remove-metrics-session", "Alpha", s1)
+			Eventually(session).Should(gexec.Exit(0))
+
+			after := readFile(taskFile)
+			Expect(countMetricsEntries(after)).To(Equal(1))
+			// The entry-line prefix is load-bearing: this fixture also carries s1 as its
+			// `task_identifier`, so a bare `ContainSubstring(s1)` would fail on the
+			// surviving base key and prove nothing about the removal.
+			Expect(after).NotTo(ContainSubstring("- session_id: " + s1))
+			// The survivor keeps its own id AND its own timestamp — a filter that
+			// dropped the wrong entry, or rewrote the survivor, fails here.
+			Expect(after).To(ContainSubstring("session_id: " + s2))
+			Expect(after).To(ContainSubstring(`started_at: "2026-09-02T08:00:00Z"`))
+		})
+
+		It("AC-R2: removing the last remaining entry deletes the metrics_sessions key entirely", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": twoEntryFrontmatter,
+			})
+			taskFile := filepath.Join(vaultPath, "Tasks", "Alpha.md")
+
+			first := runEntityCommand("task", "remove-metrics-session", "Alpha", s1)
+			Eventually(first).Should(gexec.Exit(0))
+			second := runEntityCommand("task", "remove-metrics-session", "Alpha", s2)
+			Eventually(second).Should(gexec.Exit(0))
+
+			after := readFile(taskFile)
+			Expect(after).NotTo(ContainSubstring("metrics_sessions"))
+			Expect(countMetricsEntries(after)).To(Equal(0))
+			// Every base key and the body survive the deletion.
+			Expect(after).To(ContainSubstring("page_type: task"))
+			Expect(after).To(ContainSubstring("body line"))
+		})
+
+		It("AC-R3: an absent session id exits 1 and leaves the file byte-identical", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": twoEntryFrontmatter,
+			})
+			taskFile := filepath.Join(vaultPath, "Tasks", "Alpha.md")
+			before := sha256OfFile(taskFile)
+
+			session := runEntityCommand("task", "remove-metrics-session", "Alpha",
+				"33333333-3333-4333-8333-333333333333")
+			Eventually(session).Should(gexec.Exit(1))
+			Expect(string(session.Err.Contents())).To(ContainSubstring("nothing removed"))
+
+			// A silent no-op is the defect this verb exists to fix, so the absent-id
+			// path must be visible AND write nothing.
+			Expect(sha256OfFile(taskFile)).To(Equal(before))
+		})
+
+		It("AC-R4: an empty, non-UUID or path-bearing session id is refused with nothing written", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": twoEntryFrontmatter,
+			})
+			taskFile := filepath.Join(vaultPath, "Tasks", "Alpha.md")
+			before := sha256OfFile(taskFile)
+
+			for _, sessionID := range []string{"", "not-a-uuid", "../escape"} {
+				session := runEntityCommand("task", "remove-metrics-session", "Alpha", sessionID)
+				Eventually(session).Should(gexec.Exit(1))
+				Expect(string(session.Err.Contents())).
+					To(ContainSubstring("expected a well-formed UUID"))
+			}
+
+			Expect(sha256OfFile(taskFile)).To(Equal(before))
+		})
+
+		It("AC-R5: the generic write verbs still refuse metrics_sessions after the new verb ships", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": twoEntryFrontmatter,
+			})
+			taskFile := filepath.Join(vaultPath, "Tasks", "Alpha.md")
+			before := sha256OfFile(taskFile)
+
+			for _, args := range [][]string{
+				{"task", "set", "Alpha", "metrics_sessions", `{"session_id":"x"}`},
+				{"task", "add", "Alpha", "metrics_sessions", "x"},
+				{"task", "remove", "Alpha", "metrics_sessions", "x"},
+			} {
+				session := runEntityCommand(args...)
+				Eventually(session).Should(gexec.Exit(1))
+				Expect(string(session.Err.Contents())).To(ContainSubstring("metrics_sessions"))
+			}
+
+			Expect(sha256OfFile(taskFile)).To(Equal(before))
+		})
+	})
+
 	Describe("vault-cli defer", func() {
 		var vaultPath, configPath string
 		var cleanup func()

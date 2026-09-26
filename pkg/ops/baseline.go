@@ -188,6 +188,11 @@ func rollupBaselineWeeks(
 	}
 	weeks := make(map[string]int, len(raw))
 	for week, entry := range raw {
+		select {
+		case <-ctx.Done():
+			return nil, errors.Wrap(ctx, ctx.Err(), "context cancelled")
+		default:
+		}
 		figure, ok := entry.(int)
 		if !ok {
 			return nil, errors.Errorf(

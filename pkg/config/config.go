@@ -52,6 +52,10 @@ type Vault struct {
 	ObjectiveTemplate string   `yaml:"objective_template,omitempty"   json:"objective_template,omitempty"`
 	VisionTemplate    string   `yaml:"vision_template,omitempty"      json:"vision_template,omitempty"`
 	Excludes          []string `yaml:"excludes,omitempty"             json:"excludes,omitempty"`
+	// Baseline is the vault-relative path of the vault's hand-authored baseline
+	// file. Empty means the vault has no baseline: `rollup weekly` then prints
+	// exactly what it printed before the baseline feature existed.
+	Baseline string `yaml:"baseline,omitempty" json:"baseline,omitempty"`
 }
 
 // GetTasksDir returns the tasks directory, defaulting to "Tasks" if not set.
@@ -221,16 +225,26 @@ type configLoader struct {
 	configPath string
 }
 
+// resolveConfigPath returns the config file path: the explicit configPath when
+// given, otherwise <FindConfigDir(ctx, "vault-cli")>/config.yaml. It never
+// creates a directory and never writes.
+func resolveConfigPath(ctx context.Context, configPath string) (string, error) {
+	if configPath != "" {
+		return configPath, nil
+	}
+	dir, err := FindConfigDir(ctx, "vault-cli")
+	if err != nil {
+		return "", errors.Wrap(ctx, err, "find config dir")
+	}
+	return filepath.Join(dir, "config.yaml"), nil
+}
+
 // Load reads the configuration from file or returns default config.
 func (c *configLoader) Load(ctx context.Context) (*Config, error) {
 	// If config path is empty, use default location
-	configPath := c.configPath
-	if configPath == "" {
-		dir, err := FindConfigDir(ctx, "vault-cli")
-		if err != nil {
-			return nil, errors.Wrap(ctx, err, "find config dir")
-		}
-		configPath = filepath.Join(dir, "config.yaml")
+	configPath, err := resolveConfigPath(ctx, c.configPath)
+	if err != nil {
+		return nil, err
 	}
 
 	// If config file doesn't exist, return default config

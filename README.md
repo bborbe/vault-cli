@@ -212,6 +212,18 @@ configured vault at once — and writes nothing. A figure with no measurement
 behind it reads `undefined` or `no data` in both plain and JSON output, never a
 zero.
 
+A vault whose config entry names a `baseline` file has that file's stored figures
+printed above the computed ones under a `Baseline (captured <date>)` header, and
+the movement from each computed figure to its baseline analogue printed last,
+after the rule lines, under a `Delta (vs baseline captured <date>)` header. The
+stored figures are echoed exactly as the file holds them — never recomputed,
+rounded or rewritten — and a figure with no analogue (the unattended-delivery
+count, the stored total, the stored agent coverage) gets no delta row. A vault
+with no baseline configured prints exactly what it printed before.
+[docs/baseline-file.md](docs/baseline-file.md) carries the frontmatter contract
+and the analogue mapping; `vault-cli config set-baseline <vault> <path>` records
+the vault-relative path of the file the rollup reads.
+
 ## Claude Code Plugin
 
 vault-cli includes a Claude Code plugin for task management commands.

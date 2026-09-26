@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [054-rollup-weekly-baseline-delta]
+summary: Added the vault `baseline` config key, a shared vault-relative path validator, an atomic read-before-write config writer, and the `config set-baseline <vault> <path>` verb with tests, integration registration and README docs.
+execution_id: vault-cli-rollup-baseline-exec-232-spec-054-config-set-baseline
+dark-factory-version: v0.196.0
 created: "2026-09-26T15:48:55Z"
 queued: "2026-09-26T16:45:22Z"
+started: "2026-09-26T16:48:00Z"
+completed: "2026-09-26T16:52:13Z"
 ---
 
 # `vault-cli config set-baseline <vault> <path>`: the config key, its validation and its atomic write (spec 054, prompt 1 of 3)

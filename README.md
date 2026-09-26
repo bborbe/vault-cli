@@ -182,7 +182,13 @@ vault-cli search "improve performance" --top-k 10  # Return more results
 ```bash
 vault-cli config list          # List configured vaults
 vault-cli config current-user  # Print the current user
+vault-cli config set-baseline personal "60 Baseline.md"  # Point a vault at its baseline file
 ```
+
+The path passed to `config set-baseline` is vault-relative — an absolute path, or
+one whose cleaned form escapes the vault root, is refused. The value is written
+to the named vault's entry in the config file under the key `baseline`;
+`docs/baseline-file.md` documents the file's frontmatter contract.
 
 ### rollup
 

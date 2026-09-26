@@ -200,6 +200,7 @@ func NewRootCommand(ctx context.Context) *cobra.Command {
 	}
 	configCmd.AddCommand(createConfigListCommand(ctx, &configLoader, &vaultName, &outputFormat))
 	configCmd.AddCommand(createConfigCurrentUserCommand(ctx, &configLoader))
+	configCmd.AddCommand(createConfigSetBaselineCommand(ctx, &configPath))
 	rootCmd.AddCommand(configCmd)
 
 	return rootCmd

@@ -1,6 +1,8 @@
 ---
-status: approved
+status: prompted
 approved: "2026-09-26T15:04:34Z"
+generating: "2026-09-26T15:38:46Z"
+prompted: "2026-09-26T16:21:47Z"
 branch: dark-factory/rollup-weekly-baseline-delta
 ---
 

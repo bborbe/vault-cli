@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- docs: document the rollup baseline file (`docs/baseline-file.md`) — its location and config rules, the frozen five-key frontmatter contract, the mapping of each stored figure to the rollup figure it has an analogue in, the recorded definitional mismatches, and the frozen report layout.
+
 ## v0.148.0
 
 - feat: `vault-cli rollup weekly` reports a week's human interactions, unattended deliveries and per-family median interactions from task frontmatter, stating the unattended-delivery rule and the filename-stem grouping rule in its output. It reads one vault — the `--vault` flag, or the config's `default_vault` when the flag is omitted, never every configured vault — accepts `--week YYYY-Wnn` and defaults to the last complete ISO week, supports `--output plain|json`, and writes nothing to the vault.

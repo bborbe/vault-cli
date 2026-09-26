@@ -6,6 +6,7 @@ package ops
 
 import (
 	"context"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
@@ -73,27 +74,43 @@ func NewRollupWeeklyOperation(
 	taskStorage storage.TaskStorage,
 	currentDateTime libtime.CurrentDateTime,
 ) RollupWeeklyOperation {
+	return NewRollupWeeklyOperationWithBaseline(taskStorage, currentDateTime, "")
+}
+
+// NewRollupWeeklyOperationWithBaseline creates a weekly rollup operation that also
+// reads the baseline file at baselinePath. baselinePath is vault-relative and is
+// resolved against the vault path passed to Execute; an empty baselinePath means
+// no baseline, and the result then carries no Baseline and no delta rows, exactly
+// as before this feature existed.
+func NewRollupWeeklyOperationWithBaseline(
+	taskStorage storage.TaskStorage,
+	currentDateTime libtime.CurrentDateTime,
+	baselinePath string,
+) RollupWeeklyOperation {
 	return &rollupWeeklyOperation{
 		taskStorage:     taskStorage,
 		currentDateTime: currentDateTime,
+		baselinePath:    baselinePath,
 	}
 }
 
 type rollupWeeklyOperation struct {
 	taskStorage     storage.TaskStorage
 	currentDateTime libtime.CurrentDateTime
+	baselinePath    string
 }
 
 // RollupWeeklyResult is the computed weekly rollup for one vault.
 type RollupWeeklyResult struct {
-	Year                 int            `json:"year"`
-	Week                 int            `json:"week"`
-	WeekStart            string         `json:"week_start"`
-	WeekEnd              string         `json:"week_end"`
-	HumanInteractions    string         `json:"human_interactions"`
-	UnattendedDeliveries string         `json:"unattended_deliveries"`
-	PerFamilyMedian      string         `json:"per_family_median"`
-	Families             []RollupFamily `json:"families"`
+	Year                 int             `json:"year"`
+	Week                 int             `json:"week"`
+	WeekStart            string          `json:"week_start"`
+	WeekEnd              string          `json:"week_end"`
+	HumanInteractions    string          `json:"human_interactions"`
+	UnattendedDeliveries string          `json:"unattended_deliveries"`
+	PerFamilyMedian      string          `json:"per_family_median"`
+	Families             []RollupFamily  `json:"families"`
+	Baseline             *RollupBaseline `json:"baseline,omitempty"`
 }
 
 // RollupFamily is one task family's median within the week's task set.
@@ -123,6 +140,18 @@ func (o *rollupWeeklyOperation) Execute(
 		Families:  []RollupFamily{},
 	}
 
+	if o.baselinePath != "" {
+		baseline, baselineErr := readRollupBaseline(
+			ctx,
+			filepath.Join(vaultPath, o.baselinePath),
+			vaultName,
+		)
+		if baselineErr != nil {
+			return RollupWeeklyResult{}, baselineErr
+		}
+		result.Baseline = baseline
+	}
+
 	tasks, err := o.taskStorage.ListTasksStrict(ctx, vaultPath)
 	if err != nil {
 		return RollupWeeklyResult{}, errors.Wrapf(ctx, err, "list tasks of vault %s", vaultName)
@@ -148,6 +177,15 @@ func (o *rollupWeeklyOperation) Execute(
 	families, headline := rollupFamilyMedians(weekTasks)
 	result.Families = families
 	result.PerFamilyMedian = headline
+
+	if result.Baseline != nil {
+		result.Baseline.Deltas = rollupBaselineDeltas(
+			result.Baseline,
+			rollupBaselineWeekToken(year, weekNumber),
+			result.HumanInteractions,
+			result.PerFamilyMedian,
+		)
+	}
 
 	return result, nil
 }

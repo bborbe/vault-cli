@@ -67,15 +67,12 @@ type baseStorage struct {
 	config *Config
 }
 
-// parseToFrontmatterMap parses the YAML frontmatter block from content into a
+// ParseFrontmatterMap parses the YAML frontmatter block from content into a
 // map[string]any, preserving all fields including unknown ones.
 // Returns an error if no frontmatter block is found or YAML is invalid.
 // A bare Obsidian wikilink value is quoted before unmarshal — see
 // quoteBareWikilinks — so it is read as a string rather than a nested list.
-func (b *baseStorage) parseToFrontmatterMap(
-	ctx context.Context,
-	content []byte,
-) (map[string]any, error) {
+func ParseFrontmatterMap(ctx context.Context, content []byte) (map[string]any, error) {
 	matches := frontmatterRegex.FindSubmatch(content)
 	if len(matches) < 2 {
 		return nil, errors.Errorf(ctx, "no frontmatter found")
@@ -89,6 +86,14 @@ func (b *baseStorage) parseToFrontmatterMap(
 		m = make(map[string]any)
 	}
 	return m, nil
+}
+
+// parseToFrontmatterMap is the baseStorage method form of ParseFrontmatterMap.
+func (b *baseStorage) parseToFrontmatterMap(
+	ctx context.Context,
+	content []byte,
+) (map[string]any, error) {
+	return ParseFrontmatterMap(ctx, content)
 }
 
 // quoteBareWikilinks rewrites frontmatter lines whose value is exactly a bare

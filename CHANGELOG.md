@@ -8,6 +8,11 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- docs: document the rollup baseline file (`docs/baseline-file.md`) — its location and config rules, the frozen five-key frontmatter contract, the mapping of each stored figure to the rollup figure it has an analogue in, the recorded definitional mismatches, and the frozen report layout.
+- feat: `vault-cli rollup weekly` prints a vault's recorded baseline figures above the figures it computes and the delta from each computed figure to its baseline analogue below them, and `vault-cli config set-baseline <vault> <path>` records the vault-relative path of the baseline file the rollup reads. The five stored figures are echoed verbatim — never recomputed, normalised or rewritten — the per-family median's delta row carries `[definitional mismatch]` because the stored figure is a per-task median while the computed one is a median of per-family medians, and a vault whose config names no baseline prints exactly what it printed before.
+
 ## v0.148.0
 
 - feat: `vault-cli rollup weekly` reports a week's human interactions, unattended deliveries and per-family median interactions from task frontmatter, stating the unattended-delivery rule and the filename-stem grouping rule in its output. It reads one vault — the `--vault` flag, or the config's `default_vault` when the flag is omitted, never every configured vault — accepts `--week YYYY-Wnn` and defaults to the last complete ISO week, supports `--output plain|json`, and writes nothing to the vault.

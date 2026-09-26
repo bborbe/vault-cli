@@ -182,7 +182,13 @@ vault-cli search "improve performance" --top-k 10  # Return more results
 ```bash
 vault-cli config list          # List configured vaults
 vault-cli config current-user  # Print the current user
+vault-cli config set-baseline personal "60 Baseline.md"  # Point a vault at its baseline file
 ```
+
+The path passed to `config set-baseline` is vault-relative — an absolute path, or
+one whose cleaned form escapes the vault root, is refused. The value is written
+to the named vault's entry in the config file under the key `baseline`;
+`docs/baseline-file.md` documents the file's frontmatter contract.
 
 ### rollup
 
@@ -205,6 +211,18 @@ The command reads only task frontmatter from one vault — the vault named by
 configured vault at once — and writes nothing. A figure with no measurement
 behind it reads `undefined` or `no data` in both plain and JSON output, never a
 zero.
+
+A vault whose config entry names a `baseline` file has that file's stored figures
+printed above the computed ones under a `Baseline (captured <date>)` header, and
+the movement from each computed figure to its baseline analogue printed last,
+after the rule lines, under a `Delta (vs baseline captured <date>)` header. The
+stored figures are echoed exactly as the file holds them — never recomputed,
+rounded or rewritten — and a figure with no analogue (the unattended-delivery
+count, the stored total, the stored agent coverage) gets no delta row. A vault
+with no baseline configured prints exactly what it printed before.
+[docs/baseline-file.md](docs/baseline-file.md) carries the frontmatter contract
+and the analogue mapping; `vault-cli config set-baseline <vault> <path>` records
+the vault-relative path of the file the rollup reads.
 
 ## Claude Code Plugin
 

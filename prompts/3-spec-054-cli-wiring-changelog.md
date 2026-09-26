@@ -19,7 +19,7 @@ created: "2026-09-26T15:48:55Z"
 </summary>
 
 <objective>
-Render the baseline and the deltas in `rollup weekly`: wire the config key prompt 1 landed into the rollup operation prompt 2 built, print the two blocks in the frozen order, and keep the no-baseline report byte-identical to the pre-change output. This is spec 054's third and final prompt: it covers Desired Behaviors 3, 5 and 6 and Acceptance Criterion 1, and it depends on prompts 1 and 2 — both must already be in the tree.
+Render the baseline and the deltas in `rollup weekly`: wire the config key prompt 1 landed into the rollup operation prompt 2 built, print the two blocks in the frozen order, and keep the no-baseline report byte-identical to the pre-change output. This is spec 054's third and final prompt: it covers Desired Behaviors 3, 5 and 6 and Acceptance Criteria 1, 2, 3, 4 and 5, and it depends on prompts 1 and 2 — both must already be in the tree.
 </objective>
 
 <context>
@@ -264,6 +264,7 @@ Use these spec names verbatim; they are grep targets in `<verification>`. Every 
 6. `"fails loudly when a baseline key is missing"` — a baseline file whose `baseline_median` line is removed. Assert the process exits non-zero, stderr contains `baseline_median`, and stdout contains neither `Baseline` nor `Median`.
 7. `"rejects a baseline path outside the vault"` — two cases in one spec: `baseline` set to `/etc/passwd`, then to `../../outside.md`. Each exits non-zero, and each run's stdout contains none of `Human interactions`, `Baseline`, `Delta` — no figures and no partial block.
 8. `"carries the baseline figures and the deltas in JSON"` — the real-figures fixture run with `--output json`. Unmarshal stdout into a small local struct and assert `baseline.captured == "2026-09-12"`, `human_total == 62485`, `median == 64`, `agent_coverage == "1 of 420"`, `weeks["2026-W37"] == 26476`, `deltas.human_interactions.baseline == 26476` and `deltas.human_interactions.delta == deltas.human_interactions.computed - deltas.human_interactions.baseline`, and `deltas.per_family_median.mismatch == true`. Then run the no-baseline fixture with `--output json`, unmarshal into a `map[string]any`, and assert `_, ok := m["baseline"]; Expect(ok).To(BeFalse())`.
+9. `"prints the edited baseline figure after the file is rewritten"` — Acceptance Criterion 3's state transition: the block tracks the file's content across an edit. Record `sha256OfFile(binPath)` before the first run. Using the distinct-figures fixture, run the binary and assert stdout contains `  Median: 7`. Then rewrite that fixture's baseline file in place — same path, regenerated with `baselineDocument("2026-01-02", "111", "8", scratchBaselineWeeks, "2 of 9")` written to `filepath.Join(vaultPath, baselineFile)` — and run the *same* binary again. Assert the second run's stdout contains `  Median: 8`, does NOT contain `  Median: 7`, and that its median delta row matches `  Per-family median: <computed> - 8 = <computed minus 8> [definitional mismatch]`, where `<computed>` is read from the second run's own `^Per-family median: ` line. Then restore the file (write the original `baselineDocument("2026-01-02", "111", "7", scratchBaselineWeeks, "2 of 9")` back) and run the binary a third time; assert stdout contains `  Median: 7` again. Record `sha256OfFile(binPath)` again after the third run and assert the two digests are equal — three runs, one binary. Use the `crypto/sha256` + `os.ReadFile` helper the existing integration suite already defines; do not shell out to `shasum`, which the container image may not carry.
 
 `encoding/json` in a `_test.go` file is fine; the "never import `encoding/json` in a command file" rule applies to `pkg/cli/*.go` non-test files.
 
@@ -358,6 +359,7 @@ grep -F -q -- 'fails loudly when the baseline file is missing' /tmp/spec054-int.
 grep -F -q -- 'fails loudly when a baseline key is missing' /tmp/spec054-int.log
 grep -F -q -- 'rejects a baseline path outside the vault' /tmp/spec054-int.log
 grep -F -q -- 'carries the baseline figures and the deltas in JSON' /tmp/spec054-int.log
+grep -F -q -- 'prints the edited baseline figure after the file is rewritten' /tmp/spec054-int.log
 ```
 
 If `gexec.Build` fails with a VCS status error, `GOFLAGS=-buildvcs=false` is missing from the environment; export it rather than touching `.git`.

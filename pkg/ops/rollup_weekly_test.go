@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	libtime "github.com/bborbe/time"
 	libtimetest "github.com/bborbe/time/test"
@@ -38,6 +39,43 @@ func rollupTaskFrontmatter(status string, completedAt string, count string) stri
 		frontmatter += "metrics_interaction_count: " + count + "\n"
 	}
 	return frontmatter
+}
+
+// writeRollupBaseline writes a baseline file at a vault-relative path. The
+// frontmatter argument is the raw YAML block between the --- delimiters.
+func writeRollupBaseline(vaultPath string, relPath string, frontmatter string) {
+	content := "---\n" + frontmatter + "---\n# Baseline\n\nCaptured figures.\n"
+	full := filepath.Join(vaultPath, relPath)
+	Expect(os.MkdirAll(filepath.Dir(full), 0755)).To(Succeed())
+	Expect(os.WriteFile(full, []byte(content), 0600)).To(Succeed())
+}
+
+// baselineFrontmatter renders a baseline frontmatter block from its five figures.
+// weeks is the pre-rendered body of baseline_weeks, e.g. "  2026-W36: 25141\n".
+func baselineFrontmatter(
+	captured string, humanTotal int, median int, weeks string, agentCoverage string,
+) string {
+	return "baseline_captured: " + captured + "\n" +
+		"baseline_human_total: " + strconv.Itoa(humanTotal) + "\n" +
+		"baseline_median: " + strconv.Itoa(median) + "\n" +
+		"baseline_weeks:\n" + weeks +
+		"baseline_agent_coverage: \"" + agentCoverage + "\"\n"
+}
+
+// realBaselineWeeks is the contract's own example week map: the 2026-09-12 capture.
+const realBaselineWeeks = "  2026-W36: 25141\n  2026-W37: 26476\n"
+
+// rollupOpWithBaseline builds a weekly rollup operation pointed at a
+// vault-relative baseline path.
+func rollupOpWithBaseline(
+	currentDateTime libtime.CurrentDateTime,
+	relPath string,
+) ops.RollupWeeklyOperation {
+	return ops.NewRollupWeeklyOperationWithBaseline(
+		storage.NewTaskStorage(&storage.Config{TasksDir: "Tasks"}),
+		currentDateTime,
+		relPath,
+	)
 }
 
 func assertRollupNoData(result ops.RollupWeeklyResult) {
@@ -372,4 +410,314 @@ var _ = Describe("RollupWeeklyOperation", func() {
 		Entry("even count with a half mean", []float64{1, 2, 3, 4}, 2.5),
 		Entry("unsorted input", []float64{5, 1, 3}, 3.0),
 	)
+
+	It("reads the baseline figures from the configured file", func() {
+		writeRollupBaseline(vaultPath, "Baselines/rollup-baseline.md", baselineFrontmatter(
+			"2026-09-12", 62485, 64, realBaselineWeeks, "1 of 420",
+		))
+		writeRollupTask(vaultPath, "Alpha Task", rollupTaskFrontmatter(
+			"completed", "2026-09-08T10:00:00Z", "4",
+		))
+		op := rollupOpWithBaseline(currentDateTime, "Baselines/rollup-baseline.md")
+
+		result, err := op.Execute(ctx, vaultPath, vaultName, "2026-W37")
+		Expect(err).To(BeNil())
+		Expect(result.Baseline).NotTo(BeNil())
+		// The date is written unquoted in the file, so YAML resolves it as a
+		// timestamp; it must render as the stored date, not as a Go time string.
+		Expect(result.Baseline.Captured).To(Equal("2026-09-12"))
+		Expect(result.Baseline.HumanTotal).To(Equal(62485))
+		Expect(result.Baseline.Median).To(Equal(64))
+		Expect(result.Baseline.Weeks["2026-W36"]).To(Equal(25141))
+		Expect(result.Baseline.Weeks["2026-W37"]).To(Equal(26476))
+		Expect(result.Baseline.AgentCoverage).To(Equal("1 of 420"))
+	})
+
+	It("reads distinct figures and carries no compiled-in constant", func() {
+		writeRollupBaseline(vaultPath, "Baselines/rollup-baseline.md", baselineFrontmatter(
+			"2026-01-02", 111, 7, "  2026-W36: 222\n  2026-W37: 333\n", "2 of 9",
+		))
+		writeRollupTask(vaultPath, "Alpha Task", rollupTaskFrontmatter(
+			"completed", "2026-09-08T10:00:00Z", "4",
+		))
+		op := rollupOpWithBaseline(currentDateTime, "Baselines/rollup-baseline.md")
+
+		result, err := op.Execute(ctx, vaultPath, vaultName, "2026-W37")
+		Expect(err).To(BeNil())
+		Expect(result.Baseline).NotTo(BeNil())
+		Expect(result.Baseline.Captured).To(Equal("2026-01-02"))
+		Expect(result.Baseline.HumanTotal).To(Equal(111))
+		Expect(result.Baseline.HumanTotal).NotTo(Equal(62485))
+		Expect(result.Baseline.Median).To(Equal(7))
+		Expect(result.Baseline.Weeks["2026-W36"]).To(Equal(222))
+		Expect(result.Baseline.Weeks["2026-W37"]).To(Equal(333))
+		Expect(result.Baseline.AgentCoverage).To(Equal("2 of 9"))
+		Expect(result.Baseline.Weeks).NotTo(ContainElement(25141))
+		Expect(result.Baseline.Weeks).NotTo(ContainElement(26476))
+	})
+
+	It("computes the human-interactions delta from the week's stored figure", func() {
+		writeRollupBaseline(vaultPath, "Baselines/rollup-baseline.md", baselineFrontmatter(
+			"2026-01-02", 111, 7, "  2026-W37: 222\n", "2 of 9",
+		))
+		writeRollupTask(vaultPath, "Alpha Task", rollupTaskFrontmatter(
+			"completed", "2026-09-08T10:00:00Z", "300",
+		))
+		writeRollupTask(vaultPath, "Beta Task", rollupTaskFrontmatter(
+			"completed", "2026-09-09T10:00:00Z", "200",
+		))
+		op := rollupOpWithBaseline(currentDateTime, "Baselines/rollup-baseline.md")
+
+		result, err := op.Execute(ctx, vaultPath, vaultName, "2026-W37")
+		Expect(err).To(BeNil())
+		Expect(result.HumanInteractions).To(Equal("500"))
+		Expect(result.Baseline).NotTo(BeNil())
+		Expect(result.Baseline.Deltas.HumanInteractions).NotTo(BeNil())
+		Expect(result.Baseline.Deltas.HumanInteractions.Computed).To(Equal(500.0))
+		Expect(result.Baseline.Deltas.HumanInteractions.Baseline).To(Equal(222.0))
+		Expect(result.Baseline.Deltas.HumanInteractions.Delta).To(Equal(278.0))
+	})
+
+	It("computes the per-family median delta and marks it a definitional mismatch", func() {
+		writeRollupBaseline(vaultPath, "Baselines/rollup-baseline.md", baselineFrontmatter(
+			"2026-01-02", 111, 7, "  2026-W37: 222\n", "2 of 9",
+		))
+		writeRollupTask(vaultPath, "Alpha Task One", rollupTaskFrontmatter(
+			"completed", "2026-09-08T10:00:00Z", "4",
+		))
+		writeRollupTask(vaultPath, "Alpha Task Two", rollupTaskFrontmatter(
+			"completed", "2026-09-09T10:00:00Z", "6",
+		))
+		op := rollupOpWithBaseline(currentDateTime, "Baselines/rollup-baseline.md")
+
+		result, err := op.Execute(ctx, vaultPath, vaultName, "2026-W37")
+		Expect(err).To(BeNil())
+
+		computed, parseErr := strconv.ParseFloat(result.PerFamilyMedian, 64)
+		Expect(parseErr).To(BeNil())
+		Expect(result.Baseline).NotTo(BeNil())
+		Expect(result.Baseline.Deltas.PerFamilyMedian).NotTo(BeNil())
+		Expect(result.Baseline.Deltas.PerFamilyMedian.Baseline).To(Equal(7.0))
+		Expect(result.Baseline.Deltas.PerFamilyMedian.Computed).To(Equal(computed))
+		Expect(result.Baseline.Deltas.PerFamilyMedian.Delta).To(Equal(computed - 7))
+		Expect(result.Baseline.Deltas.PerFamilyMedian.Mismatch).To(BeTrue())
+	})
+
+	It("omits the human-interactions delta when the requested week is absent from the baseline", func() {
+		writeRollupBaseline(vaultPath, "Baselines/rollup-baseline.md", baselineFrontmatter(
+			"2026-01-02", 111, 7, "  2026-W37: 222\n", "2 of 9",
+		))
+		writeRollupTask(vaultPath, "Alpha Task", rollupTaskFrontmatter(
+			"completed", "2026-05-13T10:00:00Z", "9",
+		))
+		op := rollupOpWithBaseline(currentDateTime, "Baselines/rollup-baseline.md")
+
+		result, err := op.Execute(ctx, vaultPath, vaultName, "2026-W20")
+		Expect(err).To(BeNil())
+		Expect(result.Baseline).NotTo(BeNil())
+		// The omission is scoped to the delta: the computed figure is still real.
+		Expect(result.HumanInteractions).To(Equal("9"))
+		Expect(result.Baseline.Deltas.HumanInteractions).To(BeNil())
+		Expect(result.Baseline.Deltas.PerFamilyMedian).NotTo(BeNil())
+	})
+
+	It("omits a delta row when the computed figure is not a number", func() {
+		writeRollupBaseline(vaultPath, "Baselines/rollup-baseline.md", baselineFrontmatter(
+			"2026-01-02", 111, 7, "  2026-W37: 222\n", "2 of 9",
+		))
+		writeRollupTask(vaultPath, "No Count Task", rollupTaskFrontmatter(
+			"completed", "2026-09-08T10:00:00Z", "",
+		))
+		op := rollupOpWithBaseline(currentDateTime, "Baselines/rollup-baseline.md")
+
+		result, err := op.Execute(ctx, vaultPath, vaultName, "2026-W37")
+		Expect(err).To(BeNil())
+		Expect(result.HumanInteractions).To(Equal("no recorded counts"))
+		Expect(result.PerFamilyMedian).To(Equal("undefined"))
+		Expect(result.Baseline).NotTo(BeNil())
+		Expect(result.Baseline.Deltas).To(Equal(ops.RollupBaselineDeltas{}))
+		Expect(result.Baseline.Deltas.HumanInteractions).To(BeNil())
+		Expect(result.Baseline.Deltas.PerFamilyMedian).To(BeNil())
+	})
+
+	It("carries no baseline when the operation is built without one", func() {
+		writeRollupBaseline(vaultPath, "Baselines/rollup-baseline.md", baselineFrontmatter(
+			"2026-01-02", 111, 7, "  2026-W37: 222\n", "2 of 9",
+		))
+		writeRollupTask(vaultPath, "Alpha Task", rollupTaskFrontmatter(
+			"completed", "2026-09-08T10:00:00Z", "4",
+		))
+
+		result, err := rollupOp.Execute(ctx, vaultPath, vaultName, "2026-W37")
+		Expect(err).To(BeNil())
+		Expect(result.Baseline).To(BeNil())
+	})
+
+	It("fails naming the vault and the resolved path when the baseline file is missing", func() {
+		op := rollupOpWithBaseline(currentDateTime, "Baselines/absent.md")
+
+		result, err := op.Execute(ctx, vaultPath, vaultName, "2026-W37")
+		Expect(err).NotTo(BeNil())
+		Expect(err.Error()).To(ContainSubstring(vaultName))
+		Expect(err.Error()).To(ContainSubstring(filepath.Join(vaultPath, "Baselines/absent.md")))
+		Expect(result).To(Equal(ops.RollupWeeklyResult{}))
+	})
+
+	It("fails naming the missing frontmatter key", func() {
+		writeRollupBaseline(vaultPath, "Baselines/rollup-baseline.md",
+			"baseline_captured: 2026-01-02\n"+
+				"baseline_human_total: 111\n"+
+				"baseline_weeks:\n  2026-W37: 222\n"+
+				"baseline_agent_coverage: \"2 of 9\"\n",
+		)
+		op := rollupOpWithBaseline(currentDateTime, "Baselines/rollup-baseline.md")
+
+		result, err := op.Execute(ctx, vaultPath, vaultName, "2026-W37")
+		Expect(err).NotTo(BeNil())
+		Expect(err.Error()).To(ContainSubstring("baseline_median"))
+		Expect(result).To(Equal(ops.RollupWeeklyResult{}))
+	})
+
+	It("fails naming the key when a baseline figure is not an integer", func() {
+		writeRollupBaseline(vaultPath, "Baselines/rollup-baseline.md",
+			"baseline_captured: 2026-01-02\n"+
+				"baseline_human_total: 111\n"+
+				"baseline_median: not-a-number\n"+
+				"baseline_weeks:\n  2026-W37: 222\n"+
+				"baseline_agent_coverage: \"2 of 9\"\n",
+		)
+		op := rollupOpWithBaseline(currentDateTime, "Baselines/rollup-baseline.md")
+
+		result, err := op.Execute(ctx, vaultPath, vaultName, "2026-W37")
+		Expect(err).NotTo(BeNil())
+		Expect(err.Error()).To(ContainSubstring("baseline_median"))
+		Expect(result).To(Equal(ops.RollupWeeklyResult{}))
+	})
+
+	It("fails naming the key when baseline_weeks carries a non-integer", func() {
+		writeRollupBaseline(vaultPath, "Baselines/rollup-baseline.md", baselineFrontmatter(
+			"2026-01-02", 111, 7, "  2026-W37: many\n", "2 of 9",
+		))
+		op := rollupOpWithBaseline(currentDateTime, "Baselines/rollup-baseline.md")
+
+		result, err := op.Execute(ctx, vaultPath, vaultName, "2026-W37")
+		Expect(err).NotTo(BeNil())
+		Expect(err.Error()).To(ContainSubstring("baseline_weeks"))
+		Expect(err.Error()).To(ContainSubstring("2026-W37"))
+		Expect(result).To(Equal(ops.RollupWeeklyResult{}))
+	})
+
+	It("echoes a quoted baseline capture date verbatim", func() {
+		writeRollupBaseline(vaultPath, "Baselines/rollup-baseline.md", baselineFrontmatter(
+			`"2026-01-02"`, 111, 7, "  2026-W37: 222\n", "2 of 9",
+		))
+		op := rollupOpWithBaseline(currentDateTime, "Baselines/rollup-baseline.md")
+
+		result, err := op.Execute(ctx, vaultPath, vaultName, "2026-W37")
+		Expect(err).To(BeNil())
+		Expect(result.Baseline).NotTo(BeNil())
+		Expect(result.Baseline.Captured).To(Equal("2026-01-02"))
+	})
+
+	DescribeTable("fails naming the key for a malformed baseline figure",
+		func(frontmatter string, key string) {
+			writeRollupBaseline(vaultPath, "Baselines/rollup-baseline.md", frontmatter)
+			op := rollupOpWithBaseline(currentDateTime, "Baselines/rollup-baseline.md")
+
+			result, err := op.Execute(ctx, vaultPath, vaultName, "2026-W37")
+			Expect(err).NotTo(BeNil())
+			Expect(err.Error()).To(ContainSubstring(key))
+			Expect(result).To(Equal(ops.RollupWeeklyResult{}))
+		},
+		Entry("capture date absent",
+			"baseline_human_total: 111\nbaseline_median: 7\n"+
+				"baseline_weeks:\n  2026-W37: 222\nbaseline_agent_coverage: \"2 of 9\"\n",
+			"baseline_captured"),
+		Entry("capture date empty",
+			"baseline_captured: \"\"\nbaseline_human_total: 111\nbaseline_median: 7\n"+
+				"baseline_weeks:\n  2026-W37: 222\nbaseline_agent_coverage: \"2 of 9\"\n",
+			"baseline_captured"),
+		Entry("capture date not a date",
+			"baseline_captured: 2026\nbaseline_human_total: 111\nbaseline_median: 7\n"+
+				"baseline_weeks:\n  2026-W37: 222\nbaseline_agent_coverage: \"2 of 9\"\n",
+			"baseline_captured"),
+		Entry("human total absent",
+			"baseline_captured: 2026-01-02\nbaseline_median: 7\n"+
+				"baseline_weeks:\n  2026-W37: 222\nbaseline_agent_coverage: \"2 of 9\"\n",
+			"baseline_human_total"),
+		Entry("human total not an integer",
+			"baseline_captured: 2026-01-02\nbaseline_human_total: abc\nbaseline_median: 7\n"+
+				"baseline_weeks:\n  2026-W37: 222\nbaseline_agent_coverage: \"2 of 9\"\n",
+			"baseline_human_total"),
+		Entry("weeks absent",
+			"baseline_captured: 2026-01-02\nbaseline_human_total: 111\nbaseline_median: 7\n"+
+				"baseline_agent_coverage: \"2 of 9\"\n",
+			"baseline_weeks"),
+		Entry("weeks not a map",
+			"baseline_captured: 2026-01-02\nbaseline_human_total: 111\nbaseline_median: 7\n"+
+				"baseline_weeks: 5\nbaseline_agent_coverage: \"2 of 9\"\n",
+			"baseline_weeks"),
+		Entry("agent coverage absent",
+			"baseline_captured: 2026-01-02\nbaseline_human_total: 111\nbaseline_median: 7\n"+
+				"baseline_weeks:\n  2026-W37: 222\n",
+			"baseline_agent_coverage"),
+		Entry("agent coverage not a string",
+			"baseline_captured: 2026-01-02\nbaseline_human_total: 111\nbaseline_median: 7\n"+
+				"baseline_weeks:\n  2026-W37: 222\nbaseline_agent_coverage: 3\n",
+			"baseline_agent_coverage"),
+	)
+
+	It("marshals the baseline figures and the deltas under a baseline key", func() {
+		writeRollupBaseline(vaultPath, "Baselines/rollup-baseline.md", baselineFrontmatter(
+			"2026-09-12", 62485, 64, realBaselineWeeks, "1 of 420",
+		))
+		writeRollupTask(vaultPath, "Alpha Task", rollupTaskFrontmatter(
+			"completed", "2026-09-08T10:00:00Z", "4",
+		))
+		op := rollupOpWithBaseline(currentDateTime, "Baselines/rollup-baseline.md")
+
+		result, err := op.Execute(ctx, vaultPath, vaultName, "2026-W37")
+		Expect(err).To(BeNil())
+
+		payload, marshalErr := json.Marshal(result)
+		Expect(marshalErr).To(BeNil())
+		var decoded map[string]any
+		Expect(json.Unmarshal(payload, &decoded)).To(Succeed())
+
+		baseline, ok := decoded["baseline"].(map[string]any)
+		Expect(ok).To(BeTrue())
+		Expect(baseline["captured"]).To(Equal("2026-09-12"))
+		Expect(baseline["human_total"]).To(Equal(float64(62485)))
+		Expect(baseline["median"]).To(Equal(float64(64)))
+		Expect(baseline["agent_coverage"]).To(Equal("1 of 420"))
+		weeks, ok := baseline["weeks"].(map[string]any)
+		Expect(ok).To(BeTrue())
+		Expect(weeks["2026-W37"]).To(Equal(float64(26476)))
+
+		deltas, ok := baseline["deltas"].(map[string]any)
+		Expect(ok).To(BeTrue())
+		medianDelta, ok := deltas["per_family_median"].(map[string]any)
+		Expect(ok).To(BeTrue())
+		Expect(medianDelta["mismatch"]).To(Equal(true))
+		humanDelta, ok := deltas["human_interactions"].(map[string]any)
+		Expect(ok).To(BeTrue())
+		_, hasMismatch := humanDelta["mismatch"]
+		Expect(hasMismatch).To(BeFalse())
+	})
+
+	It("omits the baseline key from the JSON when no baseline is configured", func() {
+		writeRollupTask(vaultPath, "Alpha Task", rollupTaskFrontmatter(
+			"completed", "2026-09-08T10:00:00Z", "4",
+		))
+
+		result, err := rollupOp.Execute(ctx, vaultPath, vaultName, "2026-W37")
+		Expect(err).To(BeNil())
+
+		payload, marshalErr := json.Marshal(result)
+		Expect(marshalErr).To(BeNil())
+		var decoded map[string]any
+		Expect(json.Unmarshal(payload, &decoded)).To(Succeed())
+		_, ok := decoded["baseline"]
+		Expect(ok).To(BeFalse())
+	})
 })

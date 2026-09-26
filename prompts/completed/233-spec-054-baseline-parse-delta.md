@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [054-rollup-weekly-baseline-delta]
+summary: Exported storage.ParseFrontmatterMap and added pkg/ops/baseline.go to parse the frozen five-key baseline frontmatter, map each computed figure to its stored analogue, compute delta rows, and carry them on RollupWeeklyResult.Baseline under a json-tagged key omitted when no baseline is configured.
+execution_id: vault-cli-rollup-baseline-exec-233-spec-054-baseline-parse-delta
+dark-factory-version: v0.196.0
 created: "2026-09-26T15:48:55Z"
 queued: "2026-09-26T16:45:22Z"
+started: "2026-09-26T16:52:15Z"
+completed: "2026-09-26T17:01:52Z"
 ---
 
 # The baseline file, its frozen keys, the analogue mapping and the delta arithmetic (spec 054, prompt 2 of 3)

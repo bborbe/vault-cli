@@ -384,6 +384,18 @@ The one-liner must be concrete, not vibes:
 
 If FAIL, list the under-specified criteria by number with a concrete tightening for each.
 
+**Per-criterion falsifiability sub-pass (mandatory — runs in addition to the one-liner above).** The task-level verdict above cannot see a *single* non-discriminating criterion inside an otherwise strong file: one weak criterion is absorbed into the file's one PASS and the file still scores 9/10. So ask the falsifiability question **per criterion**, not once per task:
+
+> Could this criterion pass while the thing it tests is broken?
+
+Record one verdict per Success Criterion. A criterion whose stated probe returns the same result whether the thing it tests works or not is **non-discriminating** — a finding in its own right, even when the task-level verdict is PASS.
+
+The two failure shapes and their repairs are defined once, in `task-writing.md` § Evidence Shape: **probe scope wider than the thing it tests**, and **a tolerance the executor picks**. Read that section and use its vocabulary — do not restate or extend the list here. Name the repair when flagging.
+
+Report a non-discriminating criterion as a **Critical** finding. It is not a weak criterion but a **falsely green record**: the task closes `status: completed` on an implementation that was never demonstrated, and every downstream reader trusts it. That is the same tier as § 15's claim-shape mismatch, not a style nit.
+
+⚠️ This adds a **granularity, not a pass**: the task-level one-liner above stays mandatory, and no other rigor heuristic belongs in this section.
+
 ### 15. Evidence Shape per Success Criterion
 
 Every Success Criterion must declare **how completion will be observed**. This check *extends* the procedure / observable / artifact triad already defined in `task-writing.md` § Shipping Checklist — it does not replace it, and the auditor must use that vocabulary rather than inventing a parallel one.
@@ -517,6 +529,9 @@ For each goal in the task's `goals:` frontmatter, render this table:
 ## Rigor Passes
 
 > **Adversarial laziness pass**: laziest work = `<concrete one-liner>`. Verdict: PASS / FAIL.
+>
+> **Per-criterion falsifiability**: one line per Success Criterion, none omitted —
+> `SC1: discriminating` / `SC2: NON-DISCRIMINATING — <why it cannot fail>`.
 
 Hedge words: [count + quoted lines, or "none"]
 Evidence shape: [criteria missing a declared shape, or "all declared"]

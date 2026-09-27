@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.150.2
 
 - docs: `docs/releasing-vault-cli.md` no longer presents dark-factory's `autoRelease` as a live release driver. Its § Binary release opening, § Driver 2 section, behaviour matrix and GitHub Release prose all stated `.dark-factory.yaml: autoRelease: true` and described a per-prompt tag-and-push flow, while the repo has run `autoRelease: false` since `26e62a2` (2026-05-31), with release ownership on `github-releaser-agent` via `.maintainer.yaml: release.autoRelease: true`. Every driver attribution now names the flow that actually ships the tag, Driver 2 is documented as off, and its six-step per-prompt list is removed rather than reworded.
 

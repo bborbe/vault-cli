@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- docs: **`blocked_by` gains a second exclusion — do not record it for a blocker whose named condition has already shipped.** `docs/task-writing.md` § Dependencies (`blocked_by`) and `docs/goal-writing.md` § Dependencies (`blocked_by`) now state the failure and its test. Blocked state is read as `status: completed` on the blocker's *file*, and nothing flips a status when a blocker completes — so a blocker whose own prose names a condition already **met** (a merge that landed, a release that cut, a binary that deployed) while its file still reads `in_progress` blocks its dependent **forever**, with no future event to release it. A task with an operator-owned closure box reads exactly like this, and legitimately so. The test: read the condition the blocker's own body names, from its own source (`gh pr view <n> --json mergedAt,mergeCommit` for a merge, the tag for a release), and if it is already met, record the dependency as prose naming the condition rather than the field. This is the field-side counterpart of the rule a manager's ready-to-start check applies to a prose blocker.
+
 ## v0.150.2
 
 - docs: `docs/releasing-vault-cli.md` no longer presents dark-factory's `autoRelease` as a live release driver. Its § Binary release opening, § Driver 2 section, behaviour matrix and GitHub Release prose all stated `.dark-factory.yaml: autoRelease: true` and described a per-prompt tag-and-push flow, while the repo has run `autoRelease: false` since `26e62a2` (2026-05-31), with release ownership on `github-releaser-agent` via `.maintainer.yaml: release.autoRelease: true`. Every driver attribution now names the flow that actually ships the tag, Driver 2 is documented as off, and its six-step per-prompt list is removed rather than reworded.

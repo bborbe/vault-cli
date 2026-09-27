@@ -126,6 +126,10 @@ Blocked state is derived and is never written. Nothing sets `status: hold` from 
 
 Record a **conditional** dependency as prose in the task body **plus an explicit blocking checkbox** naming the condition — `- [ ] Confirm <prereq> resolved — completed, or <skip condition> (BLOCKING)` — and keep the field for **absolute** dependencies only. The test: could this dependency legitimately be skipped in a normal period? If yes, it is conditional and does not belong in the field. Before removing an over-broad entry, verify that in-task checkbox exists — a task with no machine-visible prerequisite at all is worse than one carrying an over-broad gate.
 
+**When the blocker's condition has already shipped — the sharper exclusion, because it fails permanently.** `blocked_by` is read as `status: completed` on the blocker's *file*, and **nothing flips a status when a blocker completes** (above). So a blocker whose own prose names a condition that has **already been met** — a merge that landed, a release that cut, a binary that deployed — while its file still reads `in_progress` will block its dependent **forever**: no future event releases it, because the event already happened and the field is not watching for it. A task with an operator-owned closure box reads exactly like this, and legitimately so.
+
+The test: read the condition the blocker's **own body names**, from its own source — `gh pr view <n> --json mergedAt,mergeCommit` for a merge, the tag for a release, the running artifact's version for a deploy. **If that condition is already met, do not record `blocked_by`.** Record the dependency as prose naming the condition, so its reader checks the condition rather than the status. This is the same rule a manager's ready-to-start check applies to a prose blocker — read the condition the blocker names, never the blocker's status — reaching the field's own guidance from the other end.
+
 Where it surfaces:
 
 - `vault-cli task list --output json` emits `blocked_by` (the raw list) and a computed `blocked` boolean for any task that declares a dependency list; a task with no `blocked_by` emits neither key.

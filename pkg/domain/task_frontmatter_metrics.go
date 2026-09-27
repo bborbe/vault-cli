@@ -51,6 +51,32 @@ func (f *TaskFrontmatter) AppendMetricsSession(entry MetricsSession) {
 	f.Set("metrics_sessions", append(f.MetricsSessions(), entry))
 }
 
+// RemoveMetricsSession removes every "metrics_sessions" entry whose SessionID
+// equals sessionID, preserving every other entry in order. When the last entry
+// goes, the key is deleted rather than left as an empty list. Returns the number
+// of entries removed; 0 means nothing matched and nothing was written.
+func (f *TaskFrontmatter) RemoveMetricsSession(sessionID string) int {
+	sessions := f.MetricsSessions()
+	kept := make([]MetricsSession, 0, len(sessions))
+	removed := 0
+	for _, entry := range sessions {
+		if entry.SessionID == sessionID {
+			removed++
+			continue
+		}
+		kept = append(kept, entry)
+	}
+	if removed == 0 {
+		return 0
+	}
+	if len(kept) == 0 {
+		f.Delete("metrics_sessions")
+		return removed
+	}
+	f.Set("metrics_sessions", kept)
+	return removed
+}
+
 // ClearMetricsSessions removes the "metrics_sessions" key entirely.
 func (f *TaskFrontmatter) ClearMetricsSessions() { f.Delete("metrics_sessions") }
 

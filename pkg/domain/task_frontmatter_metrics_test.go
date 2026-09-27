@@ -293,6 +293,81 @@ var _ = Describe("TaskFrontmatter metrics", func() {
 		})
 	})
 
+	Describe("RemoveMetricsSession", func() {
+		start1 := libtime.DateOrDateTime(time.Date(2026, 9, 1, 8, 0, 0, 0, time.UTC))
+		start2 := libtime.DateOrDateTime(time.Date(2026, 9, 2, 8, 0, 0, 0, time.UTC))
+		start3 := libtime.DateOrDateTime(time.Date(2026, 9, 3, 8, 0, 0, 0, time.UTC))
+
+		It("removes the named entry and preserves the survivor's own id and started_at", func() {
+			fm = domain.NewTaskFrontmatter(map[string]any{
+				"metrics_sessions": []domain.MetricsSession{
+					{SessionID: "s1", StartedAt: start1},
+					{SessionID: "s2", StartedAt: start2},
+				},
+			})
+
+			Expect(fm.RemoveMetricsSession("s1")).To(Equal(1))
+
+			sessions := fm.MetricsSessions()
+			Expect(sessions).To(HaveLen(1))
+			Expect(sessions[0].SessionID).To(Equal("s2"))
+			Expect(sessions[0].StartedAt).To(Equal(start2))
+		})
+
+		It("removes all entries carrying a duplicated id", func() {
+			fm = domain.NewTaskFrontmatter(map[string]any{
+				"metrics_sessions": []domain.MetricsSession{
+					{SessionID: "s1", StartedAt: start1},
+					{SessionID: "s1", StartedAt: start2},
+					{SessionID: "s3", StartedAt: start3},
+				},
+			})
+
+			Expect(fm.RemoveMetricsSession("s1")).To(Equal(2))
+
+			sessions := fm.MetricsSessions()
+			Expect(sessions).To(HaveLen(1))
+			Expect(sessions[0].SessionID).To(Equal("s3"))
+			Expect(sessions[0].StartedAt).To(Equal(start3))
+		})
+
+		It("deletes the key when the last entry goes", func() {
+			fm = domain.NewTaskFrontmatter(map[string]any{
+				"metrics_sessions": []domain.MetricsSession{
+					{SessionID: "s1", StartedAt: start1},
+				},
+			})
+
+			Expect(fm.RemoveMetricsSession("s1")).To(Equal(1))
+			Expect(fm.Get("metrics_sessions")).To(BeNil())
+			Expect(fm.MetricsSessions()).To(BeNil())
+		})
+
+		It("returns 0 and leaves the field untouched when nothing matches", func() {
+			fm = domain.NewTaskFrontmatter(map[string]any{
+				"metrics_sessions": []domain.MetricsSession{
+					{SessionID: "s1", StartedAt: start1},
+				},
+			})
+			before := fm.Get("metrics_sessions")
+
+			Expect(fm.RemoveMetricsSession("absent")).To(Equal(0))
+			Expect(fm.Get("metrics_sessions")).To(Equal(before))
+			Expect(fm.MetricsSessions()).To(HaveLen(1))
+		})
+
+		It("returns 0 on an absent metrics_sessions key", func() {
+			Expect(fm.RemoveMetricsSession("s1")).To(Equal(0))
+			Expect(fm.Get("metrics_sessions")).To(BeNil())
+		})
+
+		It("returns 0 on a non-list metrics_sessions value", func() {
+			fm = domain.NewTaskFrontmatter(map[string]any{"metrics_sessions": "not-a-list"})
+			Expect(fm.RemoveMetricsSession("s1")).To(Equal(0))
+			Expect(fm.Get("metrics_sessions")).To(Equal("not-a-list"))
+		})
+	})
+
 	Describe("Clear metrics", func() {
 		It("clearers delete the keys entirely", func() {
 			d := libtime.DateOrDateTime(time.Date(2026, 8, 24, 9, 0, 0, 0, time.UTC))

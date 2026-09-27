@@ -473,6 +473,7 @@ var _ = Describe("vault-cli integration tests", func() {
 			Entry("task add", "task", "add"),
 			Entry("task remove", "task", "remove"),
 			Entry("task append-metrics-session", "task", "append-metrics-session"),
+			Entry("task remove-metrics-session", "task", "remove-metrics-session"),
 			// Goal subcommands
 			Entry("goal list", "goal", "list"),
 			Entry("goal lint", "goal", "lint"),
@@ -2867,6 +2868,249 @@ body line
 			// contains the substring `session_id: <s1>`, so a bare Count over the
 			// file would report 3 and prove nothing about the accumulator.
 			Expect(strings.Count(after, "- session_id: "+s1)).To(Equal(2))
+		})
+	})
+
+	Describe("task remove-metrics-session", func() {
+		const (
+			s1 = "11111111-1111-4111-8111-111111111111"
+			s2 = "22222222-2222-4222-8222-222222222222"
+			s3 = "33333333-3333-4333-8333-333333333333"
+		)
+
+		var vaultPath, configPath string
+		var cleanup func()
+
+		AfterEach(func() {
+			if cleanup != nil {
+				cleanup()
+			}
+		})
+
+		runEntityCommand := func(args ...string) *gexec.Session {
+			fullArgs := append(
+				[]string{"--config", configPath, "--vault", "test"},
+				args...,
+			)
+			session, err := gexec.Start(exec.Command(binPath, fullArgs...), GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			return session
+		}
+
+		sha256OfFile := func(path string) string {
+			data, err := os.ReadFile(path) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			sum := sha256.Sum256(data)
+			return fmt.Sprintf("%x", sum)
+		}
+
+		readFile := func(path string) string {
+			content, err := os.ReadFile(path) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			return string(content)
+		}
+
+		// countMetricsEntries counts the entries under the `metrics_sessions:`
+		// frontmatter key as written on disk: every block-sequence item opens with a
+		// `- session_id:` line.
+		countMetricsEntries := func(content string) int {
+			count := 0
+			for _, line := range strings.Split(content, "\n") {
+				if strings.HasPrefix(strings.TrimSpace(line), "- session_id:") {
+					count++
+				}
+			}
+			return count
+		}
+
+		// entryLineCount counts the entry-line prefix for one session id. The prefix
+		// is load-bearing: the fixture also carries the id as `task_identifier`, so a
+		// bare substring count would match the surviving base key and prove nothing.
+		entryLineCount := func(content, sessionID string) int {
+			return strings.Count(content, "- session_id: "+sessionID)
+		}
+
+		// Every fixture's frontmatter keys are authored in alphabetical order, and
+		// its metrics_sessions block in the writer's own shape. The storage writer
+		// re-serializes the whole frontmatter in alphabetical key order on every
+		// write, so a hand-authored non-alphabetical fixture would be reordered and
+		// every byte comparison below would be meaningless.
+		baseFrontmatter := `---
+page_type: task
+priority: 1
+status: in_progress
+task_identifier: 11111111-1111-4111-8111-111111111111
+---
+body line
+`
+
+		twoEntryFrontmatter := `---
+metrics_sessions:
+    - session_id: 11111111-1111-4111-8111-111111111111
+      started_at: "2026-09-01T08:00:00Z"
+    - session_id: 22222222-2222-4222-8222-222222222222
+      started_at: "2026-09-02T08:00:00Z"
+page_type: task
+priority: 1
+status: in_progress
+task_identifier: 11111111-1111-4111-8111-111111111111
+---
+body line
+`
+
+		threeEntryDuplicateFrontmatter := `---
+metrics_sessions:
+    - session_id: 11111111-1111-4111-8111-111111111111
+      started_at: "2026-09-01T08:00:00Z"
+    - session_id: 11111111-1111-4111-8111-111111111111
+      started_at: "2026-09-02T08:00:00Z"
+    - session_id: 33333333-3333-4333-8333-333333333333
+      started_at: "2026-09-03T08:00:00Z"
+page_type: task
+priority: 1
+status: in_progress
+task_identifier: 11111111-1111-4111-8111-111111111111
+---
+body line
+`
+
+		It("AC1: removes exactly one entry and preserves the survivor's own id and started_at", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": twoEntryFrontmatter,
+			})
+			taskFile := filepath.Join(vaultPath, "Tasks", "Alpha.md")
+
+			Eventually(runEntityCommand("task", "remove-metrics-session", "Alpha", s1)).
+				Should(gexec.Exit(0))
+
+			after := readFile(taskFile)
+			Expect(countMetricsEntries(after)).To(Equal(1))
+			Expect(entryLineCount(after, s1)).To(Equal(0))
+			Expect(entryLineCount(after, s2)).To(Equal(1))
+			Expect(after).To(ContainSubstring("2026-09-02T08:00:00Z"))
+			Expect(after).NotTo(ContainSubstring("2026-09-01T08:00:00Z"))
+		})
+
+		It("AC2: removing the last entry deletes the key and leaves every base key and the body unchanged", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": twoEntryFrontmatter,
+			})
+			taskFile := filepath.Join(vaultPath, "Tasks", "Alpha.md")
+
+			Eventually(runEntityCommand("task", "remove-metrics-session", "Alpha", s1)).
+				Should(gexec.Exit(0))
+			Eventually(runEntityCommand("task", "remove-metrics-session", "Alpha", s2)).
+				Should(gexec.Exit(0))
+
+			after := readFile(taskFile)
+			Expect(after).NotTo(ContainSubstring("metrics_sessions"))
+			Expect(after).To(ContainSubstring("page_type: task"))
+			Expect(after).To(ContainSubstring("priority: 1"))
+			Expect(after).To(ContainSubstring("status: in_progress"))
+			Expect(after).To(ContainSubstring("task_identifier: " + s1))
+			Expect(after).To(ContainSubstring("body line"))
+		})
+
+		It("AC3: a duplicate id is removed in full, leaving the other entry", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": threeEntryDuplicateFrontmatter,
+			})
+			taskFile := filepath.Join(vaultPath, "Tasks", "Alpha.md")
+
+			Eventually(runEntityCommand("task", "remove-metrics-session", "Alpha", s1)).
+				Should(gexec.Exit(0))
+
+			after := readFile(taskFile)
+			Expect(countMetricsEntries(after)).To(Equal(1))
+			Expect(entryLineCount(after, s1)).To(Equal(0))
+			Expect(entryLineCount(after, s3)).To(Equal(1))
+		})
+
+		It("AC4: a call matching nothing fails loudly and writes nothing", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": twoEntryFrontmatter,
+			})
+			taskFile := filepath.Join(vaultPath, "Tasks", "Alpha.md")
+			before := sha256OfFile(taskFile)
+
+			session := runEntityCommand("task", "remove-metrics-session", "Alpha", s3)
+			Eventually(session).Should(gexec.Exit(1))
+			stderr := string(session.Err.Contents())
+			Expect(stderr).To(ContainSubstring(s3))
+			Expect(stderr).To(ContainSubstring("nothing removed"))
+
+			Expect(sha256OfFile(taskFile)).To(Equal(before))
+		})
+
+		It("AC5: an empty, non-UUID or path-bearing session id is refused with nothing written", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": twoEntryFrontmatter,
+			})
+			taskFile := filepath.Join(vaultPath, "Tasks", "Alpha.md")
+			before := sha256OfFile(taskFile)
+
+			for _, sessionID := range []string{"", "not-a-uuid", "../escape"} {
+				session := runEntityCommand("task", "remove-metrics-session", "Alpha", sessionID)
+				Eventually(session).Should(gexec.Exit(1))
+				Expect(string(session.Err.Contents())).
+					To(ContainSubstring("expected a well-formed UUID"))
+			}
+
+			Expect(sha256OfFile(taskFile)).To(Equal(before))
+		})
+
+		It("AC6: task set, add and remove still refuse metrics_sessions and leave the file byte-identical", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": twoEntryFrontmatter,
+			})
+			taskFile := filepath.Join(vaultPath, "Tasks", "Alpha.md")
+			before := sha256OfFile(taskFile)
+
+			for _, args := range [][]string{
+				{"task", "set", "Alpha", "metrics_sessions", "x"},
+				{"task", "add", "Alpha", "metrics_sessions", "x"},
+				{"task", "remove", "Alpha", "metrics_sessions", "x"},
+			} {
+				session := runEntityCommand(args...)
+				Eventually(session).Should(gexec.Exit(1))
+				stderr := string(session.Err.Contents())
+				Expect(stderr).To(ContainSubstring("metrics_sessions"))
+				Expect(stderr).To(ContainSubstring("append-metrics-session"))
+			}
+
+			Expect(sha256OfFile(taskFile)).To(Equal(before))
+		})
+
+		It("AC7: the JSON output contract holds for a matching and a non-matching id", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": twoEntryFrontmatter,
+			})
+			taskFile := filepath.Join(vaultPath, "Tasks", "Alpha.md")
+
+			matching := runEntityCommand(
+				"task", "remove-metrics-session", "Alpha", s1, "--output", "json",
+			)
+			Eventually(matching).Should(gexec.Exit(0))
+			Expect(string(matching.Out.Contents())).To(ContainSubstring(`"success": true`))
+
+			nonMatching := runEntityCommand(
+				"task", "remove-metrics-session", "Alpha", s3, "--output", "json",
+			)
+			Eventually(nonMatching).Should(gexec.Exit(0))
+			Expect(string(nonMatching.Out.Contents())).To(ContainSubstring(`"success": false`))
+
+			Expect(countMetricsEntries(readFile(taskFile))).To(Equal(1))
+		})
+
+		It("registers the verb and prints its own help", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": baseFrontmatter,
+			})
+			Expect(vaultPath).NotTo(BeEmpty())
+
+			session := runEntityCommand("task", "remove-metrics-session", "--help")
+			Eventually(session).Should(gexec.Exit(0))
+			Expect(string(session.Out.Contents())).To(ContainSubstring("remove-metrics-session"))
 		})
 	})
 

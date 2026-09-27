@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- docs: `docs/releasing-vault-cli.md` no longer presents dark-factory's `autoRelease` as a live release driver. Its § Binary release opening, § Driver 2 section, behaviour matrix and GitHub Release prose all stated `.dark-factory.yaml: autoRelease: true` and described a per-prompt tag-and-push flow, while the repo has run `autoRelease: false` since `26e62a2` (2026-05-31), with release ownership on `github-releaser-agent` via `.maintainer.yaml: release.autoRelease: true`. Every driver attribution now names the flow that actually ships the tag, Driver 2 is documented as off, and its six-step per-prompt list is removed rather than reworded.
+
 ## v0.150.1
 
 - docs: `docs/task-writing.md` § Audit gains **re-scope after a regression, never patch** — a criterion that has reached a passing verdict and then scores lower is re-scoped or cut rather than repaired again, with the trigger named as the **first regression after a held verdict**. The rejected alternatives (a clause budget, a delete-symmetry rule, a raw round count) are each recorded with the failure it would produce, and the rule is checked against two rows that cycled **14** and **5** audit rounds without converging — both ended by a re-scope, not by a successful patch.

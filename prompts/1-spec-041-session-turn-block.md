@@ -1,7 +1,7 @@
 ---
 spec: ["041-bug-resume-races-live-headless-turn"]
 status: draft
-created: "2026-09-27T08:54:45Z"
+created: "2026-09-17T15:58:28Z"
 ---
 
 # Confirm the non-interactive session start blocks until the headless turn exits (spec 041, prompt 1 of 3)
@@ -13,7 +13,7 @@ created: "2026-09-27T08:54:45Z"
 - Confirms the interactive terminal branch, its 5-minute cap, and the resume scenario are unchanged.
 - Backfill 1: renames one test-local variable so the spec's pinned evidence grep for the turn bound matches. The assertion already exists under the old name, so this is a rename with no behaviour change.
 - Backfill 2: adds the one genuinely missing test — that the turn's temporary output file is deleted after a clean exit.
-- Flags spec evidence greps that can never match the real source: three of them carry a literal double quote the source does not contain. This prompt verifies the correct unquoted forms instead, and forbids editing error strings to force a broken grep to pass.
+- Flags spec evidence greps that can never match the real source: three of them carry a literal double quote the source does not contain, and one is stale. This prompt verifies the correct unquoted forms instead, and forbids editing error strings to force a broken grep to pass.
 - Flags that the spec's error-string list for the shared validation helper is pre-spec-045 and must NOT be applied — the shipped strings are the current contract, and "restoring" the spec's forms would revert a later fix.
 - Makes no production-code change: verification plus two test-only backfills.
 </summary>
@@ -25,7 +25,7 @@ Prove — and backfill the two gaps in — the already-shipped half of spec 041:
 <context>
 Read `CLAUDE.md` for project conventions.
 
-**Read this first — the spec's Design section is stale on two points.** `specs/in-progress/041-bug-resume-races-live-headless-turn.md` was written against v0.116.4. The `claude_session.go` half of it shipped as commit `247a789` and was then refined by spec 042 (per-session flock locker) and spec 045 (a validated turn result outranks a non-zero child exit), plus a later SC5 fix (`5c2fc57`, the child's reason leads the error). The spec's Design still quotes the pre-045 shapes — in particular its `validateSessionTurn` error strings and its bare `case exitErr := <-done:` handler. Those are superseded; see requirements 4 and 6. Do NOT "restore" them.
+**Read this first — the spec's Design section is stale on two points.** `specs/in-progress/041-bug-resume-races-live-headless-turn.md` was written against v0.116.4. The `claude_session.go` half of it shipped as commit `247a789` and was then refined by spec 042 (per-session flock locker) and spec 045 (a validated turn result outranks a non-zero child exit). The spec's Design still quotes the pre-045 shapes — in particular its `validateSessionTurn` error strings and its bare `case exitErr := <-done:` handler. Those are superseded; see requirements 4 and 5. Do NOT "restore" them.
 
 Read fully (in this order):
 - `pkg/ops/claude_session.go` — the whole file (364 lines). This is the file under test.
@@ -67,7 +67,7 @@ The target state for this prompt ALREADY EXISTS in the tree. Your job is to read
    - A waiter goroutine whose only send is `waitCh <- c.waiter.Wait(ctx, c.sessionTurnTimeout)`, on a `waitCh` buffered with capacity 1.
    - A `select` over `done` and `waitCh`. The read of the output file MUST live inside the `done` branch and must NOT be hoisted above the `select` — on the timeout and cancellation paths the child is still running, so any bytes present are partial by definition and must never be validated as success. There is a unit test locking this ("fails on timeout even when a valid blob is already on disk"); keep it.
 
-4. **Confirm the `done` branch's current (post-spec-045, post-`5c2fc57`) shape — do NOT replace it with the spec's simpler form.** The spec's Design says a non-nil `exitErr` should immediately return `errors.Errorf(ctx, "claude session exited with error: %v", exitErr)`. That is NOT the shipped contract; spec 045 refined it so a validated turn result outranks a non-zero child exit. The shipped order is:
+4. **Confirm the `done` branch's current (post-spec-045) shape — do NOT replace it with the spec's simpler form.** The spec's Design says a non-nil `exitErr` should immediately return `errors.Errorf(ctx, "claude session exited with error: %v", exitErr)`. That is NOT the shipped contract; spec 045 refined it so a validated turn result outranks a non-zero child exit. The shipped order is:
    - Read the file (`errors.Wrap(ctx, readErr, "read claude output")` on failure), then call `validateSessionTurn(ctx, output)`.
    - If validation returns nil → return nil. If `exitErr` is non-nil, log it (`slog.Warn("validated turn result overrides non-zero child exit", ...)`) rather than swallowing it silently.
    - If validation failed AND `exitErr != nil` AND `errors.Is(validateErr, errClaudeOutputUnparseable)` → return `errors.Errorf(ctx, "claude session exited with error: %v", exitErr)`. There is no usable result, so the child's exit status is the only reason that can be named.
@@ -94,10 +94,10 @@ The target state for this prompt ALREADY EXISTS in the tree. Your job is to read
    ```go
    const SessionTurnTimeout = sessionTurnTimeout
    ```
-   with a comment noting it is a test-only alias: asserting against it locks the WIRING (StartSession hands the constant, not a stray literal) but NOT the value, because a retune moves both sides — so tests must also assert the literal `30 * libtime.Minute`. The file also carries exports that belong to other specs — `var DefaultSessionLockDir = defaultSessionLockDir` (spec 042) and `var RollupFamilyName` / `var RollupMedian` (spec 049). All of them are expected; leave them untouched. This prompt touches nothing in the file.
+   with a comment noting it is a test-only alias: asserting against it locks the WIRING (StartSession hands the constant, not a stray literal) but NOT the value, because a retune moves both sides — so tests must also assert the literal `30 * libtime.Minute`. The file must also carry `var DefaultSessionLockDir = defaultSessionLockDir` (spec 042's export) — that is expected; leave it untouched.
 
-9. **Confirm the existing test matrix in `pkg/ops/claude_session_test.go`.** In `Context("non-interactive branch", ...)` (opens at line 256) confirm these specs exist and match:
-   - "blocks until the detached child exits" (line ~327) — a blocking waiter, `Consistently(returned, "100ms").ShouldNot(Receive())` before `doneCh <- nil`, then `Eventually(returned).Should(Receive(BeNil()))`; the waiter receives the bound through `windowCh` and it is asserted equal to BOTH `ops.SessionTurnTimeout` and `30 * libtime.Minute`.
+9. **Confirm the existing test matrix in `pkg/ops/claude_session_test.go`.** In `Context("non-interactive branch", ...)` confirm these specs exist and match:
+   - "blocks until the detached child exits" — a blocking waiter, `Consistently(returned, "100ms").ShouldNot(Receive())` before `doneCh <- nil`, then `Eventually(returned).Should(Receive(BeNil()))`; the waiter receives the bound through `windowCh` and it is asserted equal to BOTH `ops.SessionTurnTimeout` and `30 * libtime.Minute`.
    - "passes the session id and name to the detached runner" — clean exit with valid JSON returns nil, and argv carries `--session-id`, `--print`, `-n`, the name, and the cwd.
    - "validates the turn and rejects a zero-turn result", "validates the turn and rejects an is_error result", "rejects an unparseable turn result".
    - "treats a child exit error as an error" — the error contains `"exit status 1"` AND `"exited with error"`. No assertion anywhere may still use `"exited during startup"`.
@@ -159,9 +159,9 @@ The target state for this prompt ALREADY EXISTS in the tree. Your job is to read
        Expect(statErr).To(HaveOccurred())
    })
    ```
-   Notes: capture `bw := blockWaiter` spec-locally BEFORE the waiter closure reads it — `StartSession` can return via the child-exit branch while the waiter goroutine is still parked, so that goroutine outlives the spec and must not read a variable the next spec reassigns. The fake writes valid JSON and then feeds `done`, so the child-exit branch wins and the waiter goroutine stays parked until `DeferCleanup` closes `blockWaiter`. The eager unlink in `runDetachedTurn` runs before `StartSession` returns, so the `os.Stat` after the call must fail. No new import is needed — `os` is already imported. `libtime.WaiterDurationFunc` is the real type from `github.com/bborbe/time` (`time_waiter-duration.go`); the closure signature `func(context.Context, libtime.Duration) error` must match it exactly.
+   Notes: capture `bw := blockWaiter` spec-locally BEFORE the waiter closure reads it — `StartSession` can return via the child-exit branch while the waiter goroutine is still parked, so that goroutine outlives the spec and must not read a variable the next spec reassigns. The fake writes valid JSON and then feeds `done`, so the child-exit branch wins and the waiter goroutine stays parked until `DeferCleanup` closes `blockWaiter`. The eager unlink in `runDetachedTurn` runs before `StartSession` returns, so the `os.Stat` after the call must fail. No new import is needed — `os` is already imported.
 
-12. **Confirm the detachment integration test.** `pkg/ops/claude_session_detach_test.go` must contain a spec ("child outlives a cancelled parent wait") that writes a real shell script (`#!/bin/sh\nsleep 6\ntouch <sentinel>`), cancels the context after 500ms, asserts `StartSession` returns an error, asserts the sentinel does NOT exist yet, and then `Eventually(..., "20s", "200ms")` asserts the sentinel appears — proving the detached child survived the parent's cancelled wait. It constructs the starter with the two-argument form `ops.NewClaudeSessionStarter(script, ops.NewSessionLockerWithDir(lockDir))` (the locker is spec 042's; keep it). If the file or spec is missing, report `"status":"failed"` — do not re-implement from the spec, whose snippet uses a 12s script and a 1s cancel, neither of which matters to the invariant.
+12. **Confirm the detachment integration test.** `pkg/ops/claude_session_detach_test.go` must contain a spec ("child outlives a cancelled parent wait") that writes a real shell script (`#!/bin/sh\nsleep 6\ntouch <sentinel>`), cancels the context after ~500ms, asserts `StartSession` returns an error, asserts the sentinel does NOT exist yet, and then `Eventually(..., "20s", "200ms")` asserts the sentinel appears — proving the detached child survived the parent's cancelled wait. It constructs the starter with the two-argument form `ops.NewClaudeSessionStarter(script, ops.NewSessionLockerWithDir(lockDir))` (the locker is spec 042's; keep it). If the file or spec is missing, report `"status":"failed"` — do not re-implement from the spec, whose snippet uses a 12s script and a 1s cancel, neither of which matters to the invariant.
 
 13. **Confirm the AC10 guards by reading, then by grep.** `defaultCommandRunner` is defined once and referenced by both constructors — the grep count in `pkg/ops/claude_session.go` must be exactly 3. `context.WithTimeout` must appear exactly once, on the interactive branch. `scenarios/005-work-on-resume-auto-invokes-subtask.md` must be byte-identical to `HEAD` (see `<verification>`). `mocks/claude-session-starter.go` must be untouched: `ClaudeSessionStarter.StartSession`'s signature is `StartSession(context.Context, string, string, string, string, bool) error` — six parameters, unchanged.
 
@@ -179,7 +179,7 @@ Failure-mode coverage carried by this prompt (spec's Failure Modes table): row 1
 - Error idiom: `errors.Wrapf(ctx, err, ...)` / `errors.Wrap(ctx, err, ...)` / `errors.Errorf(ctx, ...)` from `github.com/bborbe/errors`; no `fmt.Errorf`; no bare `return err`; no `context.Background()` in `pkg/`.
 - `sessionTurnTimeout` stays a tunable constant — do NOT add a config field (spec Non-goals and Open Question 1 both forbid it).
 - Do NOT alter error strings to satisfy a grep pattern. Three of the spec's evidence greps carry a literal double quote the source does not contain (see `<verification>`); the source strings are correct as written.
-- Do NOT touch `pkg/ops/workon.go`, `pkg/ops/goal_workon.go`, `pkg/ops/workon_test.go`, `pkg/ops/goal_workon_test.go`, `pkg/ops/workon_session_writeback_test.go`, `agents/work-on-task-assistant.md`, or `docs/work-on-session-lifecycle.md` in this prompt — the caller-side reorder is prompt 2 and the doc reword is prompt 3.
+- Do NOT touch `pkg/ops/workon.go`, `pkg/ops/goal_workon.go`, `pkg/ops/workon_test.go`, `pkg/ops/goal_workon_test.go`, `pkg/ops/workon_session_writeback_test.go`, or `docs/work-on-session-lifecycle.md` in this prompt — the caller-side reorder is prompt 2 and the doc reword is prompt 3.
 - Do NOT add a double-Start guard and do NOT add any config knob — both are spec Non-goals.
 - Existing tests must still pass.
 </constraints>

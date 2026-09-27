@@ -334,9 +334,11 @@ Observed 2026-08-12: a session triggered a PR review, the producer wrote a revie
 For each vault in `VAULT_CONFIG`, scan `<vault.path>/<vault.tasks_dir>` for files meeting ALL of:
 
 - non-terminal `status` (anything except `completed` / `aborted`), AND
-- references a repo or PR URL from Phase 1's `Repos` / PR list, AND
+- references **this session's PR URL, qualified by owner/repo** (e.g. `bborbe/claude-supervisor#294`) from Phase 1's PR list, AND
 - NOT touched this session (if touched, Phase 4.5 already owns it — never double-flag), AND
 - NOT created by this session as a follow-up — Phase 4.5 excludes those deliberately, and they are not moot work an external producer left behind; they are queued work the operator just filed. Re-flagging them here would reinstate the daily false positive Phase 4.5's exclusion exists to remove.
+
+⚠️ **Never match on a bare repo name, and never on a bare PR number.** When the repo is the one the tooling itself ships from, its name appears in most of the fleet's tasks, so a name match returns the whole board rather than the session's work. A bare `pull/<N>` collides across repos for the same reason — `#294` exists in every repo that has merged that many PRs. Observed 2026-09-27: a name match over `25 Tasks/` returned ~120 tasks and the result had to be re-derived; the owner-qualified URL returned the single task that mattered.
 
 Each match is work this session set in motion and walked away from. Surface in Phase 9 as outstanding, one line per task:
 

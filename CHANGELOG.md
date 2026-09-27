@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: **`session-close`'s caused-task scan matches the session's owner-qualified PR URL, not a bare repo name.** Phase 4.6's third condition read *"references a repo or PR URL from Phase 1's `Repos` / PR list"*, which blesses a bare repo-name match — and when the repo is the one the tooling itself ships from, that name appears in most of the fleet's tasks, so the scan returns the whole board instead of the session's work. A bare `pull/<N>` collides across repos for the same reason, since every repo that has merged that many PRs has one. ⚠️ **Observed 2026-09-27:** a name match over `25 Tasks/` returned **~120 tasks** and the result had to be re-derived by hand; the owner-qualified URL returned the single task that mattered, and even a bare `pull/294` still over-matched — 2 of its 3 hits were a different repo's `#294`. Change set: `commands/session-close.md`.
+
 ## v0.151.0
 
 - feat: **`task-auditor` now asks the falsifiability question per Success Criterion, not once per task, and `docs/task-writing.md` states the general form.** § 14's adversarial-laziness pass produced one verdict per *file*, so a single non-discriminating criterion inside an otherwise strong file was absorbed into the file's one PASS and the task still scored 9/10. § 14 gains a mandatory per-criterion sub-pass — *could this criterion pass while the thing it tests is broken?* — with one recorded verdict per criterion and a **Critical** finding for a non-discriminating one, on the ground that it produces a falsely green completion record rather than a merely weak criterion. The task-level one-liner stays mandatory; this adds a granularity, not a pass. `docs/task-writing.md` § Evidence Shape gains the general statement beside the existing negative-criterion clause (which is unchanged), naming the two observed failure shapes: a probe scoped wider than the thing it tests, and a tolerance the executor picks.

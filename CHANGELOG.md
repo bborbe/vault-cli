@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat: `vault-cli task remove-metrics-session <task-name> <session-id>` removes every `metrics_sessions` entry carrying the supplied session id from one task, preserving every other entry and every other frontmatter key, and deletes the key outright when the last entry goes. A call whose id matches nothing fails loudly and writes nothing, and an empty, non-UUID or path-bearing id is refused before the task is read. `task set`, `task add` and `task remove` keep refusing `metrics_sessions` unchanged.
+
 ## v0.149.0
 
 - docs: document the rollup baseline file (`docs/baseline-file.md`) — its location and config rules, the frozen five-key frontmatter contract, the mapping of each stored figure to the rollup figure it has an analogue in, the recorded definitional mismatches, and the frozen report layout.

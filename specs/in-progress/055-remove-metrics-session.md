@@ -1,5 +1,9 @@
 ---
-status: draft
+status: prompted
+approved: "2026-09-27T08:27:23Z"
+generating: "2026-09-27T09:06:39Z"
+prompted: "2026-09-27T09:39:41Z"
+branch: dark-factory/remove-metrics-session
 ---
 
 ## Summary

@@ -13,6 +13,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 - feat: `vault-cli task remove-metrics-session <task-name> <session-id>` removes every `metrics_sessions` entry carrying the supplied session id from one task, preserving every other entry and every other frontmatter key, and deletes the key outright when the last entry goes. A call whose id matches nothing fails loudly and writes nothing, and an empty, non-UUID or path-bearing id is refused before the task is read. `task set`, `task add` and `task remove` keep refusing `metrics_sessions` unchanged.
 - fix: **the `task-auditor` agent's Task-Goal Alignment check no longer recommends a goal link its own alignment check would then score as an orphan.** When the goal can be marked complete without the task, the check now recommends theme-only linkage instead and says so explicitly, so the recommendation and the orphan verdict that follows it agree.
 
+## v0.149.1
+
+- fix: `task-auditor` notes a goal link its task body explicitly frames as non-advancing — the task names the goal but advances none of its criteria, and records why the link is kept — as MINOR instead of scoring it a MAJOR orphan, mirroring `goal-auditor`'s existing explicit-framing carve-out. The framing is read from the task body and never from the goal page, and the clause states that it mitigates the underlying modelling gap (a task cannot declare a topic as its parent) rather than closing it.
+
 ## v0.149.0
 
 - docs: document the rollup baseline file (`docs/baseline-file.md`) — its location and config rules, the frozen five-key frontmatter contract, the mapping of each stored figure to the rollup figure it has an analogue in, the recorded definitional mismatches, and the frozen report layout.

@@ -246,6 +246,12 @@ For each `[[Goal Name]]` listed in the task's `goals:` frontmatter:
 
 **When `goals:` is absent but `themes:` is populated**: do NOT flag as MAJOR orphan. Theme linkage is acceptable for operational, infrastructure, and follow-up tasks where forcing a synthetic parent goal would create goal-creep. Note as MINOR with: "No `goals:` link; theme link covers strategic context. Consider linking a goal if/when one emerges that this task directly advances."
 
+**When the task body explicitly frames the link as non-advancing**: do NOT flag as MAJOR orphan. A task may name a goal it does not advance when the link exists for a recorded structural reason — most often to keep the task inside a topic's tracked set, because a task cannot declare a topic as its parent. Accept the framing when the task's own body states that it advances none of the goal's criteria **and** names why the link is kept; note it as MINOR with: "Goal link is deliberate and non-advancing — the task body records why. Not an orphan."
+
+**Read the framing from the task body, never from the goal page.** The goal page is resolved at step 1 and may record the same thing, but the artifact under audit is the task, and a goal-page note is not a property the task carries. Absent an explicit framing clause in the task's own text, apply step 3 unchanged.
+
+⚠️ **This clause mitigates a modelling gap; it does not close one.** The underlying defect is that a task cannot declare a topic as its parent, so topic-serving work must either declare a goal it does not advance or declare nothing at all. Until that gap is closed, this clause keeps the audit honest about a link that is correct-but-non-advancing. It is not a finding that such a link is desirable, and it is retired by closing the gap rather than by keeping the carve-out.
+
 ### 9. Scope Appropriateness
 - **Too small**: "Rename variable x to y" (just do it, no task needed)
 - **Too large**: "Build complete trading platform" (months of work = goal)

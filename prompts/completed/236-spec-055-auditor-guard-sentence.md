@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [055-remove-metrics-session]
+summary: Added one guard sentence to task-auditor.md § Task-Goal Alignment forbidding the auditor from recommending a goal link its own alignment check would then score as a MAJOR orphan, falling back to theme-only linkage instead
+execution_id: vault-cli-exec-236-spec-055-auditor-guard-sentence
+dark-factory-version: v0.196.0
 created: "2026-09-27T09:26:40Z"
 queued: "2026-09-27T10:04:31Z"
+started: "2026-09-27T10:12:34Z"
+completed: "2026-09-27T10:15:10Z"
 branch: dark-factory/remove-metrics-session
 ---
 

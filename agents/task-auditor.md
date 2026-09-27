@@ -241,6 +241,7 @@ For each `[[Goal Name]]` listed in the task's `goals:` frontmatter:
 1. Resolve the goal page
 2. Match this task to ≥ 1 of the goal's Success Criteria — does the task's Impact / SC reference any of the goal's outcomes?
 3. **Flag orphans as MAJOR** — task has a goal link but advances none of its criteria.
+   - When the goal can be marked complete without this task, never recommend linking a goal the alignment check will then score as an orphan — recommend theme-only linkage instead and say so explicitly.
 4. **Flag implementation-level tasks** — if title reads like a low-level code change ("Add field X to struct Y"), check whether a dark-factory spec or prompt is the right artifact instead.
 
 **When `goals:` is absent but `themes:` is populated**: do NOT flag as MAJOR orphan. Theme linkage is acceptable for operational, infrastructure, and follow-up tasks where forcing a synthetic parent goal would create goal-creep. Note as MINOR with: "No `goals:` link; theme link covers strategic context. Consider linking a goal if/when one emerges that this task directly advances."

@@ -340,6 +340,13 @@ A criterion's evidence takes one of these shapes. Any one is sufficient; combina
 
 **A negative criterion must also be able to fail.** Naming the probe is necessary, not sufficient: the observation window must be longer than the period of the event it claims to rule out, or the probe comes back empty on a working system and a broken one alike. *"No writes in 15 min"* proves nothing when writes fire every ~25 min — it passes on a build that never writes at all. Two fixes, apply both: widen the window past one full period of the underlying event, and **lead with a positive assertion** (the expected signal appears N times) keeping the absence as the secondary clause. A positive count cannot be satisfied by a no-op. `/vault-cli:plan-task` enforces this as the third sub-check on the e2e-verify gate.
 
+**Every criterion must also be able to fail — not only negative ones.** The clause above is the negative-criterion case. The general question applies to **every** Success Criterion, positive ones included: *could this criterion pass while the thing it tests is broken?* A criterion that returns the same result on a working system and a broken one is not evidence, however concrete its probe looks. Two failure shapes, both observed 2026-09-27 in tasks that scored 9/10 and cleared the spawn bar:
+
+- **Probe scope wider than the thing it tests** — a whole-page or whole-file check for a string that also occurs elsewhere in the artifact. The string is always found, so a fixed render and a broken one return the same result. *Fix:* scope the probe to the thing under test — the card's own row subtree, not the page.
+- **A tolerance the executor picks** — *"the same in both runs (within noise)"*, *"no significant change"*, any comparison with no pinned threshold. The executor chooses its own pass bar, so the criterion grades itself. *Fix:* pin the threshold — *"differ by less than 5 % of the closed-item delta"*.
+
+`agents/task-auditor.md` § 14 asks this question per criterion; § 15 covers the claim's shape. Both cite this section — do not define a competing list elsewhere.
+
 **What does not count as evidence:** "unit test covers this" (that is the test plan, not the observation) · "it works" · "functionality verified" · "tests pass" without naming the behaviour asserted.
 
 ## Scope Check

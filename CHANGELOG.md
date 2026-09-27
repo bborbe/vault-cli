@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.151.2
 
 - fix: session-close flags a merged worktree whose remote branch was never deleted, by running the merge test on the branch-present arm too
 

@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: `task-auditor` notes a goal link its task body explicitly frames as non-advancing — the task names the goal but advances none of its criteria, and records why the link is kept — as MINOR instead of scoring it a MAJOR orphan, mirroring `goal-auditor`'s existing explicit-framing carve-out. The framing is read from the task body and never from the goal page, and the clause states that it mitigates the underlying modelling gap (a task cannot declare a topic as its parent) rather than closing it.
+
 ## v0.149.0
 
 - docs: document the rollup baseline file (`docs/baseline-file.md`) — its location and config rules, the frozen five-key frontmatter contract, the mapping of each stored figure to the rollup figure it has an analogue in, the recorded definitional mismatches, and the frozen report layout.

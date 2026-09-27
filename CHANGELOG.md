@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## v0.149.1
+## Unreleased
 
 - feat: `vault-cli task remove-metrics-session <task-name> <session-id>` removes every `metrics_sessions` entry carrying the supplied session id from one task, preserving every other entry and every other frontmatter key, and deletes the key outright when the last entry goes. A call whose id matches nothing fails loudly and writes nothing, and an empty, non-UUID or path-bearing id is refused before the task is read. `task set`, `task add` and `task remove` keep refusing `metrics_sessions` unchanged.
 - fix: **the `task-auditor` agent's Task-Goal Alignment check no longer recommends a goal link its own alignment check would then score as an orphan.** When the goal can be marked complete without the task, the check now recommends theme-only linkage instead and says so explicitly, so the recommendation and the orphan verdict that follows it agree.

@@ -79,6 +79,25 @@ stores a scalar and `add` / `remove` comma-split into a list of scalars — both
 the dedicated list reader discards. That refusal lives in
 `pkg/ops/metrics_session_write.go`.
 
+**The removal is its own verb.** `vault-cli task remove-metrics-session <task-name>
+<session-id>` removes **every** entry carrying that id while preserving every other
+entry and every other frontmatter key. It cannot be folded into the generic verbs for
+the reason the refusal above states: an entry is a map (`session_id` + `started_at`),
+while `set` stores a scalar and `add` / `remove` comma-split into a list of scalars, so
+every reader discards those shapes. That is why the refusal is absolute and why removal
+is a dedicated verb rather than an entry in `knownTaskListFields` — a list field would
+admit a shape nothing reads. When the last entry goes the `metrics_sessions` key is
+deleted rather than left as an empty list, and a call whose id matches no entry exits
+non-zero and writes nothing, so a mistaken id is a visible failure rather than a silent
+no-op. The verb writes only the task file, takes no clock, and never touches
+`claude_session_id`; the id write stays `task set`.
+
+**Per-entry removal is what the shared-session rule requires.** The set of session ids
+that collide on a task is read from `claude_session_id` **and** every `metrics_sessions`
+id, so clearing the whole field would destroy legitimate runs' entries while a surviving
+entry would keep the collision alive. `ClearMetricsSessions`, which fires on task
+completion, is therefore not the tool.
+
 **The concurrent-append race is accepted.** Two processes appending to the same task
 file are last-write-wins, the same read-modify-write race the existing `work-on` path
 has; a lost row is re-appended by re-running the verb. No lock, no re-read and no dedup

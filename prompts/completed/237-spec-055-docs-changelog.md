@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [055-remove-metrics-session]
+summary: 'Documented the task remove-metrics-session verb in docs/work-on-session-lifecycle.md and added the Unreleased feat: and fix: changelog bullets without bumping versions'
+execution_id: vault-cli-exec-237-spec-055-docs-changelog
+dark-factory-version: v0.196.0
 created: "2026-09-27T09:26:40Z"
 queued: "2026-09-27T10:04:31Z"
+started: "2026-09-27T10:15:12Z"
+completed: "2026-09-27T10:17:55Z"
 branch: dark-factory/remove-metrics-session
 ---
 

@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.151.0
 
 - feat: **`task-auditor` now asks the falsifiability question per Success Criterion, not once per task, and `docs/task-writing.md` states the general form.** § 14's adversarial-laziness pass produced one verdict per *file*, so a single non-discriminating criterion inside an otherwise strong file was absorbed into the file's one PASS and the task still scored 9/10. § 14 gains a mandatory per-criterion sub-pass — *could this criterion pass while the thing it tests is broken?* — with one recorded verdict per criterion and a **Critical** finding for a non-discriminating one, on the ground that it produces a falsely green completion record rather than a merely weak criterion. The task-level one-liner stays mandatory; this adds a granularity, not a pass. `docs/task-writing.md` § Evidence Shape gains the general statement beside the existing negative-criterion clause (which is unchanged), naming the two observed failure shapes: a probe scoped wider than the thing it tests, and a tolerance the executor picks.
 

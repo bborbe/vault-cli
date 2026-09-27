@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- docs: `docs/task-writing.md` § Audit gains **re-scope after a regression, never patch** — a criterion that has reached a passing verdict and then scores lower is re-scoped or cut rather than repaired again, with the trigger named as the **first regression after a held verdict**. The rejected alternatives (a clause budget, a delete-symmetry rule, a raw round count) are each recorded with the failure it would produce, and the rule is checked against two rows that cycled **14** and **5** audit rounds without converging — both ended by a re-scope, not by a successful patch.
+
 ## v0.150.0
 
 - feat: `vault-cli task remove-metrics-session <task-name> <session-id>` removes every `metrics_sessions` entry carrying the supplied session id from one task, preserving every other entry and every other frontmatter key, and deletes the key outright when the last entry goes. A call whose id matches nothing fails loudly and writes nothing, and an empty, non-UUID or path-bearing id is refused before the task is read. `task set`, `task add` and `task remove` keep refusing `metrics_sessions` unchanged.

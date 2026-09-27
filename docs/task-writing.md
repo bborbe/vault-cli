@@ -379,6 +379,20 @@ Always audit before committing publicly:
 
 The auditor (`task-auditor` agent) checks structure, success-criteria binary-ness, parent-goal linkage, DoD presence for complex tasks, and Out-of-Scope clarity.
 
+### Repairing a criterion that keeps failing — re-scope after a regression, never patch
+
+**A criterion that has reached a passing verdict and then regresses is re-scoped or cut, not repaired again.** A *passing verdict* is an audit round that raised no new defect — the criterion held. The trigger is the **first regression after a held verdict**: a round scoring lower than one that already held, whatever the round number.
+
+**Why a regression rather than a round count.** Both measured rows improved by patching before they broke by patching — one climbed 6 → 8 across four rounds before regressing, the other 6 → 8 across two. A rule firing on any sub-bar round kills a converging cycle; a rule firing on a regression after a held verdict kills only the cycle that has stopped converging. **No value of N separates the productive rounds from the destructive ones**, because both are the same activity — patching — and only the outcome differs.
+
+**Why not a clause budget or a delete-symmetry rule.** A clause budget is satisfiable by deletion, so it measures length rather than convergence — and the fatal defect is typically a **single clause** inside an otherwise reasonable criterion, so a budget flags it and then watches it cycle. "Delete at least as many clauses as you add" bounds the growth *rate* rather than the duration, and a round that changes nothing satisfies it while making no progress.
+
+**What re-scoping means here.** The regression is the signal that the **edit mode**, not the clause, is wrong: the round that broke the criterion was a repair, so another repair repeats the move that caused it. Cut the criterion back to what the evidence can carry, or replace the claim with one the artifact supports — do not add a clause that narrows the failing one.
+
+**What it does not mean.** A criterion still climbing is not regressing — keep repairing it. A first-round failure is not a regression: nothing held yet. The rule needs a verdict that held, and then a drop.
+
+Observed 2026-09-26 — two independent rows in one manager session cycled **14** and **5** audit rounds, neither converging, and **both were ended by a re-scope rather than a successful patch**. In the 14-round row the rule fires at round 10, four rounds before the re-scope that actually ended it; in the 5-round row it fires at the last round, where it ratifies rather than accelerates.
+
 ## Lifecycle
 
 | Status | Meaning | Trigger to enter |

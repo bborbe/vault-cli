@@ -1,8 +1,9 @@
 ---
-status: prompted
+status: verifying
 approved: "2026-09-27T08:27:23Z"
 generating: "2026-09-27T09:06:39Z"
 prompted: "2026-09-27T09:39:41Z"
+verifying: "2026-09-27T10:17:56Z"
 branch: dark-factory/remove-metrics-session
 ---
 

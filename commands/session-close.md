@@ -182,7 +182,9 @@ For each non-durable worktree **that is on a branch**, check if its branch still
 cd <worktree> && git ls-remote --exit-code --heads origin "$(git branch --show-current)" >/dev/null 2>&1
 ```
 
-- Exit-code **zero** → branch still on remote → work in flight, **leave alone** (could be a parked session).
+- Exit-code **zero** → the branch is still on the remote. ⚠️ **That is not evidence of work in flight** — a merged branch that was never deleted is still on the remote, so this arm alone reads a **merged** worktree as a live one. Run test **(b)** from the block below; it is the only test that answers *was this merged*:
+  - **(b) positive** → merged into master and merely undeleted → **orphaned**; flag it. Observed 2026-09-27: `claude-supervisor-board-release` read "work in flight, leave alone" for hours after its PR merged, and became flaggable only once the branch was deleted.
+  - **(b) negative** → leave alone (a parked session, or work never merged). Test (a) is deliberately *not* consulted here: it reads **0** both for a merged branch and for a freshly-created one, so it cannot separate them.
 - Exit-code **non-zero** → the branch is absent from the remote, which has two very different causes. **Split them before flagging** — a fresh worktree reads identically to a cleaned-up one. Run **both** tests; either one positive means orphaned:
 
   ```bash
@@ -193,7 +195,7 @@ cd <worktree> && git ls-remote --exit-code --heads origin "$(git branch --show-c
     '$1=="Merge" && $2=="pull" && $3=="request" {t=$NF; sub("^[^/]*/","",t); if (t==b) f=1} END{exit !f}'
   ```
 
-  - **Either test positive** → remote branch deleted (typical after `gh pr merge --delete-branch`). The worktree is **orphaned** — kept work is committed and merged; the worktree itself is now garbage.
+  - **Either test positive** → the branch was merged — typically deleted by `gh pr merge --delete-branch`, but **deletion is not required**, which is why the zero-exit arm above consults (b) too. The worktree is **orphaned** — kept work is committed and merged; the worktree itself is now garbage.
   - **Both negative** → the worktree was **just created** and its branch was never pushed. Nothing was ever merged, so nothing was cleaned up; it cannot be an orphan. **Leave it alone.** Observed 2026-09-11: `feature/status-toggle-icons` and `feature/status-toggle-lines` both read "remote gone" while both had 0 commits beyond master — one of them a sibling session's worktree created minutes earlier. Flagging it would have named live work for removal.
 
   **Test (b) is not optional — the commit count alone is not a merge detector.** These repos merge with merge commits only (`allow_squash_merge=false`, `allow_rebase_merge=false`), so a merged branch's tip stays an *ancestor* of master: `git merge-base HEAD origin/master` returns HEAD itself and (a) reads **0**. Judging on (a) alone therefore classifies every merged worktree as freshly created and silently disables this check. Observed 2026-09-11: all ten orphaned worktrees in `vault-cli` computed 0 commits beyond base, and none would have been flagged. The count still earns its place — it is the only signal for a squash- or rebase-merged branch, whose commits never reach master.

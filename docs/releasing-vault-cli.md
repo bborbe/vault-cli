@@ -8,8 +8,8 @@ Vault-cli ships two artifacts that version independently:
 
 | Surface | Versioned by | Consumed by | Bumped how |
 |---------|--------------|-------------|------------|
-| **Binary** | git tag `vX.Y.Z` + matching `## vX.Y.Z` section in `CHANGELOG.md` | other projects via `go install github.com/bborbe/vault-cli@latest`; task-orchestrator via configured `vault_cli_path` | Auto-tagged by vault-cli's own daemon (`autoRelease: true`) when a prompt completes and updates `## Unreleased` |
-| **Plugin** | `.claude-plugin/plugin.json` `version` + `.claude-plugin/marketplace.json` (`metadata.version` AND `plugins[0].version`) | Claude Code via the marketplace | Auto-bumped by `github-releaser-agent` (Driver 1) in lockstep with the CHANGELOG while `autoRelease: true`; manual only as fallback |
+| **Binary** | git tag `vX.Y.Z` + matching `## vX.Y.Z` section in `CHANGELOG.md` | other projects via `go install github.com/bborbe/vault-cli@latest`; task-orchestrator via configured `vault_cli_path` | Auto-tagged by `github-releaser-agent` (Driver 1) via `.maintainer.yaml: release.autoRelease: true` after `## Unreleased` bullets land on `master` |
+| **Plugin** | `.claude-plugin/plugin.json` `version` + `.claude-plugin/marketplace.json` (`metadata.version` AND `plugins[0].version`) | Claude Code via the marketplace | Auto-bumped by `github-releaser-agent` (Driver 1) in lockstep with the CHANGELOG while `.maintainer.yaml: release.autoRelease: true`; manual only as fallback |
 
 A single change can touch one surface or both.
 
@@ -26,7 +26,7 @@ The check is **release-time only** — `make precommit` does NOT run it. Use `ma
 
 **Why not in `precommit`**: every refactor commit advances `## Unreleased` → eventually a `## vX.Y.Z` heading; if every prompt had to bump plugin JSONs in lockstep, each refactor would consume a release number. We learned this the hard way during spec 010 — three prompts auto-bumped plugin versions just to clear the precommit gate, burning v0.58.7 → v0.59.0 → v0.59.1 on internal refactors.
 
-**Implication for the dark-factory driver (Driver 2)**: when the daemon produces a binary release (CHANGELOG bump → tag), it does not touch the plugin JSONs, so they can lag behind. Operator runs `make release-check` before producing a plugin release and bumps the JSONs to match the latest CHANGELOG entry at that time.
+**The dark-factory driver (Driver 2) is off here**: `.dark-factory.yaml: autoRelease: false`, flipped in `26e62a2` (2026-05-31), so the daemon produces no binary release and cannot leave the plugin JSONs lagging behind. Driver 1 bumps all four strings together (below), so alignment holds with no operator action.
 
 **Driver 1 (`github-releaser-agent`) is different** — it bumps all four strings together, so a post-merge release leaves them aligned with no operator action. That is the path a normal PR takes.
 
@@ -77,9 +77,9 @@ bash scripts/check-versions.sh
 
 **NOT wired into `make precommit`** — see the "Version alignment" section above for why.
 
-## Binary release — two cooperating drivers
+## Binary release — one active driver, one dormant
 
-Vault-cli is opted into **both** automatic release flows; either one is sufficient to ship a tag, and they are designed to be complementary, not duplicative.
+Vault-cli's binary tag comes from **one** flow: `github-releaser-agent` (Driver 1), opted in through `.maintainer.yaml: release.autoRelease: true`. The dark-factory daemon's own release flag (Driver 2) is **off** here — `.dark-factory.yaml: autoRelease: false`, flipped in `26e62a2` (2026-05-31) when the releaser took ownership. Driver 2 is described below so the setting is legible, not because it fires in this repo.
 
 ### Driver 1: `github-releaser-agent` (canonical, post-merge)
 
@@ -94,31 +94,24 @@ Picks up changes within ~10 min of the merge (watcher poll interval). To force a
 
 **Operator's job in this flow**: keep `## Unreleased` bullets accurate, commit + push to master. **Do NOT** rename `## Unreleased` → `## vX.Y.Z`, **do NOT** bump version strings, **do NOT** create a local tag — the bot owns the entire release commit. Local versions of any of those steps race the bot.
 
-### Driver 2: dark-factory `autoRelease: true` (per-prompt, immediate)
+### Driver 2: dark-factory `autoRelease` — **off in this repo**
 
-`.dark-factory.yaml: autoRelease: true` makes the dark-factory daemon (the one that runs prompts in YOLO containers) tag-and-push after every successful prompt that touched `## Unreleased`:
+`.dark-factory.yaml: autoRelease: false`, flipped in `26e62a2` (2026-05-31), the same commit that added `.maintainer.yaml` and moved release ownership to `github-releaser-agent`. The daemon therefore does **not** tag or push a release on prompt completion here: it runs prompts, and release commits come from Driver 1 after the merge.
 
-1. Stage all changes (including the agent's `## Unreleased` entry)
-2. Determine bump (patch/minor) from changelog content
-3. Rename `## Unreleased` → `## vX.Y.Z`
-4. Commit `release vX.Y.Z`
-5. Tag `vX.Y.Z`, push tag and commit
-6. Move the prompt file to `prompts/completed/` and push that commit too
-
-Fires immediately on prompt completion — no merge to master required. Bypassed by direct PRs.
+This flag governs the daemon's own release behaviour — whether it tags a release when a prompt completes — not the repo's release procedure, which is Driver 1's. It stays documented so the setting is legible. Turning it on would race Driver 1 for the same version number, which is why `26e62a2` moved ownership instead of enabling both.
 
 ### When each driver fires
 
-| Scenario | dark-factory driver | github-releaser-agent driver |
+| Scenario | dark-factory driver (`.dark-factory.yaml: autoRelease: false`) | github-releaser-agent driver (`.maintainer.yaml: release.autoRelease: true`) |
 |---|---|---|
-| Daemon runs a prompt on a feature branch, prompt completes | fires (if branch-mode + `autoRelease=true`) — tag goes on the feature branch | does NOT fire (commits not on master yet) |
-| Daemon runs a prompt with `--set autoRelease=false` (typical feature-branch hygiene) | does NOT fire — commit pushed without tag | fires after the feature branch merges to master |
+| Daemon runs a prompt on a feature branch, prompt completes | does NOT fire — the flag is off | does NOT fire (commits not on master yet) |
+| Daemon runs a prompt with `--set autoRelease=true` | still does NOT fire — the repo flag is off and this override is not used here | fires after the feature branch merges to master |
 | Direct PR + merge (no dark-factory at all) | does NOT fire (no daemon involvement) | fires |
-| Daemon runs on master directly with `autoRelease=true` | fires immediately on master | observes the tag already exists and no-ops |
+| Daemon runs on master directly | does NOT fire — the flag is off | fires post-merge |
 
-The two are **safety nets for each other**, not redundant. Use `--set autoRelease=false` on feature-branch daemon runs to keep release commits on master only; rely on github-releaser-agent post-merge for the actual tag.
+Driver 1 is the only flow that ships a tag in this repo, so there is no second driver to fall back on: a release that does not appear within ~10 min of the merge means Driver 1 did not run, and the manual procedure below is the fallback.
 
-### Verifying a release shipped (either driver)
+### Verifying a release shipped
 
 ```bash
 git fetch --tags
@@ -126,19 +119,19 @@ git describe --tags --abbrev=0           # latest tag
 git log "$(git describe --tags --abbrev=0)"..HEAD --oneline   # any unpushed commits beyond it
 ```
 
-After a successful release (by either driver), both `git status` (clean) and `git rev-list @{u}..HEAD --count` (zero) should hold.
+After a successful release, both `git status` (clean) and `git rev-list @{u}..HEAD --count` (zero) should hold.
 
-The operator's responsibility regardless of driver is the **release gate** (above): build `/tmp/new-vault-cli` and walk `scenarios/*.md` before every `make install` of the released tag. Neither driver runs the scenarios — that gate is operator-side.
+The operator's responsibility is the **release gate** (above): build `/tmp/new-vault-cli` and walk `scenarios/*.md` before every `make install` of the released tag. `github-releaser-agent` does not run the scenarios — that gate is operator-side.
 
 ## GitHub Release (manual — when to surface a milestone)
 
-`autoRelease` creates a `vX.Y.Z` git tag after every approved prompt. Tags are sufficient for `go install github.com/bborbe/vault-cli@vX.Y.Z`, `git describe`, and any tag-aware consumer.
+`.maintainer.yaml: release.autoRelease: true` makes `github-releaser-agent` create a `vX.Y.Z` git tag after every merge to master. Tags are sufficient for `go install github.com/bborbe/vault-cli@vX.Y.Z`, `git describe`, and any tag-aware consumer.
 
 A **GitHub Release** is a separate, deliberate act — distinct from the tag. It adds release notes, an entry on the repo's Releases tab, an RSS/atom feed for subscribers, and optional binary assets.
 
 **Publishing a Release also ships the Homebrew cask.** `.github/workflows/release.yml` triggers on `release: published` and runs goreleaser, which builds darwin/linux archives, attaches them to this Release, and pushes the cask to [`bborbe/homebrew-tap`](https://github.com/bborbe/homebrew-tap). So publishing here is what makes `brew install bborbe/tap/vault-cli` serve the new version.
 
-**A tag alone never reaches brew.** This is deliberate: `autoRelease` tags every merge, and publishing a cask per tag would bypass the scenario gate. The gate below is the only thing between a merge and a Homebrew user.
+**A tag alone never reaches brew.** This is deliberate: Driver 1 tags every merge, and publishing a cask per tag would bypass the scenario gate. The gate below is the only thing between a merge and a Homebrew user.
 
 The corollary of "skip the Release for internal refactors" (below) is that brew users stay on the last promoted version until you promote again. That is the intended trade: `go install @latest` is the fast track, brew is the verified one.
 
@@ -194,13 +187,13 @@ Whenever any of `commands/`, `agents/`, `docs/`, or `skills/` change, the plugin
 
 **While `.maintainer.yaml: release.autoRelease: true` (the current state), `github-releaser-agent` does this for you.** Driver 1 above bumps all four version strings in lockstep as part of the release commit. Your job is the `## Unreleased` bullet; the bot owns everything after the merge.
 
-> **Do not hand-bump the JSONs on an `autoRelease` repo.** A local bump + tag races the releaser for the same version number. This is the same rule as `CLAUDE.md`'s Plugin Release Checklist, stated there as "the manual checklist is the FALLBACK only".
+> **Do not hand-bump the JSONs on a `.maintainer.yaml: release.autoRelease: true` repo.** A local bump + tag races the releaser for the same version number. This is the same rule as `CLAUDE.md`'s Plugin Release Checklist, stated there as "the manual checklist is the FALLBACK only".
 
 Verified empirically on **v0.109.0** (2026-08-16, PR #79 — a `commands/`-only change): nothing was hand-bumped, and the released tag carried `CHANGELOG.md ## v0.109.0`, `plugin.json 0.109.0`, and both `marketplace.json` fields at `0.109.0`.
 
 ### Checking whether a bump is owed
 
-Useful when auditing a release after the fact, or before switching `autoRelease` off:
+Useful when auditing a release after the fact, or before switching `.maintainer.yaml: release.autoRelease` off:
 
 ```bash
 LAST_PLUGIN_TAG=$(git log --oneline -- .claude-plugin/ | head -1 | awk '{print $1}')
@@ -208,9 +201,9 @@ git diff "$LAST_PLUGIN_TAG"..HEAD --name-only -- commands/ agents/ docs/ skills/
 # any output → plugin surface changed since the last .claude-plugin/ commit
 ```
 
-Under `autoRelease` this should come back empty shortly after each merge. Persistent output means the releaser is not running — investigate before falling back to the manual procedure.
+Under Driver 1 this should come back empty shortly after each merge. Persistent output means the releaser is not running — investigate before falling back to the manual procedure.
 
-### Manual procedure (FALLBACK — releaser down, or `autoRelease: false`)
+### Manual procedure (FALLBACK — releaser down, or `.maintainer.yaml: release.autoRelease: false`)
 
 1. **Run the release gate** (above) if any binary surface also changed.
 2. **Pick the next plugin version.** Increment minor from the latest `CHANGELOG.md` entry. Plugin and binary share the same CHANGELOG and the same monotonic version sequence.
@@ -227,7 +220,7 @@ Confirm the releaser really is down first (`/github-release-repo-trigger` produc
 
 ### Common plugin-release mistakes
 
-- **Hand-bumping while `autoRelease: true` is on.** The most likely mistake now that Driver 1 owns the bump — it races the releaser for the version number.
+- **Hand-bumping while `.maintainer.yaml: release.autoRelease: true` is on.** The most likely mistake now that Driver 1 owns the bump — it races the releaser for the version number.
 - Forgetting `.claude-plugin/` files (manual path only) — CHANGELOG advances but plugin stays at old version.
 - Creating a separate "Plugin vX" CHANGELOG section. Wrong — one CHANGELOG, one version sequence.
 - Different version strings across the three JSON fields. The marketplace rejects mismatches silently and refuses to load the plugin.

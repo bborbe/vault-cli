@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat: **`/vault-cli:create-task` stops at `phase: todo` and no longer auto-chains `/vault-cli:plan-task`.** `create-task` was the last path that let a task plan itself past the approval gate — an agent session filed a task and the chain ran `plan-task` immediately, so everything filed that way arrived already planned. `task-creator` now writes `phase: todo` on every new task, making that the operator's approval inbox, and planning runs only in a session the operator opened (`/vault-cli:work-on-task`, or an explicit `/vault-cli:plan-task`). Change set: `commands/create-task.md`, `commands/plan-task.md`, `agents/task-creator.md`, `docs/task-writing.md`.
+
 ## v0.151.2
 
 - fix: session-close flags a merged worktree whose remote branch was never deleted, by running the merge test on the branch-present arm too

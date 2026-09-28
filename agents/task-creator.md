@@ -21,6 +21,7 @@ You create one task file in the configured vault. You read the vault config via 
 - NEVER overwrite an existing task file — fail with a clear error on collision
 - NEVER add auto-assignment logic; leave `assignee` empty unless the user supplies one
 - NEVER number filenames or add timestamps unless the vault convention requires it
+- ALWAYS write `phase: todo`; NEVER write `phase: planning` or later, and NEVER run `/vault-cli:plan-task` — the `todo → planning` move is the operator's approval
 - ALWAYS use Title Case with spaces for the filename (e.g. `Standardize Build Definitions.md`), not kebab-case slugs
 - ALWAYS prefix the filename with a Jira/issue key when one is detected (e.g. `BRO-18665 Kafka Update.md`)
 - ALWAYS use `notesmd-cli` for any later renames — but creation goes through `Write` directly
@@ -112,6 +113,7 @@ If `task_template` is set but the file does not exist, fail with a clear error n
 Required fields:
 
 - `status: in_progress` IF any of `planned_date`, `defer_date`, or `due_date` is being written to this task in step 8 (per spec 017: a calendar date is a commitment, so the task must be visible to the Kanban board); `status: next` OTHERWISE (canonical replacement for the legacy `todo` alias)
+- `phase: todo` — ALWAYS. Every new task lands in the operator's approval inbox. The `todo → planning` move is the operator's approval and is never written by this agent — do NOT write `phase: planning` or any later value, and do NOT run `/vault-cli:plan-task` after creating the file.
 - `priority: <1|2|3>`
 - `themes:` and/or `goals:` — only if confidently inferred or explicitly provided
 - `category: <category>` — if inferred
@@ -194,7 +196,8 @@ denormalised copy forever). See `docs/goal-writing.md` for the replacement shape
 
 Run a light self-audit against the file:
 
-- Frontmatter has required fields (status, priority)
+- Frontmatter has required fields (status, phase, priority)
+- `phase` is exactly `todo` — never `planning` or later
 - Title file matches title-case rule
 - Body has Success Criteria + Tasks sections (or template body)
 - No accidental empty sections
@@ -209,12 +212,14 @@ MODE=interactive output:
 ```
 ✅ Created: {filename}
    Path: {vault.path}/{tasks_dir}/{filename}
-   Status: todo  Priority: {N}  {Severity if set}
+   Status: {status} (in_progress | next)  Phase: todo  Priority: {N}  {Severity if set}
+
+The task is filed, not planned — `phase: todo` is the operator's approval inbox.
 
 Next steps:
 1. Review the file
-2. Start work: /work-on-task "{title}"
-3. Defer: /defer-task "{title}" <date>
+2. Approve it (plans, then starts execution): /vault-cli:work-on-task "{title}"
+3. Defer: /vault-cli:defer-task "{title}" <date>
 ```
 
 MODE=non_interactive output (single JSON object on stdout, nothing else):

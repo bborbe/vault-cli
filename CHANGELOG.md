@@ -11,6 +11,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 ## Unreleased
 
 - feat: Add the `TaskApproveOperation` behind `vault-cli task approve`, which records the approval of a `todo` row in a single storage write — composing `status: in_progress`, `phase: planning`, `approved_by` and an RFC3339 `approved_at` read from the injected `libtime.CurrentDateTime` onto the existing frontmatter map, preserving every other key. It refuses a task that is not at `phase: todo` (including one with no `phase` key) and a `todo` task that already carries an `approved_by` or `approved_at` record, writing nothing on any refusal path.
+- feat: Expose the approval operation as `vault-cli task approve <task-name> [--by <approver>]`. Plain output names the task and its new phase; `--output json` emits `name` and `phase`. The approver defaults to `operator`, and an explicitly empty `--by` is refused rather than recorded as a blank. A refusal exits non-zero in both output modes — including `--output json`, where the error object is printed and the command still fails (unlike `task set`, whose JSON error branch exits 0).
 
 ## v0.152.0
 

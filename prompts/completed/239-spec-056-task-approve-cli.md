@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [056-task-approve-command]
+summary: 'Wired `vault-cli task approve <task-name> [--by <approver>]` as a Cobra leaf with plain/JSON output and non-zero JSON refusals, added 13 integration specs plus a registration Entry proving the recorded todo→planning transition, key preservation and every refusal against a real binary, and extended the existing ## Unreleased changelog section.'
+execution_id: vault-cli-approve-cmd-exec-239-spec-056-task-approve-cli
+dark-factory-version: v0.196.0
 created: "2026-09-28T07:54:18Z"
 queued: "2026-09-28T09:12:46Z"
+started: "2026-09-28T09:21:04Z"
+completed: "2026-09-28T09:25:37Z"
 ---
 
 # Wire `vault-cli task approve` and prove the transition end to end (spec 056, prompt 2 of 5)

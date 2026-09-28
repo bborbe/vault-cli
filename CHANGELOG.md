@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.153.0
 
 - fix: Refuse `vault-cli task set <name> phase planning` on a task at `phase: todo`, closing the last unrecorded route out of the operator's approval inbox — the command exits non-zero naming `vault-cli task approve` and writes nothing, so a `todo` row can no longer reach `planning` without an `approved_by`/`approved_at` record. The refusal is pinned to that one combination (key `phase`, canonical value `planning`, current phase `todo`) and is not bypassed by `--force`; every other phase, every other key and the `--force` phase-regression override keep their behaviour. Change set: `pkg/ops/frontmatter.go`, `pkg/ops/frontmatter_test.go`, `integration/cli_test.go`.
 - feat: Add the `TaskApproveOperation` behind `vault-cli task approve`, which records the approval of a `todo` row in a single storage write — composing `status: in_progress`, `phase: planning`, `approved_by` and an RFC3339 `approved_at` read from the injected `libtime.CurrentDateTime` onto the existing frontmatter map, preserving every other key. It refuses a task that is not at `phase: todo` (including one with no `phase` key) and a `todo` task that already carries an `approved_by` or `approved_at` record, writing nothing on any refusal path.

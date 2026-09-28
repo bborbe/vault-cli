@@ -22,10 +22,10 @@ Everything else is unchanged: entry-contract flips (step 3), the auditor run (st
 
 ## When to use
 
-Right after `/vault-cli:create-task` (capture lenient → plan strict), or any time a task feels incomplete. Replaces `/vault-cli:refine-task` — same workflow plus an `execute-task` handoff.
+Any time a task needs sharpening — after the operator approves a `todo` row, or whenever a task feels incomplete. It is never chained from `/vault-cli:create-task`, which leaves the task at `phase: todo`. Replaces `/vault-cli:refine-task` — same workflow plus an `execute-task` handoff.
 
 ```bash
-/vault-cli:plan-task                              # detects from conversation (e.g. just after /create-task)
+/vault-cli:plan-task                              # detects the task from conversation
 /vault-cli:plan-task "Some Task Name"
 /vault-cli:plan-task 24\ Tasks/Some\ Task.md
 ```

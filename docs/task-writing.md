@@ -426,17 +426,19 @@ The CLI rejects `aborted` (via `task set`, `task complete`, `goal set`, `goal co
 
 ### Phase transitions
 
-`status: in_progress` walks an inner `phase` lifecycle. Each transition is gated by a slash command:
+`status: in_progress` walks an inner `phase` lifecycle, which begins at creation — `todo` is written on `next` and `in_progress` tasks alike. Each transition is gated by a slash command:
 
 | Phase | Meaning | Trigger to enter |
 |-------|---------|------------------|
-| `todo` / empty | Just landed in `in_progress`, no planning done yet | `/vault-cli:work-on-task` (loads context + emits readiness nudge if SC missing) |
+| `todo` | The operator's approval inbox — filed, not yet approved | `/vault-cli:create-task` writes it, and stops there; the operator's `todo → planning` flip is the approval. No command advances it on its own |
 | `planning` | Sharpening Success Criteria + subtasks against the goal | `/vault-cli:plan-task` (runs `task-auditor` + 5 hard non-negotiables loop; on score ≥ 8 + gates pass, reports ready and hands off to `/execute-task` — **never flips phase itself**) |
 | `execution` | Doing the work — the actual subtasks | `/vault-cli:execute-task` (**the sole command that flips `planning → execution`**; re-runs plan-task's 4 hard non-negotiables; refuses on fail, flips on pass + prints first unchecked subtask + DoD) |
 | `ai_review` / `human_review` | Output ready for review | Agent-driven (out of vault-cli scope) |
 | `done` | Terminal | `/vault-cli:complete-task` (auto-promotes status → `completed` when all `# Success Criteria` `[x]`) |
 
 The split between `/work-on-task` (orient + next-step signal), `/plan-task` (sharpening, no phase flip), and `/execute-task` (the sole blocking gate) is deliberate — `work-on-task` is content-agnostic (status + guides + signal), `plan-task` validates without flipping, and `execute-task` is the one command that won't flip `phase: planning → execution` until the 4 hard non-negotiables pass. Each lifecycle step is a deliberate operator action; nothing auto-chains into execution.
+
+**`/create-task` does not chain into planning.** It is the capture step and stops at `phase: todo`, the operator's approval inbox — so a task filed by an agent session cannot plan itself past the gate. Planning runs only in a session the operator opened: `/vault-cli:work-on-task`, or an explicit `/vault-cli:plan-task`. The `todo → planning` flip is the operator's approval, and nothing else advances a `todo` row.
 
 ### Calendar-as-commitment rule
 

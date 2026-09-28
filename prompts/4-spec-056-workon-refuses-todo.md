@@ -15,7 +15,7 @@ created: "2026-09-28T08:18:48Z"
 - The status-only promotion (`next` → `in_progress`) is untouched.
 - This closes the second unrecorded route into `planning`: the agent-facing `plan-task` bypass is closed by prompt 3 and the `work-on` path behind the Vault UI Start button by this one. `vault-cli task set <name> phase planning` is the third and is closed by prompt 5.
 - Covered at two levels: a unit case over the operation, and an end-to-end case that builds the real binary and asserts the exit code plus the untouched file.
-- The command itself, the documentation and the CHANGELOG are prompts 1–3; this prompt changes the operation and its tests only.
+- This prompt changes only the `work-on` operation and its tests; the approve operation, its CLI surface, the docs and the CHANGELOG are prompts 1–3.
 </summary>
 
 <objective>
@@ -27,7 +27,7 @@ Read `CLAUDE.md` for project conventions.
 
 Read fully (in this order):
 - `pkg/ops/workon.go` — the whole file. Three regions matter: the `Execute` doc comment near line 63 and its body from `_ = task.SetStatus(domain.TaskStatusInProgress)` near line 90 through the `WriteTask` call near line 98; and `advancePhaseIfEntering` near line 179, the function this prompt changes. Note the file already imports `context`, `github.com/bborbe/errors` and `libtime` — no import changes are needed.
-- `pkg/ops/workon_test.go` — the `Context("phase advancement")` block near line 803. Its four cases pin the current behaviour: `when phase is missing (nil)`, `when phase is empty string` and `when phase is todo` all assert the written phase is `planning`, and `when phase is in_progress (resume case)` asserts it is left alone. Read the block's shared `BeforeEach` (near line 43) and `JustBeforeEach` (near line 80) too: every case re-stubs `mockTaskStorage.FindTaskByNameReturns(task, nil)` with its own `task`, then the shared `JustBeforeEach` calls `Execute` and assigns `result` and `err`.
+- `pkg/ops/workon_test.go` — the `Context("phase advancement")` block near line 803. Its four cases pin the current behaviour: `when phase is missing (nil)`, `when phase is empty string` and `when phase is todo` all assert the written phase is `planning`, and `when phase is in_progress (resume case)` asserts it is left alone. Read the block's shared `BeforeEach` (near line 43) and `JustBeforeEach` (near line 80) too: three of the four cases re-stub `mockTaskStorage.FindTaskByNameReturns(task, nil)` with their own `task` (the nil case uses the shared default task set in the outer `BeforeEach`), then the shared `JustBeforeEach` calls `Execute` and assigns `result` and `err`.
 - `pkg/ops/metrics_session_append_test.go` — the whole file. The ops unit-spec idiom: external `ops_test` package, `mocks.TaskStorage`, a local `seedTask` helper, `WriteTaskCallCount()` / `WriteTaskArgsForCall(0)` to inspect what was written, and an `assertRefused` closure for the "nothing was written" cases.
 - `pkg/domain/task_frontmatter.go` — `Phase()` near line 99 and `SetPhase` near line 339. **`Phase()` returns `nil` for a missing `phase` key AND for an empty one** (`GetString` returns `""`, and `""` short-circuits to `nil`), which is why the existing nil and empty-string cases behave identically. `SetPhase(nil)` deletes the key.
 - `pkg/domain/task_phase.go` — `TaskPhase`, `TaskPhaseTodo` (`"todo"`), `TaskPhasePlanning` (`"planning"`), `Ptr()`.
@@ -96,8 +96,8 @@ NOTE: git IS available in this container (`.dark-factory.yaml` is `workflow: dir
    ```
 
    Two things about this shape are load-bearing:
-   - The literal substring `vault-cli task approve` appears in the source. Spec 056's work-on grep AC (the `TaskPhaseTodo` / `task approve` bullet under Acceptance Criteria) asserts `grep -cE 'task approve' pkg/ops/workon.go` is ≥ 1, and the unit case in requirement 4 asserts the returned error contains it. Do not paraphrase the command into words like "the approve command" or "task approval" — the command name itself must be there.
-   - The comparison names `domain.TaskPhaseTodo`, satisfying the other half of that AC (`grep -cE 'TaskPhaseTodo' pkg/ops/workon.go` ≥ 1). Do not compare against the string literal `"todo"` instead.
+   - The literal substring `vault-cli task approve` appears in the source. Spec 056's work-on grep AC asserts `grep -cE 'task approve' pkg/ops/workon.go` is ≥ 1, and the unit case in requirement 4 asserts the returned error contains it. Do not paraphrase the command into words like "the approve command" or "task approval" — the command name itself must be there.
+   - The comparison names `domain.TaskPhaseTodo` rather than the string literal `"todo"` — a readability choice, not a spec requirement. (The spec dropped the `TaskPhaseTodo`-grep half of that AC as vacuous: the string already occurs at HEAD, so the expectation would pass with no change at all.)
 
 2. **Hoist the call in `Execute` above the two mutations, and return the refusal early.** In `Execute` (the body near lines 88-98), replace this old region:
 
@@ -339,8 +339,8 @@ NOTE: git IS available in this container (`.dark-factory.yaml` is `workflow: dir
 PRIMARY GATE — spec 056's work-on evidence greps plus the supporting ones. Run each, record the count, and confirm it against the expectation. Rows expecting 0 are written as `! grep -q` because `grep -c` exits 1 when it prints 0:
 
 ```
-grep -c 'TaskPhaseTodo' pkg/ops/workon.go                  # >= 1 (spec 056, first half of the work-on grep AC)
-grep -c 'task approve' pkg/ops/workon.go                   # >= 1 (spec 056, second half of the work-on grep AC)
+grep -c 'TaskPhaseTodo' pkg/ops/workon.go                  # >= 1 (supporting check only — not a spec AC; the string occurs once at HEAD either way)
+grep -c 'task approve' pkg/ops/workon.go                   # >= 1 (spec 056's work-on grep AC; 0 at HEAD)
 grep -c 'advancePhaseIfEntering' pkg/ops/workon.go         # >= 2 (the declaration and the call)
 grep -c 'vault-cli task approve' pkg/ops/workon_test.go    # >= 1 (the unit case asserts the message)
 grep -c 'phase is todo' pkg/ops/workon_test.go             # >= 1 (the refusal case exists)
@@ -350,7 +350,7 @@ grep -c 'work-on approval gate' integration/cli_test.go    # >= 1 (the end-to-en
 ! grep -q 'fmt.Errorf' pkg/ops/workon.go                   # 0
 ```
 
-⚠️ The first two rows are the spec's own AC and they are weak on their own — `TaskPhaseTodo` already occurs once in `workon.go` at HEAD (inside `advancePhaseIfEntering`) and `task approve` occurs zero times. The counts are the spec's evidence, not proof the refusal works; the tests below are the proof.
+⚠️ The second row is the spec's own AC and it is weak on its own — `task approve` occurs zero times at HEAD, and the first row (`TaskPhaseTodo`) is a supporting check only, not a spec AC (`TaskPhaseTodo` already occurs once in `workon.go` at HEAD inside `advancePhaseIfEntering`). The counts are the spec's evidence, not proof the refusal works; the tests below are the proof.
 
 TESTS:
 ```
@@ -383,6 +383,7 @@ git diff --exit-code -- scenarios/
 
 SCOPE — run this **before** the final `make precommit` (which regenerates `mocks/` and would otherwise muddy the list):
 ```
+git rev-parse --is-inside-work-tree   # must print `true`. If this fails, `.git` is masked (daemon started with --set hideGit=true) and EVERY git row below reports a false pass — fall back to the PRIMARY GATE content greps and report the masked run instead of trusting the git rows
 git diff --name-only    # must list exactly: pkg/ops/workon.go, pkg/ops/workon_test.go, integration/cli_test.go
 git status --porcelain  # nothing untracked
 ```
@@ -417,8 +418,8 @@ these restate the decision rather than reopen it; do not treat them as open inst
    at `todo` are the normal filing state, so this is an edge case rather than the main path.
 
 2. `pkg/ops/workon.go` IS named in prompt 3's CHANGELOG `Change set:` clause, which now lists
-   `pkg/ops/task_approve.go`, `pkg/ops/workon.go`, `pkg/cli/cli.go`, `docs/task-writing.md` and
-   `commands/plan-task.md` — the bullet is complete. The file change itself still lands here,
+   `pkg/ops/task_approve.go`, `pkg/ops/workon.go`, `pkg/ops/frontmatter.go`, `pkg/cli/cli.go`,
+   `docs/task-writing.md` and `commands/plan-task.md` — the bullet is complete. The file change itself still lands here,
    in prompt 4, so if this prompt never runs the CHANGELOG over-claims one file.
 
 3. Requirement 5 (the end-to-end integration block) goes one step beyond the two ACs the spec

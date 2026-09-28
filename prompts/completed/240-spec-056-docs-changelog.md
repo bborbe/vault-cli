@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [056-task-approve-command]
+summary: Documented the `todo → planning` approval verb in docs/task-writing.md, realigned commands/plan-task.md onto it (refusing to plan an unapproved row), and added the `## Unreleased` feat bullet naming the verb, its four recorded values, `--by` default and refusals.
+execution_id: vault-cli-approve-cmd-exec-240-spec-056-docs-changelog
+dark-factory-version: v0.196.0
 created: "2026-09-28T07:54:18Z"
 queued: "2026-09-28T09:12:46Z"
+started: "2026-09-28T09:25:38Z"
+completed: "2026-09-28T09:29:21Z"
 ---
 
 # Document the approval transition and record it in the CHANGELOG (spec 056, prompt 3 of 5)

@@ -63,13 +63,13 @@ vault-cli task get "<name>" phase --output json
 
 **Re-run this gate immediately before every mutation** — the step 3 entry-contract flips and every step 6 `Edit`. The step 2 read is stale by construction: a claim arriving mid-run is exactly the case this guards, and it is also the only case that matters under NO-ASK, where step 6 is skipped but step 3 still writes.
 
-### 3. Entry contract — flip if needed
+### 3. Entry contract — approval first
 
-The goal is to land at `status: in_progress, phase: planning` for fresh tasks; respect a deliberate post-planning phase setting.
+The goal is to land at `status: in_progress, phase: planning` for fresh tasks; respect a deliberate post-planning phase setting. A `todo` row enters planning only through `vault-cli task approve` — plan-task never performs that flip itself.
 
-- `status` in `next`/`todo`/`backlog` → flip status AND phase together: `vault-cli task set "<name>" status in_progress` + `vault-cli task set "<name>" phase planning` (if phase is empty/`todo`/`planning`). Skip the phase flip if phase is `execution` / `ai_review` / `human_review` / `done` (treat as deliberate — sharpen but don't move phase backward).
-- `status` already `in_progress` and `phase` is `todo`/empty → `vault-cli task set "<name>" phase planning`
-- `status` already `in_progress` and `phase` is past planning → continue without flip; step 7 will skip the phase transition.
+- `phase` is `todo`/empty → **refuse and STOP**. The row is not approved: print `❌ <name> is at phase: todo — not approved. Run vault-cli task approve "<name>", then re-run /vault-cli:plan-task.` Never call `AskUserQuestion` under `--non-interactive`, and never run `vault-cli task approve` yourself — that would record `approved_by: operator` for an approval the operator never gave.
+- `phase` is `planning` → continue; the approval already wrote `status: in_progress`. If `status` is still `next`/`backlog`, promote it alone: `vault-cli task set "<name>" status in_progress` (never the phase).
+- `phase` is past planning (`execution` / `ai_review` / `human_review` / `done`) → continue without flip (treat as deliberate — sharpen but don't move phase backward).
 
 ### 4. Run task-auditor
 
@@ -222,8 +222,8 @@ Under NO-ASK the score is whatever the auditor returned (nothing was fixed, so t
 - **Subtask granularity = session-sized.** When proposing or sharpening `# Tasks` items, target *work-block size* (a session's worth of work), not CLI-step size. Aim for 3-6 items per task. Reject auditor-suggested over-decomposition like "run precommit / open PR / merge PR" as separate subtasks — those collapse into one "ship the change" block.
 - **Reads `~/.claude/plugins/marketplaces/vault-cli/docs/task-writing.md` as the canonical rule source** — same rules `task-auditor` enforces.
 - **Conversational on purpose.** Owner is the judge of substance. Plan-task never silently rewrites; every change comes from an explicit answer. This is exactly why `--non-interactive` refuses to guess: with no owner to answer, the honest move is to stop and list the gaps, never to invent answers and edit the task.
-- **Entry contract.** On a fresh task (`status: next, phase: todo`), plan-task flips to `in_progress, planning` itself. No `/work-on-task` prerequisite.
-- **No phase flip.** plan-task never transitions phase; it validates and hands off to `/vault-cli:execute-task`, which owns the `planning → execution` flip. Entry-contract flips (`next` → `in_progress` + `planning`) still happen in step 3.
+- **Entry contract.** A row at `phase: todo` is not planned by plan-task: it refuses and points the operator at `vault-cli task approve`, which performs the `todo → planning` flip and records `approved_by`/`approved_at`. No `/work-on-task` prerequisite for the approval itself.
+- **No phase flip.** plan-task never transitions phase; it validates and hands off to `/vault-cli:execute-task`, which owns the `planning → execution` flip. The `todo → planning` entry flip happens only through `vault-cli task approve` — step 3 writes no phase, it refuses an unapproved row and at most promotes `next` → `in_progress`.
 - **Mechanical fixes stay in `/audit-task`.** This command is for substance (SC, subtasks, goal alignment), not formatting.
 
 ## Integration

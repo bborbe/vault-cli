@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [056-task-approve-command]
+summary: 'Added the TaskApproveOperation in pkg/ops (four-key single write, todo-only and existing-record refusals, injected clock) with 19 Ginkgo specs, the generated counterfeiter mock, and an ## Unreleased feat bullet.'
+execution_id: vault-cli-approve-cmd-exec-238-spec-056-task-approve-operation
+dark-factory-version: v0.196.0
 created: "2026-09-28T07:54:18Z"
 queued: "2026-09-28T09:12:46Z"
+started: "2026-09-28T09:15:33Z"
+completed: "2026-09-28T09:21:02Z"
 ---
 
 # Add the `task approve` operation (spec 056, prompt 1 of 5)

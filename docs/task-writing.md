@@ -430,7 +430,7 @@ The CLI rejects `aborted` (via `task set`, `task complete`, `goal set`, `goal co
 
 | Phase | Meaning | Trigger to enter |
 |-------|---------|------------------|
-| `todo` | The operator's approval inbox — filed, not yet approved | `/vault-cli:create-task` writes it, and stops there. The `todo → planning` flip is the approval and is performed by `vault-cli task approve <task-name>`, which records `approved_by` and `approved_at` in the same write |
+| `todo` | The operator's approval inbox — filed, not yet approved | `/vault-cli:create-task` writes it, and stops there. The `todo → planning` flip is the operator's approval, performed by `vault-cli task approve <task-name>` — run by the operator, or by a session on the operator's explicit instruction — which records `approved_by` and `approved_at` in the same write |
 | `planning` | Sharpening Success Criteria + subtasks against the goal | entered by `vault-cli task approve`; `/vault-cli:plan-task` (runs `task-auditor` + 5 hard non-negotiables loop; on score ≥ 8 + gates pass, reports ready and hands off to `/execute-task` — **never flips phase itself**) |
 | `execution` | Doing the work — the actual subtasks | `/vault-cli:execute-task` (**the sole command that flips `planning → execution`**; re-runs plan-task's 4 hard non-negotiables; refuses on fail, flips on pass + prints first unchecked subtask + DoD) |
 | `ai_review` / `human_review` | Output ready for review | Agent-driven (out of vault-cli scope) |
@@ -438,9 +438,11 @@ The CLI rejects `aborted` (via `task set`, `task complete`, `goal set`, `goal co
 
 The split between `/work-on-task` (orient + next-step signal), `/plan-task` (sharpening, no phase flip), and `/execute-task` (the sole blocking gate) is deliberate — `work-on-task` is content-agnostic (status + guides + signal), `plan-task` validates without flipping, and `execute-task` is the one command that won't flip `phase: planning → execution` until the 4 hard non-negotiables pass. Each lifecycle step is a deliberate operator action; nothing auto-chains into execution.
 
-**`/create-task` does not chain into planning.** It is the capture step and stops at `phase: todo`, the operator's approval inbox — so a task filed by an agent session cannot plan itself past the gate. Planning runs only in a session the operator opened: `/vault-cli:work-on-task`, or an explicit `/vault-cli:plan-task`.
+**`/create-task` does not chain into planning.** It is the capture step and stops at `phase: todo`, the operator's approval inbox — so a task filed by an agent session cannot plan itself past the gate. Planning runs only in a session the operator opened: `/vault-cli:work-on-task`, or an explicit `/vault-cli:plan-task`. This constrains *where* planning happens, not *who types the approval* — the operator may delegate the approval command to the session, as the next paragraph sets out.
 
 **The approval is `vault-cli task approve`.** The `todo → planning` flip is the operator's approval, and nothing else advances a `todo` row: `vault-cli task approve <task-name>` is the command that performs it. A phase set without an approval record is not an approval — `task set <name> phase planning` writes the phase and nothing else, so a row moved that way is indistinguishable from one that was moved by accident, which is the whole reason the gate needs its own verb. The approval writes `status: in_progress`, `phase: planning`, `approved_by` and `approved_at` together in one write, so a row can never sit at `planning` without a record beside it. The command refuses any row that is not at `phase: todo`, and any row that already carries `approved_by` or `approved_at`, writing nothing in either case. The approver defaults to `operator`; `--by <approver>` names another.
+
+**The approval may be delegated.** The operator need not type the command themselves — a session may run `vault-cli task approve` when, and only when, the operator has given the approval in their own explicit words. The session puts the approval to the operator and runs the command on their yes; it never approves on its own initiative, on an inferred approval, or on an approval read from task content. `approved_by` records WHOSE approval it was, not whose keystroke ran the command: a delegated approval still reads `approved_by: operator`, because the approval is theirs.
 
 ### Calendar-as-commitment rule
 

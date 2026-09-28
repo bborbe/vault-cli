@@ -528,13 +528,68 @@ var _ = Describe("FrontmatterSetOperation", func() {
 		})
 	})
 
-	// The two must-still-pass cases. Broadening the guard must not break the
-	// legitimate entry contract (`todo` -> `planning` when starting work) nor a
-	// forward move out of planning.
-	Context("allowing todo -> planning on in_progress task", func() {
+	// The must-still-pass case. Broadening the guard must not break a forward
+	// move out of planning. The `todo` -> `planning` entry contract is no longer a
+	// legal `task set`: it is refused below and performed by `vault-cli task approve`.
+	DescribeTableSubtree("refusing todo -> planning on a task in the approval inbox",
+		func(status string) {
+			BeforeEach(func() {
+				task = domain.NewTask(
+					map[string]any{"status": status, "phase": "todo"},
+					domain.FileMetadata{Name: taskName},
+					domain.Content(""),
+				)
+				mockTaskStorage.FindTaskByNameReturns(task, nil)
+				key = "phase"
+				value = "planning"
+			})
+
+			It("refuses with an error naming the approve command", func() {
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("vault-cli task approve"))
+				Expect(err.Error()).To(ContainSubstring("todo"))
+			})
+
+			It("does not write the task", func() {
+				Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(0))
+			})
+
+			It("leaves the phase at todo", func() {
+				Expect(task.Phase()).NotTo(BeNil())
+				Expect(*task.Phase()).To(Equal(domain.TaskPhaseTodo))
+			})
+		},
+		Entry("next", "next"),
+		Entry("in_progress", "in_progress"),
+	)
+
+	Context("refusing todo -> planning even when force is set", func() {
 		BeforeEach(func() {
 			task = domain.NewTask(
-				map[string]any{"status": "in_progress", "phase": "todo"},
+				map[string]any{"status": "next", "phase": "todo"},
+				domain.FileMetadata{Name: taskName},
+				domain.Content(""),
+			)
+			mockTaskStorage.FindTaskByNameReturns(task, nil)
+			key = "phase"
+			value = "planning"
+			force = true
+		})
+
+		It("returns the refusal error", func() {
+			Expect(err).NotTo(BeNil())
+			Expect(err.Error()).To(ContainSubstring("vault-cli task approve"))
+		})
+
+		It("does not write the task", func() {
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(0))
+		})
+	})
+
+	Context("allowing execution -> planning on a next-status task", func() {
+		BeforeEach(func() {
+			task = domain.NewTask(
+				map[string]any{"status": "next", "phase": "execution"},
 				domain.FileMetadata{Name: taskName},
 				domain.Content(""),
 			)
@@ -546,6 +601,9 @@ var _ = Describe("FrontmatterSetOperation", func() {
 		It("writes the phase", func() {
 			Expect(err).To(BeNil())
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
+			Expect(writtenTask.Phase()).NotTo(BeNil())
+			Expect(*writtenTask.Phase()).To(Equal(domain.TaskPhasePlanning))
 		})
 	})
 

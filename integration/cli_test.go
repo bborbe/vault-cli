@@ -464,6 +464,7 @@ var _ = Describe("vault-cli integration tests", func() {
 			Entry("task work-on", "task", "work-on"),
 			Entry("task get", "task", "get"),
 			Entry("task set", "task", "set"),
+			Entry("task approve", "task", "approve"),
 			Entry("task clear", "task", "clear"),
 			Entry("task lint", "task", "lint"),
 			Entry("task validate", "task", "validate"),
@@ -2120,6 +2121,80 @@ body
 		})
 	})
 
+	Describe("task work-on approval gate", func() {
+		var vaultPath, configPath string
+		var cleanup func()
+
+		AfterEach(func() {
+			cleanup()
+		})
+
+		runEntityCommand := func(args ...string) *gexec.Session {
+			fullArgs := append(
+				[]string{"--config", configPath, "--vault", "test"},
+				args...,
+			)
+			session, err := gexec.Start(exec.Command(binPath, fullArgs...), GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			return session
+		}
+
+		sha256OfFile := func(path string) string {
+			data, err := os.ReadFile(path) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			sum := sha256.Sum256(data)
+			return fmt.Sprintf("%x", sum)
+		}
+
+		readFile := func(path string) string {
+			content, err := os.ReadFile(path) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			return string(content)
+		}
+
+		It("refuses a todo row, names the approve command, and writes nothing", func() {
+			vaultPath, configPath, cleanup = createTempVaultWithCurrentUser(map[string]string{
+				"Alpha": `---
+page_type: task
+phase: todo
+priority: 1
+status: next
+task_identifier: 11111111-1111-4111-8111-111111111111
+---
+body line
+`,
+			})
+			taskFile := filepath.Join(vaultPath, "Tasks", "Alpha.md")
+			before := sha256OfFile(taskFile)
+
+			session := runEntityCommand("task", "work-on", "Alpha", "--mode", "headless")
+			Eventually(session, 30*time.Second).Should(gexec.Exit(1))
+			Expect(string(session.Err.Contents())).To(ContainSubstring("vault-cli task approve"))
+			Expect(sha256OfFile(taskFile)).To(Equal(before))
+		})
+
+		It("still works on a row already at phase planning", func() {
+			vaultPath, configPath, cleanup = createTempVaultWithCurrentUser(map[string]string{
+				"Alpha": `---
+page_type: task
+phase: planning
+priority: 1
+status: next
+task_identifier: 11111111-1111-4111-8111-111111111111
+---
+body line
+`,
+			})
+			taskFile := filepath.Join(vaultPath, "Tasks", "Alpha.md")
+
+			session := runEntityCommand("task", "work-on", "Alpha", "--mode", "headless")
+			Eventually(session, 30*time.Second).Should(gexec.Exit(0))
+			after := readFile(taskFile)
+			Expect(after).To(ContainSubstring("phase: planning"))
+			Expect(after).To(ContainSubstring("status: in_progress"))
+		})
+	})
+
 	Describe("vault-cli blocked_by JSON surface", func() {
 		var vaultPath, configPath string
 		var cleanup func()
@@ -2583,6 +2658,96 @@ blocked_by:
 				Should(gexec.Exit(0))
 			Eventually(runEntityCommand("goal", "clear", "Beta", "blocked_by")).
 				Should(gexec.Exit(0))
+		})
+	})
+
+	Describe("task set approval guard", func() {
+		var vaultPath, configPath string
+		var cleanup func()
+
+		AfterEach(func() {
+			cleanup()
+		})
+
+		runEntityCommand := func(args ...string) *gexec.Session {
+			fullArgs := append(
+				[]string{"--config", configPath, "--vault", "test"},
+				args...,
+			)
+			session, err := gexec.Start(exec.Command(binPath, fullArgs...), GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			return session
+		}
+
+		sha256OfFile := func(path string) string {
+			data, err := os.ReadFile(path) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			sum := sha256.Sum256(data)
+			return fmt.Sprintf("%x", sum)
+		}
+
+		It("refuses todo -> planning, names the approve command, and writes nothing", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": `---
+page_type: task
+phase: todo
+priority: 1
+status: next
+task_identifier: 11111111-1111-4111-8111-111111111111
+---
+body line
+`,
+			})
+			taskFile := filepath.Join(vaultPath, "Tasks", "Alpha.md")
+			before := sha256OfFile(taskFile)
+
+			session := runEntityCommand("task", "set", "Alpha", "phase", "planning")
+			Eventually(session).Should(gexec.Exit(1))
+			Expect(string(session.Err.Contents())).To(ContainSubstring("vault-cli task approve"))
+			Expect(sha256OfFile(taskFile)).To(Equal(before))
+		})
+
+		It("refuses todo -> planning with --force and writes nothing", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": `---
+page_type: task
+phase: todo
+priority: 1
+status: next
+task_identifier: 11111111-1111-4111-8111-111111111111
+---
+body line
+`,
+			})
+			taskFile := filepath.Join(vaultPath, "Tasks", "Alpha.md")
+			before := sha256OfFile(taskFile)
+
+			session := runEntityCommand("task", "set", "Alpha", "phase", "planning", "--force")
+			Eventually(session).Should(gexec.Exit(1))
+			Expect(string(session.Err.Contents())).To(ContainSubstring("vault-cli task approve"))
+			Expect(sha256OfFile(taskFile)).To(Equal(before))
+		})
+
+		It("still allows execution -> planning on a next-status task", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": `---
+page_type: task
+phase: execution
+priority: 1
+status: next
+task_identifier: 11111111-1111-4111-8111-111111111111
+---
+body line
+`,
+			})
+			taskFile := filepath.Join(vaultPath, "Tasks", "Alpha.md")
+
+			session := runEntityCommand("task", "set", "Alpha", "phase", "planning")
+			Eventually(session).Should(gexec.Exit(0))
+
+			content, readErr := os.ReadFile(taskFile) //#nosec G304 -- test file
+			Expect(readErr).NotTo(HaveOccurred())
+			Expect(string(content)).To(ContainSubstring("phase: planning"))
 		})
 	})
 
@@ -3111,6 +3276,392 @@ body line
 			session := runEntityCommand("task", "remove-metrics-session", "--help")
 			Eventually(session).Should(gexec.Exit(0))
 			Expect(string(session.Out.Contents())).To(ContainSubstring("remove-metrics-session"))
+		})
+	})
+
+	Describe("task approve", func() {
+		var vaultPath, configPath string
+		var cleanup func()
+
+		AfterEach(func() {
+			cleanup()
+		})
+
+		runEntityCommand := func(args ...string) *gexec.Session {
+			fullArgs := append(
+				[]string{"--config", configPath, "--vault", "test"},
+				args...,
+			)
+			session, err := gexec.Start(exec.Command(binPath, fullArgs...), GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			return session
+		}
+
+		sha256OfFile := func(path string) string {
+			data, err := os.ReadFile(path) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			sum := sha256.Sum256(data)
+			return fmt.Sprintf("%x", sum)
+		}
+
+		readFile := func(path string) string {
+			content, err := os.ReadFile(path) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			return string(content)
+		}
+
+		// frontmatterOf unmarshals only the frontmatter block of a page file.
+		frontmatterOf := func(path string) map[string]any {
+			text := readFile(path)
+			Expect(strings.HasPrefix(text, "---\n")).To(BeTrue(), "no frontmatter opening")
+			rest := strings.TrimPrefix(text, "---\n")
+			end := strings.Index(rest, "\n---\n")
+			Expect(end).To(BeNumerically(">=", 0), "no frontmatter closing")
+			var parsed map[string]any
+			Expect(yaml.Unmarshal([]byte(rest[:end]), &parsed)).To(Succeed())
+			return parsed
+		}
+
+		// approvalKeyPattern matches the four top-level keys the approve transition
+		// writes; the anchors keep a body line that happens to read `phase: x` out.
+		approvalKeyPattern := regexp.MustCompile(`^(status|phase|approved_by|approved_at):`)
+
+		// approvedKeys returns the lines of content whose key is one of the four
+		// the approve transition writes.
+		approvedKeys := func(content string) []string {
+			var out []string
+			for _, line := range strings.Split(content, "\n") {
+				if approvalKeyPattern.MatchString(line) {
+					out = append(out, line)
+				}
+			}
+			return out
+		}
+
+		// withoutApprovalKeys returns content's lines with every approval key
+		// removed, so two files can be compared on the keys approve must not touch.
+		withoutApprovalKeys := func(content string) []string {
+			var out []string
+			for _, line := range strings.Split(content, "\n") {
+				if !approvalKeyPattern.MatchString(line) {
+					out = append(out, line)
+				}
+			}
+			return out
+		}
+
+		// valueOf returns the value of a top-level frontmatter key line, or "".
+		valueOf := func(content, key string) string {
+			for _, line := range strings.Split(content, "\n") {
+				if strings.HasPrefix(line, key+": ") {
+					return strings.TrimPrefix(line, key+": ")
+				}
+			}
+			return ""
+		}
+
+		// Every fixture's frontmatter keys are authored in alphabetical order: the
+		// storage writer re-serializes the whole frontmatter in alphabetical key
+		// order on every write, so a hand-authored non-alphabetical fixture would be
+		// reordered and every byte comparison below would be meaningless.
+
+		// A task waiting in the operator's inbox.
+		todoFrontmatter := `---
+page_type: task
+phase: todo
+priority: 1
+status: next
+task_identifier: 11111111-1111-4111-8111-111111111111
+---
+body line
+`
+
+		// AC 3's fixture: the same todo row plus an assignee, an unknown key, and a
+		// task_identifier other commands consume.
+		todoWithUnrelatedKeys := `---
+assignee: someone
+custom_key: keep
+page_type: task
+phase: todo
+priority: 1
+status: next
+task_identifier: 22222222-2222-2222-2222-222222222222
+---
+body line
+`
+
+		planningFrontmatter := `---
+page_type: task
+phase: planning
+priority: 1
+status: next
+task_identifier: 11111111-1111-4111-8111-111111111111
+---
+body line
+`
+
+		// AC 4's nil-phase arm: a row with no phase key at all.
+		noPhaseFrontmatter := `---
+page_type: task
+priority: 1
+status: next
+task_identifier: 11111111-1111-4111-8111-111111111111
+---
+body line
+`
+
+		executionFrontmatter := `---
+page_type: task
+phase: execution
+priority: 1
+status: next
+task_identifier: 11111111-1111-4111-8111-111111111111
+---
+body line
+`
+
+		// AC 6's three fixtures: one key each, then both. The one-key-each fixtures
+		// are load-bearing — a guard that checks only approved_by passes the
+		// both-keys fixture, so a single combined fixture cannot distinguish
+		// "refuses either key" from "refuses one key".
+		approvedByOnlyFrontmatter := `---
+approved_by: someone
+page_type: task
+phase: todo
+priority: 1
+status: next
+task_identifier: 11111111-1111-4111-8111-111111111111
+---
+body line
+`
+
+		approvedAtOnlyFrontmatter := `---
+approved_at: 2026-01-01T00:00:00Z
+page_type: task
+phase: todo
+priority: 1
+status: next
+task_identifier: 11111111-1111-4111-8111-111111111111
+---
+body line
+`
+
+		approvedBothFrontmatter := `---
+approved_at: 2026-01-01T00:00:00Z
+approved_by: someone
+page_type: task
+phase: todo
+priority: 1
+status: next
+task_identifier: 11111111-1111-4111-8111-111111111111
+---
+body line
+`
+
+		It("AC1: task approve records the four-key transition in one write", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": todoFrontmatter,
+			})
+			taskFile := filepath.Join(vaultPath, "Tasks", "Alpha.md")
+
+			session := runEntityCommand("task", "approve", "Alpha")
+			Eventually(session).Should(gexec.Exit(0))
+
+			after := readFile(taskFile)
+			Expect(approvedKeys(after)).To(HaveLen(4))
+			Expect(valueOf(after, "status")).To(Equal("in_progress"))
+			Expect(valueOf(after, "phase")).To(Equal("planning"))
+			Expect(valueOf(after, "approved_by")).To(Equal("operator"))
+
+			// yaml.v3 renders a bare time.Time unquoted, but tolerate a quoted form
+			// rather than pinning the encoder's choice here.
+			approvedAt := strings.Trim(valueOf(after, "approved_at"), `"`)
+			parsed, err := time.Parse(time.RFC3339, approvedAt)
+			Expect(err).NotTo(HaveOccurred(), "approved_at %q is not RFC3339", approvedAt)
+			Expect(parsed.IsZero()).To(BeFalse())
+		})
+
+		It("AC2a: task approve --by records the named approver", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": todoFrontmatter,
+			})
+			taskFile := filepath.Join(vaultPath, "Tasks", "Alpha.md")
+
+			session := runEntityCommand("task", "approve", "Alpha", "--by", "Manager Layer")
+			Eventually(session).Should(gexec.Exit(0))
+
+			after := readFile(taskFile)
+			var approvedByLines []string
+			for _, line := range approvedKeys(after) {
+				if strings.HasPrefix(line, "approved_by:") {
+					approvedByLines = append(approvedByLines, line)
+				}
+			}
+			Expect(approvedByLines).To(Equal([]string{"approved_by: Manager Layer"}))
+		})
+
+		It("AC2b: an empty --by is refused and nothing is written", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": todoFrontmatter,
+			})
+			taskFile := filepath.Join(vaultPath, "Tasks", "Alpha.md")
+			before := sha256OfFile(taskFile)
+
+			session := runEntityCommand("task", "approve", "Alpha", "--by", "")
+			Eventually(session).Should(gexec.Exit(1))
+			Expect(string(session.Err.Contents())).To(ContainSubstring("approved_by"))
+			Expect(sha256OfFile(taskFile)).To(Equal(before))
+		})
+
+		It("AC3: task approve preserves every unrelated key", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": todoWithUnrelatedKeys,
+			})
+			taskFile := filepath.Join(vaultPath, "Tasks", "Alpha.md")
+			before := readFile(taskFile)
+
+			session := runEntityCommand("task", "approve", "Alpha")
+			Eventually(session).Should(gexec.Exit(0))
+
+			after := readFile(taskFile)
+			for _, key := range []string{"assignee", "priority", "page_type", "task_identifier", "custom_key"} {
+				Expect(valueOf(after, key)).To(Equal(valueOf(before, key)), "key %s changed", key)
+			}
+			Expect(valueOf(after, "task_identifier")).
+				To(Equal("22222222-2222-2222-2222-222222222222"))
+
+			// The whole stripped slices must be equal: a count would prove only that
+			// nothing was removed, not that nothing stray was added.
+			Expect(withoutApprovalKeys(after)).To(Equal(withoutApprovalKeys(before)))
+		})
+
+		It("AC4: a task past the inbox is refused and nothing is written", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": planningFrontmatter,
+			})
+			taskFile := filepath.Join(vaultPath, "Tasks", "Alpha.md")
+			before := sha256OfFile(taskFile)
+
+			session := runEntityCommand("task", "approve", "Alpha")
+			Eventually(session).Should(gexec.Exit(1))
+			stderr := string(session.Err.Contents())
+			Expect(stderr).To(ContainSubstring("planning"))
+			Expect(stderr).To(ContainSubstring("todo"))
+			Expect(sha256OfFile(taskFile)).To(Equal(before))
+		})
+
+		It("AC4 (nil phase): a row with no phase key is refused and nothing is written", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": noPhaseFrontmatter,
+			})
+			taskFile := filepath.Join(vaultPath, "Tasks", "Alpha.md")
+			before := sha256OfFile(taskFile)
+
+			session := runEntityCommand("task", "approve", "Alpha")
+			Eventually(session).Should(gexec.Exit(1))
+			Expect(string(session.Err.Contents())).To(ContainSubstring("todo"))
+			Expect(sha256OfFile(taskFile)).To(Equal(before))
+		})
+
+		It("AC5: a task further along is refused and nothing is written", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": executionFrontmatter,
+			})
+			taskFile := filepath.Join(vaultPath, "Tasks", "Alpha.md")
+			before := sha256OfFile(taskFile)
+
+			session := runEntityCommand("task", "approve", "Alpha")
+			Eventually(session).Should(gexec.Exit(1))
+			Expect(sha256OfFile(taskFile)).To(Equal(before))
+		})
+
+		It("AC6: a task carrying any approval record is refused, per fixture", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": approvedByOnlyFrontmatter,
+				"Beta":  approvedAtOnlyFrontmatter,
+				"Gamma": approvedBothFrontmatter,
+			})
+
+			for _, name := range []string{"Alpha", "Beta", "Gamma"} {
+				taskFile := filepath.Join(vaultPath, "Tasks", name+".md")
+				before := sha256OfFile(taskFile)
+
+				session := runEntityCommand("task", "approve", name)
+				Eventually(session).Should(gexec.Exit(1))
+				Expect(sha256OfFile(taskFile)).To(Equal(before), "fixture %s changed", name)
+			}
+		})
+
+		It("AC9a: the default plain output names the task and the new phase", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": todoFrontmatter,
+			})
+
+			session := runEntityCommand("task", "approve", "Alpha")
+			Eventually(session).Should(gexec.Exit(0))
+			stdout := string(session.Out.Contents())
+			Expect(stdout).To(ContainSubstring("Alpha"))
+			Expect(stdout).To(ContainSubstring("planning"))
+		})
+
+		It("AC9b: --output json carries the task name and the new phase", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": todoFrontmatter,
+			})
+
+			session := runEntityCommand("task", "approve", "Alpha", "--output", "json")
+			Eventually(session).Should(gexec.Exit(0))
+
+			var parsed map[string]any
+			Expect(json.Unmarshal(session.Out.Contents(), &parsed)).To(Succeed())
+			Expect(parsed["name"]).To(Equal("Alpha"))
+			Expect(parsed["phase"]).To(Equal("planning"))
+		})
+
+		It("AC9c: a refusal with --output json exits non-zero", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": planningFrontmatter,
+			})
+
+			session := runEntityCommand("task", "approve", "Alpha", "--output", "json")
+			Eventually(session).Should(gexec.Exit(1))
+		})
+
+		It("security: a newline in --by cannot introduce a sibling frontmatter key", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": todoFrontmatter,
+			})
+			taskFile := filepath.Join(vaultPath, "Tasks", "Alpha.md")
+
+			session := runEntityCommand("task", "approve", "Alpha", "--by", "line1\nline2")
+			Eventually(session).Should(gexec.Exit(0))
+
+			after := readFile(taskFile)
+			var approvedByLines []string
+			for _, line := range approvedKeys(after) {
+				if strings.HasPrefix(line, "approved_by:") {
+					approvedByLines = append(approvedByLines, line)
+				}
+			}
+			Expect(approvedByLines).To(HaveLen(1))
+
+			parsed := frontmatterOf(taskFile)
+			approvedBy, ok := parsed["approved_by"].(string)
+			Expect(ok).To(BeTrue(), "approved_by is not a string")
+			Expect(approvedBy).To(ContainSubstring("line1"))
+			Expect(approvedBy).To(ContainSubstring("line2"))
+			Expect(parsed).NotTo(HaveKey("line2"))
+		})
+
+		It("registers the verb and prints its own help", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": todoFrontmatter,
+			})
+			Expect(vaultPath).NotTo(BeEmpty())
+
+			session := runEntityCommand("task", "approve", "--help")
+			Eventually(session).Should(gexec.Exit(0))
+			Expect(string(session.Out.Contents())).To(ContainSubstring("approve"))
 		})
 	})
 

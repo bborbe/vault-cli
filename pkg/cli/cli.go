@@ -1329,6 +1329,7 @@ func createTaskCommands(
 	cmd.AddCommand(createWorkOnCommand(ctx, configLoader, vaultName, outputFormat))
 	cmd.AddCommand(createTaskGetCommand(ctx, configLoader, vaultName, outputFormat))
 	cmd.AddCommand(createTaskSetCommand(ctx, configLoader, vaultName, outputFormat))
+	cmd.AddCommand(createTaskApproveCommand(ctx, configLoader, vaultName, outputFormat))
 	cmd.AddCommand(createTaskClearCommand(ctx, configLoader, vaultName, outputFormat))
 	cmd.AddCommand(createTaskShowCommand(ctx, configLoader, vaultName, outputFormat))
 	cmd.AddCommand(createEntityListAddCommand(ctx, configLoader, vaultName, outputFormat, "task",
@@ -2571,6 +2572,70 @@ func createTaskSetCommand(
 	cmd.Flags().StringVar(&reason, "reason", "", "Close-out reason (aborted_reason); required for aborted, optional for completed")
 	cmd.Flags().StringVar(&gateSuccessor, "gate-successor", "", "Where any risk gate moves, or 'none' (gate_successor); required for aborted, optional for completed")
 	cmd.Flags().BoolVar(&force, "force", false, "Allow a phase regression (e.g. execution -> todo) on an in-progress task for a deliberate reset")
+	return cmd
+}
+
+// createTaskApproveCommand builds `vault-cli task approve`, the CLI surface over
+// the pkg/ops approval operation. It performs the recorded todo -> planning
+// transition and, unlike the other mutation verbs, exits non-zero when a
+// refusal is printed as JSON.
+//
+//nolint:dupl // Mutation commands have similar structure but different operations
+func createTaskApproveCommand(
+	ctx context.Context,
+	configLoader *config.Loader,
+	vaultName *string,
+	outputFormat *string,
+) *cobra.Command {
+	var approvedBy string
+
+	cmd := &cobra.Command{
+		Use:   "approve <task-name>",
+		Short: "Approve a task in the operator's inbox (todo -> planning)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			taskName := args[0]
+
+			vaults, err := getVaults(ctx, configLoader, vaultName)
+			if err != nil {
+				return errors.Wrap(ctx, err, "get vaults")
+			}
+
+			currentDateTime := libtime.NewCurrentDateTime()
+
+			dispatcher := ops.NewVaultDispatcher()
+			err = dispatcher.FirstSuccess(ctx, vaults, func(vault *config.Vault) error {
+				storageConfig := storage.NewConfigFromVault(vault)
+				taskStore := storage.NewTaskStorage(storageConfig)
+				approveOp := ops.NewTaskApproveOperation(taskStore, currentDateTime)
+				result, err := approveOp.Execute(ctx, vault.Path, taskName, vault.Name, approvedBy)
+				if err != nil {
+					return err
+				}
+				if OutputFormat(*outputFormat).IsJSON() {
+					return PrintJSON(map[string]any{
+						"success": true,
+						"name":    result.Name,
+						"phase":   string(domain.TaskPhasePlanning),
+					})
+				}
+				fmt.Printf("✅ Approved %s: phase %s\n", result.Name, domain.TaskPhasePlanning)
+				return nil
+			})
+			if err != nil {
+				// The JSON error object is printed and the error is then returned, so a
+				// refusal exits non-zero in both output modes. This deliberately differs
+				// from `task set`, whose frozen JSON branch returns PrintJSON's nil result
+				// and exits 0 on a refusal.
+				if OutputFormat(*outputFormat).IsJSON() {
+					_ = PrintJSON(map[string]any{"success": false, "error": err.Error()})
+				}
+				return err
+			}
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&approvedBy, "by", "operator", "Who is approving; recorded as approved_by")
 	return cmd
 }
 

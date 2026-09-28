@@ -1,9 +1,10 @@
 ---
-status: approved
+status: verifying
 tags:
     - dark-factory
     - spec
 approved: "2026-09-28T07:50:15Z"
+verifying: "2026-09-28T09:38:24Z"
 branch: dark-factory/task-approve-command
 ---
 

@@ -1,7 +1,8 @@
 ---
-spec: ["056-task-approve-command"]
-status: draft
+status: approved
+spec: [056-task-approve-command]
 created: "2026-09-28T07:54:18Z"
+queued: "2026-09-28T09:12:46Z"
 ---
 
 # Document the approval transition and record it in the CHANGELOG (spec 056, prompt 3 of 5)

@@ -1,7 +1,8 @@
 ---
-spec: ["056-task-approve-command"]
-status: draft
+status: approved
+spec: [056-task-approve-command]
 created: "2026-09-28T07:54:18Z"
+queued: "2026-09-28T09:12:46Z"
 ---
 
 # Add the `task approve` operation (spec 056, prompt 1 of 5)

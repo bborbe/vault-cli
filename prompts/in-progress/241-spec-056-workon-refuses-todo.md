@@ -1,7 +1,8 @@
 ---
-spec: ["056-task-approve-command"]
-status: draft
+status: approved
+spec: [056-task-approve-command]
 created: "2026-09-28T08:18:48Z"
+queued: "2026-09-28T09:12:46Z"
 ---
 
 # Refuse a `todo` row in `task work-on` (spec 056, prompt 4 of 5)

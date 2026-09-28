@@ -60,9 +60,12 @@ type workOnOperation struct {
 	resumer          ClaudeResumer
 }
 
-// Execute marks a task as in_progress, advances phase to planning when entering the
-// workflow (current phase nil/empty/"todo"), assigns it, and starts or resumes a Claude session.
-// A mid-flight phase (in_progress, ai_review, human_review, done, ...) is preserved.
+// Execute marks a task as in_progress, assigns it, and starts or resumes a Claude
+// session. A task that enters the workflow (no phase at all) is advanced to planning;
+// a task still waiting in the approval inbox (phase "todo") is refused and nothing is
+// written — leaving the inbox is the operator's approval and is performed by
+// `vault-cli task approve`. A mid-flight phase (planning, execution, in_progress,
+// ai_review, human_review, done, ...) is preserved.
 func (w *workOnOperation) Execute(
 	ctx context.Context,
 	vaultPath string,
@@ -87,13 +90,15 @@ func (w *workOnOperation) Execute(
 		)
 	}
 
+	if err := advancePhaseIfEntering(ctx, task, taskName); err != nil {
+		return MutationResult{Success: false, Error: err.Error()}, err
+	}
+
 	_ = task.SetStatus(domain.TaskStatusInProgress)
 
 	if w := applyAssigneeMatrix(task, assignee); w != "" {
 		warnings = append(warnings, w)
 	}
-
-	advancePhaseIfEntering(task)
 
 	if err := w.taskStorage.WriteTask(ctx, task); err != nil {
 		return MutationResult{
@@ -176,13 +181,36 @@ func sessionFailureResult(
 	return MutationResult{Success: false, Name: task.Name, Vault: vaultName, Warnings: warnings, SessionID: sessionID, Error: sessionErr.Error()}
 }
 
-// advancePhaseIfEntering moves a task into the planning phase only when entering
-// the workflow (current phase nil or "todo"). Resuming a mid-flight task
-// (in_progress, ai_review, human_review, done, ...) must not reset progress backward.
-func advancePhaseIfEntering(task *domain.Task) {
-	if currentPhase := task.Phase(); currentPhase == nil || *currentPhase == domain.TaskPhaseTodo {
+// advancePhaseIfEntering moves a task into the planning phase when it enters the
+// workflow, and refuses a task that is still waiting in the approval inbox.
+//
+// Entering means the task carries no phase at all (a missing "phase" key or an
+// empty one): such a row predates the phase lifecycle or was filed before the
+// field was written, and it is advanced to planning exactly as it always has been.
+//
+// A row at "todo" is the operator's approval inbox. Leaving it is the operator's
+// approval and is performed by `vault-cli task approve`, which records approved_by
+// and approved_at in the same write. Advancing it here would produce a planning row
+// with no approval record — the state the approval gate exists to prevent — so this
+// refuses and the caller writes nothing.
+//
+// Resuming a mid-flight task (planning, execution, in_progress, ai_review,
+// human_review, done, ...) must not reset progress backward.
+func advancePhaseIfEntering(ctx context.Context, task *domain.Task, taskName string) error {
+	currentPhase := task.Phase()
+	if currentPhase != nil && *currentPhase == domain.TaskPhaseTodo {
+		return errors.Errorf(
+			ctx,
+			"refusing to work on %q: task is at phase %q, not yet approved; run `vault-cli task approve %q` first",
+			taskName,
+			string(domain.TaskPhaseTodo),
+			taskName,
+		)
+	}
+	if currentPhase == nil {
 		task.SetPhase(domain.TaskPhasePlanning.Ptr())
 	}
+	return nil
 }
 
 // applyAssigneeMatrix updates the task's assignee per the blank/equal/different rule

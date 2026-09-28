@@ -2121,6 +2121,80 @@ body
 		})
 	})
 
+	Describe("task work-on approval gate", func() {
+		var vaultPath, configPath string
+		var cleanup func()
+
+		AfterEach(func() {
+			cleanup()
+		})
+
+		runEntityCommand := func(args ...string) *gexec.Session {
+			fullArgs := append(
+				[]string{"--config", configPath, "--vault", "test"},
+				args...,
+			)
+			session, err := gexec.Start(exec.Command(binPath, fullArgs...), GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			return session
+		}
+
+		sha256OfFile := func(path string) string {
+			data, err := os.ReadFile(path) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			sum := sha256.Sum256(data)
+			return fmt.Sprintf("%x", sum)
+		}
+
+		readFile := func(path string) string {
+			content, err := os.ReadFile(path) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			return string(content)
+		}
+
+		It("refuses a todo row, names the approve command, and writes nothing", func() {
+			vaultPath, configPath, cleanup = createTempVaultWithCurrentUser(map[string]string{
+				"Alpha": `---
+page_type: task
+phase: todo
+priority: 1
+status: next
+task_identifier: 11111111-1111-4111-8111-111111111111
+---
+body line
+`,
+			})
+			taskFile := filepath.Join(vaultPath, "Tasks", "Alpha.md")
+			before := sha256OfFile(taskFile)
+
+			session := runEntityCommand("task", "work-on", "Alpha", "--mode", "headless")
+			Eventually(session, 30*time.Second).Should(gexec.Exit(1))
+			Expect(string(session.Err.Contents())).To(ContainSubstring("vault-cli task approve"))
+			Expect(sha256OfFile(taskFile)).To(Equal(before))
+		})
+
+		It("still works on a row already at phase planning", func() {
+			vaultPath, configPath, cleanup = createTempVaultWithCurrentUser(map[string]string{
+				"Alpha": `---
+page_type: task
+phase: planning
+priority: 1
+status: next
+task_identifier: 11111111-1111-4111-8111-111111111111
+---
+body line
+`,
+			})
+			taskFile := filepath.Join(vaultPath, "Tasks", "Alpha.md")
+
+			session := runEntityCommand("task", "work-on", "Alpha", "--mode", "headless")
+			Eventually(session, 30*time.Second).Should(gexec.Exit(0))
+			after := readFile(taskFile)
+			Expect(after).To(ContainSubstring("phase: planning"))
+			Expect(after).To(ContainSubstring("status: in_progress"))
+		})
+	})
+
 	Describe("vault-cli blocked_by JSON surface", func() {
 		var vaultPath, configPath string
 		var cleanup func()

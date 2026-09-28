@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [056-task-approve-command]
+summary: Made work-on refuse a task still at phase todo, returning an error naming `vault-cli task approve` and writing nothing, while leaving nil-phase and planning-or-later rows unaffected; covered by unit and end-to-end specs.
+execution_id: vault-cli-approve-cmd-exec-241-spec-056-workon-refuses-todo
+dark-factory-version: v0.196.0
 created: "2026-09-28T08:18:48Z"
 queued: "2026-09-28T09:12:46Z"
+started: "2026-09-28T09:29:22Z"
+completed: "2026-09-28T09:34:06Z"
 ---
 
 # Refuse a `todo` row in `task work-on` (spec 056, prompt 4 of 5)

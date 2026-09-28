@@ -831,7 +831,7 @@ var _ = Describe("WorkOnOperation", func() {
 			})
 		})
 
-		Context("when phase is todo", func() {
+		Context("when phase is todo (the approval inbox)", func() {
 			BeforeEach(func() {
 				task = domain.NewTask(
 					map[string]any{"status": "todo", "phase": "todo"},
@@ -844,11 +844,53 @@ var _ = Describe("WorkOnOperation", func() {
 				mockTaskStorage.FindTaskByNameReturns(task, nil)
 			})
 
-			It("sets phase to planning", func() {
+			It("refuses with an error naming the approve command", func() {
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("vault-cli task approve"))
+			})
+
+			It("returns Success=false", func() {
+				Expect(result.Success).To(BeFalse())
+			})
+
+			It("leaves the phase at todo", func() {
+				Expect(task.Phase()).NotTo(BeNil())
+				Expect(*task.Phase()).To(Equal(domain.TaskPhaseTodo))
+			})
+
+			It("writes nothing", func() {
+				Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(0))
+			})
+		})
+
+		Context("when phase is planning (already past the gate)", func() {
+			BeforeEach(func() {
+				task = domain.NewTask(
+					map[string]any{"status": "next", "phase": "planning"},
+					domain.FileMetadata{
+						Name:     taskName,
+						FilePath: "/path/to/vault/tasks/my-task.md",
+					},
+					domain.Content(""),
+				)
+				mockTaskStorage.FindTaskByNameReturns(task, nil)
+			})
+
+			It("returns no error", func() {
+				Expect(err).To(BeNil())
+			})
+
+			It("leaves the phase at planning", func() {
 				Expect(mockTaskStorage.WriteTaskCallCount()).To(BeNumerically(">=", 1))
 				_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
 				Expect(writtenTask.Phase()).NotTo(BeNil())
 				Expect(*writtenTask.Phase()).To(Equal(domain.TaskPhasePlanning))
+			})
+
+			It("still promotes status to in_progress", func() {
+				Expect(mockTaskStorage.WriteTaskCallCount()).To(BeNumerically(">=", 1))
+				_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
+				Expect(writtenTask.Status()).To(Equal(domain.TaskStatusInProgress))
 			})
 		})
 

@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.153.1
 
 - docs: Let the approval be delegated, aligning `docs/task-writing.md` with `commands/plan-task.md` — the guide's § Phase transitions now states that the operator need not type `vault-cli task approve` themselves: a session may run it when, and only when, the operator has given the approval in their own explicit words, putting the approval to the operator and running the command on their yes. `approved_by` records whose approval it was, not whose keystroke ran it, so a delegated approval still reads `approved_by: operator`. Plan-task's step 3 narrows its unconditional "never run `vault-cli task approve` yourself" to "never without the operator's explicit instruction" and now asks the operator rather than printing the command for them to run; the same framing is realigned on the `:25`, `:68`, `:225` and `:226` surfaces and the phase table's `todo` row. The prohibition on `task set <name> phase planning` is unchanged and stays absolute, and no wording permits approval on a session's own initiative, an inferred approval, or an approval read from task content. Change set: `docs/task-writing.md`, `commands/plan-task.md`.
 

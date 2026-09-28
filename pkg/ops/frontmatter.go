@@ -96,6 +96,14 @@ func (o *frontmatterSetOperation) Execute(
 		return err
 	}
 
+	// Refuse the unrecorded exit from the approval inbox before anything is
+	// mutated — see todoPlanningSetRefusal. Nothing below runs on this path, so
+	// the task file stays byte-identical, and --force does not bypass the
+	// refusal.
+	if err := todoPlanningSetRefusal(ctx, task, taskName, key, value); err != nil {
+		return err
+	}
+
 	// Read the assignee before the mutation. `task set <task> assignee ""` leaves
 	// the key present and empty, so a read taken after the write can no longer
 	// tell a cleared assignee from one that was never set.
@@ -224,8 +232,11 @@ func (o *frontmatterClearOperation) Execute(
 //     autocommit (bd76e6b4b1). The original guard rejected only a `todo` target,
 //     so `planning` passed unguarded.
 //
-// A deliberate reset must pass force=true. A forward move (`todo` -> `planning`,
-// `planning` -> `execution`) is never a regression and always passes.
+// A deliberate reset must pass force=true. A forward move (`planning` -> `execution`) is
+// never a regression and always passes.
+// `todo` -> `planning` is likewise not a regression and passes here; it is refused
+// earlier, by todoPlanningSetRefusal, because leaving the approval inbox without a
+// record is a different defect from a backward move.
 func checkPhaseRegression(ctx context.Context, task *domain.Task, key, value string, force bool) error {
 	if force || key != "phase" {
 		return nil
@@ -261,6 +272,44 @@ func checkPhaseRegression(ctx context.Context, task *domain.Task, key, value str
 			canonical, task.Name, *current)
 	}
 	return nil
+}
+
+// todoPlanningSetRefusal returns an error when a `set` invocation would move a task
+// out of the operator's approval inbox by setting the phase to planning.
+//
+// "todo" is the operator's approval inbox. Leaving it is the operator's approval and
+// is performed by `vault-cli task approve`, which records approved_by and approved_at
+// in the same write. `task set <name> phase planning` writes the field and nothing
+// else, and checkPhaseRegression guards only backward moves, so this forward move
+// passes it — leaving the row at planning with no evidence that anyone approved it.
+// The refusal closes that route.
+//
+// The guard is deliberately one (field, value, current-phase) combination: key
+// "phase", the canonical value "planning", and a current phase of "todo". It is not a
+// general phase gate — a row at any other phase, a missing or empty phase key, an
+// unknown phase value and every non-phase key keep their existing behaviour, and
+// status is never consulted. --force does not bypass it: --force is scoped to a
+// backward phase move on a row already past planning, and this refusal exists because
+// the unrecorded row is the defect rather than a warning to be overridden.
+//
+// Nothing is written on the refusal path: the check runs before any mutation, so the
+// file on disk is byte-identical.
+func todoPlanningSetRefusal(ctx context.Context, task *domain.Task, taskName, key, value string) error {
+	if key != "phase" {
+		return nil
+	}
+	canonical, ok := domain.NormalizeTaskPhase(value)
+	if !ok || canonical != domain.TaskPhasePlanning {
+		return nil
+	}
+	current := task.Phase()
+	if current == nil || *current != domain.TaskPhaseTodo {
+		return nil
+	}
+	return errors.Errorf(ctx,
+		"refusing to set phase %q on %q: the task is at phase %q, the operator's approval inbox. Leaving it is the operator's approval and is performed by `vault-cli task approve %q`, which records approved_by and approved_at in the same write",
+		canonical, taskName, string(domain.TaskPhaseTodo), taskName,
+	)
 }
 
 // publishAssigneeClearEscalation emits one agent-escalation notification when a

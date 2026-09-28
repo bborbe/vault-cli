@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [056-task-approve-command]
+summary: Refused `vault-cli task set <name> phase planning` on a `todo` row via a new `todoPlanningSetRefusal` guard in pkg/ops/frontmatter.go, with unit and end-to-end coverage pinning the refusal to that one combination and to `--force` non-bypass.
+execution_id: vault-cli-approve-cmd-exec-242-spec-056-task-set-refuses-todo-planning
+dark-factory-version: v0.196.0
 created: "2026-09-28T08:38:32Z"
 queued: "2026-09-28T09:12:46Z"
+started: "2026-09-28T09:34:07Z"
+completed: "2026-09-28T09:38:23Z"
 ---
 
 # Refuse `task set <name> phase planning` on a `todo` row (spec 056, prompt 5 of 5)

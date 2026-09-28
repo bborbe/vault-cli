@@ -2661,6 +2661,96 @@ blocked_by:
 		})
 	})
 
+	Describe("task set approval guard", func() {
+		var vaultPath, configPath string
+		var cleanup func()
+
+		AfterEach(func() {
+			cleanup()
+		})
+
+		runEntityCommand := func(args ...string) *gexec.Session {
+			fullArgs := append(
+				[]string{"--config", configPath, "--vault", "test"},
+				args...,
+			)
+			session, err := gexec.Start(exec.Command(binPath, fullArgs...), GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			return session
+		}
+
+		sha256OfFile := func(path string) string {
+			data, err := os.ReadFile(path) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			sum := sha256.Sum256(data)
+			return fmt.Sprintf("%x", sum)
+		}
+
+		It("refuses todo -> planning, names the approve command, and writes nothing", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": `---
+page_type: task
+phase: todo
+priority: 1
+status: next
+task_identifier: 11111111-1111-4111-8111-111111111111
+---
+body line
+`,
+			})
+			taskFile := filepath.Join(vaultPath, "Tasks", "Alpha.md")
+			before := sha256OfFile(taskFile)
+
+			session := runEntityCommand("task", "set", "Alpha", "phase", "planning")
+			Eventually(session).Should(gexec.Exit(1))
+			Expect(string(session.Err.Contents())).To(ContainSubstring("vault-cli task approve"))
+			Expect(sha256OfFile(taskFile)).To(Equal(before))
+		})
+
+		It("refuses todo -> planning with --force and writes nothing", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": `---
+page_type: task
+phase: todo
+priority: 1
+status: next
+task_identifier: 11111111-1111-4111-8111-111111111111
+---
+body line
+`,
+			})
+			taskFile := filepath.Join(vaultPath, "Tasks", "Alpha.md")
+			before := sha256OfFile(taskFile)
+
+			session := runEntityCommand("task", "set", "Alpha", "phase", "planning", "--force")
+			Eventually(session).Should(gexec.Exit(1))
+			Expect(string(session.Err.Contents())).To(ContainSubstring("vault-cli task approve"))
+			Expect(sha256OfFile(taskFile)).To(Equal(before))
+		})
+
+		It("still allows execution -> planning on a next-status task", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": `---
+page_type: task
+phase: execution
+priority: 1
+status: next
+task_identifier: 11111111-1111-4111-8111-111111111111
+---
+body line
+`,
+			})
+			taskFile := filepath.Join(vaultPath, "Tasks", "Alpha.md")
+
+			session := runEntityCommand("task", "set", "Alpha", "phase", "planning")
+			Eventually(session).Should(gexec.Exit(0))
+
+			content, readErr := os.ReadFile(taskFile) //#nosec G304 -- test file
+			Expect(readErr).NotTo(HaveOccurred())
+			Expect(string(content)).To(ContainSubstring("phase: planning"))
+		})
+	})
+
 	Describe("task append-metrics-session", func() {
 		const (
 			s1 = "11111111-1111-4111-8111-111111111111"

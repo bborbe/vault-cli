@@ -33,6 +33,8 @@ func parseDeferDate(
 				dateStr,
 			)
 		}
+		// libtime.ToDate takes the calendar date
+		// in now's own location: the basis is the local calendar date.
 		t := libtime.ToDate(now.AddDate(0, 0, days)).Time()
 		return libtime.DateOrDateTime(t), nil
 	}

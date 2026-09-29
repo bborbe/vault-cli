@@ -85,6 +85,33 @@ var _ = Describe("TopicDeferOperation", func() {
 			})
 		})
 
+		Context("with a non-UTC local zone", func() {
+			BeforeEach(func() {
+				// 2026-09-28 23:00 -11:00 is 2026-09-29 10:00 UTC: the local calendar
+				// date and the UTC calendar date differ, which is exactly the
+				// divergence this spec repairs. The zone is passed explicitly rather
+				// than read from the process, so this case discriminates at any hour
+				// and under any TZ — including a container with no tzdata, where
+				// time.FixedZone still works because it is pure offset arithmetic.
+				loc := time.FixedZone("Pago_Pago", -11*60*60)
+				zonalNow := libtime.NewCurrentDateTime()
+				zonalNow.SetNow(libtime.NewDateTime(2026, time.September, 28, 23, 0, 0, 0, loc))
+				deferOp = ops.NewTopicDeferOperation(mockTopicStorage, zonalNow)
+				dateStr = "+7d"
+			})
+
+			It("resolves the offset from the local calendar date, not the UTC one", func() {
+				Expect(err).To(BeNil())
+				Expect(result.Success).To(BeTrue())
+				Expect(result.Message).To(Equal("2026-10-05"))
+				Expect(result.Message).NotTo(Equal("2026-10-06"))
+				Expect(mockTopicStorage.WriteTopicCallCount()).To(Equal(1))
+				_, written := mockTopicStorage.WriteTopicArgsForCall(0)
+				Expect(written.DeferDate()).NotTo(BeNil())
+				Expect(written.DeferDate().Time()).To(Equal(time.Date(2026, 10, 5, 0, 0, 0, 0, time.UTC)))
+			})
+		})
+
 		Context("with weekday name monday", func() {
 			BeforeEach(func() {
 				dateStr = "monday"

@@ -1,6 +1,7 @@
 ---
-status: approved
+status: verifying
 approved: "2026-09-28T21:58:15Z"
+verifying: "2026-09-29T00:15:08Z"
 branch: dark-factory/task-approve-assignee
 ---
 

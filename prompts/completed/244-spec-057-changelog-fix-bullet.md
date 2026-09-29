@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [057-bug-topic-defer-local-basis]
+summary: Recorded the spec 057 test-basis repair as a single `- fix:` bullet under a newly-placed `## Unreleased` section in CHANGELOG.md, with no version bump and no other file touched.
+execution_id: vault-cli-topic-defer-exec-244-spec-057-changelog-fix-bullet
+dark-factory-version: v0.196.0
 created: "2026-09-29T06:19:28Z"
 queued: "2026-09-29T06:31:41Z"
+started: "2026-09-29T06:35:58Z"
+completed: "2026-09-29T06:40:12Z"
 ---
 
 # Record the topic defer test-basis repair in the CHANGELOG (spec 057, prompt 2 of 2)

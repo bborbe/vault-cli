@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.154.1
 
 - fix: Give `session-close` Phase 4.6's PR match a trailing word boundary. The phase instructed the reader that qualifying a reference by owner/repo (`<owner>/<repo>#<N>`) is what prevents a wrong match, and that guidance is insufficient — the qualified form still matches as a *prefix*. Observed 2026-09-29: the prescribed scan returned five tasks for a `bborbe/claude-supervisor#2` reference, and what they actually cite is `#207`, `#209`, `#210` and `#217`; none cites `#2`. Because every match is surfaced to the operator as work the session set in motion and walked away from, the collision reported phantom tasks for adjudication, and the error is silent — the hits look like ordinary results. The bullet now names the boundary requirement, gives `grep -rE '<owner>/<repo>#<N>([^0-9]|$)'` as the form, and requires confirming each hit cites the number meant before surfacing it. Change set: `commands/session-close.md`.
 

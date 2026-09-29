@@ -1,9 +1,10 @@
 ---
-status: draft
-kind: bug
+status: approved
 tags:
     - dark-factory
     - spec
+approved: "2026-09-29T06:17:00Z"
+branch: dark-factory/bug-topic-defer-local-basis
 ---
 
 ## topic defer: the spec and the implementation disagree on the date basis

@@ -52,7 +52,10 @@ Print `Detected task: <name>` on first line so owner can interrupt before any st
 ```bash
 vault-cli task get "<name>" status --output json
 vault-cli task get "<name>" phase --output json
+vault-cli task get "<name>" assignee --output json
 ```
+
+The `assignee` value is read here and used by step 6's owner check.
 
 ### 3. Refusal cases (no mutation, exit non-zero)
 
@@ -102,6 +105,13 @@ Failed checks:
 STOP. Do NOT flip phase.
 
 **If all hard checks pass AND `phase: planning`:**
+
+**Owner check (warn, never block).** If `assignee` is empty, print one line and continue:
+```
+⚠️ assignee is empty — "<name>" has no owner; assign one with `vault-cli task set "<name>" assignee "<owner>"`.
+```
+
+Then proceed. An empty `assignee` is the escalation channel an agent uses to hand a task back to the operator (see `~/.claude/plugins/marketplaces/vault-cli/docs/task-writing.md` § `assignee`), so this gate warns and never blocks — refusing here would close that channel. The approval that puts a task into planning fixes an owner (`vault-cli task approve` resolves one and refuses outright when it cannot), so the warning fires only on a task whose assignee was cleared after approval, or on one that entered planning without going through approve. If `assignee` is non-empty, print nothing — the line lives inside this branch, not in the always-printed output.
 
 ```bash
 vault-cli task set "<name>" phase execution

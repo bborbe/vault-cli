@@ -3390,6 +3390,18 @@ task_identifier: 22222222-2222-2222-2222-222222222222
 body line
 `
 
+		// AC2/AC3's owned fixture: a todo row that already carries an assignee.
+		todoWithAssignee := `---
+assignee: someone-else
+page_type: task
+phase: todo
+priority: 1
+status: next
+task_identifier: 11111111-1111-4111-8111-111111111111
+---
+body line
+`
+
 		planningFrontmatter := `---
 page_type: task
 phase: planning
@@ -3459,7 +3471,7 @@ body line
 `
 
 		It("AC1: task approve records the four-key transition in one write", func() {
-			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+			vaultPath, configPath, cleanup = createTempVaultWithCurrentUser(map[string]string{
 				"Alpha": todoFrontmatter,
 			})
 			taskFile := filepath.Join(vaultPath, "Tasks", "Alpha.md")
@@ -3472,6 +3484,9 @@ body line
 			Expect(valueOf(after, "status")).To(Equal("in_progress"))
 			Expect(valueOf(after, "phase")).To(Equal("planning"))
 			Expect(valueOf(after, "approved_by")).To(Equal("operator"))
+			// AC1's ownership half: the ownerless inbox row is filled from the
+			// configured current user in the same write that records the approval.
+			Expect(valueOf(after, "assignee")).To(Equal("tester@example.com"))
 
 			// yaml.v3 renders a bare time.Time unquoted, but tolerate a quoted form
 			// rather than pinning the encoder's choice here.
@@ -3482,7 +3497,7 @@ body line
 		})
 
 		It("AC2a: task approve --by records the named approver", func() {
-			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+			vaultPath, configPath, cleanup = createTempVaultWithCurrentUser(map[string]string{
 				"Alpha": todoFrontmatter,
 			})
 			taskFile := filepath.Join(vaultPath, "Tasks", "Alpha.md")
@@ -3533,6 +3548,109 @@ body line
 			// The whole stripped slices must be equal: a count would prove only that
 			// nothing was removed, not that nothing stray was added.
 			Expect(withoutApprovalKeys(after)).To(Equal(withoutApprovalKeys(before)))
+		})
+
+		It("AC2: an existing assignee is kept and no warning is printed", func() {
+			// No current_user in this vault's config: the task's own assignee is
+			// the only resolvable owner, which is exactly the keep case.
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": todoWithAssignee,
+			})
+			taskFile := filepath.Join(vaultPath, "Tasks", "Alpha.md")
+
+			session := runEntityCommand("task", "approve", "Alpha")
+			Eventually(session).Should(gexec.Exit(0))
+
+			after := readFile(taskFile)
+			Expect(valueOf(after, "assignee")).To(Equal("someone-else"))
+			Expect(string(session.Out.Contents())).NotTo(ContainSubstring("assignee not updated"))
+		})
+
+		It("AC3: --assignee fills an empty assignee", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": todoFrontmatter,
+			})
+			taskFile := filepath.Join(vaultPath, "Tasks", "Alpha.md")
+
+			session := runEntityCommand("task", "approve", "Alpha", "--assignee", "X")
+			Eventually(session).Should(gexec.Exit(0))
+
+			Expect(valueOf(readFile(taskFile), "assignee")).To(Equal("X"))
+		})
+
+		It("AC3: --assignee overrides an existing assignee", func() {
+			// A separate vault from the arm above: the first approve leaves the row
+			// at planning, where a second approve would be refused by the phase guard.
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": todoWithAssignee,
+			})
+			taskFile := filepath.Join(vaultPath, "Tasks", "Alpha.md")
+
+			session := runEntityCommand("task", "approve", "Alpha", "--assignee", "X")
+			Eventually(session).Should(gexec.Exit(0))
+
+			Expect(valueOf(readFile(taskFile), "assignee")).To(Equal("X"))
+		})
+
+		It("AC4 (unowned): a resolvable-owner-free approve is refused and nothing is written", func() {
+			// createTempVault writes no current_user, and the fixture carries no
+			// assignee and no approval record, so the ownership guard — not an
+			// earlier one — is what refuses here.
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": todoFrontmatter,
+			})
+			taskFile := filepath.Join(vaultPath, "Tasks", "Alpha.md")
+			before := sha256OfFile(taskFile)
+
+			session := runEntityCommand("task", "approve", "Alpha")
+			Eventually(session).Should(gexec.Exit(1))
+			Expect(string(session.Err.Contents())).To(ContainSubstring("assignee"))
+			Expect(valueOf(readFile(taskFile), "phase")).To(Equal("todo"))
+			Expect(sha256OfFile(taskFile)).To(Equal(before))
+		})
+
+		It("AC7: an assignee can still be cleared after approval", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": todoWithAssignee,
+			})
+			taskFile := filepath.Join(vaultPath, "Tasks", "Alpha.md")
+
+			approveSession := runEntityCommand("task", "approve", "Alpha")
+			Eventually(approveSession).Should(gexec.Exit(0))
+			Expect(valueOf(readFile(taskFile), "phase")).To(Equal("planning"))
+
+			clearSession := runEntityCommand("task", "set", "Alpha", "assignee", "")
+			Eventually(clearSession).Should(gexec.Exit(0))
+
+			// Not valueOf: `task set assignee ""` leaves the key present with an
+			// empty string, which renders as the line `assignee: ""`.
+			Expect(frontmatterOf(taskFile)["assignee"]).To(Equal(""))
+		})
+
+		It("security: a newline in --assignee cannot introduce a sibling frontmatter key", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": todoFrontmatter,
+			})
+			taskFile := filepath.Join(vaultPath, "Tasks", "Alpha.md")
+
+			session := runEntityCommand("task", "approve", "Alpha", "--assignee", "line1\nline2")
+			Eventually(session).Should(gexec.Exit(0))
+
+			after := readFile(taskFile)
+			var assigneeLines []string
+			for _, line := range strings.Split(after, "\n") {
+				if strings.HasPrefix(line, "assignee:") {
+					assigneeLines = append(assigneeLines, line)
+				}
+			}
+			Expect(assigneeLines).To(HaveLen(1))
+
+			parsed := frontmatterOf(taskFile)
+			assignee, ok := parsed["assignee"].(string)
+			Expect(ok).To(BeTrue(), "assignee is not a string")
+			Expect(assignee).To(ContainSubstring("line1"))
+			Expect(assignee).To(ContainSubstring("line2"))
+			Expect(parsed).NotTo(HaveKey("line2"))
 		})
 
 		It("AC4: a task past the inbox is refused and nothing is written", func() {
@@ -3593,7 +3711,7 @@ body line
 		})
 
 		It("AC9a: the default plain output names the task and the new phase", func() {
-			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+			vaultPath, configPath, cleanup = createTempVaultWithCurrentUser(map[string]string{
 				"Alpha": todoFrontmatter,
 			})
 
@@ -3605,7 +3723,7 @@ body line
 		})
 
 		It("AC9b: --output json carries the task name and the new phase", func() {
-			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+			vaultPath, configPath, cleanup = createTempVaultWithCurrentUser(map[string]string{
 				"Alpha": todoFrontmatter,
 			})
 
@@ -3628,7 +3746,7 @@ body line
 		})
 
 		It("security: a newline in --by cannot introduce a sibling frontmatter key", func() {
-			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+			vaultPath, configPath, cleanup = createTempVaultWithCurrentUser(map[string]string{
 				"Alpha": todoFrontmatter,
 			})
 			taskFile := filepath.Join(vaultPath, "Tasks", "Alpha.md")
@@ -3662,6 +3780,7 @@ body line
 			session := runEntityCommand("task", "approve", "--help")
 			Eventually(session).Should(gexec.Exit(0))
 			Expect(string(session.Out.Contents())).To(ContainSubstring("approve"))
+			Expect(string(session.Out.Contents())).To(ContainSubstring("--assignee"))
 		})
 	})
 

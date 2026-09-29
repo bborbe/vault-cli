@@ -2588,6 +2588,7 @@ func createTaskApproveCommand(
 	outputFormat *string,
 ) *cobra.Command {
 	var approvedBy string
+	var assigneeFlag string
 
 	cmd := &cobra.Command{
 		Use:   "approve <task-name>",
@@ -2595,6 +2596,15 @@ func createTaskApproveCommand(
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			taskName := args[0]
+
+			// An unresolvable current_user is not fatal here: the operation refuses only
+			// when neither --assignee nor the task's existing assignee names an owner, so
+			// a task that already carries one stays approvable on a host with no
+			// current_user configured. Passing "" lets that keep case proceed.
+			currentUser, err := (*configLoader).GetCurrentUser(ctx)
+			if err != nil {
+				currentUser = ""
+			}
 
 			vaults, err := getVaults(ctx, configLoader, vaultName)
 			if err != nil {
@@ -2608,7 +2618,15 @@ func createTaskApproveCommand(
 				storageConfig := storage.NewConfigFromVault(vault)
 				taskStore := storage.NewTaskStorage(storageConfig)
 				approveOp := ops.NewTaskApproveOperation(taskStore, currentDateTime)
-				result, err := approveOp.Execute(ctx, vault.Path, taskName, vault.Name, approvedBy)
+				result, err := approveOp.Execute(
+					ctx,
+					vault.Path,
+					taskName,
+					vault.Name,
+					approvedBy,
+					assigneeFlag,
+					currentUser,
+				)
 				if err != nil {
 					return err
 				}
@@ -2636,6 +2654,7 @@ func createTaskApproveCommand(
 		},
 	}
 	cmd.Flags().StringVar(&approvedBy, "by", "operator", "Who is approving; recorded as approved_by")
+	cmd.Flags().StringVar(&assigneeFlag, "assignee", "", "Set the task's assignee; overrides an empty or existing assignee (defaults to the configured current user)")
 	return cmd
 }
 

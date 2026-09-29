@@ -102,6 +102,10 @@ blocked_by:                                      # optional — dependencies; un
 
 An empty `assignee` means two different things depending on how it became empty. A task that has never been assigned is the **unclaimed inbox** above — anyone with vault access can pick it up. A task whose assignee was cleared was *parked*: the baton went back to the operator, and `vault-cli task set "<name>" assignee ""` (or `vault-cli task clear "<name>" assignee`) publishes one `agent-escalation` notification into the shared notification core when the config file names brokers, so the agent side learns the task was handed back. The unclaimed-inbox reading applies at creation; the park reading applies at clear.
 
+**approval fixes the owner**: `vault-cli task approve` resolves an owner once, when the task leaves the inbox, and writes it in the same single write that records the approval. It fills an empty `assignee` from `current_user` in `~/.vault-cli/config.yaml` (or from `--assignee <name>` when the operator names someone else); an already-set `assignee` is kept as it is, with no warning and no error; `--assignee` overrides both cases. When no owner can be resolved — no flag, no existing assignee, no configured `current_user` — approve refuses outright and writes nothing at all, so a task can never enter planning ownerless.
+
+Clearing after approval is unchanged: `vault-cli task set "<name>" assignee ""` (or `vault-cli task clear "<name>" assignee`) still parks the task and still publishes the `agent-escalation` notification, because an empty `assignee` is the escalation channel. Approval fixes an owner; it does not make the owner permanent.
+
 `vault-cli task work-on` applies a three-case matrix to `assignee` (so one person picking up a task never silently overrides a teammate's assignment):
 
 | Existing `assignee` | Action |

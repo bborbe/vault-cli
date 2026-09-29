@@ -1,7 +1,8 @@
 ---
-spec: ["057-bug-topic-defer-local-basis"]
-status: draft
+status: approved
+spec: [057-bug-topic-defer-local-basis]
 created: "2026-09-29T06:19:28Z"
+queued: "2026-09-29T06:31:41Z"
 ---
 
 # Record the topic defer test-basis repair in the CHANGELOG (spec 057, prompt 2 of 2)

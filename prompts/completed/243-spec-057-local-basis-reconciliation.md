@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [057-bug-topic-defer-local-basis]
+summary: Aligned the topic defer integration spec with the CLI's local-calendar-date basis by removing the integration suite's time.Local=UTC assignment, asserting the local-basis date with a discriminating UTC-basis counter-assertion, documenting the basis in parseDeferDate, and adding an always-on FixedZone unit lock.
+execution_id: vault-cli-topic-defer-exec-243-spec-057-local-basis-reconciliation
+dark-factory-version: v0.196.0
 created: "2026-09-29T06:19:28Z"
 queued: "2026-09-29T06:31:41Z"
+started: "2026-09-29T06:33:04Z"
+completed: "2026-09-29T06:35:57Z"
 ---
 
 # Reconcile the topic defer date basis between the suite and the CLI (spec 057, prompt 1 of 2)

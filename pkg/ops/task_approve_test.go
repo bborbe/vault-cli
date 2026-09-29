@@ -48,11 +48,11 @@ var _ = Describe("TaskApproveOperation", func() {
 		pinned.SetNow(libtimetest.ParseDateTime("2026-03-03T12:00:00Z"))
 		approveOp = ops.NewTaskApproveOperation(mockStorage, pinned)
 
-		seedTask(map[string]any{"status": "next", "phase": "todo"})
+		seedTask(map[string]any{"status": "next", "phase": "todo", "assignee": "someone"})
 	})
 
 	It("writes all four approval keys in exactly one write", func() {
-		result, execErr := approveOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator")
+		result, execErr := approveOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator", "", "")
 		Expect(execErr).To(BeNil())
 		Expect(result.Success).To(BeTrue())
 		Expect(result.Name).To(Equal("Alpha"))
@@ -67,7 +67,7 @@ var _ = Describe("TaskApproveOperation", func() {
 	})
 
 	It("records the injected instant as a bare time.Time", func() {
-		_, execErr := approveOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator")
+		_, execErr := approveOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator", "", "")
 		Expect(execErr).To(BeNil())
 
 		_, written := mockStorage.WriteTaskArgsForCall(0)
@@ -77,7 +77,7 @@ var _ = Describe("TaskApproveOperation", func() {
 	})
 
 	It("serializes approved_at unquoted and round-trips it as a time.Time", func() {
-		_, execErr := approveOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator")
+		_, execErr := approveOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator", "", "")
 		Expect(execErr).To(BeNil())
 
 		_, written := mockStorage.WriteTaskArgsForCall(0)
@@ -94,7 +94,7 @@ var _ = Describe("TaskApproveOperation", func() {
 	})
 
 	It("writes the approver named on the call", func() {
-		_, execErr := approveOp.Execute(ctx, "/vault", "Alpha", "vault-a", "Manager Layer")
+		_, execErr := approveOp.Execute(ctx, "/vault", "Alpha", "vault-a", "Manager Layer", "", "")
 		Expect(execErr).To(BeNil())
 
 		_, written := mockStorage.WriteTaskArgsForCall(0)
@@ -112,7 +112,7 @@ var _ = Describe("TaskApproveOperation", func() {
 			"custom_key":      "keep",
 		})
 
-		_, execErr := approveOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator")
+		_, execErr := approveOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator", "", "")
 		Expect(execErr).To(BeNil())
 
 		_, written := mockStorage.WriteTaskArgsForCall(0)
@@ -123,8 +123,67 @@ var _ = Describe("TaskApproveOperation", func() {
 		Expect(written.Get("custom_key")).To(Equal("keep"))
 	})
 
+	// The ownership rule: approval is the one moment an owner is fixed. The
+	// precedence is flag, then the task's own assignee, then the configured
+	// current user — and a task that resolves to no owner is refused unwritten.
+
+	It("AC1: fills an empty assignee from the configured current user", func() {
+		seedTask(map[string]any{"status": "next", "phase": "todo"})
+
+		result, execErr := approveOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator", "", "bborbe")
+		Expect(execErr).To(BeNil())
+		Expect(result.Success).To(BeTrue())
+
+		Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
+		_, written := mockStorage.WriteTaskArgsForCall(0)
+		Expect(written.Assignee()).To(Equal("bborbe"))
+	})
+
+	It("AC2: keeps an existing assignee over the configured current user", func() {
+		seedTask(map[string]any{"status": "next", "phase": "todo", "assignee": "someone-else"})
+
+		result, execErr := approveOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator", "", "bborbe")
+		Expect(execErr).To(BeNil())
+		Expect(result.Success).To(BeTrue())
+
+		_, written := mockStorage.WriteTaskArgsForCall(0)
+		Expect(written.Assignee()).To(Equal("someone-else"))
+	})
+
+	It("AC3: the flag overrides an empty assignee", func() {
+		seedTask(map[string]any{"status": "next", "phase": "todo"})
+
+		result, execErr := approveOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator", "X", "bborbe")
+		Expect(execErr).To(BeNil())
+		Expect(result.Success).To(BeTrue())
+
+		_, written := mockStorage.WriteTaskArgsForCall(0)
+		Expect(written.Assignee()).To(Equal("X"))
+	})
+
+	It("AC3: the flag overrides an existing assignee", func() {
+		seedTask(map[string]any{"status": "next", "phase": "todo", "assignee": "someone-else"})
+
+		result, execErr := approveOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator", "X", "bborbe")
+		Expect(execErr).To(BeNil())
+		Expect(result.Success).To(BeTrue())
+
+		_, written := mockStorage.WriteTaskArgsForCall(0)
+		Expect(written.Assignee()).To(Equal("X"))
+	})
+
+	It("AC4: refuses to approve an unowned task with zero writes", func() {
+		seedTask(map[string]any{"status": "next", "phase": "todo"})
+
+		_, execErr := approveOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator", "", "")
+		Expect(execErr).To(HaveOccurred())
+		Expect(execErr.Error()).To(ContainSubstring("assignee"))
+		Expect(mockStorage.WriteTaskCallCount()).To(Equal(0))
+		Expect(mockStorage.FindTaskByNameCallCount()).To(Equal(1))
+	})
+
 	It("refuses an empty approver before reading the task", func() {
-		_, execErr := approveOp.Execute(ctx, "/vault", "Alpha", "vault-a", "")
+		_, execErr := approveOp.Execute(ctx, "/vault", "Alpha", "vault-a", "", "", "")
 		Expect(execErr).To(HaveOccurred())
 		Expect(execErr.Error()).To(ContainSubstring("approved_by"))
 		Expect(mockStorage.FindTaskByNameCallCount()).To(Equal(0))
@@ -136,7 +195,7 @@ var _ = Describe("TaskApproveOperation", func() {
 		zero.SetNow(libtime.DateTime(time.Time{}))
 		zeroOp := ops.NewTaskApproveOperation(mockStorage, zero)
 
-		_, execErr := zeroOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator")
+		_, execErr := zeroOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator", "", "")
 		Expect(execErr).To(HaveOccurred())
 		Expect(execErr.Error()).To(ContainSubstring("approved_at"))
 		Expect(mockStorage.WriteTaskCallCount()).To(Equal(0))
@@ -146,7 +205,7 @@ var _ = Describe("TaskApproveOperation", func() {
 		func(fields map[string]any, expectedPhase string) {
 			seedTask(fields)
 
-			_, execErr := approveOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator")
+			_, execErr := approveOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator", "", "")
 			Expect(execErr).To(HaveOccurred())
 			Expect(execErr.Error()).To(ContainSubstring(expectedPhase))
 			Expect(execErr.Error()).To(ContainSubstring("todo"))
@@ -164,7 +223,7 @@ var _ = Describe("TaskApproveOperation", func() {
 		func(fields map[string]any, expectedKeys string) {
 			seedTask(fields)
 
-			_, execErr := approveOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator")
+			_, execErr := approveOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator", "", "")
 			Expect(execErr).To(HaveOccurred())
 			Expect(execErr.Error()).To(ContainSubstring(expectedKeys))
 			Expect(execErr.Error()).To(ContainSubstring("re-approving"))
@@ -195,7 +254,7 @@ var _ = Describe("TaskApproveOperation", func() {
 
 	It("wraps a find failure", func() {
 		mockStorage.FindTaskByNameReturns(nil, liberrors.New(ctx, "boom"))
-		_, execErr := approveOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator")
+		_, execErr := approveOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator", "", "")
 		Expect(execErr).To(HaveOccurred())
 		Expect(execErr.Error()).To(ContainSubstring("find task"))
 		Expect(mockStorage.WriteTaskCallCount()).To(Equal(0))
@@ -203,14 +262,14 @@ var _ = Describe("TaskApproveOperation", func() {
 
 	It("wraps a write failure", func() {
 		mockStorage.WriteTaskReturns(liberrors.New(ctx, "boom"))
-		_, execErr := approveOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator")
+		_, execErr := approveOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator", "", "")
 		Expect(execErr).To(HaveOccurred())
 		Expect(execErr.Error()).To(ContainSubstring("write task"))
 	})
 
 	It("preserves the not-found class", func() {
 		mockStorage.FindTaskByNameReturns(nil, storage.ErrNotFound)
-		_, execErr := approveOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator")
+		_, execErr := approveOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator", "", "")
 		Expect(execErr).To(HaveOccurred())
 		Expect(stderrors.Is(execErr, storage.ErrNotFound)).To(BeTrue())
 		Expect(mockStorage.WriteTaskCallCount()).To(Equal(0))

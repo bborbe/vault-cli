@@ -200,10 +200,10 @@ claude plugin update vault-cli@vault-cli   # then restart Claude Code
 
 | # | Prompt focus | Covers DBs | Covers ACs | Depends on |
 |---|---|---|---|---|
-| 1 | Reconcile the suite's zone source (`integration/integration_suite_test.go`), flip the spec's expectation to the local basis (`integration/cli_test.go:4518`), and add the basis comment in `pkg/ops/defer_date_parser.go` — one atomic change, since the spec only passes when all three land together | 1, 2, 3, 4 | 1, 2, 3, 4, 5, 6, 7 | — |
+| 1 | Reconcile the suite's zone source (`integration/integration_suite_test.go`), flip the spec's expectation to the local basis (`integration/cli_test.go:4518`), add the basis comment in `pkg/ops/defer_date_parser.go`, and add a `pkg/ops/topic_defer_test.go` unit case that pins a non-UTC location — one atomic change, since the spec only passes when the zone source and the expectation both land together | 1, 2, 3, 4 | 1, 2, 3, 4, 5, 6, 7 | — |
 | 2 | `CHANGELOG.md` `## Unreleased` `fix:` bullet | 6 | 8 | prompt 1 |
 
-Rationale: this is a single-layer, single-behavior fix. The three code edits are not independently verifiable — the spec stays red until the suite's zone source and the expectation both change, and the CLI-side comment is documentation of the decision the other two implement. Splitting them across prompts would produce an intermediate tree where the suite is red for a new reason, which is exactly the condition this spec exists to remove. AC 9 is operator-executed after merge and is not a prompt.
+Rationale: this is a single-layer, single-behavior fix. The four code edits are not independently verifiable — the spec stays red until the suite's zone source and the expectation both change, and the CLI-side comment is documentation of the decision the other two implement. The `pkg/ops/topic_defer_test.go` case is included because the repaired integration assertion is vacuous whenever the run's zone is not divergent, while a unit case pinning an explicit non-UTC location exercises the basis at any hour and needs no tzdata — it is the only form that satisfies DB 2 and the Goal's "at any hour, with no dependence on wall-clock" clause unconditionally. Splitting them across prompts would produce an intermediate tree where the suite is red for a new reason, which is exactly the condition this spec exists to remove. AC 9 is operator-executed after merge and is not a prompt.
 
 ## Do-Nothing Option
 

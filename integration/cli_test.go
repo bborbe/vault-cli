@@ -4632,12 +4632,25 @@ page_type: goal
 			Eventually(relativeSession).Should(gexec.Exit(0))
 
 			// The run date is not pinnable in a subprocess, so the expected date is
-			// computed here rather than asserted as a literal. The value is stored as
-			// a quoted YAML string, hence the quotes in the substring.
-			expectedRelative := time.Now().UTC().AddDate(0, 0, 7).Format("2006-01-02")
+			// computed here rather than asserted as a literal. The basis is the
+			// process's LOCAL calendar date, which is what the CLI resolves: it reads
+			// the clock through the injected libtime.CurrentDateTime and takes the
+			// calendar date in that time's own location (libtime.ToDate). The parent
+			// and the spawned binary share a zone because the child inherits TZ and
+			// the suite no longer assigns time.Local. The value is stored as a quoted
+			// YAML string, hence the quotes in the substring.
+			expectedRelative := time.Now().AddDate(0, 0, 7).Format("2006-01-02")
+			// The UTC-basis date is the WRONG answer, not an alternative one. When the
+			// two calendar dates differ, this is the assertion that tells a local-basis
+			// resolution apart from a UTC-basis one — so it must fail if the CLI is
+			// ever moved onto the UTC basis.
+			wrongBasisDate := time.Now().UTC().AddDate(0, 0, 7).Format("2006-01-02")
 			relative, err := os.ReadFile(topicPath)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(string(relative)).To(ContainSubstring(`defer_date: "` + expectedRelative + `"`))
+			if wrongBasisDate != expectedRelative {
+				Expect(string(relative)).NotTo(ContainSubstring(`defer_date: "` + wrongBasisDate + `"`))
+			}
 
 			absoluteCmd := exec.Command(
 				binPath, "--config", configPath, "--vault", "test",

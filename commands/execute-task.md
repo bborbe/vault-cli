@@ -63,7 +63,9 @@ Refuse and STOP if any apply:
 
 - `status: completed` OR `status: aborted` → `❌ Task closed (status: <value>). Reopen: vault-cli task set "<name>" status in_progress; vault-cli task set "<name>" phase execution; vault-cli task clear "<name>" completed_date — there is no reopen subcommand.`
 - `phase: done` → `❌ Task phase is done. Reopen with the same three commands as above.`
-- `phase: todo` OR `phase` empty AND `status: in_progress` → `❌ Planning gate not run. Run /vault-cli:plan-task first.` (planning is non-skippable per [[Phase-Gated Task Flow]])
+- (`phase: todo`) OR (`phase` empty AND `status: in_progress`) → `❌ Planning gate not run. Run /vault-cli:plan-task first.` (planning is non-skippable per [[Phase-Gated Task Flow]]). Both states refuse and both point at the same funnel, but they are **not the same state** — `/vault-cli:plan-task` resolves them differently, so name which one you found rather than emitting one undifferentiated pointer:
+  - `phase: todo` → the operator's approval inbox. It moves `todo → planning` through `vault-cli task approve`, which records `approved_by`/`approved_at` in the same write.
+  - `phase` empty → an **unentered** row: filed before the phase field existed, or materialized by `recurring-task-creator`, which writes no `phase` key at all. `vault-cli task approve` cannot accept it (`task is at phase "(none)", not "todo"`), and `vault-cli task set "<name>" phase planning` is barred outright. Only the entry path (`vault-cli task work-on`) advances it — so an empty phase here means the session was spawned outside that path.
 
 ### 4. Status entry contract (mutate, then continue)
 
@@ -190,7 +192,7 @@ When in doubt, print. A printed subtask costs the operator one keystroke; a wron
 
 - **Idempotent re-entry.** Safe to re-run on `phase: execution` — no mutation, just re-prints the work block + destination. Useful as a session-start "where was I?" command.
 - **Hard checks duplicated, not shared.** The 4 plan-task checks are re-implemented inline rather than factored into a sub-agent or shared CLI verb. Keeps both commands self-contained and fast; revisit if a third caller (e.g. `/vault-cli:complete-task` pre-check) needs the same logic.
-- **Planning is non-skippable.** A task in `status: in_progress, phase: todo` (or empty phase) is refused with a pointer to `/plan-task`. This is the stricter sibling of `/work-on-task`'s informational nudge: nudge informs, execute-task blocks.
+- **Planning is non-skippable.** A task at `phase: todo` or with an empty `phase` is refused with a pointer to `/plan-task`. The two are not interchangeable — `todo` is the operator's approval inbox, while an empty phase is an unentered row that `task approve` cannot accept; see § 3. This is the stricter sibling of `/work-on-task`'s informational nudge: nudge informs, execute-task blocks.
 - **Status flips happen, phase flips don't (when planning gates fail).** Resume-from-paused is a separate concern from "is planning complete" — flipping `hold → in_progress` is always safe; flipping `planning → execution` requires the gates.
 - **No daily-note tracking, no guide search.** Those belong to `/vault-cli:work-on-task`. This command is purely the gate + work-block kickoff.
 - **Reads `~/.claude/plugins/marketplaces/vault-cli/docs/task-writing.md`** as the canonical rule source for the 4 hard checks — same source `/plan-task` and `task-auditor` use.
@@ -217,5 +219,5 @@ Output ends with one of:
 - `🎯 Start with: <subtask>` + `📋 When done, verify: <DoD>` (gate passed or idempotent re-entry)
 - `❌ Plan not ready. Run /vault-cli:plan-task first.` (hard checks failed)
 - `❌ Task closed (...).` + the reopen sequence (status/phase terminal)
-- `❌ Planning gate not run. Run /vault-cli:plan-task first.` (phase: todo)
+- `❌ Planning gate not run. Run /vault-cli:plan-task first.` (phase: todo, or empty phase)
 - `❌ No task detected. Pass a task identifier or name.` (input error)

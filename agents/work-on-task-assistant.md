@@ -373,7 +373,8 @@ Emit exactly ONE nudge from the table below — first match wins:
 | `PHASE in {"ai_review", "human_review"}` | `🔵 Readiness: phase=<phase> — review feedback drives next step. Address findings; re-run /vault-cli:execute-task when clean.` |
 | `PHASE == "done"` | `✅ Readiness: phase=done. Run /vault-cli:complete-task to close.` |
 | `PHASE == "planning"` | `⚠ Readiness: phase=planning — gate not cleared. Run /vault-cli:plan-task first.` |
-| `PHASE == "" or PHASE == "todo"` | `⚠ Readiness: phase not set (or todo) — gate not run. Run /vault-cli:plan-task first.` |
+| `PHASE == "todo"` | `⚠ Readiness: phase=todo — the operator's approval inbox. Run /vault-cli:plan-task first; it puts the approval to the operator and runs \`vault-cli task approve\` on their yes.` |
+| `PHASE == ""` | `⚠ Readiness: phase not set — an unentered row, not an unapproved one. \`vault-cli task approve\` cannot accept it (it takes only \`todo\`); only the entry path (\`vault-cli task work-on\`) advances it. Run /vault-cli:plan-task first.` |
 | `not SC_PRESENT` | `⚠ Readiness: no \`# Success Criteria\` section. Run /vault-cli:plan-task first.` |
 | `SC_PRESENT and not SC_HAS_CHECKBOXES` | `⚠ Readiness: \`# Success Criteria\` section has no checkboxes. Run /vault-cli:plan-task first.` |
 | `SC_HAS_CHECKBOXES and not SC_HAS_UNCHECKED` | `⚠ Readiness: all Success Criteria already ticked — task may be complete. Run /vault-cli:complete-task.` |

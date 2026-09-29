@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.154.2
 
 - fix: Replace `session-close` Phase 8.6's shell-specific vault-path array pair with one portable form. The command offered a zsh form (`${(@f)…}`) and a bash form (`mapfile -t …`) side by side, and warned in the same breath that *"the shell here is often zsh"* — so the bash spelling sat one copy-paste away in the shell that cannot run it. `mapfile` does not exist in zsh: the command substitution yields nothing, the array comes back empty, `find "${ALL_VAULT_PATHS[@]}"` searches nothing, and **every** wikilink in the vault reads UNRESOLVED. The failure is silent in the direction that matters — a reader who picks wrong gets a confident all-broken report rather than an error, which is the exact false-flood mode the surrounding prose says it is guarding against. Observed 2026-09-29 on `seibert-personal`: the sweep reported every link in the session's pages broken, and the result was relayed to the operator as a finding before being caught; rebuilt with a working array (14 vaults, positive control resolving) the true count was **one**. Same trap on 2026-09-06 (18 of 18 reported unresolved, real answer 5) and 2026-08-16. The pair is now a single `while read` loop portable across both shells, the positive-control instruction is unchanged, and check #2's cross-reference no longer names a form that no longer exists. Change set: `commands/session-close.md`.
 

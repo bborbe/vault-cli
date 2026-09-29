@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [057-task-approve-assignee]
+summary: 'Added the empty-assignee warning to execute-task''s planning→execution gate (with the step 2 assignee read) and created the ## Unreleased changelog section with bullets for both prompts of spec 057.'
+execution_id: vault-cli-assignee-exec-244-spec-057-execute-task-assignee-warning
+dark-factory-version: v0.196.0
 created: "2026-09-28T22:04:01Z"
 queued: "2026-09-28T22:23:56Z"
+started: "2026-09-29T00:12:58Z"
+completed: "2026-09-29T00:15:08Z"
 ---
 
 # Warn at the execution gate when the task has no owner (spec 057, prompt 2 of 2)

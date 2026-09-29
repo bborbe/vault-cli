@@ -342,6 +342,8 @@ For each vault in `VAULT_CONFIG`, scan `<vault.path>/<vault.tasks_dir>` for file
 
 ⚠️ **Never match on a bare repo name, and never on a bare PR number.** When the repo is the one the tooling itself ships from, its name appears in most of the fleet's tasks, so a name match returns the whole board rather than the session's work. A bare `pull/<N>` collides across repos for the same reason — `#294` exists in every repo that has merged that many PRs. Observed 2026-09-27: a name match over `25 Tasks/` returned ~120 tasks and the result had to be re-derived; the owner-qualified URL returned the single task that mattered.
 
+⚠️ **And owner-qualifying is not sufficient on its own — the match needs a trailing word boundary.** `<owner>/<repo>#2` is a *prefix* of `<owner>/<repo>#207`, `#209`, `#210`, so a plain `grep -F` on the qualified form returns every two-digit PR in that repo. Observed 2026-09-29: the scan returned **5** tasks for a `bborbe/claude-supervisor#2` reference — they cite `#207`, `#209`, `#210` and `#217`, and **none cites `#2`**. Match with a trailing boundary — `grep -rE '<owner>/<repo>#<N>([^0-9]|$)'` — and confirm each hit cites the number you meant before surfacing it.
+
 Each match is work this session set in motion and walked away from. Surface in Phase 9 as outstanding, one line per task:
 
 ```

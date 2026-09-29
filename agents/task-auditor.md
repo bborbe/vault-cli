@@ -41,7 +41,7 @@ Expert Obsidian task auditor specializing in evaluating task pages against the T
 
 5. **Generate report** - Severity-based findings with actionable recommendations
 
-6. **Classify findings** (human-authored tasks carrying a `# Source` footer only) - Apply `<finding_classification>`: emit the `**Template**:` line and label each Critical Issues / Recommendations finding `[template-level]` or `[instance-level]`. Skip this step entirely for a task with no `# Source` footer.
+6. **Classify findings** (human-authored tasks carrying a `# Source` footer only) - Apply `<finding_classification>`: resolve the template from source control by slug — never from the deployed CR — emit the `**Template**:` line, and label each Critical Issues / Recommendations finding `[template-level]` or `[instance-level]`. Skip this step entirely for a task with no `# Source` footer.
 </critical_workflow>
 
 <pipeline_artifact_preflight>
@@ -484,6 +484,8 @@ When the audited task carries a `# Source` footer, label every **Critical Issues
 
 - **template-level** — the defect is inherited from the schedule template, so every future materialization of that slug re-emits it. A stale folder path, a Success Criterion that verifies the wrong thing, a missing evidence shape. Fixing the instance alone changes nothing: the next period's file is generated from the template and starts wrong again.
 - **instance-level** — the defect was introduced in this materialization and does not come from the template.
+
+**Compare against the template as it exists in source control — never against the deployed CR.** The classification is only as good as the artifact you diff the instance against, and the CR is a lagging copy: it carries the template body that was last *applied*, not the one on master. A port that is merged but not applied leaves the CR a generation behind, so the instance matches the CR byte-for-byte and every finding comes back `[template-level]` — the label that lets a recorded template verdict cover and suppress it (see `commands/plan-task.md` § Template-verdict check) — while a defect the template already fixed is reported as correct. Observed 2026-09-29: a port was merged, the prod CR still sat one generation behind carrying the pre-port body, the instance was diffed against that CR, and the report read *"byte-identical to the schedule template's `template.body` (verified by diff, 0 lines) … every body-level finding below is template-level"* — listing the pre-port rule-number enumeration, the exact defect the template's recorded verdict had already adjudicated, as a **strength**. Resolve the template **by slug under the current schedules repo** (`bborbe/nuke/task/recurring-schedules/prod/<slug>.yaml`) — never from the `# Source` footer's printed repo path, which is dead for the pre-2026-08-21 population named in this section's first paragraph. Read it from a checkout, or `git show origin/master:<path>` when the local checkout may lag. If only the CR is reachable, say so explicitly and treat every label as provisional.
 
 Only those two sections carry the label prefix. A template-level defect surfacing elsewhere — a Quick Fix, a `Task-Goal Alignment` orphan verdict, a scope smell — says so inline in its own text.
 

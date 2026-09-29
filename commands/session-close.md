@@ -533,8 +533,13 @@ For each touched vault page (cap 5):
 # unquoted "$paths" string. A bare `grep ... $ALL_VAULT_PATHS` passes all paths as
 # ONE argument, grep fails, stderr is swallowed, and every link reads UNRESOLVED —
 # a false flag indistinguishable from a real one. Verified 2026-08-16.
-ALL_VAULT_PATHS=("${(@f)$(vault-cli config list --output json | jq -r '.[].path')}")  # zsh
-# bash equivalent: mapfile -t ALL_VAULT_PATHS < <(vault-cli config list --output json | jq -r '.[].path')
+#
+# ONE portable form, deliberately — no zsh/bash branch. A shell-specific pair
+# invites the wrong pick, and the failure is silent in the direction that matters:
+# the bash-only array builtin does not exist in zsh, so the array comes back
+# EMPTY, the search matches nothing, and every link reads unresolved. Verified
+# 2026-09-29 (true count: one) — after the same trap on 2026-09-06 and 2026-08-16.
+ALL_VAULT_PATHS=(); while IFS= read -r p; do ALL_VAULT_PATHS+=("$p"); done < <(vault-cli config list --output json | jq -r '.[].path')
 # basename without .md, matched as a [[wikilink]] (with or without alias/heading)
 grep -rlF "[[$BASENAME" "${ALL_VAULT_PATHS[@]}" --include='*.md' | grep -vF "$FILE" | head -1
 ```
@@ -545,7 +550,7 @@ Zero inbound links on a **newly created** page = orphan. Flag HIGH — it won't 
 
 **2. Broken outbound links (HIGH)** — extract `[[Target]]` targets from the page; verify each resolves to a file in **any** vault in `VAULT_CONFIG` (`find/glob` by basename). Unresolved target = broken link or typo. Flag with the target name.
 
-**Build `ALL_VAULT_PATHS` as an array and sanity-check it here too — check #1's zsh warning applies to this check verbatim.** Same multi-path search, same trap: an unquoted `$paths` reaches `find`/`grep` as ONE argument, the search fails, stderr is swallowed, and **every** target reads UNRESOLVED. Reuse the array built for check #1 rather than rebuilding it; if you do rebuild, use the same `${(@f)…}` (zsh) / `mapfile` (bash) form. Before trusting ANY negative, prove the search works:
+**Build `ALL_VAULT_PATHS` as an array and sanity-check it here too — check #1's zsh warning applies to this check verbatim.** Same multi-path search, same trap: an unquoted `$paths` reaches `find`/`grep` as ONE argument, the search fails, stderr is swallowed, and **every** target reads UNRESOLVED. Reuse the array built for check #1 rather than rebuilding it; if you do rebuild, use the same portable form. Before trusting ANY negative, prove the search works:
 
 ```bash
 # Both must hold before a single "unresolved" is believed.

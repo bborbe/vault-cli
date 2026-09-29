@@ -1,5 +1,5 @@
 ---
-status: verifying
+status: completed
 tags:
     - dark-factory
     - spec
@@ -7,6 +7,7 @@ approved: "2026-09-29T06:17:00Z"
 generating: "2026-09-29T06:31:45Z"
 prompted: "2026-09-29T06:31:45Z"
 verifying: "2026-09-29T06:40:12Z"
+completed: "2026-09-29T07:54:24Z"
 branch: dark-factory/bug-topic-defer-local-basis
 ---
 

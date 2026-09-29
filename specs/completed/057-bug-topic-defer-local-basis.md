@@ -1,5 +1,5 @@
 ---
-status: verifying
+status: completed
 tags:
     - dark-factory
     - spec
@@ -7,6 +7,7 @@ approved: "2026-09-29T06:17:00Z"
 generating: "2026-09-29T06:31:45Z"
 prompted: "2026-09-29T06:31:45Z"
 verifying: "2026-09-29T06:40:12Z"
+completed: "2026-09-29T07:54:24Z"
 branch: dark-factory/bug-topic-defer-local-basis
 ---
 
@@ -116,7 +117,7 @@ Fixture and command convention for the ACs below: `<pin>` is a `TZ` value whose 
 - [ ] `CHANGELOG.md` carries an `## Unreleased` bullet prefixed `fix:` describing the test-basis repair — evidence: file content — the `## Unreleased` section contains a line starting with `- fix:`. Assert with the section-walking form (`awk '/^## /{sec=$0} /<bullet-pattern>/{print sec}' CHANGELOG.md` returning `## Unreleased`), not with a line-window `grep -A`, which swallows a neighbouring section and reports a false positive. On a branch where the releaser has already cut a release, assert against the newest `## vX.Y.Z` section instead — same bullet, same `fix:` prefix.
 - [ ] **Post-Deploy (Rung-2):** the released binary carries the repaired spec — on the released tag, `TZ=<pin> go test ./integration/ -count=1 -run TestIntegration -ginkgo.focus="topic defer writes defer_date for a relative and an absolute date"` exits 0 with both dates printed and shown to differ, and the pre-change reproduction from the Reproduction section no longer reproduces — evidence: exit code 0 plus the printed date pair plus the recorded replay transcript in the source task's `# Results` section. Before/after is the strongest form here: the same command fails on `6be825f` and passes on the released tag, both quoted.
   - `deploy_check:` `vault-cli --version | awk '{print $NF}'`
-  - `deploy_target:` `$(git fetch --tags -q && git describe --tags --abbrev=0)`
+  - `deploy_target:` `$(git fetch --tags -q && git describe --tags --abbrev=0 origin/master)`
 
 **Scenario coverage: no new scenario.** The repaired behavior is reachable by the existing `integration/` harness, which builds the real binary and asserts against a temp vault — no Docker, no cluster, no `gh`, no external service. `docs/rules/scenario-writing.md` names this case explicitly: a bug fix whose original failure would have been caught by a unit or integration test that simply did not assert the right thing needs that test fixed, not a scenario. None of the four conditions holds, so the default applies.
 
@@ -211,3 +212,19 @@ Rationale: this is a single-layer, single-behavior fix. The four code edits are 
 ## Do-Nothing Option
 
 `make test` and `make precommit` go red on a tree with no changes whenever the local calendar date differs from the UTC date — currently two hours a day in `Europe/Berlin`, and the same class of window in any zone. Because `preflightCommand: "make precommit"` is the daemon's gate and preflight failure is terminal, dark-factory cannot start a single prompt on this repository for the duration, so every queued spec and every standalone prompt stalls on a schedule. The cost recurs daily until fixed, and it is invisible for the other twenty-two hours — which is what makes it survive: a developer who runs `make test` at midday sees green and concludes the tree is fine.
+
+## Verification Result
+
+**Verified:** 2026-09-29T07:54:14Z (HEAD 1e18a4c)
+**Binary:** /Users/bborbe/Documents/workspaces/go/bin/vault-cli (v0.153.2); tree-built /tmp/vc-fixed (dev)
+**Scenario:** none — bug fix verified through the existing integration harness, per the spec's scenario-coverage note
+**Evidence:**
+- AC1 `TZ=Pacific/Pago_Pago go test ./integration/ -run TestIntegration -ginkgo.focus="topic defer ..."` → exit 0, `SUCCESS! -- 1 Passed | 0 Failed`; dates printed in-invocation: Pago_Pago 2026-09-28 vs UTC 2026-09-29 (differ)
+- AC2 tree-built and installed v0.153.2 both wrote `defer_date: "2026-10-05"` (local 09-28 +7); UTC-basis `2026-10-06` absent — asserted against both candidates
+- AC3 `! grep -q 'time\.Local' integration/integration_suite_test.go` → exit 0 (assignment gone)
+- AC4 `expectedRelative := time.Now().AddDate(0, 0, 7)...` has no `.UTC()`; the comment above `libtime.ToDate(now.AddDate(0, 0, days))` reads "the basis is the local calendar date"
+- AC5 `TZ=Pacific/Pago_Pago make precommit` → exit 0, dates 2026-09-28 vs 2026-09-29 printed in-invocation, "ready to commit"
+- AC6 full integration suite `232 Passed | 0 Failed` under both `TZ=UTC` and the pin — identical sets
+- AC7 CHANGELOG section-walk returns `## Unreleased` for the `- fix:` bullet
+- AC8 deploy_check `vault-cli --version` → v0.153.2 == deploy_target `git describe --tags --abbrev=0 origin/master` → v0.153.2; focused spec FAILS on 6be825f (exit 1, `0 Passed | 1 Failed`; wrote 2026-10-05, expected 2026-10-06) and PASSES on tag v0.153.2 (exit 0, `1 Passed | 0 Failed`) under the same pin
+**Verdict:** PASS

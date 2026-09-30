@@ -742,6 +742,29 @@ var _ = Describe("ListOperation JSON output", func() {
 			Expect(string(data)).To(ContainSubstring(`"flag":true`))
 		})
 
+		It("includes the flag writer and instant in JSON output", func() {
+			taskWithProvenance := domain.NewPage(
+				map[string]any{
+					"status":      "todo",
+					"flag":        true,
+					"flag_set_by": "agent-x",
+					"flag_set_at": time.Date(2026, 9, 30, 8, 0, 0, 0, time.UTC),
+				},
+				domain.FileMetadata{Name: "Flagged Task"},
+				domain.Content(""),
+			)
+			mockPageStorage.ListPagesReturns([]*domain.Page{taskWithProvenance}, nil)
+			items, execErr := listOp.Execute(ctx, "/vault", "my-vault", "Tasks", nil, true, "", "")
+			Expect(execErr).To(BeNil())
+			Expect(items).To(HaveLen(1))
+			Expect(items[0].FlagSetBy).To(Equal("agent-x"))
+			Expect(items[0].FlagSetAt).To(Equal("2026-09-30T08:00:00Z"))
+			data, marshalErr := json.Marshal(items[0])
+			Expect(marshalErr).To(BeNil())
+			Expect(string(data)).To(ContainSubstring(`"flag_set_by":"agent-x"`))
+			Expect(string(data)).To(ContainSubstring(`"flag_set_at":"2026-09-30T08:00:00Z"`))
+		})
+
 		It("omits flag from JSON output when frontmatter lacks the key", func() {
 			taskNoFlag := domain.NewPage(
 				map[string]any{"status": "todo"},
@@ -753,9 +776,13 @@ var _ = Describe("ListOperation JSON output", func() {
 			Expect(execErr).To(BeNil())
 			Expect(items).To(HaveLen(1))
 			Expect(items[0].Flag).To(BeFalse())
+			Expect(items[0].FlagSetBy).To(Equal(""))
+			Expect(items[0].FlagSetAt).To(Equal(""))
 			data, marshalErr := json.Marshal(items[0])
 			Expect(marshalErr).To(BeNil())
 			Expect(string(data)).NotTo(ContainSubstring(`"flag"`))
+			Expect(string(data)).NotTo(ContainSubstring(`"flag_set_by"`))
+			Expect(string(data)).NotTo(ContainSubstring(`"flag_set_at"`))
 		})
 	})
 

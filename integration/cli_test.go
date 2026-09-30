@@ -2661,6 +2661,69 @@ blocked_by:
 		})
 	})
 
+	Describe("vault-cli task set flag provenance", func() {
+		var vaultPath, configPath string
+		var cleanup func()
+
+		AfterEach(func() {
+			cleanup()
+		})
+
+		runEntityCommand := func(args ...string) *gexec.Session {
+			fullArgs := append(
+				[]string{"--config", configPath, "--vault", "test"},
+				args...,
+			)
+			session, err := gexec.Start(exec.Command(binPath, fullArgs...), GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			return session
+		}
+
+		readTaskFile := func() []byte {
+			content, err := os.ReadFile(filepath.Join(vaultPath, "Tasks", "Alpha.md")) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			return content
+		}
+
+		BeforeEach(func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": `---
+status: next
+page_type: task
+priority: 1
+task_identifier: 33333333-3333-4333-8333-333333333333
+---
+`,
+			})
+		})
+
+		It("records the actor named by --by in the same write as the flag", func() {
+			Eventually(runEntityCommand("task", "set", "Alpha", "flag", "true", "--by", "agent-x")).
+				Should(gexec.Exit(0))
+
+			content := string(readTaskFile())
+			Expect(content).To(ContainSubstring("flag: true"))
+			Expect(content).To(ContainSubstring("flag_set_by: agent-x"))
+		})
+
+		It("records unknown when --by is not given", func() {
+			Eventually(runEntityCommand("task", "set", "Alpha", "flag", "true")).
+				Should(gexec.Exit(0))
+
+			Expect(string(readTaskFile())).To(ContainSubstring("flag_set_by: unknown"))
+		})
+
+		It("rejects --by for a non-flag key, names --by, and writes nothing", func() {
+			before := readTaskFile()
+
+			session := runEntityCommand("task", "set", "Alpha", "priority", "3", "--by", "agent-x")
+			Eventually(session).Should(gexec.Exit(1))
+
+			Expect(string(session.Err.Contents())).To(ContainSubstring("--by"))
+			Expect(readTaskFile()).To(Equal(before))
+		})
+	})
+
 	Describe("task set approval guard", func() {
 		var vaultPath, configPath string
 		var cleanup func()

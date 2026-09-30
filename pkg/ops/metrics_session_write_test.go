@@ -7,6 +7,7 @@ package ops_test
 import (
 	"context"
 
+	libtime "github.com/bborbe/time"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -28,6 +29,7 @@ var _ = Describe("task set refusal for metrics_sessions", func() {
 		mockTaskStorage = &mocks.TaskStorage{}
 		setOp = ops.NewFrontmatterSetOperation(
 			mockTaskStorage,
+			libtime.NewCurrentDateTime(),
 			ops.NewEscalationPublisher("", "", &mocks.NotificationSenderFactory{}),
 			"personal",
 			"25 Tasks",
@@ -45,7 +47,7 @@ var _ = Describe("task set refusal for metrics_sessions", func() {
 
 	It("task set refuses metrics_sessions and writes nothing", func() {
 		err = setOp.Execute(
-			ctx, "/vault", "Alpha", "metrics_sessions", `{"session_id":"x"}`, "", "", false,
+			ctx, "/vault", "Alpha", "metrics_sessions", `{"session_id":"x"}`, "", "", "", false,
 		)
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("metrics_sessions"))
@@ -55,7 +57,7 @@ var _ = Describe("task set refusal for metrics_sessions", func() {
 
 	It("task set refusal is not bypassed by force", func() {
 		err = setOp.Execute(
-			ctx, "/vault", "Alpha", "metrics_sessions", `{"session_id":"x"}`, "", "", true,
+			ctx, "/vault", "Alpha", "metrics_sessions", `{"session_id":"x"}`, "", "", "", true,
 		)
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("metrics_sessions"))

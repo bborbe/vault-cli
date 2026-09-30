@@ -194,6 +194,33 @@ var _ = Describe("ShowOperation flag", func() {
 		})
 	})
 
+	Context("with flag provenance in frontmatter", func() {
+		BeforeEach(func() {
+			task := domain.NewTask(
+				map[string]any{
+					"status":      "in_progress",
+					"flag":        true,
+					"flag_set_by": "operator",
+					"flag_set_at": time.Date(2026, 9, 30, 8, 0, 0, 0, time.UTC),
+				},
+				domain.FileMetadata{Name: "flagged-task", FilePath: "/tmp/nonexistent-flag-test3.md"},
+				domain.Content("---\nstatus: in_progress\n---\nDo the thing.\n"),
+			)
+			mockTaskStorage.FindTaskByNameReturns(task, nil)
+		})
+
+		It("includes the writer and the instant in JSON output", func() {
+			detail, err := showOp.Execute(ctx, "/vault", "my-vault", "flagged-task")
+			Expect(err).To(BeNil())
+			Expect(detail.FlagSetBy).To(Equal("operator"))
+			Expect(detail.FlagSetAt).To(Equal("2026-09-30T08:00:00Z"))
+			data, marshalErr := json.Marshal(detail)
+			Expect(marshalErr).To(BeNil())
+			Expect(string(data)).To(ContainSubstring(`"flag_set_by":"operator"`))
+			Expect(string(data)).To(ContainSubstring(`"flag_set_at":"2026-09-30T08:00:00Z"`))
+		})
+	})
+
 	Context("without flag in frontmatter", func() {
 		BeforeEach(func() {
 			task := domain.NewTask(
@@ -208,9 +235,13 @@ var _ = Describe("ShowOperation flag", func() {
 			detail, err := showOp.Execute(ctx, "/vault", "my-vault", "plain-task")
 			Expect(err).To(BeNil())
 			Expect(detail.Flag).To(BeFalse())
+			Expect(detail.FlagSetBy).To(Equal(""))
+			Expect(detail.FlagSetAt).To(Equal(""))
 			data, marshalErr := json.Marshal(detail)
 			Expect(marshalErr).To(BeNil())
 			Expect(string(data)).NotTo(ContainSubstring(`"flag"`))
+			Expect(string(data)).NotTo(ContainSubstring(`"flag_set_by"`))
+			Expect(string(data)).NotTo(ContainSubstring(`"flag_set_at"`))
 		})
 	})
 })

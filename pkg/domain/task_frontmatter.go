@@ -333,8 +333,15 @@ func (f *TaskFrontmatter) SetFlag(_ context.Context, v bool) error {
 }
 
 // ClearFlag removes the flag key entirely, so the task reads back as un-flagged
-// and the key is never emitted on the next write.
-func (f *TaskFrontmatter) ClearFlag() { f.Delete("flag") }
+// and the key is never emitted on the next write. The two provenance keys are
+// removed with it: a cleared flag has no writer to attribute, and leaving
+// flag_set_by behind would make the next reader attribute a stale actor to a
+// flag that is no longer set.
+func (f *TaskFrontmatter) ClearFlag() {
+	f.Delete("flag")
+	f.Delete("flag_set_by")
+	f.Delete("flag_set_at")
+}
 
 // SetPhase stores the phase pointer in the map. Deletes the key if p is nil.
 func (f *TaskFrontmatter) SetPhase(p *TaskPhase) {
@@ -552,8 +559,17 @@ func (f *TaskFrontmatter) SetField(ctx context.Context, key, value string) error
 
 // ClearField removes a frontmatter field by key.
 // Works for both known and unknown fields.
+//
+// Clearing "flag" also removes flag_set_by and flag_set_at, so a cleared flag
+// never leaves its provenance behind: the three keys describe one act, and a
+// reader that sees flag_set_by without a flag would attribute a writer to a
+// flag that is no longer set.
 func (f *TaskFrontmatter) ClearField(key string) {
 	f.Delete(key)
+	if key == "flag" {
+		f.Delete("flag_set_by")
+		f.Delete("flag_set_at")
+	}
 }
 
 // dateFieldString returns d.String() when d is non-nil, empty string otherwise.

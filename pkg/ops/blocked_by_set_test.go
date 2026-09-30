@@ -7,6 +7,7 @@ package ops_test
 import (
 	"context"
 
+	libtime "github.com/bborbe/time"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -28,6 +29,7 @@ var _ = Describe("task set refusal for blocked_by", func() {
 		mockTaskStorage = &mocks.TaskStorage{}
 		setOp = ops.NewFrontmatterSetOperation(
 			mockTaskStorage,
+			libtime.NewCurrentDateTime(),
 			ops.NewEscalationPublisher("", "", &mocks.NotificationSenderFactory{}),
 			"personal",
 			"25 Tasks",
@@ -47,7 +49,7 @@ var _ = Describe("task set refusal for blocked_by", func() {
 	// spec body, so a container-level JustBeforeEach would run it with the
 	// previous row's value.
 	setValue := func(k, v string) {
-		err = setOp.Execute(ctx, "/vault", "Alpha", k, v, "", "", false)
+		err = setOp.Execute(ctx, "/vault", "Alpha", k, v, "", "", "", false)
 	}
 
 	DescribeTable("refuses a non-empty blocked_by and writes nothing",
@@ -75,7 +77,7 @@ var _ = Describe("task set refusal for blocked_by", func() {
 	})
 
 	It("is not bypassed by force", func() {
-		err = setOp.Execute(ctx, "/vault", "Alpha", "blocked_by", "[[Blocker A]]", "", "", true)
+		err = setOp.Execute(ctx, "/vault", "Alpha", "blocked_by", "[[Blocker A]]", "", "", "", true)
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("blocked_by"))
 		Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(0))

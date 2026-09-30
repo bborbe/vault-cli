@@ -234,6 +234,20 @@ var _ = Describe("TaskFrontmatter", func() {
 			fm.ClearFlag()
 			Expect(fm.Get("flag")).To(BeNil())
 		})
+
+		It("removes both provenance keys with the flag", func() {
+			fm = domain.NewTaskFrontmatter(map[string]any{
+				"flag":        true,
+				"flag_set_by": "agent-x",
+				"flag_set_at": "2026-09-30T08:00:00Z",
+			})
+
+			fm.ClearFlag()
+
+			Expect(fm.Get("flag")).To(BeNil())
+			Expect(fm.Get("flag_set_by")).To(BeNil())
+			Expect(fm.Get("flag_set_at")).To(BeNil())
+		})
 	})
 
 	Describe("Goals", func() {
@@ -744,6 +758,36 @@ var _ = Describe("TaskFrontmatter", func() {
 			Expect(fm.SetField(ctx, "custom_field", "value")).To(Succeed())
 			fm.ClearField("custom_field")
 			Expect(fm.GetField("custom_field")).To(Equal(""))
+		})
+
+		It("clearing flag removes both provenance keys with it", func() {
+			fm = domain.NewTaskFrontmatter(map[string]any{
+				"flag":        true,
+				"flag_set_by": "operator",
+				"flag_set_at": "2026-09-30T08:00:00Z",
+			})
+
+			fm.ClearField("flag")
+
+			Expect(fm.Get("flag")).To(BeNil())
+			Expect(fm.Get("flag_set_by")).To(BeNil())
+			Expect(fm.Get("flag_set_at")).To(BeNil())
+		})
+
+		It("clearing another key leaves the flag provenance untouched", func() {
+			fm = domain.NewTaskFrontmatter(map[string]any{
+				"flag":        true,
+				"flag_set_by": "operator",
+				"flag_set_at": "2026-09-30T08:00:00Z",
+				"priority":    1,
+			})
+
+			fm.ClearField("priority")
+
+			Expect(fm.Get("priority")).To(BeNil())
+			Expect(fm.Get("flag")).To(Equal(true))
+			Expect(fm.Get("flag_set_by")).To(Equal("operator"))
+			Expect(fm.Get("flag_set_at")).To(Equal("2026-09-30T08:00:00Z"))
 		})
 	})
 

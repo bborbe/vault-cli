@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/bborbe/errors"
+	libtime "github.com/bborbe/time"
 	"github.com/bborbe/validation"
 
 	"github.com/bborbe/vault-cli/pkg/domain"
@@ -46,34 +47,45 @@ func (o *frontmatterGetOperation) Execute(
 
 //counterfeiter:generate -o ../../mocks/frontmatter-set-operation.go --fake-name FrontmatterSetOperation . FrontmatterSetOperation
 type FrontmatterSetOperation interface {
-	Execute(ctx context.Context, vaultPath, taskName, key, value, reason, gateSuccessor string, force bool) error
+	// Execute sets one frontmatter field on a task.
+	//
+	// actor names who is performing the write. It is consulted only for the
+	// "flag" key, where it is recorded as flag_set_by in the same write that sets
+	// the flag; every other key ignores it. A truthy flag write with a blank
+	// actor is refused with nothing written, because a present-but-blank
+	// flag_set_by is worse than no record at all.
+	Execute(ctx context.Context, vaultPath, taskName, key, value, reason, gateSuccessor, actor string, force bool) error
 }
 
 // NewFrontmatterSetOperation creates a new frontmatter set operation.
 func NewFrontmatterSetOperation(
 	taskStorage storage.TaskStorage,
+	currentDateTime libtime.CurrentDateTime,
 	publisher EscalationPublisher,
 	vaultName, tasksDir string,
 ) FrontmatterSetOperation {
 	return &frontmatterSetOperation{
-		taskStorage: taskStorage,
-		publisher:   publisher,
-		vaultName:   vaultName,
-		tasksDir:    tasksDir,
+		taskStorage:     taskStorage,
+		currentDateTime: currentDateTime,
+		publisher:       publisher,
+		vaultName:       vaultName,
+		tasksDir:        tasksDir,
 	}
 }
 
 type frontmatterSetOperation struct {
-	taskStorage storage.TaskStorage
-	publisher   EscalationPublisher
-	vaultName   string
-	tasksDir    string
+	taskStorage     storage.TaskStorage
+	currentDateTime libtime.CurrentDateTime
+	publisher       EscalationPublisher
+	vaultName       string
+	tasksDir        string
 }
 
 // Execute sets the value of a frontmatter field on a task.
 func (o *frontmatterSetOperation) Execute(
 	ctx context.Context,
-	vaultPath, taskName, key, value, reason, gateSuccessor string, force bool,
+	vaultPath, taskName, key, value, reason, gateSuccessor, actor string,
+	force bool,
 ) error {
 	task, err := o.taskStorage.FindTaskByName(ctx, vaultPath, taskName)
 	if err != nil {
@@ -102,6 +114,23 @@ func (o *frontmatterSetOperation) Execute(
 	// refusal.
 	if err := todoPlanningSetRefusal(ctx, task, taskName, key, value); err != nil {
 		return err
+	}
+
+	// Refuse a direct provenance write before anything is mutated — see
+	// flagProvenanceSetRefusal. Nothing below runs on this path, so the task file
+	// stays byte-identical.
+	if err := flagProvenanceSetRefusal(ctx, taskName, key); err != nil {
+		return err
+	}
+
+	// Flag provenance is composed onto the same map as the flag itself, so the
+	// single WriteTask below persists all three keys together and no reader can
+	// observe a flag without its writer. The refusal for a blank actor leaves the
+	// file byte-identical because it runs before any mutation.
+	if key == "flag" {
+		if err := o.writeFlagProvenance(ctx, task, taskName, value, actor); err != nil {
+			return err
+		}
 	}
 
 	// Read the assignee before the mutation. `task set <task> assignee ""` leaves
@@ -165,6 +194,70 @@ func writeTaskCloseOutFieldsIfCloseOut(
 		}
 	}
 	return nil
+}
+
+// writeFlagProvenance records who set the flag and when, on the same map the
+// flag itself is written to — so the caller's single WriteTask persists the
+// flag and its provenance together and no read can observe an unattributed
+// flag. The value is normalised exactly as setFlagField normalises it
+// (case-insensitive, surrounding whitespace trimmed), so `set flag TRUE` and
+// `set flag yes` write provenance just as `set flag true` does.
+//
+// Three outcomes, mirroring the field contract:
+//   - truthy: flag_set_by is the actor and flag_set_at is the injected instant,
+//     written as a bare time.Time so yaml.v3 renders it unquoted. A blank actor
+//     is refused here, before any mutation, because flag_set_by: "" is worse
+//     than no record at all.
+//   - falsy: flag_set_by and flag_set_at are deleted. The flag key itself is
+//     left to SetField, which stores flag: false — a `flag: false` row has no
+//     writer to attribute, so only the provenance keys go.
+//   - empty: nothing is done here. SetField clears the flag, and ClearFlag
+//     removes the two provenance keys with it.
+//
+// A value outside those three sets is left alone; SetField reports it as an
+// invalid flag value and nothing is written.
+func (o *frontmatterSetOperation) writeFlagProvenance(
+	ctx context.Context,
+	task *domain.Task,
+	taskName, value, actor string,
+) error {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "true", "yes":
+		if actor == "" {
+			return errors.Errorf(
+				ctx,
+				"flag_set_by must not be empty: refusing to record a blank actor on task %q",
+				taskName,
+			)
+		}
+		task.Set("flag_set_by", actor)
+		task.Set("flag_set_at", o.currentDateTime.Now().Time())
+	case "false", "no":
+		task.Delete("flag_set_by")
+		task.Delete("flag_set_at")
+	}
+	return nil
+}
+
+// flagProvenanceSetRefusal returns an error when a `set` invocation would write
+// flag_set_by or flag_set_at directly, and nil for every other key.
+//
+// The two keys exist only as evidence of the write that set the flag: they are
+// composed onto the same map, in the same WriteTask, as `flag` itself. A direct
+// `task set <name> flag_set_by <actor>` would attach provenance to a flag that
+// is already on disk, and the window between the two writes is exactly the
+// unattributed-flag bypass the field exists to close. The refusal is absolute:
+// --force is scoped to the phase guard and does not bypass it, and nothing is
+// written on this path because the check runs before any mutation.
+func flagProvenanceSetRefusal(ctx context.Context, taskName, key string) error {
+	if key != "flag_set_by" && key != "flag_set_at" {
+		return nil
+	}
+	return errors.Errorf(
+		ctx,
+		"refusing to set %q on %q: %s is written only by the same invocation that sets the flag; use `vault-cli task set %q flag true --by <actor>`",
+		key, taskName, key, taskName,
+	)
 }
 
 //counterfeiter:generate -o ../../mocks/frontmatter-clear-operation.go --fake-name FrontmatterClearOperation . FrontmatterClearOperation

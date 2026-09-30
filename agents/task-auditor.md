@@ -337,7 +337,7 @@ The `# Definition of Done` section is the closure gate. Tasks that lack it (or h
 
 ## Rigor Passes (always run)
 
-Four passes that apply to every task regardless of class. The first three were ported from `dark-factory`'s `spec-auditor` on 2026-09-05 and adapted spec→task (Acceptance Criteria → Success Criteria, prompts → subtasks); the fourth has no upstream.
+Five passes that apply to every task regardless of class. The first three were ported from `dark-factory`'s `spec-auditor` on 2026-09-05 and adapted spec→task (Acceptance Criteria → Success Criteria, prompts → subtasks); the fourth has no upstream; the fifth was added 2026-09-30 and opens the artifacts a task cites.
 
 ### 13. Hedge-Word Audit (free — catches decision deferrals)
 
@@ -435,9 +435,34 @@ Distinguish from scope-creep (§ Task Scope Fit, which counts smells across the 
 
 Report as a **Recommendation** naming which items would ship fine as a follow-up, and what the residual MVP is.
 
+### 17. Citation Fidelity (free — open the artifacts the task cites)
+
+A task's premises are claims about *other* files: a path, a line number, a quoted string, a count. Every pass above reads the task and the writing guides, so a brief can be internally coherent, score well, and still be founded on a fact that is false on disk — and this gate is the last thing standing between that brief and a worker's first hour. This pass opens the artifacts.
+
+**Four claim classes, and the check for each.** Run all four on every artifact the task cites:
+
+| Class | The task claims | The check | Failure wording |
+|---|---|---|---|
+| **Path** | a file exists at `<path>` | resolve it on disk | `cited path <path> does not resolve — <resolved-or-absent disk state>` |
+| **Line** | `<artifact>:<n>` carries `<content>` | read that line and compare | `<artifact>:<n> does not carry the claimed content — the line reads "<actual>"` |
+| **Quote** | `<artifact>` contains `<text>` | search the artifact for it | `quote not located — searched <set>; <text>` |
+| **Count** | `<artifact>` has `<n>` of `<thing>` | count the **same population** the task counted | `count disagreement: task declares <n>, disk shows <m>` |
+
+**Count the population the task counted, not a convenient one.** A task saying "three places name the wrong driver" counts *wrong-driver places*; counting occurrences of a token that usually marks them is a **different population** and yields a false disagreement — a finding that fires on a correct task. State the population in the finding, and define it by content rather than by a label its members may not satisfy.
+
+**Verify every quote before reporting it.** Re-read the cited line and confirm the quoted text appears there verbatim. Never reconstruct a quote from what the file "should" contain — a well-formed quote with a line number is the most credible-looking form of a wrong finding.
+
+**Cheap and bounded.** These four classes, read from the artifacts the task cites — never a re-derivation of what the task should say. A citation the task does not make is out of scope.
+
+**Disposition — hold and name.** On any failed check the verdict is that the task **does not pass**. Report the finding with the task's claim and the contradicting disk state quoted side by side, then stop: do not re-derive the task's content, rewrite the brief, or repair the artifact. That is the worker's job at the planning gate, and an audit that starts re-deriving has replaced that gate rather than repaired this one. This pass adds **reads, never a write path** — the agent's `tools` list grants no write tool and must not gain one.
+
+**Out of scope: claims with no on-disk artifact** — a live pane's state, a session id's liveness, a run's own transcript. Say so rather than guessing.
+
+⚠️ **A citation pinned to a *mutable* artifact rots.** If the task cites a working-tree file by line number or count, the finding is reproducible only until that file is next edited. Report it, and say in the finding that the citation is unpinned — evidence that depends on it needs a frozen revision (a commit SHA), not a live path.
+
 ## Quick Fixes (Minor)
 
-### 17. Formatting
+### 18. Formatting
 - Title not duplicated as H1 (Obsidian shows filename)
 - Proper markdown formatting
 - Consistent checkbox markers `- [ ]`
@@ -539,6 +564,7 @@ For each goal in the task's `goals:` frontmatter, render this table:
 Hedge words: [count + quoted lines, or "none"]
 Evidence shape: [criteria missing a declared shape, or "all declared"]
 MVP framing: [items that could ship separately, or "minimal"]
+Citation fidelity: [each failed claim quoted beside the disk state that contradicts it, or "every cited artifact agrees"]
 
 ## Recommendations
 ## Quick Fixes

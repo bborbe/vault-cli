@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [058-bug-approve-status-removes-row-from-spawn-offer]
+summary: 'Added a ## Unreleased fix: bullet to CHANGELOG.md recording the corrected task approve status write (in_progress -> next) and the spawn-offer consequence it removes'
+execution_id: vault-cli-approve-next-exec-246-spec-058-changelog-fix-bullet
+dark-factory-version: v0.196.0
 created: "2026-09-30T07:10:08Z"
 queued: "2026-09-30T07:20:47Z"
+started: "2026-09-30T07:31:06Z"
+completed: "2026-09-30T07:32:36Z"
 ---
 
 # Record the corrected approval status in the changelog (spec 058, prompt 2 of 2)

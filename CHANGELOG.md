@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.155.2
 
 - fix: `agents/task-auditor.md` §17 Formatting now exempts a deliberate tombstone from the checkbox-marker rule. A bullet in `# Success Criteria` or `# Definition of Done` that is deliberately *not* a checkbox because it records a superseded criterion — its own text says `DROPPED`, `SUPERSEDED`, `Not a criterion any more`, `not ticked` or `not moved` — is no longer reported as an inconsistent checkbox marker and carries no recommendation to change, because converting it to `- [ ]` would block `/vault-cli:complete-task` forever on a line the operator has ruled is no longer a criterion, and ticking it would assert a criterion that was never met. The exemption is a rule keyed on the bullet's own text, not a per-run waiver, and it deliberately does **not** cover a non-checkbox bullet that is not a tombstone — a stray note or a blocker annotation parked in an SC/DoD section is still an inconsistent marker and is still reported. Change set: `agents/task-auditor.md`.
 

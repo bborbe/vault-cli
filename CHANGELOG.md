@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.157.0
 
 - feat: **`/vault-cli:plan-task` gains a hard non-negotiable for authority, not just shape — the task's own session must be able to run what its criteria name.** A criterion or subtask naming a command the executing session's **tier** may not run is unsatisfiable by construction, however concrete it reads; `claude-supervisor`'s manager-only verbs (`/supervisor:open`, the `manager-*` / `fleet-*` family) are the common case, so a worker-anchored task naming one is a flag-and-ask in step 6 rather than a plan. It is the *authority* sibling of § 5's existing premise check, which asks whether the actor holds the **key**; this one asks whether it holds the **right**. Added 2026-09-30 after an SC requiring *"one live run shows both halves … read from that session's own output"* passed every shape check and was satisfiable only by routing the run to a manager session.
 

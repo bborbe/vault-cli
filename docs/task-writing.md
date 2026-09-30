@@ -93,6 +93,9 @@ defer_date: 2026-MM-DD                           # optional, for snoozing
 recurring: weekly                                # optional, for routine tasks
 blocked_by:                                      # optional — dependencies; unblocks when all complete
   - "[[Blocker Task]]"
+flag: true                                       # optional — operator approval for `/supervisor:open --flagged`
+flag_set_by: operator                            # optional — who last set `flag`; written with it, never after
+flag_set_at: 2026-09-30T08:00:00Z                # optional — RFC3339, same write as `flag`
 ---
 ```
 
@@ -115,6 +118,23 @@ Clearing after approval is unchanged: `vault-cli task set "<name>" assignee ""` 
 | any other non-blank value | **Preserved.** A warning surfaces in `MutationResult.Warnings` (CLI prints `⚠️ assignee not updated: task owned by <other> (current user: <self>)`). The status mutation (`→ in_progress`) still proceeds. |
 
 To deliberately take over a task owned by someone else, use `vault-cli task set "<name>" assignee "<current_user>"` (or `task clear "<name>" assignee` first), then re-run `task work-on`.
+
+### The approval flag (`flag`)
+
+`flag: true` marks a task the operator wants picked up. It is an **approval for `/supervisor:open --flagged` only** — the one carve-out that may open a `phase: todo` row, because the operator's flag stands in for the approval they would otherwise type. The four sweeps (`manager-loop`, `manager-drive`, `fleet-loop`, `fleet-drive`) never read a flag as approval; they report `todo` rows instead of acting on them.
+
+**An agent-set `flag: true` is not an approval and opens nothing.** The flag carries its provenance so that distinction is a field rather than a convention:
+
+| Field | Meaning |
+|---|---|
+| `flag_set_by` | Who last set the flag. `operator` means the operator set it; any other value names the actor that did — an agent or session identity. |
+| `flag_set_at` | RFC3339 timestamp of that same write. |
+
+Both are written in the **same single write** as `flag: true`, on the model of `approved_by` / `approved_at`. A second call that attaches provenance *after* the flag is already on disk does **not** satisfy this: a read taken between the two writes sees an unattributed flag, and that window is the bypass the field exists to close.
+
+`flag_set_by` follows the **last** writer, so clearing the flag and re-setting it through the operator's own path is a real approval rather than a stale label. The inverse design — first writer wins — is rejected: one agent write would poison the row permanently.
+
+**An absent `flag_set_by` marks a row written before the field existed** — never a row the operator set, and never to be read as operator-set. The precedent is the attention store's `provenance_class` (*"the store does not reject a push that omits it — an absent value marks a pre-2026-09-23 item"*): absence has to mean something explicit, and the disposition of the pre-field rows is recorded where the change that introduced the field was made.
 
 ### Dependencies (`blocked_by`)
 

@@ -441,6 +441,7 @@ Report as a **Recommendation** naming which items would ship fine as a follow-up
 - Title not duplicated as H1 (Obsidian shows filename)
 - Proper markdown formatting
 - Consistent checkbox markers `- [ ]`
+- **A deliberate tombstone is exempt from the marker rule.** A bullet in `# Success Criteria` or `# Definition of Done` that is deliberately *not* a checkbox, because it records a superseded criterion, is **not** an inconsistent-checkbox-marker finding and carries **no recommendation to change**. Its own text says so — `DROPPED`, `SUPERSEDED`, `Not a criterion any more`, `not ticked`, `not moved` — and that text is the test. Converting such a bullet to `- [ ]` would make `/vault-cli:complete-task` block forever on a line the operator has ruled is no longer a criterion; ticking it would assert a criterion that was never met. Leave it, and say in the report that it was left deliberately and why. **This is a rule about tombstones, not a per-run waiver:** any bullet whose own text marks it as a superseded criterion is covered, in any file. A non-checkbox bullet that is *not* a tombstone — a stray note, a blocker annotation, a live observation parked in an SC/DoD section — is still an inconsistent marker and is still reported.
 - No orphaned content outside sections
 - Dates in ISO format (YYYY-MM-DD) if present
 </evaluation_areas>

@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	libtime "github.com/bborbe/time"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -115,9 +116,10 @@ body
 		) error {
 			return ops.NewFrontmatterSetOperation(
 				storage.NewTaskStorage(cfg),
+				libtime.NewCurrentDateTime(),
 				ops.NewEscalationPublisher("", "", &mocks.NotificationSenderFactory{}),
 				"personal", "25 Tasks",
-			).Execute(ctx, vaultPath, name, key, value, "", "", false)
+			).Execute(ctx, vaultPath, name, key, value, "", "", "", false)
 		}),
 		Entry("goal", "23 Goals", func(
 			ctx context.Context, cfg *storage.Config, vaultPath, name, key, value string,

@@ -59,6 +59,8 @@ type TaskDetail struct {
 	FilePath        string   `json:"file_path"`
 	Vault           string   `json:"vault"`
 	Flag            bool     `json:"flag,omitempty"`
+	FlagSetBy       string   `json:"flag_set_by,omitempty"`
+	FlagSetAt       string   `json:"flag_set_at,omitempty"`
 }
 
 var (
@@ -97,6 +99,8 @@ func (o *showOperation) Execute(
 		FilePath:        task.FilePath,
 		Vault:           vaultName,
 		Flag:            task.Flag(),
+		FlagSetBy:       task.GetString("flag_set_by"),
+		FlagSetAt:       formatFlagSetAt(task.FrontmatterMap),
 	}
 
 	if d := task.DeferDate(); d != nil {

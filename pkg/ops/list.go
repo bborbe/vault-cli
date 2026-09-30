@@ -60,6 +60,8 @@ type TaskListItem struct {
 	CompletedDate   string   `json:"completed_date,omitempty"`
 	Goals           []string `json:"goals,omitempty"`
 	Flag            bool     `json:"flag,omitempty"`
+	FlagSetBy       string   `json:"flag_set_by,omitempty"`
+	FlagSetAt       string   `json:"flag_set_at,omitempty"`
 	BlockedBy       []string `json:"blocked_by,omitempty"`
 	Blocked         *bool    `json:"blocked,omitempty"`
 }
@@ -115,7 +117,9 @@ func (l *listOperation) Execute(
 				}
 				return ""
 			}(),
-			Flag: task.Flag(),
+			Flag:      task.Flag(),
+			FlagSetBy: task.GetString("flag_set_by"),
+			FlagSetAt: formatFlagSetAt(task.FrontmatterMap),
 		}
 		if d := task.DeferDate(); d != nil {
 			items[i].DeferDate = d.String()
@@ -141,6 +145,19 @@ func (l *listOperation) Execute(
 		}
 	}
 	return items, nil
+}
+
+// formatFlagSetAt renders the flag's write instant in the same UTC form the
+// list read model renders ModifiedDate. flag_set_at is stored as a bare
+// time.Time so yaml.v3 renders it unquoted; a missing or unparseable key
+// renders as the empty string, which the read models omit from JSON. It takes
+// the shared frontmatter map so both Task and Page callers can use it.
+func formatFlagSetAt(fm domain.FrontmatterMap) string {
+	t := fm.GetTime("flag_set_at")
+	if t == nil {
+		return ""
+	}
+	return t.UTC().Format("2006-01-02T15:04:05Z")
 }
 
 // filterTasks filters tasks by status, assignee, and goal.

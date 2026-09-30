@@ -15,6 +15,7 @@ import (
 
 	"github.com/bborbe/errors"
 	libtime "github.com/bborbe/time"
+	"github.com/bborbe/validation"
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
@@ -2515,7 +2516,7 @@ func createTaskSetCommand(
 	vaultName *string,
 	outputFormat *string,
 ) *cobra.Command {
-	var reason, gateSuccessor string
+	var reason, gateSuccessor, by string
 	var force bool
 	cmd := &cobra.Command{
 		Use:   "set <task-name> <key> <value>",
@@ -2525,6 +2526,20 @@ func createTaskSetCommand(
 			taskName := args[0]
 			key := args[1]
 			value := args[2]
+
+			// --by names the actor that set the flag, and is meaningful only for
+			// the flag key; it is not a general-purpose actor field. The check
+			// runs here, before the dispatcher, because the frozen JSON branch
+			// below swallows an error raised inside the callback and
+			// `task set --output json` would exit 0. It is keyed on
+			// Changed("by"), not on the value, so the "unknown" default does not
+			// break every existing non-flag `task set`.
+			if cmd.Flags().Changed("by") && key != "flag" {
+				return errors.Wrapf(ctx, validation.Error,
+					"--by is accepted only for the flag key; got --by with key %q. Use `vault-cli task set %q flag true --by <actor>`",
+					key, taskName,
+				)
+			}
 
 			vaults, err := getVaults(ctx, configLoader, vaultName)
 			if err != nil {
@@ -2536,12 +2551,20 @@ func createTaskSetCommand(
 				return err
 			}
 
+			currentDateTime := libtime.NewCurrentDateTime()
+
 			dispatcher := ops.NewVaultDispatcher()
 			err = dispatcher.FirstSuccess(ctx, vaults, func(vault *config.Vault) error {
 				storageConfig := storage.NewConfigFromVault(vault)
 				taskStore := storage.NewTaskStorage(storageConfig)
-				setOp := ops.NewFrontmatterSetOperation(taskStore, publisher, vault.Name, vault.GetTasksDir())
-				if err := setOp.Execute(ctx, vault.Path, taskName, key, value, reason, gateSuccessor, force); err != nil {
+				setOp := ops.NewFrontmatterSetOperation(
+					taskStore,
+					currentDateTime,
+					publisher,
+					vault.Name,
+					vault.GetTasksDir(),
+				)
+				if err := setOp.Execute(ctx, vault.Path, taskName, key, value, reason, gateSuccessor, by, force); err != nil {
 					return err
 				}
 				if OutputFormat(*outputFormat).IsJSON() {
@@ -2571,6 +2594,7 @@ func createTaskSetCommand(
 	}
 	cmd.Flags().StringVar(&reason, "reason", "", "Close-out reason (aborted_reason); required for aborted, optional for completed")
 	cmd.Flags().StringVar(&gateSuccessor, "gate-successor", "", "Where any risk gate moves, or 'none' (gate_successor); required for aborted, optional for completed")
+	cmd.Flags().StringVar(&by, "by", "unknown", "Who is setting the flag; recorded as flag_set_by. Accepted only for the flag key")
 	cmd.Flags().BoolVar(&force, "force", false, "Allow a phase regression (e.g. execution -> todo) on an in-progress task for a deliberate reset")
 	return cmd
 }

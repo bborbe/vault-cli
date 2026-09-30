@@ -12,8 +12,10 @@ import (
 	notifcore "github.com/bborbe/notification"
 	notifcmd "github.com/bborbe/notification/command/notification"
 	libtime "github.com/bborbe/time"
+	libtimetest "github.com/bborbe/time/test"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"gopkg.in/yaml.v3"
 
 	"github.com/bborbe/vault-cli/mocks"
 	"github.com/bborbe/vault-cli/pkg/domain"
@@ -340,6 +342,7 @@ var _ = Describe("FrontmatterSetOperation", func() {
 		value           string
 		reason          string
 		gateSuccessor   string
+		actor           string
 		force           bool
 		task            *domain.Task
 	)
@@ -349,7 +352,13 @@ var _ = Describe("FrontmatterSetOperation", func() {
 		mockTaskStorage = &mocks.TaskStorage{}
 		mockFactory := &mocks.NotificationSenderFactory{}
 		publisher := ops.NewEscalationPublisher("", "", mockFactory)
-		setOp = ops.NewFrontmatterSetOperation(mockTaskStorage, publisher, "personal", "25 Tasks")
+		setOp = ops.NewFrontmatterSetOperation(
+			mockTaskStorage,
+			libtime.NewCurrentDateTime(),
+			publisher,
+			"personal",
+			"25 Tasks",
+		)
 		vaultPath = "/path/to/vault"
 		taskName = "my-task"
 
@@ -363,11 +372,15 @@ var _ = Describe("FrontmatterSetOperation", func() {
 		mockTaskStorage.WriteTaskReturns(nil)
 		reason = ""
 		gateSuccessor = ""
+		// A named actor by default: the CLI always supplies one (its --by
+		// default is "unknown"), and a truthy flag write with a blank actor is
+		// refused. The blank-actor refusal has its own specs below.
+		actor = "operator"
 		force = false
 	})
 
 	JustBeforeEach(func() {
-		err = setOp.Execute(ctx, vaultPath, taskName, key, value, reason, gateSuccessor, force)
+		err = setOp.Execute(ctx, vaultPath, taskName, key, value, reason, gateSuccessor, actor, force)
 	})
 
 	Context("setting phase field", func() {
@@ -1381,7 +1394,13 @@ var _ = Describe("Frontmatter assignee-clear escalation", func() {
 		publisher = ops.NewEscalationPublisher("broker-1:9092", "master", mockFactory)
 		vaultName = "personal"
 		tasksDir = "25 Tasks"
-		setOp = ops.NewFrontmatterSetOperation(mockTaskStorage, publisher, vaultName, tasksDir)
+		setOp = ops.NewFrontmatterSetOperation(
+			mockTaskStorage,
+			libtime.NewCurrentDateTime(),
+			publisher,
+			vaultName,
+			tasksDir,
+		)
 		clearOp = ops.NewFrontmatterClearOperation(mockTaskStorage, publisher, vaultName, tasksDir)
 		vaultPath = "/path/to/vault"
 		taskName = "my-task"
@@ -1422,7 +1441,7 @@ var _ = Describe("Frontmatter assignee-clear escalation", func() {
 	}
 
 	It("publishes one escalation when task set empties a non-empty assignee", func() {
-		err = setOp.Execute(ctx, vaultPath, taskName, "assignee", "", "", "", false)
+		err = setOp.Execute(ctx, vaultPath, taskName, "assignee", "", "", "", "", false)
 
 		Expect(err).To(BeNil())
 		Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
@@ -1468,7 +1487,7 @@ var _ = Describe("Frontmatter assignee-clear escalation", func() {
 	It("publishes nothing when task set writes an empty assignee over an empty assignee", func() {
 		task.ClearField("assignee")
 
-		err = setOp.Execute(ctx, vaultPath, taskName, "assignee", "", "", "", false)
+		err = setOp.Execute(ctx, vaultPath, taskName, "assignee", "", "", "", "", false)
 
 		Expect(err).To(BeNil())
 		Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
@@ -1486,7 +1505,7 @@ var _ = Describe("Frontmatter assignee-clear escalation", func() {
 	})
 
 	It("publishes nothing when task set replaces one assignee with another", func() {
-		err = setOp.Execute(ctx, vaultPath, taskName, "assignee", "bob", "", "", false)
+		err = setOp.Execute(ctx, vaultPath, taskName, "assignee", "bob", "", "", "", false)
 
 		Expect(err).To(BeNil())
 		Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
@@ -1494,7 +1513,7 @@ var _ = Describe("Frontmatter assignee-clear escalation", func() {
 	})
 
 	It("publishes nothing when a different frontmatter key is set through task set", func() {
-		err = setOp.Execute(ctx, vaultPath, taskName, "priority", "3", "", "", false)
+		err = setOp.Execute(ctx, vaultPath, taskName, "priority", "3", "", "", "", false)
 
 		Expect(err).To(BeNil())
 		Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
@@ -1512,7 +1531,7 @@ var _ = Describe("Frontmatter assignee-clear escalation", func() {
 	It("publishes nothing when task set fails to write", func() {
 		mockTaskStorage.WriteTaskReturns(errors.New("write failed"))
 
-		err = setOp.Execute(ctx, vaultPath, taskName, "assignee", "", "", "", false)
+		err = setOp.Execute(ctx, vaultPath, taskName, "assignee", "", "", "", "", false)
 
 		Expect(err).To(MatchError(ContainSubstring("write task")))
 		assertSilent()
@@ -1540,7 +1559,7 @@ var _ = Describe("Frontmatter assignee-clear escalation", func() {
 		}
 
 		start := time.Now()
-		err = setOp.Execute(ctx, vaultPath, taskName, "assignee", "", "", "", false)
+		err = setOp.Execute(ctx, vaultPath, taskName, "assignee", "", "", "", "", false)
 		elapsed := time.Since(start)
 
 		Expect(err).To(BeNil())
@@ -1550,4 +1569,206 @@ var _ = Describe("Frontmatter assignee-clear escalation", func() {
 		Expect(elapsed).To(BeNumerically(">=", ops.EscalationPublishTimeout))
 		Expect(elapsed).To(BeNumerically("<", ops.EscalationPublishTimeout+3*time.Second))
 	})
+})
+
+// The flag provenance contract: the flag and the actor and instant that set it
+// are composed onto one map and persisted by the operation's single WriteTask,
+// so no read can observe an unattributed flag.
+var _ = Describe("FrontmatterSetOperation flag provenance", func() {
+	var (
+		ctx             context.Context
+		err             error
+		setOp           ops.FrontmatterSetOperation
+		clearOp         ops.FrontmatterClearOperation
+		mockTaskStorage *mocks.TaskStorage
+		pinned          libtime.CurrentDateTime
+		vaultPath       string
+		taskName        string
+		task            *domain.Task
+	)
+
+	BeforeEach(func() {
+		ctx = context.Background()
+		mockTaskStorage = &mocks.TaskStorage{}
+		pinned = libtime.NewCurrentDateTime()
+		pinned.SetNow(libtimetest.ParseDateTime("2026-09-30T08:00:00Z"))
+		publisher := ops.NewEscalationPublisher("", "", &mocks.NotificationSenderFactory{})
+		setOp = ops.NewFrontmatterSetOperation(
+			mockTaskStorage,
+			pinned,
+			publisher,
+			"personal",
+			"25 Tasks",
+		)
+		clearOp = ops.NewFrontmatterClearOperation(mockTaskStorage, publisher, "personal", "25 Tasks")
+		vaultPath = "/path/to/vault"
+		taskName = "Alpha"
+		task = domain.NewTask(
+			map[string]any{"status": "next", "page_type": "task"},
+			domain.FileMetadata{Name: taskName},
+			domain.Content(""),
+		)
+		mockTaskStorage.FindTaskByNameReturns(task, nil)
+		mockTaskStorage.WriteTaskReturns(nil)
+	})
+
+	// seedFlaggedRow puts a pre-existing attributed flag on the row, so a spec
+	// can assert what a later write does to it.
+	seedFlaggedRow := func() {
+		task.Set("flag", true)
+		task.Set("flag_set_by", "agent-x")
+		task.Set("flag_set_at", pinned.Now().Time())
+	}
+
+	written := func() *domain.Task {
+		_, w := mockTaskStorage.WriteTaskArgsForCall(0)
+		return w
+	}
+
+	DescribeTable("records the actor that set the flag in exactly one write",
+		func(actor string) {
+			Expect(setOp.Execute(
+				ctx, vaultPath, taskName, "flag", "true", "", "", actor, false,
+			)).To(Succeed())
+
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+			Expect(written().Flag()).To(BeTrue())
+			Expect(written().GetString("flag_set_by")).To(Equal(actor))
+			Expect(written().Get("flag_set_at")).NotTo(BeNil())
+		},
+		Entry("operator", "operator"),
+		Entry("agent-x", "agent-x"),
+		Entry("unknown", "unknown"),
+	)
+
+	DescribeTable("writes provenance for a mixed-case truthy value",
+		func(value string) {
+			Expect(setOp.Execute(
+				ctx, vaultPath, taskName, "flag", value, "", "", "agent-x", false,
+			)).To(Succeed())
+
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+			Expect(written().Flag()).To(BeTrue())
+			Expect(written().GetString("flag_set_by")).To(Equal("agent-x"))
+		},
+		Entry("uppercase TRUE", "TRUE"),
+		Entry("yes", "yes"),
+		Entry("padded whitespace", "  Yes  "),
+	)
+
+	It("refuses a blank actor with zero writes and an untouched row", func() {
+		err = setOp.Execute(ctx, vaultPath, taskName, "flag", "true", "", "", "", false)
+
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("flag_set_by"))
+		Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(0))
+		Expect(task.Get("flag")).To(BeNil())
+		Expect(task.Get("flag_set_by")).To(BeNil())
+		Expect(task.Get("flag_set_at")).To(BeNil())
+	})
+
+	It("records the injected instant as a bare time.Time", func() {
+		Expect(setOp.Execute(
+			ctx, vaultPath, taskName, "flag", "true", "", "", "operator", false,
+		)).To(Succeed())
+
+		raw, ok := written().Get("flag_set_at").(time.Time)
+		Expect(ok).To(BeTrue())
+		Expect(raw.Equal(pinned.Now().Time())).To(BeTrue())
+	})
+
+	It("serializes flag_set_at unquoted and round-trips it as a time.Time", func() {
+		Expect(setOp.Execute(
+			ctx, vaultPath, taskName, "flag", "true", "", "", "operator", false,
+		)).To(Succeed())
+
+		out, marshalErr := yaml.Marshal(written().RawMap())
+		Expect(marshalErr).NotTo(HaveOccurred())
+		Expect(string(out)).To(ContainSubstring("flag_set_at: 2026-09-30T08:00:00Z"))
+		Expect(string(out)).NotTo(ContainSubstring(`flag_set_at: "2026-09-30T08:00:00Z"`))
+
+		var roundTripped map[string]any
+		Expect(yaml.Unmarshal(out, &roundTripped)).To(Succeed())
+		rt, ok := roundTripped["flag_set_at"].(time.Time)
+		Expect(ok).To(BeTrue())
+		Expect(rt.Equal(pinned.Now().Time())).To(BeTrue())
+	})
+
+	It("follows the last writer, not the first", func() {
+		Expect(setOp.Execute(
+			ctx, vaultPath, taskName, "flag", "true", "", "", "agent-x", false,
+		)).To(Succeed())
+		Expect(setOp.Execute(
+			ctx, vaultPath, taskName, "flag", "true", "", "", "operator", false,
+		)).To(Succeed())
+
+		Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(2))
+		_, second := mockTaskStorage.WriteTaskArgsForCall(1)
+		Expect(second.GetString("flag_set_by")).To(Equal("operator"))
+	})
+
+	It("clears all three keys when the flag is set with the empty value", func() {
+		seedFlaggedRow()
+
+		Expect(setOp.Execute(
+			ctx, vaultPath, taskName, "flag", "", "", "", "operator", false,
+		)).To(Succeed())
+
+		Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+		Expect(written().Get("flag")).To(BeNil())
+		Expect(written().Get("flag_set_by")).To(BeNil())
+		Expect(written().Get("flag_set_at")).To(BeNil())
+	})
+
+	It("clears all three keys when the flag is cleared", func() {
+		seedFlaggedRow()
+
+		Expect(clearOp.Execute(ctx, vaultPath, taskName, "flag")).To(Succeed())
+
+		Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+		Expect(written().Get("flag")).To(BeNil())
+		Expect(written().Get("flag_set_by")).To(BeNil())
+		Expect(written().Get("flag_set_at")).To(BeNil())
+	})
+
+	It("keeps flag: false and drops only the provenance on an explicit falsy write", func() {
+		seedFlaggedRow()
+
+		Expect(setOp.Execute(
+			ctx, vaultPath, taskName, "flag", "no", "", "", "operator", false,
+		)).To(Succeed())
+
+		Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+		Expect(written().Get("flag")).To(Equal(false))
+		Expect(written().Flag()).To(BeFalse())
+		Expect(written().GetField("flag")).To(Equal("false"))
+		Expect(written().Get("flag_set_by")).To(BeNil())
+		Expect(written().Get("flag_set_at")).To(BeNil())
+	})
+
+	It("does not backfill provenance onto a pre-field row when another key is written", func() {
+		task.Set("flag", true)
+
+		Expect(setOp.Execute(
+			ctx, vaultPath, taskName, "priority", "3", "", "", "operator", false,
+		)).To(Succeed())
+
+		Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+		Expect(written().Flag()).To(BeTrue())
+		Expect(written().Get("flag_set_by")).To(BeNil())
+		Expect(written().Get("flag_set_at")).To(BeNil())
+	})
+
+	DescribeTable("refuses a direct provenance write with zero writes",
+		func(key string) {
+			err = setOp.Execute(ctx, vaultPath, taskName, key, "someone", "", "", "operator", false)
+
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring(key))
+			Expect(err.Error()).To(ContainSubstring("flag"))
+			Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(0))
+		},
+		Entry("flag_set_by", "flag_set_by"),
+		Entry("flag_set_at", "flag_set_at"),
+	)
 })

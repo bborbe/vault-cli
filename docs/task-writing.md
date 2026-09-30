@@ -132,9 +132,11 @@ To deliberately take over a task owned by someone else, use `vault-cli task set 
 
 Both are written in the **same single write** as `flag: true`, on the model of `approved_by` / `approved_at`. A second call that attaches provenance *after* the flag is already on disk does **not** satisfy this: a read taken between the two writes sees an unattributed flag, and that window is the bypass the field exists to close.
 
+The write path is `vault-cli task set <name> flag true --by <actor>`. `--by` is accepted only for the `flag` key — a `task set` of any other key with `--by` is refused — and defaults to the literal `unknown` when it is not given, so a write that declares no actor is recorded as unattributed rather than as an approval. Writing `flag_set_by` or `flag_set_at` directly is refused: they are written only by the same invocation that sets the flag.
+
 `flag_set_by` follows the **last** writer, so clearing the flag and re-setting it through the operator's own path is a real approval rather than a stale label. The inverse design — first writer wins — is rejected: one agent write would poison the row permanently.
 
-**An absent `flag_set_by` marks a row written before the field existed** — never a row the operator set, and never to be read as operator-set. The precedent is the attention store's `provenance_class` (*"the store does not reject a push that omits it — an absent value marks a pre-2026-09-23 item"*): absence has to mean something explicit, and the disposition of the pre-field rows is recorded where the change that introduced the field was made.
+**An absent `flag_set_by` on a row carrying `flag: true` marks a row written before the field existed** — never a row the operator set, and never to be read as operator-set. (A row carrying `flag: false` has no writer to attribute, so it carries neither provenance key; absence there is the falsy case, not the pre-field one.) The precedent is the attention store's `provenance_class` (*"the store does not reject a push that omits it — an absent value marks a pre-2026-09-23 item"*): absence has to mean something explicit, and the disposition of the pre-field rows is recorded where the change that introduced the field was made.
 
 ### Dependencies (`blocked_by`)
 

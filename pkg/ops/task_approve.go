@@ -133,7 +133,11 @@ func (o *taskApproveOperation) Execute(
 	// in exactly one write — so a row can never end up planned without an
 	// approval record beside it. Every other key, known or unknown, survives
 	// because the map itself is preserved.
-	if err := task.SetStatus(domain.TaskStatusInProgress); err != nil {
+	// The status is next, not in_progress: an approved row with no live session is
+	// queued to be started, not active. The manager sweep's ready-to-start bucket
+	// requires status next in both renderers, so writing in_progress was the write
+	// that removed the row from the spawn offer.
+	if err := task.SetStatus(domain.TaskStatusNext); err != nil {
 		return MutationResult{
 			Success: false,
 			Error:   err.Error(),

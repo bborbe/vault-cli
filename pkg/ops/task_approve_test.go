@@ -60,7 +60,7 @@ var _ = Describe("TaskApproveOperation", func() {
 
 		Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
 		_, written := mockStorage.WriteTaskArgsForCall(0)
-		Expect(written.Status()).To(Equal(domain.TaskStatusInProgress))
+		Expect(written.Status()).To(Equal(domain.TaskStatusNext))
 		Expect(written.Phase()).To(Equal(domain.TaskPhasePlanning.Ptr()))
 		Expect(written.GetString("approved_by")).To(Equal("operator"))
 		Expect(written.Get("approved_at")).NotTo(BeNil())

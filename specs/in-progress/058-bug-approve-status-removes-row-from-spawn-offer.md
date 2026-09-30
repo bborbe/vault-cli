@@ -1,8 +1,9 @@
 ---
-status: prompted
+status: verifying
 approved: "2026-09-30T07:05:44Z"
 generating: "2026-09-30T07:20:25Z"
 prompted: "2026-09-30T07:20:25Z"
+verifying: "2026-09-30T07:32:36Z"
 branch: dark-factory/bug-approve-status-removes-row-from-spawn-offer
 ---
 

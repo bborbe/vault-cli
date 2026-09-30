@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.155.1
 
 - docs: `docs/task-writing.md` now documents the `flag` field and its provenance — the `flag` / `flag_set_by` / `flag_set_at` trio in the frontmatter example, plus a new *The approval flag (`flag`)* section under Task Structure. It records that `flag: true` is an approval for `/supervisor:open --flagged` only and that an agent-set flag opens nothing; that `flag_set_by` names who last set the flag and `flag_set_at` carries the timestamp, both written in the **same single write** as the flag (a second call leaves a window in which the flag is unattributed, and that window is the bypass); that `flag_set_by` follows the last writer, so a re-set through the operator's own path is a real approval rather than a stale label; and that an absent `flag_set_by` marks a pre-field row explicitly and is never read as operator-set, following the attention store's `provenance_class` precedent. Documentation only — the writer-side enforcement lands separately. Change set: `docs/task-writing.md`.
 

@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.155.4
 
 - docs: `commands/complete-task.md` step 2a now reads the task with `vault-cli task get "{task_name}" status` and counts checkboxes with `grep -cE '^\s*-\s+\[[ x/]\]'`, instead of `vault-cli task show` — which returns the entire task body, so a task carrying a long `# Progress` log made a whole-file read (48 KB on a real 2026-09-30 task) to learn one frontmatter field and a box count. The cheap form is already what `commands/session-close.md` step 4.5 uses. Change set: `commands/complete-task.md`.
 

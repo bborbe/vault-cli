@@ -20,8 +20,12 @@ Mark task as complete using vault-cli. Handles normal and recurring tasks approp
 2. **MODE=interactive (default):**
 
    a. Read task file to check completion state:
-      - Find task: `vault-cli task show "{task_name}" --output json`
-      - Parse checkboxes (count `[x]`, `[/]`, `[ ]`)
+      - Find task: `vault-cli task get "{task_name}" status --output json`
+      - Parse checkboxes (count `[x]`, `[/]`, `[ ]`) with
+        `grep -cE '^\s*-\s+\[[ x/]\]' "<task-file>"`
+      - Never use `vault-cli task show` here: it returns the whole body, and a task
+        with a long `# Progress` log makes that a large read for one field. Step 4.5
+        of `session-close.md` already uses the cheap form.
 
    b. If incomplete items (pending > 0 or in-progress > 0) AND FORCE=false:
       - Print completion status (`X/Y checkboxes, N%`)

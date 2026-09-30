@@ -3439,6 +3439,19 @@ task_identifier: 11111111-1111-4111-8111-111111111111
 body line
 `
 
+		// AC 2 (058)'s fixture: a row that is already in_progress while still sitting in
+		// the approval inbox. The pre-fix command always wrote in_progress, so this arm
+		// distinguishes "always writes next" from "keeps whatever was there".
+		inProgressFrontmatter := `---
+page_type: task
+phase: todo
+priority: 1
+status: in_progress
+task_identifier: 11111111-1111-4111-8111-111111111111
+---
+body line
+`
+
 		// AC 3's fixture: the same todo row plus an assignee, an unknown key, and a
 		// task_identifier other commands consume.
 		todoWithUnrelatedKeys := `---
@@ -3544,7 +3557,7 @@ body line
 
 			after := readFile(taskFile)
 			Expect(approvedKeys(after)).To(HaveLen(4))
-			Expect(valueOf(after, "status")).To(Equal("in_progress"))
+			Expect(valueOf(after, "status")).To(Equal("next"))
 			Expect(valueOf(after, "phase")).To(Equal("planning"))
 			Expect(valueOf(after, "approved_by")).To(Equal("operator"))
 			// AC1's ownership half: the ownerless inbox row is filled from the
@@ -3557,6 +3570,19 @@ body line
 			parsed, err := time.Parse(time.RFC3339, approvedAt)
 			Expect(err).NotTo(HaveOccurred(), "approved_at %q is not RFC3339", approvedAt)
 			Expect(parsed.IsZero()).To(BeFalse())
+		})
+
+		It("AC2 (058): the write does not depend on the pre-approval status", func() {
+			vaultPath, configPath, cleanup = createTempVaultWithCurrentUser(map[string]string{
+				"Alpha": inProgressFrontmatter,
+			})
+			taskFile := filepath.Join(vaultPath, "Tasks", "Alpha.md")
+
+			session := runEntityCommand("task", "approve", "Alpha")
+			Eventually(session).Should(gexec.Exit(0))
+
+			after := readFile(taskFile)
+			Expect(valueOf(after, "status")).To(Equal("next"))
 		})
 
 		It("AC2a: task approve --by records the named approver", func() {

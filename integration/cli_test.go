@@ -1094,7 +1094,11 @@ priority: 2
 			cmd := exec.Command(binPath, "--config", configPath, "--vault", "test", "task", "list")
 			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 			Expect(err).NotTo(HaveOccurred())
-			Eventually(session).Should(gexec.Exit(0))
+			// A 2,992-duplicate-key file makes the YAML parser build N(N-1)/2 = 4.47M
+			// error entries before the warning truncates them, so the process needs
+			// well over Gomega's 1s default on a slow runner. The bound is on stderr,
+			// not on speed.
+			Eventually(session, "30s").Should(gexec.Exit(0))
 			Expect(session.Out).To(gbytes.Say("healthy-task"))
 			Expect(len(session.Err.Contents())).To(BeNumerically("<=", 1024))
 		})

@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.158.1
 
 - fix(session-close): detect a merged branch by the merge commit's **second parent** instead of its subject line. The subject is forge-specific — GitHub writes `Merge pull request '…'`, Bitbucket `Pull request #N: …`, Forgejo `Merge pull request '…' (#N) from … into …` — so the old match failed in the dangerous direction: a genuinely merged branch in a non-GitHub repo read as freshly created and its orphaned worktree was left in place. The note also records that `git merge-base --is-ancestor` is not a substitute, being equally true for a branch freshly cut from master's tip.
 - fix(sync-progress): skip `IT-*` issues in the Jira sync — no progress comment and no transition on an IT / helpdesk ticket. Detection still runs, so the ticket can appear in the daily note; an IT queue item is resolved by IT, not by a sync run.

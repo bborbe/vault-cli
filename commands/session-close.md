@@ -190,15 +190,17 @@ cd <worktree> && git ls-remote --exit-code --heads origin "$(git branch --show-c
   ```bash
   # (a) commits this branch holds that master does not
   cd <worktree> && git rev-list --count "$(git merge-base HEAD origin/master)"..HEAD
-  # (b) did master absorb this branch via a merge commit?
-  cd <worktree> && git log --merges --format=%s origin/master | awk -v b="$(git branch --show-current)" \
-    '$1=="Merge" && $2=="pull" && $3=="request" {t=$NF; sub("^[^/]*/","",t); if (t==b) f=1} END{exit !f}'
+  # (b) did master absorb this branch tip via a merge commit? Matched on the
+  #     merge's SECOND PARENT, never on its subject line.
+  cd <worktree> && TIP="$(git rev-parse HEAD)" && \
+    git rev-list --merges origin/master | while read -r m; do git rev-parse -q --verify "$m^2"; done \
+      | grep -qx "$TIP"
   ```
 
   - **Either test positive** → the branch was merged — typically deleted by `gh pr merge --delete-branch`, but **deletion is not required**, which is why the zero-exit arm above consults (b) too. The worktree is **orphaned** — kept work is committed and merged; the worktree itself is now garbage.
   - **Both negative** → the worktree was **just created** and its branch was never pushed. Nothing was ever merged, so nothing was cleaned up; it cannot be an orphan. **Leave it alone.** Observed 2026-09-11: `feature/status-toggle-icons` and `feature/status-toggle-lines` both read "remote gone" while both had 0 commits beyond master — one of them a sibling session's worktree created minutes earlier. Flagging it would have named live work for removal.
 
-  **Test (b) is not optional — the commit count alone is not a merge detector.** These repos merge with merge commits only (`allow_squash_merge=false`, `allow_rebase_merge=false`), so a merged branch's tip stays an *ancestor* of master: `git merge-base HEAD origin/master` returns HEAD itself and (a) reads **0**. Judging on (a) alone therefore classifies every merged worktree as freshly created and silently disables this check. Observed 2026-09-11: all ten orphaned worktrees in `vault-cli` computed 0 commits beyond base, and none would have been flagged. The count still earns its place — it is the only signal for a squash- or rebase-merged branch, whose commits never reach master.
+  **Test (b) is not optional — the commit count alone is not a merge detector.** These repos merge with merge commits only (`allow_squash_merge=false`, `allow_rebase_merge=false`), so a merged branch's tip stays an *ancestor* of master: `git merge-base HEAD origin/master` returns HEAD itself and (a) reads **0**. Judging on (a) alone therefore classifies every merged worktree as freshly created and silently disables this check. Observed 2026-09-11: all ten orphaned worktrees in `vault-cli` computed 0 commits beyond base, and none would have been flagged. The count still earns its place — it is the only signal for a squash- or rebase-merged branch, whose commits never reach master. ⚠️ **Match on the merge's second parent, never on its subject line.** The subject is forge-specific, and a subject match fails in the dangerous direction: it reports a **merged** branch as freshly created, so the worktree is left alone. Observed 2026-10-01: an `sm-isac` worktree whose tip `b465911e09` was an ancestor of `origin/master` behind `c32e8646c7 Pull request #38909: …` (Bitbucket) — the old awk required `$1=="Merge" && $2=="pull" && $3=="request"` and read 0. Forgejo's `Merge pull request '…' (#65) from feat/… into main` fails it too, for a second reason: `$NF` is the *target* branch (`main`), not the source. `git merge-base --is-ancestor` is not a substitute either — it is equally true for a branch freshly cut from master's tip.
 
 Cross-check against other still-active Claude sessions: a worktree from a sibling session (different cwd, different conversation) may be active — don't flag those. Use a conservative test: if any process under the worktree path is running (`lsof +D <worktree>` shows hits, or any `cwd` in `/proc` or via `ps -o pid,cwd` matches), assume it's actively used.
 

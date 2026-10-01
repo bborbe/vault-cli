@@ -8,6 +8,11 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix(session-close): detect a merged branch by the merge commit's **second parent** instead of its subject line. The subject is forge-specific — GitHub writes `Merge pull request '…'`, Bitbucket `Pull request #N: …`, Forgejo `Merge pull request '…' (#N) from … into …` — so the old match failed in the dangerous direction: a genuinely merged branch in a non-GitHub repo read as freshly created and its orphaned worktree was left in place. The note also records that `git merge-base --is-ancestor` is not a substitute, being equally true for a branch freshly cut from master's tip.
+- fix(sync-progress): skip `IT-*` issues in the Jira sync — no progress comment and no transition on an IT / helpdesk ticket. Detection still runs, so the ticket can appear in the daily note; an IT queue item is resolved by IT, not by a sync run.
+
 ## v0.158.0
 
 - feat: the task auditor gains a **Citation Fidelity** pass (§17) that opens the artifacts a task cites, closing a gate that until now read only the task and the writing guides — so a brief founded on a fact false on disk could clear the readiness bar and reach a worker. The pass checks four claim classes against the artifact each claim points into: cited **file paths** (does the path resolve?), cited **line numbers** (does that line carry the claimed content?), **quoted text** (does the quote appear verbatim?), and **named counts** (does the count match?). A count disagreement is reported only when both sides count the *same population* — counting a convenient token instead of the population the task counted yields a false finding that fires on a correct task. On any failure the disposition is **hold and name**: the finding quotes the task's claim beside the contradicting disk state, and the pass does not re-derive the task, rewrite the brief, or repair the artifact, because that is the planning gate's job. The pass adds **reads only** — the agent's `tools` list still grants no write tool. Reported as `Citation fidelity:` in the Rigor Passes block; §17 Formatting renumbered to §18. Fixture at `agents/fixtures/citation-fidelity/`.

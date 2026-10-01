@@ -136,7 +136,9 @@ Detect Jira ticket refs in conversation: `[A-Z]+-\d+`.
 
 For each detected ticket:
 1. `mcp__atlassian__getJiraIssue(cloudId=JIRA_CLOUD_ID, issueIdOrKey=<key>)` → current status. If the ticket does not exist (404 / not accessible) → skip silently.
-2. **Always** post a progress comment via `addCommentToJiraIssue(...)`. Same content as Phase 3.1's daily-note section (summary + key results + decisions + PR links), as Jira markdown. Deduplicate: if the last comment on the ticket already contains the same headline summary and a timestamp within the last hour, skip — avoids double-posting on re-runs of `/vault-cli:sync-progress`.
+2. **Always** post a progress comment via `addCommentToJiraIssue(...)` — **except on an `IT-*` issue, which is skipped silently.** Same content as Phase 3.1's daily-note section (summary + key results + decisions + PR links), as Jira markdown. Deduplicate: if the last comment on the ticket already contains the same headline summary and a timestamp within the last hour, skip — avoids double-posting on re-runs of `/vault-cli:sync-progress`.
+
+   **`IT-*` issues are read-only for this phase.** `IT-` is the IT / helpdesk service desk, and automatic comments there are forbidden. Detection is still fine — the ticket may belong in the daily note — but the comment is not posted, and step 3's transition is not attempted either: an IT queue item is resolved by IT, not by a sync run. Observed 2026-10-01: a progress comment landed on `IT-47383` and the operator deleted it. IT had already answered that ticket two hours earlier, so the comment was redundant as well as unwanted.
 3. If conversation indicates completion AND ticket status != Done:
    - `getTransitionsForJiraIssue(...)` → find "Done" (case-insensitive)
    - `transitionJiraIssue(...)` → transition

@@ -202,3 +202,18 @@ Prompts should be generated in this order — each row is a single prompt with a
 | 3 | Regression lock: 2,992-key fixture through the real binary, pre-fix-fails evidence; `## Unreleased` `fix:` CHANGELOG bullet | 6, 7 | 4, 6, 7, 8 | 1, 2 |
 
 Rationale: prompt 1 is the core fix and stands alone; prompt 2 builds on the counting prompt 1 introduces; prompt 3 adds the end-to-end fixture coverage and the changelog entry once both code paths exist. AC6 (the pre-fix-fails lock) is owned by prompt 3 alone.
+
+## Verification Result
+
+**Verified:** 2026-10-01T19:18:44Z (HEAD 764aeaa)
+**Binary:** /tmp/new-vault-cli (built from HEAD 764aeaa)
+**Scenario:** no scenario file — AC1–AC8 walked against fixture vaults built from `example/` plus live `private-personal`.
+**Evidence:**
+- AC1/AC2: 2 duplicate-key files (3 and 2,992 keys) -> exactly 2 warning records; 2,992-key line 342 B (<=1 KB), `error` field 200 B, valid UTF-8, ends in `…`, keeps `already defined`.
+- AC3: frontmatter-less page -> 154 B line, `error="no frontmatter found"`, 0 stack markers; live `vision list --vault private-personal` -> exit 0, 1,182 B across exactly 6 lines.
+- AC4: fixture A `task list` -> exit 0, rows `[in_progress] Weekly Review` / `[next] Simple Task`, stderr 344 B (<=1 KB).
+- AC5: 6/12/15 frontmatter-less pages -> 6 lines no summary / 10 lines + `skipping 12 unreadable pages` / 10 lines + `skipping 15 unreadable pages`; stderr 936/1654/1657 B (<=3 KB).
+- AC6: 8 new discriminating specs fail against origin/master `page.go` overlaid with the new tests; pass on the fix.
+- AC7: `git diff origin/master -- pkg/storage/task.go` empty.
+- AC8: `make precommit` exit 0; `awk` prints `sits under: ## Unreleased` for the new `fix:` bullet.
+**Verdict:** PASS

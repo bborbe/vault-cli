@@ -215,7 +215,44 @@ var _ = Describe("pageStorage.ListPages diagnostics", func() {
 		Expect(log).ToNot(ContainSubstring("errors_wrap.go"))
 		Expect(log).ToNot(ContainSubstring("\n\t"))
 	})
+
+	DescribeTable("caps per-file skip warnings at ten and summarises the rest",
+		func(pageCount, expectedPerFile int, expectedSummary string) {
+			pagesDir := filepath.Join(vaultPath, "UnreadablePages")
+			Expect(os.MkdirAll(pagesDir, 0755)).To(Succeed())
+			for i := 0; i < pageCount; i++ {
+				Expect(os.WriteFile(
+					filepath.Join(pagesDir, fmt.Sprintf("NoFm%d.md", i)),
+					[]byte(frontmatterlessPage(i)),
+					0600,
+				)).To(Succeed())
+			}
+
+			pages, err := store.ListPages(ctx, vaultPath, "UnreadablePages")
+
+			Expect(err).To(BeNil())
+			Expect(pages).To(BeEmpty())
+			log := logBuf.String()
+			Expect(strings.Count(log, "skipping unreadable page")).To(Equal(expectedPerFile))
+			if expectedSummary == "" {
+				Expect(log).ToNot(ContainSubstring("unreadable pages"))
+			} else {
+				Expect(strings.Count(log, expectedSummary)).To(Equal(1))
+			}
+			Expect(len(log)).To(BeNumerically("<=", 3072))
+		},
+		Entry("below the cap: six pages, one line each, no summary", 6, 6, ""),
+		Entry("exactly at the cap: ten pages, ten lines plus a summary", 10, 10, "skipping 10 unreadable pages"),
+		Entry("above the cap: twelve pages, ten lines plus a summary", 12, 10, "skipping 12 unreadable pages"),
+		Entry("well above the cap: fifteen pages, ten lines plus a summary naming 15", 15, 10, "skipping 15 unreadable pages"),
+	)
 })
+
+// frontmatterlessPage returns a page with no frontmatter block, which
+// ListPages skips with the "no frontmatter found" warning.
+func frontmatterlessPage(i int) string {
+	return fmt.Sprintf("# No Frontmatter %d\n", i)
+}
 
 // duplicateKeyPage returns a page whose frontmatter declares task_identifier n
 // times, so the YAML parse raises n(n-1)/2 duplicate-key errors.

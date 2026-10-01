@@ -28,6 +28,11 @@ const (
 
 	// truncationSuffix marks a cause that was cut at maxCauseBytes.
 	truncationSuffix = "…"
+
+	// maxUnreadablePageWarnings is the number of per-file skip warnings a single
+	// ListPages walk emits before it stops naming files individually and prints
+	// one summary line instead. It bounds a directory full of unreadable pages.
+	maxUnreadablePageWarnings = 10
 )
 
 // truncateCause bounds cause to maxCauseBytes bytes. When the cause is longer
@@ -68,6 +73,7 @@ func (p *pageStorage) ListPages(
 	}
 
 	pages := make([]*domain.Page, 0, len(entries))
+	skipped := 0
 	for _, entry := range entries {
 		select {
 		case <-ctx.Done():
@@ -91,15 +97,25 @@ func (p *pageStorage) ListPages(
 		if err != nil {
 			// Warn and continue: the operator must be told the file was skipped,
 			// otherwise the page silently disappears from listings that still exit 0.
-			slog.Warn(
-				"skipping unreadable page",
-				"file", filePath,
-				"error", truncateCause(errors.Cause(err).Error()),
-			)
+			// The per-file line is capped at maxUnreadablePageWarnings so a directory
+			// full of unreadable pages cannot flood stderr; the total is reported in
+			// the summary line below.
+			if skipped < maxUnreadablePageWarnings {
+				slog.Warn(
+					"skipping unreadable page",
+					"file", filePath,
+					"error", truncateCause(errors.Cause(err).Error()),
+				)
+			}
+			skipped++
 			continue
 		}
 
 		pages = append(pages, page)
+	}
+
+	if skipped >= maxUnreadablePageWarnings {
+		slog.Warn(fmt.Sprintf("skipping %d unreadable pages", skipped))
 	}
 
 	return pages, nil

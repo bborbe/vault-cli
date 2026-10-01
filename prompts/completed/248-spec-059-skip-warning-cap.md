@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [059-bug-bound-skip-warning-output]
+summary: Capped ListPages per-file skip warnings at 10 via named constant maxUnreadablePageWarnings, counting every skipped page and emitting one fmt.Sprintf summary naming the true total, with a 4-entry DescribeTable covering the 6/10/12/15-page boundary.
+execution_id: vault-cli-bound-skip-warning-exec-248-spec-059-skip-warning-cap
+dark-factory-version: v0.196.0
 created: "2026-10-01T18:28:55Z"
 queued: "2026-10-01T19:02:01Z"
+started: "2026-10-01T19:04:47Z"
+completed: "2026-10-01T19:07:49Z"
 branch: dark-factory/bug-bound-skip-warning-output
 ---
 

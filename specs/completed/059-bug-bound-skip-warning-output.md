@@ -1,9 +1,10 @@
 ---
-status: verifying
+status: completed
 approved: "2026-10-01T18:13:43Z"
 generating: "2026-10-01T18:24:53Z"
 prompted: "2026-10-01T18:36:29Z"
 verifying: "2026-10-01T19:11:54Z"
+completed: "2026-10-01T19:18:59Z"
 branch: dark-factory/bug-bound-skip-warning-output
 ---
 

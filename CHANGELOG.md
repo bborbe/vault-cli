@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: Bound the `skipping unreadable page` warning so one malformed vault file can no longer take a read-only listing out of action. The warning's `error` field is now the plain cause (`errors.Cause(err).Error()`) truncated to at most 200 bytes on a UTF-8 rune boundary with a `…` suffix and the head kept — so the leading `already defined` survives and no Go stack is rendered — and a directory of unreadable pages now stops the per-file lines at ten and emits one `skipping N unreadable pages` summary instead. `vault-cli task list` against a file with 2,992 duplicate `task_identifier` keys wrote ≈332 MB to stderr before this change and now writes ≤1 KB while still exiting 0 with its rows. Change set: `pkg/storage/page.go`, `pkg/storage/page_test.go`, `integration/cli_test.go`.
+
 ## v0.158.2
 
 - fix(session-close): read the merge commit's parents in **one pass** — `git log --merges --format='%H %P' origin/master | awk '{print $3}'` — instead of spawning a `git rev-parse` per merge commit. The per-commit form was correct but did not finish in 120s on a repo carrying thousands of merge commits, and that cost is paid on every `session-close`; the one-pass form matches the same commit in 0.03s.

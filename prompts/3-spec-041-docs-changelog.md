@@ -27,7 +27,7 @@ Read `CLAUDE.md` for project conventions.
 Read fully (in this order):
 - `docs/work-on-session-lifecycle.md` — the whole file (261 lines). This is the file under test.
 - `scenarios/002-task-lifecycle.md` — the whole file (67 lines).
-- `CHANGELOG.md` — read the top ~40 lines only (the frozen `# Changelog` preamble and the newest versioned sections; the newest section today is `## v0.155.1`). That is where the new section and bullet land; the rest of the file is not needed.
+- `CHANGELOG.md` — read the top ~40 lines only (the frozen `# Changelog` preamble and the newest versioned sections; the newest section today is `## v0.158.2`). That is where the new section and bullet land; the rest of the file is not needed.
 - `pkg/ops/workon.go` and `pkg/ops/goal_workon.go` — read only to confirm the ordering the documentation must describe. Do not modify either.
 - `prompts/2-spec-041-post-exit-persist.md` — read the reviewer comment at the top of its `<requirements>` block; it records the conflict this prompt is coupled to.
 
@@ -93,7 +93,7 @@ The documentation is in a DRIFTED state. A later change rewrote the BODIES of th
 
 3. **Confirm `scenarios/002-task-lifecycle.md` — no edit expected (AC11).** Its work-on action note must already state that the headless turn blocks until completion (it does: `**Both branches block until the turn completes**`, `bounded by a 30m turn timeout`, and `A fast return is a FAIL, not a pass`). Confirm `grep -c '~10s' scenarios/002-task-lifecycle.md` is 0. If it is non-zero, replace the fast-return wording with the blocking wording. Make no other change to this file.
 
-4. **Create the unreleased section in `CHANGELOG.md` and record the change under it (AC12).** Today `CHANGELOG.md` has NO unreleased section — the newest section is `## v0.155.1`. Insert, immediately after the frozen preamble (the `* MAJOR version...` bullet block) and immediately above `## v0.155.1`:
+4. **Create the unreleased section in `CHANGELOG.md` and record the change under it (AC12).** Today `CHANGELOG.md` has NO unreleased section — the newest section is `## v0.158.2`. Insert, immediately after the frozen preamble (the `* MAJOR version...` bullet block) and immediately above the newest versioned section (today `## v0.158.2`):
    ```
    ## Unreleased
 

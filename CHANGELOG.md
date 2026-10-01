@@ -10,7 +10,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 
 ## Unreleased
 
-- fix: bound the per-file skip warning in `ListPages` to a plain-string cause truncated at 200 bytes on a UTF-8 rune boundary. The `error` field previously carried `errors.Cause(err)` as a `KindAny` attribute, so a page with thousands of duplicate YAML keys produced a single ≈332 MB warning record and a frontmatter-less page rendered the full Go stack trace.
+- fix: Bound the `skipping unreadable page` warning so one malformed vault file can no longer take a read-only listing out of action. The warning's `error` field is now the plain cause (`errors.Cause(err).Error()`) truncated to at most 200 bytes on a UTF-8 rune boundary with a `…` suffix and the head kept — so the leading `already defined` survives and no Go stack is rendered — and a directory of unreadable pages now stops the per-file lines at ten and emits one `skipping N unreadable pages` summary instead. `vault-cli task list` against a file with 2,992 duplicate `task_identifier` keys wrote ≈332 MB to stderr before this change and now writes ≤1 KB while still exiting 0 with its rows. Change set: `pkg/storage/page.go`, `pkg/storage/page_test.go`, `integration/cli_test.go`.
 
 ## v0.158.2
 

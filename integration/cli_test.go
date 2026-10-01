@@ -30,6 +30,19 @@ func createTempVault(
 	return createTempVaultWithGoals(tasks, nil)
 }
 
+// duplicateKeyTaskContent returns a task file whose frontmatter declares
+// task_identifier n times, so the YAML parse raises n(n-1)/2 duplicate-key
+// errors — the shape that produced a 332 MB warning record before spec 059.
+func duplicateKeyTaskContent(n int) string {
+	var sb strings.Builder
+	sb.WriteString("---\n")
+	for i := 0; i < n; i++ {
+		sb.WriteString("task_identifier: 11111111-1111-4111-a111-111111111111\n")
+	}
+	sb.WriteString("---\n# Broken\n")
+	return sb.String()
+}
+
 // createTempVaultWithGoals creates a temporary vault with tasks, goals, and config file
 func createTempVaultWithGoals(
 	tasks map[string]string,
@@ -1054,6 +1067,36 @@ This is a done task.
 			Eventually(session).Should(gexec.Exit(0))
 			Expect(session.Out).To(gbytes.Say("todo-task"))
 			Expect(session.Out).To(gbytes.Say("done-task"))
+		})
+	})
+
+	Describe("vault-cli task list with an unreadable page", func() {
+		var configPath string
+		var cleanup func()
+
+		BeforeEach(func() {
+			_, configPath, cleanup = createTempVault(map[string]string{
+				"healthy-task": `---
+status: todo
+priority: 2
+---
+# Healthy Task
+`,
+				"broken-task": duplicateKeyTaskContent(2992),
+			})
+		})
+
+		AfterEach(func() {
+			cleanup()
+		})
+
+		It("AC4 (059): task list survives a file with thousands of duplicate keys", func() {
+			cmd := exec.Command(binPath, "--config", configPath, "--vault", "test", "task", "list")
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(0))
+			Expect(session.Out).To(gbytes.Say("healthy-task"))
+			Expect(len(session.Err.Contents())).To(BeNumerically("<=", 1024))
 		})
 	})
 

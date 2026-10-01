@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [059-bug-bound-skip-warning-output]
+summary: Added the AC4 end-to-end integration spec proving `vault-cli task list` survives a file with 2,992 duplicate keys (exit 0, healthy row printed, stderr <=1 KB), recorded the spec-059 change as a single `fix:` bullet under `## Unreleased`, and confirmed the discriminating storage specs fail against the pre-fix warn site and pass once restored.
+execution_id: vault-cli-bound-skip-warning-exec-249-spec-059-integration-and-changelog
+dark-factory-version: v0.196.0
 created: "2026-10-01T18:28:55Z"
 queued: "2026-10-01T19:02:01Z"
+started: "2026-10-01T19:07:50Z"
+completed: "2026-10-01T19:11:53Z"
 branch: dark-factory/bug-bound-skip-warning-output
 ---
 

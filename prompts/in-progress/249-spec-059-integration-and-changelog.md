@@ -1,7 +1,8 @@
 ---
-status: draft
+status: approved
 spec: [059-bug-bound-skip-warning-output]
 created: "2026-10-01T18:28:55Z"
+queued: "2026-10-01T19:02:01Z"
 branch: dark-factory/bug-bound-skip-warning-output
 ---
 

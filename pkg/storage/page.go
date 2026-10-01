@@ -12,11 +12,39 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/bborbe/errors"
 
 	"github.com/bborbe/vault-cli/pkg/domain"
 )
+
+const (
+	// maxCauseBytes bounds the cause string embedded in a skip warning so one
+	// corrupt file cannot flood stderr. It is a hard bound: the logged value —
+	// including the truncationSuffix when the cause was cut — is never longer
+	// than this.
+	maxCauseBytes = 200
+
+	// truncationSuffix marks a cause that was cut at maxCauseBytes.
+	truncationSuffix = "…"
+)
+
+// truncateCause bounds cause to maxCauseBytes bytes. When the cause is longer
+// it is cut on a UTF-8 rune boundary and truncationSuffix is appended, so the
+// result is always valid UTF-8 and never longer than maxCauseBytes. The head
+// of the message is kept: the leading "yaml: unmarshal errors:\n  line N: …
+// already defined" survives for a duplicate-key file.
+func truncateCause(cause string) string {
+	if len(cause) <= maxCauseBytes {
+		return cause
+	}
+	cut := maxCauseBytes - len(truncationSuffix)
+	for cut > 0 && !utf8.RuneStart(cause[cut]) {
+		cut--
+	}
+	return cause[:cut] + truncationSuffix
+}
 
 type pageStorage struct {
 	*baseStorage
@@ -63,7 +91,11 @@ func (p *pageStorage) ListPages(
 		if err != nil {
 			// Warn and continue: the operator must be told the file was skipped,
 			// otherwise the page silently disappears from listings that still exit 0.
-			slog.Warn("skipping unreadable page", "file", filePath, "error", errors.Cause(err))
+			slog.Warn(
+				"skipping unreadable page",
+				"file", filePath,
+				"error", truncateCause(errors.Cause(err).Error()),
+			)
 			continue
 		}
 

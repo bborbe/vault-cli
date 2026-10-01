@@ -1,7 +1,13 @@
 ---
-status: draft
+status: completed
 spec: [059-bug-bound-skip-warning-output]
+summary: Bounded the per-file skip warning in ListPages by logging errors.Cause(err).Error() truncated to 200 bytes on a UTF-8 rune boundary, removing the multi-megabyte YAML duplicate-key dump and the Go stack trace from frontmatter-less pages
+execution_id: vault-cli-bound-skip-warning-exec-247-spec-059-plain-cause-truncation
+dark-factory-version: v0.196.0
 created: "2026-10-01T18:28:55Z"
+queued: "2026-10-01T19:02:01Z"
+started: "2026-10-01T19:02:03Z"
+completed: "2026-10-01T19:04:45Z"
 branch: dark-factory/bug-bound-skip-warning-output
 ---
 

@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: bound the per-file skip warning in `ListPages` to a plain-string cause truncated at 200 bytes on a UTF-8 rune boundary. The `error` field previously carried `errors.Cause(err)` as a `KindAny` attribute, so a page with thousands of duplicate YAML keys produced a single ≈332 MB warning record and a frontmatter-less page rendered the full Go stack trace.
+
 ## v0.158.2
 
 - fix(session-close): read the merge commit's parents in **one pass** — `git log --merges --format='%H %P' origin/master | awk '{print $3}'` — instead of spawning a `git rev-parse` per merge commit. The per-commit form was correct but did not finish in 120s on a repo carrying thousands of merge commits, and that cost is paid on every `session-close`; the one-pass form matches the same commit in 0.03s.

@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix(session-close): read the merge commit's parents in **one pass** — `git log --merges --format='%H %P' origin/master | awk '{print $3}'` — instead of spawning a `git rev-parse` per merge commit. The per-commit form was correct but did not finish in 120s on a repo carrying thousands of merge commits, and that cost is paid on every `session-close`; the one-pass form matches the same commit in 0.03s.
+
 ## v0.158.1
 
 - fix(session-close): detect a merged branch by the merge commit's **second parent** instead of its subject line. The subject is forge-specific — GitHub writes `Merge pull request '…'`, Bitbucket `Pull request #N: …`, Forgejo `Merge pull request '…' (#N) from … into …` — so the old match failed in the dangerous direction: a genuinely merged branch in a non-GitHub repo read as freshly created and its orphaned worktree was left in place. The note also records that `git merge-base --is-ancestor` is not a substitute, being equally true for a branch freshly cut from master's tip.

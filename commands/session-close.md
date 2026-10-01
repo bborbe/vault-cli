@@ -191,10 +191,11 @@ cd <worktree> && git ls-remote --exit-code --heads origin "$(git branch --show-c
   # (a) commits this branch holds that master does not
   cd <worktree> && git rev-list --count "$(git merge-base HEAD origin/master)"..HEAD
   # (b) did master absorb this branch tip via a merge commit? Matched on the
-  #     merge's SECOND PARENT, never on its subject line.
-  cd <worktree> && TIP="$(git rev-parse HEAD)" && \
-    git rev-list --merges origin/master | while read -r m; do git rev-parse -q --verify "$m^2"; done \
-      | grep -qx "$TIP"
+  #     merge's SECOND PARENT, never on its subject line. Read every parent in
+  #     ONE pass: `%P` lists them all, so this is one git process + one awk. A
+  #     per-commit `git rev-parse "$m^2"` spawns a process per merge commit and
+  #     did not finish in 120s on a repo with thousands of them.
+  cd <worktree> && git log --merges --format='%H %P' origin/master | awk '{print $3}' | grep -qx "$(git rev-parse HEAD)"
   ```
 
   - **Either test positive** → the branch was merged — typically deleted by `gh pr merge --delete-branch`, but **deletion is not required**, which is why the zero-exit arm above consults (b) too. The worktree is **orphaned** — kept work is committed and merged; the worktree itself is now garbage.

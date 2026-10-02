@@ -8,6 +8,11 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix(task-auditor): §17 Citation Fidelity reads the revision the task will execute at, not the checkout at hand. A task that says "start from fresh `origin/master`" is executed against *that* revision, but the pass opened whatever tree was local — so on 2026-10-02 it reported a cited line as 161 from a checkout 4 commits behind, while `origin/master` carries it at 209, and the worker applied the wrong number. The pass now checks `git status -sb` on the cited repo and reads behind-revision artifacts with `git show <revision>:<path>`, stating which revision it read when the task names none. A path that resolves in several local checkouts is now reported as under-anchored, asking for `<repo>@<sha>:<path>`.
+- fix(task-auditor): the DoD section's Reference-checks line resolves `[[Closure Patterns]]` / `[[Goal Closure Checklist]]` in the task's own vault before recommending either. A wikilink resolves only inside the vault holding the page, so recommending one the target vault lacks yields a dead link and costs the worker a verification round — on 2026-10-02 it recommended a `private-personal` page for a `seibert-personal` task, and the recommendation survived a re-audit before the worker disproved it by grepping the vault.
+
 ## v0.158.5
 
 - fix(work-on-task, plan-task): a worker session now also posts its questions to the attention controller, not only to its manager over `SendMessage`. Both commands already told a spawned worker to send content questions upward, and both justified it with the claim that the send "makes the question visible without the operator visiting this tab" — but the operator reads the attention board, not the panes, so a question that reached only a manager's roster could sit unseen until a relay caught it. The guidance now names the second channel explicitly: `attention-ask.py post` (dedup key, payload, options, recommendation), then `poll` for the answer. Added 2026-10-02 after a worker's SC1 question sat in its own pane while a manager session relayed the operator's standing instruction — *"they should send attention to the attention controller"*.

@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.158.4
 
 - fix: **`plan-task`'s evidence gate accepted an artifact a probe names without asking whether anything produces it, so an untestable criterion could pass every check and fail only at execution.** The concrete-shape taxonomy lists *"an artifact to inspect"* beside a procedure and an observable, and nothing in it asks what writes that artifact. Measured 2026-10-02 on a shipping task: a Success Criterion required reading `~/.claude/state/manager-predispatch/<slug>.watcher.log`, and **nothing in the plugin, the marketplace clone, `~/.claude/scripts/` or the vault's runbook writes that path** — the one file on disk had been written by an improvised wrapper, which its own format proved (an `owned=<n> [<panes>]` prefix the shipped filter never emits). The criterion survived **seven audit rounds** and failed only at execution, the direction that costs most: it reads as rigorous while being untestable. The artifact shape now carries the requirement, phrased as a producer question — *what writes this, and have I seen it?* — because a name is not a producer. ⚠️ **Distinct from its neighbours, not a duplicate:** the `Resolution steps are resolvable` gate covers a *subtask* naming a lookup, join or key; this covers a *criterion's probe* naming an artifact, which no check owned.
 

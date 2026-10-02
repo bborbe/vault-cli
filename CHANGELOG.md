@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.158.5
 
 - fix(work-on-task, plan-task): a worker session now also posts its questions to the attention controller, not only to its manager over `SendMessage`. Both commands already told a spawned worker to send content questions upward, and both justified it with the claim that the send "makes the question visible without the operator visiting this tab" — but the operator reads the attention board, not the panes, so a question that reached only a manager's roster could sit unseen until a relay caught it. The guidance now names the second channel explicitly: `attention-ask.py post` (dedup key, payload, options, recommendation), then `poll` for the answer. Added 2026-10-02 after a worker's SC1 question sat in its own pane while a manager session relayed the operator's standing instruction — *"they should send attention to the attention controller"*.
 

@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix(work-on-task, plan-task): a worker session now also posts its questions to the attention controller, not only to its manager over `SendMessage`. Both commands already told a spawned worker to send content questions upward, and both justified it with the claim that the send "makes the question visible without the operator visiting this tab" — but the operator reads the attention board, not the panes, so a question that reached only a manager's roster could sit unseen until a relay caught it. The guidance now names the second channel explicitly: `attention-ask.py post` (dedup key, payload, options, recommendation), then `poll` for the answer. Added 2026-10-02 after a worker's SC1 question sat in its own pane while a manager session relayed the operator's standing instruction — *"they should send attention to the attention controller"*.
+
 ## v0.158.3
 
 - fix: Bound the `skipping unreadable page` warning so one malformed vault file can no longer take a read-only listing out of action. The warning's `error` field is now the plain cause (`errors.Cause(err).Error()`) truncated to at most 200 bytes on a UTF-8 rune boundary with a `…` suffix and the head kept — so the leading `already defined` survives and no Go stack is rendered — and a directory of unreadable pages now stops the per-file lines at ten and emits one `skipping N unreadable pages` summary instead. `vault-cli task list` against a file with 2,992 duplicate `task_identifier` keys wrote ≈332 MB to stderr before this change and now writes ≤1 KB while still exiting 0 with its rows. Change set: `pkg/storage/page.go`, `pkg/storage/page_test.go`, `integration/cli_test.go`.

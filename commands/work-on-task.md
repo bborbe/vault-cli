@@ -14,6 +14,8 @@ Reach it by name with `SendMessage`, setting `to` to exactly what `ListAgents` p
 
 **This covers the questions raised inside both chained commands** — `/plan-task` § 6, where a spawned worker most often asks, and `/execute-task`'s step 1 ambiguity ask. Send it *as well as* asking it in this tab: the ask is what unblocks you, the send is what makes the question visible without the operator visiting this tab.
 
+**Also post it to the attention controller** — the operator reads that board, not the panes, so a question that reaches only a manager's roster can sit unseen. Post it with `attention-ask.py post` (dedup key, payload, options, your recommendation), then `poll` it for the answer. `SendMessage` reaches your manager; the board reaches the operator.
+
 ## Usage
 
 ```bash

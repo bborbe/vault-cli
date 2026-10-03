@@ -18,7 +18,18 @@ var windowsReservedNames = []string{
 
 // SanitizeFilename returns name with the characters Windows forbids in a
 // filename replaced or removed, so the result can be checked out on Windows.
-// name is a filename stem — the caller appends the extension.
+// name may be a bare stem or a full filename carrying one or more extensions;
+// the reserved-device rule is defined on the text before the first dot either
+// way.
+//
+// The steps run in a fixed order: forbidden characters are replaced, whitespace
+// runs collapse to single spaces, and only then are the remaining ASCII control
+// characters removed — so a tab or newline survives the collapse as word
+// separation rather than gluing its neighbours together. A name left empty by
+// these steps becomes "Untitled".
+//
+// It deliberately does not attempt the Windows restrictions that are neither a
+// character nor a reserved stem, such as path-length limits.
 func SanitizeFilename(name string) string {
 	result := strings.NewReplacer(
 		":", " -",
@@ -33,6 +44,8 @@ func SanitizeFilename(name string) string {
 	).Replace(name)
 
 	result = strings.Join(strings.Fields(result), " ")
+
+	result = stripControlCharacters(result)
 
 	for {
 		trimmed := strings.TrimSpace(strings.TrimRight(result, "."))
@@ -50,8 +63,23 @@ func SanitizeFilename(name string) string {
 	return result
 }
 
+// stripControlCharacters removes the ASCII control bytes 0x00–0x1F and 0x7F,
+// which Windows forbids in a filename. It runs after whitespace has already
+// been collapsed, so the whitespace control characters (tab, newline, vertical
+// tab, form feed, carriage return) have become ordinary spaces by this point.
+func stripControlCharacters(name string) string {
+	return strings.Map(func(r rune) rune {
+		if r < 0x20 || r == 0x7F {
+			return -1
+		}
+		return r
+	}, name)
+}
+
 // sanitizeReservedStem appends an underscore to a name whose text before the
 // first dot is a Windows reserved device name, leaving any remainder intact.
+// Trailing spaces and dots are trimmed from that stem before the comparison, so
+// "NUL .txt" is caught exactly as "NUL.txt" is.
 func sanitizeReservedStem(name string) string {
 	stem := name
 	remainder := ""
@@ -59,9 +87,10 @@ func sanitizeReservedStem(name string) string {
 		stem = name[:idx]
 		remainder = name[idx:]
 	}
+	trimmed := strings.TrimRight(stem, " .")
 	for _, reserved := range windowsReservedNames {
-		if strings.EqualFold(stem, reserved) {
-			return stem + "_" + remainder
+		if strings.EqualFold(trimmed, reserved) {
+			return trimmed + "_" + remainder
 		}
 	}
 	return name

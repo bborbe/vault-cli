@@ -202,6 +202,12 @@ vault-cli filename sanitize "NUL.txt" --output json                # The same va
 the reserved device names. It needs no vault, and its plain output is the bare
 name so it can be used in a shell substitution.
 
+Three outcomes change the name you get back. A name made only of removed
+characters (or of dots) becomes `Untitled`. The mapping is lossy — `:` becomes
+` -`, so `A:B` and `A -B` both yield `A -B`. A name beginning with `-` is passed
+after `--`, as in `vault-cli filename sanitize -- "<name>"`, so it is taken as
+data rather than a flag.
+
 ### rollup
 
 ```bash

@@ -61,5 +61,18 @@ var _ = Describe("SanitizeFilename", func() {
 		Entry("whitespace runs collapse", "a   b\tc", "a b c"),
 		Entry("leading and trailing spaces are trimmed", "  spaced  ", "spaced"),
 		Entry("trailing dot is trimmed", "trailing.", "trailing"),
+		Entry("only whitespace yields Untitled", "   ", "Untitled"),
+		// Reserved stems are recognised even with a space before the extension.
+		Entry("NUL with a space before the extension gains an underscore", "NUL .txt", "NUL_.txt"),
+		Entry("CON with a space before the extension gains an underscore", "CON .md", "CON_.md"),
+		Entry("NUL with two extensions gains an underscore", "NUL.tar.gz", "NUL_.tar.gz"),
+		// ASCII control characters are removed after the whitespace collapse.
+		Entry("an ASCII control character is removed", "a\x01b", "ab"),
 	)
+
+	It("is idempotent on a name that already gained its underscore", func() {
+		once := domain.SanitizeFilename("NUL.txt")
+		Expect(once).To(Equal("NUL_.txt"))
+		Expect(domain.SanitizeFilename(once)).To(Equal(once))
+	})
 })

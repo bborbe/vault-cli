@@ -11,6 +11,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 ## Unreleased
 
 - Sanitize Windows-invalid characters in filenames generated for tasks and goals, and expose it as `vault-cli filename sanitize`.
+- fix(filename sanitize): let `vault-cli filename sanitize -` read the name from stdin so an untrusted title reaches the sanitizer as data instead of being spliced into a shell command line, and point the `task-creator` and `goal-creator` agents at a quoted-heredoc invocation of that form. Also trim trailing spaces and dots from the reserved stem before the device-name comparison so `NUL .txt` yields `NUL_.txt`, remove ASCII control characters after the whitespace collapse, and document the `Untitled` fallback, the lossy `:` to ` -` mapping and the `--` escape for a `-`-leading name in the README.
 
 ## v0.158.7
 

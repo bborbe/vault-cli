@@ -85,9 +85,9 @@ Skip this step entirely in MODE=non_interactive.
 - Take the description (with Jira key removed)
 - Apply Title Case: capitalize each significant word; preserve hyphens within compound words (e.g. `dashboard-ui` stays lowercase as a compound)
 - Trim trailing punctuation
-- Strip filesystem-illegal characters: `/ \ : * ? " < > |`
+- Sanitize the filename stem by running `vault-cli filename sanitize "<Title>"` and using its stdout verbatim — do not apply the character rules by hand
 
-Final filename: `{JIRA_KEY }{Title}.md` (Jira key prefix only when detected).
+Final filename: `{JIRA_KEY }{Title}.md`, where `{Title}` is the sanitized stem printed by `vault-cli filename sanitize` (Jira key prefix only when detected).
 
 ## 6. Determine category and priority
 

@@ -190,6 +190,18 @@ one whose cleaned form escapes the vault root, is refused. The value is written
 to the named vault's entry in the config file under the key `baseline`;
 `docs/baseline-file.md` documents the file's frontmatter contract.
 
+### filename
+
+```bash
+vault-cli filename sanitize "Fix Build-Fix Planning: Model Prose"  # Print a Windows-safe filename stem
+vault-cli filename sanitize "NUL.txt" --output json                # The same value as JSON
+```
+
+`filename sanitize` replaces the characters Windows forbids in a filename
+(`: / \ * ? " < > |`), collapses whitespace, trims trailing dots, and protects
+the reserved device names. It needs no vault, and its plain output is the bare
+name so it can be used in a shell substitution.
+
 ### rollup
 
 ```bash

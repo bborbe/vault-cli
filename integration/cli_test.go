@@ -553,6 +553,8 @@ var _ = Describe("vault-cli integration tests", func() {
 			Entry("watch", "watch"),
 			// Rollup subcommands
 			Entry("rollup weekly", "rollup", "weekly"),
+			// Filename subcommands
+			Entry("filename sanitize", "filename", "sanitize"),
 			// Config subcommands
 			Entry("config list", "config", "list"),
 			Entry("config current-user", "config", "current-user"),

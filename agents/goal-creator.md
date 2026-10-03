@@ -59,9 +59,15 @@ If the vault is not found, report the error and stop. In MODE=non_interactive, r
 - Take the description verbatim
 - Apply Title Case: capitalize each significant word; preserve hyphens within compound words
 - Trim trailing punctuation
-- Strip filesystem-illegal characters: `/ \ : * ? " < > |`
+- Sanitize the filename stem by piping the title to `vault-cli filename sanitize -` and using its stdout verbatim — do not apply the character rules by hand. The title is untrusted, so it goes on stdin rather than into an argument, and the heredoc delimiter is quoted so the shell cannot expand anything in it; pick a delimiter string that does not occur in the title:
 
-Final filename: `{Title}.md` (no Jira prefix; goals are higher-level than tasks).
+  ```bash
+  vault-cli filename sanitize - <<'EOF'
+  <Title>
+  EOF
+  ```
+
+Final filename: `{Title}.md`, where `{Title}` is the sanitized stem printed by `vault-cli filename sanitize` (no Jira prefix; goals are higher-level than tasks).
 
 ## 4. Resolve parent objective
 

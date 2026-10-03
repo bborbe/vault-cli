@@ -8,6 +8,11 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat(filename sanitize): sanitize Windows-invalid characters in filenames generated for tasks and goals, and expose it as `vault-cli filename sanitize`.
+- fix(filename sanitize): let `vault-cli filename sanitize -` read the name from stdin so an untrusted title reaches the sanitizer as data instead of being spliced into a shell command line, and point the `task-creator` and `goal-creator` agents at a quoted-heredoc invocation of that form. Also trim trailing spaces and dots from the reserved stem before the device-name comparison so `NUL .txt` yields `NUL_.txt`, remove ASCII control characters after the whitespace collapse, and document the `Untitled` fallback, the lossy `:` to ` -` mapping and the `--` escape for a `-`-leading name in the README.
+
 ## v0.158.7
 
 - fix(session-close): Phase 4.5 gains a third anchor-gate exclusion for a task the session only **mirror-promoted**. A sync that mirrors Jira state onto the vault — `/jira-sprint-sync` is the one that ships here — writes `status` / `phase` / `assignee` to bring an in-sprint task onto the board, which marks the file "touched" although the session never worked it. Close then hard-flagged that row, and the only honest resolution left was "leave it open", which keeps mode 3 — so a sync-and-close session could never reach `⚪ DONE`. The exclusion reuses the same scope test as the two existing ones: a `claude_session_id` naming this session, or the session actually working the task, keeps the gate. Observed 2026-10-02: close flagged one such row **twice** in a session whose own anchor was already `completed`.

@@ -58,7 +58,8 @@ Extract from the conversation:
 - Blockers / deferred items
 
 If NO completion detected, check whether a PR was created (Phase 3.3 detection rules):
-- PR present, no completion → proceed but only run Phase 3.3 (PR-only sync). Report as "PR-only sync."
+- PR present, no completion → proceed but only run Phase 3.3 (PR-only sync). Report as "PR-only sync." This arm deliberately wins over the terminal-non-completion arm below: a session that both opened a PR and was aborted records the PR, and the outcome is not duplicated.
+- Anchor ended in a **terminal non-completion** (`status: aborted` or `hold`) → proceed with Phase 3.1 (daily note) only, heading the entry with the outcome — `### [[Task Name]] — Aborted (superseded)`, wikilink mandatory per Phase 3.1's entry shape — and skipping Phase 4, since there is no completion to mark. **Resolve the status by probe, never from the conversation:** run `vault-cli task get "<anchor task>" status --output json` and branch on the parsed `value`, exactly as `session-close` Phase 4.5 does. A non-zero exit or an unparseable result means *not established* — fall through to the STOP gate below rather than guessing. The conversation is not a sufficient source: the case this arm exists for is an anchor that already ended `aborted` in an earlier session or on another branch, where the transcript carries no signal at all.
 - Neither PR nor completion → `No task completion or PR detected. Use /update instead for in-progress work.` and STOP.
 
 ## Phase 3: Update progress notes

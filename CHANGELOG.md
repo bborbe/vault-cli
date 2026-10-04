@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix(sync-progress): record a session whose anchor ended in a terminal non-completion (`status: aborted` or `hold`) by writing the daily-note entry headed with the outcome, instead of declining with `No task completion or PR detected`. An abort is a finished session, and the old gate left `session-close` Phase 7's "run `/vault-cli:sync-progress` before closing" flag with no resolution path at all.
+
 ## v0.159.0
 
 - feat(filename sanitize): sanitize Windows-invalid characters in filenames generated for tasks and goals, and expose it as `vault-cli filename sanitize`.

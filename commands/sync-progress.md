@@ -59,6 +59,7 @@ Extract from the conversation:
 
 If NO completion detected, check whether a PR was created (Phase 3.3 detection rules):
 - PR present, no completion → proceed but only run Phase 3.3 (PR-only sync). Report as "PR-only sync."
+- Anchor ended in a **terminal non-completion** (`status: aborted` or `hold`) → proceed with Phase 3.1 (daily note) only, heading the entry with the outcome (e.g. "Aborted (superseded)"). A terminal non-completion is a finished session: the work happened, and how it ended is exactly what the daily note should record. Skip Phase 4 — there is no completion to mark.
 - Neither PR nor completion → `No task completion or PR detected. Use /update instead for in-progress work.` and STOP.
 
 ## Phase 3: Update progress notes

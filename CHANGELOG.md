@@ -10,7 +10,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 
 ## Unreleased
 
-- fix: record a session whose anchor ended in a terminal non-completion (`status: aborted` or `hold`) by writing the daily-note entry headed with the outcome, instead of declining with `No task completion or PR detected`. An abort is a finished session, and the old gate left `session-close` Phase 7's "run `/vault-cli:sync-progress` before closing" flag with no resolution path at all.
+- fix: record a session whose anchor ended in a terminal non-completion (`status: aborted` or `hold`) by writing the daily-note entry headed with the outcome, instead of declining with `No task completion or PR detected`. An abort is a finished session, and the old gate left `session-close` Phase 7's "run `/vault-cli:sync-progress` before closing" flag with no resolution path at all. The arm resolves the anchor's status by probe (`vault-cli task get … status`), not from the conversation, so it also fires for an anchor aborted in an earlier session or on another branch — the case it exists for.
 
 ## v0.159.0
 

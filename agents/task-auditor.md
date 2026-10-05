@@ -337,7 +337,7 @@ The `# Definition of Done` section is the closure gate. Tasks that lack it (or h
 
 ## Rigor Passes (always run)
 
-Five passes that apply to every task regardless of class. The first three were ported from `dark-factory`'s `spec-auditor` on 2026-09-05 and adapted spec→task (Acceptance Criteria → Success Criteria, prompts → subtasks); the fourth has no upstream; the fifth was added 2026-09-30 and opens the artifacts a task cites.
+Six passes that apply to every task regardless of class. The first three were ported from `dark-factory`'s `spec-auditor` on 2026-09-05 and adapted spec→task (Acceptance Criteria → Success Criteria, prompts → subtasks); the fourth has no upstream; the fifth was added 2026-09-30 and opens the artifacts a task cites; the sixth was added 2026-10-05 and checks the empirical premises a task asserts about the running system.
 
 ### 13. Hedge-Word Audit (free — catches decision deferrals)
 
@@ -464,9 +464,17 @@ A task's premises are claims about *other* files: a path, a line number, a quote
 
 ⚠️ **A citation pinned to a *mutable* artifact rots.** If the task cites a working-tree file by line number or count, the finding is reproducible only until that file is next edited. Report it, and say in the finding that the citation is unpinned — evidence that depends on it needs a frozen revision (a commit SHA), not a live path.
 
+### 18. Premise Fidelity (free — the empirical claims a task asserts about the running system)
+
+§ 17 opens the artifacts a task cites; this pass interrogates what a task asserts about the **system itself**. An `# Impact` or Summary line carrying an empirical fact — *"nothing else reads this DB"*, *"the data is disposable"*, *"X is unused"*, *"the functional window is one minute"* — is a premise the whole task rests on, and no other pass reaches it: § 14 asks whether a criterion is falsifiable and § 15 whether its evidence is shape-matched, but both interrogate the **criteria**, never the **premise** beneath them. A premise several audit rounds accept without checking is the failure this catches.
+
+**Either find it evidenced in the file, or flag it `unverified`.** A premise is evidenced when the file names the read that establishes it — a query, a log line, a config, an artifact § 17 already resolved. Absent that, report the claim as **`unverified`** with the one read-only command a reader could run to settle it — and **do not run it**: auditing is a read-only text pass, and naming the command is the deliverable.
+
+**Observed:** a task claimed *"the data is disposable… nothing else reads this DB"* and was audited 9/10 three times before the claim proved false — the change was built, merged and deployed, then reverted.
+
 ## Quick Fixes (Minor)
 
-### 18. Formatting
+### 19. Formatting
 - Title not duplicated as H1 (Obsidian shows filename)
 - Proper markdown formatting
 - Consistent checkbox markers `- [ ]`
@@ -569,6 +577,7 @@ Hedge words: [count + quoted lines, or "none"]
 Evidence shape: [criteria missing a declared shape, or "all declared"]
 MVP framing: [items that could ship separately, or "minimal"]
 Citation fidelity: [each failed claim quoted beside the disk state that contradicts it, or "every cited artifact agrees"]
+Premise fidelity: [each unverified empirical premise quoted beside the read that would settle it, or "every asserted premise is evidenced"]
 
 ## Recommendations
 ## Quick Fixes

@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat: the task auditor gains a **Premise Fidelity** pass (§18) and `/vault-cli:plan-task` a matching hard check. Both close a gap the existing checks leave open: a task's `# Impact` or Summary may assert an **empirical fact about the running system** — *"nothing else reads this DB"*, *"the data is disposable"*, *"X is unused"*, *"the functional window is one minute"* — and the checks interrogate the **criteria** (falsifiable? shape-matched?) but never the **premise** beneath them. The auditor now requires such a claim to be evidenced in the file (a query, a log line, a config, an artifact § 17 already resolved) or reported as **`unverified`** with the one read-only command that would settle it — naming the command, never running it, because auditing is a read-only text pass. Grounded in an observed incident: a task claimed *"the data is disposable… nothing else reads this DB"* and was audited 9/10 three times before the claim proved false — the change was built, merged and deployed, then reverted. Reported as `Premise fidelity:` in the Rigor Passes block; §18 Formatting renumbered to §19. Change set: `agents/task-auditor.md`, `commands/plan-task.md`.
+
 ## v0.159.1
 
 - fix: record a session whose anchor ended in a terminal non-completion (`status: aborted` or `hold`) by writing the daily-note entry headed with the outcome, instead of declining with `No task completion or PR detected`. An abort is a finished session, and the old gate left `session-close` Phase 7's "run `/vault-cli:sync-progress` before closing" flag with no resolution path at all. The arm resolves the anchor's status by probe (`vault-cli task get … status`), not from the conversation, so it also fires for an anchor aborted in an earlier session or on another branch — the case it exists for.

@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.160.1
 
 - fix: point `session-close` Phase 7's daily-note flag at the writer that actually works for an `in_progress` anchor. The flag told the reader to run `/vault-cli:sync-progress`, but that command records a *completed* session and declines for an anchor still `in_progress` — exactly the case that raises the flag — so the flag could not clear and named a dead end. It now branches: `/vault-cli:update-task` for an in-progress anchor, `/vault-cli:sync-progress` for a completed one, each phrased as an imperative so a reader agent cannot resolve the flag to the wrong branch. The accompanying note records that `update-task` is itself gated on noteworthy progress, so a session with nothing noteworthy leaves the flag standing on purpose rather than by defect — and the flag no longer restates `sync-progress`'s own decline text, which this file forbids elsewhere as drift-prone. Complements v0.159.1, which gave the `aborted`/`hold` arm a resolution path and left this arm open. Observed 2026-10-06: an in-progress anchor at close, `sync-progress` run twice and declining twice, `session-close` run twice, the flag persisting until the task completed. Change set: `commands/session-close.md`.
 

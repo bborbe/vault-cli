@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.160.2
 
 - fix: the task auditor's **Premise Fidelity** pass (§18) gains two clauses. It previously accepted any read the file named — including *"a config"* — as evidence for a premise, with no requirement that the artifact **govern** the claim it is cited for; and it said nothing about what `unverified` means for a **hard gate**, which left an auditor that must return a gate verdict resolving the ambiguity by asserting. Evidence must now be the artifact that governs; naming a governing artifact you have not read **is** the `unverified` case; and an unverified premise never fails a hard gate — it is reported `unverified` with no gate verdict either way, and the pass never asserts the contradicting fact. Grounded in an observed incident: an auditor's hard-gate finding asserted that a vault's MCP server launches from the plugin cache, inferred from the plugin's own `.mcp.json`, while its own reasoning had already named the governing declaration (`~/.claude/mcp-<vault>.json`) and declined to read it — the claim was false, and the session settled it by inspecting ~35 live processes. Change set: `agents/task-auditor.md`.
 

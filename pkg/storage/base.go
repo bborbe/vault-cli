@@ -312,17 +312,58 @@ func (b *baseStorage) parseCheckboxes(content string) []domain.CheckboxItem {
 	return items
 }
 
-// OpenQuestionItem is one item of a task's `Open Questions` section. Line is the
-// item's index into strings.Split(content, "\n") and Marker is its list prefix
-// (indentation, list marker and the whitespace after it), so a rewriter can
-// address the same physical line the reader counted and preserve the file's own
-// list style — instead of re-deriving the section through a second
-// implementation that could drift from this one.
+// OpenQuestionItem is one item of a task's `Open Questions` section.
+//
+// Index is POSITIONAL — the item's ordinal among the section's items, counted
+// from 1 — and not the numeric list marker the file happens to render. A section
+// written as `1.` / `3.` reports indices 1 and 2. Callers address items by this
+// index; the marker is preserved on write but never interpreted.
+//
+// Question and Answer are the item's text split at its trailing
+// ` → **<answer>**` marker, which is the form this package's writer produces.
+// Splitting here, once, is what keeps the reader and any rewriter agreeing on
+// what "the question" is — a rewriter that re-derived the split could disagree
+// and edit the wrong text. Answer is empty for an item that carries none.
+//
+// Line is the item's index into strings.Split(content, "\n") and Marker is its
+// list prefix (indentation, list marker and the whitespace after it), so a
+// rewriter can address the same physical line the reader counted and preserve
+// the file's own list style.
 type OpenQuestionItem struct {
-	Index  int
-	Text   string
-	Marker string
-	Line   int
+	Index    int
+	Question string
+	Answer   string
+	Marker   string
+	Line     int
+}
+
+// AnswerDelimiter separates an item's question from its recorded answer. It is
+// exported so a writer can refuse an answer containing it: an answer that
+// carried the delimiter would make the line ambiguous, and re-answering would
+// then split at the wrong place and destroy the previous answer.
+const AnswerDelimiter = " → **"
+
+// FormatOpenQuestionItem renders an item with the given answer, preserving the
+// item's own list marker, indentation and line ending. answer must not contain
+// AnswerDelimiter — the caller enforces that — which is what lets
+// ParseOpenQuestions split the result back into the same question and answer.
+func FormatOpenQuestionItem(item OpenQuestionItem, answer string, ending string) string {
+	return item.Marker + item.Question + AnswerDelimiter + answer + "**" + ending
+}
+
+// splitAnswer splits an item's text into its question and its recorded answer at
+// the LAST AnswerDelimiter, requiring the text to end with the closing `**`.
+// Text with no such suffix is entirely question. Splitting at the last delimiter
+// (rather than the first) means a question that itself contains the delimiter
+// keeps it, and an answer is required never to contain it, so a line this
+// package writes always splits back to what it wrote.
+func splitAnswer(text string) (string, string) {
+	trimmed := strings.TrimSuffix(text, "**")
+	idx := strings.LastIndex(trimmed, AnswerDelimiter)
+	if idx < 0 {
+		return text, ""
+	}
+	return trimmed[:idx], trimmed[idx+len(AnswerDelimiter):]
 }
 
 // ParseOpenQuestions returns the top-level list items of the first `Open
@@ -332,8 +373,14 @@ type OpenQuestionItem struct {
 // `null`. A blank list item is skipped rather than yielding an empty question,
 // and the index counts only the items returned.
 //
+// The heading is matched EXACTLY and case-sensitively against `Open Questions`
+// at any level. A variant such as `Open questions` or `Open Questions:` is not
+// recognised, and the section then reads as absent — an empty list with no
+// error, which is the documented contract in docs/task-writing.md.
+//
 // This is the single parse both the reader and any rewriter use, so the index a
-// caller names always addresses the line the rewriter edits.
+// caller names always addresses the line the rewriter edits and both agree on
+// where the question ends and the answer begins.
 func ParseOpenQuestions(ctx context.Context, content string) []OpenQuestionItem {
 	items := make([]OpenQuestionItem, 0)
 	lines := strings.Split(content, "\n")
@@ -357,35 +404,40 @@ func ParseOpenQuestions(ctx context.Context, content string) []OpenQuestionItem 
 			continue
 		}
 		index++
-		items = append(
-			items,
-			OpenQuestionItem{Index: index, Text: text, Marker: marker, Line: i},
-		)
+		question, answer := splitAnswer(text)
+		items = append(items, OpenQuestionItem{
+			Index:    index,
+			Question: question,
+			Answer:   answer,
+			Marker:   marker,
+			Line:     i,
+		})
 	}
 	return items
 }
 
 // openQuestionsSectionBounds returns the half-open line range [start+1, end) of
 // the body of the first `Open Questions` section in lines, where start is the
-// heading's own line index. The section ends at the next heading of the same or
-// a higher level, or at the end of the file. It returns (-1, -1) when no such
+// heading's own line index. The section ends at the NEXT heading of any level,
+// or at the end of the file. Ending at any heading rather than only one at the
+// same or a higher level keeps a sub-heading's bullets from being counted as
+// questions — they would take indices, and a caller addressing a real question
+// by index could then edit a note instead. It returns (-1, -1) when no such
 // heading exists.
 func openQuestionsSectionBounds(lines []string) (int, int) {
-	start, level := -1, 0
+	start := -1
 	for i, line := range lines {
-		lineLevel, text, ok := parseMarkdownHeading(line)
+		_, text, ok := parseMarkdownHeading(line)
 		if !ok {
 			continue
 		}
 		if start < 0 {
 			if text == openQuestionsSectionHeading {
-				start, level = i, lineLevel
+				start = i
 			}
 			continue
 		}
-		if lineLevel <= level {
-			return start, i
-		}
+		return start, i
 	}
 	if start < 0 {
 		return -1, -1

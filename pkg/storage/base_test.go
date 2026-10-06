@@ -287,7 +287,7 @@ var _ = Describe("bare Wikilink quoting on the parse path", func() {
 func indexesAndTexts(items []storage.OpenQuestionItem) []domain.OpenQuestion {
 	out := make([]domain.OpenQuestion, 0, len(items))
 	for _, item := range items {
-		out = append(out, domain.OpenQuestion{Index: item.Index, Text: item.Text})
+		out = append(out, domain.OpenQuestion{Index: item.Index, Text: item.Question})
 	}
 	return out
 }
@@ -344,9 +344,17 @@ var _ = Describe("storage ParseOpenQuestions", func() {
 				{Index: 2, Text: "Third?"},
 			},
 		),
-		Entry("an existing answer is part of the item text",
+		// A recorded answer is split off, so the question a caller sees is what a
+		// re-answer replaces — not the question with its old answer still attached.
+		Entry("a recorded answer is split off the question",
 			"# Open Questions\n\n- First? → **Yes**\n",
-			[]domain.OpenQuestion{{Index: 1, Text: "First? → **Yes**"}},
+			[]domain.OpenQuestion{{Index: 1, Text: "First?"}},
+		),
+		// A sub-heading's bullets are notes, not questions. Counting them would
+		// inflate the index, letting a caller edit a note instead of a question.
+		Entry("the section ends at a sub-heading",
+			"# Open Questions\n\n- One?\n\n#### Notes\n\n- not a question\n",
+			[]domain.OpenQuestion{{Index: 1, Text: "One?"}},
 		),
 		Entry("only the first Open Questions heading is read",
 			"# Open Questions\n\n- First?\n\n# Open Questions\n\n- Second?\n",
@@ -376,6 +384,35 @@ var _ = Describe("storage ParseOpenQuestions", func() {
 		Expect(items).To(HaveLen(2))
 		Expect(items[0].Line).To(Equal(4))
 		Expect(items[1].Line).To(Equal(5))
+	})
+
+	It("splits a recorded answer off at the last delimiter", func() {
+		// A question that itself contains the delimiter keeps it: the split is at
+		// the LAST one, which is where this package's writer puts it.
+		items := storage.ParseOpenQuestions(
+			ctx,
+			"# Open Questions\n\n- Pick A → **B**? → **Yes**\n",
+		)
+		Expect(items).To(HaveLen(1))
+		Expect(items[0].Question).To(Equal("Pick A → **B**?"))
+		Expect(items[0].Answer).To(Equal("Yes"))
+	})
+
+	It("reports an unanswered item with an empty answer", func() {
+		items := storage.ParseOpenQuestions(ctx, "# Open Questions\n\n- First?\n")
+		Expect(items).To(HaveLen(1))
+		Expect(items[0].Question).To(Equal("First?"))
+		Expect(items[0].Answer).To(BeEmpty())
+	})
+
+	It("numbers items by position, not by their numeric marker", func() {
+		// Index is the caller-facing address, so it must be the ordinal in the
+		// section. A file whose markers skip a number still reports 1, 2 — the
+		// markers are preserved on write but never interpreted.
+		items := storage.ParseOpenQuestions(ctx, "# Open Questions\n\n1. Alpha?\n3. Gamma?\n")
+		Expect(items).To(HaveLen(2))
+		Expect(items[0].Index).To(Equal(1))
+		Expect(items[1].Index).To(Equal(2))
 	})
 
 	It("returns an empty, non-nil slice when the section is absent", func() {

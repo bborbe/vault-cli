@@ -4,9 +4,7 @@
 
 package storage
 
-import (
-	"context"
-)
+import "context"
 
 // Test-only exports of unexported baseStorage methods.
 // These functions are only visible to _test.go files in package storage_test.

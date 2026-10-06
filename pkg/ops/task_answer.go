@@ -6,7 +6,6 @@ package ops
 
 import (
 	"context"
-	"regexp"
 	"strings"
 
 	"github.com/bborbe/errors"
@@ -49,10 +48,6 @@ func NewTaskAnswerOperation(taskStorage storage.TaskStorage) TaskAnswerOperation
 type taskAnswerOperation struct {
 	taskStorage storage.TaskStorage
 }
-
-// answerSuffixRegex matches an item that already carries an answer, so
-// re-answering replaces that suffix instead of appending a second one.
-var answerSuffixRegex = regexp.MustCompile(`^(.*) → \*\*.*\*\*$`)
 
 // Execute records the operator's answers into the task's Open Questions section.
 func (o *taskAnswerOperation) Execute(
@@ -104,6 +99,28 @@ func (o *taskAnswerOperation) Execute(
 				ctx,
 				"refusing to answer %q: the answer to question %d contains a line break, "+
 					"and an answer must stay on one line",
+				taskName, answer.Index,
+			)
+			return MutationResult{Success: false, Error: err.Error()}, err
+		}
+		// The delimiter is where the question ends. An answer carrying it would
+		// make the written line ambiguous, and re-answering would then split at the
+		// wrong place and destroy the previous answer.
+		if strings.Contains(answer.Answer, storage.AnswerDelimiter) {
+			err := errors.Errorf(
+				ctx,
+				"refusing to answer %q: the answer to question %d contains %q, "+
+					"which is what separates a question from its answer",
+				taskName, answer.Index, storage.AnswerDelimiter,
+			)
+			return MutationResult{Success: false, Error: err.Error()}, err
+		}
+		// Two answers for one index would silently keep the last, leaving the
+		// caller unable to tell which of its flags took effect. Refuse instead.
+		if _, duplicate := answerByIndex[answer.Index]; duplicate {
+			err := errors.Errorf(
+				ctx,
+				"refusing to answer %q: question %d is answered more than once",
 				taskName, answer.Index,
 			)
 			return MutationResult{Success: false, Error: err.Error()}, err
@@ -160,18 +177,11 @@ func applyAnswers(
 		if strings.HasSuffix(lines[item.Line], "\r") {
 			ending = "\r"
 		}
-		lines[item.Line] = item.Marker +
-			stripAnswerSuffix(item.Text) + " → **" + answer + "**" + ending
+		// item.Question is the shared parse's own split, so this replaces exactly
+		// the text the reader called the question — on a re-answer it discards the
+		// answer the reader already separated out, rather than re-deriving where
+		// the previous answer began.
+		lines[item.Line] = storage.FormatOpenQuestionItem(item, answer, ending)
 	}
 	return lines, nil
-}
-
-// stripAnswerSuffix removes a trailing ` → **<answer>**` from text, so an item
-// that was already answered is rewritten rather than accumulating a second
-// answer. Text without such a suffix is returned unchanged.
-func stripAnswerSuffix(text string) string {
-	if matches := answerSuffixRegex.FindStringSubmatch(text); len(matches) == 2 {
-		return matches[1]
-	}
-	return text
 }

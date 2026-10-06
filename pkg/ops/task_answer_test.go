@@ -271,6 +271,64 @@ status: next
 		Expect(readTask()).To(Equal(before))
 	})
 
+	// The delimiter is where the question ends, so an answer carrying it would
+	// make the written line ambiguous and a later re-answer would split at the
+	// wrong place — destroying the previous answer and grafting part of it into
+	// the question.
+	It("refuses an answer containing the question/answer delimiter", func() {
+		writeTask(taskWithQuestions)
+		before := readTask()
+
+		_, err := answerOp.Execute(
+			ctx, vaultPath, "Alpha", "test",
+			[]domain.OpenAnswer{{Index: 1, Answer: "Use Redis → **HA**"}},
+		)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("separates a question from its answer"))
+		Expect(readTask()).To(Equal(before))
+	})
+
+	// Two answers for one index would silently keep the last, leaving the caller
+	// unable to tell which of its flags took effect.
+	It("refuses a duplicate index and writes nothing", func() {
+		writeTask(taskWithQuestions)
+		before := readTask()
+
+		_, err := answerOp.Execute(
+			ctx, vaultPath, "Alpha", "test",
+			[]domain.OpenAnswer{
+				{Index: 1, Answer: "first"},
+				{Index: 1, Answer: "second"},
+			},
+		)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("answered more than once"))
+		Expect(readTask()).To(Equal(before))
+	})
+
+	// The reader splits a recorded answer off its question, so re-answering
+	// replaces the answer rather than appending to it. This is the round-trip
+	// that a re-derived split got wrong.
+	It("replaces a recorded answer without disturbing the question", func() {
+		writeTask(taskWithQuestions)
+		_, err := answerOp.Execute(
+			ctx, vaultPath, "Alpha", "test",
+			[]domain.OpenAnswer{{Index: 2, Answer: "one week"}},
+		)
+		Expect(err).NotTo(HaveOccurred())
+
+		_, err = answerOp.Execute(
+			ctx, vaultPath, "Alpha", "test",
+			[]domain.OpenAnswer{{Index: 2, Answer: "two weeks"}},
+		)
+		Expect(err).NotTo(HaveOccurred())
+
+		after := readTask()
+		Expect(after).To(ContainSubstring("- How long is the window? → **two weeks**"))
+		Expect(after).NotTo(ContainSubstring("one week"))
+		Expect(strings.Count(after, "→ **")).To(Equal(1))
+	})
+
 	// A CRLF body leaves a trailing \r on every line. The rewritten line must
 	// keep it, or it becomes the only LF line in an otherwise-CRLF file.
 	//

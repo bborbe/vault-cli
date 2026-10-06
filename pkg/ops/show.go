@@ -119,7 +119,7 @@ func (o *showOperation) Execute(
 	for _, item := range items {
 		openQuestions = append(
 			openQuestions,
-			domain.OpenQuestion{Index: item.Index, Text: item.Text},
+			domain.OpenQuestion{Index: item.Index, Text: item.Question},
 		)
 	}
 	detail.OpenQuestions = openQuestions

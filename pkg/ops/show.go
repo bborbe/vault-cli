@@ -12,6 +12,7 @@ import (
 
 	"github.com/bborbe/errors"
 
+	"github.com/bborbe/vault-cli/pkg/domain"
 	"github.com/bborbe/vault-cli/pkg/storage"
 )
 
@@ -61,6 +62,10 @@ type TaskDetail struct {
 	Flag            bool     `json:"flag,omitempty"`
 	FlagSetBy       string   `json:"flag_set_by,omitempty"`
 	FlagSetAt       string   `json:"flag_set_at,omitempty"`
+	// OpenQuestions lists the task's Open Questions section items in section
+	// order. It is always non-nil so `--output json` emits `[]`, not `null`, for
+	// a task with no such section.
+	OpenQuestions []domain.OpenQuestion `json:"open_questions"`
 }
 
 var (
@@ -102,6 +107,25 @@ func (o *showOperation) Execute(
 		FlagSetBy:       task.GetString("flag_set_by"),
 		FlagSetAt:       formatFlagSetAt(task.FrontmatterMap),
 	}
+
+	// Parse the section from the content already in hand. Going back through the
+	// storage interface would call FindTaskByName a second time — a full vault
+	// walk plus a frontmatter parse on the CLI's most-used read path — and would
+	// let the questions describe a different file version than Content above if
+	// the file were written between the two reads. ParseOpenQuestions always
+	// returns a non-nil slice, which is the shape the JSON contract promises.
+	items, err := storage.ParseOpenQuestions(ctx, string(task.Content))
+	if err != nil {
+		return TaskDetail{}, errors.Wrap(ctx, err, "parse open questions")
+	}
+	openQuestions := make([]domain.OpenQuestion, 0, len(items))
+	for _, item := range items {
+		openQuestions = append(
+			openQuestions,
+			domain.OpenQuestion{Index: item.Index, Text: item.Question},
+		)
+	}
+	detail.OpenQuestions = openQuestions
 
 	if d := task.DeferDate(); d != nil {
 		detail.DeferDate = d.String()

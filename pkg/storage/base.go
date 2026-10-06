@@ -61,7 +61,22 @@ var (
 	blockScalarStartRegex = regexp.MustCompile(
 		`^( *)(?:[A-Za-z0-9_][A-Za-z0-9_.-]*:|-)[ \t]+[|>][+-]?[0-9]*[ \t]*$`,
 	)
+
+	// markdownHeadingRegex matches an ATX markdown heading. Capture groups:
+	// 1=the `#` run (its length is the heading level), 2=the heading text.
+	markdownHeadingRegex = regexp.MustCompile(`^(#{1,6})[ \t]+(.*?)[ \t]*$`)
+
+	// openQuestionItemRegex matches a list item line. Capture groups: 1=leading
+	// indentation, 2=the list marker (`-`, `*`, or `N.`), 3=the whitespace after
+	// the marker, 4=the item text. The reader accepts only items whose
+	// indentation is empty (the section's top level); the marker and its
+	// whitespace are remembered so a rewriter can preserve the file's list style.
+	openQuestionItemRegex = regexp.MustCompile(`^([ \t]*)([-*]|\d+\.)([ \t]+)(.*)$`)
 )
+
+// openQuestionsSectionHeading is the exact heading text that introduces a task's
+// Open Questions section, at any heading level.
+const openQuestionsSectionHeading = "Open Questions"
 
 type baseStorage struct {
 	config *Config
@@ -295,6 +310,181 @@ func (b *baseStorage) parseCheckboxes(content string) []domain.CheckboxItem {
 	}
 
 	return items
+}
+
+// OpenQuestionItem is one item of a task's `Open Questions` section.
+//
+// Index is POSITIONAL — the item's ordinal among the section's items, counted
+// from 1 — and not the numeric list marker the file happens to render. A section
+// written as `1.` / `3.` reports indices 1 and 2. Callers address items by this
+// index; the marker is preserved on write but never interpreted.
+//
+// Question and Answer are the item's text split at its trailing
+// ` → **<answer>**` marker, which is the form this package's writer produces.
+// Splitting here, once, is what keeps the reader and any rewriter agreeing on
+// what "the question" is — a rewriter that re-derived the split could disagree
+// and edit the wrong text. Answer is empty for an item that carries none.
+//
+// Line is the item's index into strings.Split(content, "\n") and Marker is its
+// list prefix (indentation, list marker and the whitespace after it), so a
+// rewriter can address the same physical line the reader counted and preserve
+// the file's own list style.
+type OpenQuestionItem struct {
+	Index    int
+	Question string
+	Answer   string
+	Marker   string
+	Line     int
+}
+
+// AnswerDelimiter separates an item's question from its recorded answer. It is
+// exported so a writer can refuse an answer containing it: an answer that
+// carried the delimiter would make the line ambiguous, and re-answering would
+// then split at the wrong place and destroy the previous answer.
+const AnswerDelimiter = " → **"
+
+// FormatOpenQuestionItem renders an item with the given answer, preserving the
+// item's own list marker, indentation and line ending. answer must contain
+// neither AnswerDelimiter nor `**` — the caller enforces both — which is what
+// lets ParseOpenQuestions split the result back into the same question and
+// answer. An answer carrying `**` would close the emphasis early and read back
+// with extra asterisks: `**critical**` becomes `***critical**`.
+func FormatOpenQuestionItem(item OpenQuestionItem, answer string, ending string) string {
+	return item.Marker + item.Question + AnswerDelimiter + answer + "**" + ending
+}
+
+// splitAnswer splits an item's text into its question and its recorded answer at
+// the LAST AnswerDelimiter, requiring the text to end with the closing `**`.
+// Text with no such suffix is entirely question. Splitting at the last delimiter
+// (rather than the first) means a question that itself contains the delimiter
+// keeps it, and an answer is required never to contain it, so a line this
+// package writes always splits back to what it wrote.
+func splitAnswer(text string) (string, string) {
+	// The closing `**` is REQUIRED. Without this check a question that merely
+	// contains the delimiter — `Should we pick A → **B?`, which ends in `?` —
+	// would split, truncating the question to `Should we pick A`; a later
+	// `task answer` would then write that truncated text back and the rest of
+	// the question would be gone from the vault for good.
+	if !strings.HasSuffix(text, "**") {
+		return text, ""
+	}
+	trimmed := strings.TrimSuffix(text, "**")
+	idx := strings.LastIndex(trimmed, AnswerDelimiter)
+	if idx < 0 {
+		return text, ""
+	}
+	return trimmed[:idx], trimmed[idx+len(AnswerDelimiter):]
+}
+
+// ParseOpenQuestions returns the top-level list items of the first `Open
+// Questions` section in content, in section order, each carrying its 1-based
+// index and the line it occupies. A content without such a section yields an
+// empty (non-nil) slice, so a caller can serialize it as `[]` rather than
+// `null`. A blank list item is skipped rather than yielding an empty question,
+// and the index counts only the items returned.
+//
+// The heading is matched EXACTLY and case-sensitively against `Open Questions`
+// at any level. A variant such as `Open questions` or `Open Questions:` is not
+// recognised, and the section then reads as absent — an empty list with no
+// error, which is the documented contract in docs/task-writing.md.
+//
+// This is the single parse both the reader and any rewriter use, so the index a
+// caller names always addresses the line the rewriter edits and both agree on
+// where the question ends and the answer begins.
+func ParseOpenQuestions(ctx context.Context, content string) ([]OpenQuestionItem, error) {
+	items := make([]OpenQuestionItem, 0)
+	lines := strings.Split(content, "\n")
+	start, end := openQuestionsSectionBounds(lines)
+	if start < 0 {
+		return items, nil
+	}
+
+	index := 0
+	for i := start + 1; i < end; i++ {
+		select {
+		case <-ctx.Done():
+			// Returning the partial list would report a task as having fewer
+			// questions than it holds, with no signal — and a caller addressing a
+			// question by index could then edit the wrong one. Return nothing and
+			// the reason instead.
+			return nil, errors.Wrap(ctx, ctx.Err(), "parse open questions")
+		default:
+		}
+		marker, text, ok := openQuestionItem(lines[i])
+		if !ok {
+			continue
+		}
+		if text == "" {
+			continue
+		}
+		index++
+		question, answer := splitAnswer(text)
+		items = append(items, OpenQuestionItem{
+			Index:    index,
+			Question: question,
+			Answer:   answer,
+			Marker:   marker,
+			Line:     i,
+		})
+	}
+	return items, nil
+}
+
+// openQuestionsSectionBounds returns the half-open line range [start+1, end) of
+// the body of the first `Open Questions` section in lines, where start is the
+// heading's own line index. The section ends at the NEXT heading of any level,
+// or at the end of the file. Ending at any heading rather than only one at the
+// same or a higher level keeps a sub-heading's bullets from being counted as
+// questions — they would take indices, and a caller addressing a real question
+// by index could then edit a note instead. It returns (-1, -1) when no such
+// heading exists.
+func openQuestionsSectionBounds(lines []string) (int, int) {
+	start := -1
+	for i, line := range lines {
+		_, text, ok := parseMarkdownHeading(line)
+		if !ok {
+			continue
+		}
+		if start < 0 {
+			if text == openQuestionsSectionHeading {
+				start = i
+			}
+			continue
+		}
+		return start, i
+	}
+	if start < 0 {
+		return -1, -1
+	}
+	return start, len(lines)
+}
+
+// parseMarkdownHeading returns the level and text of an ATX markdown heading
+// line, and false for any line that is not a heading.
+//
+// A CRLF file leaves a trailing \r on every line produced by splitting on "\n".
+// `.` matches \r and `$` without (?m) is end-of-text, so the capture would keep
+// it and every exact-text comparison against the heading would fail — the
+// section would silently never be found. Strip it here so a CRLF file parses the
+// same as an LF one.
+func parseMarkdownHeading(line string) (int, string, bool) {
+	matches := markdownHeadingRegex.FindStringSubmatch(strings.TrimSuffix(line, "\r"))
+	if len(matches) != 3 {
+		return 0, "", false
+	}
+	return len(matches[1]), matches[2], true
+}
+
+// openQuestionItem returns the marker (indentation plus list marker plus the
+// whitespace after it) and the trimmed text of a top-level list item line, and
+// false for any other line. An indented item is not a top-level item and is
+// rejected.
+func openQuestionItem(line string) (string, string, bool) {
+	matches := openQuestionItemRegex.FindStringSubmatch(line)
+	if len(matches) != 5 || matches[1] != "" {
+		return "", "", false
+	}
+	return matches[2] + matches[3], strings.TrimSpace(matches[4]), true
 }
 
 // readEntityComponentsFromPath reads a vault file and returns its parsed frontmatter,

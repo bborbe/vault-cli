@@ -478,6 +478,7 @@ var _ = Describe("vault-cli integration tests", func() {
 			Entry("task get", "task", "get"),
 			Entry("task set", "task", "set"),
 			Entry("task approve", "task", "approve"),
+			Entry("task answer", "task", "answer"),
 			Entry("task clear", "task", "clear"),
 			Entry("task lint", "task", "lint"),
 			Entry("task validate", "task", "validate"),
@@ -3919,6 +3920,242 @@ body line
 			Eventually(session).Should(gexec.Exit(0))
 			Expect(string(session.Out.Contents())).To(ContainSubstring("approve"))
 			Expect(string(session.Out.Contents())).To(ContainSubstring("--assignee"))
+		})
+	})
+
+	Describe("task answer", func() {
+		var vaultPath, configPath string
+		var cleanup func()
+
+		AfterEach(func() {
+			cleanup()
+		})
+
+		runEntityCommand := func(args ...string) *gexec.Session {
+			fullArgs := append(
+				[]string{"--config", configPath, "--vault", "test"},
+				args...,
+			)
+			session, err := gexec.Start(exec.Command(binPath, fullArgs...), GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			return session
+		}
+
+		readFile := func(path string) string {
+			content, err := os.ReadFile(path) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			return string(content)
+		}
+
+		sha256OfFile := func(path string) string {
+			data, err := os.ReadFile(path) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			sum := sha256.Sum256(data)
+			return fmt.Sprintf("%x", sum)
+		}
+
+		// changedLineIndices returns the positions at which before and after
+		// differ; it fails when the line counts differ, so an added or removed
+		// line is caught rather than silently compared.
+		changedLineIndices := func(before, after string) []int {
+			beforeLines := strings.Split(before, "\n")
+			afterLines := strings.Split(after, "\n")
+			Expect(afterLines).To(HaveLen(len(beforeLines)))
+			var changed []int
+			for i := range beforeLines {
+				if beforeLines[i] != afterLines[i] {
+					changed = append(changed, i)
+				}
+			}
+			return changed
+		}
+
+		const taskWithQuestions = `---
+page_type: task
+status: next
+task_identifier: 11111111-1111-4111-8111-111111111111
+---
+# Summary
+
+Body.
+
+# Open Questions
+
+- Which database?
+- How long is the window?
+- Who owns the rollout?
+
+# Progress
+
+- 2026-01-01 started
+`
+
+		const taskWithoutQuestions = `---
+page_type: task
+status: next
+task_identifier: 22222222-2222-4222-8222-222222222222
+---
+# Summary
+
+Body.
+`
+
+		It("records an answer on the named line and leaves every other line untouched", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": taskWithQuestions,
+			})
+			taskFile := filepath.Join(vaultPath, "Tasks", "Alpha.md")
+			before := readFile(taskFile)
+
+			session := runEntityCommand("task", "answer", "Alpha", "--answer", "2=One minute")
+			Eventually(session).Should(gexec.Exit(0))
+
+			after := readFile(taskFile)
+			Expect(after).To(ContainSubstring("- How long is the window? → **One minute**"))
+			Expect(changedLineIndices(before, after)).To(HaveLen(1))
+		})
+
+		It("preserves a numbered list marker", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": "---\npage_type: task\nstatus: next\n---\n# Open Questions\n\n1. Alpha?\n2. Beta?\n",
+			})
+			taskFile := filepath.Join(vaultPath, "Tasks", "Alpha.md")
+
+			session := runEntityCommand("task", "answer", "Alpha", "--answer", "2=Yes")
+			Eventually(session).Should(gexec.Exit(0))
+
+			Expect(readFile(taskFile)).To(ContainSubstring("2. Beta? → **Yes**"))
+		})
+
+		It("replaces an existing answer when re-run", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": taskWithQuestions,
+			})
+			taskFile := filepath.Join(vaultPath, "Tasks", "Alpha.md")
+
+			first := runEntityCommand("task", "answer", "Alpha", "--answer", "2=First")
+			Eventually(first).Should(gexec.Exit(0))
+
+			second := runEntityCommand("task", "answer", "Alpha", "--answer", "2=Second")
+			Eventually(second).Should(gexec.Exit(0))
+
+			after := readFile(taskFile)
+			Expect(strings.Count(after, " → **")).To(Equal(1))
+			Expect(after).To(ContainSubstring("- How long is the window? → **Second**"))
+		})
+
+		It("refuses an index that names no item and writes nothing", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": taskWithQuestions,
+			})
+			taskFile := filepath.Join(vaultPath, "Tasks", "Alpha.md")
+			before := sha256OfFile(taskFile)
+
+			session := runEntityCommand("task", "answer", "Alpha", "--answer", "9=nowhere")
+			Eventually(session).Should(gexec.Exit(1))
+			Expect(string(session.Err.Contents())).To(ContainSubstring("9"))
+			Expect(sha256OfFile(taskFile)).To(Equal(before))
+		})
+
+		It("refuses answers for a task with no Open Questions section", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": taskWithoutQuestions,
+			})
+			taskFile := filepath.Join(vaultPath, "Tasks", "Alpha.md")
+			before := sha256OfFile(taskFile)
+
+			session := runEntityCommand("task", "answer", "Alpha", "--answer", "1=x")
+			Eventually(session).Should(gexec.Exit(1))
+			Expect(string(session.Err.Contents())).To(ContainSubstring("Alpha"))
+			Expect(sha256OfFile(taskFile)).To(Equal(before))
+		})
+
+		It("requires at least one --answer", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": taskWithQuestions,
+			})
+
+			session := runEntityCommand("task", "answer", "Alpha")
+			Eventually(session).Should(gexec.Exit(1))
+			Expect(string(session.Err.Contents())).To(ContainSubstring("--answer"))
+		})
+
+		It("rejects a malformed --answer naming the offending value", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": taskWithQuestions,
+			})
+			taskFile := filepath.Join(vaultPath, "Tasks", "Alpha.md")
+			before := sha256OfFile(taskFile)
+
+			for _, bad := range []string{"noequals", "x=text", "1="} {
+				session := runEntityCommand("task", "answer", "Alpha", "--answer", bad)
+				Eventually(session).Should(gexec.Exit(1))
+				Expect(string(session.Err.Contents())).To(ContainSubstring(bad))
+			}
+			Expect(sha256OfFile(taskFile)).To(Equal(before))
+		})
+
+		It("prints a JSON result under --output json", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": taskWithQuestions,
+			})
+
+			session := runEntityCommand(
+				"--output", "json",
+				"task", "answer", "Alpha", "--answer", "1=Postgres",
+			)
+			Eventually(session).Should(gexec.Exit(0))
+
+			var result map[string]any
+			Expect(json.Unmarshal(session.Out.Contents(), &result)).To(Succeed())
+			Expect(result["success"]).To(Equal(true))
+		})
+
+		It("emits open_questions as [] for a task without the section", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": taskWithoutQuestions,
+			})
+
+			session := runEntityCommand("--output", "json", "task", "show", "Alpha")
+			Eventually(session).Should(gexec.Exit(0))
+
+			var raw map[string]json.RawMessage
+			Expect(json.Unmarshal(session.Out.Contents(), &raw)).To(Succeed())
+			Expect(raw).To(HaveKey("open_questions"))
+			Expect(strings.TrimSpace(string(raw["open_questions"]))).To(Equal("[]"))
+		})
+
+		It("emits the questions in section order", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": taskWithQuestions,
+			})
+
+			session := runEntityCommand("--output", "json", "task", "show", "Alpha")
+			Eventually(session).Should(gexec.Exit(0))
+
+			var detail struct {
+				OpenQuestions []struct {
+					Index int    `json:"index"`
+					Text  string `json:"text"`
+				} `json:"open_questions"`
+			}
+			Expect(json.Unmarshal(session.Out.Contents(), &detail)).To(Succeed())
+			Expect(detail.OpenQuestions).To(HaveLen(3))
+			Expect(detail.OpenQuestions[0].Index).To(Equal(1))
+			Expect(detail.OpenQuestions[0].Text).To(Equal("Which database?"))
+			Expect(detail.OpenQuestions[1].Text).To(Equal("How long is the window?"))
+			Expect(detail.OpenQuestions[2].Text).To(Equal("Who owns the rollout?"))
+		})
+
+		It("registers the verb and prints its own help", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": taskWithQuestions,
+			})
+			Expect(vaultPath).NotTo(BeEmpty())
+
+			session := runEntityCommand("task", "answer", "--help")
+			Eventually(session).Should(gexec.Exit(0))
+			Expect(string(session.Out.Contents())).To(ContainSubstring("--answer"))
 		})
 	})
 

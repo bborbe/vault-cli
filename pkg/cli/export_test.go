@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/bborbe/vault-cli/pkg/config"
+	"github.com/bborbe/vault-cli/pkg/domain"
 	"github.com/bborbe/vault-cli/pkg/ops"
 	"github.com/bborbe/vault-cli/pkg/storage"
 )
@@ -54,4 +55,13 @@ func GetWatchVaultsForTest(
 	vaultName *string,
 ) ([]*config.Vault, error) {
 	return getWatchVaults(ctx, configLoader, vaultName)
+}
+
+// ParseOpenAnswersForTest exposes parseOpenAnswers for testing, so the flag
+// grammar is pinned without spawning a binary.
+func ParseOpenAnswersForTest(
+	ctx context.Context,
+	raw []string,
+) ([]domain.OpenAnswer, error) {
+	return parseOpenAnswers(ctx, raw)
 }

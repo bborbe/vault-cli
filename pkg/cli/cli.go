@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/bborbe/errors"
@@ -1332,6 +1333,7 @@ func createTaskCommands(
 	cmd.AddCommand(createTaskGetCommand(ctx, configLoader, vaultName, outputFormat))
 	cmd.AddCommand(createTaskSetCommand(ctx, configLoader, vaultName, outputFormat))
 	cmd.AddCommand(createTaskApproveCommand(ctx, configLoader, vaultName, outputFormat))
+	cmd.AddCommand(createTaskAnswerCommand(ctx, configLoader, vaultName, outputFormat))
 	cmd.AddCommand(createTaskClearCommand(ctx, configLoader, vaultName, outputFormat))
 	cmd.AddCommand(createTaskShowCommand(ctx, configLoader, vaultName, outputFormat))
 	cmd.AddCommand(createEntityListAddCommand(ctx, configLoader, vaultName, outputFormat, "task",
@@ -2681,6 +2683,127 @@ func createTaskApproveCommand(
 	cmd.Flags().StringVar(&approvedBy, "by", "operator", "Who is approving; recorded as approved_by")
 	cmd.Flags().StringVar(&assigneeFlag, "assignee", "", "Set the task's assignee; overrides an empty or existing assignee (defaults to the configured current user)")
 	return cmd
+}
+
+// createTaskAnswerCommand builds `vault-cli task answer`, the CLI surface over
+// the pkg/ops answer operation. It records the operator's answers into the
+// named task's Open Questions section and, like `task approve`, exits non-zero
+// when a refusal is printed as JSON.
+//
+//nolint:dupl // Mutation commands have similar structure but different operations
+func createTaskAnswerCommand(
+	ctx context.Context,
+	configLoader *config.Loader,
+	vaultName *string,
+	outputFormat *string,
+) *cobra.Command {
+	var rawAnswers []string
+
+	cmd := &cobra.Command{
+		Use:   "answer <task-name>",
+		Short: "Record answers to a task's Open Questions section",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			taskName := args[0]
+
+			answers, err := parseOpenAnswers(ctx, rawAnswers)
+			if err != nil {
+				return err
+			}
+
+			vaults, err := getVaults(ctx, configLoader, vaultName)
+			if err != nil {
+				return errors.Wrap(ctx, err, "get vaults")
+			}
+
+			dispatcher := ops.NewVaultDispatcher()
+			err = dispatcher.FirstSuccess(ctx, vaults, func(vault *config.Vault) error {
+				storageConfig := storage.NewConfigFromVault(vault)
+				taskStore := storage.NewTaskStorage(storageConfig)
+				answerOp := ops.NewTaskAnswerOperation(taskStore)
+				result, err := answerOp.Execute(ctx, vault.Path, taskName, vault.Name, answers)
+				if err != nil {
+					return err
+				}
+				if OutputFormat(*outputFormat).IsJSON() {
+					return PrintJSON(map[string]any{
+						"success": true,
+						"name":    result.Name,
+						"answers": len(answers),
+					})
+				}
+				fmt.Printf("✅ Answered %d question(s) on %s\n", len(answers), result.Name)
+				return nil
+			})
+			if err != nil {
+				// The JSON error object is printed and the error is then returned,
+				// so a refusal exits non-zero in both output modes — matching
+				// `task approve`.
+				if OutputFormat(*outputFormat).IsJSON() {
+					_ = PrintJSON(map[string]any{"success": false, "error": err.Error()})
+				}
+				return err
+			}
+			return nil
+		},
+	}
+	cmd.Flags().
+		StringArrayVar(&rawAnswers, "answer", nil, "Answer as <index>=<text>; repeat for each open question")
+	return cmd
+}
+
+// parseOpenAnswers parses the repeatable --answer flag values into answers. Each
+// value is `<index>=<text>`; a missing `=`, a non-numeric or non-positive index,
+// or an empty text is a usage error naming the offending value. At least one
+// value is required.
+func parseOpenAnswers(ctx context.Context, raw []string) ([]domain.OpenAnswer, error) {
+	if len(raw) == 0 {
+		return nil, errors.Errorf(
+			ctx,
+			"--answer is required: pass at least one --answer <index>=<text>",
+		)
+	}
+
+	answers := make([]domain.OpenAnswer, 0, len(raw))
+	for _, value := range raw {
+		indexText, answerText, found := strings.Cut(value, "=")
+		if !found {
+			return nil, errors.Errorf(
+				ctx,
+				"invalid --answer %q: expected <index>=<text>",
+				value,
+			)
+		}
+		index, err := strconv.Atoi(strings.TrimSpace(indexText))
+		if err != nil || index < 1 {
+			return nil, errors.Errorf(
+				ctx,
+				"invalid --answer %q: index %q is not a positive integer",
+				value, indexText,
+			)
+		}
+		answer := strings.TrimSpace(answerText)
+		if answer == "" {
+			return nil, errors.Errorf(
+				ctx,
+				"invalid --answer %q: answer text must not be empty",
+				value,
+			)
+		}
+		// TrimSpace removes a leading or trailing break but not an embedded one,
+		// and an answer is written into the task file as a single line. Reject it
+		// here so the operator gets a usage error rather than a refusal after the
+		// task has been read.
+		if strings.ContainsAny(answer, "\r\n") {
+			return nil, errors.Errorf(
+				ctx,
+				"invalid --answer %q: answer text must be a single line",
+				value,
+			)
+		}
+		answers = append(answers, domain.OpenAnswer{Index: index, Answer: answer})
+	}
+	return answers, nil
 }
 
 //nolint:dupl,gocognit,nestif // Mutation commands have similar structure but different operations

@@ -188,6 +188,11 @@ In order:
 6. `# Out of Scope` — recommended; explicit deferrals (parallels `# Non-goals` on goals)
 7. `# Tasks` — actionable subtask checkboxes (work-tracking; not parent-goal links). **Granularity rule:** session-sized work blocks, not CLI steps. Aim for 3-6 items. Collapse "write spec / audit / approve / generate prompts / precommit / open PR / merge" into one "ship the change through the pipeline" block. Each subtask should represent a meaningful unit a human can pick up, work on, and report back about — not a single command.
 8. `# Progress` — log of work done, dated entries; lives at bottom
+9. `# Open Questions` — optional/recommended; questions the task is waiting on an answer to. A task may legitimately lack the section, so readers must tolerate its absence. Answers are recorded in place, keeping each question and its answer on one line: `- <question> → **<answer>**`. `vault-cli task answer "<task>" --answer <index>=<text>` writes that form and replaces a previous answer rather than appending a second one; `vault-cli task show --output json` exposes the questions as the `open_questions` array.
+
+   The heading is matched **exactly and case-sensitively** — `Open Questions` at any level. `Open questions`, `Open Questions:`, or a heading with a trailing tag is not recognised, and the section then reads as absent: an empty `open_questions` list and no error, so a typo fails silently rather than loudly. Write it exactly.
+
+   `--answer` takes the question's **position** in the section, counted from 1 — not the number a `1.` / `2.` list marker happens to show. The markers are preserved as written but never interpreted, so a section numbered `1.` / `3.` still answers as indices 1 and 2. The section ends at the next heading of any level, so a sub-heading's bullets are notes, not questions. An answer may not contain a line break or the ` → **` delimiter; both are refused rather than written, because either would break the one-line-per-question form.
 
 Optional: `# Related` — sister tasks, docs, runbooks.
 

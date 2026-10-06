@@ -1,7 +1,7 @@
 ---
 spec: ["041-bug-resume-races-live-headless-turn"]
 status: draft
-created: "2026-10-06T15:16:58Z"
+created: "2026-09-30T07:13:46Z"
 ---
 
 # Reword the work-on lifecycle doc, confirm the scenario, and record the change (spec 041, prompt 3 of 3)
@@ -27,7 +27,7 @@ Read `CLAUDE.md` for project conventions.
 Read fully (in this order):
 - `docs/work-on-session-lifecycle.md` — the whole file (261 lines). This is the file under test.
 - `scenarios/002-task-lifecycle.md` — the whole file (67 lines).
-- `CHANGELOG.md` — read the top ~40 lines only (the frozen `# Changelog` preamble and the newest versioned sections; the newest section today is `## v0.160.2`). That is where the new section and bullet land; the rest of the file is not needed.
+- `CHANGELOG.md` — read the top ~40 lines only (the frozen `# Changelog` preamble and the newest versioned sections; the newest section today is `## v0.158.2`). That is where the new section and bullet land; the rest of the file is not needed.
 - `pkg/ops/workon.go` and `pkg/ops/goal_workon.go` — read only to confirm the ordering the documentation must describe. Do not modify either.
 - `prompts/2-spec-041-post-exit-persist.md` — read the reviewer comment at the top of its `<requirements>` block; it records the conflict this prompt is coupled to.
 
@@ -89,11 +89,11 @@ The documentation is in a DRIFTED state. A later change rewrote the BODIES of th
      cannot stay resumable-looking.
      ```
    - Do NOT touch `## Session id ownership`, `## Why stream-json was rejected`, `## Why the TTY branch is untouched`, `## The fate of --output-format json`, or the rest of `## The per-session lock`. In particular, the phrase "liveness gating" in the lock's "Lock scope" paragraph is a spec-042 Vault UI follow-on concept, NOT the removed liveness-window concept — leave it. `scenarios/005-work-on-resume-auto-invokes-subtask.md` is never edited.
-   - After the reword the whole file must contain none of the reverted vocabulary — see the drift-guard grep in `<verification>`. Note that the word `compensating` legitimately REMAINS after the reword, in two places that document its absence (the reworded turn-timeout sentence and the lock section's pre-existing `no compensating clears`); the drift guard does not test for the bare word, so do not chase it.
+   - After the reword the whole file must contain none of the reverted vocabulary — see the drift-guard grep in `<verification>`.
 
 3. **Confirm `scenarios/002-task-lifecycle.md` — no edit expected (AC11).** Its work-on action note must already state that the headless turn blocks until completion (it does: `**Both branches block until the turn completes**`, `bounded by a 30m turn timeout`, and `A fast return is a FAIL, not a pass`). Confirm `grep -c '~10s' scenarios/002-task-lifecycle.md` is 0. If it is non-zero, replace the fast-return wording with the blocking wording. Make no other change to this file.
 
-4. **Create the unreleased section in `CHANGELOG.md` and record the change under it (AC12).** Today `CHANGELOG.md` has NO unreleased section — the newest section is `## v0.160.2` (line 11), directly below the frozen preamble (the `* MAJOR version...` bullet block ending at line 9). Insert, immediately after the preamble and immediately above `## v0.160.2`:
+4. **Create the unreleased section in `CHANGELOG.md` and record the change under it (AC12).** Today `CHANGELOG.md` has NO unreleased section — the newest section is `## v0.158.2`. Insert, immediately after the frozen preamble (the `* MAJOR version...` bullet block) and immediately above the newest versioned section (today `## v0.158.2`):
    ```
    ## Unreleased
 
@@ -101,18 +101,18 @@ The documentation is in a DRIFTED state. A later change rewrote the BODIES of th
    ```
    Rules for this edit:
    - If an unreleased section already exists when you run (a concurrent change may have created it), do NOT create a second one — append this bullet as the last bullet inside the existing section.
-   - Never move, delete, or edit the frozen preamble (`# Changelog`, the "All notable changes…" line, the SemVer link, the MAJOR/MINOR/PATCH bullets). The `check-changelog` gate (part of `make check`, which `make precommit` depends on) fails the build if any `## ` section precedes the preamble line.
-   - Do NOT delete, reorder, or reword any existing bullet or any `## vX.Y.Z` section. In particular `## v0.117.1` (the entry that shipped this behaviour) and `## v0.118.3` (the entry that reverted the task path) stay exactly as they are — the new bullet supersedes them in the log's own timeline without rewriting history.
-   - Do NOT bump the plugin version strings in `.claude-plugin/plugin.json` or `.claude-plugin/marketplace.json`, and do NOT create a tag. This repository's release agent owns version bumps and tagging after merge (see `CLAUDE.md` § Plugin Release Checklist and the changelog guide's "Version Alignment Is Release-Time"). Write `## Unreleased`, never `## vX.Y.Z`. Note the version-alignment check reads the first `^## v` line, so an `## Unreleased` heading above `## v0.160.2` does not disturb it — and it is not part of `make precommit` in any case.
+   - Never move, delete, or edit the frozen preamble (`# Changelog`, the "All notable changes…" line, the SemVer link, the MAJOR/MINOR/PATCH bullets). `scripts/check-changelog.sh` fails the build if any `## ` section precedes the preamble line.
+   - Do NOT delete, reorder, or reword any existing bullet or any `## vX.Y.Z` section.
+   - Do NOT bump the plugin version strings in `.claude-plugin/plugin.json` or `.claude-plugin/marketplace.json`, and do NOT create a tag. This repository's release agent owns version bumps and tagging after merge (see `CLAUDE.md` § Plugin Release Checklist and the changelog guide's "Version Alignment Is Release-Time"). Write `## Unreleased`, never `## vX.Y.Z`.
    - The bullet must be within the first 15 lines after the `## Unreleased` heading, and must contain the substring "Resume" (case-insensitive), because AC12's evidence grep reads exactly those 15 lines.
 
-   <!-- OPEN QUESTION FOR THE HUMAN REVIEWER: this bullet re-describes the post-exit ordering that v0.117.1 shipped, while v0.118.3 documented the task-side REVERSION back to persist-before-spawn, whose rationale was that the child's session-connect reads `claude_session_id` from the task file and, finding it empty, scans the transcript directory and attaches a live unrelated session. The bullet and the documentation reword in requirement 2 are correct only if prompt 2 is approved. If prompt 2 is rejected at audit, reject this prompt as well and re-scope spec 041 instead. Separately, spec Open Question 2 — the Vault UI "Creating session… up to 2 minutes" modal copy — lives in the vault-ui repository and is out of scope here; no Vault UI change is made by this prompt. -->
+   <!-- OPEN QUESTION FOR THE HUMAN REVIEWER: this bullet re-describes the post-exit ordering that an earlier release shipped, while a later release note documented the task-side REVERSION back to persist-before-spawn ("fix(workon): persist the fresh session id before the headless turn"), whose rationale was a live-reproduced session-connect mis-binding. The bullet and the documentation reword in requirement 2 are correct only if prompt 2 is approved. If prompt 2 is rejected at audit, reject this prompt as well and re-scope spec 041 instead. Separately, spec Open Question 2 — the Vault UI "Creating session… up to 2 minutes" modal copy — lives in the vault-ui repository and is out of scope here; no Vault UI change is made by this prompt. -->
 
 5. **Confirm the spec's two open questions need no code change.** Open Question 1: the turn bound stays an unexported tunable constant with no config field — do not add one (spec Non-goals). Open Question 2: the Vault UI modal copy is a different repository — no change here.
 
-6. **Full gate (AC13).** Run `make precommit` at the repo root. It must exit 0. If it fails on something this prompt introduced (most likely the `check-changelog` gate), fix it and re-run only the failing target (`make check-changelog`, `make lint`, ...), then `make precommit` once more. Note that `make precommit` does not run `check-versions` (that is a separate target, and `release-check` is what chains it); the four version strings are already aligned at the last released version and must stay that way.
+6. **Full gate (AC13).** Run `make precommit` at the repo root. It must exit 0. If it fails on something this prompt introduced (most likely `check-changelog`, which `precommit` reaches through its `check` dependency), fix it and re-run only the failing target (`make check-changelog`, `make lint`, ...), then `make precommit` once more. Note that `make precommit` does not run `check-versions` (that is a separate target, and `release-check` is what chains it); the four version strings are already aligned at the last released version and must stay that way.
 
-7. **Self-check before finishing.** Re-read the changed doc, scenario, and changelog hunks and walk spec 041 ACs 11, 12 and 13 against them. Run every command in `<verification>` and confirm each holds — including the content-level drift guard, which is what actually catches the stale body wording; the spec's own AC11 greps (`livenessWindow`, `liveness window`, `~10s`) already pass in the current tree and are therefore NOT evidence that the reword was done.
+7. **Self-check before finishing.** Re-read the changed doc, scenario, and changelog hunks and walk spec 041 ACs 11, 12 and 13 against them. Run every command in `<verification>` and confirm each holds — including the content-level drift guard, which is what actually catches the stale body wording; the spec's own AC11 greps already pass in the current tree and are therefore NOT evidence that the reword was done.
 </requirements>
 
 <constraints>
@@ -122,7 +122,6 @@ The documentation is in a DRIFTED state. A later change rewrote the BODIES of th
 - Do NOT bump the plugin manifests and do NOT create a tag — only the unreleased bullet is in scope. Write `## Unreleased`, never `## vX.Y.Z`.
 - Do NOT delete or reword existing changelog bullets or any `## vX.Y.Z` section — the new bullet is appended inside the unreleased section (or the section is created if absent).
 - The "liveness gating" phrase in the per-session lock section is spec 042's Vault UI follow-on concept — leave it; it is not the removed liveness-window concept.
-- The bare word `compensating` remains after the reword, in the two places that document the clear's absence. The drift guard deliberately does not test for it; do not reword those sentences to remove it and do not add new occurrences.
 - Do NOT touch `pkg/ops/*.go` or any `_test.go` file in this prompt — code changes belong to prompts 1 and 2.
 - Do NOT add a config field for the turn bound (spec Non-goals / Open Question 1).
 - Existing tests must still pass.
@@ -134,16 +133,14 @@ Evidence greps — run each, record the count, and confirm it against the expect
 ```
 grep -c '^## Unreleased' CHANGELOG.md                                          # >= 1 (AC12) — must flip 0 -> >= 1
 grep -A15 '^## Unreleased' CHANGELOG.md | grep -ci 'resume'                    # >= 1 (AC12) — must flip 0 -> >= 1
-grep -c 'only after the detached' docs/work-on-session-lifecycle.md            # >= 1 — positive marker for req 2's prescribed wording
+grep -c 'only after the detached headless turn exits' CHANGELOG.md             # >= 1 if you used the suggested wording
 ! grep -q 'livenessWindow' docs/work-on-session-lifecycle.md                   # AC11: absent
 ! grep -ci 'liveness window' docs/work-on-session-lifecycle.md                 # AC11: absent (prose form too)
 ! grep -q '~10s' scenarios/002-task-lifecycle.md                               # AC11: absent
-! grep -qE 'pre-spawn|pre-persisted|pre-persist|before the child is spawned' docs/work-on-session-lifecycle.md   # drift guard — the real check for req 2
+! grep -qE 'pre-spawn|pre-persisted|pre-persist|before the child is spawned|compensating clear' docs/work-on-session-lifecycle.md   # drift guard — the real check for req 2
 grep -n -m1 '^All notable changes to this project' CHANGELOG.md                # preamble present
 grep -n -m1 '^## ' CHANGELOG.md                                                # must be the Unreleased heading, AFTER the preamble line above
 ```
-
-Note on the drift guard: it deliberately excludes the bare phrase `compensating clear`. After the reword that phrase legitimately remains twice — once in req 2's reworded turn-timeout sentence (`No compensating clear runs on any error ...`) and once in the untouched lock section (`no compensating clears`) — so including it would make the guard unsatisfiable against correct output. The four markers it does test (`pre-spawn`, `pre-persisted`, `pre-persist`, `before the child is spawned`) are all absent from the prescribed replacement text and present in the drifted text, so the guard discriminates. If you reworded the sections differently from the prescribed text, adjust the positive `only after the detached` marker to match your wording but keep the drift guard as written.
 
 SCENARIO-005 GUARD — content pin (replaces the spec's `git diff --exit-code HEAD`, which cannot run: `git` is masked in this container):
 

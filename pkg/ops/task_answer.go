@@ -81,6 +81,15 @@ func (o *taskAnswerOperation) Execute(
 
 	answerByIndex := make(map[int]string, len(answers))
 	for _, answer := range answers {
+		select {
+		case <-ctx.Done():
+			return MutationResult{Success: false, Error: ctx.Err().Error()}, errors.Wrap(
+				ctx,
+				ctx.Err(),
+				"context cancelled",
+			)
+		default:
+		}
 		if answer.Index < 1 || answer.Index > len(questions) {
 			err := errors.Errorf(
 				ctx,
@@ -111,11 +120,39 @@ func (o *taskAnswerOperation) Execute(
 		return MutationResult{Success: false, Error: err.Error()}, err
 	}
 
-	// Walk the section's top-level items in order, counting exactly the items the
-	// reader counted (blank items skipped), so the running index addresses the
-	// same question the caller named.
+	lines, err = applyAnswers(ctx, lines, start, end, answerByIndex)
+	if err != nil {
+		return MutationResult{Success: false, Error: err.Error()}, err
+	}
+
+	task.Content = domain.Content(strings.Join(lines, "\n"))
+	if err := o.taskStorage.WriteTask(ctx, task); err != nil {
+		return MutationResult{Success: false, Error: err.Error()}, errors.Wrap(ctx, err, "write task")
+	}
+
+	return MutationResult{Success: true, Name: task.Name, Vault: vaultName}, nil
+}
+
+// applyAnswers rewrites the answered items in the section's line range, leaving
+// every other line untouched. It walks the section's top-level items in order,
+// counting exactly the items the reader counted (blank items skipped), so the
+// running index addresses the same question the caller named. The item's own
+// marker and indentation are preserved, and an existing ` → **…**` suffix is
+// replaced rather than appended to, so answering twice is idempotent.
+func applyAnswers(
+	ctx context.Context,
+	lines []string,
+	start int,
+	end int,
+	answerByIndex map[int]string,
+) ([]string, error) {
 	index := 0
 	for i := start + 1; i < end; i++ {
+		select {
+		case <-ctx.Done():
+			return nil, errors.Wrap(ctx, ctx.Err(), "context cancelled")
+		default:
+		}
 		marker, text, ok := answerItem(lines[i])
 		if !ok || text == "" {
 			continue
@@ -127,13 +164,7 @@ func (o *taskAnswerOperation) Execute(
 		}
 		lines[i] = marker + stripAnswerSuffix(text) + " → **" + answer + "**"
 	}
-
-	task.Content = domain.Content(strings.Join(lines, "\n"))
-	if err := o.taskStorage.WriteTask(ctx, task); err != nil {
-		return MutationResult{Success: false, Error: err.Error()}, errors.Wrap(ctx, err, "write task")
-	}
-
-	return MutationResult{Success: true, Name: task.Name, Vault: vaultName}, nil
+	return lines, nil
 }
 
 // answerSectionBounds returns the half-open line range [start+1, end) of the

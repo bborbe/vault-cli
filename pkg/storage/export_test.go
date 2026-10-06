@@ -51,6 +51,10 @@ func FindFileByNameForTest(
 }
 
 // ReadOpenQuestionsForTest exposes readOpenQuestions for testing.
-func ReadOpenQuestionsForTest(b *BaseStorageForTest, content string) []domain.OpenQuestion {
-	return b.readOpenQuestions(content)
+func ReadOpenQuestionsForTest(
+	ctx context.Context,
+	b *BaseStorageForTest,
+	content string,
+) []domain.OpenQuestion {
+	return b.readOpenQuestions(ctx, content)
 }

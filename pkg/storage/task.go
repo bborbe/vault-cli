@@ -87,7 +87,7 @@ func (t *taskStorage) ReadOpenQuestions(
 	if err != nil {
 		return nil, errors.Wrap(ctx, err, "find task")
 	}
-	return t.readOpenQuestions(string(task.Content)), nil
+	return t.readOpenQuestions(ctx, string(task.Content)), nil
 }
 
 // ListTasks returns all tasks from the vault, including subdirectories.

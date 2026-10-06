@@ -318,7 +318,7 @@ func (b *baseStorage) parseCheckboxes(content string) []domain.CheckboxItem {
 // caller can serialize it as `[]` rather than `null`. A blank list item is
 // skipped rather than yielding an empty question, and the index counts only the
 // items returned.
-func (b *baseStorage) readOpenQuestions(content string) []domain.OpenQuestion {
+func (b *baseStorage) readOpenQuestions(ctx context.Context, content string) []domain.OpenQuestion {
 	questions := make([]domain.OpenQuestion, 0)
 	lines := strings.Split(content, "\n")
 	start, end := openQuestionsSectionBounds(lines)
@@ -328,6 +328,11 @@ func (b *baseStorage) readOpenQuestions(content string) []domain.OpenQuestion {
 
 	index := 0
 	for _, line := range lines[start+1 : end] {
+		select {
+		case <-ctx.Done():
+			return questions
+		default:
+		}
 		_, text, ok := openQuestionItem(line)
 		if !ok {
 			continue

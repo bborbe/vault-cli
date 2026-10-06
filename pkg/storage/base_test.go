@@ -282,15 +282,19 @@ var _ = Describe("bare Wikilink quoting on the parse path", func() {
 })
 
 var _ = Describe("baseStorage readOpenQuestions", func() {
-	var b *storage.BaseStorageForTest
+	var (
+		ctx context.Context
+		b   *storage.BaseStorageForTest
+	)
 
 	BeforeEach(func() {
+		ctx = context.Background()
 		b = storage.NewBaseStorageForTest()
 	})
 
 	DescribeTable("returns the section's top-level items in section order",
 		func(content string, expected []domain.OpenQuestion) {
-			Expect(storage.ReadOpenQuestionsForTest(b, content)).To(Equal(expected))
+			Expect(storage.ReadOpenQuestionsForTest(ctx, b, content)).To(Equal(expected))
 		},
 		Entry("several dash bullets",
 			"---\nstatus: todo\n---\n# Open Questions\n\n- First?\n- Second?\n- Third?\n",
@@ -345,6 +349,7 @@ var _ = Describe("baseStorage readOpenQuestions", func() {
 
 	It("returns an empty, non-nil slice when the section is absent", func() {
 		questions := storage.ReadOpenQuestionsForTest(
+			ctx,
 			b,
 			"# Summary\n\n- not a question\n\n# Progress\n",
 		)
@@ -353,7 +358,7 @@ var _ = Describe("baseStorage readOpenQuestions", func() {
 	})
 
 	It("returns an empty, non-nil slice for empty content", func() {
-		questions := storage.ReadOpenQuestionsForTest(b, "")
+		questions := storage.ReadOpenQuestionsForTest(ctx, b, "")
 		Expect(questions).NotTo(BeNil())
 		Expect(questions).To(BeEmpty())
 	})

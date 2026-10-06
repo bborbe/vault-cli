@@ -90,6 +90,7 @@ vault-cli task list --all                          # Show all tasks
 vault-cli task list --assignee alice               # Filter by assignee
 
 vault-cli task show "Build vault-cli Go Tool"      # Show full task detail
+vault-cli task answer "Build vault-cli Go Tool" --answer 1="<text>"  # Record answers into the task's Open Questions section (repeat --answer per question)
 vault-cli task complete "Build vault-cli Go Tool" --reason "..." --gate-successor none  # Mark task as complete
 vault-cli task defer "Migrate TaskOrchestrator" +7d     # Defer by relative days
 vault-cli task defer "Migrate TaskOrchestrator" monday  # Defer to next weekday

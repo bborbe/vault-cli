@@ -75,6 +75,21 @@ func (t *taskStorage) FindTaskByName(
 	return t.readTaskFromPath(ctx, matchedPath, matchedName, vaultPath)
 }
 
+// ReadOpenQuestions returns the items of the task's `Open Questions` section in
+// section order, each carrying its 1-based index. A task without such a section
+// yields an empty slice and no error.
+func (t *taskStorage) ReadOpenQuestions(
+	ctx context.Context,
+	vaultPath string,
+	taskName string,
+) ([]domain.OpenQuestion, error) {
+	task, err := t.FindTaskByName(ctx, vaultPath, taskName)
+	if err != nil {
+		return nil, errors.Wrap(ctx, err, "find task")
+	}
+	return t.readOpenQuestions(string(task.Content)), nil
+}
+
 // ListTasks returns all tasks from the vault, including subdirectories.
 // An unreadable task file is skipped rather than failing the listing.
 func (t *taskStorage) ListTasks(

@@ -63,6 +63,14 @@ type TaskStorage interface {
 	// result must not silently describe a smaller set (the weekly rollup) uses
 	// this; the error names the offending file.
 	ListTasksStrict(ctx context.Context, vaultPath string) ([]*domain.Task, error)
+	// The task's `Open Questions` section items, in section order, each carrying
+	// its 1-based index. A task without such a section yields an empty slice and
+	// no error, so callers never special-case it.
+	ReadOpenQuestions(
+		ctx context.Context,
+		vaultPath string,
+		taskName string,
+	) ([]domain.OpenQuestion, error)
 }
 
 //counterfeiter:generate -o ../../mocks/goal-storage.go --fake-name GoalStorage . GoalStorage

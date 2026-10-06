@@ -4,7 +4,11 @@
 
 package storage
 
-import "context"
+import (
+	"context"
+
+	"github.com/bborbe/vault-cli/pkg/domain"
+)
 
 // Test-only exports of unexported baseStorage methods.
 // These functions are only visible to _test.go files in package storage_test.
@@ -44,4 +48,9 @@ func FindFileByNameForTest(
 	name string,
 ) (string, string, error) {
 	return b.findFileByName(ctx, dir, name)
+}
+
+// ReadOpenQuestionsForTest exposes readOpenQuestions for testing.
+func ReadOpenQuestionsForTest(b *BaseStorageForTest, content string) []domain.OpenQuestion {
+	return b.readOpenQuestions(content)
 }

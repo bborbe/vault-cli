@@ -188,6 +188,7 @@ In order:
 6. `# Out of Scope` — recommended; explicit deferrals (parallels `# Non-goals` on goals)
 7. `# Tasks` — actionable subtask checkboxes (work-tracking; not parent-goal links). **Granularity rule:** session-sized work blocks, not CLI steps. Aim for 3-6 items. Collapse "write spec / audit / approve / generate prompts / precommit / open PR / merge" into one "ship the change through the pipeline" block. Each subtask should represent a meaningful unit a human can pick up, work on, and report back about — not a single command.
 8. `# Progress` — log of work done, dated entries; lives at bottom
+9. `# Open Questions` — optional/recommended; questions the task is waiting on an answer to. A task may legitimately lack the section, so readers must tolerate its absence. Answers are recorded in place, keeping each question and its answer on one line: `- <question> → **<answer>**`. `vault-cli task answer "<task>" --answer <index>=<text>` writes that form and replaces a previous answer rather than appending a second one; `vault-cli task show --output json` exposes the questions as the `open_questions` array.
 
 Optional: `# Related` — sister tasks, docs, runbooks.
 

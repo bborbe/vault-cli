@@ -11,6 +11,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/bborbe/vault-cli/pkg/domain"
 	"github.com/bborbe/vault-cli/pkg/storage"
 )
 
@@ -277,5 +278,83 @@ var _ = Describe("bare Wikilink quoting on the parse path", func() {
 		_, err := parse("status: in_progress\n  bad: [unclosed")
 		Expect(err).NotTo(BeNil())
 		Expect(err.Error()).To(ContainSubstring("unmarshal yaml frontmatter"))
+	})
+})
+
+var _ = Describe("baseStorage readOpenQuestions", func() {
+	var b *storage.BaseStorageForTest
+
+	BeforeEach(func() {
+		b = storage.NewBaseStorageForTest()
+	})
+
+	DescribeTable("returns the section's top-level items in section order",
+		func(content string, expected []domain.OpenQuestion) {
+			Expect(storage.ReadOpenQuestionsForTest(b, content)).To(Equal(expected))
+		},
+		Entry("several dash bullets",
+			"---\nstatus: todo\n---\n# Open Questions\n\n- First?\n- Second?\n- Third?\n",
+			[]domain.OpenQuestion{
+				{Index: 1, Text: "First?"},
+				{Index: 2, Text: "Second?"},
+				{Index: 3, Text: "Third?"},
+			},
+		),
+		Entry("numbered items keep their own marker out of the text",
+			"# Open Questions\n\n1. Alpha?\n2. Beta?\n",
+			[]domain.OpenQuestion{
+				{Index: 1, Text: "Alpha?"},
+				{Index: 2, Text: "Beta?"},
+			},
+		),
+		Entry("a section under a ## heading",
+			"## Open Questions\n\n- Only?\n",
+			[]domain.OpenQuestion{{Index: 1, Text: "Only?"}},
+		),
+		Entry("the section ends at the next heading of the same level",
+			"# Open Questions\n\n- One?\n- Two?\n\n# Progress\n\n- not a question\n",
+			[]domain.OpenQuestion{
+				{Index: 1, Text: "One?"},
+				{Index: 2, Text: "Two?"},
+			},
+		),
+		Entry("the section ends at a higher-level heading",
+			"### Open Questions\n\n- One?\n\n## Progress\n\n- not a question\n",
+			[]domain.OpenQuestion{{Index: 1, Text: "One?"}},
+		),
+		Entry("a nested item is not a top-level item",
+			"# Open Questions\n\n- Parent?\n  - Nested\n",
+			[]domain.OpenQuestion{{Index: 1, Text: "Parent?"}},
+		),
+		Entry("a blank item is skipped and does not consume an index",
+			"# Open Questions\n\n- First?\n- \n- Third?\n",
+			[]domain.OpenQuestion{
+				{Index: 1, Text: "First?"},
+				{Index: 2, Text: "Third?"},
+			},
+		),
+		Entry("an existing answer is part of the item text",
+			"# Open Questions\n\n- First? → **Yes**\n",
+			[]domain.OpenQuestion{{Index: 1, Text: "First? → **Yes**"}},
+		),
+		Entry("only the first Open Questions heading is read",
+			"# Open Questions\n\n- First?\n\n# Open Questions\n\n- Second?\n",
+			[]domain.OpenQuestion{{Index: 1, Text: "First?"}},
+		),
+	)
+
+	It("returns an empty, non-nil slice when the section is absent", func() {
+		questions := storage.ReadOpenQuestionsForTest(
+			b,
+			"# Summary\n\n- not a question\n\n# Progress\n",
+		)
+		Expect(questions).NotTo(BeNil())
+		Expect(questions).To(BeEmpty())
+	})
+
+	It("returns an empty, non-nil slice for empty content", func() {
+		questions := storage.ReadOpenQuestionsForTest(b, "")
+		Expect(questions).NotTo(BeNil())
+		Expect(questions).To(BeEmpty())
 	})
 })

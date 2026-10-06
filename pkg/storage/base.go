@@ -61,7 +61,22 @@ var (
 	blockScalarStartRegex = regexp.MustCompile(
 		`^( *)(?:[A-Za-z0-9_][A-Za-z0-9_.-]*:|-)[ \t]+[|>][+-]?[0-9]*[ \t]*$`,
 	)
+
+	// markdownHeadingRegex matches an ATX markdown heading. Capture groups:
+	// 1=the `#` run (its length is the heading level), 2=the heading text.
+	markdownHeadingRegex = regexp.MustCompile(`^(#{1,6})[ \t]+(.*?)[ \t]*$`)
+
+	// openQuestionItemRegex matches a list item line. Capture groups: 1=leading
+	// indentation, 2=the list marker (`-`, `*`, or `N.`), 3=the whitespace after
+	// the marker, 4=the item text. The reader accepts only items whose
+	// indentation is empty (the section's top level); the marker and its
+	// whitespace are remembered so a rewriter can preserve the file's list style.
+	openQuestionItemRegex = regexp.MustCompile(`^([ \t]*)([-*]|\d+\.)([ \t]+)(.*)$`)
 )
+
+// openQuestionsSectionHeading is the exact heading text that introduces a task's
+// Open Questions section, at any heading level.
+const openQuestionsSectionHeading = "Open Questions"
 
 type baseStorage struct {
 	config *Config
@@ -295,6 +310,85 @@ func (b *baseStorage) parseCheckboxes(content string) []domain.CheckboxItem {
 	}
 
 	return items
+}
+
+// readOpenQuestions returns the top-level list items of the first `Open
+// Questions` section in content, in section order, each carrying its 1-based
+// index. A content without such a section yields an empty (non-nil) slice, so a
+// caller can serialize it as `[]` rather than `null`. A blank list item is
+// skipped rather than yielding an empty question, and the index counts only the
+// items returned.
+func (b *baseStorage) readOpenQuestions(content string) []domain.OpenQuestion {
+	questions := make([]domain.OpenQuestion, 0)
+	lines := strings.Split(content, "\n")
+	start, end := openQuestionsSectionBounds(lines)
+	if start < 0 {
+		return questions
+	}
+
+	index := 0
+	for _, line := range lines[start+1 : end] {
+		_, text, ok := openQuestionItem(line)
+		if !ok {
+			continue
+		}
+		if text == "" {
+			continue
+		}
+		index++
+		questions = append(questions, domain.OpenQuestion{Index: index, Text: text})
+	}
+	return questions
+}
+
+// openQuestionsSectionBounds returns the half-open line range [start+1, end) of
+// the body of the first `Open Questions` section in lines, where start is the
+// heading's own line index. The section ends at the next heading of the same or
+// a higher level, or at the end of the file. It returns (-1, -1) when no such
+// heading exists.
+func openQuestionsSectionBounds(lines []string) (int, int) {
+	start, level := -1, 0
+	for i, line := range lines {
+		lineLevel, text, ok := parseMarkdownHeading(line)
+		if !ok {
+			continue
+		}
+		if start < 0 {
+			if text == openQuestionsSectionHeading {
+				start, level = i, lineLevel
+			}
+			continue
+		}
+		if lineLevel <= level {
+			return start, i
+		}
+	}
+	if start < 0 {
+		return -1, -1
+	}
+	return start, len(lines)
+}
+
+// parseMarkdownHeading returns the level and text of an ATX markdown heading
+// line, and false for any line that is not a heading.
+func parseMarkdownHeading(line string) (int, string, bool) {
+	matches := markdownHeadingRegex.FindStringSubmatch(line)
+	if len(matches) != 3 {
+		return 0, "", false
+	}
+	return len(matches[1]), matches[2], true
+}
+
+// openQuestionItem returns the marker (indentation plus list marker plus the
+// whitespace after it) and the trimmed text of a top-level list item line, and
+// false for any other line. An indented item is not a top-level item and is
+// rejected.
+func openQuestionItem(line string) (string, string, bool) {
+	matches := openQuestionItemRegex.FindStringSubmatch(line)
+	if len(matches) != 5 || matches[1] != "" {
+		return "", "", false
+	}
+	return matches[2] + matches[3], strings.TrimSpace(matches[4]), true
 }
 
 // readEntityComponentsFromPath reads a vault file and returns its parsed frontmatter,

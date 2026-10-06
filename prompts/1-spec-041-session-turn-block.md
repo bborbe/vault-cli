@@ -1,7 +1,7 @@
 ---
 spec: ["041-bug-resume-races-live-headless-turn"]
 status: draft
-created: "2026-09-30T07:13:46Z"
+created: "2026-10-06T15:16:58Z"
 ---
 
 # Confirm the non-interactive session start blocks until the headless turn exits (spec 041, prompt 1 of 3)
@@ -41,7 +41,7 @@ Coding-plugin docs (in-container paths):
 - `/home/node/.claude/plugins/marketplaces/coding/docs/go-concurrency-patterns.md` — why the raw `go func`s in this file are deliberate (documented inline in the source).
 - `/home/node/.claude/plugins/marketplaces/coding/docs/go-testing-guide.md` — Ginkgo v2 / Gomega conventions used by this repo.
 
-**`git` is MASKED in this container.** `.git` is a character device (`crw-rw-rw-`, pointing at `/dev/null`), so EVERY `git` invocation fails with `fatal: not a git repository`. There is no HEAD to diff against. The spec's AC10 guard `git diff --exit-code HEAD -- scenarios/005-work-on-resume-auto-invokes-subtask.md` therefore CANNOT run here and MUST NOT appear as a verification step — the daemon's executor does not check verification exit codes, so a failed git command would be silently recorded as a pass. Verify "scenario 005 is unchanged" with the content checksum in `<verification>` instead. The spec's `git` form stays a HOST/operator-side check (see the spec's Verification ladder); do not attempt it here.
+**`git` is MASKED in this container.** `.git` is a character device (`crw-rw-rw-`, pointing at `/dev/null`), so EVERY `git` invocation fails with `fatal: not a git repository`. There is no HEAD to diff against. The spec's AC10 guard `git diff --exit-code HEAD -- scenarios/005-work-on-resume-auto-invokes-subtask.md` therefore CANNOT run here and MUST NOT appear as a verification step — the daemon's executor does not check verification exit codes (`verificationGate=false` in the effective config), so a failed git command would be silently recorded as a pass. Verify "scenario 005 is unchanged" with the content checksum in `<verification>` instead. The spec's `git` form stays a HOST/operator-side check (see the spec's Verification ladder); do not attempt it here.
 </context>
 
 <requirements>
@@ -95,7 +95,7 @@ The target state for this prompt ALREADY EXISTS in the tree. Your job is to read
    ```go
    const SessionTurnTimeout = sessionTurnTimeout
    ```
-   with a comment noting it is a test-only alias: asserting against it locks the WIRING (StartSession hands the constant, not a stray literal) but NOT the value, because a retune moves both sides — so tests must also assert the literal `30 * libtime.Minute`. The file must also carry `var DefaultSessionLockDir = defaultSessionLockDir` (spec 042's export) — that is expected; leave it untouched.
+   with a comment noting it is a test-only alias: asserting against it locks the WIRING (StartSession hands the constant, not a stray literal) but NOT the value, because a retune moves both sides — so tests must also assert the literal `30 * libtime.Minute`. The file must also carry `var DefaultSessionLockDir = defaultSessionLockDir` (spec 042's export) and the two rollup exports — those are expected; leave them untouched.
 
 9. **Confirm the existing test matrix in `pkg/ops/claude_session_test.go`.** In `Context("non-interactive branch", ...)` confirm these specs exist and match:
    - "blocks until the detached child exits" — a blocking waiter, `Consistently(returned, "100ms").ShouldNot(Receive())` before `doneCh <- nil`, then `Eventually(returned).Should(Receive(BeNil()))`; the waiter receives the bound through `windowCh` and it is asserted equal to BOTH `ops.SessionTurnTimeout` and `30 * libtime.Minute`.
@@ -160,7 +160,7 @@ The target state for this prompt ALREADY EXISTS in the tree. Your job is to read
        Expect(statErr).To(HaveOccurred())
    })
    ```
-   Notes: capture `bw := blockWaiter` spec-locally BEFORE the waiter closure reads it — `StartSession` can return via the child-exit branch while the waiter goroutine is still parked, so that goroutine outlives the spec and must not read a variable the next spec reassigns. The fake writes valid JSON and then feeds `done`, so the child-exit branch wins and the waiter goroutine stays parked until `DeferCleanup` closes `blockWaiter`. The eager unlink in `runDetachedTurn` runs before `StartSession` returns, so the `os.Stat` after the call must fail. No new import is needed — `os` is already imported.
+   Notes: capture `bw := blockWaiter` spec-locally BEFORE the waiter closure reads it — `StartSession` can return via the child-exit branch while the waiter goroutine is still parked, so that goroutine outlives the spec and must not read a variable the next spec reassigns. The fake writes valid JSON and then feeds `done`, so the child-exit branch wins and the waiter goroutine stays parked until `DeferCleanup` closes `blockWaiter`. The eager unlink in `runDetachedTurn` runs before `StartSession` returns, so the `os.Stat` after the call must fail. No new import is needed — `os`, `context` and `libtime` are already imported.
 
 12. **Confirm the detachment integration test.** `pkg/ops/claude_session_detach_test.go` must contain a spec ("child outlives a cancelled parent wait") that writes a real shell script (`#!/bin/sh\nsleep 6\ntouch <sentinel>`), cancels the context after ~500ms, asserts `StartSession` returns an error, asserts the sentinel does NOT exist yet, and then `Eventually(..., "20s", "200ms")` asserts the sentinel appears — proving the detached child survived the parent's cancelled wait. It constructs the starter with the two-argument form `ops.NewClaudeSessionStarter(script, ops.NewSessionLockerWithDir(lockDir))` (the locker is spec 042's; keep it). If the file or spec is missing, report `"status":"failed"` — do not re-implement from the spec, whose snippet uses a 12s script and a 1s cancel, neither of which matters to the invariant.
 

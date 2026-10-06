@@ -12,6 +12,7 @@ import (
 
 	"github.com/bborbe/errors"
 
+	"github.com/bborbe/vault-cli/pkg/domain"
 	"github.com/bborbe/vault-cli/pkg/storage"
 )
 
@@ -61,6 +62,10 @@ type TaskDetail struct {
 	Flag            bool     `json:"flag,omitempty"`
 	FlagSetBy       string   `json:"flag_set_by,omitempty"`
 	FlagSetAt       string   `json:"flag_set_at,omitempty"`
+	// OpenQuestions lists the task's Open Questions section items in section
+	// order. It is always non-nil so `--output json` emits `[]`, not `null`, for
+	// a task with no such section.
+	OpenQuestions []domain.OpenQuestion `json:"open_questions"`
 }
 
 var (
@@ -102,6 +107,18 @@ func (o *showOperation) Execute(
 		FlagSetBy:       task.GetString("flag_set_by"),
 		FlagSetAt:       formatFlagSetAt(task.FrontmatterMap),
 	}
+
+	// Read the section through the storage interface so the body is parsed in one
+	// place. The reader returns a non-nil empty slice for a task without the
+	// section, which is the shape the JSON contract promises.
+	openQuestions, err := o.taskStorage.ReadOpenQuestions(ctx, vaultPath, taskName)
+	if err != nil {
+		return TaskDetail{}, errors.Wrap(ctx, err, "read open questions")
+	}
+	if openQuestions == nil {
+		openQuestions = []domain.OpenQuestion{}
+	}
+	detail.OpenQuestions = openQuestions
 
 	if d := task.DeferDate(); d != nil {
 		detail.DeferDate = d.String()

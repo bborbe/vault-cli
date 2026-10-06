@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.163.0
 
 - feat: Add `vault-cli task answer <task> --answer <index>=<text>` to record operator answers into a task's `Open Questions` section in place — preserving each item's list marker and replacing a previous answer rather than appending a second one — and expose that section as the `open_questions` array on `task show --output json`.
 

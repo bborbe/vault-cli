@@ -12,6 +12,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 
 - feat: Add `vault-cli task answer <task> --answer <index>=<text>` to record operator answers into a task's `Open Questions` section in place — preserving each item's list marker and replacing a previous answer rather than appending a second one — and expose that section as the `open_questions` array on `task show --output json`.
 
+## v0.162.0
+
+- fix: `storage.PageStorage.ReadPage` rejects a page name containing a path separator, so a caller-supplied name can no longer escape the pages directory; the interface now documents that `name` is a bare base name without the `.md` extension
+
 ## v0.161.0
 
 - feat: `storage.PageStorage` gains `ReadPage` for single-page reads, byte-identical to the corresponding `ListPages` entry

@@ -461,10 +461,12 @@ clean, record is missing); a false flag costs one glance.
 Flag text for Phase 9:
 
 ```
-N. Daily note has no entry for this session's work ([[<touched task/goal>]] not referenced) — Phase 2 was skipped, aborted, or found nothing to write. Check its output above. If the anchor task is still `in_progress`, `sync-progress` declines by design (`No task completion or PR detected`) and the writer for in-progress work is `/vault-cli:update-task`; otherwise run `/vault-cli:sync-progress` before closing
+N. Daily note has no entry for this session's work ([[<touched task/goal>]] not referenced) — Phase 2 was skipped, aborted, or found nothing to write. Check its output above. If the anchor task is still `in_progress`, run `/vault-cli:update-task`; otherwise run `/vault-cli:sync-progress` before closing
 ```
 
-This is deliberately a flag, not an auto-fix: writing the entry is `sync-progress`'s job for a completed anchor and `/vault-cli:update-task`'s for an in-progress one, and silently generating one here would hide that Phase 2 produced nothing.
+This is deliberately a flag, not an auto-fix: silently generating an entry here would hide that Phase 2 produced nothing.
+
+**Why the remedy branches — and why the flag may legitimately stand anyway.** `sync-progress` records a *completed* session and declines for an anchor still `in_progress`, which is exactly the case that raises this flag; naming it alone was a dead end. `/vault-cli:update-task` is the writer for in-progress work, but it is conditional too: it appends a daily-note entry only when the session's progress is noteworthy (see `commands/update-task.md`). A session with nothing noteworthy therefore leaves this flag standing on purpose — the flag is a prompt to check, not a promise that a writer will clear it. Resolve the anchor (Phase 4.5) when the session is actually finished.
 
 ### Phase 8: Detect reflect-worthy signals
 

@@ -248,6 +248,122 @@ var _ = Describe("pageStorage.ListPages diagnostics", func() {
 	)
 })
 
+var _ = Describe("pageStorage.ReadPage", func() {
+	var (
+		ctx        context.Context
+		vaultPath  string
+		store      storage.PageStorage
+		logBuf     *bytes.Buffer
+		prevLogger *slog.Logger
+	)
+
+	BeforeEach(func() {
+		ctx = context.Background()
+		var err error
+		vaultPath, err = os.MkdirTemp("", "vault-test")
+		Expect(err).To(BeNil())
+
+		logBuf = &bytes.Buffer{}
+		prevLogger = slog.Default()
+		slog.SetDefault(
+			slog.New(slog.NewTextHandler(logBuf, &slog.HandlerOptions{Level: slog.LevelWarn})),
+		)
+
+		store = storage.NewPageStorage(storage.NewConfigFromVault(&config.Vault{}))
+	})
+
+	AfterEach(func() {
+		slog.SetDefault(prevLogger)
+		os.RemoveAll(vaultPath)
+	})
+
+	It("returns a page byte-identical to the ListPages entry for the same file", func() {
+		pagesDir := filepath.Join(vaultPath, "Pages")
+		Expect(os.MkdirAll(pagesDir, 0755)).To(Succeed())
+		Expect(
+			os.WriteFile(filepath.Join(pagesDir, "Solo.md"), []byte(parseablePage("Solo")), 0600),
+		).To(Succeed())
+
+		listed, err := store.ListPages(ctx, vaultPath, "Pages")
+		Expect(err).To(BeNil())
+		Expect(listed).To(HaveLen(1))
+
+		got, err := store.ReadPage(ctx, vaultPath, "Pages", "Solo")
+
+		Expect(err).To(BeNil())
+		Expect(got).ToNot(BeNil())
+		Expect(*got).To(Equal(*listed[0]))
+	})
+
+	It("reads only the named file and does not warn about an unreadable neighbour", func() {
+		pagesDir := filepath.Join(vaultPath, "Pages")
+		Expect(os.MkdirAll(pagesDir, 0755)).To(Succeed())
+		Expect(
+			os.WriteFile(filepath.Join(pagesDir, "Target.md"), []byte(parseablePage("Target")), 0600),
+		).To(Succeed())
+		Expect(
+			os.WriteFile(filepath.Join(pagesDir, "Broken.md"), []byte(duplicateKeyPage(2)), 0600),
+		).To(Succeed())
+
+		page, err := store.ReadPage(ctx, vaultPath, "Pages", "Target")
+
+		Expect(err).To(BeNil())
+		Expect(page).ToNot(BeNil())
+		Expect(page.Name).To(Equal("Target"))
+		// A ListPages-and-filter implementation walks the directory, reaches
+		// Broken.md, and emits exactly this warning.
+		Expect(logBuf.String()).ToNot(ContainSubstring("skipping unreadable page"))
+
+		// Positive control: the capture is wired and the warning can fire.
+		_, err = store.ListPages(ctx, vaultPath, "Pages")
+		Expect(err).To(BeNil())
+		Expect(logBuf.String()).To(ContainSubstring("skipping unreadable page"))
+	})
+
+	It("fails for a missing file where ListPages returns an empty list", func() {
+		pagesDir := filepath.Join(vaultPath, "Pages")
+		Expect(os.MkdirAll(pagesDir, 0755)).To(Succeed())
+
+		page, err := store.ReadPage(ctx, vaultPath, "Pages", "DoesNotExist")
+
+		Expect(err).To(HaveOccurred())
+		Expect(page).To(BeNil())
+
+		pages, err := store.ListPages(ctx, vaultPath, "Pages")
+
+		Expect(err).To(BeNil())
+		Expect(pages).To(BeEmpty())
+	})
+
+	It("fails for an unparseable file where ListPages skips it", func() {
+		pagesDir := filepath.Join(vaultPath, "Pages")
+		Expect(os.MkdirAll(pagesDir, 0755)).To(Succeed())
+		Expect(
+			os.WriteFile(filepath.Join(pagesDir, "Broken.md"), []byte(duplicateKeyPage(2)), 0600),
+		).To(Succeed())
+
+		page, err := store.ReadPage(ctx, vaultPath, "Pages", "Broken")
+
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("parse frontmatter"))
+		Expect(page).To(BeNil())
+
+		pages, err := store.ListPages(ctx, vaultPath, "Pages")
+
+		Expect(err).To(BeNil())
+		Expect(pages).To(BeEmpty())
+	})
+})
+
+// parseablePage returns a minimal page file with valid frontmatter and the
+// given base name in its heading.
+func parseablePage(name string) string {
+	return fmt.Sprintf(
+		"---\nstatus: in_progress\npage_type: task\ntask_identifier: 11111111-1111-4111-a111-111111111111\n---\n# %s\n",
+		name,
+	)
+}
+
 // frontmatterlessPage returns a page with no frontmatter block, which
 // ListPages skips with the "no frontmatter found" warning.
 func frontmatterlessPage(i int) string {

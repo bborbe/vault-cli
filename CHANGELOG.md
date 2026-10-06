@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.162.0
 
 - fix: `storage.PageStorage.ReadPage` rejects a page name containing a path separator, so a caller-supplied name can no longer escape the pages directory; the interface now documents that `name` is a bare base name without the `.md` extension
 

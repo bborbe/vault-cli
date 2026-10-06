@@ -2790,6 +2790,17 @@ func parseOpenAnswers(ctx context.Context, raw []string) ([]domain.OpenAnswer, e
 				value,
 			)
 		}
+		// TrimSpace removes a leading or trailing break but not an embedded one,
+		// and an answer is written into the task file as a single line. Reject it
+		// here so the operator gets a usage error rather than a refusal after the
+		// task has been read.
+		if strings.ContainsAny(answer, "\r\n") {
+			return nil, errors.Errorf(
+				ctx,
+				"invalid --answer %q: answer text must be a single line",
+				value,
+			)
+		}
 		answers = append(answers, domain.OpenAnswer{Index: index, Answer: answer})
 	}
 	return answers, nil

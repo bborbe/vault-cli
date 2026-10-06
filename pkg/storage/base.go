@@ -312,28 +312,44 @@ func (b *baseStorage) parseCheckboxes(content string) []domain.CheckboxItem {
 	return items
 }
 
-// readOpenQuestions returns the top-level list items of the first `Open
+// OpenQuestionItem is one item of a task's `Open Questions` section. Line is the
+// item's index into strings.Split(content, "\n") and Marker is its list prefix
+// (indentation, list marker and the whitespace after it), so a rewriter can
+// address the same physical line the reader counted and preserve the file's own
+// list style — instead of re-deriving the section through a second
+// implementation that could drift from this one.
+type OpenQuestionItem struct {
+	Index  int
+	Text   string
+	Marker string
+	Line   int
+}
+
+// ParseOpenQuestions returns the top-level list items of the first `Open
 // Questions` section in content, in section order, each carrying its 1-based
-// index. A content without such a section yields an empty (non-nil) slice, so a
-// caller can serialize it as `[]` rather than `null`. A blank list item is
-// skipped rather than yielding an empty question, and the index counts only the
-// items returned.
-func (b *baseStorage) readOpenQuestions(ctx context.Context, content string) []domain.OpenQuestion {
-	questions := make([]domain.OpenQuestion, 0)
+// index and the line it occupies. A content without such a section yields an
+// empty (non-nil) slice, so a caller can serialize it as `[]` rather than
+// `null`. A blank list item is skipped rather than yielding an empty question,
+// and the index counts only the items returned.
+//
+// This is the single parse both the reader and any rewriter use, so the index a
+// caller names always addresses the line the rewriter edits.
+func ParseOpenQuestions(ctx context.Context, content string) []OpenQuestionItem {
+	items := make([]OpenQuestionItem, 0)
 	lines := strings.Split(content, "\n")
 	start, end := openQuestionsSectionBounds(lines)
 	if start < 0 {
-		return questions
+		return items
 	}
 
 	index := 0
-	for _, line := range lines[start+1 : end] {
+	for i := start + 1; i < end; i++ {
 		select {
 		case <-ctx.Done():
-			return questions
+			return items
 		default:
 		}
-		_, text, ok := openQuestionItem(line)
+		marker, text, ok := openQuestionItem(lines[i])
 		if !ok {
 			continue
 		}
@@ -341,9 +357,12 @@ func (b *baseStorage) readOpenQuestions(ctx context.Context, content string) []d
 			continue
 		}
 		index++
-		questions = append(questions, domain.OpenQuestion{Index: index, Text: text})
+		items = append(
+			items,
+			OpenQuestionItem{Index: index, Text: text, Marker: marker, Line: i},
+		)
 	}
-	return questions
+	return items
 }
 
 // openQuestionsSectionBounds returns the half-open line range [start+1, end) of
@@ -376,8 +395,14 @@ func openQuestionsSectionBounds(lines []string) (int, int) {
 
 // parseMarkdownHeading returns the level and text of an ATX markdown heading
 // line, and false for any line that is not a heading.
+//
+// A CRLF file leaves a trailing \r on every line produced by splitting on "\n".
+// `.` matches \r and `$` without (?m) is end-of-text, so the capture would keep
+// it and every exact-text comparison against the heading would fail — the
+// section would silently never be found. Strip it here so a CRLF file parses the
+// same as an LF one.
 func parseMarkdownHeading(line string) (int, string, bool) {
-	matches := markdownHeadingRegex.FindStringSubmatch(line)
+	matches := markdownHeadingRegex.FindStringSubmatch(strings.TrimSuffix(line, "\r"))
 	if len(matches) != 3 {
 		return 0, "", false
 	}

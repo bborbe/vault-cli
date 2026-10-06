@@ -108,15 +108,19 @@ func (o *showOperation) Execute(
 		FlagSetAt:       formatFlagSetAt(task.FrontmatterMap),
 	}
 
-	// Read the section through the storage interface so the body is parsed in one
-	// place. The reader returns a non-nil empty slice for a task without the
-	// section, which is the shape the JSON contract promises.
-	openQuestions, err := o.taskStorage.ReadOpenQuestions(ctx, vaultPath, taskName)
-	if err != nil {
-		return TaskDetail{}, errors.Wrap(ctx, err, "read open questions")
-	}
-	if openQuestions == nil {
-		openQuestions = []domain.OpenQuestion{}
+	// Parse the section from the content already in hand. Going back through the
+	// storage interface would call FindTaskByName a second time — a full vault
+	// walk plus a frontmatter parse on the CLI's most-used read path — and would
+	// let the questions describe a different file version than Content above if
+	// the file were written between the two reads. ParseOpenQuestions always
+	// returns a non-nil slice, which is the shape the JSON contract promises.
+	items := storage.ParseOpenQuestions(ctx, string(task.Content))
+	openQuestions := make([]domain.OpenQuestion, 0, len(items))
+	for _, item := range items {
+		openQuestions = append(
+			openQuestions,
+			domain.OpenQuestion{Index: item.Index, Text: item.Text},
+		)
 	}
 	detail.OpenQuestions = openQuestions
 

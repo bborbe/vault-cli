@@ -236,7 +236,68 @@ status: next
 			[]domain.OpenAnswer{{Index: 1, Answer: "x"}},
 		)
 		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("read open questions"))
+		Expect(err.Error()).To(ContainSubstring("find task"))
+	})
+
+	// The answer is written into the task file as a single line. A break would
+	// split it across two, and a fragment shaped like an ATX heading would inject
+	// a real heading — changing how every later parse of the task behaves,
+	// including this command's own index mapping.
+	It("refuses an answer containing a line break and writes nothing", func() {
+		writeTask(taskWithQuestions)
+		before := readTask()
+
+		_, err := answerOp.Execute(
+			ctx, vaultPath, "Alpha", "test",
+			[]domain.OpenAnswer{{Index: 1, Answer: "line one\n# Progress\nline two"}},
+		)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("line break"))
+		Expect(readTask()).To(Equal(before))
+	})
+
+	It("refuses a whole batch when one answer contains a line break", func() {
+		writeTask(taskWithQuestions)
+		before := readTask()
+
+		_, err := answerOp.Execute(
+			ctx, vaultPath, "Alpha", "test",
+			[]domain.OpenAnswer{
+				{Index: 1, Answer: "fine"},
+				{Index: 2, Answer: "has a\rbreak"},
+			},
+		)
+		Expect(err).To(HaveOccurred())
+		Expect(readTask()).To(Equal(before))
+	})
+
+	// A CRLF body leaves a trailing \r on every line. The rewritten line must
+	// keep it, or it becomes the only LF line in an otherwise-CRLF file.
+	//
+	// The frontmatter stays LF deliberately: the storage layer's frontmatter
+	// parser rejects a fully-CRLF file outright ("no frontmatter found"), so a
+	// CRLF body over LF frontmatter is the only shape that reaches this code.
+	It("preserves CRLF line endings when it answers", func() {
+		// Split after the closing frontmatter fence, keeping it LF.
+		splitAt := 4 + strings.Index(taskWithQuestions[4:], "---\n") + 4
+		lfFrontmatter, body := taskWithQuestions[:splitAt], taskWithQuestions[splitAt:]
+		writeTask(lfFrontmatter + strings.ReplaceAll(body, "\n", "\r\n"))
+		before := readTask()
+
+		_, err := answerOp.Execute(
+			ctx, vaultPath, "Alpha", "test",
+			[]domain.OpenAnswer{{Index: 1, Answer: "Postgres"}},
+		)
+		Expect(err).NotTo(HaveOccurred())
+
+		after := readTask()
+		Expect(after).To(ContainSubstring("- Which database? → **Postgres**\r\n"))
+		Expect(changedLineIndices(before, after)).To(HaveLen(1))
+		// Every line of the body still ends CRLF — the rewrite did not convert the
+		// answered line to LF. The count is scoped to the body because the
+		// pre-existing WriteTask re-serializes the frontmatter as LF.
+		writtenBody := after[strings.Index(after, "# Summary"):]
+		Expect(strings.Count(writtenBody, "\r\n")).To(Equal(strings.Count(writtenBody, "\n")))
 	})
 
 	It("succeeds without writing when no answers are supplied", func() {

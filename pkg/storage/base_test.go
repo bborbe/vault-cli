@@ -281,20 +281,27 @@ var _ = Describe("bare Wikilink quoting on the parse path", func() {
 	})
 })
 
-var _ = Describe("baseStorage readOpenQuestions", func() {
-	var (
-		ctx context.Context
-		b   *storage.BaseStorageForTest
-	)
+// indexesAndTexts projects parsed items onto the domain shape the API exposes,
+// so the table asserts the reader's contract — order, 1-based index, text —
+// without restating every item's physical line.
+func indexesAndTexts(items []storage.OpenQuestionItem) []domain.OpenQuestion {
+	out := make([]domain.OpenQuestion, 0, len(items))
+	for _, item := range items {
+		out = append(out, domain.OpenQuestion{Index: item.Index, Text: item.Text})
+	}
+	return out
+}
+
+var _ = Describe("storage ParseOpenQuestions", func() {
+	var ctx context.Context
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		b = storage.NewBaseStorageForTest()
 	})
 
 	DescribeTable("returns the section's top-level items in section order",
 		func(content string, expected []domain.OpenQuestion) {
-			Expect(storage.ReadOpenQuestionsForTest(ctx, b, content)).To(Equal(expected))
+			Expect(indexesAndTexts(storage.ParseOpenQuestions(ctx, content))).To(Equal(expected))
 		},
 		Entry("several dash bullets",
 			"---\nstatus: todo\n---\n# Open Questions\n\n- First?\n- Second?\n- Third?\n",
@@ -345,12 +352,35 @@ var _ = Describe("baseStorage readOpenQuestions", func() {
 			"# Open Questions\n\n- First?\n\n# Open Questions\n\n- Second?\n",
 			[]domain.OpenQuestion{{Index: 1, Text: "First?"}},
 		),
+		// A CRLF file leaves a trailing \r on every line split on "\n". Go's `.`
+		// matches \r and `$` without (?m) is end-of-text, so an unstripped capture
+		// would compare "Open Questions\r" against "Open Questions", never match,
+		// and silently report a section-less task — no error, an empty list.
+		Entry("a CRLF file parses the same as an LF one",
+			"# Open Questions\r\n\r\n- First?\r\n- Second?\r\n",
+			[]domain.OpenQuestion{
+				{Index: 1, Text: "First?"},
+				{Index: 2, Text: "Second?"},
+			},
+		),
 	)
 
-	It("returns an empty, non-nil slice when the section is absent", func() {
-		questions := storage.ReadOpenQuestionsForTest(
+	It("reports the physical line each item occupies", func() {
+		// The rewriter addresses items by this line rather than re-deriving the
+		// section, so the value is part of the contract, not an implementation
+		// detail: 0=# Summary, 1=blank, 2=# Open Questions, 3=blank, 4/5=the items.
+		items := storage.ParseOpenQuestions(
 			ctx,
-			b,
+			"# Summary\n\n# Open Questions\n\n- First?\n- Second?\n",
+		)
+		Expect(items).To(HaveLen(2))
+		Expect(items[0].Line).To(Equal(4))
+		Expect(items[1].Line).To(Equal(5))
+	})
+
+	It("returns an empty, non-nil slice when the section is absent", func() {
+		questions := storage.ParseOpenQuestions(
+			ctx,
 			"# Summary\n\n- not a question\n\n# Progress\n",
 		)
 		Expect(questions).NotTo(BeNil())
@@ -358,7 +388,7 @@ var _ = Describe("baseStorage readOpenQuestions", func() {
 	})
 
 	It("returns an empty, non-nil slice for empty content", func() {
-		questions := storage.ReadOpenQuestionsForTest(ctx, b, "")
+		questions := storage.ParseOpenQuestions(ctx, "")
 		Expect(questions).NotTo(BeNil())
 		Expect(questions).To(BeEmpty())
 	})

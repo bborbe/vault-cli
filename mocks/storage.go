@@ -217,21 +217,6 @@ type Storage struct {
 		result1 *domain.Objective
 		result2 error
 	}
-	ReadOpenQuestionsStub        func(context.Context, string, string) ([]domain.OpenQuestion, error)
-	readOpenQuestionsMutex       sync.RWMutex
-	readOpenQuestionsArgsForCall []struct {
-		arg1 context.Context
-		arg2 string
-		arg3 string
-	}
-	readOpenQuestionsReturns struct {
-		result1 []domain.OpenQuestion
-		result2 error
-	}
-	readOpenQuestionsReturnsOnCall map[int]struct {
-		result1 []domain.OpenQuestion
-		result2 error
-	}
 	ReadTaskStub        func(context.Context, string, domain.TaskID) (*domain.Task, error)
 	readTaskMutex       sync.RWMutex
 	readTaskArgsForCall []struct {
@@ -1296,72 +1281,6 @@ func (fake *Storage) ReadObjectiveReturnsOnCall(i int, result1 *domain.Objective
 	}
 	fake.readObjectiveReturnsOnCall[i] = struct {
 		result1 *domain.Objective
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *Storage) ReadOpenQuestions(arg1 context.Context, arg2 string, arg3 string) ([]domain.OpenQuestion, error) {
-	fake.readOpenQuestionsMutex.Lock()
-	ret, specificReturn := fake.readOpenQuestionsReturnsOnCall[len(fake.readOpenQuestionsArgsForCall)]
-	fake.readOpenQuestionsArgsForCall = append(fake.readOpenQuestionsArgsForCall, struct {
-		arg1 context.Context
-		arg2 string
-		arg3 string
-	}{arg1, arg2, arg3})
-	stub := fake.ReadOpenQuestionsStub
-	fakeReturns := fake.readOpenQuestionsReturns
-	fake.recordInvocation("ReadOpenQuestions", []interface{}{arg1, arg2, arg3})
-	fake.readOpenQuestionsMutex.Unlock()
-	if stub != nil {
-		return stub(arg1, arg2, arg3)
-	}
-	if specificReturn {
-		return ret.result1, ret.result2
-	}
-	return fakeReturns.result1, fakeReturns.result2
-}
-
-func (fake *Storage) ReadOpenQuestionsCallCount() int {
-	fake.readOpenQuestionsMutex.RLock()
-	defer fake.readOpenQuestionsMutex.RUnlock()
-	return len(fake.readOpenQuestionsArgsForCall)
-}
-
-func (fake *Storage) ReadOpenQuestionsCalls(stub func(context.Context, string, string) ([]domain.OpenQuestion, error)) {
-	fake.readOpenQuestionsMutex.Lock()
-	defer fake.readOpenQuestionsMutex.Unlock()
-	fake.ReadOpenQuestionsStub = stub
-}
-
-func (fake *Storage) ReadOpenQuestionsArgsForCall(i int) (context.Context, string, string) {
-	fake.readOpenQuestionsMutex.RLock()
-	defer fake.readOpenQuestionsMutex.RUnlock()
-	argsForCall := fake.readOpenQuestionsArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
-}
-
-func (fake *Storage) ReadOpenQuestionsReturns(result1 []domain.OpenQuestion, result2 error) {
-	fake.readOpenQuestionsMutex.Lock()
-	defer fake.readOpenQuestionsMutex.Unlock()
-	fake.ReadOpenQuestionsStub = nil
-	fake.readOpenQuestionsReturns = struct {
-		result1 []domain.OpenQuestion
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *Storage) ReadOpenQuestionsReturnsOnCall(i int, result1 []domain.OpenQuestion, result2 error) {
-	fake.readOpenQuestionsMutex.Lock()
-	defer fake.readOpenQuestionsMutex.Unlock()
-	fake.ReadOpenQuestionsStub = nil
-	if fake.readOpenQuestionsReturnsOnCall == nil {
-		fake.readOpenQuestionsReturnsOnCall = make(map[int]struct {
-			result1 []domain.OpenQuestion
-			result2 error
-		})
-	}
-	fake.readOpenQuestionsReturnsOnCall[i] = struct {
-		result1 []domain.OpenQuestion
 		result2 error
 	}{result1, result2}
 }

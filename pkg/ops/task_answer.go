@@ -50,15 +50,9 @@ type taskAnswerOperation struct {
 	taskStorage storage.TaskStorage
 }
 
-// These mirror the storage reader's section parsing. The rewrite needs the
-// marker and the physical line, which the reader's []domain.OpenQuestion does
-// not carry, so the op locates the section itself; the question text and the
-// set of valid indices come from the reader, never from this scan.
-var (
-	answerItemRegex    = regexp.MustCompile(`^([ \t]*)([-*]|\d+\.)([ \t]+)(.*)$`)
-	answerHeadingRegex = regexp.MustCompile(`^(#{1,6})[ \t]+(.*?)[ \t]*$`)
-	answerSuffixRegex  = regexp.MustCompile(`^(.*) → \*\*.*\*\*$`)
-)
+// answerSuffixRegex matches an item that already carries an answer, so
+// re-answering replaces that suffix instead of appending a second one.
+var answerSuffixRegex = regexp.MustCompile(`^(.*) → \*\*.*\*\*$`)
 
 // Execute records the operator's answers into the task's Open Questions section.
 func (o *taskAnswerOperation) Execute(
@@ -68,16 +62,18 @@ func (o *taskAnswerOperation) Execute(
 	vaultName string,
 	answers []domain.OpenAnswer,
 ) (MutationResult, error) {
-	// The reader is the authority on what the section holds: its ordered texts
-	// and its item count are what every index below is validated against.
-	questions, err := o.taskStorage.ReadOpenQuestions(ctx, vaultPath, taskName)
+	task, err := o.taskStorage.FindTaskByName(ctx, vaultPath, taskName)
 	if err != nil {
-		return MutationResult{Success: false, Error: err.Error()}, errors.Wrap(
-			ctx,
-			err,
-			"read open questions",
-		)
+		return MutationResult{Success: false, Error: err.Error()}, errors.Wrap(ctx, err, "find task")
 	}
+
+	// ParseOpenQuestions is the authority on what the section holds: its item
+	// count and each item's physical line are what every index below is validated
+	// against and rewritten through. Deriving both from the content already in
+	// hand keeps the reader and this rewriter on ONE parse, so the index a caller
+	// names always addresses the line this op edits — and avoids a second vault
+	// walk on a write path that already holds the task.
+	items := storage.ParseOpenQuestions(ctx, string(task.Content))
 
 	answerByIndex := make(map[int]string, len(answers))
 	for _, answer := range answers {
@@ -90,11 +86,25 @@ func (o *taskAnswerOperation) Execute(
 			)
 		default:
 		}
-		if answer.Index < 1 || answer.Index > len(questions) {
+		if answer.Index < 1 || answer.Index > len(items) {
 			err := errors.Errorf(
 				ctx,
 				"refusing to answer %q: no open question %d (the Open Questions section has %d item(s))",
-				taskName, answer.Index, len(questions),
+				taskName, answer.Index, len(items),
+			)
+			return MutationResult{Success: false, Error: err.Error()}, err
+		}
+		// An answer is written into the task file as a single line. A line break
+		// would split it across two, and a fragment shaped like an ATX heading
+		// would inject a real heading — changing how every later parse of this
+		// task behaves, including this command's own index mapping. Refuse the
+		// whole batch rather than write a file that no longer round-trips.
+		if strings.ContainsAny(answer.Answer, "\r\n") {
+			err := errors.Errorf(
+				ctx,
+				"refusing to answer %q: the answer to question %d contains a line break, "+
+					"and an answer must stay on one line",
+				taskName, answer.Index,
 			)
 			return MutationResult{Success: false, Error: err.Error()}, err
 		}
@@ -104,23 +114,12 @@ func (o *taskAnswerOperation) Execute(
 		return MutationResult{Success: true, Name: taskName, Vault: vaultName}, nil
 	}
 
-	task, err := o.taskStorage.FindTaskByName(ctx, vaultPath, taskName)
-	if err != nil {
-		return MutationResult{Success: false, Error: err.Error()}, errors.Wrap(ctx, err, "find task")
-	}
-
-	lines := strings.Split(string(task.Content), "\n")
-	start, end := answerSectionBounds(lines)
-	if start < 0 {
-		err := errors.Errorf(
-			ctx,
-			"refusing to answer %q: no Open Questions section found",
-			taskName,
-		)
-		return MutationResult{Success: false, Error: err.Error()}, err
-	}
-
-	lines, err = applyAnswers(ctx, lines, start, end, answerByIndex)
+	lines, err := applyAnswers(
+		ctx,
+		strings.Split(string(task.Content), "\n"),
+		items,
+		answerByIndex,
+	)
 	if err != nil {
 		return MutationResult{Success: false, Error: err.Error()}, err
 	}
@@ -133,84 +132,38 @@ func (o *taskAnswerOperation) Execute(
 	return MutationResult{Success: true, Name: task.Name, Vault: vaultName}, nil
 }
 
-// applyAnswers rewrites the answered items in the section's line range, leaving
-// every other line untouched. It walks the section's top-level items in order,
-// counting exactly the items the reader counted (blank items skipped), so the
-// running index addresses the same question the caller named. The item's own
-// marker and indentation are preserved, and an existing ` → **…**` suffix is
-// replaced rather than appended to, so answering twice is idempotent.
+// applyAnswers rewrites the answered items in place, leaving every other line
+// untouched. Each item is addressed by the line the shared parse reported, so
+// the index the caller named and the line this op edits cannot drift apart. The
+// item's own marker, indentation and line ending are preserved, and an existing
+// ` → **…**` suffix is replaced rather than appended to, so answering twice is
+// idempotent.
 func applyAnswers(
 	ctx context.Context,
 	lines []string,
-	start int,
-	end int,
+	items []storage.OpenQuestionItem,
 	answerByIndex map[int]string,
 ) ([]string, error) {
-	index := 0
-	for i := start + 1; i < end; i++ {
+	for _, item := range items {
 		select {
 		case <-ctx.Done():
 			return nil, errors.Wrap(ctx, ctx.Err(), "context cancelled")
 		default:
 		}
-		marker, text, ok := answerItem(lines[i])
-		if !ok || text == "" {
-			continue
-		}
-		index++
-		answer, answered := answerByIndex[index]
+		answer, answered := answerByIndex[item.Index]
 		if !answered {
 			continue
 		}
-		lines[i] = marker + stripAnswerSuffix(text) + " → **" + answer + "**"
+		// A CRLF file leaves a trailing \r on the line; keep it so the rewritten
+		// line does not become the only LF line in an otherwise-CRLF file.
+		ending := ""
+		if strings.HasSuffix(lines[item.Line], "\r") {
+			ending = "\r"
+		}
+		lines[item.Line] = item.Marker +
+			stripAnswerSuffix(item.Text) + " → **" + answer + "**" + ending
 	}
 	return lines, nil
-}
-
-// answerSectionBounds returns the half-open line range [start+1, end) of the
-// first `Open Questions` section, and (-1, -1) when there is none. It mirrors
-// the storage reader's section bounds so both agree on where the section is.
-func answerSectionBounds(lines []string) (int, int) {
-	start, level := -1, 0
-	for i, line := range lines {
-		lineLevel, text, ok := answerHeading(line)
-		if !ok {
-			continue
-		}
-		if start < 0 {
-			if text == "Open Questions" {
-				start, level = i, lineLevel
-			}
-			continue
-		}
-		if lineLevel <= level {
-			return start, i
-		}
-	}
-	if start < 0 {
-		return -1, -1
-	}
-	return start, len(lines)
-}
-
-// answerHeading returns the level and text of an ATX markdown heading line.
-func answerHeading(line string) (int, string, bool) {
-	matches := answerHeadingRegex.FindStringSubmatch(line)
-	if len(matches) != 3 {
-		return 0, "", false
-	}
-	return len(matches[1]), matches[2], true
-}
-
-// answerItem returns the marker (list marker plus the whitespace after it) and
-// the trimmed text of a top-level list item line. An indented item is not a
-// top-level item and is rejected.
-func answerItem(line string) (string, string, bool) {
-	matches := answerItemRegex.FindStringSubmatch(line)
-	if len(matches) != 5 || matches[1] != "" {
-		return "", "", false
-	}
-	return matches[2] + matches[3], strings.TrimSpace(matches[4]), true
 }
 
 // stripAnswerSuffix removes a trailing ` → **<answer>**` from text, so an item

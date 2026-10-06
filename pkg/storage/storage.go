@@ -111,6 +111,9 @@ type PageStorage interface {
 	// ReadPage returns a single page from a specific directory in the vault.
 	// Unlike ListPages it reads only the named file, and it fails when that file
 	// is missing or unparseable rather than skipping it.
+	//
+	// name must be a bare page base name without the .md extension — the same
+	// value ListPages reports in Page.Name.
 	ReadPage(
 		ctx context.Context,
 		vaultPath string,

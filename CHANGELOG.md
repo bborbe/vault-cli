@@ -12,6 +12,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 
 - feat: Add `vault-cli task answer <task> --answer <index>=<text>` to record operator answers into a task's `Open Questions` section in place — preserving each item's list marker and replacing a previous answer rather than appending a second one — and expose that section as the `open_questions` array on `task show --output json`.
 
+## v0.161.0
+
+- feat: `storage.PageStorage` gains `ReadPage` for single-page reads, byte-identical to the corresponding `ListPages` entry
+
 ## v0.160.3
 
 - fix: `sync-progress` Phase 3.4 now gates its Jira progress comment behind a project allowlist (`allowed = ["BRO"]`), checked **before** any lookup. The phase detected tickets with the free-text heuristic `[A-Z]+-\d+` and then commented on every key whose lookup succeeded — treating a successful lookup as proof of relevance, which it is not. Observed 2026-10-06: a decision-register ID (`DEC-79`, from decisions.seibert.group) resolved against a real Jira `DEC` project to an unrelated 2022 closed ticket, so the phase would have posted a progress comment on a stranger's ticket. The pre-existing `IT-*` carve-out is generalised into the allowlist rather than left beside it, so a project that is not listed is skipped silently — no lookup, no comment, no transition, no error or warning — while daily-note detection is unchanged. Change set: `commands/sync-progress.md`.

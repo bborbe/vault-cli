@@ -25,6 +25,22 @@ type PageStorage struct {
 		result1 []*domain.Page
 		result2 error
 	}
+	ReadPageStub        func(context.Context, string, string, string) (*domain.Page, error)
+	readPageMutex       sync.RWMutex
+	readPageArgsForCall []struct {
+		arg1 context.Context
+		arg2 string
+		arg3 string
+		arg4 string
+	}
+	readPageReturns struct {
+		result1 *domain.Page
+		result2 error
+	}
+	readPageReturnsOnCall map[int]struct {
+		result1 *domain.Page
+		result2 error
+	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -91,6 +107,73 @@ func (fake *PageStorage) ListPagesReturnsOnCall(i int, result1 []*domain.Page, r
 	}
 	fake.listPagesReturnsOnCall[i] = struct {
 		result1 []*domain.Page
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *PageStorage) ReadPage(arg1 context.Context, arg2 string, arg3 string, arg4 string) (*domain.Page, error) {
+	fake.readPageMutex.Lock()
+	ret, specificReturn := fake.readPageReturnsOnCall[len(fake.readPageArgsForCall)]
+	fake.readPageArgsForCall = append(fake.readPageArgsForCall, struct {
+		arg1 context.Context
+		arg2 string
+		arg3 string
+		arg4 string
+	}{arg1, arg2, arg3, arg4})
+	stub := fake.ReadPageStub
+	fakeReturns := fake.readPageReturns
+	fake.recordInvocation("ReadPage", []interface{}{arg1, arg2, arg3, arg4})
+	fake.readPageMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3, arg4)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *PageStorage) ReadPageCallCount() int {
+	fake.readPageMutex.RLock()
+	defer fake.readPageMutex.RUnlock()
+	return len(fake.readPageArgsForCall)
+}
+
+func (fake *PageStorage) ReadPageCalls(stub func(context.Context, string, string, string) (*domain.Page, error)) {
+	fake.readPageMutex.Lock()
+	defer fake.readPageMutex.Unlock()
+	fake.ReadPageStub = stub
+}
+
+func (fake *PageStorage) ReadPageArgsForCall(i int) (context.Context, string, string, string) {
+	fake.readPageMutex.RLock()
+	defer fake.readPageMutex.RUnlock()
+	argsForCall := fake.readPageArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4
+}
+
+func (fake *PageStorage) ReadPageReturns(result1 *domain.Page, result2 error) {
+	fake.readPageMutex.Lock()
+	defer fake.readPageMutex.Unlock()
+	fake.ReadPageStub = nil
+	fake.readPageReturns = struct {
+		result1 *domain.Page
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *PageStorage) ReadPageReturnsOnCall(i int, result1 *domain.Page, result2 error) {
+	fake.readPageMutex.Lock()
+	defer fake.readPageMutex.Unlock()
+	fake.ReadPageStub = nil
+	if fake.readPageReturnsOnCall == nil {
+		fake.readPageReturnsOnCall = make(map[int]struct {
+			result1 *domain.Page
+			result2 error
+		})
+	}
+	fake.readPageReturnsOnCall[i] = struct {
+		result1 *domain.Page
 		result2 error
 	}{result1, result2}
 }

@@ -121,6 +121,19 @@ func (p *pageStorage) ListPages(
 	return pages, nil
 }
 
+// ReadPage returns a single page from a specific directory in the vault.
+// Unlike ListPages it reads only the named file, and it fails when that file
+// is missing or unparseable rather than skipping it.
+func (p *pageStorage) ReadPage(
+	ctx context.Context,
+	vaultPath string,
+	pagesDir string,
+	name string,
+) (*domain.Page, error) {
+	filePath := filepath.Join(vaultPath, pagesDir, name+".md")
+	return p.readPageFromPath(ctx, filePath, name, vaultPath)
+}
+
 // readPageFromPath reads a single page file and returns a *domain.Page.
 // It delegates to the shared readEntityComponentsFromPath helper.
 func (p *baseStorage) readPageFromPath(

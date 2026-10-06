@@ -108,6 +108,15 @@ type DailyNoteStorage interface {
 //counterfeiter:generate -o ../../mocks/page-storage.go --fake-name PageStorage . PageStorage
 type PageStorage interface {
 	ListPages(ctx context.Context, vaultPath string, pagesDir string) ([]*domain.Page, error)
+	// ReadPage returns a single page from a specific directory in the vault.
+	// Unlike ListPages it reads only the named file, and it fails when that file
+	// is missing or unparseable rather than skipping it.
+	ReadPage(
+		ctx context.Context,
+		vaultPath string,
+		pagesDir string,
+		name string,
+	) (*domain.Page, error)
 }
 
 //counterfeiter:generate -o ../../mocks/decision-storage.go --fake-name DecisionStorage . DecisionStorage

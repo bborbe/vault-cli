@@ -136,14 +136,17 @@ Never invent PR URLs — only record ones that appear verbatim in conversation/t
 Detect Jira ticket refs in conversation: `[A-Z]+-\d+`.
 
 For each detected ticket:
-1. `mcp__atlassian__getJiraIssue(cloudId=JIRA_CLOUD_ID, issueIdOrKey=<key>)` → current status. If the ticket does not exist (404 / not accessible) → skip silently.
-2. **Always** post a progress comment via `addCommentToJiraIssue(...)` — **except on an `IT-*` issue, which is skipped silently.** Same content as Phase 3.1's daily-note section (summary + key results + decisions + PR links), as Jira markdown. Deduplicate: if the last comment on the ticket already contains the same headline summary and a timestamp within the last hour, skip — avoids double-posting on re-runs of `/vault-cli:sync-progress`.
+1. **Project allowlist gate — runs before any lookup.** The allowlist is `allowed = ["BRO"]`. Reduce the key to its project (the part before the `-`) and compare it against `allowed`. Only `BRO` keys proceed; a key whose project is not listed is **skipped silently** — no lookup, no comment, no transition, no error, no warning.
 
-   **`IT-*` issues are read-only for this phase.** `IT-` is the IT / helpdesk service desk, and automatic comments there are forbidden. Detection is still fine — the ticket may belong in the daily note — but the comment is not posted, and step 3's transition is not attempted either: an IT queue item is resolved by IT, not by a sync run. Observed 2026-10-01: a progress comment landed on `IT-47383` and the operator deleted it. IT had already answered that ticket two hours earlier, so the comment was redundant as well as unwanted.
-3. If conversation indicates completion AND ticket status != Done:
+   This is a deliberately short allowlist, not a special case. `[A-Z]+-\d+` is a heuristic over free text, and an ID from another system can collide with a real Jira project key. Observed 2026-10-06: the decision-register ID `DEC-79` (from decisions.seibert.group) resolved against a real `DEC` project to an unrelated 2022 closed ticket, so the phase would have commented on a stranger's ticket. `IT-` — the IT / helpdesk service desk — is one instance of the same class: a progress comment landed on `IT-47383` on 2026-10-01 and the operator deleted it. Extend the allowlist by adding one key.
+
+   Detection itself is unaffected — a skipped ticket may still belong in the daily note.
+2. `mcp__atlassian__getJiraIssue(cloudId=JIRA_CLOUD_ID, issueIdOrKey=<key>)` → current status. If the ticket does not exist (404 / not accessible) → skip silently.
+3. **Always** post a progress comment via `addCommentToJiraIssue(...)`. Same content as Phase 3.1's daily-note section (summary + key results + decisions + PR links), as Jira markdown. Deduplicate: if the last comment on the ticket already contains the same headline summary and a timestamp within the last hour, skip — avoids double-posting on re-runs of `/vault-cli:sync-progress`.
+4. If conversation indicates completion AND ticket status != Done:
    - `getTransitionsForJiraIssue(...)` → find "Done" (case-insensitive)
    - `transitionJiraIssue(...)` → transition
-   - The comment from step 2 stands as the completion record — no second comment needed.
+   - The comment from step 3 stands as the completion record — no second comment needed.
 
 If JIRA_MCP_AVAILABLE is false: skip silently.
 

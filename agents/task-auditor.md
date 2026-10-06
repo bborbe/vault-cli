@@ -470,7 +470,13 @@ A task's premises are claims about *other* files: a path, a line number, a quote
 
 **Either find it evidenced in the file, or flag it `unverified`.** A premise is evidenced when the file names the read that establishes it — a query, a log line, a config, an artifact § 17 already resolved. Absent that, report the claim as **`unverified`** with the one read-only command a reader could run to settle it — and **do not run it**: auditing is a read-only text pass, and naming the command is the deliverable.
 
+**Evidence must be the artifact that *governs* the claim.** "The file names a read" is not enough — a config, a page or a declaration that merely *mentions* the subject does not establish a fact it does not control. Name the governing artifact; when it exists and you have not read it, that **is** the `unverified` case, and citing a different artifact in its place is a false finding, not a shortcut.
+
+**An unverified premise never fails a hard gate.** Where a hard gate's subject is a premise you could not read, report it as `unverified` beside the one read that would settle it, and return no gate verdict on that premise. This is deliberately *not* §17's hold-and-name disposition, which fails the brief: an unread premise is an absence of evidence, so it cannot carry a verdict either way. Never resolve the ambiguity by asserting the contradicting fact — this pass reads, and the reader settles it.
+
 **Observed:** a task claimed *"the data is disposable… nothing else reads this DB"* and was audited 9/10 three times before the claim proved false — the change was built, merged and deployed, then reverted.
+
+**Observed 2026-10-06:** an auditor's hard-gate finding asserted that a vault's MCP server launches from the plugin cache — inferred from the plugin's own `.mcp.json` — while its own reasoning had already named the governing declaration (`~/.claude/mcp-<vault>.json`) and declined to read it. The claim was false; the session settled it by inspecting ~35 live processes, and the audited task needed a corrective entry so the inference could not be repeated.
 
 ## Quick Fixes (Minor)
 

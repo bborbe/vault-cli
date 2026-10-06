@@ -461,10 +461,10 @@ clean, record is missing); a false flag costs one glance.
 Flag text for Phase 9:
 
 ```
-N. Daily note has no entry for this session's work ([[<touched task/goal>]] not referenced) — Phase 2 was skipped, aborted, or found nothing to write. Check its output above, then run `/vault-cli:sync-progress` before closing
+N. Daily note has no entry for this session's work ([[<touched task/goal>]] not referenced) — Phase 2 was skipped, aborted, or found nothing to write. Check its output above. If the anchor task is still `in_progress`, `sync-progress` declines by design (`No task completion or PR detected`) and the writer for in-progress work is `/vault-cli:update-task`; otherwise run `/vault-cli:sync-progress` before closing
 ```
 
-This is deliberately a flag, not an auto-fix: writing the entry is `sync-progress`'s job, and silently generating one here would hide that Phase 2 produced nothing.
+This is deliberately a flag, not an auto-fix: writing the entry is `sync-progress`'s job for a completed anchor and `/vault-cli:update-task`'s for an in-progress one, and silently generating one here would hide that Phase 2 produced nothing.
 
 ### Phase 8: Detect reflect-worthy signals
 

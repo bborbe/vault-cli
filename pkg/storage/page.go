@@ -121,15 +121,35 @@ func (p *pageStorage) ListPages(
 	return pages, nil
 }
 
+// isBarePageName reports whether name is usable as a page base name: non-empty,
+// free of path separators (both `/` and `\`), and not a relative-path segment.
+func isBarePageName(name string) bool {
+	if name == "" || name == "." || name == ".." {
+		return false
+	}
+	return !strings.ContainsAny(name, `/\`)
+}
+
 // ReadPage returns a single page from a specific directory in the vault.
 // Unlike ListPages it reads only the named file, and it fails when that file
 // is missing or unparseable rather than skipping it.
+//
+// name must be a bare page base name without the .md extension — the same
+// value ListPages reports in Page.Name. A name containing a path separator
+// is rejected, so a caller-supplied value cannot escape pagesDir.
 func (p *pageStorage) ReadPage(
 	ctx context.Context,
 	vaultPath string,
 	pagesDir string,
 	name string,
 ) (*domain.Page, error) {
+	if !isBarePageName(name) {
+		return nil, errors.Errorf(
+			ctx,
+			"invalid page name %q: must be a bare base name without a path separator",
+			name,
+		)
+	}
 	filePath := filepath.Join(vaultPath, pagesDir, name+".md")
 	return p.readPageFromPath(ctx, filePath, name, vaultPath)
 }

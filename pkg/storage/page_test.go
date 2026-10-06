@@ -353,6 +353,70 @@ var _ = Describe("pageStorage.ReadPage", func() {
 		Expect(err).To(BeNil())
 		Expect(pages).To(BeEmpty())
 	})
+
+	Context("name containment", func() {
+		It("rejects an escaping name instead of reading a file above the pages directory", func() {
+			pagesDir := filepath.Join(vaultPath, "Pages")
+			Expect(os.MkdirAll(pagesDir, 0755)).To(Succeed())
+			Expect(
+				os.WriteFile(
+					filepath.Join(vaultPath, "Outside.md"),
+					[]byte(parseablePage("Outside")),
+					0600,
+				),
+			).To(Succeed())
+
+			page, err := store.ReadPage(ctx, vaultPath, "Pages", "../Outside")
+
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("invalid page name"))
+			Expect(page).To(BeNil())
+		})
+
+		It("rejects a nested name", func() {
+			page, err := store.ReadPage(ctx, vaultPath, "Pages", "sub/Dir")
+
+			Expect(err).To(HaveOccurred())
+			Expect(page).To(BeNil())
+		})
+
+		It("rejects the empty name", func() {
+			page, err := store.ReadPage(ctx, vaultPath, "Pages", "")
+
+			Expect(err).To(HaveOccurred())
+			Expect(page).To(BeNil())
+		})
+
+		It("reads a bare name", func() {
+			pagesDir := filepath.Join(vaultPath, "Pages")
+			Expect(os.MkdirAll(pagesDir, 0755)).To(Succeed())
+			Expect(
+				os.WriteFile(
+					filepath.Join(pagesDir, "Solo.md"),
+					[]byte(parseablePage("Solo")),
+					0600,
+				),
+			).To(Succeed())
+
+			page, err := store.ReadPage(ctx, vaultPath, "Pages", "Solo")
+
+			Expect(err).To(BeNil())
+			Expect(page).ToNot(BeNil())
+			Expect(page.Name).To(Equal("Solo"))
+		})
+
+		DescribeTable("rejects dot names and a backslash name",
+			func(name string) {
+				page, err := store.ReadPage(ctx, vaultPath, "Pages", name)
+
+				Expect(err).To(HaveOccurred())
+				Expect(page).To(BeNil())
+			},
+			Entry("dot", "."),
+			Entry("dotdot", ".."),
+			Entry("backslash", `a\b`),
+		)
+	})
 })
 
 // parseablePage returns a minimal page file with valid frontmatter and the

@@ -472,7 +472,7 @@ A task's premises are claims about *other* files: a path, a line number, a quote
 
 **Evidence must be the artifact that *governs* the claim.** "The file names a read" is not enough — a config, a page or a declaration that merely *mentions* the subject does not establish a fact it does not control. Name the governing artifact; when it exists and you have not read it, that **is** the `unverified` case, and citing a different artifact in its place is a false finding, not a shortcut.
 
-**An unverified premise never fails a hard gate.** Where a hard gate's subject is a premise you could not read, the finding is `unverified` plus the one read that would settle it — hold and name. Never resolve the ambiguity by asserting the contradicting fact: this pass reads, and the reader settles it.
+**An unverified premise never fails a hard gate.** Where a hard gate's subject is a premise you could not read, report it as `unverified` beside the one read that would settle it, and return no gate verdict on that premise. This is deliberately *not* §17's hold-and-name disposition, which fails the brief: an unread premise is an absence of evidence, so it cannot carry a verdict either way. Never resolve the ambiguity by asserting the contradicting fact — this pass reads, and the reader settles it.
 
 **Observed:** a task claimed *"the data is disposable… nothing else reads this DB"* and was audited 9/10 three times before the claim proved false — the change was built, merged and deployed, then reverted.
 

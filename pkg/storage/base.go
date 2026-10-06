@@ -344,9 +344,11 @@ type OpenQuestionItem struct {
 const AnswerDelimiter = " → **"
 
 // FormatOpenQuestionItem renders an item with the given answer, preserving the
-// item's own list marker, indentation and line ending. answer must not contain
-// AnswerDelimiter — the caller enforces that — which is what lets
-// ParseOpenQuestions split the result back into the same question and answer.
+// item's own list marker, indentation and line ending. answer must contain
+// neither AnswerDelimiter nor `**` — the caller enforces both — which is what
+// lets ParseOpenQuestions split the result back into the same question and
+// answer. An answer carrying `**` would close the emphasis early and read back
+// with extra asterisks: `**critical**` becomes `***critical**`.
 func FormatOpenQuestionItem(item OpenQuestionItem, answer string, ending string) string {
 	return item.Marker + item.Question + AnswerDelimiter + answer + "**" + ending
 }
@@ -358,6 +360,14 @@ func FormatOpenQuestionItem(item OpenQuestionItem, answer string, ending string)
 // keeps it, and an answer is required never to contain it, so a line this
 // package writes always splits back to what it wrote.
 func splitAnswer(text string) (string, string) {
+	// The closing `**` is REQUIRED. Without this check a question that merely
+	// contains the delimiter — `Should we pick A → **B?`, which ends in `?` —
+	// would split, truncating the question to `Should we pick A`; a later
+	// `task answer` would then write that truncated text back and the rest of
+	// the question would be gone from the vault for good.
+	if !strings.HasSuffix(text, "**") {
+		return text, ""
+	}
 	trimmed := strings.TrimSuffix(text, "**")
 	idx := strings.LastIndex(trimmed, AnswerDelimiter)
 	if idx < 0 {
@@ -381,19 +391,23 @@ func splitAnswer(text string) (string, string) {
 // This is the single parse both the reader and any rewriter use, so the index a
 // caller names always addresses the line the rewriter edits and both agree on
 // where the question ends and the answer begins.
-func ParseOpenQuestions(ctx context.Context, content string) []OpenQuestionItem {
+func ParseOpenQuestions(ctx context.Context, content string) ([]OpenQuestionItem, error) {
 	items := make([]OpenQuestionItem, 0)
 	lines := strings.Split(content, "\n")
 	start, end := openQuestionsSectionBounds(lines)
 	if start < 0 {
-		return items
+		return items, nil
 	}
 
 	index := 0
 	for i := start + 1; i < end; i++ {
 		select {
 		case <-ctx.Done():
-			return items
+			// Returning the partial list would report a task as having fewer
+			// questions than it holds, with no signal — and a caller addressing a
+			// question by index could then edit the wrong one. Return nothing and
+			// the reason instead.
+			return nil, errors.Wrap(ctx, ctx.Err(), "parse open questions")
 		default:
 		}
 		marker, text, ok := openQuestionItem(lines[i])
@@ -413,7 +427,7 @@ func ParseOpenQuestions(ctx context.Context, content string) []OpenQuestionItem 
 			Line:     i,
 		})
 	}
-	return items
+	return items, nil
 }
 
 // openQuestionsSectionBounds returns the half-open line range [start+1, end) of

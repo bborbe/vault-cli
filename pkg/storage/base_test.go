@@ -284,6 +284,14 @@ var _ = Describe("bare Wikilink quoting on the parse path", func() {
 // indexesAndTexts projects parsed items onto the domain shape the API exposes,
 // so the table asserts the reader's contract — order, 1-based index, text —
 // without restating every item's physical line.
+// parsed calls ParseOpenQuestions and fails the spec on an error, so the specs
+// below read as assertions about the parse rather than about error plumbing.
+func parsed(ctx context.Context, content string) []storage.OpenQuestionItem {
+	items, err := storage.ParseOpenQuestions(ctx, content)
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+	return items
+}
+
 func indexesAndTexts(items []storage.OpenQuestionItem) []domain.OpenQuestion {
 	out := make([]domain.OpenQuestion, 0, len(items))
 	for _, item := range items {
@@ -301,7 +309,9 @@ var _ = Describe("storage ParseOpenQuestions", func() {
 
 	DescribeTable("returns the section's top-level items in section order",
 		func(content string, expected []domain.OpenQuestion) {
-			Expect(indexesAndTexts(storage.ParseOpenQuestions(ctx, content))).To(Equal(expected))
+			items, err := storage.ParseOpenQuestions(ctx, content)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(indexesAndTexts(items)).To(Equal(expected))
 		},
 		Entry("several dash bullets",
 			"---\nstatus: todo\n---\n# Open Questions\n\n- First?\n- Second?\n- Third?\n",
@@ -322,12 +332,20 @@ var _ = Describe("storage ParseOpenQuestions", func() {
 			"## Open Questions\n\n- Only?\n",
 			[]domain.OpenQuestion{{Index: 1, Text: "Only?"}},
 		),
-		Entry("the section ends at the next heading of the same level",
+		Entry("the section ends at the next heading",
 			"# Open Questions\n\n- One?\n- Two?\n\n# Progress\n\n- not a question\n",
 			[]domain.OpenQuestion{
 				{Index: 1, Text: "One?"},
 				{Index: 2, Text: "Two?"},
 			},
+		),
+		// A question that merely CONTAINS the delimiter, without ending in the
+		// closing `**`, is not an answered item. Splitting it would truncate the
+		// question — and a later answer would write that truncation back, losing
+		// the rest of it from the vault for good.
+		Entry("a delimiter with no closing ** is part of the question",
+			"# Open Questions\n\n- Should we pick A → **B?\n",
+			[]domain.OpenQuestion{{Index: 1, Text: "Should we pick A → **B?"}},
 		),
 		Entry("the section ends at a higher-level heading",
 			"### Open Questions\n\n- One?\n\n## Progress\n\n- not a question\n",
@@ -377,10 +395,7 @@ var _ = Describe("storage ParseOpenQuestions", func() {
 		// The rewriter addresses items by this line rather than re-deriving the
 		// section, so the value is part of the contract, not an implementation
 		// detail: 0=# Summary, 1=blank, 2=# Open Questions, 3=blank, 4/5=the items.
-		items := storage.ParseOpenQuestions(
-			ctx,
-			"# Summary\n\n# Open Questions\n\n- First?\n- Second?\n",
-		)
+		items := parsed(ctx, "# Summary\n\n# Open Questions\n\n- First?\n- Second?\n")
 		Expect(items).To(HaveLen(2))
 		Expect(items[0].Line).To(Equal(4))
 		Expect(items[1].Line).To(Equal(5))
@@ -389,17 +404,14 @@ var _ = Describe("storage ParseOpenQuestions", func() {
 	It("splits a recorded answer off at the last delimiter", func() {
 		// A question that itself contains the delimiter keeps it: the split is at
 		// the LAST one, which is where this package's writer puts it.
-		items := storage.ParseOpenQuestions(
-			ctx,
-			"# Open Questions\n\n- Pick A → **B**? → **Yes**\n",
-		)
+		items := parsed(ctx, "# Open Questions\n\n- Pick A → **B**? → **Yes**\n")
 		Expect(items).To(HaveLen(1))
 		Expect(items[0].Question).To(Equal("Pick A → **B**?"))
 		Expect(items[0].Answer).To(Equal("Yes"))
 	})
 
 	It("reports an unanswered item with an empty answer", func() {
-		items := storage.ParseOpenQuestions(ctx, "# Open Questions\n\n- First?\n")
+		items := parsed(ctx, "# Open Questions\n\n- First?\n")
 		Expect(items).To(HaveLen(1))
 		Expect(items[0].Question).To(Equal("First?"))
 		Expect(items[0].Answer).To(BeEmpty())
@@ -409,24 +421,35 @@ var _ = Describe("storage ParseOpenQuestions", func() {
 		// Index is the caller-facing address, so it must be the ordinal in the
 		// section. A file whose markers skip a number still reports 1, 2 — the
 		// markers are preserved on write but never interpreted.
-		items := storage.ParseOpenQuestions(ctx, "# Open Questions\n\n1. Alpha?\n3. Gamma?\n")
+		items := parsed(ctx, "# Open Questions\n\n1. Alpha?\n3. Gamma?\n")
 		Expect(items).To(HaveLen(2))
 		Expect(items[0].Index).To(Equal(1))
 		Expect(items[1].Index).To(Equal(2))
 	})
 
 	It("returns an empty, non-nil slice when the section is absent", func() {
-		questions := storage.ParseOpenQuestions(
-			ctx,
-			"# Summary\n\n- not a question\n\n# Progress\n",
-		)
+		questions := parsed(ctx, "# Summary\n\n- not a question\n\n# Progress\n")
 		Expect(questions).NotTo(BeNil())
 		Expect(questions).To(BeEmpty())
 	})
 
 	It("returns an empty, non-nil slice for empty content", func() {
-		questions := storage.ParseOpenQuestions(ctx, "")
+		questions := parsed(ctx, "")
 		Expect(questions).NotTo(BeNil())
 		Expect(questions).To(BeEmpty())
+	})
+
+	It("reports a cancelled context instead of a truncated list", func() {
+		// Returning what was parsed so far would describe a task as having fewer
+		// questions than it holds, with no signal — and a caller addressing a
+		// question by index could then edit the wrong one.
+		cancelled, cancel := context.WithCancel(ctx)
+		cancel()
+		items, err := storage.ParseOpenQuestions(
+			cancelled,
+			"# Open Questions\n\n- One?\n- Two?\n",
+		)
+		Expect(err).To(HaveOccurred())
+		Expect(items).To(BeNil())
 	})
 })

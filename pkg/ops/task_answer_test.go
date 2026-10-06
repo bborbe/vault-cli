@@ -288,6 +288,22 @@ status: next
 		Expect(readTask()).To(Equal(before))
 	})
 
+	// The answer is written inside `**…**`, so an answer carrying `**` would close
+	// that emphasis early and the line would no longer parse back to what was
+	// written — `**critical**` reads back as `***critical**`.
+	It("refuses an answer containing ** and writes nothing", func() {
+		writeTask(taskWithQuestions)
+		before := readTask()
+
+		_, err := answerOp.Execute(
+			ctx, vaultPath, "Alpha", "test",
+			[]domain.OpenAnswer{{Index: 1, Answer: "**critical**"}},
+		)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("close the emphasis"))
+		Expect(readTask()).To(Equal(before))
+	})
+
 	// Two answers for one index would silently keep the last, leaving the caller
 	// unable to tell which of its flags took effect.
 	It("refuses a duplicate index and writes nothing", func() {

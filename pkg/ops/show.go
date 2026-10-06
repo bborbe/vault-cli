@@ -114,7 +114,10 @@ func (o *showOperation) Execute(
 	// let the questions describe a different file version than Content above if
 	// the file were written between the two reads. ParseOpenQuestions always
 	// returns a non-nil slice, which is the shape the JSON contract promises.
-	items := storage.ParseOpenQuestions(ctx, string(task.Content))
+	items, err := storage.ParseOpenQuestions(ctx, string(task.Content))
+	if err != nil {
+		return TaskDetail{}, errors.Wrap(ctx, err, "parse open questions")
+	}
 	openQuestions := make([]domain.OpenQuestion, 0, len(items))
 	for _, item := range items {
 		openQuestions = append(

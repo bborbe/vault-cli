@@ -68,64 +68,14 @@ func (o *taskAnswerOperation) Execute(
 	// hand keeps the reader and this rewriter on ONE parse, so the index a caller
 	// names always addresses the line this op edits — and avoids a second vault
 	// walk on a write path that already holds the task.
-	items := storage.ParseOpenQuestions(ctx, string(task.Content))
+	items, err := storage.ParseOpenQuestions(ctx, string(task.Content))
+	if err != nil {
+		return MutationResult{Success: false, Error: err.Error()}, err
+	}
 
-	answerByIndex := make(map[int]string, len(answers))
-	for _, answer := range answers {
-		select {
-		case <-ctx.Done():
-			return MutationResult{Success: false, Error: ctx.Err().Error()}, errors.Wrap(
-				ctx,
-				ctx.Err(),
-				"context cancelled",
-			)
-		default:
-		}
-		if answer.Index < 1 || answer.Index > len(items) {
-			err := errors.Errorf(
-				ctx,
-				"refusing to answer %q: no open question %d (the Open Questions section has %d item(s))",
-				taskName, answer.Index, len(items),
-			)
-			return MutationResult{Success: false, Error: err.Error()}, err
-		}
-		// An answer is written into the task file as a single line. A line break
-		// would split it across two, and a fragment shaped like an ATX heading
-		// would inject a real heading — changing how every later parse of this
-		// task behaves, including this command's own index mapping. Refuse the
-		// whole batch rather than write a file that no longer round-trips.
-		if strings.ContainsAny(answer.Answer, "\r\n") {
-			err := errors.Errorf(
-				ctx,
-				"refusing to answer %q: the answer to question %d contains a line break, "+
-					"and an answer must stay on one line",
-				taskName, answer.Index,
-			)
-			return MutationResult{Success: false, Error: err.Error()}, err
-		}
-		// The delimiter is where the question ends. An answer carrying it would
-		// make the written line ambiguous, and re-answering would then split at the
-		// wrong place and destroy the previous answer.
-		if strings.Contains(answer.Answer, storage.AnswerDelimiter) {
-			err := errors.Errorf(
-				ctx,
-				"refusing to answer %q: the answer to question %d contains %q, "+
-					"which is what separates a question from its answer",
-				taskName, answer.Index, storage.AnswerDelimiter,
-			)
-			return MutationResult{Success: false, Error: err.Error()}, err
-		}
-		// Two answers for one index would silently keep the last, leaving the
-		// caller unable to tell which of its flags took effect. Refuse instead.
-		if _, duplicate := answerByIndex[answer.Index]; duplicate {
-			err := errors.Errorf(
-				ctx,
-				"refusing to answer %q: question %d is answered more than once",
-				taskName, answer.Index,
-			)
-			return MutationResult{Success: false, Error: err.Error()}, err
-		}
-		answerByIndex[answer.Index] = answer.Answer
+	answerByIndex, err := answerIndex(ctx, taskName, answers, len(items))
+	if err != nil {
+		return MutationResult{Success: false, Error: err.Error()}, err
 	}
 	if len(answerByIndex) == 0 {
 		return MutationResult{Success: true, Name: taskName, Vault: vaultName}, nil
@@ -147,6 +97,65 @@ func (o *taskAnswerOperation) Execute(
 	}
 
 	return MutationResult{Success: true, Name: task.Name, Vault: vaultName}, nil
+}
+
+// answerIndex validates the answers and collapses them into a map keyed by the
+// question they address. It refuses an index that names no item, an answer the
+// one-line format cannot carry, and a duplicate index — so the whole batch is
+// rejected before the task file is touched, and a caller cannot be left unable
+// to tell which of its flags took effect.
+func answerIndex(
+	ctx context.Context,
+	taskName string,
+	answers []domain.OpenAnswer,
+	itemCount int,
+) (map[int]string, error) {
+	answerByIndex := make(map[int]string, len(answers))
+	for _, answer := range answers {
+		select {
+		case <-ctx.Done():
+			return nil, errors.Wrap(ctx, ctx.Err(), "context cancelled")
+		default:
+		}
+		if answer.Index < 1 || answer.Index > itemCount {
+			return nil, errors.Errorf(
+				ctx,
+				"refusing to answer %q: no open question %d (the Open Questions section has %d item(s))",
+				taskName, answer.Index, itemCount,
+			)
+		}
+		// An answer must survive being written and read back. Each of these breaks
+		// that: a line break splits the answer across two lines (and a fragment
+		// shaped like an ATX heading would then inject a real one, changing how
+		// every later parse of this task behaves, including this command's own
+		// index mapping); the delimiter is where the question ends; and `**` closes
+		// the emphasis the answer is written inside. Refuse the whole batch rather
+		// than write a file that no longer round-trips.
+		for _, bad := range []struct{ seq, why string }{
+			{"\n", "a line break would split it across two lines"},
+			{"\r", "a line break would split it across two lines"},
+			{storage.AnswerDelimiter, "it is what separates a question from its answer"},
+			{"**", "it would close the emphasis the answer is written in"},
+		} {
+			if !strings.Contains(answer.Answer, bad.seq) {
+				continue
+			}
+			return nil, errors.Errorf(
+				ctx,
+				"refusing to answer %q: the answer to question %d contains %q — %s",
+				taskName, answer.Index, bad.seq, bad.why,
+			)
+		}
+		if _, duplicate := answerByIndex[answer.Index]; duplicate {
+			return nil, errors.Errorf(
+				ctx,
+				"refusing to answer %q: question %d is answered more than once",
+				taskName, answer.Index,
+			)
+		}
+		answerByIndex[answer.Index] = answer.Answer
+	}
+	return answerByIndex, nil
 }
 
 // applyAnswers rewrites the answered items in place, leaving every other line

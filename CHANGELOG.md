@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: `session-close` no longer re-asks a resolution the operator already gave in the same session. Phase 4.5's goal **and** task branches, the mode-3 closer, and the Phase 9 mode gate now scan the conversation for an explicit resolution ("leave it open", a complete/hold/abort decision, or a `pick`/`approve:` reply naming the item) and carry the anchor forward in one clause in the summary block instead of re-listing it and re-emitting its `approve:` line, so the repeat run reaches the clean verdict. It is re-flagged only when its `status` or its `# Tasks` set changed since; the hard flag on the **first** run is unchanged.
+
 ## v0.163.3
 
 - fix: `task-creator` no longer claims `task-auditor` flags a `# Verification` section as a Critical Issue — no such rule exists, and the section is simply not one of the canonical ones. Its step 7 no-template fallback also stops prescribing "a single section heading or an empty body" and now points at step 9's section list, which that fallback had made unreachable.

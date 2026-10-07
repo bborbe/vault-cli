@@ -77,6 +77,7 @@ Extract the goal sentence — the goal's own one-line statement of intent (the w
 1. Skip the frontmatter block (the first two `---` lines), the `Tags:` line, and the `---` content separator that follows it — **three `---` lines in all.** ⚠️ **The vault page template carries three** (`example/vault/23 Goals/Example Goal.md` lines 1, 4, 7). Skipping too few misfires two ways — stop after the first and the frontmatter keys are read as the paragraph; stop after the second and the separator itself is. ⚠️ A page carrying only **two** (authored without a `Tags:` line) is **not** this case: return empty and let step 5's absent-source rule handle it, rather than returning a truncated sentence.
 2. Take the prose paragraph that follows, up to the first `# ` heading (normally `# Impact`)
 3. Return it verbatim
+4. ⚠️ **A goal with no such paragraph returns empty** — some goals open straight into `# Impact`. An absent source narrows the check to the ones that remain; it is never itself a defect, and returning the `# Impact` block as the sentence would make the goal-sentence source spuriously present.
 
 ### parse_definition_of_done(goal_path)
 

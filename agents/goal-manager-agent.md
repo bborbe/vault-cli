@@ -168,7 +168,7 @@ Quick validation checks for goal integrity.
    - Invalid → report issue
 
 5. **Check subtask existence:**
-   - For each `[[Task Name]]` in Tasks section
+   - For each `[[Task Name]]` in Tasks section — **excluding struck rows** (`- [ ] ~~[[Task Name]]~~`), on the same rule `get_subtask_statuses` uses; a retired row whose file was deleted is not a missing task, and step 8 skips it on the same exclusion
    - Verify file exists in `<tasks_dir>` (resolved from vault-cli config)
    - If not found → report missing task
 
@@ -209,14 +209,14 @@ Quick validation checks for goal integrity.
    Status Summary: present, up-to-date
    Subtasks: {total} linked, all exist
    Consistency: aligned
-   Necessity: {linked} linked · {serving} serving · {none} none · {unproven} unproven · {skipped} skipped
+   Necessity: {linked} links · {serving} serving · {none} none · {unproven} unproven · {skipped} skipped
      ✓ task <task> — serves <goal sentence|SC<n>|DoD<n>>: "<served line>" ← "<task line>"
    ```
    or
    ```
    ❌ Goal Issues: [[{goal_name}]]
    ✗ {specific issues}
-   Necessity: {linked} linked · {serving} serving · {none} none · {unproven} unproven · {skipped} skipped
+   Necessity: {linked} links · {serving} serving · {none} none · {unproven} unproven · {skipped} skipped
      ✓ … / ? … / ✗ …
    ```
    ⚠️ **The `Necessity:` block renders in BOTH shapes, and is not optional.** It is a reading, not an issue list — a clean goal still carries its `✓` rows, because without them a run that judged every task and found it serving is indistinguishable from a run that judged nothing. That is the exact failure the mandatory-`✓` rule exists to prevent. In the `❌` shape the `✗` and `?` rows appear **twice on purpose**: once in the `Necessity:` block under their own prefixes, and once in `✗ {specific issues}` — an unproven link is an issue, and a reader scanning the issue list must not have to find the necessity block to see it. ⚠️ **`{serving}` counts both `✓` row kinds** — the `serves` row and the `foundation` row are both passes, and `{none}` likewise covers both `✗` kinds (serves-none and Non-goals-excluded). ⚠️ **`{skipped}` covers links the check could not judge** — a linked task whose own file could not be read (step 5 already reports it), and, in the no-sources case above, every linked task. It is listed separately so the line **reconciles**: `serving + none + unproven + skipped = linked`. A count line whose parts do not sum reads as a measurement when it is an omission.

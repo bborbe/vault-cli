@@ -180,7 +180,7 @@ vault-cli task add "<name>" blocked_by "[[Blocker Task]]"
 
 In this order — a convention, not an enforced one:
 
-**No validator checks section order.** `task-auditor` § 3 verifies that the required sections are **present**, not where they sit. When a task template supplies its own order, that order wins.
+**No validator checks the order of the `#` sections.** `task-auditor` § 3 verifies that they are **present**, not where they sit, and a task template that supplies its own order wins. Items 1–2 are the exception: their positions are load-bearing and are parsed positionally by `task-auditor` and `task-manager-agent`, so do not move them.
 
 1. `Tags: [[Task]]` (after frontmatter, before content separator)
 2. **Summary** — first paragraph after the `---` separator. Action-verb-led. 1-2 sentences.

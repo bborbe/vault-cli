@@ -145,6 +145,8 @@ Sections — emit all of them; their order follows the template when one is load
 8. `# Tasks` — actionable subtasks as checkboxes
 9. `# Progress` — dated log of work done
 
+`# Open Questions` is optional and deliberately omitted from the list above; see `docs/task-writing.md` § Required sections when a task is waiting on an answer.
+
 **Do NOT emit `# Verification`.** It is not one of the canonical sections and `task-auditor` flags it as a Critical Issue duplicating `# Definition of Done`. Verification content belongs inside the DoD items or inside the relevant `# Tasks` subtask, where a reader encounters it in context.
 
 **Write `themes:` and `goals:` as YAML lists, never as a scalar.** `themes: [[A]] [[B]]` is a single string and does not parse as two links:

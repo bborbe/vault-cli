@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.163.1
 
 - fix: `task-creator` no longer prescribes a fixed order for the task body sections, and no longer claims `task-auditor` enforces one — the auditor checks that the sections are present, not the order they appear in. `docs/task-writing.md` § Required sections now says the same, and a loaded template's order takes precedence.
 

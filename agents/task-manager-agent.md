@@ -58,6 +58,16 @@ grep -n "^- \[[ x/]\]" "{task_path}"
 ```
 - Status: `[x]` = completed, `[/]` = in-progress, `[ ]` = pending
 
+### parse_success_criteria(goal_path)
+
+Extract a linked goal's success criteria — the second source a task may serve. ⚠️ **Mirrors `goal-manager-agent.md` § parse_success_criteria**, so the `SC<n>` index this file cites is the one the goal side cites.
+
+**Algorithm:**
+1. Find the `# Success Criteria` section — its body runs to the next top-level `# ` heading
+2. Extract `- [x/ ] criteria` lines
+3. Return them verbatim with their 1-based index
+4. ⚠️ **Absent or empty section → return an empty list, not an error** — step 5's absent-source rule handles it, and the structural checks already report the missing section
+
 ### parse_goal_sentence(goal_path)
 
 Extract the goal sentence — the goal's own one-line statement of intent (the writing guide names this paragraph the **Summary**), and the first source a linked task may serve. ⚠️ **Mirrors `goal-manager-agent.md` § parse_goal_sentence, and the two must stay identical:** both agents run the same three-source check against the same goal file, so a divergence here is two different answers to one question.
@@ -231,7 +241,7 @@ Quick validation checks for task integrity.
      - **(b) a specific Success Criterion**, cited as `SC<n>`
      - **(c) a specific Definition of Done item**, cited as `DoD<n>`
    - ⚠️ **A passing verdict quotes three things**: the source kind (`goal sentence` / `SC<n>` / `DoD<n>`), the **exact line served**, and **the task line that advances it**. Judge with this fixed semantic anchor (cite it when reasoning; see `docs/goal-writing.md` § Non-goals — the scope-creep guard and § Tasks as Business-Value Milestones → Foundation/skeleton work): a task is *needed* iff it serves one of the three sources above OR is explicitly framed as a needed foundation task (e.g. "foundation; enables iteration"). Work-breakdown slices, scope-creep items, and padding are NOT needed. A task whose domain the goal's `# Non-goals` section explicitly excludes is also NOT needed.
-   - ⚠️ **STRICTER THAN A BARE "advances ≥ 1 SC" TEST.** A match inferred from a task title, from a shared theme, or from a criterion that is only loosely related is reported `unproven` and counts as a **fail**, never a pass. If you cannot quote the served line **and** the task line, the verdict is not a pass — never round an unquotable match up to `needed`. ⚠️ **The foundation row below is the one route to a pass that is not one of the three sources, and it is not an escape hatch:** the semantic anchor's *"explicitly framed as a needed foundation task"* is satisfied only when **a quotable line names the criterion it is a foundation for** — either this task's own file, **or the linked goal's `# Tasks` entry for it**, which is the form `docs/goal-writing.md` § Foundation/skeleton work itself exemplifies (*`1. [[Set Up Multi-Provider Proxy Project Skeleton]] — … (foundation; enables iteration)`*). ⚠️ **Prefer the task's own file when both exist:** the goal-side list is a derived copy that can be stale. Either way the line is quoted. A foundation claim with nothing to cite is `unproven`, exactly like any other unquotable match.
+   - ⚠️ **STRICTER THAN A BARE "advances ≥ 1 SC" TEST.** A match inferred from a task title, from a shared theme, or from a criterion that is only loosely related is reported `unproven` and counts as a **fail**, never a pass. If you cannot quote the served line **and** the task line, the verdict is not a pass — never round an unquotable match up to `needed`. ⚠️ **The foundation row below is the one route to a pass that is not one of the three sources, and it is not an escape hatch:** the semantic anchor's *"explicitly framed as a needed foundation task"* is satisfied only when **a quotable line frames this task as a foundation for the linked goal** — either this task's own file, **or the linked goal's `# Tasks` entry for it**, which is the form `docs/goal-writing.md` § Foundation/skeleton work itself exemplifies (*`1. [[Set Up Multi-Provider Proxy Project Skeleton]] — … (foundation; enables iteration)`*). ⚠️ **The quoted framing line need not itself name a source** — the guide's canonical exemplar names none, so requiring one would fail the very form the guide documents. **The `<goal sentence|SC<n>|DoD<n>>` placeholder in the row is your own judgement** of what the foundation enables, stated as the source you believe it serves; it is not a second quotation. ⚠️ **Prefer the task's own file when both exist:** the goal-side list is a derived copy that can be stale. A foundation claim with nothing to cite is `unproven`, exactly like any other unquotable match.
    - Report **one row per linked goal** — the row is the deliverable, a count is not:
      - `✓ goal <goal> — serves <goal sentence|SC<n>|DoD<n>>: "<served line>" ← "<task line>"`
      - `✓ goal <goal> — foundation for <goal sentence|SC<n>|DoD<n>>: "<the foundation line>" ← "<task line>"`

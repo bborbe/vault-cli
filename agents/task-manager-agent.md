@@ -70,7 +70,7 @@ Extract a linked goal's success criteria — the second source a task may serve.
 
 ### parse_goal_sentence(goal_path)
 
-Extract the goal sentence — the goal's own one-line statement of intent (the writing guide names this paragraph the **Summary**), and the first source a linked task may serve. ⚠️ **Mirrors `goal-manager-agent.md` § parse_goal_sentence, and the two must stay identical:** both agents run the same three-source check against the same goal file, so a divergence here is two different answers to one question.
+Extract the goal sentence — the goal's own one-line statement of intent (the writing guide names this paragraph the **Summary**), and the first source a linked task may serve. ⚠️ **Mirrors `goal-manager-agent.md` § parse_goal_sentence, and the index-producing steps must stay identical:** both agents run the same three-source check against the same goal file, so a divergence in what a step yields is two different answers to one question. Prose may differ; the extraction and its numbering may not.
 
 **Algorithm:**
 1. Skip the frontmatter block (the first two `---` lines), the `Tags:` line, and the `---` content separator that follows it — **three `---` lines in all.** ⚠️ **The vault page template carries three** (`example/vault/23 Goals/Example Goal.md` lines 1, 4, 7). Skipping too few misfires two ways — stop after the first and the frontmatter keys are read as the paragraph; stop after the second and the separator itself is. ⚠️ A page carrying only **two** (authored without a `Tags:` line) is **not** this case: return empty and let step 5's absent-source rule handle it, rather than returning a truncated sentence.
@@ -79,14 +79,13 @@ Extract the goal sentence — the goal's own one-line statement of intent (the w
 
 ### parse_definition_of_done(goal_path)
 
-Extract the goal's Definition of Done items — the third source a linked task may serve. ⚠️ **Mirrors `goal-manager-agent.md` § parse_definition_of_done, for the same reason:** the `DoD<n>` index this file cites must be the one the goal side cites.
+Extract the goal's Definition of Done items — the third source a linked task may serve. ⚠️ **Mirrors `goal-manager-agent.md` § parse_definition_of_done, for the same reason:** the `DoD<n>` index this file cites must be the one the goal side cites, so the walk's bounds must match even where the prose does not.
 
 **Algorithm:**
 1. Find `# Definition of Done` section
-2. Walk the section as a sequence of blocks and extract each block **once**: first the lines between the `# Definition of Done` heading and the next `## ` heading, then the body of each `## <subsection>` in turn. ⚠️ **Block-by-block is the point** — reading "the section body" as everything up to the next `# ` heading also swallows the subsections, and every nested line is then counted twice, shifting the `DoD<n>` indices a verdict cites
+2. Walk the section as a sequence of blocks and extract each block **once**: first the lines between the `# Definition of Done` heading and the next `## ` heading, then the body of each `## <subsection>` in turn, **stopping at the next top-level `# ` heading** so a later section's own `## ` subsections stay out. ⚠️ **Block-by-block is the point** — reading "the section body" as everything up to the next `# ` heading also swallows the subsections, and every nested line is then counted twice, shifting the `DoD<n>` indices a verdict cites
 3. Return the item lines verbatim, with their 1-based index
 4. ⚠️ **Absent section → return an empty list, not an error** — a goal without one has two serving sources, not three, and the absence is never itself reported as a necessity defect
-- Count totals
 
 ## Actions
 

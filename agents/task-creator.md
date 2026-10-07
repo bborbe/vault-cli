@@ -131,16 +131,16 @@ Do NOT set `assignee`. Do NOT set fields the user did not ask for.
 
 ## 9. Compose body
 
-Order:
+Sections — emit all of them; their order follows the template when one is loaded:
 
-**This order is not a suggestion — it mirrors `docs/task-writing.md` § Required sections, which `task-auditor` enforces.** Diverging here means every task this agent writes is flagged Critical on creation and hand-fixed afterwards.
+**This list is the required *set* of sections, not a mandated order.** `task-auditor` § 3 enforces that these sections are **present**; it does not check the order they appear in. When a template body is loaded in step 7, **that template's order wins** — the Personal vault's `Task Template` puts `# Out of Scope` and `# Tasks` before `# Definition of Done`, which is the shape roughly half of that vault's task files already use.
 
 1. `Tags: [[Task]] [[<Theme>]]` (if a theme is set)
 2. `---` separator
 3. Short summary paragraph (1–2 sentences)
 4. `# Impact` — why this task matters
 5. `# Success Criteria` — binary checkbox outcomes; *what we want when done*
-6. `# Definition of Done` — **`- [ ]` checkboxes**, ≥2, covering closure ("PR merged", "verified on prod"); *how we verify we're done*. Required for shipping-class tasks and any task whose SC items are aspirational. Sits HERE, directly after Success Criteria — not at the end.
+6. `# Definition of Done` — **`- [ ]` checkboxes**, ≥2, covering closure ("PR merged", "verified on prod"); *how we verify we're done*. Required for shipping-class tasks and any task whose SC items are aspirational.
 7. `# Out of Scope` — explicit deferrals (2–5 concrete items; placeholder if author drafting). Forces scope articulation; parallels `# Non-goals` on goals.
 8. `# Tasks` — actionable subtasks as checkboxes
 9. `# Progress` — dated log of work done; lives at the bottom

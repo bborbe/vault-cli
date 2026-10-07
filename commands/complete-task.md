@@ -85,7 +85,7 @@ Mark task as complete using vault-cli. Handles normal and recurring tasks approp
    e. **Never emit the `⚪ DONE` closer panel** — MODE=non_interactive output is JSON only. The closer panel from step 2e is interactive-mode only.
 
 4. Task types (handled by vault-cli internally):
-   - Normal tasks: status→completed, goals updated, daily note checked
+   - Normal tasks: status→completed, today's daily note checked. The goal's `# Tasks` list is **not** written — it is a derived copy of the task's `goals:` frontmatter, and rollup reads the frontmatter (see `pkg/ops/complete.go`)
    - Recurring: Reset checkboxes, update defer_date, keep status in_progress
 </process>
 
@@ -93,8 +93,8 @@ Mark task as complete using vault-cli. Handles normal and recurring tasks approp
 - vault-cli task complete invoked (NOT Edit tool for frontmatter)
 - **MODE=non_interactive**: Returns JSON only, sets phase=human_review if incomplete
 - **MODE=interactive**: Shows completion %, aborts with `--force` hint if incomplete (no prompts), reports result on success
-- Goal files updated (by vault-cli)
-- Daily note updated (by vault-cli)
+- Goal state is **not** written — the goal's `# Tasks` list is a derived copy; rollup reads the task's `goals:` frontmatter (deliberate, `pkg/ops/complete.go:144`)
+- Today's daily note updated (by vault-cli) — a task tracked only in an earlier day's note is not touched there
 </success_criteria>
 
 ## Passive metrics

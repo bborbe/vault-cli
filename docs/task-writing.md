@@ -178,7 +178,9 @@ vault-cli task add "<name>" blocked_by "[[Blocker Task]]"
 
 ### Required sections
 
-In order:
+In this order — a convention, not an enforced one:
+
+**No validator checks section order.** `task-auditor` § 3 verifies that the required sections are **present**, not where they sit. When a task template supplies its own order, that order wins.
 
 1. `Tags: [[Task]]` (after frontmatter, before content separator)
 2. **Summary** — first paragraph after the `---` separator. Action-verb-led. 1-2 sentences.
@@ -187,7 +189,7 @@ In order:
 5. `# Definition of Done` — required for shipping-class tasks and any task whose SC items are aspirational ("Code is clean", "Performance improved") — *how we verify we're done* (closure). See [Definition of Done](#definition-of-done). When every SC item already encodes its own verification command (e.g. `kubectl get … -o jsonpath=…`) AND the task is not shipping-class, the SC line IS the DoD line and a separate per-criterion DoD section is redundant.
 6. `# Out of Scope` — recommended; explicit deferrals (parallels `# Non-goals` on goals)
 7. `# Tasks` — actionable subtask checkboxes (work-tracking; not parent-goal links). **Granularity rule:** session-sized work blocks, not CLI steps. Aim for 3-6 items. Collapse "write spec / audit / approve / generate prompts / precommit / open PR / merge" into one "ship the change through the pipeline" block. Each subtask should represent a meaningful unit a human can pick up, work on, and report back about — not a single command.
-8. `# Progress` — log of work done, dated entries; lives at bottom
+8. `# Progress` — log of work done, dated entries
 9. `# Open Questions` — optional/recommended; questions the task is waiting on an answer to. A task may legitimately lack the section, so readers must tolerate its absence. Answers are recorded in place, keeping each question and its answer on one line: `- <question> → **<answer>**`. `vault-cli task answer "<task>" --answer <index>=<text>` writes that form and replaces a previous answer rather than appending a second one; `vault-cli task show --output json` exposes the questions as the `open_questions` array.
 
    The heading is matched **exactly and case-sensitively** — `Open Questions` at any level. `Open questions`, `Open Questions:`, or a heading with a trailing tag is not recognised, and the section then reads as absent: an empty `open_questions` list and no error, so a typo fails silently rather than loudly. Write it exactly.

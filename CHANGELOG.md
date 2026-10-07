@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: `task-creator` no longer claims `task-auditor` flags a `# Verification` section as a Critical Issue — no such rule exists, and the section is simply not one of the canonical ones. Its step 7 no-template fallback also stops prescribing "a single section heading or an empty body" and now points at step 9's section list, which that fallback had made unreachable.
+
 ## v0.163.2
 
 - fix: `complete-task` no longer claims the goal is updated on completion. The goal's `# Tasks` list is a derived copy of the task's `goals:` frontmatter and has deliberately not been written since 2026-09-19 (`pkg/ops/complete.go`); the process step and the success criteria now say so. The daily-note claim is scoped to *today's* note, which is what `updateDailyNote` actually touches.

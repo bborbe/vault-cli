@@ -110,7 +110,7 @@ If `task_template` is set in the vault config and the file exists at that path:
 
 If `task_template` is empty or the file does not exist:
 
-- Use a minimal body: a single section heading or an empty body, depending on what is conventional
+- Emit the section set from step 9, in the order given there
 
 If `task_template` is set but the file does not exist, fail with a clear error naming the missing path.
 
@@ -147,7 +147,7 @@ Sections — emit all of them; their order follows the template when one is load
 
 `# Open Questions` is optional and deliberately omitted from the list above; see `docs/task-writing.md` § Required sections when a task is waiting on an answer.
 
-**Do NOT emit `# Verification`.** It is not one of the canonical sections and `task-auditor` flags it as a Critical Issue duplicating `# Definition of Done`. Verification content belongs inside the DoD items or inside the relevant `# Tasks` subtask, where a reader encounters it in context.
+**Do NOT emit `# Verification`.** It is not one of the canonical sections. Verification content belongs inside the DoD items or inside the relevant `# Tasks` subtask, where a reader encounters it in context.
 
 **Write `themes:` and `goals:` as YAML lists, never as a scalar.** `themes: [[A]] [[B]]` is a single string and does not parse as two links:
 

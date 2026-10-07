@@ -59,12 +59,41 @@ check() { # check <label> <want> <got>
 	fi
 }
 
-# missing_sources <root> — agent files that do NOT name all three sources.
-missing_sources() {
-	local root=$1 f s
-	for f in "${AGENTS[@]}"; do
+# section <file> <heading> — the lines under an exact heading, until the next
+# heading. Exact whole-line match: a substring match would also open on a
+# mention of the heading inside prose.
+section() {
+	awk -v h="$2" '$0 == h { f = 1; next } f && /^#/ { exit } f' "$1"
+}
+
+# step <file> <heading> <number> — the lines under a numbered step, until the next
+# numbered step or heading. Numbered steps are list items, not headings, so
+# `section`'s exact-heading match does not reach them — and the numbering restarts
+# inside every action, so the section is scoped first.
+step() {
+	section "$1" "$2" |
+		awk -v n="$3" '$0 ~ ("^" n "[.] ") { f = 1; next } f && (/^[0-9]+[.] / || /^#/) { exit } f'
+}
+
+# The verify step that carries the rule, per agent.
+RULE_STEP_GOAL=8
+RULE_STEP_TASK=5
+
+# missing_sources_in_step <root> — the agent/step pairs whose RULE STEP does not
+# name all three sources. ⚠️ **A per-file grep is not enough here, and that is the
+# whole point of this helper:** both agents' Shared Operations prose names all
+# three sources on its own (`parse_success_criteria` says "cite `SC<n>`",
+# `parse_definition_of_done` says "cite `DoD<n>`", `parse_goal_sentence` says
+# "Extract the goal sentence"), so deleting the rule step entirely would leave a
+# file-level assertion green.
+missing_sources_in_step() {
+	local root=$1 f n s
+	for spec in "agents/goal-manager-agent.md:$RULE_STEP_GOAL" "agents/task-manager-agent.md:$RULE_STEP_TASK"; do
+		f=${spec%:*}
+		n=${spec##*:}
 		for s in "${SOURCES[@]}"; do
-			grep -qF -- "$s" "$root/$f" 2>/dev/null || { printf '%s\n' "$f"; break; }
+			step "$root/$f" '### verify' "$n" 2>/dev/null | grep -qF -- "$s" ||
+				{ printf '%s step %s\n' "$f" "$n"; break; }
 		done
 	done
 }
@@ -77,8 +106,10 @@ missing_reconcile() {
 	done
 }
 
-# --- every agent names all three sources, and states the reconciliation
-check "every agent names all three serving sources" "" "$(missing_sources "$ROOT")"
+# --- the rule step in each agent names all three sources, and each agent states
+# the reconciliation
+check "the rule step in each agent names all three serving sources" "" \
+	"$(missing_sources_in_step "$ROOT")"
 check "every agent states the four-term reconciliation" "" "$(missing_reconcile "$ROOT")"
 
 # --- every thin command names the two non-SC sources a reader would search for
@@ -92,14 +123,25 @@ done
 # --- self-check: strip the reconciliation from ONE agent and require exactly that
 # one to be reported.
 TMP=$(mktemp -d)
-trap 'rm -rf "$TMP"' EXIT
+TMP2=$(mktemp -d)
+trap 'rm -rf "$TMP" "$TMP2"' EXIT
 STRIPPED=agents/task-manager-agent.md
 for f in "${AGENTS[@]}"; do
-	mkdir -p "$TMP/$(dirname "$f")"
+	mkdir -p "$TMP/$(dirname "$f")" "$TMP2/$(dirname "$f")"
 	cp "$ROOT/$f" "$TMP/$f"
+	cp "$ROOT/$f" "$TMP2/$f"
 done
 sed "s/$RECONCILE/STRIPPED/g" "$ROOT/$STRIPPED" >"$TMP/$STRIPPED"
 check "self-check: only the stripped agent is reported" "$STRIPPED" "$(missing_reconcile "$TMP")"
+
+# --- self-check 2: drop the RULE STEP from one agent and require it to be
+# reported. This is the fixture a file-level check cannot have: it proves the
+# per-step assertion measures the step, not the file — deleting step 8 leaves every
+# source string present in that agent's Shared Operations prose.
+awk '/^8[.] /{skip=1} skip && /^[0-9]+[.] / && !/^8[.] /{skip=0} !skip' \
+	"$ROOT/agents/goal-manager-agent.md" >"$TMP2/agents/goal-manager-agent.md"
+check "self-check: a dropped rule step is reported" \
+	"agents/goal-manager-agent.md step $RULE_STEP_GOAL" "$(missing_sources_in_step "$TMP2")"
 
 echo "necessity-rule: $pass passed, $fail failed"
 [ "$fail" -eq 0 ] || exit 1

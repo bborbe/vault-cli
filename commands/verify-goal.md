@@ -24,7 +24,7 @@ Invoke goal-manager-agent for fast sanity checks: status valid, subtasks exist, 
      - goal NOT `in_progress` → no subtask may be `in_progress`
      - goal `backlog` → no subtask may be `next` or `in_progress`
    - Tasks/PRDs linked
-   - Goal necessity (each linked task advances ≥ 1 of the goal's success criteria — goal-necessity check)
+   - Goal necessity (each linked task names the goal sentence, a specific success criterion, or a specific Definition of Done item it serves — or none — goal-necessity check)
 4. Return pass/fail report with specific issues
 </process>
 
@@ -32,6 +32,6 @@ Invoke goal-manager-agent for fast sanity checks: status valid, subtasks exist, 
 - Agent invoked with correct action
 - Quick validation checks performed
 - Pass/fail output with specific issues listed
-- Goal-necessity check reported (tasks advancing no success criterion flagged)
+- Goal-necessity check reported (each linked task's serving item named; tasks serving none of the three flagged)
 - No detailed quality analysis (use /audit-goal for that)
 </success_criteria>

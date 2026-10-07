@@ -205,14 +205,22 @@ Quick validation checks for task integrity.
    - Task MUST link to goal OR theme (at least one)
    - Verify linked files exist
 
-5. **Check goal-necessity (forward):**
-   - For each goal linked in the `goals` field (resolved in step 4), locate the goal file under `<goals_dir>` (resolved from vault-cli config — never a hardcoded folder name) and read its `# Success Criteria` section. Skip any linked goal whose file was already flagged unresolvable in step 4.
-   - For each readable linked goal, evaluate whether ANY success criterion needs this task's outcome — does completing this task advance, produce evidence for, or unblock at least one success criterion of that goal?
-   - Judge with this fixed semantic anchor (cite it when reasoning; see `docs/goal-writing.md` § Non-goals — the scope-creep guard and § Tasks as Business-Value Milestones → Foundation/skeleton work): a task is *needed* iff it advances ≥ 1 success criterion of the linked goal OR is explicitly framed as a needed foundation task (e.g. "foundation; enables iteration"). Work-breakdown slices, scope-creep items, and padding are NOT needed. A task whose domain the goal's `# Non-goals` section explicitly excludes is also NOT needed.
-   - If NO success criterion needs the task's outcome → report issue: `✗ task not needed by linked goal <goal> — correlation-only (advances no success criterion)`. If the goal's `# Non-goals` explicitly exclude the task's domain → report instead: `✗ task not needed by linked goal <goal> — goal Non-goals exclude this task's domain`. In both cases the issue names the specific linked goal (`<goal>`) and the reason, so a misread is visible to the operator.
-   - If a linked goal has no parseable `# Success Criteria` (section missing or no checkbox lines) → emit info line `cannot evaluate necessity — goal <goal> has no parseable Success Criteria` and skip the necessity verdict for that goal (the structural checks already flag the missing section).
-   - Clean links (the task advances ≥ 1 SC of the linked goal) produce NO necessity issue and NO necessity row in the report.
-   - Necessity issues join the report step's `✗ {specific issues}` list (flipping the report to the `❌ Task Issues` shape); info lines are appended to the report body as plain lines — not `✗` issues, not pass/fail.
+5. **Check goal-necessity (forward) — the serving item is named:**
+   - For each goal linked in the `goals` field (resolved in step 4), locate the goal file under `<goals_dir>` (resolved from vault-cli config — never a hardcoded folder name) and read its `# Success Criteria`, its `# Definition of Done`, and its goal sentence (the writing guide names this paragraph the **Summary** — the prose above `# Impact`). Skip any linked goal whose file was already flagged unresolvable in step 4.
+   - For each readable linked goal, determine **which of three sources this task's outcome serves, or that it serves none**:
+     - **(a) the goal sentence**
+     - **(b) a specific Success Criterion**, cited as `SC<n>`
+     - **(c) a specific Definition of Done item**, cited as `DoD<n>`
+   - ⚠️ **A passing verdict quotes three things**: the source kind (`goal sentence` / `SC<n>` / `DoD<n>`), the **exact line served**, and **the task line that advances it**. Judge with this fixed semantic anchor (cite it when reasoning; see `docs/goal-writing.md` § Non-goals — the scope-creep guard and § Tasks as Business-Value Milestones → Foundation/skeleton work): a task is *needed* iff it serves one of the three sources above OR is explicitly framed as a needed foundation task (e.g. "foundation; enables iteration"). Work-breakdown slices, scope-creep items, and padding are NOT needed. A task whose domain the goal's `# Non-goals` section explicitly excludes is also NOT needed.
+   - ⚠️ **STRICTER THAN A BARE "advances ≥ 1 SC" TEST.** A match inferred from a task title, from a shared theme, or from a criterion that is only loosely related is reported `unproven` and counts as a **fail**, never a pass. If you cannot quote the served line **and** the task line, the verdict is not a pass — never round an unquotable match up to `needed`.
+   - Report **one row per linked goal** — the row is the deliverable, a count is not:
+     - `✓ goal <goal> — serves <goal sentence|SC<n>|DoD<n>>: "<served line>" ← "<task line>"`
+     - `✗ task not needed by linked goal <goal> — serves none of {goal sentence, Success Criteria, Definition of Done}`
+     - `? goal <goal> — unproven: <why neither line could be quoted>`
+   - ⚠️ **The `✗` row names the three sources it tested against**, so a `none` verdict is distinguishable from a run that tested SCs only. ⚠️ **The `✓` row is mandatory for every clean link** — a run emitting rows only for failures is indistinguishable from one that judged nothing.
+   - If the goal's `# Non-goals` explicitly exclude the task's domain → report `✗ task not needed by linked goal <goal> — goal Non-goals exclude this task's domain` instead.
+   - If a linked goal has **no parseable `# Success Criteria` AND no `# Definition of Done` AND no goal sentence** → emit info line `cannot evaluate necessity — goal <goal> has no parseable Success Criteria, Definition of Done or goal sentence` and skip the necessity verdict for that goal (the structural checks already flag the missing sections). ⚠️ **One missing source is not this case** — a goal with an SC section but no DoD is evaluated over the two sources it has, and the absence of a DoD is never itself reported as a necessity defect.
+   - Necessity rows are appended to the report body; the `✗` and `?` rows also join its `✗ {specific issues}` list (flipping the report to the `❌ Task Issues` shape). Info lines are plain lines — not `✗` issues, not pass/fail.
    - Advisory only: report only — never modify goal or task files, never auto-remove or re-link.
 
 6. **Check Success Criteria section:**
@@ -236,12 +244,17 @@ Quick validation checks for task integrity.
    Parent: linked
    Success Criteria: present, {N} checkboxes
    Consistency: aligned
+   Necessity: {linked} goals · {serving} serving · {none} none · {unproven} unproven · {skipped} skipped
+     ✓ goal <goal> — serves <goal sentence|SC<n>|DoD<n>>: "<served line>" ← "<task line>"
    ```
    or
    ```
    ❌ Task Issues: [[{task_name}]]
    ✗ {specific issues}
+   Necessity: {linked} goals · {serving} serving · {none} none · {unproven} unproven · {skipped} skipped
+     ✓ … / ? … / ✗ …
    ```
+   ⚠️ **The `Necessity:` block renders in BOTH shapes, and is not optional.** It is a reading, not an issue list — a task whose links are all clean still carries its `✓` rows, because without them a run that judged every link and found it serving is indistinguishable from a run that judged nothing. That is the exact failure the mandatory-`✓` rule exists to prevent. In the `❌` shape the `✗` and `?` rows appear **twice on purpose**: once in the `Necessity:` block under their own prefixes, and once in `✗ {specific issues}` — an unproven link is an issue, and a reader scanning the issue list must not have to find the necessity block to see it. ⚠️ **`{skipped}` covers links the check could not judge** — a linked goal whose file was unresolvable (step 4) or that carries none of the three sources (the info-line path). It is listed separately so the line **reconciles**: `serving + none + unproven + skipped = linked`. Without it those links count in `{linked}` and in no verdict, and a count line whose parts do not sum reads as a measurement when it is an omission.
 
 ## Error Handling
 

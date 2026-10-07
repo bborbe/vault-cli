@@ -138,10 +138,24 @@ check "self-check: only the stripped agent is reported" "$STRIPPED" "$(missing_r
 # reported. This is the fixture a file-level check cannot have: it proves the
 # per-step assertion measures the step, not the file — deleting step 8 leaves every
 # source string present in that agent's Shared Operations prose.
-awk '/^8[.] /{skip=1} skip && /^[0-9]+[.] / && !/^8[.] /{skip=0} !skip' \
-	"$ROOT/agents/goal-manager-agent.md" >"$TMP2/agents/goal-manager-agent.md"
+# ⚠️ The drop must be scoped to the `### verify` section. Unscoped, `^8[.] ` opens on
+# the *status* action's step 8 — the numbering restarts inside every action — and the
+# drop then also swallows the `### verify` heading, so `step()` returns empty for every
+# number and the assertion passes for a degenerate reason rather than the one it names.
+awk '
+	/^### verify$/ { inverify = 1 }
+	inverify && /^#/ && !/^### verify$/ { inverify = 0 }
+	inverify && /^8[.] / { skip = 1 }
+	skip && /^[0-9]+[.] / && !/^8[.] / { skip = 0 }
+	!skip
+' "$ROOT/agents/goal-manager-agent.md" >"$TMP2/agents/goal-manager-agent.md"
 check "self-check: a dropped rule step is reported" \
 	"agents/goal-manager-agent.md step $RULE_STEP_GOAL" "$(missing_sources_in_step "$TMP2")"
+# ...and the drop must be surgical: if the section heading went with it, the report
+# above would name step 8 for the wrong reason. Step 5 still carrying the struck
+# pattern proves the section survived the edit.
+check "self-check: the drop left the rest of the verify section intact" "yes" \
+	"$(step "$TMP2/agents/goal-manager-agent.md" '### verify' 5 | grep -qF -- '~~[[' && echo yes)"
 
 echo "necessity-rule: $pass passed, $fail failed"
 [ "$fail" -eq 0 ] || exit 1

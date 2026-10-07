@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.163.2
 
 - fix: `complete-task` no longer claims the goal is updated on completion. The goal's `# Tasks` list is a derived copy of the task's `goals:` frontmatter and has deliberately not been written since 2026-09-19 (`pkg/ops/complete.go`); the process step and the success criteria now say so. The daily-note claim is scoped to *today's* note, which is what `updateDailyNote` actually touches.
 

@@ -57,6 +57,7 @@ Extract checkbox states from task file.
 grep -n "^- \[[ x/]\]" "{task_path}"
 ```
 - Status: `[x]` = completed, `[/]` = in-progress, `[ ]` = pending
+- Count totals
 
 ### parse_success_criteria(goal_path)
 

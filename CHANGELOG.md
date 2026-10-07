@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: `task-creator` no longer prescribes a fixed order for the task body sections, and no longer claims `task-auditor` enforces one — the auditor checks that the sections are present, not the order they appear in. `docs/task-writing.md` § Required sections now says the same, and a loaded template's order takes precedence.
+
 ## v0.163.0
 
 - feat: Add `vault-cli task answer <task> --answer <index>=<text>` to record operator answers into a task's `Open Questions` section in place — preserving each item's list marker and replacing a previous answer rather than appending a second one — and expose that section as the `open_questions` array on `task show --output json`.

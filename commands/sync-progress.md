@@ -74,7 +74,7 @@ Enumerate (b) in two steps, because the list JSON carries only the first field:
 
 ```bash
 vault-cli --vault <v> task list --all --output json          # filter the output on claude_session_id
-grep -l "session_id: <this-session-id>" "<tasks_dir>"/*.md   # both halves: matches claude_session_id too
+grep -lE '^(claude_session_id|[[:space:]]*- session_id): <this-session-id>$' "<tasks_dir>"/*.md   # both halves, frontmatter-anchored
 ```
 
 `--all` is required: plain `task list` defaults to todo/in_progress and would miss the `completed` row this probe exists to find.
@@ -104,13 +104,17 @@ A `/branch` session keeps its parent's history, so its first record is the origi
    { git -c core.quotepath=off log --since="<session-start>" -p -- "<vault.path>/<tasks_dir>/<T>.md"
      git -c core.quotepath=off diff HEAD -- "<vault.path>/<tasks_dir>/<T>.md"; } | grep -q '^+status: completed$'
    ```
-   `diff HEAD` covers staged and unstaged changes alike, so a `status: completed` sitting in either is matched. If cwd is outside the vault repo, git errors — that is the fail-closed case above, so continue to the PR check rather than treating it as "no completion". `-c core.quotepath=off` is inert for this test — `core.quotepath` governs how `diff --git` headers render *paths*, and the grep reads patch *content* — but both halves keep it so they stay byte-identical to the form this block was specified with.
+   `diff HEAD` covers staged and unstaged changes alike, so a `status: completed` sitting in either is matched. If cwd is outside the vault repo, git errors — that is the fail-closed case above, so continue to the PR check rather than treating it as "no completion". **The probe therefore operates only when cwd is inside the vault's git repo**, and Phase 1 sanctions the other path by falling back to scanning the conversation; there every candidate errors and the probe establishes nothing. Say so in the report rather than implying the disk was searched. `-c core.quotepath=off` is inert for this test — `core.quotepath` governs how `diff --git` headers render *paths*, and the grep reads patch *content* — but both halves keep it so they stay byte-identical to the form this block was specified with.
 
 A candidate passing both **takes the completion path**: treat it as the detected completion and continue with Phases 3–5. If phrase detection above already established a completion for that same task, the probe adds nothing — record it once, not twice. A candidate reading `completed` but failing test 2 was already finished when this session began — leave it alone. Without that test every side-reference to a finished task becomes a duplicate "Done" entry.
 
 **A set-(a) candidate must have been *edited* this session to pass test 2 — a mention is not enough.** Test 2 filters on commit time, and the scheduled-autocommit rationale works in reverse as well: an earlier session completes a task and leaves it uncommitted, this session starts, obsidian-git then flushes that change, and a session that merely *mentions* the task sees `completed` arriving after its own start. Set (a) admits mentions for **enumeration**; only an edit qualifies it for test 2. Set (b) candidates are owned by this session (`claude_session_id` / `metrics_sessions`), so they need no such check.
 
 **When the probe, not the conversation, established the completion, Phases 3.1 and 4a have no conversation to read.** Phase 3.1's entry shape asks for a summary, *Key results* and *Files updated*; Phase 4a's criteria 3 and 4 ask for verification evidence and the absence of blockers. In the compaction-lost case that motivates this block, none of it is in view. Do **not** invent it, and do **not** write a bare heading: read what the disk does hold — the task's `# Results` / `# Progress` sections and its ticked Success Criteria — and say plainly in the entry that the completion was established by probe after a compaction, so a reader knows the summary's provenance. If the disk holds nothing either, write the heading and a one-line statement of that fact; an honest thin entry beats a fabricated full one.
+
+**Skip Phase 4 for a probe-established candidate.** Test 1 already read it as `completed`, so there is nothing left to complete: running 4a would call `vault-cli task complete` on an already-closed row, or fall through to 4b and ask the operator to confirm what the probe just established. Phase 4 closes an *open* task, and this one is closed — go straight from Phase 3 to the Phase 5 report (and Phase 6's closer panel, which already follows from that completion).
+
+**Phase 3.3 keeps its conversation-only PR detection.** A PR whose URL was lost to the same compaction stays out of scope for this block: the probe reads tasks, not transcripts, and "Never invent PR URLs — only record ones that appear verbatim in conversation/tool output" still governs. A compaction-lost PR is a separate gap, stated here rather than silently implied to be covered.
 
 **Known limit, stated rather than hidden:** obsidian-git commits do not record *which* session made a change, so a different session flipping the same file after this session started passes test 2. Set (a)/(b) membership is what keeps that case out.
 

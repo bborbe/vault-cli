@@ -164,7 +164,7 @@ In order:
 5. `# Success Criteria` — 3-5 binary, measurable checkbox outcomes — *what we want when done*
 6. `# Definition of Done` — closure steps that verify completion — *how we know we're done* (peer to Success Criteria; see [Definition of Done](#definition-of-done))
 7. `# Non-goals` — 3-7 concrete deferrals (what's out of scope; link follow-up tasks/goals)
-8. `# Tasks` — 1-8 task wikilinks (`[[Wikilink Task Title]]`, NOT bold text + description), business-value milestones in logical order. See [Tasks as Business-Value Milestones](#tasks-as-business-value-milestones). The 4-8 range is a soft cap, NOT a floor — 1 task is fine for small goals; don't pad to hit a number.
+8. `# Tasks` — 1-8 task wikilinks, each naming the criterion it closes (`[[Wikilink Task Title]] — closes SC<n>`, NOT bold text + description; see [Format mandate](#format-mandate)), business-value milestones in logical order. See [Tasks as Business-Value Milestones](#tasks-as-business-value-milestones). The 4-8 range is a soft cap, NOT a floor — 1 task is fine for small goals; don't pad to hit a number.
 9. `# Related` — themes / sister goals / docs
 
 Optional: `# Risk Management` (appendix for high-stakes goals).
@@ -306,9 +306,11 @@ In the goal file body, the `# Tasks` section MUST render each task as a `[[Wikil
 ```markdown
 # Tasks
 
-1. [[Allow Claude Code to Pass Through the Proxy]]
-2. [[Add Config and Other Providers to the Proxy]] — context (→ SC2, SC3)
+1. [[Allow Claude Code to Pass Through the Proxy]] — closes SC1
+2. [[Add Config and Other Providers to the Proxy]] — closes SC2, SC3: providers configured from YAML
 ```
+
+**Every entry names the Success Criterion it closes** — `— closes SC<n>` (several: `— closes SC2, SC3`), optionally followed by `: <clause>` saying how. Each named `SC<n>` must exist in this goal's `# Success Criteria`. An entry that closes no criterion is scope creep: add the criterion it serves, or move the task to `# Non-goals` / another goal. A foundation task names the criterion it enables: `— closes SC1: foundation, enables the proxy`. Goals with `created` before `CLOSES_SC_REQUIRED_AS_OF` are grandfathered — the constant and its date live in `agents/goal-auditor.md`. The rule grades the rendered `# Tasks` lines only: a goal whose list is absent has nothing to grade, and the remedy for a flagged line is to fix that line (membership itself stays in the tasks' `goals:` frontmatter, see below).
 
 NOT bold text + description:
 
@@ -324,7 +326,7 @@ Why: Obsidian renders `[[Wikilinks]]` as clickable; clicking auto-creates the ta
 **Title rules** (applied at goal-write time):
 - Title-Case
 - No `/`, `.`, backticks, `:`, `*`, `?`, `"`, `<`, `>`, `|` (Obsidian filename rules)
-- Optional one-line context after the wikilink: `1. [[Task Title]] — context (→ SC2)`
+- Required reference after the wikilink: `1. [[Task Title]] — closes SC2`, optional clause: `— closes SC2: <how>`
 
 > **2026-09-19 — the goal-side list is no longer written by tooling.**
 > `# Tasks` is a denormalised copy of the tasks' own `goals:` frontmatter, and it drifted

@@ -134,7 +134,7 @@ Derive from the locked outcome + Phase 1 transcript + Phase 2 context bundle.
   - Obsidian auto-creates the task file when the operator clicks the wikilink — primary task-creation path
   - Closing summary surfaces `/vault-cli:create-task "<title>"` as the alternative CLI path
   - Title-Case names, no `/`, `.`, backticks, `:`, `*`, `?`, `"`, `<`, `>`, `|`
-  - Optional one-line context after the wikilink (e.g. `1. [[Task Title]] — context (→ SC2)`)
+  - Required SC reference after the wikilink (e.g. `1. [[Task Title]] — closes SC2`, optional `: <clause>`); every named `SC<n>` must exist in the goal
 
 - **Parent theme + objective** — pre-fill from Phase 2 top candidates; confirm via AskUserQuestion if multiple plausible matches.
 
@@ -164,7 +164,7 @@ Derive from the locked outcome + Phase 1 transcript + Phase 2 context bundle.
    - `# Success Criteria` (with evidence shapes inline)
    - `# Definition of Done`
    - `# Non-goals`
-   - `# Tasks` (as `[[Wikilinks]]`, NOT bold text)
+   - `# Tasks` (as `[[Wikilinks]] — closes SC<n>`, NOT bold text)
    - `# Related` (linked sibling goals from Phase 2)
 4. **Show the link inline** (single message, no chat-render of file content):
 
@@ -263,7 +263,7 @@ Next:
 - Duplicate-check gate ran in Phase 2 — either no high-overlap match, OR user chose extend/separate/abort
 - Goal file exists with all 9 required sections populated from the interview
 - Each Success Criterion declares an evidence shape inline
-- Tasks rendered as `[[Wikilinks]]`, NOT bold text + description
+- Tasks rendered as `[[Wikilinks]] — closes SC<n>` (every named `SC<n>` exists), NOT bold text + description
 - Phase 5 forcing tests (laziness + traceability + hedge) all PASS before audit
 - Final audit (Phase 6 fan-out) returns 0 MAJOR findings; on PASS, `status` flips `draft` → `in_progress`
 </success_criteria>

@@ -202,6 +202,8 @@ Translate findings (auditor + non-negotiable checks) into questions. Rules:
 
 Apply each answer via `Edit` — re-running the step 2 ownership gate first (see there). Re-run auditor after each batch. Print delta `Score: X → Y`. Loop until score ≥ 8 AND all five hard non-negotiables pass OR owner says "good enough." A current template verdict (see the template-verdict check above) satisfies the score gate for the findings it covers.
 
+**Propagate, don't just patch.** A reworded criterion is usually restated verbatim in `# Tasks` and `# Definition of Done`, and sometimes in the Summary and `# Out of Scope`. Edit every section that restates it in the same pass — a fix applied to the criterion alone leaves the plan still carrying the claim you just removed, and the next audit reports it as a *fresh* defect rather than the same one. That reads as a new problem, so the loop repairs the restatement instead of noticing the half-application, and burns a round per section. When an answer changes a criterion's claim, grep the task file for the old wording before re-running the auditor.
+
 ### 7. Exit — hand off to execute-task (no phase flip)
 
 **plan-task never flips the phase.** It validates and reports; `/vault-cli:execute-task` owns the `planning → execution` transition. This keeps each lifecycle command to one job and makes "start executing" a deliberate operator action.

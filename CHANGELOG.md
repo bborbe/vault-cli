@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.166.2
 
 - fix: `session-close` no longer re-asks a resolution the operator already gave in the same session. Phase 4.5's goal **and** task branches, the mode-3 closer, and the Phase 9 mode gate now scan the conversation for an explicit resolution ("leave it open", a complete/hold/abort decision, or a `pick`/`approve:` reply naming the item) and carry the anchor forward in one clause in the summary block instead of re-listing it and re-emitting its `approve:` line, so the repeat run reaches the clean verdict. It is re-flagged only when its `status` or its `# Tasks` set changed since; the hard flag on the **first** run is unchanged.
 

@@ -10,7 +10,6 @@ allowed-tools:
   - Bash(command -v:*)
   - Bash(jq:*)
   - Bash(head:*)
-  - Bash(cd:*)
   - Bash(git -c core.quotepath=off log:*)
   - Bash(git -c core.quotepath=off diff:*)
 ---
@@ -73,7 +72,7 @@ Enumerate (b) in two steps, because the list JSON carries only the first field:
 
 ```bash
 vault-cli --vault <v> task list --all --output json          # filter the output on claude_session_id
-grep -l "session_id: <this-session-id>" "<tasks_dir>"/*.md   # the metrics_sessions half
+grep -l "session_id: <this-session-id>" "<tasks_dir>"/*.md   # both halves: matches claude_session_id too
 ```
 
 `--all` is required: plain `task list` defaults to todo/in_progress and would miss the `completed` row this probe exists to find.
@@ -84,7 +83,7 @@ grep -l "session_id: <this-session-id>" "<tasks_dir>"/*.md   # the metrics_sessi
 jq -r 'select(.timestamp) | .timestamp' ~/.claude/projects/*/<session-id>.jsonl 2>/dev/null | head -1
 ```
 
-**A non-zero exit, an empty result, or an unparseable value means *not established*** — the rule the terminal-non-completion arm below already states. Do **not** carry on with an empty session start: every candidate then fails test 2 and the probe reports "no completion" as though it had run, which is the silent no-op this block exists to remove. Report the lookup as unverified and fall through to the STOP gate instead.
+**A non-zero exit, an empty result, or an unparseable value means *not established*** — the rule the terminal-non-completion arm below already states. Do **not** carry on with an empty session start: every candidate then fails test 2 and the probe reports "no completion" as though it had run, which is the silent no-op this block exists to remove. Report the lookup as unverified and **continue to the PR check below**. This block sits *above* that check, so the STOP gate is not the fall-through here — jumping to it would drop a PR record the session legitimately made. The terminal-non-completion arm's identical wording is sound only because that arm is reached *after* the PR check has already declined.
 
 The glob can match more than one file — a resumed session appears under each project dir it ran in — and `head -1` then takes whichever the shell expanded first. When it matches more than one, read each and take the earliest first-timestamped record.
 
@@ -96,14 +95,16 @@ A `/branch` session keeps its parent's history, so its first record is the origi
    ```bash
    vault-cli task get "<T>" status --output json
    ```
-2. The flip is visible to the vault's git — the committed history shows `status: completed` arriving after this session started, **or** the working tree carries that change uncommitted. Both halves are needed: `git log --since` filters on **commit** time, and obsidian-git autocommits on a schedule, so a completion made minutes ago may not be in history yet. Without the second half the probe silently no-ops on the very case it targets. Run from the vault root, after a `cd` in its own call:
+2. The flip is visible to the vault's git — the committed history shows `status: completed` arriving after this session started, **or** the working tree carries that change uncommitted. Both halves are needed: `git log --since` filters on **commit** time, and obsidian-git autocommits on a schedule, so a completion made minutes ago may not be in history yet. Without the second half the probe silently no-ops on the very case it targets. Pass the task file's **absolute** path (`<vault.path>/<tasks_dir>/<T>.md`) — git resolves the repository from cwd, so this needs no `cd` and the command is granted none:
    ```bash
-   { git -c core.quotepath=off log --since="<session-start>" -p -- "<tasks_dir>/<T>.md"
-     git -c core.quotepath=off diff HEAD -- "<tasks_dir>/<T>.md"; } | grep -q '^+status: completed'
+   { git -c core.quotepath=off log --since="<session-start>" -p -- "<vault.path>/<tasks_dir>/<T>.md"
+     git -c core.quotepath=off diff HEAD -- "<vault.path>/<tasks_dir>/<T>.md"; } | grep -q '^+status: completed$'
    ```
-   `diff HEAD` covers staged and unstaged changes alike, so a `status: completed` sitting in either is matched.
+   `diff HEAD` covers staged and unstaged changes alike, so a `status: completed` sitting in either is matched. If cwd is outside the vault repo, git errors — that is the fail-closed case above, so continue to the PR check rather than treating it as "no completion".
 
-A candidate passing both **takes the completion path**: treat it as the detected completion and continue with Phases 3–5. A candidate reading `completed` but failing test 2 was already finished when this session began — leave it alone. Without that test every side-reference to a finished task becomes a duplicate "Done" entry.
+A candidate passing both **takes the completion path**: treat it as the detected completion and continue with Phases 3–5. If phrase detection above already established a completion for that same task, the probe adds nothing — record it once, not twice. A candidate reading `completed` but failing test 2 was already finished when this session began — leave it alone. Without that test every side-reference to a finished task becomes a duplicate "Done" entry.
+
+**A set-(a) candidate must have been *edited* this session to pass test 2 — a mention is not enough.** Test 2 filters on commit time, and the scheduled-autocommit rationale works in reverse as well: an earlier session completes a task and leaves it uncommitted, this session starts, obsidian-git then flushes that change, and a session that merely *mentions* the task sees `completed` arriving after its own start. Set (a) admits mentions for **enumeration**; only an edit qualifies it for test 2. Set (b) candidates are owned by this session (`claude_session_id` / `metrics_sessions`), so they need no such check.
 
 **When the probe, not the conversation, established the completion, Phases 3.1 and 4a have no conversation to read.** Phase 3.1's entry shape asks for a summary, *Key results* and *Files updated*; Phase 4a's criteria 3 and 4 ask for verification evidence and the absence of blockers. In the compaction-lost case that motivates this block, none of it is in view. Do **not** invent it, and do **not** write a bare heading: read what the disk does hold — the task's `# Results` / `# Progress` sections and its ticked Success Criteria — and say plainly in the entry that the completion was established by probe after a compaction, so a reader knows the summary's provenance. If the disk holds nothing either, write the heading and a one-line statement of that fact; an honest thin entry beats a fabricated full one.
 

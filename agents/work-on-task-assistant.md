@@ -143,9 +143,34 @@ Connect the current session to the task so the task's `claude_session_id` points
    # active vault from config; use session_project_dir if set, else vault path
    SESSION_DIR=$(vault-cli config list --output json | python3 -c "import sys,json; vs=json.load(sys.stdin); v=[x for x in vs if x['path']=='<active vault path>'][0]; print(v.get('session_project_dir') or v['path'])")
    ENC=$(printf '%s' "$SESSION_DIR" | sed 's|/|-|g')
-   DIR="$HOME/.claude/projects/$ENC"
+   # The transcript store belongs to the CONFIG dir, not always ~/.claude: a verify or fleet session
+   # runs under CLAUDE_CONFIG_DIR and writes there, so a hardcoded $HOME/.claude scans a store that
+   # does not hold THIS session's own transcript (measured 2026-10-08: 21542 files under the hardcoded
+   # path vs 333 under $CLAUDE_CONFIG_DIR/projects — and the running session's own transcript was
+   # ABSENT from the former and present in the latter, so the scan could never match itself).
+   CFG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+   # `-L` makes find follow the symlinked ROOT. A renamed vault leaves `projects/<enc>` as a symlink to
+   # the pre-rename encoding, and a bare `find "$DIR"` does not descend a symlinked root — it returns 0
+   # files where the same walk with -L returns the whole store (measured 2026-10-08: 0 vs ~21.5k; the
+   # store grows, so re-measure rather than citing that figure). Stated as a flag rather than relying on
+   # a trailing slash, whose meaning here reads as an accident rather than an intent.
+   # `-L` with `-maxdepth` is accepted by BSD/darwin find in this order with clean stderr (verified
+   # 2026-10-08 on the machine these agents run on), so the flag does not fail silently into the
+   # 2>/dev/null below — the one failure shape that would reproduce the very bug this scan fixes.
+   DIR="$CFG/projects/$ENC"
    # live only: LIVE_WINDOW = 5 min, per docs/session-liveness.md — a stale transcript is a dead session
-   find "$DIR" -name '*.jsonl' -mmin -5 2>/dev/null | while read -r f; do
+   # A missing store must stay DISTINGUISHABLE from a genuine title ambiguity: both otherwise surface
+   # as "0 matching sessions", which is the silent refusal the two path bugs above produced. Do not
+   # silence this with 2>/dev/null on the find alone — the check below is what makes it audible.
+   [ -d "$DIR" ] || echo "⚠️ Session: transcript store not found at $DIR — cannot resolve this session's uuid" >&2
+   # `-maxdepth 1` is correct as well as cheaper — but NOT because the store is flat. Measured
+   # 2026-10-08: 1955 transcripts sit at depth 1 and 19606 under per-session subdirectories (21561 in
+   # all), so a bounded walk drops ~91% of the FILES. What it does not drop is any CANDIDATE: every
+   # titled transcript is at depth 1 (1766 titled at depth 1, 0 below), because the subdirectories hold
+   # only untitled `agent-*.jsonl` subagent transcripts, which the strip rule skips anyway. Bounding
+   # therefore loses no match, cuts the stat walk ~11x, and stops a symlink inside the store from
+   # widening the scan past it. The store grows, so treat these counts as a dated sample, not constants.
+   find -L "$DIR" -maxdepth 1 -name '*.jsonl' -mmin -5 2>/dev/null | while read -r f; do
      stem=$(basename "$f" .jsonl)
      cur=$(grep '"type":"custom-title"' "$f" 2>/dev/null | grep '"customTitle"' | tail -1 | sed 's/.*"customTitle":"//; s/".*$//')
      # strip the leading decoration a supervisor adds at spawn ("⚙ <task>"); skip untitled (subagent) transcripts
@@ -155,7 +180,7 @@ Connect the current session to the task so the task's `claude_session_id` points
    ```
    - If EXACTLY ONE UUID is returned: `vault-cli task set "<task_name>" claude_session_id "<uuid>"`
      - Then, in this same branch and only after the id write above has landed, append the session to the task's metrics: `vault-cli task append-metrics-session "<task_name>" "<uuid>"`. This is the only way a session-connect records metrics — never `vault-cli task set` / `task add` / `task remove` on `metrics_sessions`, and never a hand-edit of the frontmatter, which is written passively by vault-cli. A non-zero exit is a warning, not a ⚠️ failure: report `ℹ️ Metrics: not recorded — <reason>` and leave the `claude_session_id` write in place. The warning names metrics and the reason; the id is the load-bearing field, the metrics entry is analytics.
-   - If zero OR multiple UUIDs are returned (ambiguous / no match — the task is not the session's current title, several *live* sessions share it, or the session has already ended): do NOT write the field, and report `ℹ️ Session: not connected — <n> matching session(s), refusing to guess`. Do NOT fall back to the task name: a name is not a UUID and the vault-ui resolver would then mis-resolve it. Do not widen the window or drop the strip to force a match either — a miss here means no *live* session carries this title, and a guessed id is worse than an empty field (see the third failure face in the session-id gotcha). A miss is safe **only** on the headless Start path, which pre-sets this field via vault-cli before the turn; from an interactive session nothing pre-set it, so the status flip below must then not route through `work-on`, or it spawns a second session onto this task.
+   - If zero OR multiple UUIDs are returned (ambiguous / no match — the task is not the session's current title, several *live* sessions share it, or the session has already ended): do NOT write the field, and report `ℹ️ Session: not connected — <n> matching session(s), refusing to guess`. **If the `transcript store not found` warning fired above, surface that line in the report too** — a missing or wrong store must never be reported as an ordinary title ambiguity, because reading one as the other is precisely the confusion the scan's path bugs produced. Do NOT fall back to the task name: a name is not a UUID and the vault-ui resolver would then mis-resolve it. Do not widen the window or drop the strip to force a match either — a miss here means no *live* session carries this title, and a guessed id is worse than an empty field (see the third failure face in the session-id gotcha). A miss is safe **only** on the headless Start path, which pre-sets this field via vault-cli before the turn; from an interactive session nothing pre-set it, so the status flip below must then not route through `work-on`, or it spawns a second session onto this task.
    - Report: `✅ Session: connected (<uuid>)`
 3. If `claude_session_id` is **already set**: classify the recorded owner per `docs/session-liveness.md` before deciding — the field records the **filer**, but every consumer reads it as an **ownership** stamp, and the two coincide only when the filing session is also the working one. Read that rule there; do not restate it here.
    - **`quiet`** (transcript stale, no live process — the recorded owner has ended) → resolve THIS session's uuid by the same **title-match** step 2 uses (strip the leading decoration, scope to live transcripts, require exactly one match — step 2's detection lives in its empty-field branch and does NOT run here, so it must be performed on this path), then **claim** the task: `vault-cli task set "<task_name>" claude_session_id "<uuid>"`, then append the metrics entry exactly as the `EXACTLY ONE UUID` branch above does. If the title-match returns zero or multiple uuids, do NOT claim — report `ℹ️ Session: not connected — <n> matching session(s), refusing to guess`, the same refusal step 2 makes, because a guessed id in an ownership stamp is worse than a stale one. That metrics append is also what preserves the prior owner: `metrics_sessions` accumulates and is never replaced, so the superseded session stays on the record as authorship history — **do not edit the task body**, which is outside this agent's write surface. Report `✅ Session: claimed (<old-id8> → <new-id8>)`.

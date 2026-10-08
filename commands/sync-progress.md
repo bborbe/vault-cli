@@ -82,8 +82,13 @@ grep -lE '^(claude_session_id|[[:space:]]*- session_id): <this-session-id>$' "<t
 **Session start** — the first record carrying a top-level `timestamp` in this session's transcript. The earliest records (`agent-color`, `custom-title`) carry none, so a bare `head -1` is wrong — it takes the first *record*, which has no `timestamp` at all:
 
 ```bash
-jq -r 'select(.timestamp) | .timestamp' ~/.claude/projects/*/"$CLAUDE_CODE_SESSION_ID".jsonl 2>/dev/null | head -1
+CFG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+ls "$CFG"/projects/*/"$CLAUDE_CODE_SESSION_ID".jsonl >/dev/null 2>&1 \
+  || echo "⚠️ session transcript not found under $CFG/projects — session-start not established" >&2
+jq -r 'select(.timestamp) | .timestamp' "$CFG"/projects/*/"$CLAUDE_CODE_SESSION_ID".jsonl 2>/dev/null | head -1
 ```
+
+If the `session transcript not found` warning above fired, **surface that line in the report too** — a missing or wrong store must be named as such, not folded into the ordinary "empty result means not established" arm, because reading one as the other is the confusion the config-dir defect produced. (Same instruction as in `agents/work-on-task-assistant.md` § Session connect and its goal mirror.)
 
 **Branch on the *result* here, not on the exit code.** In this pipeline the command's status is `head`'s, which is 0 even when `jq` fails — and `set -o pipefail` is *not* the repair: `head -1` closes the pipe early, so on a long transcript `jq` dies of SIGPIPE (141) and pipefail promotes that to a spurious failure. That is the same trap `scripts/daily-note-has-entry.sh` documents for its own `awk … | grep -q`. The empty-result test below is the operative one.
 

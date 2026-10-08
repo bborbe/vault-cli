@@ -94,14 +94,20 @@ If not found: emit the structured `not_found:` verdict block (literal `not_found
    # active vault from config; use session_project_dir if set, else vault path
    SESSION_DIR=$(vault-cli config list --output json | python3 -c "import sys,json; vs=json.load(sys.stdin); v=[x for x in vs if x['path']=='<active vault path>'][0]; print(v.get('session_project_dir') or v['path'])")
    ENC=$(printf '%s' "$SESSION_DIR" | sed 's|/|-|g')
-   ls "$HOME/.claude/projects/$ENC/"*.jsonl 2>/dev/null | while read -r f; do
+   CFG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+   # Same config-dir rule as work-on-task-assistant.md § Session connect step 2 — CLAUDE_CONFIG_DIR,
+   # never a hardcoded $HOME/.claude, because a verify/fleet session writes its transcripts there.
+   # Keep the two in step; the rationale comment lives in that file. The store check keeps a missing
+   # store distinguishable from a genuine title ambiguity — both otherwise read as "0 matching".
+   [ -d "$CFG/projects/$ENC" ] || echo "⚠️ Session: transcript store not found at $CFG/projects/$ENC — cannot resolve this session's uuid" >&2
+   ls "$CFG/projects/$ENC/"*.jsonl 2>/dev/null | while read -r f; do
      stem=$(basename "$f" .jsonl)
      cur=$(grep '"type":"custom-title"' "$f" 2>/dev/null | grep '"customTitle"' | tail -1 | sed 's/.*"customTitle":"//; s/".*$//')
      [ "$cur" = "<goal_name>" ] && echo "$stem"
    done | sort -u
    ```
    - If EXACTLY ONE UUID is returned: `vault-cli goal set "{goal_name}" claude_session_id "<uuid>"`
-   - If zero OR multiple UUIDs are returned (ambiguous / no match — e.g. the goal is not the session's current title, or several sessions share the title): do NOT write the field, and report `ℹ️ Session: not connected — <n> matching session(s), refusing to guess`. Do NOT fall back to the goal name: a name is not a UUID and the vault-ui resolver would then mis-resolve it. The headless Start path pre-sets this field via vault-cli before the turn, so a miss here is safe — leave it for vault-cli.
+   - If zero OR multiple UUIDs are returned (ambiguous / no match — e.g. the goal is not the session's current title, or several sessions share the title): do NOT write the field, and report `ℹ️ Session: not connected — <n> matching session(s), refusing to guess`. **If the `transcript store not found` warning fired above, surface that line in the report too** — a missing or wrong store must never be reported as an ordinary title ambiguity. Do NOT fall back to the goal name: a name is not a UUID and the vault-ui resolver would then mis-resolve it. The headless Start path pre-sets this field via vault-cli before the turn, so a miss here is safe — leave it for vault-cli.
    - Report: `✅ Session: connected (<uuid>)`
 3. If `claude_session_id` is **already set**: report `ℹ️ Session: already connected (<value>)` — do NOT overwrite.
 4. Add to the report (always, found case): `💡 Suggest: run /rename <goal_name> to name this session after the goal` — connects the session to the goal by name. No quotes: /rename takes the rest of the line verbatim, so a quoted suggestion names the session with literal quote characters.

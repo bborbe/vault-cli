@@ -61,7 +61,7 @@ grep -n "^- \[[ x/]\]" "{task_path}"
 
 ### parse_success_criteria(goal_path)
 
-Extract a linked goal's success criteria — the second source a task may serve. ⚠️ **Mirrors `goal-manager-agent.md` § parse_success_criteria**, so the `SC<n>` index this file cites is the one the goal side cites.
+Extract a linked goal's success criteria — one of the two sources a task may serve. ⚠️ **Mirrors `goal-manager-agent.md` § parse_success_criteria**, so the `SC<n>` index this file cites is the one the goal side cites.
 
 **Algorithm:**
 1. Find the `# Success Criteria` section — its body runs to the next top-level `# ` heading
@@ -69,19 +69,9 @@ Extract a linked goal's success criteria — the second source a task may serve.
 3. Return them verbatim with their 1-based index
 4. ⚠️ **Absent or empty section → return an empty list, not an error** — step 5's absent-source rule handles it, and the structural checks already report the missing section
 
-### parse_goal_sentence(goal_path)
-
-Extract the goal sentence — the goal's own one-line statement of intent (the writing guide names this paragraph the **Summary**). ⚠️ **This operation no longer backs a necessity verdict:** the summary sentence is *not* a source a linked task may serve (step 5). It is retained for callers that need the sentence itself. ⚠️ **Mirrors `goal-manager-agent.md` § parse_goal_sentence, and the index-producing steps must stay identical:** both agents read the same goal file, so a divergence in what a step yields is two different answers to one question. Prose may differ; the extraction and its numbering may not.
-
-**Algorithm:**
-1. Skip the frontmatter block (the first two `---` lines), the `Tags:` line, and the `---` content separator that follows it — **three `---` lines in all.** ⚠️ **The vault page template carries three** (`example/vault/23 Goals/Example Goal.md` lines 1, 4, 7). Skipping too few misfires two ways — stop after the first and the frontmatter keys are read as the paragraph; stop after the second and the separator itself is. ⚠️ A page carrying only **two** (authored without a `Tags:` line) is **not** this case: return empty and let step 5's absent-source rule handle it, rather than returning a truncated sentence.
-2. Take the prose paragraph that follows, up to the first `# ` heading (normally `# Impact`)
-3. Return it verbatim
-4. ⚠️ **A goal with no such paragraph returns empty** — some goals open straight into `# Impact`. An absent source narrows the check to the ones that remain; it is never itself a defect, and returning the `# Impact` block as the sentence would make the goal-sentence source spuriously present.
-
 ### parse_definition_of_done(goal_path)
 
-Extract the goal's Definition of Done items — the third source a linked task may serve. ⚠️ **Mirrors `goal-manager-agent.md` § parse_definition_of_done, for the same reason:** the `DoD<n>` index this file cites must be the one the goal side cites, so the walk's bounds must match even where the prose does not.
+Extract the goal's Definition of Done items — one of the two sources a linked task may serve. ⚠️ **Mirrors `goal-manager-agent.md` § parse_definition_of_done, for the same reason:** the `DoD<n>` index this file cites must be the one the goal side cites, so the walk's bounds must match even where the prose does not.
 
 **Algorithm:**
 1. Find `# Definition of Done` section

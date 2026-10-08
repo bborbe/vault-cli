@@ -106,7 +106,7 @@ If `task_template` is set in the vault config and the file exists at that path:
 
 - Read the file
 - Strip its frontmatter block (everything between the first `---` line and the matching closing `---`) so only the body remains
-- Use the body verbatim as the new task's body
+- Use the body verbatim as the new task's body — **with one addition:** append the necessity verdict computed in step 8 to its `# Progress` section, creating that section at the end of the body if the template carries none. ⚠️ **This append is required on this path, not optional.** Step 9 never runs when a template is loaded, so without it every templated task would silently carry no necessity verdict — the one path where the verdict is easiest to lose, and the reason the requirement cannot live in step 9 alone.
 
 If `task_template` is empty or the file does not exist:
 
@@ -146,7 +146,7 @@ Do NOT set `assignee`. Do NOT set fields the user did not ask for.
 
 ⚠️ **A foundation task is the one exception**, and only when a quotable line frames it as one — the task's own body, or the goal's `# Tasks` entry for it. Quote that line. *"Explicitly framed as a foundation task"* with nothing to cite is not an exception.
 
-**Write the verdict into the task.** Every created task records its necessity verdict in `# Progress`:
+**Write the verdict into the task.** Every created task records its necessity verdict in `# Progress` — on the generated path by step 9, on the template path by the append in step 7:
 
 - linked → `Necessity: closes SC2 of [[<goal>]].`
 - not linked → `Necessity: no open goal or topic needs this task. Tested: [[<candidate>]] (closes none of its SC/DoD), [[<candidate>]] (closes none of its gate items).`
@@ -173,7 +173,7 @@ Sections — emit all of them; their order follows the template when one is load
 6. `# Definition of Done` — **`- [ ]` checkboxes**, ≥2, covering closure ("PR merged", "verified on prod"); *how we verify we're done*. Required for shipping-class tasks and any task whose SC items are aspirational.
 7. `# Out of Scope` — explicit deferrals (2–5 concrete items; placeholder if author drafting). Forces scope articulation; parallels `# Non-goals` on goals.
 8. `# Tasks` — actionable subtasks as checkboxes
-9. `# Progress` — dated log of work done
+9. `# Progress` — dated log of work done, **opening with the necessity verdict from step 8** (`Necessity: …`)
 
 `# Open Questions` is optional and deliberately omitted from the list above; see `docs/task-writing.md` § Required sections when a task is waiting on an answer.
 

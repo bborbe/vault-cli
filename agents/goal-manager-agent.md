@@ -70,23 +70,13 @@ Extract success criteria checkboxes.
 
 ### parse_definition_of_done(goal_path)
 
-Extract the goal's Definition of Done items — the third source a linked task may serve.
+Extract the goal's Definition of Done items — one of the two sources a linked task may serve.
 
 **Algorithm:**
 1. Find `# Definition of Done` section
 2. Walk the section as a sequence of blocks and extract each block **once**: first the lines between the `# Definition of Done` heading and the next `## ` heading, then the body of each `## <subsection>` in turn, **stopping at the next top-level `# ` heading** so a later section's own `## ` subsections stay out (the vault's own goal template nests project-specific extras that way, per `docs/goal-writing.md` § Definition of Done). ⚠️ **Block-by-block is the point** — reading "the section body" as everything up to the next `# ` heading also swallows the subsections, and every nested line is then counted twice, shifting the `DoD<n>` indices a verdict cites
 3. Return the item lines verbatim, with their 1-based index, so a verdict can cite `DoD<n>` on the same rule as `SC<n>`
-4. ⚠️ **Absent section → return an empty list, not an error.** Goals predate the DoD requirement; a goal without one simply has two serving sources, not three, and the structural checks already flag a missing DoD. Never report the absence as a necessity defect.
-
-### parse_goal_sentence(goal_path)
-
-Extract the goal sentence — the goal's own one-line statement of intent (the writing guide names this paragraph the **Summary**). ⚠️ **This operation no longer backs a necessity verdict:** the summary sentence is *not* a source a linked task may serve (step 8). It is retained for callers that need the sentence itself, and its extraction must stay identical to `task-manager-agent.md`'s copy.
-
-**Algorithm:**
-1. Skip the frontmatter block (the first two `---` lines), the `Tags:` line, and the `---` content separator that follows it — **three `---` lines in all.** ⚠️ **The vault page template carries three**, verified against `example/vault/23 Goals/Example Goal.md` (lines 1, 4, 7): one opening the frontmatter, one closing it, one separating `Tags:` from the body. Skipping too few misfires two ways — stop after the first and the frontmatter keys are read as the paragraph; stop after the second and the separator itself is. ⚠️ A page carrying only **two** (authored without a `Tags:` line) is **not** this case: return empty and let the caller's absent-source rule handle it, rather than returning a truncated sentence.
-2. Take the prose paragraph that follows, up to the first `# ` heading (normally `# Impact`)
-3. Return it verbatim
-4. ⚠️ **A goal with no such paragraph returns empty** — some goals open straight into `# Impact`. As with the DoD, an absent source narrows the check to the remaining ones; it is never itself a defect.
+4. ⚠️ **Absent section → return an empty list, not an error.** Goals predate the DoD requirement; a goal without one has only **one** serving source left (its Success Criteria), not two, and the structural checks already flag a missing DoD. Never report the absence as a necessity defect.
 
 ## Actions
 

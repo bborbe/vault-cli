@@ -190,7 +190,15 @@ For each linked task in the `# Tasks` section:
 1. **Resolve the task page** — read the task file by `[[wiki-link]]` resolution
 2. **Match to ≥ 1 success criterion** — heuristic: does the task's Impact / Success Criteria reference any of the goal's success criteria, OR does the goal's task-section description connect this task to a specific outcome?
 3. **Flag orphans as MAJOR** — task X has no clear contribution to any success criterion → "Task `[[Name]]` doesn't advance any of the listed success criteria. Either add a covering criterion, or move to a different goal / Non-goals."
-4. **Flag implementation-level tasks** — if a task title reads like a code change (e.g. "Add field X to struct Y"), it likely belongs in a spec or under another goal.
+4. **Explicit SC reference (MAJOR for new goals)** — every `# Tasks` entry must carry a literal `— closes SC<n>` (comma-separated for several; an optional `: <clause>` may follow). Check by reading the entry line itself, never by inferring from topic:
+   - Entry carries no `closes SC<n>` → MAJOR, even when the task obviously fits a criterion by topic: "Task `[[Name]]` names no Success Criterion — add `— closes SC<n>`." Topical fit is not a reference; report the entry under `## Critical Issues`, not only in the alignment table.
+   - Entry names an `SC<n>` absent from this goal's `# Success Criteria` → MAJOR: "Task `[[Name]]` closes `SC<n>`, which this goal does not define."
+   - Struck rows (`- [ ] ~~[[Name]]~~`) are exempt.
+   - **Grandfathering:** goal `created` before `CLOSES_SC_REQUIRED_AS_OF`, or `created` absent → WARN, not MAJOR — recommend adding the references but don't block on it. When `created` is **absent**, say so in the WARN ("no `created` frontmatter — add it to date the goal; it is grandfathered only because the date is missing"), so a missing field is never a silent escape from the MAJOR. Goals with `status: completed` or `aborted` are never flagged by this step — neither a missing nor an undefined reference. Same metadata-only rule as `DOD_REQUIRED_AS_OF`.
+   - **No double report:** a task flagged here for naming no criterion is not re-reported as an orphan under step 3 — one Critical Issues entry per task, carrying the step-4 message.
+
+**CLOSES_SC_REQUIRED_AS_OF constant:** `2026-10-08` — the date this enforcement landed, and the single source for that date (`docs/goal-writing.md` names the constant, not the date). When the calendar advances substantially past this (e.g. > 6 months), revisit: either drop grandfathering entirely (open goals should be backfilled by then) or move the cutoff forward.
+5. **Flag implementation-level tasks** — if a task title reads like a code change (e.g. "Add field X to struct Y"), it likely belongs in a spec or under another goal.
 
 Run this check AFTER the goal-level "Goal Scope Fit" smells. The two together catch most scope mistakes.
 </evaluation_areas>
@@ -216,7 +224,7 @@ Run this check AFTER the goal-level "Goal Scope Fit" smells. The two together ca
 
 ## Critical Issues
 ## Task-Goal Alignment
-[Per-task table or bulleted list: each task → ≥ 1 success criterion it advances, OR flagged as orphan/scope-creep.]
+[Per-task table or bulleted list: each task → the `closes SC<n>` it names (or `none` / `undefined SC<n>`) and the criterion it advances, OR flagged as orphan/scope-creep. Every missing or undefined reference also appears under `## Critical Issues`.]
 
 ## Recommendations
 ## Quick Fixes

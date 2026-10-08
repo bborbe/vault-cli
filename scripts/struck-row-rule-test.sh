@@ -90,6 +90,28 @@ for h in '### Counts' '### Conditional segments'; do
 		"$(section "$SPEC" "$h" | grep -qF -- "$PATTERN" && echo yes)"
 done
 
+# step <file> <heading> <number> — the lines under a numbered step, until the next
+# numbered step or heading. Numbered steps are list items, not headings, so
+# `section`'s exact-heading match does not reach them — and the numbering restarts
+# inside every action, so the section is scoped first: an unscoped `^5. ` matches
+# a Shared Operation's algorithm step long before the verify action's step 5.
+step() {
+	section "$1" "$2" |
+		awk -v n="$3" '$0 ~ ("^" n "[.] ") { f = 1; next } f && (/^[0-9]+[.] / || /^#/) { exit } f'
+}
+
+# --- and in the goal agent, in EVERY site that enforces it. The file-level check
+# above cannot tell "step 5 and step 8 both exclude struck rows" from "only
+# get_subtask_statuses does" — the 2026-10-07 widening added the rule to two
+# steps, and a later edit dropping it from one of them would otherwise pass green.
+GOAL_AGENT=agents/goal-manager-agent.md
+for n in 5 8; do
+	check "goal-agent step $n names the struck pattern" "yes" \
+		"$(step "$GOAL_AGENT" '### verify' "$n" | grep -qF -- "$PATTERN" && echo yes)"
+done
+check "goal-agent get_subtask_statuses names the struck pattern" "yes" \
+	"$(section "$GOAL_AGENT" '### get_subtask_statuses(goal_path)' | grep -qF -- "$PATTERN" && echo yes)"
+
 # --- self-check: strip the pattern from ONE artifact and require exactly that
 # one to be reported.
 TMP=$(mktemp -d)

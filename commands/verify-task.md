@@ -20,7 +20,7 @@ Invoke task-manager-agent for fast sanity checks: status valid, parent goal exis
    - DoD section exists (optional for recurring tasks)
    - Checkboxes present and tracked
    - Status consistency (completed → 100% checkboxes)
-   - Goal necessity (for each linked goal, its success criteria need the task's outcome — goal-necessity check)
+   - Goal necessity (for each linked goal, the task names the goal sentence, a specific success criterion, or a specific Definition of Done item it serves — or none — goal-necessity check)
 4. Return pass/fail report with specific issues
 </process>
 
@@ -28,6 +28,6 @@ Invoke task-manager-agent for fast sanity checks: status valid, parent goal exis
 - Agent invoked with correct action
 - Quick validation checks performed
 - Pass/fail output with specific issues listed
-- Goal-necessity check reported (correlation-only goal links flagged)
+- Goal-necessity check reported (each link's serving item named; correlation-only links flagged)
 - No detailed quality analysis (use /audit-task for that)
 </success_criteria>

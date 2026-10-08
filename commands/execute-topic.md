@@ -84,14 +84,14 @@ Read the topic file once, then evaluate:
 
 `/verify-topic` is the shipped verifier and owns the member-links-resolve check — its **check 2**. Do **not** reimplement link resolution here: two implementations drift, and delegating honors [[Phase-Gated Topic Flow]] SC5 *"is called (not reimplemented)"*.
 
-⚠️ **Consume check 2's result ONLY — never `verify-topic`'s aggregate verdict.** `/verify-topic` runs **ten** checks (necessity, excess, Completion-Gate checkability, no-double-declaration, `## Goals` entry format, status consistency, Status Summary reconciliation, …). Refusing on its aggregate verdict would make this gate wider than its declared closed set of four and would refuse a structurally-complete topic for reasons outside this gate's authority. Read the report's `2. Member links resolve` line:
+⚠️ **Consume check 2's result ONLY — never `verify-topic`'s aggregate verdict.** `/verify-topic` (vault-local; this count tracks it and is refreshed with it) runs **eleven** checks (necessity, excess, Completion-Gate checkability, no-double-declaration, `## Goals` entry format, status consistency, Status Summary reconciliation, …). Refusing on its aggregate verdict would make this gate wider than its declared closed set of four and would refuse a structurally-complete topic for reasons outside this gate's authority. Read the report's `2. Member links resolve` line:
 
 - `PASS` → the check passes.
 - `FAIL` → this gate's check 3 fails. Name `verify-topic check 2` as the failing check and quote its reported issue.
 - `UNPROVEN` → treat as a failure of check 3 and say so plainly. The verifier reports `UNPROVEN` when no exercised page could violate the check, which is not evidence of health.
 - `DRIFT` is a token only check 8 carries and is explicitly **not** a failure — it cannot appear on check 2.
 
-The other nine checks are the topic's own governance and are reported by `/verify-topic` for its own caller. They do not gate this transition.
+The other ten checks are the topic's own governance and are reported by `/verify-topic` for its own caller. They do not gate this transition.
 
 ### 6. Phase transition or refusal
 
@@ -126,7 +126,7 @@ Print: `✅ Phase: planning → execution`
 
 Topic lifecycle:
 
-1. `/verify-topic` — validate (read-only, ten checks)
+1. `/verify-topic` — validate (read-only, eleven checks)
 2. `/worker-verify` — take a topic from drift to ready-to-start (read-only, advises fixes)
 3. **`/vault-cli:execute-topic`** — the gate; flips planning → execution on a clean pass, refuses otherwise — this command
 4. Work the topic's members via the task/goal lifecycle

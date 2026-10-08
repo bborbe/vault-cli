@@ -8,6 +8,10 @@ allowed-tools:
   - Bash(vault-cli:*)
   - Bash(grep:*)
   - Bash(command -v:*)
+  - Bash(jq:*)
+  - Bash(head:*)
+  - Bash(git -c core.quotepath=off log:*)
+  - Bash(git -c core.quotepath=off diff:*)
 ---
 
 Synchronize progress documentation based on completed work in the conversation. Updates the daily note, task/goal pages, and (if integrations are available) records the matching PR and transitions Jira.
@@ -56,6 +60,65 @@ Extract from the conversation:
 - Key results (metrics, findings, outcomes)
 - Timestamp (today, YYYY-MM-DD)
 - Blockers / deferred items
+
+**Probe the disk before concluding "no completion".** Phrase detection above reads the *recent* conversation. After a `/compact` or a `/branch` the completion can sit outside what was re-read, and only the disk remembers it — so this probe runs **first**, ahead of the PR arm below, and a task it establishes takes the completion path even when a PR was also created. The terminal-non-completion arm further down already asks the disk (*"Resolve the status by probe, never from the conversation"*); the completion arm reading phrases only was the asymmetry. Observed 2026-10-08: a manager session completed `Diagnose the Silent Merge-Candidate Stream on Dev` at ~11:45, ran `/vault-cli:sync-progress` at ~11:58, and the run took the no-completion path and wrote nothing — the miss surfaced only when `session-close` Phase 7 found no daily-note entry.
+
+**Candidate set** — the union of two sets.
+
+- **(a) Tasks this session touched** — this command's own read of the conversation, including any compaction summary's mentions of task files. `session-close` Phase 1 defines touched as *"edits this session"* (CLI mutations included) and carries **no** compaction clause, so reading the summary is this command's own addition, not a reuse of that definition.
+- **(b) Tasks this session owns on disk** — every task whose `claude_session_id`, or any `metrics_sessions[].session_id`, names this session's id. This half is disk-resolvable, so it survives a compaction that drops (a). Set (b) does **not** catch a task the session flipped without owning — a manager's status flip on a row with an empty id; set (a) is the source for that case.
+
+**`<this-session-id>` is `$CLAUDE_CODE_SESSION_ID`** — the env var the harness sets for this session, and the one `commands/task-status.md` already keys on. Bind it once and use it everywhere below: the enumeration, the session-start lookup and both fail-closed paths all read it, so a wrong id reproduces the silent no-op this block exists to remove.
+
+Enumerate (b) in two steps, because the list JSON carries only the first field:
+
+```bash
+vault-cli --vault <v> task list --all --output json          # filter the output on claude_session_id
+grep -lE '^(claude_session_id|[[:space:]]*- session_id): <this-session-id>$' "<tasks_dir>"/*.md   # both halves, frontmatter-anchored
+```
+
+`--all` is required: plain `task list` defaults to todo/in_progress and would miss the `completed` row this probe exists to find.
+
+**Session start** — the first record carrying a top-level `timestamp` in this session's transcript. The earliest records (`agent-color`, `custom-title`) carry none, so a bare `head -1` is wrong — it takes the first *record*, which has no `timestamp` at all:
+
+```bash
+jq -r 'select(.timestamp) | .timestamp' ~/.claude/projects/*/"$CLAUDE_CODE_SESSION_ID".jsonl 2>/dev/null | head -1
+```
+
+**Branch on the *result* here, not on the exit code.** In this pipeline the command's status is `head`'s, which is 0 even when `jq` fails — and `set -o pipefail` is *not* the repair: `head -1` closes the pipe early, so on a long transcript `jq` dies of SIGPIPE (141) and pipefail promotes that to a spurious failure. That is the same trap `scripts/daily-note-has-entry.sh` documents for its own `awk … | grep -q`. The empty-result test below is the operative one.
+
+**An empty result, a non-zero exit, or an unparseable value means *not established*** — the rule the terminal-non-completion arm below already states. Do **not** carry on with an empty session start: every candidate then fails test 2 and the probe reports "no completion" as though it had run, which is the silent no-op this block exists to remove. Report the lookup as unverified and **continue to the PR check below**. This block sits *above* that check, so the STOP gate is not the fall-through here — jumping to it would drop a PR record the session legitimately made. The terminal-non-completion arm's identical wording is sound only because that arm is reached *after* the PR check has already declined.
+
+The glob can match more than one file — a resumed session appears under each project dir it ran in — and `head -1` then takes whichever the shell expanded first. When it matches more than one, read each and take the earliest first-timestamped record.
+
+A `/branch` session keeps its parent's history, so its first record is the original start — correct, since the completion lives in that history.
+
+**Flipped this session** — a candidate counts as a completion only when **both** hold:
+
+1. It reads `completed` now:
+   ```bash
+   vault-cli task get "<T>" status --output json
+   ```
+2. The flip is visible to the vault's git — the committed history shows `status: completed` arriving after this session started, **or** the working tree carries that change uncommitted. Both halves are needed: `git log --since` filters on **commit** time, and obsidian-git autocommits on a schedule, so a completion made minutes ago may not be in history yet. Without the second half the probe silently no-ops on the very case it targets. Pass the task file's **absolute** path (`<vault.path>/<tasks_dir>/<T>.md`) — git resolves the repository from cwd, so this needs no `cd` and the command is granted none:
+   ```bash
+   { git -c core.quotepath=off log --since="<session-start>" -p -- "<vault.path>/<tasks_dir>/<T>.md"
+     git -c core.quotepath=off diff HEAD -- "<vault.path>/<tasks_dir>/<T>.md"; } | grep -q '^+status: completed$'
+   ```
+   `diff HEAD` covers staged and unstaged changes alike, so a `status: completed` sitting in either is matched. If cwd is outside the vault repo, git errors — that is the fail-closed case above, so continue to the PR check rather than treating it as "no completion". **The probe therefore operates only when cwd is inside the vault's git repo**, and Phase 1 sanctions the other path by falling back to scanning the conversation; there every candidate errors and the probe establishes nothing. Say so in the report rather than implying the disk was searched. `-c core.quotepath=off` is inert for this test — `core.quotepath` governs how `diff --git` headers render *paths*, and the grep reads patch *content* — but both halves keep it so they stay byte-identical to the form this block was specified with.
+
+A candidate passing both **takes the completion path**: treat it as the detected completion and continue with Phases 3–5. If phrase detection above already established a completion for that same task, the probe adds nothing — record it once, not twice. A candidate reading `completed` but failing test 2 was already finished when this session began — leave it alone. Without that test every side-reference to a finished task becomes a duplicate "Done" entry.
+
+**A set-(a) candidate must have been *edited* this session to pass test 2 — a mention is not enough.** Test 2 filters on commit time, and the scheduled-autocommit rationale works in reverse as well: an earlier session completes a task and leaves it uncommitted, this session starts, obsidian-git then flushes that change, and a session that merely *mentions* the task sees `completed` arriving after its own start. Set (a) admits mentions for **enumeration**; only an edit qualifies it for test 2. Set (b) candidates are owned by this session (`claude_session_id` / `metrics_sessions`), so they need no such check.
+
+**When the probe, not the conversation, established the completion, Phases 3.1 and 4a have no conversation to read.** Phase 3.1's entry shape asks for a summary, *Key results* and *Files updated*; Phase 4a's criteria 3 and 4 ask for verification evidence and the absence of blockers. In the compaction-lost case that motivates this block, none of it is in view. Do **not** invent it, and do **not** write a bare heading: read what the disk does hold — the task's `# Results` / `# Progress` sections and its ticked Success Criteria — and say plainly in the entry that the completion was established by probe after a compaction, so a reader knows the summary's provenance. If the disk holds nothing either, write the heading and a one-line statement of that fact; an honest thin entry beats a fabricated full one.
+
+**Skip Phase 4 for a probe-established candidate.** Test 1 already read it as `completed`, so there is nothing left to complete: running 4a would call `vault-cli task complete` on an already-closed row, or fall through to 4b and ask the operator to confirm what the probe just established. Phase 4 closes an *open* task, and this one is closed — go straight from Phase 3 to the Phase 5 report (and Phase 6's closer panel, which already follows from that completion).
+
+**Phase 3.3 keeps its conversation-only PR detection.** A PR whose URL was lost to the same compaction stays out of scope for this block: the probe reads tasks, not transcripts, and "Never invent PR URLs — only record ones that appear verbatim in conversation/tool output" still governs. A compaction-lost PR is a separate gap, stated here rather than silently implied to be covered.
+
+**Known limit, stated rather than hidden:** obsidian-git commits do not record *which* session made a change, so a different session flipping the same file after this session started passes test 2. Set (a)/(b) membership is what keeps that case out.
+
+If no candidate passes both, continue to the PR check below.
 
 If NO completion detected, check whether a PR was created (Phase 3.3 detection rules):
 - PR present, no completion → proceed but only run Phase 3.3 (PR-only sync). Report as "PR-only sync." This arm deliberately wins over the terminal-non-completion arm below: a session that both opened a PR and was aborted records the PR, and the outcome is not duplicated.

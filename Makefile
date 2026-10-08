@@ -66,7 +66,10 @@ test:
 	@bash scripts/daily-note-has-entry-test.sh
 	@bash scripts/goal-task-link-count-test.sh
 	@bash scripts/struck-row-rule-test.sh
+	@bash scripts/necessity-rule-test.sh
+	@bash scripts/closes-sc-rule-test.sh
 	@bash scripts/metrics-append-call-site-test.sh
+	@bash scripts/session-claim-branch-test.sh
 
 .PHONY: check
 check: lint vet vulncheck osv-scanner trivy check-changelog

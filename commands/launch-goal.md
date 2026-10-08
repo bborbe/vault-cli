@@ -134,7 +134,7 @@ Derive from the locked outcome + Phase 1 transcript + Phase 2 context bundle.
   - Obsidian auto-creates the task file when the operator clicks the wikilink — primary task-creation path
   - Closing summary surfaces `/vault-cli:create-task "<title>"` as the alternative CLI path
   - Title-Case names, no `/`, `.`, backticks, `:`, `*`, `?`, `"`, `<`, `>`, `|`
-  - Optional one-line context after the wikilink (e.g. `1. [[Task Title]] — context (→ SC2)`)
+  - Required SC reference after the wikilink (e.g. `1. [[Task Title]] — closes SC2`, optional `: <clause>`); every named `SC<n>` must exist in the goal
 
 - **Parent theme + objective** — pre-fill from Phase 2 top candidates; confirm via AskUserQuestion if multiple plausible matches.
 

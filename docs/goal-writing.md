@@ -306,9 +306,11 @@ In the goal file body, the `# Tasks` section MUST render each task as a `[[Wikil
 ```markdown
 # Tasks
 
-1. [[Allow Claude Code to Pass Through the Proxy]]
-2. [[Add Config and Other Providers to the Proxy]] — context (→ SC2, SC3)
+1. [[Allow Claude Code to Pass Through the Proxy]] — closes SC1
+2. [[Add Config and Other Providers to the Proxy]] — closes SC2, SC3: providers configured from YAML
 ```
+
+**Every entry names the Success Criterion it closes** — `— closes SC<n>` (several: `— closes SC2, SC3`), optionally followed by `: <clause>` saying how. Each named `SC<n>` must exist in this goal's `# Success Criteria`. An entry that closes no criterion is scope creep: add the criterion it serves, or move the task to `# Non-goals` / another goal. A foundation task names the criterion it enables: `— closes SC1: foundation, enables the proxy`. Goals with `created` before `CLOSES_SC_REQUIRED_AS_OF` (`2026-10-08`) are grandfathered (see `agents/goal-auditor.md`).
 
 NOT bold text + description:
 
@@ -324,7 +326,7 @@ Why: Obsidian renders `[[Wikilinks]]` as clickable; clicking auto-creates the ta
 **Title rules** (applied at goal-write time):
 - Title-Case
 - No `/`, `.`, backticks, `:`, `*`, `?`, `"`, `<`, `>`, `|` (Obsidian filename rules)
-- Optional one-line context after the wikilink: `1. [[Task Title]] — context (→ SC2)`
+- Required reference after the wikilink: `1. [[Task Title]] — closes SC2`, optional clause: `— closes SC2: <how>`
 
 > **2026-09-19 — the goal-side list is no longer written by tooling.**
 > `# Tasks` is a denormalised copy of the tasks' own `goals:` frontmatter, and it drifted

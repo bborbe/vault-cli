@@ -84,7 +84,7 @@ Read the topic file once, then evaluate:
 
 `/verify-topic` is the shipped verifier and owns the member-links-resolve check — its **check 2**. Do **not** reimplement link resolution here: two implementations drift, and delegating honors [[Phase-Gated Topic Flow]] SC5 *"is called (not reimplemented)"*.
 
-⚠️ **Consume check 2's result ONLY — never `verify-topic`'s aggregate verdict.** `/verify-topic` runs **ten** checks (necessity, excess, Completion-Gate checkability, no-double-declaration, `## Goals` entry format, status consistency, Status Summary reconciliation, …). Refusing on its aggregate verdict would make this gate wider than its declared closed set of four and would refuse a structurally-complete topic for reasons outside this gate's authority. Read the report's `2. Member links resolve` line:
+⚠️ **Consume check 2's result ONLY — never `verify-topic`'s aggregate verdict.** `/verify-topic` runs **eleven** checks (necessity, excess, Completion-Gate checkability, no-double-declaration, `## Goals` entry format, status consistency, Status Summary reconciliation, …). Refusing on its aggregate verdict would make this gate wider than its declared closed set of four and would refuse a structurally-complete topic for reasons outside this gate's authority. Read the report's `2. Member links resolve` line:
 
 - `PASS` → the check passes.
 - `FAIL` → this gate's check 3 fails. Name `verify-topic check 2` as the failing check and quote its reported issue.
@@ -126,7 +126,7 @@ Print: `✅ Phase: planning → execution`
 
 Topic lifecycle:
 
-1. `/verify-topic` — validate (read-only, ten checks)
+1. `/verify-topic` — validate (read-only, eleven checks)
 2. `/worker-verify` — take a topic from drift to ready-to-start (read-only, advises fixes)
 3. **`/vault-cli:execute-topic`** — the gate; flips planning → execution on a clean pass, refuses otherwise — this command
 4. Work the topic's members via the task/goal lifecycle

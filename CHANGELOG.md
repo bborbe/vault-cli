@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.165.3
 
 - fix: **`/vault-cli:plan-task` must propagate a criterion edit to the sections that restate it.** The fix loop's instruction — *"Apply each answer via `Edit`"* — bounded the edit to the criterion itself, so a reworded criterion left `# Tasks` and `# Definition of Done` still carrying the claim that had just been removed. The next audit then reports the leftover as a *fresh* defect rather than the same one, and the loop repairs the restatement instead of noticing the half-application — one wasted round per restating section. Measured 2026-10-08 on a single task: the auditor named the same half-application in **two consecutive rounds** (*"the SC3 fix never reached `# Tasks` item 3, which still read 'Confirm the notice precedes any retry affordance', the same vacuous claim"*), each costing an audit round and an operator round-trip for a purely mechanical miss. `commands/plan-task.md` § 6 now requires every section that restates an edited criterion — `# Tasks`, `# Definition of Done`, the Summary, `# Out of Scope` — to be edited in the same pass, and names the check that catches it: grep the task file for the old wording before re-running the auditor. `commands/plan-goal.md` restates criteria across the same sections, so it gains a **pointer** to that rule rather than a copy — the single-home shape this repo already uses for `prepare-compact.md` / `post-compact.md`.
 

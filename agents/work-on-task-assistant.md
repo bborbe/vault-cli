@@ -144,9 +144,10 @@ Connect the current session to the task so the task's `claude_session_id` points
    SESSION_DIR=$(vault-cli config list --output json | python3 -c "import sys,json; vs=json.load(sys.stdin); v=[x for x in vs if x['path']=='<active vault path>'][0]; print(v.get('session_project_dir') or v['path'])")
    ENC=$(printf '%s' "$SESSION_DIR" | sed 's|/|-|g')
    # The transcript store belongs to the CONFIG dir, not always ~/.claude: a verify or fleet session
-   # runs under CLAUDE_CONFIG_DIR and writes there, so a hardcoded $HOME/.claude scans the wrong
-   # store and finds nothing (measured 2026-10-08: 330 files under $CLAUDE_CONFIG_DIR/projects vs 0
-   # at the hardcoded path, for a session whose own transcript was live in the former).
+   # runs under CLAUDE_CONFIG_DIR and writes there, so a hardcoded $HOME/.claude scans a store that
+   # does not hold THIS session's own transcript (measured 2026-10-08: 21542 files under the hardcoded
+   # path vs 333 under $CLAUDE_CONFIG_DIR/projects — and the running session's own transcript was
+   # ABSENT from the former and present in the latter, so the scan could never match itself).
    CFG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
    # The trailing slash is load-bearing. A renamed vault leaves `projects/<enc>` as a SYMLINK to the
    # pre-rename encoding, and `find` does not descend a symlinked ROOT — so `find "$DIR"` returns 0
@@ -154,6 +155,10 @@ Connect the current session to the task so the task's `claude_session_id` points
    # match returns zero and the guard refuses on a task whose owning session is live and named.
    DIR="$CFG/projects/$ENC/"
    # live only: LIVE_WINDOW = 5 min, per docs/session-liveness.md — a stale transcript is a dead session
+   # A missing store must stay DISTINGUISHABLE from a genuine title ambiguity: both otherwise surface
+   # as "0 matching sessions", which is the silent refusal the two path bugs above produced. Do not
+   # silence this with 2>/dev/null on the find alone — the check below is what makes it audible.
+   [ -d "$DIR" ] || echo "⚠️ Session: transcript store not found at $DIR — cannot resolve this session's uuid" >&2
    find "$DIR" -name '*.jsonl' -mmin -5 2>/dev/null | while read -r f; do
      stem=$(basename "$f" .jsonl)
      cur=$(grep '"type":"custom-title"' "$f" 2>/dev/null | grep '"customTitle"' | tail -1 | sed 's/.*"customTitle":"//; s/".*$//')

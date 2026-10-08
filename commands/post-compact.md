@@ -125,10 +125,10 @@ Print the concrete next steps, sourced from the verified items:
 
 - the resume block's `Next action:` — the task where prepare-compact paused
 - `uncommitted` / `un-pushed` work → the commit / push to run
-- each `gate` → the open decision, phrased so the operator can answer it
+- each `gate` → the open decision, **carried by its own open attention-board card** — `attention-ask.py post` with at least two `--option` labels — with the card's **item id** beside it. A gate named only in prose is not raised, and an operator cannot answer a sentence that carries no options; `attention-ask.py poll <item-id>` returns `OPEN` while it is still owed. ⚠️ **The rule, its measured basis and the one-option failure case have one home** — `commands/prepare-compact.md` § *Resume after compact* — and are never restated here.
 - each **open ledger entry** → the ask, unchanged in the operator's own wording (`asked-of-you` entries are the ones still waiting on them)
 
-Then emit the 4-field resume block again (`Next action:` / `Live background:` / `Un-pushed / uncommitted:` / `Open decision:`) with the verified state, so the post-compact handoff is itself resumeable. The four labels are the frozen resume-block schema — do not rename, reword, add, or remove a field.
+Then emit the 4-field resume block again (`Next action:` / `Live background:` / `Un-pushed / uncommitted:` / `Open decision:`) with the verified state, so the post-compact handoff is itself resumeable. The four labels are the frozen resume-block schema — do not rename, reword, add, or remove a field. ⚠️ **The `Open decision:` entries re-emitted here inherit the card requirement above** — each is backed by an open board card carrying its item id, never prose alone, so a post-compact handoff is exactly as answerable as the pre-compact one.
 
 ## Consume the checkpoint
 

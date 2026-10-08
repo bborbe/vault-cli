@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.165.0
 
 - feat: goal `# Tasks` entries must name the Success Criterion they close — `- [[Task]] — closes SC<n>` (several: `closes SC2, SC3`; optional `: <clause>`). `docs/goal-writing.md` § Format mandate replaces the old `(→ SC2)` context form. `goal-auditor` reports, as MAJOR under Critical Issues, any entry with no `closes SC<n>` — even when the task fits a criterion by topic — and any entry naming an `SC<n>` the goal does not define. Goals created before `CLOSES_SC_REQUIRED_AS_OF` (`2026-10-08`) are grandfathered to WARN; completed/aborted goals are never flagged. `execute-topic` now names `/verify-topic` as running eleven checks (the vault-local command gains a `## Goals` Completion-Gate reference check).
 

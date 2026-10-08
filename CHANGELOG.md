@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: `/vault-cli:sync-progress` Phase 2 now probes the disk for a completion the conversation no longer shows. The completion arm read phrases only, so a task this session flipped to `completed` before a `/compact` or a `/branch` fell through to the no-completion STOP and was never recorded — the miss surfaced only when `session-close` Phase 7 found no daily-note entry. The probe runs **ahead** of the PR-only arm, over the union of the tasks this session touched and the tasks whose `claude_session_id` or `metrics_sessions[].session_id` names it, and accepts a candidate only when it reads `completed` **and** the vault's git history shows `status: completed` arriving after the session started — that second test is what keeps a side-reference to an already-finished task from becoming a duplicate "Done" entry.
+
 ## v0.165.0
 
 - feat: goal `# Tasks` entries must name the Success Criterion they close — `- [[Task]] — closes SC<n>` (several: `closes SC2, SC3`; optional `: <clause>`). `docs/goal-writing.md` § Format mandate replaces the old `(→ SC2)` context form. `goal-auditor` reports, as MAJOR under Critical Issues, any entry with no `closes SC<n>` — even when the task fits a criterion by topic — and any entry naming an `SC<n>` the goal does not define. Goals created before `CLOSES_SC_REQUIRED_AS_OF` (`2026-10-08`) are grandfathered to WARN; completed/aborted goals are never flagged. `execute-topic` now names `/verify-topic` as running eleven checks (the vault-local command gains a `## Goals` Completion-Gate reference check).

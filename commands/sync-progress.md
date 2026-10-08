@@ -8,6 +8,11 @@ allowed-tools:
   - Bash(vault-cli:*)
   - Bash(grep:*)
   - Bash(command -v:*)
+  - Bash(jq:*)
+  - Bash(head:*)
+  - Bash(cd:*)
+  - Bash(git log:*)
+  - Bash(git -c:*)
 ---
 
 Synchronize progress documentation based on completed work in the conversation. Updates the daily note, task/goal pages, and (if integrations are available) records the matching PR and transitions Jira.
@@ -56,6 +61,47 @@ Extract from the conversation:
 - Key results (metrics, findings, outcomes)
 - Timestamp (today, YYYY-MM-DD)
 - Blockers / deferred items
+
+**Probe the disk before concluding "no completion".** Phrase detection above reads the *recent* conversation. After a `/compact` or a `/branch` the completion can sit outside what was re-read, and only the disk remembers it — so this probe runs **first**, ahead of the PR arm below, and a task it establishes takes the completion path even when a PR was also created. The terminal-non-completion arm further down already asks the disk (*"Resolve the status by probe, never from the conversation"*); the completion arm reading phrases only was the asymmetry. Observed 2026-10-08: a manager session completed `Diagnose the Silent Merge-Candidate Stream on Dev` at ~11:45, ran `/vault-cli:sync-progress` at ~11:58, and the run took the no-completion path and wrote nothing — the miss surfaced only when `session-close` Phase 7 found no daily-note entry.
+
+**Candidate set** — the union of two sets.
+
+- **(a) Tasks this session touched** — this command's own read of the conversation, including any compaction summary's mentions of task files. `session-close` Phase 1 defines touched as *"edits this session"* (CLI mutations included) and carries **no** compaction clause, so reading the summary is this command's own addition, not a reuse of that definition.
+- **(b) Tasks this session owns on disk** — every task whose `claude_session_id`, or any `metrics_sessions[].session_id`, names this session's id. This half is disk-resolvable, so it survives a compaction that drops (a). Set (b) does **not** catch a task the session flipped without owning — a manager's status flip on a row with an empty id; set (a) is the source for that case.
+
+Enumerate (b) in two steps, because the list JSON carries only the first field:
+
+```bash
+vault-cli --vault <v> task list --all --output json          # filter the output on claude_session_id
+grep -l "session_id: <this-session-id>" "<tasks_dir>"/*.md   # the metrics_sessions half
+```
+
+`--all` is required: plain `task list` defaults to todo/in_progress and would miss the `completed` row this probe exists to find.
+
+**Session start** — the first record carrying a top-level `timestamp` in this session's transcript. The earliest records (`agent-color`, `custom-title`) carry none, so a bare `head -1` is wrong:
+
+```bash
+jq -r 'select(.timestamp) | .timestamp' ~/.claude/projects/*/<session-id>.jsonl | head -1
+```
+
+A `/branch` session keeps its parent's history, so its first record is the original start — correct, since the completion lives in that history.
+
+**Flipped this session** — a candidate counts as a completion only when **both** hold:
+
+1. It reads `completed` now:
+   ```bash
+   vault-cli task get "<T>" status --output json
+   ```
+2. The vault's git history shows `status: completed` arriving after this session started — run from the vault root, after a `cd` in its own call:
+   ```bash
+   git -c core.quotepath=off log --since="<session-start>" -p -- "<tasks_dir>/<T>.md" | grep -q '^+status: completed'
+   ```
+
+A candidate passing both **takes the completion path**: treat it as the detected completion and continue with Phases 3–5. A candidate reading `completed` but failing test 2 was already finished when this session began — leave it alone. Without that test every side-reference to a finished task becomes a duplicate "Done" entry.
+
+**Known limit, stated rather than hidden:** obsidian-git commits do not record *which* session made a change, so a different session flipping the same file after this session started passes test 2. Set (a)/(b) membership is what keeps that case out.
+
+If no candidate passes both, continue to the PR check below.
 
 If NO completion detected, check whether a PR was created (Phase 3.3 detection rules):
 - PR present, no completion → proceed but only run Phase 3.3 (PR-only sync). Report as "PR-only sync." This arm deliberately wins over the terminal-non-completion arm below: a session that both opened a PR and was aborted records the PR, and the outcome is not duplicated.

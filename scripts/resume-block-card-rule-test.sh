@@ -24,6 +24,12 @@
 # different literals: a check that reported everything, or nothing, would satisfy
 # the assertions without measuring anything.
 #
+# ⚠️ **What this does NOT measure: a REWORDED restatement.** The guard pins six
+# literals, so a consumer that restates the rule in its own words — keeping none of
+# them — passes. Pinning prose by literal is the trade-off that makes this cheap and
+# greppable; this note is here so the header does not claim more than the check
+# delivers, which is the defect class the rule it guards exists to remove.
+#
 # Run from repo root (Makefile target `test`).
 
 set -uo pipefail
@@ -53,6 +59,11 @@ done
 # carry-over scoping cannot fire, because the consumer reads that list back; and the
 # marker's reading, if it lives only in the consumer, is the dual-homing this guard
 # exists to catch.
+# ⚠️ **MARKERS is this file's extension point, and self-check 3 uses each entry as a
+# REGEX** (`awk gsub`), not as a literal. Every entry below is regex-safe — letters,
+# spaces, backticks, hyphens, one colon. A new entry carrying `&`, `\` or bracket
+# syntax would corrupt the substitution and make self-check 3 fail on an unrelated
+# literal, so escape it there rather than assuming the literal form is enough.
 MARKERS=(
 	'at least two `--option` labels'
 	'--dedup-key'
@@ -120,7 +131,10 @@ check "home carries every marker" "" "$(missing_markers . "$HOME_FILE")"
 # 2. The consumer carries none of them — the single-homing half.
 check "consumer restates none of them" "" "$(restated_markers . "$CONSUMER_FILE")"
 
-TMP=$(mktemp -d)
+# `|| exit` for the same reason as the `cd` above: without `-e` a failed mktemp
+# leaves TMP empty, the trap's `rm -rf ""` is a no-op, and `mkdir -p "/commands"`
+# would write the throwaway copies to the filesystem root.
+TMP=$(mktemp -d) || exit 2
 trap 'rm -rf "$TMP"' EXIT
 mkdir -p "$TMP/commands"
 

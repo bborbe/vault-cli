@@ -67,6 +67,7 @@ test:
 	@bash scripts/goal-task-link-count-test.sh
 	@bash scripts/struck-row-rule-test.sh
 	@bash scripts/necessity-rule-test.sh
+	@bash scripts/resume-block-card-rule-test.sh
 	@bash scripts/closes-sc-rule-test.sh
 	@bash scripts/metrics-append-call-site-test.sh
 	@bash scripts/session-claim-branch-test.sh

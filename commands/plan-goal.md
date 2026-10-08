@@ -86,7 +86,7 @@ Translate findings (auditor + non-negotiable checks) into questions. Rules:
 
 For a **missing section**, offer to scaffold it (from the goal template / `goal-writing.md` shape) or point the owner to fill it. For an **unresolved task wikilink**, offer: create the task now (`/vault-cli:create-task "<title>"`), remove the wikilink, or leave it (blocks execution-ready). Apply each answer via `Edit`. Re-run the auditor after each batch. Print delta `Score: X → Y`. Loop until score ≥ 8 AND all three hard non-negotiables pass OR owner says "good enough."
 
-**Propagate, don't just patch** — see `plan-task.md` § 6 for the rule and why it costs a round per section when skipped. Goal files restate criteria across `# Tasks` and `# Definition of Done` exactly as task files do, so an edit applied to the criterion alone leaves those sections still carrying the claim you just removed. This loop is byte-identical to plan-task's; the rule lives in one place and is pointed at from here.
+**Propagate, don't just patch** — see `plan-task.md` § 6 for the rule and why it costs a round per section when skipped. Goal files restate criteria across `# Tasks`, `# Definition of Done`, the Summary and `# Out of Scope` exactly as task files do, so an edit applied to the criterion alone leaves those sections still carrying the claim you just removed. This fix loop mirrors plan-task's; the propagation rule is identical and has one home, pointed at from here.
 
 ### 7. Exit — hand off to execute-goal (no phase flip)
 

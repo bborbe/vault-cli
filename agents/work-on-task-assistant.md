@@ -143,7 +143,16 @@ Connect the current session to the task so the task's `claude_session_id` points
    # active vault from config; use session_project_dir if set, else vault path
    SESSION_DIR=$(vault-cli config list --output json | python3 -c "import sys,json; vs=json.load(sys.stdin); v=[x for x in vs if x['path']=='<active vault path>'][0]; print(v.get('session_project_dir') or v['path'])")
    ENC=$(printf '%s' "$SESSION_DIR" | sed 's|/|-|g')
-   DIR="$HOME/.claude/projects/$ENC"
+   # The transcript store belongs to the CONFIG dir, not always ~/.claude: a verify or fleet session
+   # runs under CLAUDE_CONFIG_DIR and writes there, so a hardcoded $HOME/.claude scans the wrong
+   # store and finds nothing (measured 2026-10-08: 330 files under $CLAUDE_CONFIG_DIR/projects vs 0
+   # at the hardcoded path, for a session whose own transcript was live in the former).
+   CFG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+   # The trailing slash is load-bearing. A renamed vault leaves `projects/<enc>` as a SYMLINK to the
+   # pre-rename encoding, and `find` does not descend a symlinked ROOT — so `find "$DIR"` returns 0
+   # files while `find "$DIR/"` returns the real ones (measured 2026-10-08: 0 vs 22). Without it the
+   # match returns zero and the guard refuses on a task whose owning session is live and named.
+   DIR="$CFG/projects/$ENC/"
    # live only: LIVE_WINDOW = 5 min, per docs/session-liveness.md — a stale transcript is a dead session
    find "$DIR" -name '*.jsonl' -mmin -5 2>/dev/null | while read -r f; do
      stem=$(basename "$f" .jsonl)

@@ -94,10 +94,13 @@ If not found: emit the structured `not_found:` verdict block (literal `not_found
    # active vault from config; use session_project_dir if set, else vault path
    SESSION_DIR=$(vault-cli config list --output json | python3 -c "import sys,json; vs=json.load(sys.stdin); v=[x for x in vs if x['path']=='<active vault path>'][0]; print(v.get('session_project_dir') or v['path'])")
    ENC=$(printf '%s' "$SESSION_DIR" | sed 's|/|-|g')
+   CFG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
    # Same config-dir rule as work-on-task-assistant.md § Session connect step 2 — CLAUDE_CONFIG_DIR,
    # never a hardcoded $HOME/.claude, because a verify/fleet session writes its transcripts there.
-   # Keep the two in step; the rationale comment lives in that file.
-   ls "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects/$ENC/"*.jsonl 2>/dev/null | while read -r f; do
+   # Keep the two in step; the rationale comment lives in that file. The store check keeps a missing
+   # store distinguishable from a genuine title ambiguity — both otherwise read as "0 matching".
+   [ -d "$CFG/projects/$ENC" ] || echo "⚠️ Session: transcript store not found at $CFG/projects/$ENC — cannot resolve this session's uuid" >&2
+   ls "$CFG/projects/$ENC/"*.jsonl 2>/dev/null | while read -r f; do
      stem=$(basename "$f" .jsonl)
      cur=$(grep '"type":"custom-title"' "$f" 2>/dev/null | grep '"customTitle"' | tail -1 | sed 's/.*"customTitle":"//; s/".*$//')
      [ "$cur" = "<goal_name>" ] && echo "$stem"

@@ -15,7 +15,7 @@ The single definition of whether a task's `claude_session_id` names a session th
 
 Keyed on the task's `claude_session_id` frontmatter. Two signals, both required.
 
-1. **Transcript recency.** The transcript at `~/.claude/projects/<encoded-project-dir>/<uuid>.jsonl` (use `session_project_dir` from vault-cli config when set, else the vault path).
+1. **Transcript recency.** The transcript at `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects/<encoded-project-dir>/<uuid>.jsonl` (use `session_project_dir` from vault-cli config when set, else the vault path). The config dir is not always `~/.claude`: a verify or fleet session runs under `CLAUDE_CONFIG_DIR` and writes its transcripts there, so a hardcoded `~/.claude` scans a store that does not hold that session's own transcript (measured 2026-10-08). Likewise, a renamed vault leaves `projects/<encoded-project-dir>` as a **symlink** to the pre-rename encoding, and a bare `find` does not descend a symlinked root — use `find -L`.
    - Written within `LIVE_WINDOW` (5 minutes — matched to vault-cli's per-session flock) → **fresh**.
    - Exists and older → **stale**.
    - Not found → **absent**.

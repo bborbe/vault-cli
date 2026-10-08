@@ -149,17 +149,17 @@ Connect the current session to the task so the task's `claude_session_id` points
    # path vs 333 under $CLAUDE_CONFIG_DIR/projects — and the running session's own transcript was
    # ABSENT from the former and present in the latter, so the scan could never match itself).
    CFG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
-   # The trailing slash is load-bearing. A renamed vault leaves `projects/<enc>` as a SYMLINK to the
-   # pre-rename encoding, and `find` does not descend a symlinked ROOT — so `find "$DIR"` returns 0
-   # files while `find "$DIR/"` returns the real ones (measured 2026-10-08: 0 vs 22). Without it the
-   # match returns zero and the guard refuses on a task whose owning session is live and named.
-   DIR="$CFG/projects/$ENC/"
+   # `-L` makes find follow the symlinked ROOT. A renamed vault leaves `projects/<enc>` as a symlink to
+   # the pre-rename encoding, and a bare `find "$DIR"` does not descend a symlinked root — it returns 0
+   # files (measured 2026-10-08: 0 vs 21553 with -L). Stated as a flag rather than relying on a trailing
+   # slash, whose meaning here reads as an accident rather than an intent.
+   DIR="$CFG/projects/$ENC"
    # live only: LIVE_WINDOW = 5 min, per docs/session-liveness.md — a stale transcript is a dead session
    # A missing store must stay DISTINGUISHABLE from a genuine title ambiguity: both otherwise surface
    # as "0 matching sessions", which is the silent refusal the two path bugs above produced. Do not
    # silence this with 2>/dev/null on the find alone — the check below is what makes it audible.
    [ -d "$DIR" ] || echo "⚠️ Session: transcript store not found at $DIR — cannot resolve this session's uuid" >&2
-   find "$DIR" -name '*.jsonl' -mmin -5 2>/dev/null | while read -r f; do
+   find -L "$DIR" -name '*.jsonl' -mmin -5 2>/dev/null | while read -r f; do
      stem=$(basename "$f" .jsonl)
      cur=$(grep '"type":"custom-title"' "$f" 2>/dev/null | grep '"customTitle"' | tail -1 | sed 's/.*"customTitle":"//; s/".*$//')
      # strip the leading decoration a supervisor adds at spawn ("⚙ <task>"); skip untitled (subagent) transcripts

@@ -68,6 +68,8 @@ Extract from the conversation:
 - **(a) Tasks this session touched** — this command's own read of the conversation, including any compaction summary's mentions of task files. `session-close` Phase 1 defines touched as *"edits this session"* (CLI mutations included) and carries **no** compaction clause, so reading the summary is this command's own addition, not a reuse of that definition.
 - **(b) Tasks this session owns on disk** — every task whose `claude_session_id`, or any `metrics_sessions[].session_id`, names this session's id. This half is disk-resolvable, so it survives a compaction that drops (a). Set (b) does **not** catch a task the session flipped without owning — a manager's status flip on a row with an empty id; set (a) is the source for that case.
 
+**`<this-session-id>` is `$CLAUDE_CODE_SESSION_ID`** — the env var the harness sets for this session, and the one `commands/task-status.md` already keys on. Bind it once and use it everywhere below: the enumeration, the session-start lookup and both fail-closed paths all read it, so a wrong id reproduces the silent no-op this block exists to remove.
+
 Enumerate (b) in two steps, because the list JSON carries only the first field:
 
 ```bash
@@ -77,13 +79,15 @@ grep -l "session_id: <this-session-id>" "<tasks_dir>"/*.md   # both halves: matc
 
 `--all` is required: plain `task list` defaults to todo/in_progress and would miss the `completed` row this probe exists to find.
 
-**Session start** — the first record carrying a top-level `timestamp` in this session's transcript. The earliest records (`agent-color`, `custom-title`) carry none, so a bare `head -1` is wrong — and `head` reports *its own* exit status, masking a `jq` failure upstream:
+**Session start** — the first record carrying a top-level `timestamp` in this session's transcript. The earliest records (`agent-color`, `custom-title`) carry none, so a bare `head -1` is wrong — it takes the first *record*, which has no `timestamp` at all:
 
 ```bash
-jq -r 'select(.timestamp) | .timestamp' ~/.claude/projects/*/<session-id>.jsonl 2>/dev/null | head -1
+jq -r 'select(.timestamp) | .timestamp' ~/.claude/projects/*/"$CLAUDE_CODE_SESSION_ID".jsonl 2>/dev/null | head -1
 ```
 
-**A non-zero exit, an empty result, or an unparseable value means *not established*** — the rule the terminal-non-completion arm below already states. Do **not** carry on with an empty session start: every candidate then fails test 2 and the probe reports "no completion" as though it had run, which is the silent no-op this block exists to remove. Report the lookup as unverified and **continue to the PR check below**. This block sits *above* that check, so the STOP gate is not the fall-through here — jumping to it would drop a PR record the session legitimately made. The terminal-non-completion arm's identical wording is sound only because that arm is reached *after* the PR check has already declined.
+**Branch on the *result* here, not on the exit code.** In this pipeline the command's status is `head`'s, which is 0 even when `jq` fails — and `set -o pipefail` is *not* the repair: `head -1` closes the pipe early, so on a long transcript `jq` dies of SIGPIPE (141) and pipefail promotes that to a spurious failure. That is the same trap `scripts/daily-note-has-entry.sh` documents for its own `awk … | grep -q`. The empty-result test below is the operative one.
+
+**An empty result, a non-zero exit, or an unparseable value means *not established*** — the rule the terminal-non-completion arm below already states. Do **not** carry on with an empty session start: every candidate then fails test 2 and the probe reports "no completion" as though it had run, which is the silent no-op this block exists to remove. Report the lookup as unverified and **continue to the PR check below**. This block sits *above* that check, so the STOP gate is not the fall-through here — jumping to it would drop a PR record the session legitimately made. The terminal-non-completion arm's identical wording is sound only because that arm is reached *after* the PR check has already declined.
 
 The glob can match more than one file — a resumed session appears under each project dir it ran in — and `head -1` then takes whichever the shell expanded first. When it matches more than one, read each and take the earliest first-timestamped record.
 
@@ -100,7 +104,7 @@ A `/branch` session keeps its parent's history, so its first record is the origi
    { git -c core.quotepath=off log --since="<session-start>" -p -- "<vault.path>/<tasks_dir>/<T>.md"
      git -c core.quotepath=off diff HEAD -- "<vault.path>/<tasks_dir>/<T>.md"; } | grep -q '^+status: completed$'
    ```
-   `diff HEAD` covers staged and unstaged changes alike, so a `status: completed` sitting in either is matched. If cwd is outside the vault repo, git errors — that is the fail-closed case above, so continue to the PR check rather than treating it as "no completion".
+   `diff HEAD` covers staged and unstaged changes alike, so a `status: completed` sitting in either is matched. If cwd is outside the vault repo, git errors — that is the fail-closed case above, so continue to the PR check rather than treating it as "no completion". `-c core.quotepath=off` is inert for this test — `core.quotepath` governs how `diff --git` headers render *paths*, and the grep reads patch *content* — but both halves keep it so they stay byte-identical to the form this block was specified with.
 
 A candidate passing both **takes the completion path**: treat it as the detected completion and continue with Phases 3–5. If phrase detection above already established a completion for that same task, the probe adds nothing — record it once, not twice. A candidate reading `completed` but failing test 2 was already finished when this session began — leave it alone. Without that test every side-reference to a finished task becomes a duplicate "Done" entry.
 

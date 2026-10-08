@@ -84,7 +84,7 @@ Read the topic file once, then evaluate:
 
 `/verify-topic` is the shipped verifier and owns the member-links-resolve check — its **check 2**. Do **not** reimplement link resolution here: two implementations drift, and delegating honors [[Phase-Gated Topic Flow]] SC5 *"is called (not reimplemented)"*.
 
-⚠️ **Consume check 2's result ONLY — never `verify-topic`'s aggregate verdict.** `/verify-topic` runs **eleven** checks (necessity, excess, Completion-Gate checkability, no-double-declaration, `## Goals` entry format, status consistency, Status Summary reconciliation, …). Refusing on its aggregate verdict would make this gate wider than its declared closed set of four and would refuse a structurally-complete topic for reasons outside this gate's authority. Read the report's `2. Member links resolve` line:
+⚠️ **Consume check 2's result ONLY — never `verify-topic`'s aggregate verdict.** `/verify-topic` (vault-local; this count tracks it and is refreshed with it) runs **eleven** checks (necessity, excess, Completion-Gate checkability, no-double-declaration, `## Goals` entry format, status consistency, Status Summary reconciliation, …). Refusing on its aggregate verdict would make this gate wider than its declared closed set of four and would refuse a structurally-complete topic for reasons outside this gate's authority. Read the report's `2. Member links resolve` line:
 
 - `PASS` → the check passes.
 - `FAIL` → this gate's check 3 fails. Name `verify-topic check 2` as the failing check and quote its reported issue.

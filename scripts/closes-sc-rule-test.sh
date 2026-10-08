@@ -12,7 +12,7 @@
 # entry the auditor rejects. CHANGELOG.md is deliberately outside that scope: it
 # quotes the old form as history.
 #
-# The cutoff DATE lives in agents/goal-auditor.md alone; docs/goal-writing.md
+# Among the carriers, the cutoff DATE lives in agents/goal-auditor.md alone; docs/goal-writing.md
 # names the constant only, so the two carriers cannot disagree on the boundary.
 #
 # Two self-checks, run on throwaway copies: strip the cutoff from ONE carrier
@@ -31,6 +31,17 @@ CARRIERS=(
 	docs/goal-writing.md
 	agents/goal-auditor.md
 )
+
+# Writers of goal `# Tasks` lines must emit the required form, or every goal
+# they create is flagged by the auditor that enforces it.
+WRITERS=(
+	agents/goal-creator.md
+	commands/launch-goal.md
+)
+
+for d in docs agents commands; do
+	[ -d "$d" ] || { echo "❌ expected directory missing: $d" >&2; exit 1; }
+done
 
 pass=0
 fail=0
@@ -61,12 +72,21 @@ done
 check "goal-auditor flags missing reference" yes "$(has agents/goal-auditor.md 'names no Success Criterion')"
 check "goal-auditor flags undefined SC" yes "$(has agents/goal-auditor.md 'which this goal does not define')"
 check "goal-auditor rejects topical inference" yes "$(has agents/goal-auditor.md 'Topical fit is not a reference')"
+check "goal-auditor requires the em-dash form" yes "$(has agents/goal-auditor.md '`— closes SC<n>`')"
+check "goal-auditor grandfathers to WARN" yes "$(has agents/goal-auditor.md 'or `created` absent → WARN, not MAJOR')"
+check "goal-auditor exempts completed/aborted" yes "$(has agents/goal-auditor.md 'Goals with `status: completed` or `aborted` are never flagged')"
+check "goal-auditor exempts struck rows" yes "$(has agents/goal-auditor.md 'Struck rows (`- [ ] ~~[[Name]]~~`) are exempt')"
+check "goal-auditor forbids double report" yes "$(has agents/goal-auditor.md 'is not re-reported as an orphan')"
+
+for w in "${WRITERS[@]}"; do
+	check "$w writes closes SC<n>" yes "$(has "$w" 'closes SC')"
+done
 
 # Single source for the cutoff date: exactly one carrier holds it.
-date_carriers=$(grep -lE 'CLOSES_SC_REQUIRED_AS_OF.{0,20}2026-10-08|2026-10-08.{0,40}CLOSES_SC_REQUIRED_AS_OF|CLOSES_SC_REQUIRED_AS_OF constant:\*\* `2026-10-08`' "${CARRIERS[@]}" | tr '\n' ' ')
+date_carriers=$(grep -lE 'CLOSES_SC_REQUIRED_AS_OF.{0,60}2026-10-08|2026-10-08.{0,60}CLOSES_SC_REQUIRED_AS_OF' "${CARRIERS[@]}" | tr '\n' ' ')
 check "cutoff date held by goal-auditor alone" "agents/goal-auditor.md " "$date_carriers"
 
-old_form=$(grep -rlF -- '(→ SC' docs agents commands 2>/dev/null | tr '\n' ' ')
+old_form=$(grep -rlF -- '(→ SC' docs agents commands | tr '\n' ' ')
 check "old (→ SC<n>) form absent" "" "$old_form"
 
 # Self-check: strip the cutoff from exactly one carrier in a copy.

@@ -194,7 +194,10 @@ For each linked task in the `# Tasks` section:
    - Entry carries no `closes SC<n>` → MAJOR, even when the task obviously fits a criterion by topic: "Task `[[Name]]` names no Success Criterion — add `— closes SC<n>`." Topical fit is not a reference; report the entry under `## Critical Issues`, not only in the alignment table.
    - Entry names an `SC<n>` absent from this goal's `# Success Criteria` → MAJOR: "Task `[[Name]]` closes `SC<n>`, which this goal does not define."
    - Struck rows (`- [ ] ~~[[Name]]~~`) are exempt.
-   - **Grandfathering:** goal `created` before `CLOSES_SC_REQUIRED_AS_OF` (`2026-10-08`), or `created` absent → WARN, not MAJOR. Goals with `status: completed` or `aborted` are never flagged. Same metadata-only rule as `DOD_REQUIRED_AS_OF`.
+   - **Grandfathering:** goal `created` before `CLOSES_SC_REQUIRED_AS_OF`, or `created` absent → WARN, not MAJOR — recommend adding the references but don't block on it. When `created` is **absent**, say so in the WARN ("no `created` frontmatter — add it to date the goal; it is grandfathered only because the date is missing"), so a missing field is never a silent escape from the MAJOR. Goals with `status: completed` or `aborted` are never flagged. Same metadata-only rule as `DOD_REQUIRED_AS_OF`.
+   - **No double report:** a task flagged here for naming no criterion is not re-reported as an orphan under step 3 — one Critical Issues entry per task, carrying the step-4 message.
+
+   **CLOSES_SC_REQUIRED_AS_OF constant:** `2026-10-08` — the date this enforcement landed, and the single source for that date (`docs/goal-writing.md` names the constant, not the date). When the calendar advances substantially past this (e.g. > 6 months), revisit: either drop grandfathering entirely (open goals should be backfilled by then) or move the cutoff forward.
 5. **Flag implementation-level tasks** — if a task title reads like a code change (e.g. "Add field X to struct Y"), it likely belongs in a spec or under another goal.
 
 Run this check AFTER the goal-level "Goal Scope Fit" smells. The two together catch most scope mistakes.

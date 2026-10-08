@@ -91,7 +91,7 @@ Read the topic file once, then evaluate:
 - `UNPROVEN` → treat as a failure of check 3 and say so plainly. The verifier reports `UNPROVEN` when no exercised page could violate the check, which is not evidence of health.
 - `DRIFT` is a token only check 8 carries and is explicitly **not** a failure — it cannot appear on check 2.
 
-The other nine checks are the topic's own governance and are reported by `/verify-topic` for its own caller. They do not gate this transition.
+The other ten checks are the topic's own governance and are reported by `/verify-topic` for its own caller. They do not gate this transition.
 
 ### 6. Phase transition or refusal
 

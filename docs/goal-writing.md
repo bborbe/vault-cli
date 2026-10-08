@@ -310,7 +310,7 @@ In the goal file body, the `# Tasks` section MUST render each task as a `[[Wikil
 2. [[Add Config and Other Providers to the Proxy]] — closes SC2, SC3: providers configured from YAML
 ```
 
-**Every entry names the Success Criterion it closes** — `— closes SC<n>` (several: `— closes SC2, SC3`), optionally followed by `: <clause>` saying how. Each named `SC<n>` must exist in this goal's `# Success Criteria`. An entry that closes no criterion is scope creep: add the criterion it serves, or move the task to `# Non-goals` / another goal. A foundation task names the criterion it enables: `— closes SC1: foundation, enables the proxy`. Goals with `created` before `CLOSES_SC_REQUIRED_AS_OF` (`2026-10-08`) are grandfathered (see `agents/goal-auditor.md`).
+**Every entry names the Success Criterion it closes** — `— closes SC<n>` (several: `— closes SC2, SC3`), optionally followed by `: <clause>` saying how. Each named `SC<n>` must exist in this goal's `# Success Criteria`. An entry that closes no criterion is scope creep: add the criterion it serves, or move the task to `# Non-goals` / another goal. A foundation task names the criterion it enables: `— closes SC1: foundation, enables the proxy`. Goals with `created` before `CLOSES_SC_REQUIRED_AS_OF` are grandfathered — the constant and its date live in `agents/goal-auditor.md`.
 
 NOT bold text + description:
 

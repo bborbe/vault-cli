@@ -171,7 +171,7 @@ Run a light self-audit against the file:
 - Title is outcome-shaped (no verb-first activity openings: "Build X" / "Refactor Y" / "Set up Z" / "Migrate Y")
 - Summary first sentence is outcome-shaped (no `via X` / `by doing Y` / `through Z`, AND no verb-first activity opening: "Build X" / "Refactor Y" / "Set up Z" / "Split X and build Y")
 - Body has Success Criteria + Tasks sections (or template body)
-- Tasks (if supplied) each carry `— closes SC<n>` naming an existing criterion: `awk '/^# Tasks/{f=1;next} /^# /{f=0} f && /\[\[/' <file> | grep -vc '— closes SC[0-9]'` must print `0` (every wikilinked entry in `# Tasks` carries the reference), and they are `[[Wikilinks]]`, NOT bold text + description (`grep -E '^\s*[0-9]+\.\s+\*\*' <file> | head -1` should return empty in the `# Tasks` section — bold-text task entries break Obsidian auto-create-on-click)
+- Tasks (if supplied) each carry `— closes SC<n>` naming an existing criterion: `awk '/^# Tasks/{f=1;next} /^# /{f=0} f && /\[\[/ && !/~~\[\[/' <file> | grep -vc '— closes SC[0-9]'` must print `0` (every wikilinked entry in `# Tasks` carries the reference; struck rows `~~[[…]]~~` are exempt, as in `goal-auditor`), and they are `[[Wikilinks]]`, NOT bold text + description (`grep -E '^\s*[0-9]+\.\s+\*\*' <file> | head -1` should return empty in the `# Tasks` section — bold-text task entries break Obsidian auto-create-on-click)
 - DoD has no soak-time anti-pattern items (no "runs for N hours/days", "no regressions for a week"); for personal-laptop tools, prefer exercise-now verification — see `docs/goal-writing.md` § Anti-pattern: soak-time DoD
 - If `timeline` is set, validate it is ≤ 4 weeks
 - No accidental empty sections

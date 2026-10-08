@@ -164,7 +164,7 @@ In order:
 5. `# Success Criteria` — 3-5 binary, measurable checkbox outcomes — *what we want when done*
 6. `# Definition of Done` — closure steps that verify completion — *how we know we're done* (peer to Success Criteria; see [Definition of Done](#definition-of-done))
 7. `# Non-goals` — 3-7 concrete deferrals (what's out of scope; link follow-up tasks/goals)
-8. `# Tasks` — 1-8 task wikilinks (`[[Wikilink Task Title]]`, NOT bold text + description), business-value milestones in logical order. See [Tasks as Business-Value Milestones](#tasks-as-business-value-milestones). The 4-8 range is a soft cap, NOT a floor — 1 task is fine for small goals; don't pad to hit a number.
+8. `# Tasks` — 1-8 task wikilinks, each naming the criterion it closes (`[[Wikilink Task Title]] — closes SC<n>`, NOT bold text + description; see [Format mandate](#format-mandate)), business-value milestones in logical order. See [Tasks as Business-Value Milestones](#tasks-as-business-value-milestones). The 4-8 range is a soft cap, NOT a floor — 1 task is fine for small goals; don't pad to hit a number.
 9. `# Related` — themes / sister goals / docs
 
 Optional: `# Risk Management` (appendix for high-stakes goals).

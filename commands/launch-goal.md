@@ -164,7 +164,7 @@ Derive from the locked outcome + Phase 1 transcript + Phase 2 context bundle.
    - `# Success Criteria` (with evidence shapes inline)
    - `# Definition of Done`
    - `# Non-goals`
-   - `# Tasks` (as `[[Wikilinks]]`, NOT bold text)
+   - `# Tasks` (as `[[Wikilinks]] — closes SC<n>`, NOT bold text)
    - `# Related` (linked sibling goals from Phase 2)
 4. **Show the link inline** (single message, no chat-render of file content):
 
@@ -263,7 +263,7 @@ Next:
 - Duplicate-check gate ran in Phase 2 — either no high-overlap match, OR user chose extend/separate/abort
 - Goal file exists with all 9 required sections populated from the interview
 - Each Success Criterion declares an evidence shape inline
-- Tasks rendered as `[[Wikilinks]]`, NOT bold text + description
+- Tasks rendered as `[[Wikilinks]] — closes SC<n>` (every named `SC<n>` exists), NOT bold text + description
 - Phase 5 forcing tests (laziness + traceability + hedge) all PASS before audit
 - Final audit (Phase 6 fan-out) returns 0 MAJOR findings; on PASS, `status` flips `draft` → `in_progress`
 </success_criteria>

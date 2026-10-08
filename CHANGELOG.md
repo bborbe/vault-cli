@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.165.2
 
 - fix: **the resume block's `Open decision:` field must be answerable, not a list of names.** A field naming four or five gates in prose asks the operator nothing: it carries no options, cannot be answered in place, and never reaches their board — so a session can report itself operator-blocked for hours while the operator has nothing to answer. Measured 2026-10-08 on a manager session: the resume block read *"FIVE open decisions, all the operator's"* while the operator's own words were *"It's waiting for me, but on the tension board or here, I have no questions hitting my face."* `commands/prepare-compact.md` now requires **every `Open decision:` entry to be backed by an open attention-board card** — posted through `attention-ask.py post` with **at least two `--option` labels**, the card's item id carried on the entry, a one-option card explicitly failing the rule, and an `AskUserQuestion` named as the fallback when the store is unreachable. `commands/post-compact.md` requires the same for the re-emitted block and points at `prepare-compact.md` as the rule's single home.
 

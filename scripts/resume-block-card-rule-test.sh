@@ -75,20 +75,41 @@ check() { # check <label> <want> <got>
 	fi
 }
 
-# missing_markers <root> <file> — the markers the file does not carry.
+# ⚠️ **grep's status is read, never collapsed.** `grep -q ... && printf` and
+# `grep -q ... || printf` both treat every non-zero as "no match" — so an
+# UNREADABLE file reports nothing and the half passes without measuring anything.
+# That is the second time this class surfaced in this file (the first was a missing
+# file), which is why both halves now separate 0 / 1 / 2+ rather than 0 / non-0.
+GREP_NO_MATCH=1
+
+# missing_markers <root> <file> — the markers the file does not carry, or a single
+# UNREADABLE line when the file cannot be read at all.
 missing_markers() {
-	local root=$1 file=$2 m
+	local root=$1 file=$2 m rc
 	for m in "${MARKERS[@]}"; do
-		grep -qF -- "$m" "$root/$file" 2>/dev/null || printf '%s\n' "$m"
+		grep -qF -- "$m" "$root/$file" 2>/dev/null
+		rc=$?
+		case $rc in
+			0) : ;;
+			$GREP_NO_MATCH) printf '%s\n' "$m" ;;
+			*) printf 'UNREADABLE: %s\n' "$file"; return 0 ;;
+		esac
 	done
 	return 0
 }
 
-# restated_markers <root> <file> — the markers the file carries that it must not.
+# restated_markers <root> <file> — the markers the file carries that it must not,
+# or a single UNREADABLE line when the file cannot be read at all.
 restated_markers() {
-	local root=$1 file=$2 m
+	local root=$1 file=$2 m rc
 	for m in "${MARKERS[@]}"; do
-		grep -qF -- "$m" "$root/$file" 2>/dev/null && printf '%s\n' "$m"
+		grep -qF -- "$m" "$root/$file" 2>/dev/null
+		rc=$?
+		case $rc in
+			0) printf '%s\n' "$m" ;;
+			$GREP_NO_MATCH) : ;;
+			*) printf 'UNREADABLE: %s\n' "$file"; return 0 ;;
+		esac
 	done
 	return 0
 }
@@ -118,6 +139,14 @@ done
 printf '%s\n' 'at least two `--option` labels' > "$TMP/$CONSUMER_FILE"
 check "self-check reports a restating consumer" \
 	'at least two `--option` labels' "$(restated_markers "$TMP" "$CONSUMER_FILE")"
+
+# 5. Self-check: an UNREADABLE consumer must be reported, not read as clean. This is
+#    the class's second surface — a missing file was the first — and grep's status is
+#    the only thing that can tell "no match" from "could not read". A directory is
+#    used rather than a chmod-000 file because a chmod is bypassed when the suite runs
+#    as root, and the check would then pass while exercising nothing.
+check "self-check reports an unreadable consumer" \
+	"UNREADABLE: commands" "$(restated_markers "$TMP" commands)"
 
 echo "resume-block card rule: $pass passed, $fail failed"
 [ "$fail" -eq 0 ] || exit 1

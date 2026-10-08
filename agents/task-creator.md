@@ -106,7 +106,7 @@ If `task_template` is set in the vault config and the file exists at that path:
 
 - Read the file
 - Strip its frontmatter block (everything between the first `---` line and the matching closing `---`) so only the body remains
-- Use the body verbatim as the new task's body — **with one addition:** append the necessity verdict computed in step 8 to its `# Progress` section, creating that section at the end of the body if the template carries none. ⚠️ **This append is required on this path, not optional.** Step 9 never runs when a template is loaded, so without it every templated task would silently carry no necessity verdict — the one path where the verdict is easiest to lose, and the reason the requirement cannot live in step 9 alone.
+- Use the body verbatim as the new task's body. ⚠️ **The template path also owes a `# Progress` append — performed in step 8, not here.** Once step 8 has computed the necessity verdict, it appends that verdict to this body's `# Progress` section, creating the section at the end of the body if the template carries none. ⚠️ **The append is required on this path, not optional:** step 9 never runs when a template is loaded, so without it every templated task would silently carry no necessity verdict — the one path where the verdict is easiest to lose, and the reason the requirement cannot live in step 9 alone.
 
 If `task_template` is empty or the file does not exist:
 
@@ -121,7 +121,7 @@ Required fields:
 - `status: in_progress` IF any of `planned_date`, `defer_date`, or `due_date` is being written to this task in step 8 (per spec 017: a calendar date is a commitment, so the task must be visible to the Kanban board); `status: next` OTHERWISE (canonical replacement for the legacy `todo` alias)
 - `phase: todo` — ALWAYS. Every new task lands in the operator's approval inbox. The `todo → planning` move is the operator's approval and is never written by this agent — do NOT write `phase: planning` or any later value, and do NOT run `/vault-cli:plan-task` after creating the file.
 - `priority: <1|2|3>`
-- `themes:` and/or `goals:` — **only when the necessity test below names the criterion this task closes**; a theme link is the honest fallback when nothing does
+- `topics:`, `themes:` and/or `goals:` — **only when the necessity test below names the criterion this task closes**; a theme link is the honest fallback when nothing does. Write `topics:` as a YAML list of `'[[<Topic>]]'` links, like `themes:` and `goals:` — the bare `Name (vault)` form some older files carry is legacy, not the shape to emit.
 - `category: <category>` — if inferred
 - `severity: SEV-X` — only if step 4 set one
 - `planned_date: <today>` — only in interactive mode if the user asked to start now
@@ -131,22 +131,24 @@ Do NOT set `assignee`. Do NOT set fields the user did not ask for.
 
 ### Goal and topic linkage — the necessity test
 
-`goals:` and a topic placement are **relations of need, not of resemblance.** A semantic search may *propose* candidates; only necessity may *keep* one.
+`goals:` and `topics:` are **relations of need, not of resemblance.** A semantic search may *propose* candidates; only necessity may *keep* one.
 
 **The test.** For each candidate goal read its `# Success Criteria` and `# Definition of Done`; for each candidate topic read its `# Completion Gate` and `# Success Criteria`. Keep the candidate **only when you can name the item this task closes** — and name it.
 
-| Candidate | Keep when the task closes | Name it as |
-|---|---|---|
-| goal | a `# Success Criteria` item | `closes SC<n>` |
-| goal | a `# Definition of Done` item | `closes DoD<n>` |
-| topic | a `# Completion Gate` item | the gate item, quoted |
-| topic | a `# Success Criteria` item | `closes SC<n>` |
+| Field | Candidate | Keep when the task closes | Name it as |
+|---|---|---|---|
+| `goals:` | goal | a `# Success Criteria` item | `closes SC<n>` |
+| `goals:` | goal | a `# Definition of Done` item | `closes DoD<n>` |
+| `topics:` | topic | a `# Completion Gate` item | the gate item, quoted |
+| `topics:` | topic | a `# Success Criteria` item | `closes SC<n>` |
+
+⚠️ **A topic is not a theme.** They are separate page types in separate folders, with different shapes: a topic carries a `# Completion Gate` and `# Success Criteria`; a theme carries neither (its shape is Summary → `# Impact` → `# Sub-Goals` → `# Related`). Test a topic against its gate; a theme has nothing to close against and is the fallback, never a necessity pass.
 
 ⚠️ **A goal's or topic's one-line summary sentence never counts.** Completion is the closure contract — SC, DoD, gate — and nothing closes against a sentence. A sentence is broad by design, so counting it re-admits resemblance under a new name, which is the defect this test exists to catch.
 
 ⚠️ **A foundation task is the one exception**, and only when a quotable line frames it as one — the task's own body, or the goal's `# Tasks` entry for it. Quote that line. *"Explicitly framed as a foundation task"* with nothing to cite is not an exception.
 
-**Write the verdict into the task.** Every created task records its necessity verdict in `# Progress` — on the generated path by step 9, on the template path by the append in step 7:
+**Write the verdict into the task.** Every created task records its necessity verdict in `# Progress` — on the generated path by step 9, on the template path by the append this step performs into the body step 7 loaded:
 
 - linked → `Necessity: closes SC2 of [[<goal>]].`
 - not linked → `Necessity: no open goal or topic needs this task. Tested: [[<candidate>]] (closes none of its SC/DoD), [[<candidate>]] (closes none of its gate items).`

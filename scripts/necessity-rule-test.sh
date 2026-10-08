@@ -50,7 +50,11 @@ COMMANDS=(
 # heading and its two verdict forms instead.
 CREATOR=agents/task-creator.md
 CREATOR_HEADING='### Goal and topic linkage — the necessity test'
-CREATOR_MARKERS=('closes SC<n>' 'closes DoD<n>' 'Necessity:')
+# The section heading alone pins nothing: the two topic rows gate the `topics:`
+# field, and the template-path append is the only place a templated task's verdict
+# lands — delete either and the heading survives. Each is pinned by name.
+CREATOR_MARKERS=('closes SC<n>' 'closes DoD<n>' 'Necessity:' '# Completion Gate' 'topics:')
+CREATOR_TEMPLATE_MARKER='The append is required on this path, not optional'
 
 SOURCES=('SC<n>' 'DoD<n>')
 RECONCILE='serving + none + unproven + skipped = linked'
@@ -114,13 +118,20 @@ missing_reconcile() {
 	done
 }
 
-# missing_retired_clause <root> — thin commands that STILL name the retired goal
-# sentence as a source. Factored out so the negative half carries its own
-# self-check: a negative that reported nothing would otherwise pass silently.
+# missing_retired_clause <root> — files that STILL name the retired goal sentence as
+# a source. Scoped to every file the rule governs, not just the thin commands: the
+# two agents and the creator are where the sentence source would actually be
+# re-accepted, so a COMMANDS-only sweep leaves the load-bearing half unchecked.
+# ⚠️ Case-insensitive on purpose — the surviving vocabulary is 'one-line summary
+# sentence', so a drifted 'Goal sentence' would otherwise pass the negative, and
+# self-check 3 (which appends the lowercase form) could not detect the gap.
+# Factored out so the negative half carries its own self-check: a negative that
+# reported nothing would otherwise pass silently.
+RETIRED_SCOPE=("${COMMANDS[@]}" "${AGENTS[@]}" "$CREATOR")
 missing_retired_clause() {
 	local root=$1 f
-	for f in "${COMMANDS[@]}"; do
-		grep -qF -- 'goal sentence' "$root/$f" 2>/dev/null && printf '%s\n' "$f"
+	for f in "${RETIRED_SCOPE[@]}"; do
+		grep -qiF -- 'goal sentence' "$root/$f" 2>/dev/null && printf '%s\n' "$f"
 	done
 }
 
@@ -140,7 +151,7 @@ for f in "${COMMANDS[@]}"; do
 			"$(grep -qF -- "$s" "$ROOT/$f" 2>/dev/null && echo yes)"
 	done
 done
-check "no thin command still names the retired 'goal sentence'" "" \
+check "no governed file still names the retired 'goal sentence'" "" \
 	"$(missing_retired_clause "$ROOT")"
 
 # --- the creator carries the necessity test: its section heading, and both verdict
@@ -152,6 +163,8 @@ for m in "${CREATOR_MARKERS[@]}"; do
 	check "$CREATOR names '$m'" "yes" \
 		"$(grep -qF -- "$m" "$ROOT/$CREATOR" 2>/dev/null && echo yes)"
 done
+check "$CREATOR keeps the template-path append" "yes" \
+	"$(grep -qF -- "$CREATOR_TEMPLATE_MARKER" "$ROOT/$CREATOR" 2>/dev/null && echo yes)"
 
 # --- self-check: strip the reconciliation from ONE agent and require exactly that
 # one to be reported.

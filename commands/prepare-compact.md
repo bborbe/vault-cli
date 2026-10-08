@@ -78,7 +78,7 @@ Write every open item the checks surfaced into the checkpoint under a `## Carry-
 
 - `uncommitted` / `un-pushed` — the git output; re-verified with `git status` / `git log @{u}..`
 - `background` — daemon / containers / watchers; re-verified with `dark-factory status` / `docker ps` / `pgrep`
-- `gate` — the unanswered decision verbatim; re-surfaced for a verdict, no live check. ⚠️ **A gate with no genuine alternative is not one of these** — it is a step, and folds into `Next action:`; see § *Resume after compact* for the rule.
+- `gate` — the unanswered decision verbatim; re-surfaced for a verdict, no live check. ⚠️ **A gate with no genuine alternative is not one of these** — it is a step, and folds into `Next action:`; see § *RESUME AFTER COMPACT* for the rule.
 
 These are what `/vault-cli:post-compact` reads after compaction to confirm the fresh context is intact. With no open items, write no carry-over section.
 
@@ -93,7 +93,7 @@ Un-pushed / uncommitted:
 Open decision:
 ```
 
-Fill the fields from the sweep and checks: the concrete next step on the touched goal or task; anything still running in the background; anything git reported; each unanswered gate **that has a genuine alternative** — a one-outcome gate is a step, not a decision, and folds into `Next action:` instead (§ *Resume after compact*). The four labels are the frozen resume-block schema — do not rename, reword, add, or remove a field.
+Fill the fields from the sweep and checks: the concrete next step on the touched goal or task; anything still running in the background; anything git reported; each unanswered gate **that has a genuine alternative** — a one-outcome gate is a step, not a decision, and folds into `Next action:` instead (§ *RESUME AFTER COMPACT*). The four labels are the frozen resume-block schema — do not rename, reword, add, or remove a field.
 
 ⚠️ **`Open decision:` names decisions; a name is not a question.** A field listing four gates in prose asks the operator nothing — it carries no options, cannot be answered in place, and never reaches their board, so a session can report itself operator-blocked for hours while the operator has nothing to answer. Measured 2026-10-08: a manager tick read *"FIVE open decisions, all the operator's"* for hours, and the operator's own words were *"It's waiting for me, but on the tension board or here, I have no questions hitting my face."*
 

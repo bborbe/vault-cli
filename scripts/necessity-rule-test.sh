@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Pins the three-source necessity rule to the artifacts that enforce it.
+# Pins the two-source necessity rule to the artifacts that enforce it.
 #
 # The rule has NO code. It lives in the prose the counting agents read, so the
 # prose IS the implementation and a silent edit to it is a behaviour regression —
@@ -8,9 +8,9 @@
 # the reason this is a presence test rather than a fixture: nothing else can catch
 # the rule being dropped.
 #
-# The discriminating facts are the three source names and the four-term
-# reconciliation. An artifact naming fewer than three sources cannot be testing
-# all three, and one that does not state `serving + none + unproven + skipped =
+# The discriminating facts are the two source names and the four-term
+# reconciliation. An artifact naming fewer than two sources cannot be testing
+# both, and one that does not state `serving + none + unproven + skipped =
 # linked` cannot be reconciling its counters — so presence per artifact is both
 # necessary and cheap to assert.
 #
@@ -28,22 +28,35 @@ ROOT=$(cd "$(dirname "$0")/.." && pwd)
 # otherwise continue and check the wrong tree.
 cd "$ROOT" || exit 2
 
-# The two agents carry the rule in full: all three source citations and the
+# The two agents carry the rule in full: both source citations and the
 # reconciliation that makes the counters checkable.
 AGENTS=(
 	agents/goal-manager-agent.md
 	agents/task-manager-agent.md
 )
 
-# The two thin commands name the three sources in prose. They carry no `SC<n>` /
-# `DoD<n>` citation form and no counters — deliberately, per agent-cmd/command-thin
-# — so they are asserted only on the source names a reader would search for.
+# The two thin commands name the sources in prose. They carry no counters —
+# deliberately, per agent-cmd/command-thin — so they are asserted on the source
+# names a reader would search for, plus the exclusion of the retired one.
 COMMANDS=(
 	commands/verify-goal.md
 	commands/verify-task.md
 )
 
-SOURCES=('goal sentence' 'SC<n>' 'DoD<n>')
+# The creator carries the rule where a link is actually chosen — the largest
+# behavioural change in this rule set, and the one neither AGENTS nor COMMANDS
+# reaches: `agents/task-creator.md` is referenced by neither. It holds no
+# reconciliation (it is not a counting agent), so it is asserted on its section
+# heading and its two verdict forms instead.
+CREATOR=agents/task-creator.md
+CREATOR_HEADING='### Goal and topic linkage — the necessity test'
+# The section heading alone pins nothing: the two topic rows gate the `topics:`
+# field, and the template-path append is the only place a templated task's verdict
+# lands — delete either and the heading survives. Each is pinned by name.
+CREATOR_MARKERS=('closes SC<n>' 'closes DoD<n>' 'Necessity:' '# Completion Gate' 'topics:')
+CREATOR_TEMPLATE_MARKER='The append is required on this path, not optional'
+
+SOURCES=('SC<n>' 'DoD<n>')
 RECONCILE='serving + none + unproven + skipped = linked'
 
 pass=0
@@ -80,12 +93,11 @@ RULE_STEP_GOAL=8
 RULE_STEP_TASK=5
 
 # missing_sources_in_step <root> — the agent/step pairs whose RULE STEP does not
-# name all three sources. ⚠️ **A per-file grep is not enough here, and that is the
-# whole point of this helper:** both agents' Shared Operations prose names all
-# three sources on its own (`parse_success_criteria` says "cite `SC<n>`",
-# `parse_definition_of_done` says "cite `DoD<n>`", `parse_goal_sentence` says
-# "Extract the goal sentence"), so deleting the rule step entirely would leave a
-# file-level assertion green.
+# name both sources. ⚠️ **A per-file grep is not enough here, and that is the
+# whole point of this helper:** both agents' Shared Operations prose names both
+# sources on its own (`parse_success_criteria` says "cite `SC<n>`",
+# `parse_definition_of_done` says "cite `DoD<n>`"), so deleting the rule step
+# entirely would leave a file-level assertion green.
 missing_sources_in_step() {
 	local root=$1 f n s
 	for spec in "agents/goal-manager-agent.md:$RULE_STEP_GOAL" "agents/task-manager-agent.md:$RULE_STEP_TASK"; do
@@ -106,25 +118,60 @@ missing_reconcile() {
 	done
 }
 
-# --- the rule step in each agent names all three sources, and each agent states
+# missing_retired_clause <root> — files that STILL name the retired goal sentence as
+# a source. Scoped to every file the rule governs, not just the thin commands: the
+# two agents and the creator are where the sentence source would actually be
+# re-accepted, so a COMMANDS-only sweep leaves the load-bearing half unchecked.
+# ⚠️ Case-insensitive on purpose — the surviving vocabulary is 'one-line summary
+# sentence', so a drifted 'Goal sentence' would otherwise pass the negative, and
+# self-check 3 (which appends the lowercase form) could not detect the gap.
+# Factored out so the negative half carries its own self-check: a negative that
+# reported nothing would otherwise pass silently.
+RETIRED_SCOPE=("${COMMANDS[@]}" "${AGENTS[@]}" "$CREATOR")
+missing_retired_clause() {
+	local root=$1 f
+	for f in "${RETIRED_SCOPE[@]}"; do
+		grep -qiF -- 'goal sentence' "$root/$f" 2>/dev/null && printf '%s\n' "$f"
+	done
+}
+
+# --- the rule step in each agent names both sources, and each agent states
 # the reconciliation
-check "the rule step in each agent names all three serving sources" "" \
+check "the rule step in each agent names both serving sources" "" \
 	"$(missing_sources_in_step "$ROOT")"
 check "every agent states the four-term reconciliation" "" "$(missing_reconcile "$ROOT")"
 
-# --- every thin command names the two non-SC sources a reader would search for
+# --- every thin command names the surviving sources a reader would search for,
+# and none still presents the retired goal sentence as one. The negative half is
+# the half that matters: a command that merely gained the new wording while
+# keeping the old sentence clause would otherwise pass on presence alone.
 for f in "${COMMANDS[@]}"; do
-	for s in 'goal sentence' 'Definition of Done'; do
+	for s in 'SC<n>' 'Definition of Done'; do
 		check "$f names '$s'" "yes" \
 			"$(grep -qF -- "$s" "$ROOT/$f" 2>/dev/null && echo yes)"
 	done
 done
+check "no governed file still names the retired 'goal sentence'" "" \
+	"$(missing_retired_clause "$ROOT")"
+
+# --- the creator carries the necessity test: its section heading, and both verdict
+# forms. Without this, the largest behavioural change in the PR could be deleted or
+# reverted with no assertion going red.
+check "$CREATOR carries the necessity section" "yes" \
+	"$(grep -qF -- "$CREATOR_HEADING" "$ROOT/$CREATOR" 2>/dev/null && echo yes)"
+for m in "${CREATOR_MARKERS[@]}"; do
+	check "$CREATOR names '$m'" "yes" \
+		"$(grep -qF -- "$m" "$ROOT/$CREATOR" 2>/dev/null && echo yes)"
+done
+check "$CREATOR keeps the template-path append" "yes" \
+	"$(grep -qF -- "$CREATOR_TEMPLATE_MARKER" "$ROOT/$CREATOR" 2>/dev/null && echo yes)"
 
 # --- self-check: strip the reconciliation from ONE agent and require exactly that
 # one to be reported.
 TMP=$(mktemp -d)
 TMP2=$(mktemp -d)
-trap 'rm -rf "$TMP" "$TMP2"' EXIT
+TMP3=$(mktemp -d)
+trap 'rm -rf "$TMP" "$TMP2" "$TMP3"' EXIT
 STRIPPED=agents/task-manager-agent.md
 for f in "${AGENTS[@]}"; do
 	mkdir -p "$TMP/$(dirname "$f")" "$TMP2/$(dirname "$f")"
@@ -156,6 +203,19 @@ check "self-check: a dropped rule step is reported" \
 # pattern proves the section survived the edit.
 check "self-check: the drop left the rest of the verify section intact" "yes" \
 	"$(step "$TMP2/agents/goal-manager-agent.md" '### verify' 5 | grep -qF -- '~~[[' && echo yes)"
+
+# --- self-check 3: put the retired clause back into ONE command and require exactly
+# that command to be reported. Without this the negative check is unfalsifiable — a
+# degenerate version that reported nothing would pass silently, which is precisely
+# the failure the two self-checks above exist to prevent, and the negative is the
+# half of the command assertion that carries the actual rule change.
+for f in "${COMMANDS[@]}"; do
+	mkdir -p "$TMP3/$(dirname "$f")"
+	cp "$ROOT/$f" "$TMP3/$f"
+done
+printf '\nA task serving the goal sentence is accepted.\n' >>"$TMP3/${COMMANDS[0]}"
+check "self-check: a reinstated goal-sentence clause is reported" "${COMMANDS[0]}" \
+	"$(missing_retired_clause "$TMP3")"
 
 echo "necessity-rule: $pass passed, $fail failed"
 [ "$fail" -eq 0 ] || exit 1

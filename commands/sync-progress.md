@@ -88,6 +88,8 @@ ls "$CFG"/projects/*/"$CLAUDE_CODE_SESSION_ID".jsonl >/dev/null 2>&1 \
 jq -r 'select(.timestamp) | .timestamp' "$CFG"/projects/*/"$CLAUDE_CODE_SESSION_ID".jsonl 2>/dev/null | head -1
 ```
 
+If the `session transcript not found` warning above fired, **surface that line in the report too** — a missing or wrong store must be named as such, not folded into the ordinary "empty result means not established" arm, because reading one as the other is the confusion the config-dir defect produced. (Same instruction as in `agents/work-on-task-assistant.md` § Session connect and its goal mirror.)
+
 **Branch on the *result* here, not on the exit code.** In this pipeline the command's status is `head`'s, which is 0 even when `jq` fails — and `set -o pipefail` is *not* the repair: `head -1` closes the pipe early, so on a long transcript `jq` dies of SIGPIPE (141) and pipefail promotes that to a spurious failure. That is the same trap `scripts/daily-note-has-entry.sh` documents for its own `awk … | grep -q`. The empty-result test below is the operative one.
 
 **An empty result, a non-zero exit, or an unparseable value means *not established*** — the rule the terminal-non-completion arm below already states. Do **not** carry on with an empty session start: every candidate then fails test 2 and the probe reports "no completion" as though it had run, which is the silent no-op this block exists to remove. Report the lookup as unverified and **continue to the PR check below**. This block sits *above* that check, so the STOP gate is not the fall-through here — jumping to it would drop a PR record the session legitimately made. The terminal-non-completion arm's identical wording is sound only because that arm is reached *after* the PR check has already declined.

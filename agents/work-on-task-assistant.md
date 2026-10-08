@@ -151,8 +151,12 @@ Connect the current session to the task so the task's `claude_session_id` points
    CFG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
    # `-L` makes find follow the symlinked ROOT. A renamed vault leaves `projects/<enc>` as a symlink to
    # the pre-rename encoding, and a bare `find "$DIR"` does not descend a symlinked root — it returns 0
-   # files (measured 2026-10-08: 0 vs 21553 with -L). Stated as a flag rather than relying on a trailing
-   # slash, whose meaning here reads as an accident rather than an intent.
+   # files where the same walk with -L returns the whole store (measured 2026-10-08: 0 vs ~21.5k; the
+   # store grows, so re-measure rather than citing that figure). Stated as a flag rather than relying on
+   # a trailing slash, whose meaning here reads as an accident rather than an intent.
+   # `-L` with `-maxdepth` is accepted by BSD/darwin find in this order with clean stderr (verified
+   # 2026-10-08 on the machine these agents run on), so the flag does not fail silently into the
+   # 2>/dev/null below — the one failure shape that would reproduce the very bug this scan fixes.
    DIR="$CFG/projects/$ENC"
    # live only: LIVE_WINDOW = 5 min, per docs/session-liveness.md — a stale transcript is a dead session
    # A missing store must stay DISTINGUISHABLE from a genuine title ambiguity: both otherwise surface
@@ -160,12 +164,12 @@ Connect the current session to the task so the task's `claude_session_id` points
    # silence this with 2>/dev/null on the find alone — the check below is what makes it audible.
    [ -d "$DIR" ] || echo "⚠️ Session: transcript store not found at $DIR — cannot resolve this session's uuid" >&2
    # `-maxdepth 1` is correct as well as cheaper — but NOT because the store is flat. Measured
-   # 2026-10-08: 1955 transcripts sit at depth 1 and 19601 under per-session subdirectories, so a
-   # bounded walk would drop 91% of the FILES. What it does not drop is any CANDIDATE: every titled
-   # transcript is at depth 1 (1766 titled at depth 1, 0 below), because the subdirectories hold only
-   # untitled `agent-*.jsonl` subagent transcripts, which the strip rule skips anyway. Bounding
+   # 2026-10-08: 1955 transcripts sit at depth 1 and 19606 under per-session subdirectories (21561 in
+   # all), so a bounded walk drops ~91% of the FILES. What it does not drop is any CANDIDATE: every
+   # titled transcript is at depth 1 (1766 titled at depth 1, 0 below), because the subdirectories hold
+   # only untitled `agent-*.jsonl` subagent transcripts, which the strip rule skips anyway. Bounding
    # therefore loses no match, cuts the stat walk ~11x, and stops a symlink inside the store from
-   # widening the scan past it.
+   # widening the scan past it. The store grows, so treat these counts as a dated sample, not constants.
    find -L "$DIR" -maxdepth 1 -name '*.jsonl' -mmin -5 2>/dev/null | while read -r f; do
      stem=$(basename "$f" .jsonl)
      cur=$(grep '"type":"custom-title"' "$f" 2>/dev/null | grep '"customTitle"' | tail -1 | sed 's/.*"customTitle":"//; s/".*$//')

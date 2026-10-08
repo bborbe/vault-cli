@@ -15,9 +15,14 @@
 # was still owed. Measured 2026-10-08. A presence test alone was green throughout
 # that drift, because the home carried the rule the whole time.
 #
-# The self-checks at the end falsify each half against a throwaway copy: a check
-# that reported everything, or nothing, would satisfy the assertions without
-# measuring anything.
+# ⚠️ **The markers are the behaviours, not just the vocabulary.** Every literal below
+# is a half that was added or moved by the change that introduced this guard; a
+# MARKERS list that pinned only the pre-existing literals would guard everything
+# except the edit that made it necessary.
+#
+# The self-checks at the end falsify each half against a throwaway copy, over two
+# different literals: a check that reported everything, or nothing, would satisfy
+# the assertions without measuring anything.
 #
 # Run from repo root (Makefile target `test`).
 
@@ -31,14 +36,30 @@ cd "$ROOT" || exit 2
 HOME_FILE=commands/prepare-compact.md
 CONSUMER_FILE=commands/post-compact.md
 
-# The vocabulary that makes a resume-block entry answerable. Each is pinned by the
-# literal a reader searches for; delete any one and the rule loses a half — the
-# floor without the flag is an unbuildable post, and the flag without the poll
-# vocabulary leaves a gate that reads as closed while it is still owed.
+# ⚠️ **A missing file must FAIL, never pass vacuously.** `restated_markers` sends
+# grep's non-zero status to /dev/null and returns 0, so an absent or renamed
+# consumer reports nothing — and the absence half, the load-bearing one, would
+# compare "" to "" and pass without measuring anything. The home has an accidental
+# guard (a missing home makes `missing_markers` report every literal, failing
+# assertion 1); the consumer has none, so both get an explicit one.
+for f in "$HOME_FILE" "$CONSUMER_FILE"; do
+	[ -f "$f" ] || { echo "❌ $f is missing" >&2; exit 2; }
+done
+
+# The halves that make a resume-block entry answerable, each pinned by the literal a
+# reader searches for. Delete any one and the rule loses a half: the floor without
+# the flag is an unbuildable post; the flag without the poll vocabulary leaves a gate
+# that reads as closed while it is still owed; the escape hatch without its
+# carry-over scoping cannot fire, because the consumer reads that list back; and the
+# marker's reading, if it lives only in the consumer, is the dual-homing this guard
+# exists to catch.
 MARKERS=(
 	'at least two `--option` labels'
 	'--dedup-key'
 	'NOT_OPERATOR_ANSWERED:'
+	'fold it into `Next action:`'
+	'is not a `gate` carry-over item either'
+	'reads as no item id'
 )
 
 pass=0
@@ -73,27 +94,27 @@ restated_markers() {
 }
 
 # 1. The home carries every marker.
-missing=$(missing_markers . "$HOME_FILE")
-check "home carries every marker" "" "$missing"
+check "home carries every marker" "" "$(missing_markers . "$HOME_FILE")"
 
 # 2. The consumer carries none of them — the single-homing half.
-restated=$(restated_markers . "$CONSUMER_FILE")
-check "consumer restates none of them" "" "$restated"
+check "consumer restates none of them" "" "$(restated_markers . "$CONSUMER_FILE")"
 
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 mkdir -p "$TMP/commands"
 
-# 3. Self-check: strip one marker from a throwaway copy of the home and require
-#    exactly that marker to be reported. The absence half (2) would otherwise be
-#    satisfied by a consumer that had lost nothing, and the presence half (1) by a
-#    home that had.
-sed 's/at least two `--option` labels/REMOVED/' "$HOME_FILE" > "$TMP/$HOME_FILE"
-check "self-check reports the stripped marker" \
-	'at least two `--option` labels' "$(missing_markers "$TMP" "$HOME_FILE")"
+# 3. Self-check, over two literals: strip a marker from a throwaway copy of the home
+#    and require exactly that marker to be reported. Two, not one, because a
+#    `missing_markers` that happened to detect a single hard-coded literal would
+#    otherwise satisfy assertion 1 without iterating MARKERS at all.
+for marker in 'at least two `--option` labels' 'reads as no item id'; do
+	awk -v m="$marker" '{ gsub(m, "REMOVED"); print }' "$HOME_FILE" > "$TMP/$HOME_FILE"
+	check "self-check reports the stripped marker" "$marker" \
+		"$(missing_markers "$TMP" "$HOME_FILE")"
+done
 
-# 4. Self-check: a consumer that DOES restate a marker must be reported. This is
-#    the half the drift actually hit, so it carries its own falsification.
+# 4. Self-check: a consumer that DOES restate a marker must be reported. This is the
+#    half the drift actually hit, so it carries its own falsification.
 printf '%s\n' 'at least two `--option` labels' > "$TMP/$CONSUMER_FILE"
 check "self-check reports a restating consumer" \
 	'at least two `--option` labels' "$(restated_markers "$TMP" "$CONSUMER_FILE")"

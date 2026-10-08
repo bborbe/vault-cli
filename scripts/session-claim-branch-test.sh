@@ -105,9 +105,17 @@ check "the decline is stated for live/indeterminate" "yes" \
 check "the non-claiming branch still reports already connected" "yes" \
 	"$(printf '%s\n' "$SEC" | grep -qF -- 'already connected' && echo yes)"
 
-# --- 7. the prior owner is preserved as authorship history, not discarded.
-check "the claim records the prior owner in # Progress" "yes" \
-	"$(printf '%s\n' "$SEC" | grep -qF -- '# Progress' && echo yes)"
+# --- 7. the prior owner is preserved as authorship history — via the
+# accumulating metrics append, NOT a task-body write. The agent's declared write
+# surface is `<constraints>`'s "READ-ONLY except: status frontmatter +
+# `claude_session_id` frontmatter + daily-note tracking", which does not include
+# the body, so an instruction to append a `# Progress` line would be out of
+# contract. Both halves are pinned: the preserving mechanism is named, and the
+# body write is absent.
+check "the claim preserves the prior owner via the metrics append" "yes" \
+	"$(printf '%s\n' "$QUIET_LINE" | grep -qF -- 'metrics' && echo yes)"
+check "the claim requires no task-body write" "" \
+	"$(printf '%s\n' "$QUIET_LINE" | grep -oF -- '# Progress' | head -1)"
 
 # --- self-check: strip the claim from a throwaway copy and require the check to
 # fail there. A check that passed on a tree without the branch would measure

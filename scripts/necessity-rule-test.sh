@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Pins the three-source necessity rule to the artifacts that enforce it.
+# Pins the two-source necessity rule to the artifacts that enforce it.
 #
 # The rule has NO code. It lives in the prose the counting agents read, so the
 # prose IS the implementation and a silent edit to it is a behaviour regression —
@@ -8,9 +8,9 @@
 # the reason this is a presence test rather than a fixture: nothing else can catch
 # the rule being dropped.
 #
-# The discriminating facts are the three source names and the four-term
-# reconciliation. An artifact naming fewer than three sources cannot be testing
-# all three, and one that does not state `serving + none + unproven + skipped =
+# The discriminating facts are the two source names and the four-term
+# reconciliation. An artifact naming fewer than two sources cannot be testing
+# both, and one that does not state `serving + none + unproven + skipped =
 # linked` cannot be reconciling its counters — so presence per artifact is both
 # necessary and cheap to assert.
 #
@@ -28,22 +28,22 @@ ROOT=$(cd "$(dirname "$0")/.." && pwd)
 # otherwise continue and check the wrong tree.
 cd "$ROOT" || exit 2
 
-# The two agents carry the rule in full: all three source citations and the
+# The two agents carry the rule in full: both source citations and the
 # reconciliation that makes the counters checkable.
 AGENTS=(
 	agents/goal-manager-agent.md
 	agents/task-manager-agent.md
 )
 
-# The two thin commands name the three sources in prose. They carry no `SC<n>` /
-# `DoD<n>` citation form and no counters — deliberately, per agent-cmd/command-thin
-# — so they are asserted only on the source names a reader would search for.
+# The two thin commands name the sources in prose. They carry no counters —
+# deliberately, per agent-cmd/command-thin — so they are asserted on the source
+# names a reader would search for, plus the exclusion of the retired one.
 COMMANDS=(
 	commands/verify-goal.md
 	commands/verify-task.md
 )
 
-SOURCES=('goal sentence' 'SC<n>' 'DoD<n>')
+SOURCES=('SC<n>' 'DoD<n>')
 RECONCILE='serving + none + unproven + skipped = linked'
 
 pass=0
@@ -80,12 +80,11 @@ RULE_STEP_GOAL=8
 RULE_STEP_TASK=5
 
 # missing_sources_in_step <root> — the agent/step pairs whose RULE STEP does not
-# name all three sources. ⚠️ **A per-file grep is not enough here, and that is the
-# whole point of this helper:** both agents' Shared Operations prose names all
-# three sources on its own (`parse_success_criteria` says "cite `SC<n>`",
-# `parse_definition_of_done` says "cite `DoD<n>`", `parse_goal_sentence` says
-# "Extract the goal sentence"), so deleting the rule step entirely would leave a
-# file-level assertion green.
+# name both sources. ⚠️ **A per-file grep is not enough here, and that is the
+# whole point of this helper:** both agents' Shared Operations prose names both
+# sources on its own (`parse_success_criteria` says "cite `SC<n>`",
+# `parse_definition_of_done` says "cite `DoD<n>`"), so deleting the rule step
+# entirely would leave a file-level assertion green.
 missing_sources_in_step() {
 	local root=$1 f n s
 	for spec in "agents/goal-manager-agent.md:$RULE_STEP_GOAL" "agents/task-manager-agent.md:$RULE_STEP_TASK"; do
@@ -108,16 +107,21 @@ missing_reconcile() {
 
 # --- the rule step in each agent names all three sources, and each agent states
 # the reconciliation
-check "the rule step in each agent names all three serving sources" "" \
+check "the rule step in each agent names both serving sources" "" \
 	"$(missing_sources_in_step "$ROOT")"
 check "every agent states the four-term reconciliation" "" "$(missing_reconcile "$ROOT")"
 
-# --- every thin command names the two non-SC sources a reader would search for
+# --- every thin command names the surviving sources a reader would search for,
+# and none still presents the retired goal sentence as one. The negative half is
+# the half that matters: a command that merely gained the new wording while
+# keeping the old sentence clause would otherwise pass on presence alone.
 for f in "${COMMANDS[@]}"; do
-	for s in 'goal sentence' 'Definition of Done'; do
+	for s in 'SC<n>' 'Definition of Done'; do
 		check "$f names '$s'" "yes" \
 			"$(grep -qF -- "$s" "$ROOT/$f" 2>/dev/null && echo yes)"
 	done
+	check "$f no longer names 'goal sentence'" "" \
+		"$(grep -qF -- 'goal sentence' "$ROOT/$f" 2>/dev/null && printf '%s\n' "$f")"
 done
 
 # --- self-check: strip the reconciliation from ONE agent and require exactly that

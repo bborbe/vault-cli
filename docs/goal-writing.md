@@ -336,14 +336,16 @@ Why: Obsidian renders `[[Wikilinks]]` as clickable; clicking auto-creates the ta
 > from it: measured in the Personal vault, **111 of 259** non-terminal declarations had no
 > matching entry, and the largest ongoing class was attached to tasks *after* creation, on
 > a path where no code runs at all (a hand edit in Obsidian). `task-creator` no longer
-> appends here and `vault-cli task complete` no longer flips a checkbox here. The list is
-> **derived from `goals:` frontmatter**; a copy that no writer can keep in step is not
-> repaired by writing harder on the one path that does run.
+> appends here and `vault-cli task complete` no longer flips a checkbox here. **Nothing
+> generates the list** — an earlier revision of this note said it was *derived from `goals:`
+> frontmatter*, which was never true and is corrected here: what shipped was the removal of
+> the writer, not a renderer. A copy that no writer can keep in step is not repaired by
+> writing harder on the one path that does run.
 >
 > The format rules above still describe what a rendered entry looks like, because existing
-> pages still carry a stored list. Migrating them to the derived form is a separate batch.
-> Until it lands, **treat a stored `# Tasks` entry as a cache that may be stale, not as the
-> membership record** — the membership record is `goals:` frontmatter on the tasks.
+> pages still carry a stored list. **Treat a stored `# Tasks` entry as a cache that may be
+> stale** — the membership record is `goals:` frontmatter on the tasks — until a writer holds
+> the two in step. See the 2026-10-09 note below: that writer now exists, and it is not here.
 >
 > **How a program enumerates a goal's tasks** (the contract, unchanged and already
 > available — no consumer needs to scan the directory itself):
@@ -369,6 +371,26 @@ Why: Obsidian renders `[[Wikilinks]]` as clickable; clicking auto-creates the ta
 > Consumers that used to cross-check the stored `# Tasks` list against frontmatter —
 > `/supervisor:worker-manager`'s goal branch is one — now have one side only, and must read
 > both sides from frontmatter.
+
+> **2026-10-09 — Branch A supersedes the derived view, and the writer is named.**
+> The operator settled the Personal vault's goal criterion SC7 (*"declared membership is
+> bidirectional, or the list stops being treated as a source of truth"*) as
+> **bidirectional** rather than demoted, so the `# Tasks` list is a maintained surface again
+> — but **the writer is not in this repo**, deliberately. It lives in the vault it serves:
+> `.claude/scripts/goal-task-link-write.py` (the writer, which imports the read-only
+> `.claude/scripts/goal-task-links.py` so the two cannot drift on their counting rules) plus
+> `.claude/scripts/goal-task-link-hook.sh`, registered in that vault's `.claude/settings.json`
+> as a `PostToolUse` hook on `Edit|Write|NotebookEdit`.
+>
+> A `PostToolUse` hook fires for every Claude-session write — including the ones
+> `task-creator` makes as a subagent — so `task-creator` needs no step-11b of its own and
+> must not grow one back. What was wrong on 2026-09-19 was the **timing** (a repair that runs
+> outside the filing path is stale by the next autocommit), not the goal of holding the two
+> directions in step.
+>
+> The writer is **additive**: it adds a row for a non-terminal task that declares an existing
+> goal, and never removes one. Reverse gaps — listed but not declaring at any status — stay
+> the measuring script's to report, not the writer's to repair.
 
 ### Foundation/skeleton work
 

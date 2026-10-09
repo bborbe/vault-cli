@@ -9,6 +9,16 @@ branch: dark-factory/bug-approve-status-removes-row-from-spawn-offer
 
 ## task approve writes `in_progress`, so an approved row never reaches the spawn offer
 
+> ⚠️ **REVERSED 2026-10-09 — read this before the body below.**
+>
+> This spec's diagnosis was right and its *fix* was the wrong half. It changed the **write** (`approve` now forces `status: next`), and its § Non-goals explicitly declined to change the `ready-to-start` predicate, on the grounds that *"the bucket's requirement of `status: next` is correct and is shared by both renderers."* The operator ruled on 2026-10-09 that this is backwards: **approval is a PHASE move only** and `approve` must write **no `status` key at all**, because a phase transition rewriting the orthogonal scheduling axis contradicts the vault's own vocabulary (`next` = *queued*, `in_progress` = *active*) and the guides' axis separation ([[TaskOrchestrator Phase System Guide]] § The Two-Field Filter).
+>
+> The `ready-to-start` predicate therefore changes instead — to `phase: planning` + no live session — in **both** renderers plus the runbook, which is the "three surfaces" this spec's § Alternatives Considered weighed and rejected as the more expensive option. That cost was accepted deliberately.
+>
+> ⚠️ **The two halves are not independently shippable, and this spec's own § Alternatives Considered is why.** Reverting only the write re-fires the older regression this spec was written *after* — an approved, never-started row (`in_progress`, empty session-id set) satisfies the orphan predicate exactly — so the sweep side must land **first**, and must also stop claiming approved-but-unstarted rows as orphaned. That third leg is not in this spec at all.
+>
+> Superseding task: [[vault-cli task approve Rewrites status to next, Contradicting the Status and Phase Guides]]. Its § Non-goals and § Alternatives Considered below are retained as the record of the rejected option, not as live constraints.
+
 ## Summary
 
 - `vault-cli task approve` writes **`status: in_progress`** together with `phase: planning` and the two approval keys (spec 056 AC 1).

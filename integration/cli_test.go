@@ -3435,12 +3435,13 @@ body line
 			return parsed
 		}
 
-		// approvalKeyPattern matches the four top-level keys the approve transition
-		// writes; the anchors keep a body line that happens to read `phase: x` out.
+		// approvalKeyPattern matches the four top-level keys the approval settles:
+		// `phase`, `approved_by` and `approved_at`, which it writes, plus `status`,
+		// which it preserves. The anchors keep a body line reading `phase: x` out.
 		approvalKeyPattern := regexp.MustCompile(`^(status|phase|approved_by|approved_at):`)
 
 		// approvedKeys returns the lines of content whose key is one of the four
-		// the approve transition writes.
+		// the approval settles.
 		approvedKeys := func(content string) []string {
 			var out []string
 			for _, line := range strings.Split(content, "\n") {
@@ -3452,7 +3453,8 @@ body line
 		}
 
 		// withoutApprovalKeys returns content's lines with every approval key
-		// removed, so two files can be compared on the keys approve must not touch.
+		// removed, so two files can be compared on the keys the approval does not
+		// settle.
 		withoutApprovalKeys := func(content string) []string {
 			var out []string
 			for _, line := range strings.Split(content, "\n") {
@@ -3490,7 +3492,7 @@ body line
 `
 
 		// AC 2 (058)'s fixture: a row that is already in_progress while still sitting in
-		// the approval inbox. The pre-fix command always wrote in_progress, so this arm
+		// the approval inbox. Spec 058's command wrote `next` here, so this arm
 		// distinguishes "always writes next" from "keeps whatever was there".
 		inProgressFrontmatter := `---
 page_type: task
@@ -3596,7 +3598,7 @@ task_identifier: 11111111-1111-4111-8111-111111111111
 body line
 `
 
-		It("AC1: task approve records the four-key transition in one write", func() {
+		It("AC1: task approve writes phase/approved_by/approved_at in one write", func() {
 			vaultPath, configPath, cleanup = createTempVaultWithCurrentUser(map[string]string{
 				"Alpha": todoFrontmatter,
 			})
@@ -3632,7 +3634,7 @@ body line
 			Eventually(session).Should(gexec.Exit(0))
 
 			after := readFile(taskFile)
-			Expect(valueOf(after, "status")).To(Equal("next"))
+			Expect(valueOf(after, "status")).To(Equal("in_progress"))
 		})
 
 		It("AC2a: task approve --by records the named approver", func() {

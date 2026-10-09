@@ -51,7 +51,7 @@ var _ = Describe("TaskApproveOperation", func() {
 		seedTask(map[string]any{"status": "next", "phase": "todo", "assignee": "someone"})
 	})
 
-	It("writes all four approval keys in exactly one write", func() {
+	It("writes all three approval keys in exactly one write", func() {
 		result, execErr := approveOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator", "", "")
 		Expect(execErr).To(BeNil())
 		Expect(result.Success).To(BeTrue())
@@ -64,6 +64,19 @@ var _ = Describe("TaskApproveOperation", func() {
 		Expect(written.Phase()).To(Equal(domain.TaskPhasePlanning.Ptr()))
 		Expect(written.GetString("approved_by")).To(Equal("operator"))
 		Expect(written.Get("approved_at")).NotTo(BeNil())
+	})
+
+	It("preserves an in_progress status across the approval", func() {
+		seedTask(map[string]any{"status": "in_progress", "phase": "todo", "assignee": "someone"})
+
+		result, execErr := approveOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator", "", "")
+		Expect(execErr).To(BeNil())
+		Expect(result.Success).To(BeTrue())
+
+		Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
+		_, written := mockStorage.WriteTaskArgsForCall(0)
+		Expect(written.Status()).To(Equal(domain.TaskStatusInProgress))
+		Expect(written.Phase()).To(Equal(domain.TaskPhasePlanning.Ptr()))
 	})
 
 	It("records the injected instant as a bare time.Time", func() {

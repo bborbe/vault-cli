@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.167.1
 
 - fix: `vault-cli task approve` no longer rewrites `status`, so an approved row keeps its place on the scheduling axis (`next` stays queued, `in_progress` stays active) instead of vanishing from the board
 

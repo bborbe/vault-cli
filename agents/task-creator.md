@@ -223,14 +223,36 @@ task's own frontmatter. `markGoalCheckbox` was the only writer of a goal's `# Ta
 and was called from exactly one place, so no hook on this step could ever have reached
 them.
 
-The list is therefore **derived from `goals:` frontmatter**, and `vault-cli task complete`
-no longer flips a checkbox or warns when it cannot find one. A copy that no writer can keep
-in step is not repaired by writing harder on the one path that does run.
+The list is **not** derived — nothing generates it, and this note claimed otherwise for as
+long as it said so. What actually shipped on 2026-09-19 was narrower: **no writer maintains
+the list**, and the authoritative enumeration is `vault-cli task list --goal "[[X]]" --all`.
+The stored lists are legacy data, and the batch that would migrate or backfill them was filed
+as `Backfill the Missing Goal-Task Links` and aborted.
 
-Rejected alternatives, for the next reader: backfilling the missing entries (answers a
+⚠️ **That decision no longer governs, and the successor writer is named here so the next reader
+is not left with a deliberate hole and no successor.** On **2026-10-09** the operator settled
+**Branch A** for the Personal vault's `Fleet Communication` goal criterion SC7 — *"declared
+membership is bidirectional, or the list stops being treated as a source of truth"* — choosing
+**bidirectional** and superseding the derived-view (Branch B) record above. The writer that
+holds it is deliberately **not in this repo**: it lives in the vault it serves, as
+`.claude/scripts/goal-task-link-write.py` (the writer, which imports the read-only
+`.claude/scripts/goal-task-links.py` so the two cannot drift on their counting rules) plus
+`.claude/scripts/goal-task-link-hook.sh`, registered in that vault's `.claude/settings.json` as
+a `PostToolUse` hook on `Edit|Write|NotebookEdit`.
+
+**Why the successor is a hook and not a restored step 11b.** Step 11b reached one filing path
+and measured 21 of 111 — none of the 32-class attached *after* creation. A `PostToolUse` hook
+fires for every Claude-session write, including the ones this agent makes as a subagent, so
+this step needs no writer of its own and must not grow one back. What was wrong on 2026-09-19
+was the **timing** — a repair that runs outside the filing path is stale by the next
+autocommit — not the goal of holding the two directions in step.
+
+Rejected alternatives, kept for the next reader: backfilling the missing entries (answers a
 question about the past, and leaves the ongoing class producing), repairing step 11b alone
-(21 of 111, none of the ongoing class), and a reconciliation sweep (re-repairs a
-denormalised copy forever). See `docs/goal-writing.md` for the replacement shape.
+(21 of 111, none of the ongoing class), a reconciliation sweep (re-repairs a denormalised copy
+forever), and a git hook on the autocommit path (it does reach Obsidian hand edits, but it puts
+a file-rewriting script on a ~1-minute cycle where a bug churns the whole vault). See
+`docs/goal-writing.md` for the shape and the vault's own writer for the mechanism.
 
 ## 12. Audit (interactive only)
 

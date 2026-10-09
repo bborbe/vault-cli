@@ -447,16 +447,23 @@ func createWorkOnCommand(
 				locker := ops.NewSessionLocker()
 				starter := ops.NewClaudeSessionStarter(vault.GetClaudeScript(), locker)
 				resumer := ops.NewClaudeResumer(vault.GetClaudeScript(), locker)
+				launcherFactory := func(script string) (ops.ClaudeSessionStarter, ops.ClaudeResumer) {
+					return ops.NewClaudeSessionStarter(script, locker),
+						ops.NewClaudeResumer(script, locker)
+				}
 				storageConfig := storage.NewConfigFromVault(vault)
 				taskStore := storage.NewTaskStorage(storageConfig)
 				dailyStore := storage.NewDailyNoteStorage(storageConfig)
+				goalStore := storage.NewGoalStorage(storageConfig)
 				workOnOp := ops.NewWorkOnOperation(
 					taskStore,
 					dailyStore,
+					goalStore,
 					currentDateTime,
 					uuid.NewString,
 					starter,
 					resumer,
+					launcherFactory,
 				)
 				sessionDir := vault.Path
 				if dir := vault.GetSessionProjectDir(); dir != "" {

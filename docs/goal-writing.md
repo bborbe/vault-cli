@@ -123,7 +123,7 @@ launcher: cc-private-claude                      # optional — default launcher
 ---
 ```
 
-`launcher` names the launcher script (basename, e.g. `cc-private-claude`) that this goal's tasks open with via `/supervisor:open` and the vault-ui Open button. Precedence: task `launcher` > goal `launcher` > the vault's configured `claude_script` — a task's own value overrides the goal's. Absent on both → the vault default, unchanged. The value is not validated against a launcher list; it is passed through as given.
+`launcher` names the launcher script (basename, e.g. `cc-private-claude`) that this goal's tasks open with via `/supervisor:open` and the vault-ui Open button. Precedence: task `launcher` > goal `launcher` > the vault's configured `claude_script` — a task's own value overrides the goal's. Absent on both → the vault default, unchanged. The value is not checked against a launcher list, but it must match ^[A-Za-z0-9._/-]+$ with no `..` segment; anything else is refused.
 
 `status` valid values: `next`, `in_progress`, `backlog`, `hold`, `completed`, `aborted`. `todo` is accepted as a legacy alias for `next` on read; do not write it.
 

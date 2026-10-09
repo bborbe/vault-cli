@@ -104,7 +104,12 @@ missing_sources_in_step() {
 		f=${spec%:*}
 		n=${spec##*:}
 		for s in "${SOURCES[@]}"; do
-			step "$root/$f" '### verify' "$n" 2>/dev/null | grep -qF -- "$s" ||
+			# NOT `grep -q`: under `set -o pipefail` it exits at the first match,
+			# the still-writing `step` takes SIGPIPE (141), and pipefail promotes
+			# that to the pipeline's status — so a source that IS present reports
+			# missing. Same bug daily-note-has-entry.sh documents. Reading to EOF
+			# (no -q) keeps the check deterministic.
+			step "$root/$f" '### verify' "$n" 2>/dev/null | grep -F -- "$s" >/dev/null ||
 				{ printf '%s step %s\n' "$f" "$n"; break; }
 		done
 	done
@@ -202,7 +207,7 @@ check "self-check: a dropped rule step is reported" \
 # above would name step 8 for the wrong reason. Step 5 still carrying the struck
 # pattern proves the section survived the edit.
 check "self-check: the drop left the rest of the verify section intact" "yes" \
-	"$(step "$TMP2/agents/goal-manager-agent.md" '### verify' 5 | grep -qF -- '~~[[' && echo yes)"
+	"$(step "$TMP2/agents/goal-manager-agent.md" '### verify' 5 | grep -F -- '~~[[' >/dev/null && echo yes)"
 
 # --- self-check 3: put the retired clause back into ONE command and require exactly
 # that command to be reported. Without this the negative check is unfalsifiable — a

@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat: vault-cli task work-on starts and resumes sessions with the task's launcher: (task > goal > vault claude_script); ops.ResolveLauncher / ops.ResolveTaskLauncher exported for vault-ui
+
 ## v0.166.3
 
 - docs: document optional `launcher:` frontmatter on tasks and goals (precedence task > goal > vault `claude_script`, no validation) in `task-writing.md` and `goal-writing.md`

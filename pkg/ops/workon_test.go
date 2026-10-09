@@ -51,10 +51,12 @@ var _ = Describe("WorkOnOperation", func() {
 		workOnOp = ops.NewWorkOnOperation(
 			mockTaskStorage,
 			mockDailyNoteStorage,
+			nil,
 			currentDateTime,
 			func() string { return pinnedSessionID },
 			mockStarter,
 			mockResumer,
+			nil,
 		)
 		vaultPath = "/path/to/vault"
 		taskName = "my-task"
@@ -270,8 +272,10 @@ var _ = Describe("WorkOnOperation", func() {
 			workOnOp = ops.NewWorkOnOperation(
 				mockTaskStorage,
 				mockDailyNoteStorage,
+				nil,
 				currentDateTime,
 				func() string { return pinnedSessionID },
+				nil,
 				nil,
 				nil,
 			)
@@ -310,8 +314,10 @@ var _ = Describe("WorkOnOperation", func() {
 			workOnOp = ops.NewWorkOnOperation(
 				mockTaskStorage,
 				mockDailyNoteStorage,
+				nil,
 				currentDateTime,
 				func() string { return pinnedSessionID },
+				nil,
 				nil,
 				nil,
 			)
@@ -1002,9 +1008,9 @@ var _ = Describe("WorkOnOperation", func() {
 			// The mocked suite drives Execute with isInteractive=false, so the
 			// non-interactive branch is the one under test.
 			workOnOp = ops.NewWorkOnOperation(
-				mockTaskStorage, mockDailyNoteStorage, currentDateTime,
+				mockTaskStorage, mockDailyNoteStorage, nil, currentDateTime,
 				func() string { return pinnedSessionID },
-				realStarter, mockResumer,
+				realStarter, mockResumer, nil,
 			)
 		})
 
@@ -1117,9 +1123,9 @@ var _ = Describe("WorkOnOperation", func() {
 			currentDateTime := libtime.NewCurrentDateTime()
 			currentDateTime.SetNow(libtimetest.ParseDateTime("2026-03-03T12:00:00Z"))
 			workOnOp = ops.NewWorkOnOperation(
-				mockTaskStorage, mockDailyNoteStorage, currentDateTime,
+				mockTaskStorage, mockDailyNoteStorage, nil, currentDateTime,
 				func() string { return pinnedSessionID },
-				realStarter, mockResumer,
+				realStarter, mockResumer, nil,
 			)
 
 			// Hold the lock for pinnedSessionID so the work-on's own acquire refuses.

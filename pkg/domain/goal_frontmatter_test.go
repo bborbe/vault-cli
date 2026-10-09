@@ -523,4 +523,23 @@ var _ = Describe("GoalFrontmatter SetBlockedBy", func() {
 		Expect(yaml.Unmarshal(data, &raw)).To(Succeed())
 		Expect(domain.NewGoalFrontmatter(raw).BlockedBy()).To(Equal([]string{"[[Blocker Task]]", "Plain Blocker"}))
 	})
+
+	Describe("Launcher", func() {
+		It("returns empty for missing key", func() {
+			fm := domain.NewGoalFrontmatter(nil)
+			Expect(fm.Launcher()).To(Equal(""))
+		})
+
+		It("reads the launcher from parsed frontmatter text", func() {
+			const frontmatterText = `page_type: goal
+status: in_progress
+theme: "[[Trading]]"
+launcher: cc-private-claude
+`
+			var raw map[string]any
+			Expect(yaml.Unmarshal([]byte(frontmatterText), &raw)).To(Succeed())
+
+			Expect(domain.NewGoalFrontmatter(raw).Launcher()).To(Equal("cc-private-claude"))
+		})
+	})
 })

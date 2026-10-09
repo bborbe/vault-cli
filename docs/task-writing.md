@@ -38,7 +38,18 @@ Use the slash command:
 /vault-cli:create-task "<title>"
 ```
 
-The command invokes `task-creator`, which scaffolds a file in the configured vault's `tasks_dir`. The agent reads vault config via `vault-cli config list --output json` — never hardcode paths.
+The command routes to one of two writer agents, and which one depends on whether the task is a docs-only change:
+
+| Route | Agent | Use for |
+|---|---|---|
+| `--docs-only` | `task-writer` | Guides, KB pages, runbooks, notes — writes the file directly |
+| `--code` | `task-creator` | Everything else — the full pipeline (Jira enrichment, incident severity, necessity search, self-audit) |
+
+Pass `--docs-only` or `--code` to choose explicitly. With neither, the command asks once; a headless (`--non-interactive`) caller must pass one, because **the route is never inferred from the title** — two runs on the same title must classify the same way, and a title is too weak a signal to guarantee that.
+
+The two routes exist because some vaults forbid `task-creator` for docs-only changes: the full pipeline's overhead is not wanted for a documentation follow-up, and a vault rule that bans the agent cannot be satisfied by the agent refusing at runtime.
+
+Either agent scaffolds a file in the configured vault's `tasks_dir` and reads vault config via `vault-cli config list --output json` — never hardcode paths.
 
 ## Title & Filename
 

@@ -11,6 +11,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 ## Unreleased
 
 - docs: document optional `launcher:` frontmatter on tasks and goals (precedence task > goal > vault `claude_script`, no validation) in `task-writing.md` and `goal-writing.md`
+- chore: bump Go to 1.27.2, golang.org/x/net to v0.60.0 and golangci-lint to v2.14.0 to clear stdlib/x/net vulncheck advisories
 
 ## v0.166.2
 

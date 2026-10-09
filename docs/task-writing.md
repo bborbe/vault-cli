@@ -96,8 +96,11 @@ blocked_by:                                      # optional — dependencies; un
 flag: true                                       # optional — operator approval for `/supervisor:open --flagged`
 flag_set_by: operator                            # optional — who last set `flag`; written with it, never after
 flag_set_at: 2026-09-30T08:00:00Z                # optional — RFC3339, same write as `flag`
+launcher: cc-private-claude                      # optional — launcher script a worker opens with
 ---
 ```
+
+`launcher` names the launcher script (basename, e.g. `cc-private-claude`) that `/supervisor:open` and the vault-ui Open button start the worker with. Precedence: task `launcher` > parent goal `launcher` > the vault's configured `claude_script`. Absent on both task and goal → the vault default, unchanged. The value is not validated against a launcher list; it is passed through as given.
 
 `status` valid values: `next`, `in_progress`, `backlog`, `hold`, `completed`, `aborted`. `todo` is accepted as a legacy alias for `next` on read; do not write it.
 

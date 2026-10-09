@@ -119,8 +119,11 @@ blocked_by:                                      # optional — dependencies; un
 binding: <free text>                             # optional — the hard deadline/constraint
                                                  # gating the completion verdict; rendered on
                                                  # the status anchor line ("binding: <value>")
+launcher: cc-private-claude                      # optional — default launcher for this goal's tasks
 ---
 ```
+
+`launcher` names the launcher script (basename, e.g. `cc-private-claude`) that this goal's tasks open with via `/supervisor:open` and the vault-ui Open button. Precedence: task `launcher` > goal `launcher` > the vault's configured `claude_script` — a task's own value overrides the goal's. Absent on both → the vault default, unchanged. The value is not validated against a launcher list; it is passed through as given.
 
 `status` valid values: `next`, `in_progress`, `backlog`, `hold`, `completed`, `aborted`. `todo` is accepted as a legacy alias for `next` on read; do not write it.
 

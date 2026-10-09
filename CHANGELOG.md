@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.166.3
 
 - docs: document optional `launcher:` frontmatter on tasks and goals (precedence task > goal > vault `claude_script`, no validation) in `task-writing.md` and `goal-writing.md`
 - chore: bump Go to 1.27.2, golang.org/x/net to v0.60.0 and golangci-lint to v2.14.0 to clear stdlib/x/net vulncheck advisories

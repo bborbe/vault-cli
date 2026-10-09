@@ -163,7 +163,7 @@ body
 				WorkOnCommand: "/vault-cli:work-on-task",
 			}
 			workOnOp := ops.NewWorkOnOperation(
-				taskStore, mockDailyNote, currentDateTime, func() string { return pinnedSessionID }, starter, nil,
+				taskStore, mockDailyNote, nil, currentDateTime, func() string { return pinnedSessionID }, starter, nil, nil,
 			)
 
 			result, err := workOnOp.Execute(
@@ -324,7 +324,7 @@ body
 				WorkOnCommand: "/vault-cli:work-on-task",
 			}
 			workOnOp := ops.NewWorkOnOperation(
-				taskStore, mockDailyNote, currentDateTime, func() string { return pinnedSessionID }, starter, nil,
+				taskStore, mockDailyNote, nil, currentDateTime, func() string { return pinnedSessionID }, starter, nil, nil,
 			)
 
 			// The rollback is caller-side (handleClaudeSession/Execute), so it must be
@@ -418,7 +418,7 @@ body
 				WorkOnCommand: "/vault-cli:work-on-task",
 			}
 			workOnOp := ops.NewWorkOnOperation(
-				taskStore, mockDailyNote, currentDateTime, func() string { return pinnedSessionID }, starter, nil,
+				taskStore, mockDailyNote, nil, currentDateTime, func() string { return pinnedSessionID }, starter, nil, nil,
 			)
 
 			// The retain is caller-side (handleClaudeSession/Execute): the pre-spawn
@@ -493,7 +493,7 @@ body
 				WorkOnCommand: "/vault-cli:work-on-task",
 			}
 			workOnOp := ops.NewWorkOnOperation(
-				taskStore, mockDailyNote, currentDateTime, func() string { return pinnedSessionID }, starter, nil,
+				taskStore, mockDailyNote, nil, currentDateTime, func() string { return pinnedSessionID }, starter, nil, nil,
 			)
 
 			result, err := workOnOp.Execute(

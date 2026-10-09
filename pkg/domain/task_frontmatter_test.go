@@ -747,6 +747,30 @@ var _ = Describe("TaskFrontmatter", func() {
 		})
 	})
 
+	Describe("Launcher", func() {
+		It("returns empty for missing key", func() {
+			Expect(fm.Launcher()).To(Equal(""))
+		})
+
+		It("reads the launcher from parsed frontmatter text", func() {
+			const frontmatterText = `page_type: task
+status: next
+launcher: cc-private-claude
+tags:
+  - work
+`
+			var raw map[string]any
+			Expect(yaml.Unmarshal([]byte(frontmatterText), &raw)).To(Succeed())
+
+			Expect(domain.NewTaskFrontmatter(raw).Launcher()).To(Equal("cc-private-claude"))
+		})
+
+		It("reads a launcher with a slash unchanged", func() {
+			fm = domain.NewTaskFrontmatter(map[string]any{"launcher": "/opt/bin/cc-private-claude"})
+			Expect(fm.Launcher()).To(Equal("/opt/bin/cc-private-claude"))
+		})
+	})
+
 	Describe("ClearField", func() {
 		It("clears a known field", func() {
 			Expect(fm.SetField(ctx, "assignee", "alice")).To(Succeed())

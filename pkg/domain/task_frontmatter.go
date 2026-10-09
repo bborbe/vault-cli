@@ -81,6 +81,11 @@ func (f TaskFrontmatter) Flag() bool { return f.GetBool("flag") }
 // Assignee reads "assignee" key as string.
 func (f TaskFrontmatter) Assignee() string { return f.GetString("assignee") }
 
+// Launcher reads "launcher" key as string — the launcher script this task's
+// Claude session should start with. Empty means "not set here"; the value falls
+// back to the parent goals and then the vault's configured claude_script.
+func (f TaskFrontmatter) Launcher() string { return f.GetString("launcher") }
+
 // DeferDate reads "defer_date" key as *libtime.DateOrDateTime.
 // Handles both time.Time (YAML-parsed) and string (hand-authored) forms.
 // Returns nil on missing or unparseable value.

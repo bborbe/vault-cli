@@ -95,7 +95,7 @@ check "every artifact names the invocation" "" "$(missing "$ROOT")"
 # --- 2. and it is inside § Session connect, section-scoped — not merely
 # somewhere in the file, where a prose mention would satisfy it.
 check "the invocation is inside § Session connect" "yes" \
-	"$(section "$ROOT/$AGENT" "$SECTION" | grep -qF -- "$PATTERN" && echo yes)"
+	"$(section "$ROOT/$AGENT" "$SECTION" | grep -F -- "$PATTERN" >/dev/null && echo yes)"
 
 # --- 3. and it is an actionable step line, not a comment and not a fenced code
 # block. Captured via lineOf + sed rather than by piping a `grep -nF` through
@@ -123,7 +123,7 @@ check "the invocation is before the zero OR multiple bullet" "yes" \
 # place. Without it the step reads as mandatory and a vault error becomes a
 # failure the worker must roll back.
 check "the section states the warning" "yes" \
-	"$(section "$ROOT/$AGENT" "$SECTION" | grep -qE 'warning.*metrics|metrics.*warning' && echo yes)"
+	"$(section "$ROOT/$AGENT" "$SECTION" | grep -E 'warning.*metrics|metrics.*warning' >/dev/null && echo yes)"
 
 # --- self-check: strip the invocation from ONE artifact in a throwaway copy and
 # require exactly that artifact to be reported. A check that reported everything,

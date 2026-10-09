@@ -64,6 +64,10 @@ func (f GoalFrontmatter) Priority() Priority {
 // Assignee reads "assignee" key.
 func (f GoalFrontmatter) Assignee() string { return f.GetString("assignee") }
 
+// Launcher reads "launcher" key — the default launcher script this goal's tasks
+// open with. Empty means "not set here"; a task's own launcher overrides it.
+func (f GoalFrontmatter) Launcher() string { return f.GetString("launcher") }
+
 // Phase reads "phase" key as string, returns *GoalPhase.
 // Returns nil when the key is absent. The raw value is returned as-is
 // (no validation, no default substitution) so legacy/hand-typed values survive display.

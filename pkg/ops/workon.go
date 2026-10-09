@@ -33,31 +33,42 @@ type WorkOnOperation interface {
 }
 
 // NewWorkOnOperation creates a new work-on operation.
+//
+// starter/resumer are the vault-default pair (the vault's configured
+// claude_script). launcherFactory builds the equivalent pair for a task that
+// resolves to a different launcher; it is only consulted when the resolved
+// launcher differs from the vault default.
 func NewWorkOnOperation(
 	taskStorage storage.TaskStorage,
 	dailyNoteStorage storage.DailyNoteStorage,
+	goalStorage storage.GoalStorage,
 	currentDateTime libtime.CurrentDateTime,
 	uuidGenerator func() string,
 	starter ClaudeSessionStarter,
 	resumer ClaudeResumer,
+	launcherFactory LauncherFactory,
 ) WorkOnOperation {
 	return &workOnOperation{
 		taskStorage:      taskStorage,
 		dailyNoteStorage: dailyNoteStorage,
+		goalStorage:      goalStorage,
 		currentDateTime:  currentDateTime,
 		uuidGenerator:    uuidGenerator,
 		starter:          starter,
 		resumer:          resumer,
+		launcherFactory:  launcherFactory,
 	}
 }
 
 type workOnOperation struct {
 	taskStorage      storage.TaskStorage
 	dailyNoteStorage storage.DailyNoteStorage
+	goalStorage      storage.GoalStorage
 	currentDateTime  libtime.CurrentDateTime
 	uuidGenerator    func() string
 	starter          ClaudeSessionStarter
 	resumer          ClaudeResumer
+	launcherFactory  LauncherFactory
 }
 
 // Execute marks a task as in_progress, assigns it, and starts or resumes a Claude
@@ -90,6 +101,14 @@ func (w *workOnOperation) Execute(
 		)
 	}
 
+	starter, resumer, launcherWarnings, err := w.resolveSessionTargets(
+		ctx, vaultPath, vault, task, isInteractive,
+	)
+	if err != nil {
+		return MutationResult{Success: false, Error: err.Error()}, err
+	}
+	warnings = append(warnings, launcherWarnings...)
+
 	if err := advancePhaseIfEntering(ctx, task, taskName); err != nil {
 		return MutationResult{Success: false, Error: err.Error()}, err
 	}
@@ -118,7 +137,9 @@ func (w *workOnOperation) Execute(
 		slog.Warn("workon warning", "warning", warning)
 	}
 
-	sessionID, sessionErr := w.handleClaudeSession(ctx, task, vaultPath, sessionDir, vault, isInteractive)
+	sessionID, sessionErr := w.handleClaudeSession(
+		ctx, task, vaultPath, sessionDir, vault, isInteractive, starter,
+	)
 	if sessionErr != nil {
 		if errors.Is(sessionErr, ErrStarterUnavailable) {
 			warnings = appendSessionWarning(warnings, sessionErr)
@@ -128,30 +149,117 @@ func (w *workOnOperation) Execute(
 		}
 	}
 
-	if isInteractive && w.resumer != nil && sessionID != "" {
-		// Turn 1 ran headless with --non-interactive. Since v0.109.0 that turn
-		// auto-chains plan-task -> execute-task under a NO-ASK contract, so it can
-		// end anywhere from phase: planning (a gate needed an answer it could not
-		// ask for) to phase: execution. Turn 2 is interactive, so re-invoke the same
-		// command WITHOUT the flag: it resumes the chain from whatever phase turn 1
-		// left on disk and can ask the questions turn 1 had to skip.
-		continuation := fmt.Sprintf(`%s "%s"`, vault.GetWorkOnCommand(), task.FilePath)
-		return MutationResult{
-			Success:   true,
-			Name:      task.Name,
-			Vault:     vaultName,
-			Warnings:  warnings,
-			SessionID: sessionID,
-		}, w.resumer.ResumeSession(ctx, sessionID, sessionDir, continuation)
+	if isInteractive && resumer != nil && sessionID != "" {
+		return w.resumeInteractive(ctx, vault, task, vaultName, sessionDir, sessionID, warnings, resumer)
 	}
 
+	return successResult(task, vaultName, warnings, sessionID), nil
+}
+
+// resolveSessionTargets resolves the task's launcher and returns the
+// starter/resumer pair to use, plus any non-fatal resolution warnings.
+//
+// It runs before any write: a goal conflict or a rejected value must leave the
+// task file and the daily note untouched. An explicitly chosen launcher that
+// cannot be found is likewise a hard error raised here, never a silent fall back
+// to the vault default.
+func (w *workOnOperation) resolveSessionTargets(
+	ctx context.Context,
+	vaultPath string,
+	vault *config.Vault,
+	task *domain.Task,
+	isInteractive bool,
+) (ClaudeSessionStarter, ClaudeResumer, []string, error) {
+	vaultScript := vault.GetClaudeScript()
+	resolvedLauncher, warnings, err := ResolveTaskLauncher(
+		ctx, w.goalStorage, vaultPath, vaultScript, task,
+	)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	starter, resumer, err := w.sessionPair(ctx, resolvedLauncher, vaultScript, task, isInteractive)
+	if err != nil {
+		return nil, nil, warnings, err
+	}
+	return starter, resumer, warnings, nil
+}
+
+// resumeInteractive runs the interactive turn-2 resume and returns its result.
+//
+// Turn 1 ran headless with --non-interactive. Since v0.109.0 that turn
+// auto-chains plan-task -> execute-task under a NO-ASK contract, so it can end
+// anywhere from phase: planning (a gate needed an answer it could not ask for) to
+// phase: execution. Turn 2 is interactive, so re-invoke the same command WITHOUT
+// the flag: it resumes the chain from whatever phase turn 1 left on disk and can
+// ask the questions turn 1 had to skip.
+func (w *workOnOperation) resumeInteractive(
+	ctx context.Context,
+	vault *config.Vault,
+	task *domain.Task,
+	vaultName string,
+	sessionDir string,
+	sessionID string,
+	warnings []string,
+	resumer ClaudeResumer,
+) (MutationResult, error) {
+	continuation := fmt.Sprintf(`%s "%s"`, vault.GetWorkOnCommand(), task.FilePath)
 	return MutationResult{
 		Success:   true,
 		Name:      task.Name,
 		Vault:     vaultName,
 		Warnings:  warnings,
 		SessionID: sessionID,
-	}, nil
+	}, resumer.ResumeSession(ctx, sessionID, sessionDir, continuation)
+}
+
+// successResult builds the success MutationResult for a completed work-on.
+func successResult(
+	task *domain.Task,
+	vaultName string,
+	warnings []string,
+	sessionID string,
+) MutationResult {
+	return MutationResult{
+		Success:   true,
+		Name:      task.Name,
+		Vault:     vaultName,
+		Warnings:  warnings,
+		SessionID: sessionID,
+	}
+}
+
+// sessionPair returns the starter/resumer pair to use for the resolved launcher.
+// The vault-default pair is used unchanged when the resolved launcher is the
+// vault's own claude_script. For an explicitly chosen launcher the pair is built
+// through the factory, and a missing member is a hard error naming the launcher —
+// an operator who named a launcher must not silently get the vault default.
+//
+// A nil starter is only fatal on the fresh-start path (the cached-session path
+// spawns nothing); a nil resumer is only fatal when the session will be resumed
+// interactively. Both checks run before any write, so a rejected launcher leaves
+// the task file and the daily note untouched.
+func (w *workOnOperation) sessionPair(
+	ctx context.Context,
+	resolvedLauncher string,
+	vaultScript string,
+	task *domain.Task,
+	isInteractive bool,
+) (ClaudeSessionStarter, ClaudeResumer, error) {
+	if resolvedLauncher == vaultScript {
+		return w.starter, w.resumer, nil
+	}
+	var starter ClaudeSessionStarter
+	var resumer ClaudeResumer
+	if w.launcherFactory != nil {
+		starter, resumer = w.launcherFactory(resolvedLauncher)
+	}
+	if task.ClaudeSessionID() == "" && starter == nil {
+		return nil, nil, errors.Errorf(ctx, "launcher %q not found", resolvedLauncher)
+	}
+	if isInteractive && resumer == nil {
+		return nil, nil, errors.Errorf(ctx, "launcher %q not found", resolvedLauncher)
+	}
+	return starter, resumer, nil
 }
 
 // appendSessionWarning records a non-fatal session-start warning (claude binary
@@ -313,13 +421,14 @@ func (w *workOnOperation) handleClaudeSession(
 	sessionDir string,
 	vault *config.Vault,
 	isInteractive bool,
+	starter ClaudeSessionStarter,
 ) (string, error) {
 	if existing := task.ClaudeSessionID(); existing != "" {
 		startedAt := libtime.DateOrDateTime(w.currentDateTime.Now().Time())
 		sessionID, err := persistSessionAndMetrics(ctx, vaultPath, task.Name, existing, startedAt, w.taskStorage)
 		return sessionID, err
 	}
-	if w.starter == nil {
+	if starter == nil {
 		return "", ErrStarterUnavailable
 	}
 	// The bootstrap always runs headless `claude --print`, which cannot answer
@@ -337,7 +446,7 @@ func (w *workOnOperation) handleClaudeSession(
 	if _, err := persistSessionAndMetrics(ctx, vaultPath, task.Name, sessionID, startedAt, w.taskStorage); err != nil {
 		return "", errors.Wrap(ctx, err, "persist claude session before spawn")
 	}
-	if err := w.starter.StartSession(ctx, sessionID, prompt, sessionDir, task.Name, isInteractive); err != nil {
+	if err := starter.StartSession(ctx, sessionID, prompt, sessionDir, task.Name, isInteractive); err != nil {
 		// Compensating clear: a failed turn must not leave a resumable-looking id on
 		// disk. Re-read and clear only the id and this run's metrics entry, preserving
 		// any frontmatter the child wrote before failing.

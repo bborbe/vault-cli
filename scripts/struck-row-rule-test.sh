@@ -81,13 +81,21 @@ section() {
 # --- the rule is present in every enforcing artifact
 check "every artifact names the struck pattern" "" "$(missing "$ROOT")"
 
+# The piped checks below read their input from a producer, so they use
+# `grep -F … >/dev/null`, NOT `grep -qF`. Under `set -o pipefail`, `-q` exits at
+# the first match and the producer's remaining write gets SIGPIPE (141), which
+# fails the pipeline and reports a present pattern as missing — a race that hits
+# only once a block exceeds the pipe buffer (PIPE_BUF, 4096 on Linux). Dropping
+# `-q` keeps grep reading to EOF, so the check is deterministic. Do not
+# "simplify" this back to `-q`.
+
 # --- and, in the spec, in BOTH sections that state it. Presence anywhere in the
 # file would pass on a clause that landed in only one of the two, which is
 # exactly the half-fix this rule is prone to: the count and the walk are stated
 # in different sections and drift apart.
 for h in '### Counts' '### Conditional segments'; do
 	check "spec § ${h#'### '} names the struck pattern" "yes" \
-		"$(section "$SPEC" "$h" | grep -qF -- "$PATTERN" && echo yes)"
+		"$(section "$SPEC" "$h" | grep -F -- "$PATTERN" >/dev/null && echo yes)"
 done
 
 # step <file> <heading> <number> — the lines under a numbered step, until the next
@@ -107,10 +115,10 @@ step() {
 GOAL_AGENT=agents/goal-manager-agent.md
 for n in 5 8; do
 	check "goal-agent step $n names the struck pattern" "yes" \
-		"$(step "$GOAL_AGENT" '### verify' "$n" | grep -qF -- "$PATTERN" && echo yes)"
+		"$(step "$GOAL_AGENT" '### verify' "$n" | grep -F -- "$PATTERN" >/dev/null && echo yes)"
 done
 check "goal-agent get_subtask_statuses names the struck pattern" "yes" \
-	"$(section "$GOAL_AGENT" '### get_subtask_statuses(goal_path)' | grep -qF -- "$PATTERN" && echo yes)"
+	"$(section "$GOAL_AGENT" '### get_subtask_statuses(goal_path)' | grep -F -- "$PATTERN" >/dev/null && echo yes)"
 
 # --- self-check: strip the pattern from ONE artifact and require exactly that
 # one to be reported.

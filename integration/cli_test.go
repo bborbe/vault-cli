@@ -3632,7 +3632,7 @@ body line
 			Eventually(session).Should(gexec.Exit(0))
 
 			after := readFile(taskFile)
-			Expect(valueOf(after, "status")).To(Equal("next"))
+			Expect(valueOf(after, "status")).To(Equal("in_progress"))
 		})
 
 		It("AC2a: task approve --by records the named approver", func() {

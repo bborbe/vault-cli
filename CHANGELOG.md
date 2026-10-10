@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- docs: `plan-task` authority check also covers routing a step up a tier — a manager never runs a row's verification or spawns managers, so a worker's SC probe goes to the operator
+
 ## v0.167.2
 
 - docs: name the successor writer where `task-creator` step 11b's removal is recorded, and correct the claim that a goal's `# Tasks` list was "derived" — nothing generated it. The writer now lives in the vault it serves, as a `PostToolUse` hook on the task-filing path, so `task-creator` grows no writer of its own

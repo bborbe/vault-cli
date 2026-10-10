@@ -12,6 +12,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 
 - fix: bump `osv-scanner` to v2.6.0 and `golang.org/x/net` to v0.60.0 so the Linux vulnerability gates stop failing. v2.3.1 pins `golang.org/x/tools` v0.38.0, whose SSA builder aborts with `unexpected expr: *ast.KeyValueExpr` on the promoted-field composite-literal key Go 1.27 permits in the Linux stdlib, so a repo on the old pin passes locally on darwin and fails only in Linux CI. `x/net` v0.58.0 carries `GO-2026-6603/6610/6611/6612/6617`, which fail both `vulncheck` and `trivy`.
 
+## v0.167.3
+
+- docs: `plan-task` authority check also covers routing a step up a tier — a manager never runs a row's verification or spawns managers, so a worker's SC probe goes to the operator
+
 ## v0.167.2
 
 - docs: name the successor writer where `task-creator` step 11b's removal is recorded, and correct the claim that a goal's `# Tasks` list was "derived" — nothing generated it. The writer now lives in the vault it serves, as a `PostToolUse` hook on the task-filing path, so `task-creator` grows no writer of its own

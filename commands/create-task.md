@@ -16,6 +16,10 @@ Create one task file in the vault. Which agent performs the write depends on whe
 
 ## Resolve the route
 
+If **both** `--docs-only` and `--code` were passed, print
+`❌ Pass only one of --docs-only / --code — they are mutually exclusive.`
+and STOP. Neither branch below runs for that input, so without this guard `ROUTE` is left unassigned and the command dispatches nothing at all.
+
 If neither `--docs-only` nor `--code` was passed:
 
 - **`MODE=interactive`** → ask exactly one `AskUserQuestion`:

@@ -52,7 +52,7 @@ If the vault is not found, report the error and stop. In MODE=non_interactive, r
 
 ## 3. Compose the title and filename
 
-Apply Title Case to the description; preserve hyphens within compound words; trim trailing punctuation. Then sanitize the stem by piping it to `vault-cli filename sanitize -` and using its stdout verbatim — the title is untrusted, so it goes on stdin, and the heredoc delimiter is quoted so the shell cannot expand anything in it:
+Apply Title Case to the description; preserve hyphens within compound words; trim trailing punctuation. Then sanitize the stem by piping it to `vault-cli filename sanitize -` and using its stdout verbatim — the title is untrusted, so it goes on stdin, the heredoc delimiter is quoted so the shell cannot expand anything in it, and the delimiter is a string that does not occur in the title — a fixed one lets a title line equal to it close the heredoc early and run the remaining lines as shell:
 
 ```bash
 vault-cli filename sanitize - <<'EOF'

@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.167.3
 
 - docs: `plan-task` authority check also covers routing a step up a tier — a manager never runs a row's verification or spawns managers, so a worker's SC probe goes to the operator
 

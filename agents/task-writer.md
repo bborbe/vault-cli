@@ -52,7 +52,7 @@ If the vault is not found, report the error and stop. In MODE=non_interactive, r
 
 ## 3. Compose the title and filename
 
-Apply Title Case to the description; preserve hyphens within compound words; trim trailing punctuation. Then sanitize the stem by piping it to `vault-cli filename sanitize -` and using its stdout verbatim — the title is untrusted, so it goes on stdin, the heredoc delimiter is quoted so the shell cannot expand anything in it, and the delimiter is a token that cannot occur in a title — never bare `EOF`, since a title line equal to it would close the heredoc early and run the remaining lines as shell:
+Apply Title Case to the description; preserve hyphens within compound words; trim trailing punctuation. Then sanitize the stem by piping it to `vault-cli filename sanitize -` and using its stdout verbatim — the title is untrusted, so it goes on stdin, the heredoc delimiter is quoted so the shell cannot expand anything in it, and **you pick a delimiter string that does not occur in the title** — a title line equal to whatever you pick closes the heredoc early and runs the remaining lines as shell, and no sanitizer can prevent that because the shell has already parsed the heredoc by the time `sanitize` runs. The `TASK_TITLE_EOF` below is an example, not a safe constant; bare `EOF` is the worst choice because a title is most likely to contain it:
 
 ```bash
 vault-cli filename sanitize - <<'TASK_TITLE_EOF'
@@ -89,14 +89,14 @@ If `task_template` is set in the vault config and the file exists:
 
 If `task_template` is empty or the file does not exist:
 
-- Emit the canonical section set from `docs/task-writing.md` § Required sections, **verbatim and in the order that section gives**. Do not restate or re-derive the list here: that section owns it, and a second copy in this file is a copy that will drift — which is the failure the constraint above exists to prevent.
+- Emit the canonical section set from `docs/task-writing.md` § Required sections, **verbatim and in the order that section gives**. Do not restate or re-derive the list here: that section owns it, and a second copy in this file is a copy that will drift — which is the failure the constraint above exists to prevent. If that section is missing or has been renamed, fail loudly naming the file and the section; never fall back to a section set recalled from memory, which is the same drift by another route.
 
 Either way, two rules are this agent's own and override nothing in the doc:
 
 - The body opens with `Tags: [[Task]]` (plus any theme links) and a `---` separator.
 - Do NOT emit `# Verification` — it is not a canonical section.
 
-If the description is too thin to fill `# Impact` or `# Success Criteria` with anything honest, AskUserQuestion for the missing one rather than inventing content. In MODE=non_interactive, write the section with a single `- [ ] TBD` and say so in the return payload.
+If the description is too thin to fill `# Impact` or `# Success Criteria` with anything honest, AskUserQuestion for the missing one rather than inventing content. In MODE=non_interactive, write the section with a single `- [ ] TBD` and report which sections were stubbed on **stderr** — never in the stdout payload, whose key set is fixed by `<output_format>` and would be broken by an extra field.
 
 ## 6. Check for filename collision
 

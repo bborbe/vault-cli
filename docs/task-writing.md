@@ -45,7 +45,7 @@ The command routes to one of two writer agents, and which one depends on whether
 | `--docs-only` | `task-writer` | Guides, KB pages, runbooks, notes — writes the file directly |
 | `--code` | `task-creator` | Everything else — the full pipeline (Jira enrichment, incident severity, necessity search, self-audit) |
 
-Pass `--docs-only` or `--code` to choose explicitly. With neither, the command asks once; a headless (`--non-interactive`) caller must pass one, because **the route is never inferred from the title** — two runs on the same title must classify the same way, and a title is too weak a signal to guarantee that.
+Pass `--docs-only` or `--code` to choose explicitly. With neither, the command asks once; a headless (`--non-interactive`) caller must pass one, because **the route is never inferred from the title** — two runs on the same title must classify the same way, and a title is too weak a signal to guarantee that. Passing **both** is a hard error: the flags are mutually exclusive, and the command stops rather than picking one.
 
 The two routes exist because some vaults forbid `task-creator` for docs-only changes: the full pipeline's overhead is not wanted for a documentation follow-up, and a vault rule that bans the agent cannot be satisfied by the agent refusing at runtime.
 

@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.168.0
 
 - feat: `/vault-cli:create-task` routes between two writer agents instead of always dispatching `task-creator`. A new `--docs-only` / `--code` flag selects the route explicitly; with neither, the command asks once, and a headless (`--non-interactive`) caller must pass one — the route is never inferred from the title, so two runs on the same title classify the same way. The new `task-writer` agent writes a docs-only task file directly, taking the canonical section set from `docs/task-writing.md` rather than duplicating `task-creator`'s pipeline. The two routes exist because vaults commonly forbid `task-creator` for guides, KB pages, runbooks and notes — the full pipeline's overhead is not wanted for a documentation follow-up — and a vault rule that bans an agent cannot be satisfied by that agent refusing at runtime. `docs/task-writing.md` § Creating a Task no longer states the dispatch unconditionally
 

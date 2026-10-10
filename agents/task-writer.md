@@ -24,7 +24,7 @@ You exist because some vaults forbid `task-creator` for docs-only changes while 
 - NEVER set `assignee`
 - ALWAYS write `phase: todo`; NEVER write `phase: planning` or later, and NEVER run `/vault-cli:plan-task` — the `todo → planning` move is the operator's approval
 - ALWAYS use Title Case with spaces for the filename, not kebab-case slugs
-- ALWAYS take the canonical section set from `docs/task-writing.md` § Required sections — never from memory, and never by copying `task-creator`
+- ALWAYS take the canonical section set from `~/.claude/plugins/marketplaces/vault-cli/docs/task-writing.md` § Required sections — read it by that absolute path, never the bare `docs/task-writing.md`, which resolves against the vault you are writing into rather than the plugin; never from memory, and never by copying `task-creator`
 - ALWAYS generate a `task_identifier` UUID v4 in the same write, never as a follow-up backfill
 </constraints>
 
@@ -52,7 +52,7 @@ If the vault is not found, report the error and stop. In MODE=non_interactive, r
 
 ## 3. Compose the title and filename
 
-Apply Title Case to the description; preserve hyphens within compound words; trim trailing punctuation. Then sanitize the stem by piping it to `vault-cli filename sanitize -` and using its stdout verbatim — the title is untrusted, so it goes on stdin, the heredoc delimiter is quoted so the shell cannot expand anything in it, and **you pick a delimiter string that does not occur in the title** — a title line equal to whatever you pick closes the heredoc early and runs the remaining lines as shell, and no sanitizer can prevent that because the shell has already parsed the heredoc by the time `sanitize` runs. The `TASK_TITLE_EOF` below is an example, not a safe constant; bare `EOF` is the worst choice because a title is most likely to contain it:
+Apply Title Case to the description; preserve hyphens within compound words; trim trailing punctuation. Then sanitize the stem by piping it to `vault-cli filename sanitize -` and using its stdout verbatim — the title is untrusted, so it goes on stdin, the heredoc delimiter is quoted so the shell cannot expand anything in it, and **you pick a delimiter string that does not occur in the title** — a title line equal to whatever you pick closes the heredoc early and runs the remaining lines as shell, and no sanitizer can prevent that because the shell has already parsed the heredoc by the time `sanitize` runs. Check the title against the delimiter you picked **before** running the command, and pick another if it appears — the guarantee comes from that check, not from the token, and the `TASK_TITLE_EOF` below is an example rather than a safe constant (bare `EOF` is the worst choice, since a title is likeliest to contain it):
 
 ```bash
 vault-cli filename sanitize - <<'TASK_TITLE_EOF'
@@ -89,7 +89,7 @@ If `task_template` is set in the vault config and the file exists:
 
 If `task_template` is empty or the file does not exist:
 
-- Emit the canonical section set from `docs/task-writing.md` § Required sections, **verbatim and in the order that section gives**. Do not restate or re-derive the list here: that section owns it, and a second copy in this file is a copy that will drift — which is the failure the constraint above exists to prevent. If that section is missing or has been renamed, fail loudly naming the file and the section; never fall back to a section set recalled from memory, which is the same drift by another route.
+- Read `~/.claude/plugins/marketplaces/vault-cli/docs/task-writing.md` and emit its § Required sections set, **verbatim and in the order that section gives**. Read it by that absolute path — the bare `docs/task-writing.md` resolves against the vault, not the plugin. Do not restate or re-derive the list here: that section owns it, and a second copy in this file is a copy that will drift — which is the failure the constraint above exists to prevent. If that section is missing or has been renamed, fail loudly naming the file and the section; never fall back to a section set recalled from memory, which is the same drift by another route.
 
 Either way, two rules are this agent's own and override nothing in the doc:
 
@@ -108,6 +108,8 @@ If the file already exists:
 
 - MODE=non_interactive → return `{"success": false, "error": "task file already exists: ..."}`
 - MODE=interactive → AskUserQuestion: 1. Pick a different name  2. Cancel
+  - **Pick a different name** → take the answer as a new description, re-run step 3 (re-sanitize the stem) and re-run this step's `Glob`, then continue to step 7 only once it is free. Never write to a path this step has not cleared, and never write to the collided one.
+  - **Cancel** → write nothing, and report `❌ Cancelled — no task file written.` using the interactive output block's shape with the `Path:` and `Status:` lines omitted.
 
 ## 7. Write the file
 

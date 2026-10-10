@@ -12,6 +12,9 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 
 - feat: `/vault-cli:create-task` routes between two writer agents instead of always dispatching `task-creator`. A new `--docs-only` / `--code` flag selects the route explicitly; with neither, the command asks once, and a headless (`--non-interactive`) caller must pass one — the route is never inferred from the title, so two runs on the same title classify the same way. The new `task-writer` agent writes a docs-only task file directly, taking the canonical section set from `docs/task-writing.md` rather than duplicating `task-creator`'s pipeline. The two routes exist because vaults commonly forbid `task-creator` for guides, KB pages, runbooks and notes — the full pipeline's overhead is not wanted for a documentation follow-up — and a vault rule that bans an agent cannot be satisfied by that agent refusing at runtime. `docs/task-writing.md` § Creating a Task no longer states the dispatch unconditionally
 
+## v0.167.4
+
+- fix: bump `osv-scanner` to v2.6.0 and `golang.org/x/net` to v0.60.0 so the Linux vulnerability gates stop failing. v2.3.1 pins `golang.org/x/tools` v0.38.0, whose SSA builder aborts with `unexpected expr: *ast.KeyValueExpr` on the promoted-field composite-literal key Go 1.27 permits in the Linux stdlib, so a repo on the old pin passes locally on darwin and fails only in Linux CI. `x/net` v0.58.0 carries `GO-2026-6603/6610/6611/6612/6617`, which fail both `vulncheck` and `trivy`.
 ## v0.167.3
 
 - docs: `plan-task` authority check also covers routing a step up a tier — a manager never runs a row's verification or spawns managers, so a worker's SC probe goes to the operator

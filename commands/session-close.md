@@ -657,7 +657,7 @@ The `Carried forward:` line is emitted only on a repeat run, for an anchor the o
 3. Runbook improvements: <N HIGH, M MEDIUM> in [[<runbook>]] — review + edit
 ```
 
-Phase 8.5's runbook-improvement item is an **advisory entry in this list, never a mode-3 *blocker*** — it is advisory and names no blocking action. It is therefore not what puts a session into mode 2 or mode 3; but when a session reaches mode 3 for an unrelated reason it also appears in that list's advisory tail, so it is never silently dropped. See Phase 8.5 and mode 3 below.
+Phase 8.5's runbook-improvement item is an **advisory entry in this list, never a mode-3 *blocker*** — it is advisory and names no blocking action. It is therefore not what puts a session into mode 3; but when a session reaches mode 3 for an unrelated reason it also appears in that list's advisory tail, so it is never silently dropped. See Phase 8.5 and mode 3 below.
 
 **Number these items even though the verdict is clean.** The operator answers by pointing at them (`do 1 + 2`). Bullets force them to describe in prose what a digit would have said. Mode 3 has always been numbered; mode 2 emitting bullets was an inconsistency, not a design choice. Observed 2026-09-11, operator verbatim: *"why no numbers at … is more easy for me to say … do 1 + 2"*.
 

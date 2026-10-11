@@ -11,19 +11,30 @@
 #
 # The rule has NO code. It lives in that prose, so the prose IS the
 # implementation and a silent edit to one surface is a behaviour regression.
-# Measured 2026-10-11: adding the runbook gap as a mode-2 trigger left three
-# of the five surfaces stale across three consecutive bot reviews, each time
-# one surface further out — the mode-2 closer panel, then mode 1's header,
-# then mode 3's advisory tail (which silently DROPPED the gap on any session
-# reaching mode 3 for an unrelated blocker). Every one was a real behavioural
+# Measured 2026-10-11: adding the runbook gap as a mode-2 trigger left a
+# surface stale across FIVE consecutive bot reviews, each time one surface
+# further out — the mode-2 closer panel, then mode 1's header, then mode 3's
+# advisory tail (which silently DROPPED the gap on any session reaching mode 3
+# for an unrelated blocker), then a prose paragraph, then that same paragraph
+# again asserting the opposite ROUTING. Every one was a real behavioural
 # defect, and none was catchable by reading the diff.
 #
-# The discriminating fact is symmetric membership: a surface that omits a
-# signal cannot be routing it. So the assertion is "each surface names all
-# three", which is both necessary and cheap. The self-check at the end strips
-# one signal from ONE surface in a throwaway copy and requires exactly that
-# surface to be reported: a check that reported everything, or nothing, would
-# satisfy the presence assertions without measuring anything.
+# The class has TWO shapes, and they need two different assertions:
+#
+#   OMISSION — a surface that omits a signal cannot be routing it, so each
+#     surface must NAME all three. Necessary, cheap, and NOT sufficient.
+#
+#   POLARITY — a surface can name a signal and still misstate what it does.
+#     The fifth review's finding ("not what puts a session into mode 2") names
+#     the runbook signal, so it passes every membership assertion while
+#     contradicting the mode-1 header, the mode-2 header, Phase 8.5 and the
+#     mode-2 closer rule. Pinned separately, below.
+#
+# The self-check at the end strips one signal from ONE surface in a throwaway
+# copy and requires exactly that surface to be reported: a check that reported
+# everything, or nothing, would satisfy the presence assertions without
+# measuring anything. A second self-check restores each superseded wording and
+# requires its pin to fire, so neither literal pin can be silently dead.
 #
 # Run from repo root (Makefile target `test`).
 
@@ -145,6 +156,18 @@ check "mode-2 section names all three signals" "" \
 check "no superseded 'never the mode-3' exclusion remains" "" \
 	"$(grep -F 'never the mode-3' "$TARGET" >/dev/null && echo found)"
 
+# --- and no surface may DENY the runbook gap's mode-2 membership. The round-5
+# finding asserted the item "is therefore not what puts a session into mode 2" —
+# contradicted by the mode-1 header, the mode-2 header, Phase 8.5 and the
+# mode-2 closer rule, every one of which the same PR had already updated. No
+# membership assertion can see it: the paragraph NAMES the runbook signal, so it
+# passes all five surface checks and the section check. Same shape as the pin
+# above — a prose rule with no code has no other regression check — and the
+# reason this script carries a polarity assertion at all rather than only a
+# membership one.
+check "no routing denial of the runbook gap's mode-2 membership remains" "" \
+	"$(grep -E 'not what puts a session into mode 2|not a mode-2 trigger|does not put a session into mode 2' "$TARGET" >/dev/null && echo found)"
+
 # --- mode 3 must SURFACE the runbook gap, not merely fail to be forced by it.
 # "Does not force mode 3" and "is dropped in mode 3" are different claims; the
 # 2026-10-11 regression was the second being read into the first, which lost
@@ -165,6 +188,24 @@ check "self-check: the removed signal is reported on mode 3" "$RUNBOOK" \
 	"$(omitted "$(fenced "$TMP/$TARGET" "$MODE3_BLOCK")" | grep -E "$RUNBOOK")"
 check "self-check: the same signal is NOT reported on mode 2" "" \
 	"$(omitted "$(fenced "$TMP/$TARGET" "$MODE2_BLOCK")" | grep -E "$RUNBOOK")"
+
+# --- self-check (polarity): RESTORE each superseded wording and require its pin
+# to fire. The membership control above proves the extractors resolve; this one
+# proves the two literal pins discriminate — a pin that can never fire is
+# indistinguishable from a file that never regressed, which is the false green
+# this script exists to prevent. Each restoration is a `sed` on the CURRENT
+# wording, so a later edit that changes that wording turns the substitution into
+# a no-op, the pin then finds nothing, and the control FAILS loudly instead of
+# passing spuriously.
+RESTORED="$TMP/restored/commands/session-close.md"
+mkdir -p "$(dirname "$RESTORED")"
+sed -e 's/never a mode-3 \*blocker\*/never the mode-3 one/' \
+	-e 's/not what puts a session into mode 3/not what puts a session into mode 2 or mode 3/' \
+	"$ROOT/$TARGET" >"$RESTORED"
+check "self-check: the superseded mode-3 exclusion is detected when restored" "found" \
+	"$(grep -F 'never the mode-3' "$RESTORED" >/dev/null && echo found)"
+check "self-check: the superseded mode-2 routing denial is detected when restored" "found" \
+	"$(grep -E 'not what puts a session into mode 2' "$RESTORED" >/dev/null && echo found)"
 
 echo "mode-membership-rule: $pass passed, $fail failed"
 [ "$fail" -eq 0 ] || exit 1

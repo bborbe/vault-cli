@@ -637,7 +637,7 @@ The `Carried forward:` line is emitted only on a repeat run, for an anchor the o
 
 **Goal-anchored sessions are exempt from the goal half of the gate.** The Phase 4.5 block above is about touched *tasks* — that stands unchanged. But an anchor goal left `in_progress` with open tasks does NOT force mode 3: it is the goal session's designed steady state, exempted in Phase 4.5. A goal-anchored session reaches the clean verdicts on the same task conditions as any session; the open goal is then reflected in the closer panel (below), never as an outstanding item — the one exception is a DRAINED anchor goal (all tasks terminal), which Phase 4.5 lists normally as outstanding (drained goals go through mode 3, not this path).
 
-**1. Clean + no reflect signals** (all phases ✅ — including every touched task resolved, score < 3):
+**1. Clean + no follow-up signals fired** (all phases ✅ — including every touched task resolved, **and** reflect score < 3, **and** self-improve score < 3, **and** no Phase 8.5 runbook gap):
 
 ```
 <summary block, if any>
@@ -659,9 +659,11 @@ The `Carried forward:` line is emitted only on a repeat run, for an anchor the o
 
 Phase 8.5's runbook-improvement item belongs in **this** list, never the mode-3 one — it is advisory and names no blocking action. See Phase 8.5.
 
-**Number these items even though the verdict is clean.** They are invocable commands, and the operator answers by pointing at them (`do 1 + 2`). Bullets force them to describe in prose what a digit would have said. Mode 3 has always been numbered; mode 2 emitting bullets was an inconsistency, not a design choice. Observed 2026-09-11, operator verbatim: *"why no numbers at … is more easy for me to say … do 1 + 2"*.
+**Number these items even though the verdict is clean.** The operator answers by pointing at them (`do 1 + 2`). Bullets force them to describe in prose what a digit would have said. Mode 3 has always been numbered; mode 2 emitting bullets was an inconsistency, not a design choice. Observed 2026-09-11, operator verbatim: *"why no numbers at … is more easy for me to say … do 1 + 2"*.
 
-If only one signal fired, still number it `1.` — a one-item numbered list costs nothing and keeps the reply form identical across runs.
+⚠️ **Most of these items are invocable commands; the runbook-improvement item is not.** Its action is a review of a runbook, and Phase 8.5 never auto-edits one, so there is nothing to invoke. That is why the closer section gives it a plain-action option rather than a slash command, and why "point at the number" still works for it — the number selects the follow-up, not necessarily a command.
+
+**Renumber from `1` whenever fewer than all three fired** — the example's `1.` / `2.` / `3.` is the all-three case, not a fixed slot assignment. Two fired → `1.` and `2.`; one fired → still number it `1.`, because a one-item numbered list costs nothing and keeps the reply form identical across runs. The closer section renumbers its own options by the same rule, so the body list and the panel stay in lockstep — and since the panel is required verbatim, a body list numbered `2.` with no `1.` above it has no legal closer to match.
 
 **3. Outstanding items** (any phase ⚠ — **not** Phase 8.5's runbook-improvement suggestion, which is advisory and belongs in mode 2 above):
 
@@ -687,7 +689,7 @@ Never auto-close, never auto-commit, never auto-kill, never auto-reflect, never 
 
 Append below the verdict. This command is terminal; without a fixed closer the trailing "name a concrete next action" convention gets improvised, and improvisation reliably produces a next-task recommendation — the exact thing the one-task-per-session contract forbids.
 
-**Clean verdict, mode 1 (no signals fired):**
+**Clean verdict, mode 1 (no follow-up signals fired — matching mode 1's header above):**
 
 ```
 ⚪ DONE

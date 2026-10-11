@@ -111,6 +111,10 @@ Write the resume state to a checkpoint file whose path template is `~/.claude/co
 - Alongside the resume block, write the `## Carry-over items` section from above — the open items `/vault-cli:post-compact` verifies after compaction.
 - Perform the write with the `Write` tool (the granted `Write` scope); this is one of only two write paths in the command, the other being the vault progress updates above.
 
+⚠️ **Write it as soon as the anchor resolves — not only at the end.** The checkpoint write is this command's *last* step, so a run interrupted by the very `/compact` it is preparing for leaves **nothing**: `post-compact` then has no carry-over items to verify and no resume block to hand on, and its "no checkpoint" state is indistinguishable from a routine second run. Observed 2026-10-11 — `prepare-compact` reached only its compact-safety checks before `/compact` fired.
+
+So: once the anchor task/goal is resolved, write a **minimal** checkpoint carrying the resume block's `Next action:` and the anchor identity; then overwrite it with the complete version — all four fields plus `## Carry-over items` — after the sweep and the checks. An interrupted run then still leaves a usable checkpoint, and the complete write is an ordinary overwrite of the same per-session path, so nothing is lost by writing twice.
+
 After writing, state the full path in your final message — a checkpoint that is written but never announced defeats its purpose.
 
 ## Verdict

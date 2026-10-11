@@ -23,7 +23,10 @@ This command **must stay inline** — it derives the session id from the parent 
 The checkpoint path template is `~/.claude/compact-checkpoints/<session-id>.md`.
 
 - `<session-id>` is derived from the session's own scratchpad path — the same derivation `/vault-cli:prepare-compact` uses, so both commands resolve the same file. Never derive it from user input, conversation text, or file content (trust boundary).
-- If the file does not exist, or already carries a `## Consumed` marker, print `Nothing pending — no active checkpoint.` and stop. This is the idempotent no-op: a second run after consumption never re-surfaces work.
+- **Two states produce a missing checkpoint, and they must not print the same line.** Read which one applies before reporting:
+  - **Already consumed** — the file exists and carries a `## Consumed` marker → print `Nothing pending — checkpoint already consumed.` and stop. This is the idempotent no-op: a second run after consumption never re-surfaces work.
+  - **No checkpoint exists** — the file is absent → print `⚠️ No checkpoint exists — prepare-compact did not complete (or never ran). Its carry-over items and resume block were never written; recover them from the conversation, or re-run /vault-cli:prepare-compact.` and stop.
+  ⚠️ **Never fold the second into the first.** The original single line (`Nothing pending — no active checkpoint.`) read as a clean no-op for both, so an interrupted `prepare-compact` — whose checkpoint write is its *last* step — was indistinguishable from a routine second run. Observed 2026-10-11: `prepare-compact` reached only its compact-safety checks before `/compact` fired, the checkpoint was never written, and `post-compact` reported the same clean line a consumed checkpoint produces. The operator had to reconcile the two by hand.
 
 ## Verify carry-over items
 

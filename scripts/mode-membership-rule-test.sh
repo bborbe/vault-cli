@@ -93,6 +93,17 @@ fenced() {
 	' "$1"
 }
 
+# between <file> <start-prefix> <end-prefix> — the lines from the first line
+# starting with <start-prefix> up to, but not including, the first following
+# line starting with <end-prefix>. The start line itself is included.
+between() {
+	awk -v s="$2" -v e="$3" '
+		!on && index($0, s) == 1 { on = 1 }
+		on && index($0, e) == 1 { exit }
+		on { print }
+	' "$1"
+}
+
 # omitted <text> — the signals NOT named in <text>, one per line.
 omitted() {
 	local s
@@ -116,6 +127,23 @@ for spec in \
 	text=${spec#*|}
 	check "$label names all three signals" "" "$(omitted "$text")"
 done
+
+# --- the mode-2 SECTION, not only its fenced block. The round-4 finding lived
+# in the prose paragraph under the list, which a fenced-block extractor cannot
+# see: that paragraph still read "never the mode-3 one" after the mode-3
+# advisory tail had been added, so the file contradicted itself while all five
+# block/header surfaces agreed. Asserting the whole section closes the blind
+# spot the per-surface checks left open.
+check "mode-2 section names all three signals" "" \
+	"$(omitted "$(between "$TARGET" "$MODE2_HEADER" "$MODE3_BLOCK")")"
+
+# --- and no surface may re-state the superseded ban. "never the mode-3" was the
+# exact wording of the reversed claim, so pinning the literal is the same shape
+# as this script's sibling (struck-row-rule-test pins `~~[[`): a prose rule with
+# no code has no other regression check. A future edit that wants to say this
+# must say it as "never a mode-3 *blocker*" — which is true — and will trip this.
+check "no superseded 'never the mode-3' exclusion remains" "" \
+	"$(grep -F 'never the mode-3' "$TARGET" >/dev/null && echo found)"
 
 # --- mode 3 must SURFACE the runbook gap, not merely fail to be forced by it.
 # "Does not force mode 3" and "is dropped in mode 3" are different claims; the

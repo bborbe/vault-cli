@@ -527,7 +527,7 @@ Cap at 3 gaps per runbook. Skip if none pass the filter.
 **Surface in Phase 9 output as a mode-2 suggestion** — a NUMBERED item appended to the clean verdict's list, alongside the reflect and self-improve suggestions (never auto-edit the runbook):
 
 ```
-N. Runbook improvements: 1 HIGH, 1 MEDIUM in [[<runbook>]] — review + edit
+N. Runbook improvements: <N HIGH, M MEDIUM> in [[<runbook>]] — review + edit
 ```
 
 ⚠️ **A runbook improvement is advisory, so it must NOT force mode 3.** The item names no blocking action — its own verb is "review + edit" — so placing it in the outstanding list makes it forbid the clean verdict and re-emit the same `approve:` line on every run until the operator acts on it. That is a re-ask loop over a note, on a session whose own anchored work is already finished, and the loop is invisible to the operator: the closer looks like any other blocker.
@@ -654,7 +654,7 @@ The `Carried forward:` line is emitted only on a repeat run, for an anchor the o
 
 1. `/vault-cli:reflect` — <what fired it: new knowledge files, decisions captured>
 2. `/coding:self-improve` — <what fired it: corrections, retries, missing command>
-3. Runbook improvements: 1 HIGH, 1 MEDIUM in [[<runbook>]] — review + edit
+3. Runbook improvements: <N HIGH, M MEDIUM> in [[<runbook>]] — review + edit
 ```
 
 Phase 8.5's runbook-improvement item belongs in **this** list, never the mode-3 one — it is advisory and names no blocking action. See Phase 8.5.
@@ -695,15 +695,17 @@ Append below the verdict. This command is terminal; without a fixed closer the t
 ⏰ Next: you open a new session; the orchestrator picks the next anchor
 ```
 
-**Clean verdict, mode 2 (reflect and/or self-improve fired):** the verdict is still clean, but the body now lists invocable commands — so `👤 You:` must offer them, numbered to match the list above it:
+**Clean verdict, mode 2 (reflect, self-improve, and/or a runbook-improvement gap fired):** the verdict is still clean, but the body now lists follow-ups — so `👤 You:` must offer them, numbered to match the list above it:
 
 ```
 ⚪ DONE
-👤 You: pick — 1. /vault-cli:reflect · 2. /coding:self-improve · 3. nothing — close
+👤 You: pick — 1. /vault-cli:reflect · 2. /coding:self-improve · 3. review the runbook gap · 4. nothing — close
 ⏰ Next: your reply
 ```
 
 Include only the options whose signals actually fired, renumbered from 1, and keep `nothing — close` last so closing stays one keystroke away.
+
+**A runbook-improvement item has no command of its own**, so its option is the plain action — `review the runbook gap` — rather than a slash command. Phase 8.5 explicitly never auto-edits the runbook, so the operator's move is to open it; there is nothing to invoke. Name the runbook when exactly one gap fired (`review [[<runbook>]]`); with two or more, keep the generic form and let the body's numbered list name them. ⚠️ **This option is required whenever a runbook gap is what put the session in mode 2** — omitting it is the drift that leaves the body's item with no slot in the closer, and this section's own verbatim rule forbids improvising one, so the model has no legal output. Leaving the gap is a legitimate resolution and `nothing — close` already covers it.
 
 **`nothing — session closed` is wrong for mode 2** — it asserts there is nothing to do directly above a list of things to do. The global closer rule already forbids `nothing` while something is pending; mode 2 is exactly that case. This is not a "fork" in the `/supervisor:worker-drive` sense either: these are optional follow-ups on a finished task, which is precisely what a `pick` is for.
 

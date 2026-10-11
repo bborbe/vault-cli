@@ -524,11 +524,17 @@ If a runbook was executed this session, surface gaps so the runbook can be updat
 
 Cap at 3 gaps per runbook. Skip if none pass the filter.
 
-**Surface in Phase 9 output** as a numbered "outstanding" item (never auto-edit the runbook):
+**Surface in Phase 9 output as a mode-2 suggestion** — a NUMBERED item appended to the clean verdict's list, alongside the reflect and self-improve suggestions (never auto-edit the runbook):
 
 ```
 N. Runbook improvements: 1 HIGH, 1 MEDIUM in [[<runbook>]] — review + edit
 ```
+
+⚠️ **A runbook improvement is advisory, so it must NOT force mode 3.** The item names no blocking action — its own verb is "review + edit" — so placing it in the outstanding list makes it forbid the clean verdict and re-emit the same `approve:` line on every run until the operator acts on it. That is a re-ask loop over a note, on a session whose own anchored work is already finished, and the loop is invisible to the operator: the closer looks like any other blocker.
+
+Measured 2026-10-11: a completed Sunday health check surfaced one HIGH runbook gap, and the identical `approve:` line was emitted across **two consecutive** `/vault-cli:session-close` runs — the operator resolved the gap by hand in-session rather than through the loop. The recurrence is not incidental: `[[Trading - Bot Health Check]]`'s own Change History records a gap found on 5 of its last 6 entries, so this path fires on most runs of that runbook.
+
+Treat it exactly like the reflect and self-improve suggestions: surfaced, numbered, and optional. A gap the operator leaves unaddressed costs nothing — it is re-detected on the next run that executes that runbook, which is the same property that makes a verdict file unnecessary here.
 
 ### Phase 8.6: Link hygiene for session-touched vault pages
 
@@ -639,7 +645,7 @@ The `Carried forward:` line is emitted only on a repeat run, for an anchor the o
 ✅ Nothing to do — safe to close Claude :)
 ```
 
-**2. Clean + reflect and/or self-improve signals fired** (all phases ✅, reflect score ≥ 3 and/or self-improve score ≥ 3):
+**2. Clean + reflect, self-improve, and/or runbook-improvement signals fired** (all phases ✅, and reflect score ≥ 3, self-improve score ≥ 3, and/or a Phase 8.5 runbook gap):
 
 ```
 <summary block>
@@ -648,13 +654,16 @@ The `Carried forward:` line is emitted only on a repeat run, for an anchor the o
 
 1. `/vault-cli:reflect` — <what fired it: new knowledge files, decisions captured>
 2. `/coding:self-improve` — <what fired it: corrections, retries, missing command>
+3. Runbook improvements: 1 HIGH, 1 MEDIUM in [[<runbook>]] — review + edit
 ```
+
+Phase 8.5's runbook-improvement item belongs in **this** list, never the mode-3 one — it is advisory and names no blocking action. See Phase 8.5.
 
 **Number these items even though the verdict is clean.** They are invocable commands, and the operator answers by pointing at them (`do 1 + 2`). Bullets force them to describe in prose what a digit would have said. Mode 3 has always been numbered; mode 2 emitting bullets was an inconsistency, not a design choice. Observed 2026-09-11, operator verbatim: *"why no numbers at … is more easy for me to say … do 1 + 2"*.
 
 If only one signal fired, still number it `1.` — a one-item numbered list costs nothing and keeps the reply form identical across runs.
 
-**3. Outstanding items** (any phase ⚠):
+**3. Outstanding items** (any phase ⚠ — **not** Phase 8.5's runbook-improvement suggestion, which is advisory and belongs in mode 2 above):
 
 ```
 <summary block>

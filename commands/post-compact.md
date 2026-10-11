@@ -14,7 +14,7 @@ allowed-tools:
   - Bash(python3:*)
 ---
 
-Post-`/compact` verification. Reads the checkpoint that `/vault-cli:prepare-compact` wrote before compaction, verifies each carry-over item against live state, re-arms watchers the fresh context lost track of, and surfaces the next actions. Run after `/compact` in the same session when prepare-compact returned "Compact-safe — N carry-over items". Also safe to run after a bare `/compact` with no checkpoint — it reports nothing pending.
+Post-`/compact` verification. Reads the checkpoint that `/vault-cli:prepare-compact` wrote before compaction, verifies each carry-over item against live state, re-arms watchers the fresh context lost track of, and surfaces the next actions. Run after `/compact` in the same session when prepare-compact returned "Compact-safe — N carry-over items". Also safe to run after a bare `/compact` with no checkpoint — it reports the **missing** checkpoint and stops. A checkpoint that was never written is not a consumed one, and the two must not read alike.
 
 This command **must stay inline** — it derives the session id from the parent conversation's own scratchpad path; a sub-agent cannot see the conversation. It is read-and-report-only: its only write is marking the checkpoint consumed. Never auto-commit, auto-push, kill a daemon.
 

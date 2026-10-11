@@ -32,6 +32,14 @@ This flushes the session's completed work into the daily note and task/goal page
 
 Sweep every goal and task touched in this session. For each, confirm the page's Status Summary / Progress / Next line and its checkboxes reflect reality — tick what is actually done, note what is not. This is the second and last write step: progress updates only, via the step-1 sync-progress call and these page edits. No new scope, no new work.
 
+## Write the minimal checkpoint early
+
+**Immediately after § *Goal and task sweep* identifies this session's anchor task or goal**, write the **minimal** checkpoint — the resume block's `Next action:`, the anchor identity, and a one-line `State:` — to the path § *Per-session checkpoint file* defines. Do this **before** § *Compact-safety checks*, not after them.
+
+⚠️ **The position is the point, and the original defect was positional.** The checkpoint write used to be this command's *last* step, so a run interrupted by the very `/compact` it was preparing for left **nothing**: `post-compact` then had no carry-over items to verify and no resume block to hand on, and its "no checkpoint" state was indistinguishable from a routine second run. Observed 2026-10-11 — `prepare-compact` reached only its compact-safety checks before `/compact` fired. The checks are the slow, interruptible part, and the anchor is resolved before them, so the write can be too.
+
+The **complete** checkpoint — all four fields plus `## Carry-over items` — overwrites the same path at the end, under § *Per-session checkpoint file*. Writing the same per-session path twice is still one write path, and nothing is lost by it.
+
 ## Compact-safety checks
 
 Compaction silently drops whatever is not written down. Check what would be lost, in this order:
@@ -110,10 +118,7 @@ Write the resume state to a checkpoint file whose path template is `~/.claude/co
 - The file lives under `~/.claude/` — outside every repo on purpose — so it survives compacts and is never committed to any worktree.
 - Alongside the resume block, write the `## Carry-over items` section from above — the open items `/vault-cli:post-compact` verifies after compaction.
 - Perform the write with the `Write` tool (the granted `Write` scope); this is one of only two write paths in the command, the other being the vault progress updates above.
-
-⚠️ **Write it as soon as the anchor resolves — not only at the end.** The checkpoint write is this command's *last* step, so a run interrupted by the very `/compact` it is preparing for leaves **nothing**: `post-compact` then has no carry-over items to verify and no resume block to hand on, and its "no checkpoint" state is indistinguishable from a routine second run. Observed 2026-10-11 — `prepare-compact` reached only its compact-safety checks before `/compact` fired.
-
-So: once the anchor task/goal is resolved, write a **minimal** checkpoint carrying the resume block's `Next action:` and the anchor identity; then overwrite it with the complete version — all four fields plus `## Carry-over items` — after the sweep and the checks. An interrupted run then still leaves a usable checkpoint, and the complete write is an ordinary overwrite of the same per-session path, so nothing is lost by writing twice.
+- **This section owns the *complete* write** — all four fields plus `## Carry-over items`, overwriting the minimal checkpoint § *Write the minimal checkpoint early* already placed at this path. It does not introduce the first write; that one happens before § *Compact-safety checks*.
 
 After writing, state the full path in your final message — a checkpoint that is written but never announced defeats its purpose.
 

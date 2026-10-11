@@ -125,14 +125,15 @@ present_lines() {
 # 1. The consumer carries all three state lines.
 check "consumer carries every state line" "" "$(absent_lines . "$CONSUMER_FILE")"
 
-# 2. No two of them are alike — the anti-re-fold half.
-seen=''
-for m in "${MARKERS[@]}"; do
-	case "$seen" in
-		*"|$m|"*) check "state lines are pairwise distinct" "unique" "duplicate: $m" ;;
-		*) seen="$seen|$m|"; pass=$((pass + 1)) ;;
-	esac
-done
+# 2. The three state lines occupy three DISTINCT lines of the consumer — the
+#    anti-re-fold half. ⚠️ The first draft of this assertion iterated MARKERS and
+#    compared its entries to each other, which is tautological: a constant defined in
+#    this file can never disagree with itself, so it could not fail whatever the
+#    consumer said and the guarantee rested entirely on assertion 1. This reads the
+#    file, where a re-fold would actually show: two states on one line, or one gone.
+state_lines=$(grep -cF -e "${MARKERS[0]}" -e "${MARKERS[1]}" -e "${MARKERS[2]}" \
+	"$CONSUMER_FILE" 2>/dev/null)
+check "state lines occupy three distinct lines" "3" "$state_lines"
 
 # 3. The discriminator sentence is present.
 grep -qF -- "$DISCRIMINATOR" "$CONSUMER_FILE" 2>/dev/null
@@ -140,6 +141,15 @@ check "consumer names the Live background discriminator" "0" "$?"
 
 # 4. The producer restates none of the three state lines verbatim — single-homing.
 check "producer restates no state line" "" "$(present_lines . "$PRODUCER_FILE")"
+
+# 4b. The producer states the omission the consumer's discriminator depends on.
+#     Without it a model can read the early write as "emit the resume block", emit all
+#     four labels, and the partial file then reads as complete — the false negative
+#     returning one layer down. Assertion 3 pins the consumer half; this pins the half
+#     it depends on, which was unenforced when the discriminator first shipped.
+PRODUCER_OMISSION="omit the resume block's \`Live background:\` label deliberately"
+grep -qF -- "$PRODUCER_OMISSION" "$PRODUCER_FILE" 2>/dev/null
+check "producer states the Live background omission" "0" "$?"
 
 # `|| exit` for the same reason as the `cd` above: without `-e` a failed mktemp
 # leaves TMP empty and the trap's `rm -rf ""` is a no-op.

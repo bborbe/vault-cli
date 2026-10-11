@@ -128,7 +128,7 @@ After writing, state the full path in your final message — a checkpoint that i
 
 - `✅ Ready to compact` — no open items: nothing uncommitted or un-pushed, nothing live in the background, no unanswered gates, and the resume block + checkpoint file are in place.
 - `✅ Compact-safe — N carry-over items; run /vault-cli:post-compact after /compact` — open items exist but are all carryable and were written into the checkpoint's `## Carry-over items` section. Compaction loses nothing; run `/vault-cli:post-compact` after `/compact` to verify the fresh state and finish the carried items.
-- `⚠️ Not compact-safe yet` — only when the vault sync (§ *Sync vault progress*) or a checkpoint write (§ *Write the minimal checkpoint early* / § *Per-session checkpoint file*) failed: state compaction would destroy is not captured anywhere. Name which failure. This is the sole hard block.
+- `⚠️ Not compact-safe yet` — only when the vault sync (§ *Sync vault progress*) or a checkpoint write (§ *Write the minimal checkpoint early* / § *Per-session checkpoint file*) failed: state compaction would destroy is not captured anywhere. Name which failure. ⚠️ **A failed *early* write is not fatal on its own** — see § *Compact-safety checks* → *Carryable vs hard*; the complete write at the end is still ahead of it, so the verdict hardens only if that one also fails. This is the sole hard block.
 
 ## No closer panel
 

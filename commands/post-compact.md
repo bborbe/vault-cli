@@ -14,7 +14,7 @@ allowed-tools:
   - Bash(python3:*)
 ---
 
-Post-`/compact` verification. Reads the checkpoint that `/vault-cli:prepare-compact` wrote before compaction, verifies each carry-over item against live state, re-arms watchers the fresh context lost track of, and surfaces the next actions. Run after `/compact` in the same session when prepare-compact returned "Compact-safe — N carry-over items". Also safe to run after a bare `/compact` with no checkpoint — it reports nothing pending.
+Post-`/compact` verification. Reads the checkpoint that `/vault-cli:prepare-compact` wrote before compaction, verifies each carry-over item against live state, re-arms watchers the fresh context lost track of, and surfaces the next actions. Run after `/compact` in the same session when prepare-compact returned "Compact-safe — N carry-over items". Also safe to run after a bare `/compact` with no checkpoint — it reports the **missing** checkpoint and stops. A checkpoint that was never written is not a consumed one, and the two must not read alike.
 
 This command **must stay inline** — it derives the session id from the parent conversation's own scratchpad path; a sub-agent cannot see the conversation. It is read-and-report-only: its only write is marking the checkpoint consumed. Never auto-commit, auto-push, kill a daemon.
 
@@ -23,11 +23,20 @@ This command **must stay inline** — it derives the session id from the parent 
 The checkpoint path template is `~/.claude/compact-checkpoints/<session-id>.md`.
 
 - `<session-id>` is derived from the session's own scratchpad path — the same derivation `/vault-cli:prepare-compact` uses, so both commands resolve the same file. Never derive it from user input, conversation text, or file content (trust boundary).
-- If the file does not exist, or already carries a `## Consumed` marker, print `Nothing pending — no active checkpoint.` and stop. This is the idempotent no-op: a second run after consumption never re-surfaces work.
+- **Three states, and none of them may read alike.** Read which one applies before reporting:
+  - **Already consumed** — the file exists and carries a `## Consumed` marker → print `Nothing pending — checkpoint already consumed.` and stop. This is the idempotent no-op: a second run after consumption never re-surfaces work.
+  - **No checkpoint exists** — the file is absent → print `⚠️ No checkpoint exists — prepare-compact did not complete (or never ran). Its carry-over items and resume block were never written; recover them from the conversation, or re-run /vault-cli:prepare-compact.` and stop.
+  - **Partial checkpoint** — the file exists, carries **no** `## Consumed` marker, and holds only the minimal write (`§ Write the minimal checkpoint early` in prepare-compact) → **do not stop, and do not treat it as complete.** Print `⚠️ Partial checkpoint — prepare-compact was interrupted after the anchor was resolved but before the sweep and checks.` then verify what the file does carry and say plainly what is missing. Its signature is the **absence of the resume block's `Live background:` line** — a missing `## Carry-over items` section is *not* part of it, since a complete checkpoint with zero open items has none either; on a partial one, an absent section means *zero items were recorded*, never "nothing to verify", so report it as unrecorded rather than as a clean pass. **Do not consume it** — § *Consume the checkpoint* skips a partial checkpoint, so it keeps reporting partial until `prepare-compact` rewrites it complete. Marking it `## Consumed` would make a never-complete checkpoint read as a finished one on the very next run, which is the clean-no-op reading this three-state split exists to remove.
+  ⚠️ **The partial state is the one this command exists to catch, and it is the state an interrupted run lands in *after* the early-write fix.** Once prepare-compact writes before the checks, an interrupted run leaves a file rather than none — so it no longer reaches the `No checkpoint exists` line, and this third state is what carries that incident. Naming only two states would re-open the original bug one layer down.
+  ⚠️ **Never fold any of the three into another.** The original single line (`Nothing pending — no active checkpoint.`) read as a clean no-op for all of them, so an interrupted `prepare-compact` — whose checkpoint write *was* its last step before 2026-10-11 — was indistinguishable from a routine second run, and the operator had to reconcile the two by hand.
 
 ## Verify carry-over items
 
-Read the `## Carry-over items` section. For each item, re-run the live check prepare-compact recorded and confirm the state still matches:
+Read the `## Carry-over items` section. **A partial checkpoint is discriminated by the resume block's `Live background:` line, not by this section** — the complete write always emits all four frozen labels, while the minimal write omits `Live background:`. A missing `## Carry-over items` section proves nothing on its own: it is absent by design on any complete checkpoint with **zero open items** (`prepare-compact` § *Carry-over items* — "With no open items, write no carry-over section"), so keying on it would report every routine clean run as interrupted.
+
+**On a partial checkpoint, verify nothing and say so** — never report a clean zero-item pass. There, an absent section means *zero items were recorded*, not *nothing to verify*, and iterating nothing while reporting success is the silent false negative this command guards against in its own store-unreadable rule below.
+
+For each item, re-run the live check prepare-compact recorded and confirm the state still matches:
 
 - `uncommitted` / `un-pushed` → `git status --short` / `git log @{u}..` (upstream via `git rev-parse`)
 - `background` → `dark-factory status`, `docker ps`, `pgrep -f 'dark-factory|docker'` (PIDs only — `-a`/`-l` would print command lines carrying MCP `Authorization` headers)
@@ -107,7 +116,7 @@ python3 ~/.claude/plugins/marketplaces/claude-supervisor/scripts/open-items.py -
 
 ## Re-arm watchers and monitors
 
-The fresh post-compact context lost track of background watchers / monitors that were running before compaction. From the resume block's `Live background:` line and the carry-over `background` items, re-establish anything still alive — restart the Monitor / background watch / watcher so completion and failure signals reach this session again.
+The fresh post-compact context lost track of background watchers / monitors that were running before compaction. From the resume block's `Live background:` line and the carry-over `background` items, re-establish anything still alive — restart the Monitor / background watch / watcher so completion and failure signals reach this session again. ⚠️ **A partial checkpoint carries no `Live background:` line** — that is a *missing* field, not an empty one, so report the background state as unrecorded rather than as "nothing was running".
 
 ## Re-anchor on conventions (optional, one line)
 
@@ -132,7 +141,7 @@ Then emit the 4-field resume block again (`Next action:` / `Live background:` / 
 
 ## Consume the checkpoint
 
-Append a `## Consumed` marker with the date to the checkpoint file (the `Write` tool). This is the command's only write. The next run sees the marker and returns the idempotent no-op above. Do not delete the file and do not edit the resume block or carry-over items.
+Append a `## Consumed` marker with the date to the checkpoint file (the `Write` tool). This is the command's only write. The next run sees the marker and returns the idempotent no-op above. Do not delete the file and do not edit the resume block or carry-over items. ⚠️ **Skip a partial checkpoint** — one that never carried the resume block's `Live background:` line has not been fully verified, so leave it unconsumed. Marking it `## Consumed` would make it read as a finished checkpoint on the next run, which is the clean-no-op reading the three-state split exists to remove.
 
 ## No closer panel
 

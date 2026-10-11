@@ -16,7 +16,7 @@ allowed-tools:
 
 Pre-`/compact` checkpoint. Syncs vault progress, surfaces live background state, and writes a resume block so compaction never silently drops work. Run before `/compact` when you want to keep working in this session afterward.
 
-This command **must stay inline** — it reads the parent conversation's state (touched goals and tasks, live background work, the session's own id); a sub-agent cannot see the conversation. It is read-and-report-only: its only writes are the vault progress updates (the *Sync vault progress* and *Goal and task sweep* sections) and the per-session checkpoint file (the *Per-session checkpoint file* section). Never auto-commit, auto-push, kill a daemon.
+This command **must stay inline** — it reads the parent conversation's state (touched goals and tasks, live background work, the session's own id); a sub-agent cannot see the conversation. It is read-and-report-only: its only writes are the vault progress updates (the *Sync vault progress* and *Goal and task sweep* sections) and the per-session checkpoint file (the *Write the minimal checkpoint early* and *Per-session checkpoint file* sections — two writes to one path, not two paths). Never auto-commit, auto-push, kill a daemon.
 
 ## Sync vault progress
 
@@ -30,7 +30,19 @@ This flushes the session's completed work into the daily note and task/goal page
 
 ## Goal and task sweep
 
-Sweep every goal and task touched in this session. For each, confirm the page's Status Summary / Progress / Next line and its checkboxes reflect reality — tick what is actually done, note what is not. This is the second and last write step: progress updates only, via the step-1 sync-progress call and these page edits. No new scope, no new work.
+Sweep every goal and task touched in this session. For each, confirm the page's Status Summary / Progress / Next line and its checkboxes reflect reality — tick what is actually done, note what is not. These page edits are progress updates only, via the step-1 sync-progress call and the sweep — no new scope, no new work. (This is **not** the command's last write: § *Write the minimal checkpoint early* follows it, and § *Per-session checkpoint file* writes again at the end.)
+
+## Write the minimal checkpoint early
+
+**As soon as § *Goal and task sweep* finishes — unconditionally, whether or not it found an anchor**, write the **minimal** checkpoint — the resume block's `Next action:`, the anchor identity (recorded as unresolved when the sweep found none), and a one-line `State:` — to the path § *Per-session checkpoint file* defines. Do this **before** § *Compact-safety checks*, not after them. **Create `~/.claude/compact-checkpoints/` first if it does not exist** (the granted mkdir capability) — this is now the command's *first* write, so it cannot rely on a later section having done it.
+
+⚠️ **Write those three fields and no others — omit the resume block's `Live background:` label deliberately.** Its absence is what marks the file partial to `post-compact`; a minimal write that emitted all four labels would read as a *complete* checkpoint, and the false negative this section exists to remove would come back one layer down. The frozen four-label schema in § *RESUME AFTER COMPACT* binds the **complete** checkpoint, not this one.
+
+⚠️ **Unconditional is the point.** Gating the write on the sweep *finding* an anchor would leave a session that touched no goal or task writing nothing early — so an interrupted run there still leaves no file, still lands in `post-compact`'s `No checkpoint exists` state, and the gap this section exists to close stays open for exactly the sessions that produce the least context. A thin checkpoint with the anchor recorded as unresolved is still worth more than none.
+
+⚠️ **The position is the point, and the original defect was positional.** The checkpoint write used to be this command's *last* step, so a run interrupted by the very `/compact` it was preparing for left **nothing**: `post-compact` then had no carry-over items to verify and no resume block to hand on, and its "no checkpoint" state was indistinguishable from a routine second run. Observed 2026-10-11 — `prepare-compact` reached only its compact-safety checks before `/compact` fired. The checks are the slow, interruptible part, and the anchor is resolved before them, so the write can be too.
+
+The **complete** checkpoint — all four fields plus `## Carry-over items` — overwrites the same path at the end, under § *Per-session checkpoint file*. Writing the same per-session path twice is still one write path, and nothing is lost by it.
 
 ## Compact-safety checks
 
@@ -70,7 +82,7 @@ Interpretations:
 
 **Unanswered gates.** Inventory the decisions this session raised but never answered — a deferred question, a skipped confirmation, a choice left open. Name each one so it survives the compact; an unanswered gate is open state.
 
-**Carryable vs hard.** Every item the checks surface is *carryable* — uncommitted files, un-pushed commits, live processes, and unanswered gates all physically survive `/compact`; only the conversation context is lost, and that is already captured in the resume block and the checkpoint. An open item therefore never blocks compaction by itself. The only *hard* failures — state compaction genuinely destroys and nothing can capture — are a failed vault sync (step 1) or a failed checkpoint write (step 5). Those two are the sole triggers for the hard verdict below.
+**Carryable vs hard.** Every item the checks surface is *carryable* — uncommitted files, un-pushed commits, live processes, and unanswered gates all physically survive `/compact`; only the conversation context is lost, and that is already captured in the resume block and the checkpoint. An open item therefore never blocks compaction by itself. The only *hard* failures — state compaction genuinely destroys and nothing can capture — are a failed vault sync (§ *Sync vault progress*) or a failed checkpoint write (§ *Write the minimal checkpoint early* and § *Per-session checkpoint file*). Those two are the sole triggers for the hard verdict below. ⚠️ **A failed *early* write is not fatal on its own** — the complete write at the end is still ahead of it, so the verdict hardens only if that one also fails. Name which write failed rather than collapsing them into one.
 
 ## Carry-over items
 
@@ -93,7 +105,7 @@ Un-pushed / uncommitted:
 Open decision:
 ```
 
-Fill the fields from the sweep and checks: the concrete next step on the touched goal or task; anything still running in the background; anything git reported; each unanswered gate **that has a genuine alternative** — a one-outcome gate is a step, not a decision, and folds into `Next action:` instead (§ *RESUME AFTER COMPACT*). The four labels are the frozen resume-block schema — do not rename, reword, add, or remove a field.
+Fill the fields from the sweep and checks: the concrete next step on the touched goal or task; anything still running in the background; anything git reported; each unanswered gate **that has a genuine alternative** — a one-outcome gate is a step, not a decision, and folds into `Next action:` instead (§ *RESUME AFTER COMPACT*). The four labels are the frozen resume-block schema **for a complete checkpoint** — do not rename, reword, add, or remove a field. The one deliberate exception is the minimal checkpoint of § *Write the minimal checkpoint early*, which carries `Next action:`, the anchor identity and `State:` and **omits `Live background:` on purpose** — that omission is what marks the file partial to `post-compact`, so do not "complete" it by adding the label early.
 
 ⚠️ **`Open decision:` names decisions; a name is not a question.** A field listing four gates in prose asks the operator nothing — it carries no options, cannot be answered in place, and never reaches their board, so a session can report itself operator-blocked for hours while the operator has nothing to answer. Measured 2026-10-08: a manager tick read *"FIVE open decisions, all the operator's"* for hours, and the operator's own words were *"It's waiting for me, but on the tension board or here, I have no questions hitting my face."*
 
@@ -110,6 +122,7 @@ Write the resume state to a checkpoint file whose path template is `~/.claude/co
 - The file lives under `~/.claude/` — outside every repo on purpose — so it survives compacts and is never committed to any worktree.
 - Alongside the resume block, write the `## Carry-over items` section from above — the open items `/vault-cli:post-compact` verifies after compaction.
 - Perform the write with the `Write` tool (the granted `Write` scope); this is one of only two write paths in the command, the other being the vault progress updates above.
+- **This section owns the *complete* write** — all four fields plus `## Carry-over items`, overwriting the minimal checkpoint § *Write the minimal checkpoint early* already placed at this path. It does not introduce the first write; that one happens before § *Compact-safety checks*.
 
 After writing, state the full path in your final message — a checkpoint that is written but never announced defeats its purpose.
 
@@ -117,7 +130,7 @@ After writing, state the full path in your final message — a checkpoint that i
 
 - `✅ Ready to compact` — no open items: nothing uncommitted or un-pushed, nothing live in the background, no unanswered gates, and the resume block + checkpoint file are in place.
 - `✅ Compact-safe — N carry-over items; run /vault-cli:post-compact after /compact` — open items exist but are all carryable and were written into the checkpoint's `## Carry-over items` section. Compaction loses nothing; run `/vault-cli:post-compact` after `/compact` to verify the fresh state and finish the carried items.
-- `⚠️ Not compact-safe yet` — only when the vault sync (step 1) or the checkpoint write (step 5) failed: state compaction would destroy is not captured anywhere. Name the failure. This is the sole hard block.
+- `⚠️ Not compact-safe yet` — only when the vault sync (§ *Sync vault progress*) or the **complete** checkpoint write (§ *Per-session checkpoint file*) failed: state compaction would destroy is not captured anywhere. Name which failure. ⚠️ **A failed *early* write (§ *Write the minimal checkpoint early*) is not fatal on its own** — see § *Compact-safety checks* → *Carryable vs hard*; the complete write at the end is still ahead of it, so the verdict hardens only if that one also fails. This is the sole hard block.
 
 ## No closer panel
 

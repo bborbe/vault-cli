@@ -524,11 +524,17 @@ If a runbook was executed this session, surface gaps so the runbook can be updat
 
 Cap at 3 gaps per runbook. Skip if none pass the filter.
 
-**Surface in Phase 9 output** as a numbered "outstanding" item (never auto-edit the runbook):
+**Surface in Phase 9 output as a mode-2 suggestion** — a NUMBERED item appended to the clean verdict's list, alongside the reflect and self-improve suggestions (never auto-edit the runbook):
 
 ```
-N. Runbook improvements: 1 HIGH, 1 MEDIUM in [[<runbook>]] — review + edit
+N. Runbook improvements: <N HIGH, M MEDIUM> in [[<runbook>]] — review + edit
 ```
+
+⚠️ **A runbook improvement is advisory, so it must NOT force mode 3.** The item names no blocking action — its own verb is "review + edit" — so placing it in the outstanding list makes it forbid the clean verdict and re-emit the same `approve:` line on every run until the operator acts on it. That is a re-ask loop over a note, on a session whose own anchored work is already finished, and the loop is invisible to the operator: the closer looks like any other blocker.
+
+Measured 2026-10-11: a completed Sunday health check surfaced one HIGH runbook gap, and the identical `approve:` line was emitted across **two consecutive** `/vault-cli:session-close` runs — the operator resolved the gap by hand in-session rather than through the loop. The recurrence is not incidental: `[[Trading - Bot Health Check]]`'s own Change History records a gap found on 5 of its last 6 entries, so this path fires on most runs of that runbook.
+
+Treat it exactly like the reflect and self-improve suggestions: surfaced, numbered, and optional. A gap the operator leaves unaddressed costs nothing — it is re-detected on the next run that executes that runbook, which is the same property that makes a verdict file unnecessary here.
 
 ### Phase 8.6: Link hygiene for session-touched vault pages
 
@@ -631,7 +637,7 @@ The `Carried forward:` line is emitted only on a repeat run, for an anchor the o
 
 **Goal-anchored sessions are exempt from the goal half of the gate.** The Phase 4.5 block above is about touched *tasks* — that stands unchanged. But an anchor goal left `in_progress` with open tasks does NOT force mode 3: it is the goal session's designed steady state, exempted in Phase 4.5. A goal-anchored session reaches the clean verdicts on the same task conditions as any session; the open goal is then reflected in the closer panel (below), never as an outstanding item — the one exception is a DRAINED anchor goal (all tasks terminal), which Phase 4.5 lists normally as outstanding (drained goals go through mode 3, not this path).
 
-**1. Clean + no reflect signals** (all phases ✅ — including every touched task resolved, score < 3):
+**1. Clean + no follow-up signals fired** (all phases ✅ — including every touched task resolved, **and** reflect score < 3, **and** self-improve score < 3, **and** no Phase 8.5 runbook gap):
 
 ```
 <summary block, if any>
@@ -639,7 +645,7 @@ The `Carried forward:` line is emitted only on a repeat run, for an anchor the o
 ✅ Nothing to do — safe to close Claude :)
 ```
 
-**2. Clean + reflect and/or self-improve signals fired** (all phases ✅, reflect score ≥ 3 and/or self-improve score ≥ 3):
+**2. Clean + reflect, self-improve, and/or runbook-improvement signals fired** (all phases ✅, and reflect score ≥ 3, self-improve score ≥ 3, and/or a Phase 8.5 runbook gap):
 
 ```
 <summary block>
@@ -648,13 +654,18 @@ The `Carried forward:` line is emitted only on a repeat run, for an anchor the o
 
 1. `/vault-cli:reflect` — <what fired it: new knowledge files, decisions captured>
 2. `/coding:self-improve` — <what fired it: corrections, retries, missing command>
+3. Runbook improvements: <N HIGH, M MEDIUM> in [[<runbook>]] — review + edit
 ```
 
-**Number these items even though the verdict is clean.** They are invocable commands, and the operator answers by pointing at them (`do 1 + 2`). Bullets force them to describe in prose what a digit would have said. Mode 3 has always been numbered; mode 2 emitting bullets was an inconsistency, not a design choice. Observed 2026-09-11, operator verbatim: *"why no numbers at … is more easy for me to say … do 1 + 2"*.
+Phase 8.5's runbook-improvement item is an **advisory entry in this list, never a mode-3 *blocker*** — it is advisory and names no blocking action. It is therefore not what puts a session into mode 3; but when a session reaches mode 3 for an unrelated reason it also appears in that list's advisory tail, so it is never silently dropped. See Phase 8.5 and mode 3 below.
 
-If only one signal fired, still number it `1.` — a one-item numbered list costs nothing and keeps the reply form identical across runs.
+**Number these items even though the verdict is clean.** The operator answers by pointing at them (`do 1 + 2`). Bullets force them to describe in prose what a digit would have said. Mode 3 has always been numbered; mode 2 emitting bullets was an inconsistency, not a design choice. Observed 2026-09-11, operator verbatim: *"why no numbers at … is more easy for me to say … do 1 + 2"*.
 
-**3. Outstanding items** (any phase ⚠):
+⚠️ **Most of these items are invocable commands; the runbook-improvement item is not.** Its action is a review of a runbook, and Phase 8.5 never auto-edits one, so there is nothing to invoke. That is why the closer section gives it a plain-action option rather than a slash command, and why "point at the number" still works for it — the number selects the follow-up, not necessarily a command.
+
+**Renumber from `1` whenever fewer than all three fired** — the example's `1.` / `2.` / `3.` is the all-three case, not a fixed slot assignment. Two fired → `1.` and `2.`; one fired → still number it `1.`, because a one-item numbered list costs nothing and keeps the reply form identical across runs. The closer section renumbers its own options by the same rule, so the body list and the panel stay in lockstep — and since the panel is required verbatim, a body list numbered `2.` with no `1.` above it has no legal closer to match.
+
+**3. Outstanding items** (any phase ⚠ — Phase 8.5's runbook-improvement suggestion does **not** force mode 3 on its own, because it is advisory; but it is still **surfaced here** when the session reaches mode 3 for an unrelated reason, in the advisory tail below. "Does not force mode 3" is not "is dropped in mode 3" — the two are different claims, and only the first is what Phase 8.5's move to mode 2 means):
 
 ```
 <summary block>
@@ -668,9 +679,10 @@ If only one signal fired, still number it `1.` — a one-item numbered list cost
 5. Link hygiene: [[<new page>]] orphaned — add backlink from [[<hub>]]
 6. Consider /vault-cli:reflect — N knowledge file(s) created, org-level decisions captured
 7. Consider /coding:self-improve — N friction signal(s): general correction, command misfire
+8. Runbook improvements: <N HIGH, M MEDIUM> in [[<runbook>]] — review + edit
 ```
 
-Append the reflect and/or self-improve suggestions as the last numbered item(s) only if their signals fired. One line per item. No table, no tree, no asking. The user reads the list and decides what to do next.
+Append the reflect, self-improve, and runbook-improvement suggestions as the last numbered item(s) only if their signals fired. **Items 1–5 are blockers; 6–8 are the advisory tail** — all three are advisory ("suggest-only", never auto-run), which is why they sit together and why a runbook gap belongs here in a mode-3 session even though it cannot *cause* one. One line per item. No table, no tree, no asking. The user reads the list and decides what to do next.
 
 Never auto-close, never auto-commit, never auto-kill, never auto-reflect, never auto-self-improve. The command's only job is the one-line verdict or the numbered open list.
 
@@ -678,7 +690,7 @@ Never auto-close, never auto-commit, never auto-kill, never auto-reflect, never 
 
 Append below the verdict. This command is terminal; without a fixed closer the trailing "name a concrete next action" convention gets improvised, and improvisation reliably produces a next-task recommendation — the exact thing the one-task-per-session contract forbids.
 
-**Clean verdict, mode 1 (no signals fired):**
+**Clean verdict, mode 1 (no follow-up signals fired — matching mode 1's header above):**
 
 ```
 ⚪ DONE
@@ -686,15 +698,17 @@ Append below the verdict. This command is terminal; without a fixed closer the t
 ⏰ Next: you open a new session; the orchestrator picks the next anchor
 ```
 
-**Clean verdict, mode 2 (reflect and/or self-improve fired):** the verdict is still clean, but the body now lists invocable commands — so `👤 You:` must offer them, numbered to match the list above it:
+**Clean verdict, mode 2 (reflect, self-improve, and/or a runbook-improvement gap fired):** the verdict is still clean, but the body now lists follow-ups — so `👤 You:` must offer them, numbered to match the list above it:
 
 ```
 ⚪ DONE
-👤 You: pick — 1. /vault-cli:reflect · 2. /coding:self-improve · 3. nothing — close
+👤 You: pick — 1. /vault-cli:reflect · 2. /coding:self-improve · 3. review the runbook gap · 4. nothing — close
 ⏰ Next: your reply
 ```
 
 Include only the options whose signals actually fired, renumbered from 1, and keep `nothing — close` last so closing stays one keystroke away.
+
+**A runbook-improvement item has no command of its own**, so its option is the plain action — `review the runbook gap` — rather than a slash command. Phase 8.5 explicitly never auto-edits the runbook, so the operator's move is to open it; there is nothing to invoke. Name the runbook when exactly one gap fired (`review [[<runbook>]]`); with two or more, keep the generic form and let the body's numbered list name them. ⚠️ **This option is required whenever a runbook gap is what put the session in mode 2** — omitting it is the drift that leaves the body's item with no slot in the closer, and this section's own verbatim rule forbids improvising one, so the model has no legal output. Leaving the gap is a legitimate resolution and `nothing — close` already covers it.
 
 **`nothing — session closed` is wrong for mode 2** — it asserts there is nothing to do directly above a list of things to do. The global closer rule already forbids `nothing` while something is pending; mode 2 is exactly that case. This is not a "fork" in the `/supervisor:worker-drive` sense either: these are optional follow-ups on a finished task, which is precisely what a `pick` is for.
 

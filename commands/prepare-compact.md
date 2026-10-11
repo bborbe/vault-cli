@@ -30,11 +30,13 @@ This flushes the session's completed work into the daily note and task/goal page
 
 ## Goal and task sweep
 
-Sweep every goal and task touched in this session. For each, confirm the page's Status Summary / Progress / Next line and its checkboxes reflect reality — tick what is actually done, note what is not. This is the second and last write step: progress updates only, via the step-1 sync-progress call and these page edits. No new scope, no new work.
+Sweep every goal and task touched in this session. For each, confirm the page's Status Summary / Progress / Next line and its checkboxes reflect reality — tick what is actually done, note what is not. These page edits are progress updates only, via the step-1 sync-progress call and the sweep — no new scope, no new work. (This is **not** the command's last write: § *Write the minimal checkpoint early* follows it, and § *Per-session checkpoint file* writes again at the end.)
 
 ## Write the minimal checkpoint early
 
-**Immediately after § *Goal and task sweep* identifies this session's anchor task or goal**, write the **minimal** checkpoint — the resume block's `Next action:`, the anchor identity, and a one-line `State:` — to the path § *Per-session checkpoint file* defines. Do this **before** § *Compact-safety checks*, not after them. **Create `~/.claude/compact-checkpoints/` first if it does not exist** (the granted mkdir capability) — this is now the command's *first* write, so it cannot rely on a later section having done it.
+**As soon as § *Goal and task sweep* finishes — unconditionally, whether or not it found an anchor**, write the **minimal** checkpoint — the resume block's `Next action:`, the anchor identity (recorded as unresolved when the sweep found none), and a one-line `State:` — to the path § *Per-session checkpoint file* defines. Do this **before** § *Compact-safety checks*, not after them. **Create `~/.claude/compact-checkpoints/` first if it does not exist** (the granted mkdir capability) — this is now the command's *first* write, so it cannot rely on a later section having done it.
+
+⚠️ **Unconditional is the point.** Gating the write on the sweep *finding* an anchor would leave a session that touched no goal or task writing nothing early — so an interrupted run there still leaves no file, still lands in `post-compact`'s `No checkpoint exists` state, and the gap this section exists to close stays open for exactly the sessions that produce the least context. A thin checkpoint with the anchor recorded as unresolved is still worth more than none.
 
 ⚠️ **The position is the point, and the original defect was positional.** The checkpoint write used to be this command's *last* step, so a run interrupted by the very `/compact` it was preparing for left **nothing**: `post-compact` then had no carry-over items to verify and no resume block to hand on, and its "no checkpoint" state was indistinguishable from a routine second run. Observed 2026-10-11 — `prepare-compact` reached only its compact-safety checks before `/compact` fired. The checks are the slow, interruptible part, and the anchor is resolved before them, so the write can be too.
 
@@ -78,7 +80,7 @@ Interpretations:
 
 **Unanswered gates.** Inventory the decisions this session raised but never answered — a deferred question, a skipped confirmation, a choice left open. Name each one so it survives the compact; an unanswered gate is open state.
 
-**Carryable vs hard.** Every item the checks surface is *carryable* — uncommitted files, un-pushed commits, live processes, and unanswered gates all physically survive `/compact`; only the conversation context is lost, and that is already captured in the resume block and the checkpoint. An open item therefore never blocks compaction by itself. The only *hard* failures — state compaction genuinely destroys and nothing can capture — are a failed vault sync (step 1) or a failed checkpoint write (step 5). Those two are the sole triggers for the hard verdict below.
+**Carryable vs hard.** Every item the checks surface is *carryable* — uncommitted files, un-pushed commits, live processes, and unanswered gates all physically survive `/compact`; only the conversation context is lost, and that is already captured in the resume block and the checkpoint. An open item therefore never blocks compaction by itself. The only *hard* failures — state compaction genuinely destroys and nothing can capture — are a failed vault sync (§ *Sync vault progress*) or a failed checkpoint write (§ *Write the minimal checkpoint early* and § *Per-session checkpoint file*). Those two are the sole triggers for the hard verdict below. ⚠️ **A failed *early* write is not fatal on its own** — the complete write at the end is still ahead of it, so the verdict hardens only if that one also fails. Name which write failed rather than collapsing them into one.
 
 ## Carry-over items
 
@@ -126,7 +128,7 @@ After writing, state the full path in your final message — a checkpoint that i
 
 - `✅ Ready to compact` — no open items: nothing uncommitted or un-pushed, nothing live in the background, no unanswered gates, and the resume block + checkpoint file are in place.
 - `✅ Compact-safe — N carry-over items; run /vault-cli:post-compact after /compact` — open items exist but are all carryable and were written into the checkpoint's `## Carry-over items` section. Compaction loses nothing; run `/vault-cli:post-compact` after `/compact` to verify the fresh state and finish the carried items.
-- `⚠️ Not compact-safe yet` — only when the vault sync (step 1) or the checkpoint write (step 5) failed: state compaction would destroy is not captured anywhere. Name the failure. This is the sole hard block.
+- `⚠️ Not compact-safe yet` — only when the vault sync (§ *Sync vault progress*) or a checkpoint write (§ *Write the minimal checkpoint early* / § *Per-session checkpoint file*) failed: state compaction would destroy is not captured anywhere. Name which failure. This is the sole hard block.
 
 ## No closer panel
 

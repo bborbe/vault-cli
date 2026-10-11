@@ -69,6 +69,7 @@ test:
 	@bash scripts/mode-membership-rule-test.sh
 	@bash scripts/necessity-rule-test.sh
 	@bash scripts/resume-block-card-rule-test.sh
+	@bash scripts/checkpoint-state-rule-test.sh
 	@bash scripts/closes-sc-rule-test.sh
 	@bash scripts/metrics-append-call-site-test.sh
 	@bash scripts/session-claim-branch-test.sh

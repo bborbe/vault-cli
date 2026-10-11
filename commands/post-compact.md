@@ -32,7 +32,11 @@ The checkpoint path template is `~/.claude/compact-checkpoints/<session-id>.md`.
 
 ## Verify carry-over items
 
-Read the `## Carry-over items` section. **If that section is absent, the checkpoint is partial** — say so and verify nothing, rather than reporting a clean zero-item pass. An absent section means *zero items were recorded*, not *nothing to verify*: iterating nothing and reporting success is the silent false negative this command guards against in its own store-unreadable rule below. For each item, re-run the live check prepare-compact recorded and confirm the state still matches:
+Read the `## Carry-over items` section. **A partial checkpoint is discriminated by the resume block's `Live background:` line, not by this section** — the complete write always emits all four frozen labels, while the minimal write omits `Live background:`. A missing `## Carry-over items` section proves nothing on its own: it is absent by design on any complete checkpoint with **zero open items** (`prepare-compact` § *Carry-over items* — "With no open items, write no carry-over section"), so keying on it would report every routine clean run as interrupted.
+
+**On a partial checkpoint, verify nothing and say so** — never report a clean zero-item pass. There, an absent section means *zero items were recorded*, not *nothing to verify*, and iterating nothing while reporting success is the silent false negative this command guards against in its own store-unreadable rule below.
+
+For each item, re-run the live check prepare-compact recorded and confirm the state still matches:
 
 - `uncommitted` / `un-pushed` → `git status --short` / `git log @{u}..` (upstream via `git rev-parse`)
 - `background` → `dark-factory status`, `docker ps`, `pgrep -f 'dark-factory|docker'` (PIDs only — `-a`/`-l` would print command lines carrying MCP `Authorization` headers)

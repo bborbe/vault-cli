@@ -665,7 +665,7 @@ Phase 8.5's runbook-improvement item belongs in **this** list, never the mode-3 
 
 **Renumber from `1` whenever fewer than all three fired** — the example's `1.` / `2.` / `3.` is the all-three case, not a fixed slot assignment. Two fired → `1.` and `2.`; one fired → still number it `1.`, because a one-item numbered list costs nothing and keeps the reply form identical across runs. The closer section renumbers its own options by the same rule, so the body list and the panel stay in lockstep — and since the panel is required verbatim, a body list numbered `2.` with no `1.` above it has no legal closer to match.
 
-**3. Outstanding items** (any phase ⚠ — **not** Phase 8.5's runbook-improvement suggestion, which is advisory and belongs in mode 2 above):
+**3. Outstanding items** (any phase ⚠ — Phase 8.5's runbook-improvement suggestion does **not** force mode 3 on its own, because it is advisory; but it is still **surfaced here** when the session reaches mode 3 for an unrelated reason, in the advisory tail below. "Does not force mode 3" is not "is dropped in mode 3" — the two are different claims, and only the first is what Phase 8.5's move to mode 2 means):
 
 ```
 <summary block>
@@ -679,9 +679,10 @@ Phase 8.5's runbook-improvement item belongs in **this** list, never the mode-3 
 5. Link hygiene: [[<new page>]] orphaned — add backlink from [[<hub>]]
 6. Consider /vault-cli:reflect — N knowledge file(s) created, org-level decisions captured
 7. Consider /coding:self-improve — N friction signal(s): general correction, command misfire
+8. Runbook improvements: <N HIGH, M MEDIUM> in [[<runbook>]] — review + edit
 ```
 
-Append the reflect and/or self-improve suggestions as the last numbered item(s) only if their signals fired. One line per item. No table, no tree, no asking. The user reads the list and decides what to do next.
+Append the reflect, self-improve, and runbook-improvement suggestions as the last numbered item(s) only if their signals fired. **Items 1–5 are blockers; 6–8 are the advisory tail** — all three are advisory ("suggest-only", never auto-run), which is why they sit together and why a runbook gap belongs here in a mode-3 session even though it cannot *cause* one. One line per item. No table, no tree, no asking. The user reads the list and decides what to do next.
 
 Never auto-close, never auto-commit, never auto-kill, never auto-reflect, never auto-self-improve. The command's only job is the one-line verdict or the numbered open list.
 

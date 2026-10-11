@@ -16,7 +16,7 @@ allowed-tools:
 
 Pre-`/compact` checkpoint. Syncs vault progress, surfaces live background state, and writes a resume block so compaction never silently drops work. Run before `/compact` when you want to keep working in this session afterward.
 
-This command **must stay inline** — it reads the parent conversation's state (touched goals and tasks, live background work, the session's own id); a sub-agent cannot see the conversation. It is read-and-report-only: its only writes are the vault progress updates (the *Sync vault progress* and *Goal and task sweep* sections) and the per-session checkpoint file (the *Per-session checkpoint file* section). Never auto-commit, auto-push, kill a daemon.
+This command **must stay inline** — it reads the parent conversation's state (touched goals and tasks, live background work, the session's own id); a sub-agent cannot see the conversation. It is read-and-report-only: its only writes are the vault progress updates (the *Sync vault progress* and *Goal and task sweep* sections) and the per-session checkpoint file (the *Write the minimal checkpoint early* and *Per-session checkpoint file* sections — two writes to one path, not two paths). Never auto-commit, auto-push, kill a daemon.
 
 ## Sync vault progress
 
@@ -34,7 +34,7 @@ Sweep every goal and task touched in this session. For each, confirm the page's 
 
 ## Write the minimal checkpoint early
 
-**Immediately after § *Goal and task sweep* identifies this session's anchor task or goal**, write the **minimal** checkpoint — the resume block's `Next action:`, the anchor identity, and a one-line `State:` — to the path § *Per-session checkpoint file* defines. Do this **before** § *Compact-safety checks*, not after them.
+**Immediately after § *Goal and task sweep* identifies this session's anchor task or goal**, write the **minimal** checkpoint — the resume block's `Next action:`, the anchor identity, and a one-line `State:` — to the path § *Per-session checkpoint file* defines. Do this **before** § *Compact-safety checks*, not after them. **Create `~/.claude/compact-checkpoints/` first if it does not exist** (the granted mkdir capability) — this is now the command's *first* write, so it cannot rely on a later section having done it.
 
 ⚠️ **The position is the point, and the original defect was positional.** The checkpoint write used to be this command's *last* step, so a run interrupted by the very `/compact` it was preparing for left **nothing**: `post-compact` then had no carry-over items to verify and no resume block to hand on, and its "no checkpoint" state was indistinguishable from a routine second run. Observed 2026-10-11 — `prepare-compact` reached only its compact-safety checks before `/compact` fired. The checks are the slow, interruptible part, and the anchor is resolved before them, so the write can be too.
 

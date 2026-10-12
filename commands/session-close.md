@@ -207,6 +207,8 @@ Cross-check against other still-active Claude sessions: a worktree from a siblin
 
 **Exclude your own process tree before believing a hit.** A sweep that has `cd`'d into a worktree makes that worktree look occupied *to itself* — the harness shell sits there with its `cwd` inside, and `lsof +D` reports it. Observed 2026-09-21 on `tts-mcp`: two orphaned worktrees each showed a live `zsh` inside them, and both were the checking session's own shell, left by a `cd` one command earlier. Compare each hit's pid against `$$` and its parent chain, then re-check with `ps -p <pid> -o pid=,etime=,command=` — a pid that has already exited (`(gone)`) proves the hit was transient. Unfiltered, this guard silently disables itself on exactly the worktrees the sweep just visited, which are the ones it is closest to judging.
 
+**The session's own cwd is never a mode-3 blocker.** A worktree whose path is this session's working directory is by definition in use, and it cannot be removed while the session lives — so listing it as outstanding creates a blocker no run can clear, and every repeat run reports the identical verdict. Report it under a post-close heading and keep it out of the mode-3 list. Observed 2026-10-12 on `lib-mdm-fix-lint`: genuinely orphaned (branch merged as `e8db2f8d`, deleted from the remote, 0 commits beyond master), yet two consecutive runs emitted the same `🔵 READY` naming only it. The own-process exclusion above is what makes this reachable — it is right for judging *other* worktrees, and it is exactly what leaves the session's own one flagged.
+
 Surface in Phase 9 as outstanding:
 
 ```

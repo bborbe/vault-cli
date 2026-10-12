@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.168.4
 
 - fix: `/vault-cli:session-close`'s orphan-worktree line now removes the worktree by absolute path. It prescribed `cd <parent> && git worktree remove ../<name>`, which is wrong under every reading — the worktree is a sibling of the repo's own parent directory, not a child of it, and the vault's worktree-placement rule forbids nesting it there. Observed 2026-10-12: run from the repo it resolved to `sm-octopus/sm-octopus-dashboard-mdm-moco` and failed with `fatal: '../sm-octopus-dashboard-mdm-moco' is not a working tree`. The same absolute-path form already appeared on the detached-worktree line above it, so the file was internally inconsistent.
 

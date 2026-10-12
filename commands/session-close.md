@@ -212,7 +212,7 @@ Cross-check against other still-active Claude sessions: a worktree from a siblin
 Surface in Phase 9 as outstanding:
 
 ```
-N. Orphan worktree: ~/Documents/workspaces/<name> (branch <feat>, deleted from remote) — `cd <parent> && git worktree remove ../<name>`
+N. Orphan worktree: ~/Documents/workspaces/<name> (branch <feat>, deleted from remote) — `git worktree remove ~/Documents/workspaces/<name>`
 ```
 
 Don't auto-remove — the user may have local changes they want to inspect first.
@@ -676,7 +676,7 @@ Phase 8.5's runbook-improvement item is an **advisory entry in this list, never 
 
 1. <repo>: N uncommitted file(s) — <first path>
 2. ~/.claude: untracked <file>
-3. Orphan worktree: ~/Documents/workspaces/<name> (branch <feat>, deleted from remote) — `git worktree remove ../<name>`
+3. Orphan worktree: ~/Documents/workspaces/<name> (branch <feat>, deleted from remote) — `git worktree remove ~/Documents/workspaces/<name>`
 4. dark-factory daemon (pid X) — spawned by THIS session, still running in <project>
 5. Link hygiene: [[<new page>]] orphaned — add backlink from [[<hub>]]
 6. Consider /vault-cli:reflect — N knowledge file(s) created, org-level decisions captured

@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.168.3
 
 - fix: `/vault-cli:session-close` no longer reports the session's own working directory as a mode-3 blocker in Phase 3.5. A worktree whose path is the session's cwd is by definition in use and cannot be removed while the session lives, so listing it as outstanding produced a blocker no run could clear — two consecutive runs emitted the identical `🔵 READY` naming only it. It is reported under a post-close heading instead. Observed 2026-10-12 on `lib-mdm-fix-lint`: genuinely orphaned (branch merged as `e8db2f8d`, deleted from the remote, 0 commits beyond master), yet flagged as a blocker on both runs.
 

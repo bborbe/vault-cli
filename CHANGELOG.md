@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: `/vault-cli:sync-progress` § 3.4 can no longer act on a ticket the session itself created. The project allowlist gate narrows the detected `[A-Z]+-\d+` set by *project* — but a ticket the session filed has the same project as a ticket it was handed, so "always comment" plus step 4's completion transition would close the very tickets the session had just opened. A new role gate excludes every key the session produced. Observed 2026-10-14: a session built and live-ran a Sentry-review command that **created** 14 BRO bugs (BRO-22248, BRO-22251–BRO-22263); Phase 3.4 detected all 14 and, on completion, would have commented on and transitioned each to Done. The step was skipped by hand, and the one legitimate tracker in the transcript — the goal's own issue — was commented on instead.
+
 ## v0.168.6
 
 - fix: `/vault-cli:sync-progress` short-circuits when the session's completion is already recorded. Phase 2 now applies `session-close` § Phase 2's exception test before Phase 3 — if the completion is already represented under today's "What happened today" and no vault-tracked work happened since, it reports `already synced — no writes this run` and stops, instead of paying a full Phase 1–2 sweep to conclude the same thing. Observed 2026-10-14: the operator ran the command twice in one session; the second run wrote nothing, and reaching that conclusion cost a vault config read, a session-transcript scan, git probes, and a Jira issue fetch.

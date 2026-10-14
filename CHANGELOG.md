@@ -10,7 +10,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 
 ## Unreleased
 
-- fix: `/vault-cli:session-close` § Phase 4.5 no longer hard-flags a task another live session holds. Its three exclusions — created-this-session, fleet queue task, mirror-promoted — each restate the same scope test, *"if the `claude_session_id` names this session, or the file was created here, it is an anchor and the gate runs normally"*, but a fourth category fell through the enumeration: a row this session only appended to. Observed 2026-10-14: a session released from its row when the goal manager restamped `claude_session_id` to a peer appended one `# Progress` entry, was hard-flagged as its own anchor, and needed two `session-close` runs to reach a clean verdict — the first run's `approve:` line offering a resolution the operator had already given.
+- fix: `/vault-cli:session-close` § Phase 4.5 no longer hard-flags a task another live session holds. Its three exclusions — created-this-session, fleet queue task, mirror-promoted — each apply a scope test of the same shape (*"if the `claude_session_id` names this session, or the session actually worked the task, it is an anchor and the gate runs normally"*), but a fourth category fell through the enumeration: a row this session only appended to. Observed 2026-10-14: a session released from its row when the goal manager restamped `claude_session_id` to a peer appended one `# Progress` entry and was hard-flagged as its own anchor, its `approve:` line offering a resolution the operator had already given.
 
 ## v0.168.4
 

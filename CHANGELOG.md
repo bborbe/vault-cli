@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: `/vault-cli:sync-progress` short-circuits when the session's completion is already recorded. Phase 2 now applies `session-close` § Phase 2's exception test before Phase 3 — if the completion is already represented under today's "What happened today" and no vault-tracked work happened since, it reports `already synced — no writes this run` and stops, instead of paying a full Phase 1–2 sweep to conclude the same thing. Observed 2026-10-14: the operator ran the command twice in one session; the second run wrote nothing, and reaching that conclusion cost a vault config read, a session-transcript scan, git probes, and a Jira issue fetch.
+
 ## v0.168.5
 
 - fix: `/vault-cli:session-close` § Phase 4.5 no longer hard-flags a task another live session holds. Its three exclusions — created-this-session, fleet queue task, mirror-promoted — each apply a scope test of the same shape (*"if the `claude_session_id` names this session, or the session actually worked the task, it is an anchor and the gate runs normally"*), but a fourth category fell through the enumeration: a row this session only appended to. Observed 2026-10-14: a session released from its row when the goal manager restamped `claude_session_id` to a peer appended one `# Progress` entry and was hard-flagged as its own anchor, its `approve:` line offering a resolution the operator had already given.

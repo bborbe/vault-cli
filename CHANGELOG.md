@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.168.5
 
 - fix: `/vault-cli:session-close` § Phase 4.5 no longer hard-flags a task another live session holds. Its three exclusions — created-this-session, fleet queue task, mirror-promoted — each apply a scope test of the same shape (*"if the `claude_session_id` names this session, or the session actually worked the task, it is an anchor and the gate runs normally"*), but a fourth category fell through the enumeration: a row this session only appended to. Observed 2026-10-14: a session released from its row when the goal manager restamped `claude_session_id` to a peer appended one `# Progress` entry and was hard-flagged as its own anchor, its `approve:` line offering a resolution the operator had already given.
 

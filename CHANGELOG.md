@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.169.1
 
 - fix: `/vault-cli:session-close` removes a worktree the session itself created, once it is provably finished with, instead of listing it as an outstanding item and asking for an `approve:` line. Phase 3.5 already detects orphan worktrees with a forge-agnostic merge test, and `~/.claude/settings.json` already allows `Bash(git worktree remove:*)` — so the gate was self-imposed by one sentence: *"Don't auto-remove — the user may have local changes they want to inspect first."* Measured 2026-10-15: the closer `approve: git worktree` key fired in **11 sessions / 26 events over 7 days**, with `remove` following in 12 of 13 sessions. Three no-ask conditions are now stated — the session created the worktree and has finished with it (never its own cwd, which cannot be removed while the session lives), its branch is merged **by the file's own test** (the merge-second-parent match, or the commit count for a squash- or rebase-merged branch; never a forge-specific `gh pr view`), and its working tree is clean — and removal is reversible, since the commits are merged and `git worktree add` recreates the checkout. The still-asks cases are named too: uncommitted work, another session's worktree, or a merge test that cannot be shown. The old blanket prohibition is gone rather than supplemented, and the mode-3 item 3 example now states it covers the still-asks cases only.
 

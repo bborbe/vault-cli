@@ -215,7 +215,19 @@ Surface in Phase 9 as outstanding:
 N. Orphan worktree: ~/Documents/workspaces/<name> (branch <feat>, deleted from remote) — `git worktree remove ~/Documents/workspaces/<name>`
 ```
 
-Don't auto-remove — the user may have local changes they want to inspect first.
+**Remove it yourself, without an `approve:` line, when all three hold:**
+
+1. **This session created it and has finished with it** — a worktree the session made for its own task, whose work is now merged. ⚠️ Never the session's own cwd: a worktree whose path is this session's working directory cannot be removed while the session lives (see above), so it is never a candidate.
+2. **Its branch is merged, by the test that flagged it.** Either arm counts — test (b)'s merge-second-parent match, or test (a)'s commit count for a squash- or rebase-merged branch. Do **not** re-derive this from a forge-specific check: `gh pr view --json state` reads GitHub only, and the detector above is deliberately forge-agnostic (commit `858e9cc`). A detached worktree satisfies this by construction — it has no branch, and its commits are reachable from the tag it was created at.
+3. **Its working tree is clean** — `git status` reports no modified, staged or untracked files.
+
+Removal loses nothing and is reversible: the branch's commits are merged and reachable from `origin/master`, and `git worktree add` recreates the checkout. Run `git worktree remove <path>` yourself, then report the removal in the close summary instead of listing it as outstanding.
+
+**Still surface it as outstanding — keeping the `approve:` line — when any of these hold:**
+
+- **Uncommitted work.** `git status` in the worktree is not clean, or it holds commits not reachable from `origin/master`. The user may have local changes they want to inspect first; that is the whole reason removal was never automatic here, and it still governs this case.
+- **Another session's worktree.** This session did not create it, or a live process still has it as its cwd. A sibling session's worktree is not this session's to remove.
+- **The merge test is inconclusive.** If you cannot show the branch merged by the file's own test, treat it as unmerged and surface it.
 
 ### Phase 4: Check active task list (TaskCreate)
 
@@ -687,6 +699,8 @@ Phase 8.5's runbook-improvement item is an **advisory entry in this list, never 
 ```
 
 Append the reflect, self-improve, and runbook-improvement suggestions as the last numbered item(s) only if their signals fired. **Items 1–5 are blockers; 6–8 are the advisory tail** — all three are advisory ("suggest-only", never auto-run), which is why they sit together and why a runbook gap belongs here in a mode-3 session even though it cannot *cause* one. One line per item. No table, no tree, no asking. The user reads the list and decides what to do next.
+
+⚠️ **Item 3 covers the still-asks cases only.** A worktree this session created, whose branch is merged by the file's own test and whose working tree is clean, is **removed** under the no-ask rule in Phase 3.5 and reported in the close summary — it never reaches this list, so it never becomes a mode-3 blocker.
 
 Never auto-close, never auto-commit, never auto-kill, never auto-reflect, never auto-self-improve. The command's only job is the one-line verdict or the numbered open list.
 

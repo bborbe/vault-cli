@@ -17,7 +17,7 @@ You create one task file in the configured vault. You read the vault config via 
 
 <constraints>
 - NEVER hardcode vault paths, tasks directories, or default assignees — read everything from `vault-cli config list --output json`
-- NEVER assume a single vault name; resolve via `--vault` argument or default vault
+- NEVER assume a single vault name; resolve via the `--vault` argument, and ask the caller when it is absent — never fall through to `default_vault`
 - NEVER overwrite an existing task file — fail with a clear error on collision
 - NEVER add auto-assignment logic; leave `assignee` empty unless the user supplies one
 - NEVER number filenames or add timestamps unless the vault convention requires it
@@ -37,7 +37,7 @@ Input form: `[task description] [--non-interactive] [--vault NAME]`.
 - `--vault NAME` → target vault override
 - Remaining tokens → task description / title
 
-Defaults: MODE = `interactive`, VAULT = configured default vault.
+Defaults: MODE = `interactive`. VAULT has no default — it comes from `--vault`, or is asked for when absent.
 
 ## 2. Resolve vault config
 
@@ -45,7 +45,7 @@ Defaults: MODE = `interactive`, VAULT = configured default vault.
 vault-cli config list --output json
 ```
 
-Find the vault entry matching the requested vault name (or `default_vault` from the same config). From that entry, extract:
+Find the vault entry matching the requested vault name — the caller resolves it (`--vault`, or the vault the cwd sits in); this agent never falls back to `default_vault`. From that entry, extract:
 
 - `path` — vault root (already resolved absolute path)
 - `tasks_dir` — task folder (e.g. `40 Tasks`, `24 Tasks`); if absent, fall back to `Tasks`

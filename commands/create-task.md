@@ -11,10 +11,18 @@ Create one task file in the vault. Which agent performs the write depends on whe
 - `--docs-only` → `ROUTE=docs` (explicit)
 - `--code` → `ROUTE=code` (explicit)
 - `--non-interactive` (deprecated alias: `--tool`) → `MODE=non_interactive` (JSON output, no prompts)
-- `--vault NAME` → target a specific vault (otherwise the default vault from `~/.vault-cli/config.yaml`)
+- `--vault NAME` → target a specific vault (otherwise resolve it per **Resolve the vault** below — never fall through to the default vault)
 - Remaining text → task description / title
 
 **`MODE` defaults to `interactive` when `--non-interactive` is absent.** The route block below switches on it, so it is always assigned — an unset `MODE` matches neither arm and leaves `ROUTE` unassigned.
+
+## Resolve the vault
+
+- `--vault NAME` given, or cwd inside a vault path → use it.
+- Neither → ask with `AskUserQuestion`, offering the vault names from `vault-cli config list`. Never infer the vault from the task's topic, and never fall through to `default_vault`: the configured default is a different vault, and landing there is a silent wrong answer.
+- **`MODE=non_interactive`** → do not ask and do not default. Fail with `❌ Pass --vault — the vault cannot be inferred headlessly.` and STOP. Mirrors the route block's arm above: a headless caller cannot answer, and a wrong guess silently takes the wrong path.
+
+Same convention as `commands/reflect.md` and `agents/graph-auditor.md` — resolve the vault, or ask; do not guess.
 
 ## Resolve the route
 

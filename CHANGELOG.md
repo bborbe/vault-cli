@@ -8,9 +8,12 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## v0.169.2
+## Unreleased
 
 - fix: `/vault-cli:sync-progress` § Phase 2 reaches its `already synced — no writes this run` short-circuit for an `in_progress` anchor, instead of reporting failure for a record it can verify as present. The short-circuit added in `v0.168.6` was gated *"When a completion was established above"*, so the state the command is most often run in — an anchor that is still open — fell past it to `No task completion or PR detected. Use /update instead for in-progress work.` and STOP. Measured 2026-10-15: the operator ran the command **four times in one session** against an `in_progress` anchor whose daily-note entry already existed; all four stopped at the same line, each costing a full Phase 1–2 sweep (vault config read, session-transcript scan, git probes) and producing an identical report. The gate now reads *"whenever a completion was established above **or** the anchor is `in_progress`"*, and an explicit `in_progress` arm precedes the STOP bullet so the representation check runs first. Still keyed on the representation check rather than on the status alone: an `in_progress` anchor with **no** daily-note entry falls through to the STOP line unchanged. Out of scope: the Phase 1–2 sweep itself (the short-circuit still runs after the completion analysis, so the sweep is not removed — the false failure report and the operator's reason to re-run are) and the close-family loop in `/vault-cli:session-close`.
+
+## v0.169.2
+
 - fix: `/vault-cli:create-task` and its `task-creator` agent no longer fall back silently to the configured default vault. `commands/create-task.md` documented `--vault` as optional with an implicit default, and `agents/task-creator.md` stated it outright (`Defaults: MODE = interactive, VAULT = configured default vault`) — so a task belonging to one vault was placed in another by inference, and the silent fallback is a **third** vault again, wrong for work belonging to any other. Both now resolve the vault from `--vault` or from the cwd, and **ask** when neither determines it — the convention `commands/reflect.md` (*"If cwd is not inside any vault path, ask the user which vault to write to"*) and `agents/graph-auditor.md` (*"ask user which vault to audit; do not guess"*) already carry, so this brings the pair in line with their siblings rather than adding a new rule. Observed 2026-10-15: a task belonging to `seibert-personal` was created in `seibert-brogrammers` by inference and had to be deleted and re-created, costing two `task-creator` runs (~105k tokens).
 
 ## v0.169.1

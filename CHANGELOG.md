@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.169.4
 
 - fix: `/vault-cli:session-close` no longer emits `⚪ DONE` on a carried-forward `in_progress` anchor. The mode gate deliberately lets a task the operator already resolved this session reach the clean verdicts, but every clean-verdict block in § Closer panel prescribed `⚪ DONE` — which `~/.claude/CLAUDE.md` names an anti-pattern while the anchored task still reads `in_progress`, requiring 🔵 READY / 🟡 WAITING / 🔴 BLOCKED in its place. The two rules are not reconcilable by wording: the command's own § Closer panel says *"verbatim, no rewording"*, so a session reaching mode 1 or 2 with a carried-forward anchor had no legal closer to emit. Closing a session is not the same claim as the task being finished, so the rule now keeps the block's body unchanged and swaps its `⚪ DONE` line for the panel the anchor's own state calls for — 🟡 WAITING with `later (on <trigger>):` when every open item is clock-bound, 🔵 READY when the next step is the operator's. Only the anchor's own status licenses `⚪ DONE`. Measured 2026-10-14 and 2026-10-15: two consecutive runs reached a clean verdict with a carried-forward anchor and had to improvise the panel against this section's verbatim rule, because no block offered one.
 

@@ -86,7 +86,7 @@ Task tool with:
 
 **The subject may be a goal or a topic** — the agent resolves which and reports the kind. A goal's closure boxes are `# Success Criteria` + `# Definition of Done`; a topic's are `# Success Criteria` + `# Completion Gate`, because **a topic carries no `# Definition of Done`** (`commands/execute-topic.md` § the check set). The agent returns one row per box, naming the linked task that drives it (goal subject) or the member goal under `# Goals` that drives it (topic subject), the evidence rating **with the source it read**, and a proposal where nothing drives it — plus its `Coverage:` reconciliation line. Render that table verbatim below the anchor pair; do NOT also emit the aggregate status body.
 
-**The evidence source is not optional.** Every `measured` row must name where its result was read (`measured(progress 2026-10-10)`, `measured(PR #240)`). A row rating itself `measured` from the box's own text is a defect to report, not a row to print: the mode exists to separate a genuine reading from a string match, and a table that hides the difference reports the opposite of what it measured.
+**Do not re-derive the rating.** Print each `measured(<source>)` cell exactly as the agent emitted it; the rating rule lives in `agents/goal-manager-agent.md` § coverage and is deliberately not restated here. A row that rates itself `measured` from the box's own text is a defect to report, not a row to print.
 
 ## Output shape
 

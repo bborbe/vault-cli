@@ -121,7 +121,7 @@ Task tool with:
 
 The agent returns the reverse map — one row per box of `# Success Criteria` + `# Definition of Done`, each naming the subtask that drives it, the evidence rating **with the source it read**, and a proposal where nothing drives it — plus its `Coverage:` reconciliation line. Render that table verbatim below the anchor pair; do NOT also emit the grouped-checkbox report. Phase 2.5's phase/plan assessment belongs to the `status` report and is not rendered in coverage mode.
 
-**The evidence source is not optional.** Every `measured` row must name where its result was read (`measured(progress 2026-10-15)`, `measured(PR #241)`). A row rating itself `measured` from the box's own text is a defect to report, not a row to print: the mode exists to separate a genuine reading from a string match, and a table that hides the difference reports the opposite of what it measured.
+**Do not re-derive the rating.** Print each `measured(<source>)` cell exactly as the agent emitted it; the rating rule lives in `agents/task-manager-agent.md` § coverage and is deliberately not restated here. A row that rates itself `measured` from the box's own text is a defect to report, not a row to print.
 
 ## Output shape (from task-manager-agent)
 

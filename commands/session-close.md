@@ -708,6 +708,8 @@ Never auto-close, never auto-commit, never auto-kill, never auto-reflect, never 
 
 Append below the verdict. This command is terminal; without a fixed closer the trailing "name a concrete next action" convention gets improvised, and improvisation reliably produces a next-task recommendation — the exact thing the one-task-per-session contract forbids.
 
+⚠️ **A carried-forward `in_progress` anchor keeps the clean verdict but not the `⚪ DONE`.** The mode gate above deliberately lets a task the operator already resolved this session reach modes 1 and 2 — but `~/.claude/CLAUDE.md` names `⚪ DONE` while the anchored task is still `in_progress` an anti-pattern, and requires 🔵 READY / 🟡 WAITING / 🔴 BLOCKED in its place. So in every clean-verdict block below, when the anchor task still reads `in_progress` on disk this run, emit the block's body unchanged and replace its `⚪ DONE` line with the panel the anchor's own state calls for — 🟡 WAITING with `later (on <trigger>):` when every open item is clock-bound, 🔵 READY when the next step is the operator's. Closing a session is not the same claim as the task being finished, and only the anchor's own status licenses `⚪ DONE`. Observed 2026-10-14 and 2026-10-15: two consecutive runs reached a clean verdict with a carried-forward anchor and had to improvise the panel against this section's own verbatim rule, because no block below offered one.
+
 **Clean verdict, mode 1 (no follow-up signals fired — matching mode 1's header above):**
 
 ```

@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.169.3
 
 - fix: `/vault-cli:sync-progress` § Phase 2 reaches its `already synced — no writes this run` short-circuit for an `in_progress` anchor, instead of reporting failure for a record it can verify as present. The short-circuit added in `v0.168.6` was gated *"When a completion was established above"*, so the state the command is most often run in — an anchor that is still open — fell past it to `No task completion or PR detected. Use /update instead for in-progress work.` and STOP. Measured 2026-10-15: the operator ran the command **four times in one session** against an `in_progress` anchor whose daily-note entry already existed; all four stopped at the same line, each costing a full Phase 1–2 sweep (vault config read, session-transcript scan, git probes) and producing an identical report. The gate now reads *"whenever a completion was established above **or** the anchor is `in_progress`"*, and an explicit `in_progress` arm precedes the STOP bullet so the representation check runs first. Still keyed on the representation check rather than on the status alone: an `in_progress` anchor with **no** daily-note entry falls through to the STOP line unchanged. Out of scope: the Phase 1–2 sweep itself (the short-circuit still runs after the completion analysis, so the sweep is not removed — the false failure report and the operator's reason to re-run are) and the close-family loop in `/vault-cli:session-close`.
 

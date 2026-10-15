@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.169.1
 
 - fix: `/vault-cli:create-task` and its `task-creator` agent no longer fall back silently to the configured default vault. `commands/create-task.md` documented `--vault` as optional with an implicit default, and `agents/task-creator.md` stated it outright (`Defaults: MODE = interactive, VAULT = configured default vault`) — so a task belonging to one vault was placed in another by inference, and the silent fallback is a **third** vault again, wrong for work belonging to any other. Both now resolve the vault from `--vault` or from the cwd, and **ask** when neither determines it — the convention `commands/reflect.md` (*"If cwd is not inside any vault path, ask the user which vault to write to"*) and `agents/graph-auditor.md` (*"ask user which vault to audit; do not guess"*) already carry, so this brings the pair in line with their siblings rather than adding a new rule. Observed 2026-10-15: a task belonging to `seibert-personal` was created in `seibert-brogrammers` by inference and had to be deleted and re-created, costing two `task-creator` runs (~105k tokens).
 

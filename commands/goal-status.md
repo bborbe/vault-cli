@@ -1,6 +1,6 @@
 ---
 description: Show status of current goal with progress and next task, always leading with the Async State Closer anchor pair (clickable goal + next-task links).
-argument-hint: (detects from conversation)
+argument-hint: (detects from conversation) | --coverage
 allowed-tools:
   - Read
   - Grep
@@ -71,6 +71,22 @@ Task tool with:
 ```
 
 The agent renders its aggregate body unchanged (`Status:` / `Criteria:` / `Subtasks:` / `🔜 Next:`).
+
+## Coverage mode (`--coverage`)
+
+With `--coverage`, Phases 1–2 run unchanged and Phase 3 delegates the **coverage** action instead of `status`:
+
+```
+Task tool with:
+  subagent_type: 'vault-cli:goal-manager-agent'
+  prompt: 'ACTION: coverage
+           SUBJECT: <resolved-goal-or-topic-from-phase-1>
+           MODE: interactive'
+```
+
+**The subject may be a goal or a topic** — the agent resolves which and reports the kind. A goal's closure boxes are `# Success Criteria` + `# Definition of Done`; a topic's are `# Success Criteria` + `# Completion Gate`, because **a topic carries no `# Definition of Done`** (`commands/execute-topic.md` § the check set). The agent returns one row per box, naming the linked task that drives it (goal subject) or the member goal under `# Goals` that drives it (topic subject), the evidence rating **with the source it read**, and a proposal where nothing drives it — plus its `Coverage:` reconciliation line. Render that table verbatim below the anchor pair; do NOT also emit the aggregate status body.
+
+**The evidence source is not optional.** Every `measured` row must name where its result was read (`measured(progress 2026-10-10)`, `measured(PR #240)`). A row rating itself `measured` from the box's own text is a defect to report, not a row to print: the mode exists to separate a genuine reading from a string match, and a table that hides the difference reports the opposite of what it measured.
 
 ## Output shape
 

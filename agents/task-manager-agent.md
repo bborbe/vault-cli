@@ -16,7 +16,7 @@ model: sonnet
 
 Handles task operations: status, verify.
 
-**Action:** $ACTION (status|verify)
+**Action:** $ACTION (status|verify|coverage)
 **Arguments:** $ARGS
 **Mode:** $MODE (interactive|tool) - default: interactive
 
@@ -199,6 +199,48 @@ Emit a grouped-checkbox status report for a resolved task path, including a read
 10. **Warnings (append after the report):**
    - If `>3 in-progress`: `⚠️ Multiple in-progress items. Focus on one.`
    - If `total == 0`: `⚠️ No checkboxes found in any of # Success Criteria / # Tasks / # Definition of Done.`
+
+### coverage
+
+Emit the **reverse map** for one task: for every closure box, the subtask that drives it, the evidence rating for that box, and a proposal where nothing drives it. This is the inverse of step 5 of `verify` — that check walks *this task → the goal box it serves*; this one walks *this task's own box → what drives it*. The two are different questions at different levels, and neither substitutes for the other: a task can serve its goal cleanly and still carry boxes none of its own subtasks advances.
+
+**Arguments:**
+- `TASK_PATH` (required) — absolute path to the task file, or a name resolvable through `find_task`. As in `status`, the caller resolves this; do NOT detect from conversation.
+- `MODE` (optional) — `interactive` (default) or `tool`.
+
+**Closure boxes** — `# Success Criteria` and `# Definition of Done`, parsed through the shared operations (`parse_checkboxes`, and for the goal side the mirrored `parse_success_criteria` / `parse_definition_of_done`). A task carries no `# Completion Gate`; that heading belongs to a topic, which `goal-manager-agent` handles.
+
+**Driving item** — the `# Tasks` subtask that advances the box. ⚠️ **The driving item is a subtask, not this task itself.** A task trivially "drives" all of its own boxes, so accepting the task as its own driver makes every row driven and the map worthless — the useful reading is which *subtask* carries the box, and `none` when none does.
+
+**Row format — one row per box, and the row is the deliverable, a count is not:**
+
+```
+<box verbatim> | <driving subtask or "none"> | <evidence: measured(<source>) | asserted | none> | <proposal: create | re-scope | split | diagnosis-task | —>
+```
+
+**Evidence rating — the rating rule is the point of the mode, so apply it, never infer it from the box's own wording:**
+- `measured(<source>)` — this task's `# Progress` log **or** a linked artifact quotes a command result / PR / tag for that box, **and** `<source>` names where that result was read (`progress 2026-10-15`, `PR #241`, `tag v0.169.0`). ⚠️ **A box whose own text quotes a result does not make itself `measured`** — the source must name a location *outside the row*, and a `measured` rating carrying no source is a defect rather than a pass. A mode that scans box text for a quoted result has read nothing, and separating that from a genuine reading is the whole reason this column exists.
+- `asserted` — a ticked box or a prose claim with no quoted result.
+- `none` — nothing.
+
+**Proposal column — filled when, and only when, the driving-item cell is `none`:** `create` (no subtask drives the box and one should be added), `re-scope` (an existing subtask should be widened to cover it), `split` (the box carries more than one outcome), `diagnosis-task` (something must be investigated before the box can be driven), `—` (a driving subtask exists, so no proposal is needed). ⚠️ **A `none` driving-item cell must carry a proposal naming the missing prerequisite** — `—` against `none` is not a pass, it is the omission this column exists to catch.
+
+**Steps:**
+
+1. **Resolve the task** — `find_task($ARGS)` when `$ARGS` is a name; use `TASK_PATH` directly when it is already a path.
+2. **Parse the closure boxes** — `# Success Criteria` and `# Definition of Done`, with their verbatim text.
+3. **Parse the candidate drivers** — the `# Tasks` subtask lines.
+4. **Match each box to its driving subtask, quoting both lines** — the same two-quote bar step 5 of `verify` sets. A match you cannot quote is `none`, never rounded up.
+5. **Rate the evidence** per the rule above, naming the source you actually read.
+6. **Emit one row per box**, then the reconciliation line:
+   ```
+   Coverage: {boxes} boxes · {driven} driven · {none} none · {measured} measured · {asserted} asserted
+   ```
+   ⚠️ **The parts must sum to `{boxes}`** — a line whose parts do not reconcile reads as a measurement when it is an omission.
+
+⚠️ **Evidence shape** — a run emits exactly one row per box of `# Success Criteria` + `# Definition of Done`. Count the boxes (`grep -c`) and compare against the emitted rows; a differing count is an incomplete run, not a shorter report.
+
+⚠️ **Read-only.** Report only — never modify, create, re-link or tick anything, on this task or on any linked goal.
 
 ### verify
 

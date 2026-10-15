@@ -14,7 +14,7 @@ model: sonnet
 
 Handles goal operations: status, verify.
 
-**Action:** $ACTION (status|verify)
+**Action:** $ACTION (status|verify|coverage)
 **Arguments:** $ARGS
 **Mode:** $MODE (interactive|tool) - default: interactive
 
@@ -31,6 +31,7 @@ Handles goal operations: status, verify.
 
 - Goals directory: `<goals_dir>` (resolved from vault-cli config — never a hardcoded folder name)
 - Tasks directory: `<tasks_dir>` (resolved from vault-cli config — never a hardcoded folder name)
+- Topics directory: `<topics_dir>` (resolved from vault-cli config — never a hardcoded folder name; the config's `topics_dir` key, defaulting to `23 Topics` when a vault sets none)
 
 ## Shared Operations
 
@@ -134,6 +135,53 @@ Show goal status. Accepts an explicit goal name/path, or detects from conversati
    - If status is `in_progress` but 0 subtasks in_progress: "⚠️ No active subtask. Pick one to start."
    - If 100% on both criteria and subtasks: "🎉 Ready to complete!"
    - If status `completed` but criteria/subtasks not 100%: "⚠️ Status mismatch — re-verify."
+
+### coverage
+
+Emit the **reverse map**: for every closure box of the named subject, the item that drives it, the evidence rating for that box, and a proposal where nothing drives it. This is the inverse of step 8 of `verify` — that check walks *driver → the box it serves*; this one walks *box → what drives it*. Both directions are needed and neither substitutes for the other: a goal can have every linked task serving something and still carry boxes nothing serves.
+
+**Arguments:**
+- `SUBJECT` (required) — a goal name/path, or a topic name/path.
+- `MODE` (optional) — `interactive` (default) or `tool`.
+
+**Subject kinds — resolve `SUBJECT` as a goal first, then as a topic.** Report which kind it resolved as, and never guess between them: the two differ in *both* halves of the map.
+
+| | goal subject | topic subject |
+|---|---|---|
+| closure boxes | `# Success Criteria` + `# Definition of Done` | `# Success Criteria` + `# Completion Gate` |
+| driving item | the task linked in `# Tasks` that serves the box | the member goal listed under `# Goals` / `## Goals` that serves the box |
+
+⚠️ **A topic carries no `# Definition of Done` — `# Completion Gate` is the analogue at this level** (see `commands/execute-topic.md` § the check set). Reading a DoD section off a topic silently drops that subject's real closure boxes, which is the one failure this mode exists to make visible; a mode that hardcodes `# Definition of Done` for every subject is incomplete for exactly the subject class the topic kind covers.
+
+**Row format — one row per box, and the row is the deliverable, a count is not:**
+
+```
+<box verbatim> | <driving task or "none"> | <evidence: measured(<source>) | asserted | none> | <proposal: create | re-scope | split | diagnosis-task | —>
+```
+
+**Evidence rating — the rating rule is the point of the mode, so apply it, never infer it from the box's own wording:**
+- `measured(<source>)` — the subject's `# Progress` log **or** a linked artifact quotes a command result / PR / tag for that box, **and** `<source>` names where that result was read (`progress 2026-10-10`, `PR #240`, `tag v0.126.0`). ⚠️ **A box whose own text quotes a result does not make itself `measured`** — the source must name a location *outside the row*, and a `measured` rating carrying no source is a defect rather than a pass. A mode that scans box text for a quoted result has read nothing, and separating that from a genuine reading is the whole reason this column exists.
+- `asserted` — a ticked box or a prose claim with no quoted result.
+- `none` — nothing.
+
+**Proposal column — filled when, and only when, the driving-item cell is `none`:** `create` (no item drives the box and one should be created), `re-scope` (an existing item should be widened to cover it), `split` (the box carries more than one outcome), `diagnosis-task` (something must be investigated before the box can be driven), `—` (a driving item exists, so no proposal is needed). ⚠️ **A `none` driving-item cell must carry a proposal naming the missing prerequisite** — `—` against `none` is not a pass, it is the omission this column exists to catch.
+
+**Steps:**
+
+1. **Resolve `SUBJECT`** — `find_goal($ARGS)` first; on a miss, resolve it under `<topics_dir>`. State the resolved kind in the output.
+2. **Parse the closure boxes** for that kind (goal: `parse_success_criteria` + `parse_definition_of_done`; topic: `# Success Criteria` + `# Completion Gate`).
+3. **Parse the candidate drivers** for that kind (goal: `get_subtask_statuses`; topic: the member goals under `# Goals` / `## Goals`).
+4. **Match each box to its driver, quoting both lines** — the same two-quote bar step 8 of `verify` sets. A match you cannot quote is `none`, never rounded up.
+5. **Rate the evidence** per the rule above, naming the source you actually read.
+6. **Emit one row per box**, then the reconciliation line:
+   ```
+   Coverage: {boxes} boxes · {driven} driven · {none} none · {measured} measured · {asserted} asserted
+   ```
+   ⚠️ **The parts must sum to `{boxes}`** — a line whose parts do not reconcile reads as a measurement when it is an omission.
+
+⚠️ **Evidence shape** — a run emits exactly one row per box of the subject's closure sections. Count the boxes (`grep -c`) and compare against the emitted rows; a differing count is an incomplete run, not a shorter report.
+
+⚠️ **Read-only.** Report only — never modify, create, re-link or tick anything, on the subject or on any driver.
 
 ### verify
 

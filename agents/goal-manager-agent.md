@@ -12,7 +12,7 @@ model: sonnet
 
 # Goal Manager Agent
 
-Handles goal operations: status, verify.
+Handles goal operations: status, verify, coverage.
 
 **Action:** $ACTION (status|verify|coverage)
 **Arguments:** $ARGS
@@ -153,10 +153,12 @@ Emit the **reverse map**: for every closure box of the named subject, the item t
 
 ⚠️ **A topic carries no `# Definition of Done` — `# Completion Gate` is the analogue at this level** (see `commands/execute-topic.md` § the check set). Reading a DoD section off a topic silently drops that subject's real closure boxes, which is the one failure this mode exists to make visible; a mode that hardcodes `# Definition of Done` for every subject is incomplete for exactly the subject class the topic kind covers.
 
+⚠️ **A goal subject carrying neither `# Success Criteria` nor `# Definition of Done` has no boxes to map** — emit the same info line step 8 of `verify` emits (`cannot evaluate necessity — goal <goal> has no parseable Success Criteria or Definition of Done`) and no rows. An empty table is not a clean one: a run that emitted zero rows because it found zero boxes is indistinguishable from one that read nothing.
+
 **Row format — one row per box, and the row is the deliverable, a count is not:**
 
 ```
-<box verbatim> | <driving task or "none"> | <evidence: measured(<source>) | asserted | none> | <proposal: create | re-scope | split | diagnosis-task | —>
+<box verbatim> | <driving task/goal or "none"> | <evidence: measured(<source>) | asserted | none> | <proposal: create | re-scope | split | diagnosis-task | —>
 ```
 
 **Evidence rating — the rating rule is the point of the mode, so apply it, never infer it from the box's own wording:**
@@ -173,11 +175,11 @@ Emit the **reverse map**: for every closure box of the named subject, the item t
 3. **Parse the candidate drivers** for that kind (goal: `get_subtask_statuses`; topic: the member goals under `# Goals` / `## Goals`).
 4. **Match each box to its driver, quoting both lines** — the same two-quote bar step 8 of `verify` sets. A match you cannot quote is `none`, never rounded up.
 5. **Rate the evidence** per the rule above, naming the source you actually read.
-6. **Emit one row per box**, then the reconciliation line:
+6. **Emit one row per box**, then the reconciliation line — **two partitions of the same box count, each reconciling on its own**:
    ```
-   Coverage: {boxes} boxes · {driven} driven · {none} none · {measured} measured · {asserted} asserted
+   Coverage: {boxes} boxes · driving: {driven} driven · {undriven} none · evidence: {measured} measured · {asserted} asserted · {unrated} none
    ```
-   ⚠️ **The parts must sum to `{boxes}`** — a line whose parts do not reconcile reads as a measurement when it is an omission.
+   ⚠️ **Each partition sums to `{boxes}` independently** — `driven + undriven = boxes`, and `measured + asserted + unrated = boxes`. They are two different cuts of one set, not one sum: adding a driving counter to an evidence counter double-counts every box. ⚠️ **The two `none` counters are different quantities and must never be merged** — `{undriven}` counts boxes with no driving item, `{unrated}` counts boxes rated `none` for evidence, and a box can be driven yet unrated, or undriven yet `asserted`. A line whose partition does not reconcile reads as a measurement when it is an omission.
 
 ⚠️ **Evidence shape** — a run emits exactly one row per box of the subject's closure sections. Count the boxes (`grep -c`) and compare against the emitted rows; a differing count is an incomplete run, not a shorter report.
 

@@ -1,6 +1,6 @@
 ---
 description: Sync conversation progress to disk, then show grouped-checkbox task status (Success Criteria / Tasks / Definition of Done) with a phase/plan assessment, verbatim state, and next step.
-argument-hint: (detects from conversation)
+argument-hint: (detects from conversation) | --coverage
 allowed-tools:
   - Read
   - Edit
@@ -106,6 +106,22 @@ Task tool with:
 ```
 
 The agent does NOT detect from conversation in this phase — Phase 2 already resolved the path. The agent only reads, parses, classifies, formats.
+
+## Coverage mode (`--coverage`)
+
+With `--coverage`, Phase 1 (sync) and Phase 2 (detection + anchor pair) run unchanged, and Phase 3 delegates the **coverage** action instead of `status`:
+
+```
+Task tool with:
+  subagent_type: 'vault-cli:task-manager-agent'
+  prompt: 'ACTION: coverage
+           TASK_PATH: <resolved-path-from-phase-2>
+           MODE: interactive'
+```
+
+The agent returns the reverse map — one row per box of `# Success Criteria` + `# Definition of Done`, each naming the subtask that drives it, the evidence rating **with the source it read**, and a proposal where nothing drives it — plus its `Coverage:` reconciliation line. Render that table verbatim below the anchor pair; do NOT also emit the grouped-checkbox report. Phase 2.5's phase/plan assessment belongs to the `status` report and is not rendered in coverage mode.
+
+**Do not re-derive the rating.** Print each `measured(<source>)` cell exactly as the agent emitted it; the rating rule lives in `agents/task-manager-agent.md` § coverage and is deliberately not restated here. A row that rates itself `measured` from the box's own text is a defect to report, not a row to print.
 
 ## Output shape (from task-manager-agent)
 

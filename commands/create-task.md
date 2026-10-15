@@ -20,6 +20,7 @@ Create one task file in the vault. Which agent performs the write depends on whe
 
 - `--vault NAME` given, or cwd inside a vault path → use it.
 - Neither → ask with `AskUserQuestion`, offering the vault names from `vault-cli config list`. Never infer the vault from the task's topic, and never fall through to `default_vault`: the configured default is a different vault, and landing there is a silent wrong answer.
+- **`MODE=non_interactive`** → do not ask and do not default. Fail with `❌ Pass --vault — the vault cannot be inferred headlessly.` and STOP. Mirrors the route block's arm above: a headless caller cannot answer, and a wrong guess silently takes the wrong path.
 
 Same convention as `commands/reflect.md` and `agents/graph-auditor.md` — resolve the vault, or ask; do not guess.
 

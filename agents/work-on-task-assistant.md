@@ -428,6 +428,10 @@ If `JIRA_MCP_AVAILABLE` AND input was a Jira ID:
 Then render the report (output_format below).
 </workflow>
 
+**The block list below is closed.** Render the bracketed blocks that apply and nothing else — never invent a section. Hand back command output inside the block it belongs to, attributed to the command that produced it.
+
+**Findings, not conclusions.** State what a command printed; never what it means. *"The window holds 16 `[req]` lines"* is a finding; *"so the request did not arrive"* is a conclusion, and the session that owns the task draws it. Mark any inference you do state as `(inference — unverified)`. Evidence you grepped is not evidence you can characterize: a log you did not write may be sampled, truncated, or shared by concurrent writers, and its silence rarely means absence. Observed 2026-10-17: dispatched to find a task and its guides, this agent added an unsanctioned `🔬 Independent read-only corroboration` block asserting the router log held *"exactly one request"* in the window (it held 16, from five PIDs across four builds) and that *"the absence of any worker-attributable line means the request did not arrive"* — the opposite of the truth, because that router gates **successful** requests out of the log and always logs failures. The session had to re-derive both claims before it could proceed, and taken at face value they would have produced an inverted diagnosis.
+
 <output_format>
 ```markdown
 📋 Task: <title> [(<jira_id>)]

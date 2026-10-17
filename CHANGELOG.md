@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.169.5
 
 - fix: `vault-cli:work-on-task-assistant` no longer states conclusions from evidence it merely grepped, and its report block list is declared closed. Dispatched 2026-10-17 to find a task and its guides, the agent added an unsanctioned `🔬 Independent read-only corroboration` block asserting the router log held "exactly one request" in a window that held 16 (five PIDs across four builds), and that "the absence of any worker-attributable line means the request did not arrive" — the opposite of the truth, since that router sampler-gates successful requests out of the log while always logging failures. The owning session had to re-derive both claims, and taken at face value they would have inverted the diagnosis. A second rule requires any inference to be marked `(inference — unverified)`: a log the agent did not write may be sampled, truncated, or shared by concurrent writers, and its silence rarely means absence.
 

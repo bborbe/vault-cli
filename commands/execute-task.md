@@ -204,7 +204,7 @@ Task lifecycle:
 
 1. `/vault-cli:create-task` — capture (lenient)
 2. `/vault-cli:work-on-task` — orient (status + guides + daily note), then auto-chain plan → execute (interactive)
-3. `/vault-cli:plan-task` — sharpen (5 hard gates); never flips phase
+3. `/vault-cli:plan-task` — sharpen (9 hard gates); never flips phase
 4. **`/vault-cli:execute-task`** — the sole gate; flips planning → execution + prints first subtask + DoD reminder — this command
 5. Start work — while working, use any of:
    - `/vault-cli:update-task` — log completed work, sync to daily note / parent goal

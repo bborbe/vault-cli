@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.170.2
 
 - docs(plan-task): close two gaps the 2026-10-18 TeamVault planning run exposed. (a) **The exit condition and the auditor's *Critical Issues* section disagreed.** § 7 exits at `score ≥ 8` with the hard gates green, but nothing said whether the auditor's Critical Issues block — so the run looped six times at ~80k tokens per audit round after the gate was already met at round 1. Now stated: a Critical Issue blocks only where it also fails one of the nine hard non-negotiables; otherwise record the remainder and exit. (b) **Probe expected values were unchecked.** § 5's producer rule covered a probe naming an artifact nothing produces, but not a probe whose *expected value* is wrong: a criterion asserted `curl … /groups/` prints `200` for a view decorated `user_passes_test(lambda u: u.is_superuser)`, where a correct deploy returns `302` — the probe could never pass and would have read as a broken deploy. Both carry the observed case inline.
 

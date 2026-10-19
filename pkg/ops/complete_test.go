@@ -1043,6 +1043,7 @@ recurring: daily
 			start := libtime.DateOrDateTime(libtimetest.ParseDateTime("2026-03-03T10:00:00Z").Time())
 			task.AppendMetricsSession(domain.MetricsSession{SessionID: "s1", StartedAt: start})
 			mockInteractionCounter.CountReturns(7)
+			mockInteractionCounter.CountOperatorPromptsReturns(3)
 		})
 
 		It("Non-recurring worked: writes metrics_completed_at and metrics_interaction_count in the same write", func() {
@@ -1058,6 +1059,12 @@ recurring: daily
 			Expect(mockInteractionCounter.CountCallCount()).To(Equal(1))
 			_, sessionIDs := mockInteractionCounter.CountArgsForCall(0)
 			Expect(sessionIDs).To(Equal([]string{"s1"}))
+
+			Expect(writtenTask.MetricsOperatorPromptCount()).NotTo(BeNil())
+			Expect(*writtenTask.MetricsOperatorPromptCount()).To(Equal(3))
+			Expect(mockInteractionCounter.CountOperatorPromptsCallCount()).To(Equal(1))
+			_, operatorSessionIDs := mockInteractionCounter.CountOperatorPromptsArgsForCall(0)
+			Expect(operatorSessionIDs).To(Equal([]string{"s1"}))
 		})
 	})
 
@@ -1068,7 +1075,9 @@ recurring: daily
 			_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
 			Expect(writtenTask.MetricsCompletedAt()).NotTo(BeNil())
 			Expect(writtenTask.MetricsInteractionCount()).To(BeNil())
+			Expect(writtenTask.MetricsOperatorPromptCount()).To(BeNil())
 			Expect(mockInteractionCounter.CountCallCount()).To(Equal(0))
+			Expect(mockInteractionCounter.CountOperatorPromptsCallCount()).To(Equal(0))
 		})
 	})
 
@@ -1084,6 +1093,7 @@ recurring: daily
 			task.AppendMetricsSession(domain.MetricsSession{SessionID: "s1", StartedAt: late})
 			task.AppendMetricsSession(domain.MetricsSession{SessionID: "s2", StartedAt: early})
 			mockInteractionCounter.CountReturns(7)
+			task.SetMetricsOperatorPromptCount(9)
 			task.Content = `---
 status: in_progress
 recurring: daily
@@ -1108,6 +1118,7 @@ recurring: daily
 			Expect(writtenTask.MetricsSessions()).To(BeNil())
 			Expect(writtenTask.MetricsCompletedAt()).To(BeNil())
 			Expect(writtenTask.MetricsInteractionCount()).To(BeNil())
+			Expect(writtenTask.Get("metrics_operator_prompt_count")).To(BeNil())
 			Expect(writtenTask.Status()).To(Equal(domain.TaskStatusInProgress))
 			Expect(writtenTask.Get("claude_session_id")).To(BeNil())
 		})
@@ -1133,6 +1144,7 @@ recurring: daily
 			Expect(writtenTask.Get("metrics_sessions")).To(BeNil())
 			Expect(writtenTask.Get("metrics_completed_at")).To(BeNil())
 			Expect(writtenTask.Get("metrics_interaction_count")).To(BeNil())
+			Expect(writtenTask.Get("metrics_operator_prompt_count")).To(BeNil())
 			Expect(mockInteractionCounter.CountCallCount()).To(Equal(0))
 		})
 	})

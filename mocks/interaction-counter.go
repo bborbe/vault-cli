@@ -21,6 +21,18 @@ type InteractionCounter struct {
 	countReturnsOnCall map[int]struct {
 		result1 int
 	}
+	CountOperatorPromptsStub        func(context.Context, []string) int
+	countOperatorPromptsMutex       sync.RWMutex
+	countOperatorPromptsArgsForCall []struct {
+		arg1 context.Context
+		arg2 []string
+	}
+	countOperatorPromptsReturns struct {
+		result1 int
+	}
+	countOperatorPromptsReturnsOnCall map[int]struct {
+		result1 int
+	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -88,6 +100,73 @@ func (fake *InteractionCounter) CountReturnsOnCall(i int, result1 int) {
 		})
 	}
 	fake.countReturnsOnCall[i] = struct {
+		result1 int
+	}{result1}
+}
+
+func (fake *InteractionCounter) CountOperatorPrompts(arg1 context.Context, arg2 []string) int {
+	var arg2Copy []string
+	if arg2 != nil {
+		arg2Copy = make([]string, len(arg2))
+		copy(arg2Copy, arg2)
+	}
+	fake.countOperatorPromptsMutex.Lock()
+	ret, specificReturn := fake.countOperatorPromptsReturnsOnCall[len(fake.countOperatorPromptsArgsForCall)]
+	fake.countOperatorPromptsArgsForCall = append(fake.countOperatorPromptsArgsForCall, struct {
+		arg1 context.Context
+		arg2 []string
+	}{arg1, arg2Copy})
+	stub := fake.CountOperatorPromptsStub
+	fakeReturns := fake.countOperatorPromptsReturns
+	fake.recordInvocation("CountOperatorPrompts", []interface{}{arg1, arg2Copy})
+	fake.countOperatorPromptsMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *InteractionCounter) CountOperatorPromptsCallCount() int {
+	fake.countOperatorPromptsMutex.RLock()
+	defer fake.countOperatorPromptsMutex.RUnlock()
+	return len(fake.countOperatorPromptsArgsForCall)
+}
+
+func (fake *InteractionCounter) CountOperatorPromptsCalls(stub func(context.Context, []string) int) {
+	fake.countOperatorPromptsMutex.Lock()
+	defer fake.countOperatorPromptsMutex.Unlock()
+	fake.CountOperatorPromptsStub = stub
+}
+
+func (fake *InteractionCounter) CountOperatorPromptsArgsForCall(i int) (context.Context, []string) {
+	fake.countOperatorPromptsMutex.RLock()
+	defer fake.countOperatorPromptsMutex.RUnlock()
+	argsForCall := fake.countOperatorPromptsArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2
+}
+
+func (fake *InteractionCounter) CountOperatorPromptsReturns(result1 int) {
+	fake.countOperatorPromptsMutex.Lock()
+	defer fake.countOperatorPromptsMutex.Unlock()
+	fake.CountOperatorPromptsStub = nil
+	fake.countOperatorPromptsReturns = struct {
+		result1 int
+	}{result1}
+}
+
+func (fake *InteractionCounter) CountOperatorPromptsReturnsOnCall(i int, result1 int) {
+	fake.countOperatorPromptsMutex.Lock()
+	defer fake.countOperatorPromptsMutex.Unlock()
+	fake.CountOperatorPromptsStub = nil
+	if fake.countOperatorPromptsReturnsOnCall == nil {
+		fake.countOperatorPromptsReturnsOnCall = make(map[int]struct {
+			result1 int
+		})
+	}
+	fake.countOperatorPromptsReturnsOnCall[i] = struct {
 		result1 int
 	}{result1}
 }

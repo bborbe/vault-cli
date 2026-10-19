@@ -41,6 +41,16 @@ func rollupTaskFrontmatter(status string, completedAt string, count string) stri
 	return frontmatter
 }
 
+// rollupOperatorTaskFrontmatter extends rollupTaskFrontmatter with the operator
+// prompt count. An empty operator omits the key entirely — absent, not zero.
+func rollupOperatorTaskFrontmatter(status, completedAt, count, operator string) string {
+	frontmatter := rollupTaskFrontmatter(status, completedAt, count)
+	if operator != "" {
+		frontmatter += "metrics_operator_prompt_count: " + operator + "\n"
+	}
+	return frontmatter
+}
+
 // writeRollupBaseline writes a baseline file at a vault-relative path. The
 // frontmatter argument is the raw YAML block between the --- delimiters.
 func writeRollupBaseline(vaultPath string, relPath string, frontmatter string) {
@@ -80,10 +90,12 @@ func rollupOpWithBaseline(
 
 func assertRollupNoData(result ops.RollupWeeklyResult) {
 	Expect(result.HumanInteractions).To(Equal("no data"))
+	Expect(result.OperatorPrompts).To(Equal("no data"))
 	Expect(result.UnattendedDeliveries).To(Equal("no data"))
 	Expect(result.PerFamilyMedian).To(Equal("no data"))
 	Expect(result.Families).To(BeEmpty())
 	Expect(result.HumanInteractions).NotTo(Equal("0"))
+	Expect(result.OperatorPrompts).NotTo(Equal("0"))
 	Expect(result.UnattendedDeliveries).NotTo(Equal("0"))
 	Expect(result.PerFamilyMedian).NotTo(Equal("0"))
 }
@@ -161,6 +173,57 @@ var _ = Describe("RollupWeeklyOperation", func() {
 		result, err := rollupOp.Execute(ctx, vaultPath, vaultName, "2026-W37")
 		Expect(err).To(BeNil())
 		Expect(result.HumanInteractions).To(Equal("10"))
+	})
+
+	It("sums operator prompts over the week's task set", func() {
+		writeRollupTask(vaultPath, "In Week A", rollupOperatorTaskFrontmatter(
+			"completed", "2026-09-08T10:00:00Z", "4", "2",
+		))
+		writeRollupTask(vaultPath, "In Week B", rollupOperatorTaskFrontmatter(
+			"completed", "2026-09-12T10:00:00Z", "6", "3",
+		))
+		writeRollupTask(vaultPath, "Out Of Week", rollupOperatorTaskFrontmatter(
+			"completed", "2026-09-20T10:00:00Z", "100", "100",
+		))
+
+		result, err := rollupOp.Execute(ctx, vaultPath, vaultName, "2026-W37")
+		Expect(err).To(BeNil())
+		Expect(result.OperatorPrompts).To(Equal("5"))
+		// The interaction count keeps its own sum, unchanged by the new field.
+		Expect(result.HumanInteractions).To(Equal("10"))
+	})
+
+	It("reports no recorded counts for operator prompts when none are recorded", func() {
+		writeRollupTask(vaultPath, "Counts Only A", rollupTaskFrontmatter(
+			"completed", "2026-09-08T10:00:00Z", "4",
+		))
+		writeRollupTask(vaultPath, "Counts Only B", rollupTaskFrontmatter(
+			"completed", "2026-09-09T10:00:00Z", "6",
+		))
+
+		result, err := rollupOp.Execute(ctx, vaultPath, vaultName, "2026-W37")
+		Expect(err).To(BeNil())
+		Expect(result.OperatorPrompts).To(Equal("no recorded counts"))
+		Expect(result.OperatorPrompts).NotTo(Equal("0"))
+		// The interaction figures still report their numeric sum.
+		Expect(result.HumanInteractions).To(Equal("10"))
+	})
+
+	It("sums operator prompts treating a recorded zero as a measurement and an absent key as none", func() {
+		writeRollupTask(vaultPath, "Recorded Zero", rollupOperatorTaskFrontmatter(
+			"completed", "2026-09-08T10:00:00Z", "4", "0",
+		))
+		writeRollupTask(vaultPath, "Recorded Four", rollupOperatorTaskFrontmatter(
+			"completed", "2026-09-09T10:00:00Z", "4", "4",
+		))
+		writeRollupTask(vaultPath, "Absent Operator", rollupOperatorTaskFrontmatter(
+			"completed", "2026-09-10T10:00:00Z", "4", "",
+		))
+
+		result, err := rollupOp.Execute(ctx, vaultPath, vaultName, "2026-W37")
+		Expect(err).To(BeNil())
+		// A recorded zero is a measurement; the absent key is not.
+		Expect(result.OperatorPrompts).To(Equal("4"))
 	})
 
 	It("counts a completed task with a recorded zero as an unattended delivery", func() {
@@ -377,6 +440,7 @@ var _ = Describe("RollupWeeklyOperation", func() {
 			"week_start",
 			"week_end",
 			"human_interactions",
+			"operator_prompts",
 			"unattended_deliveries",
 			"per_family_median",
 			"families",

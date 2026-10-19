@@ -1,6 +1,12 @@
 ---
-status: draft
+status: completed
+summary: Added metrics_operator_prompt_count with an operator-typed prompt predicate, wrote it at completion, surfaced it in rollup weekly and JSON, with tests, fixture falsification, and docs.
+execution_id: vault-cli-operator-prompt-count-exec-257-operator-prompt-count
+dark-factory-version: v0.198.7
 created: "2026-10-19T17:58:43Z"
+queued: "2026-10-19T18:08:59Z"
+started: "2026-10-19T18:10:01Z"
+completed: "2026-10-19T18:20:48Z"
 ---
 
 # Record and report operator-typed prompt counts alongside interaction counts

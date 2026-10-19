@@ -107,6 +107,7 @@ type RollupWeeklyResult struct {
 	WeekStart            string          `json:"week_start"`
 	WeekEnd              string          `json:"week_end"`
 	HumanInteractions    string          `json:"human_interactions"`
+	OperatorPrompts      string          `json:"operator_prompts"`
 	UnattendedDeliveries string          `json:"unattended_deliveries"`
 	PerFamilyMedian      string          `json:"per_family_median"`
 	Families             []RollupFamily  `json:"families"`
@@ -120,7 +121,7 @@ type RollupFamily struct {
 }
 
 // Execute resolves the week, reads the vault's task files strictly, and derives
-// the three figures plus the per-family breakdown behind them.
+// the four figures plus the per-family breakdown behind them.
 func (o *rollupWeeklyOperation) Execute(
 	ctx context.Context,
 	vaultPath string,
@@ -160,6 +161,7 @@ func (o *rollupWeeklyOperation) Execute(
 	weekTasks := selectRollupWeekTasks(tasks, year, weekNumber)
 	if len(weekTasks) == 0 {
 		result.HumanInteractions = rollupNoData
+		result.OperatorPrompts = rollupNoData
 		result.UnattendedDeliveries = rollupNoData
 		result.PerFamilyMedian = rollupNoData
 		return result, nil
@@ -172,6 +174,13 @@ func (o *rollupWeeklyOperation) Execute(
 	} else {
 		result.HumanInteractions = rollupNoRecordedCounts
 		result.UnattendedDeliveries = rollupNoRecordedCounts
+	}
+
+	operatorPrompts, operatorRecorded := rollupOperatorPromptTotal(weekTasks)
+	if operatorRecorded {
+		result.OperatorPrompts = strconv.Itoa(operatorPrompts)
+	} else {
+		result.OperatorPrompts = rollupNoRecordedCounts
 	}
 
 	families, headline := rollupFamilyMedians(weekTasks)
@@ -274,6 +283,23 @@ func rollupFigures(tasks []*domain.Task) (int, int, bool) {
 		}
 	}
 	return humanInteractions, unattended, recorded
+}
+
+// rollupOperatorPromptTotal returns the week's operator-prompt sum and whether
+// any member carries a recorded operator count. An absent or malformed count is
+// not a measurement; a recorded zero is.
+func rollupOperatorPromptTotal(tasks []*domain.Task) (int, bool) {
+	var total int
+	recorded := false
+	for _, task := range tasks {
+		count := task.MetricsOperatorPromptCount()
+		if count == nil {
+			continue
+		}
+		recorded = true
+		total += *count
+	}
+	return total, recorded
 }
 
 // rollupFamilyMedians groups the week's tasks by family and returns one row per

@@ -167,6 +167,37 @@ var _ = Describe("TaskFrontmatter metrics", func() {
 		)
 	})
 
+	Describe("MetricsOperatorPromptCount", func() {
+		It("unknown is never forged as zero", func() {
+			Expect(fm.MetricsOperatorPromptCount()).To(BeNil())
+
+			fm.SetMetricsOperatorPromptCount(0)
+			count := fm.MetricsOperatorPromptCount()
+			Expect(count).NotTo(BeNil())
+			Expect(*count).To(Equal(0))
+		})
+
+		DescribeTable("coerces stored count shapes",
+			func(stored any, want int, wantNil bool) {
+				fm = domain.NewTaskFrontmatter(map[string]any{"metrics_operator_prompt_count": stored})
+				got := fm.MetricsOperatorPromptCount()
+				if wantNil {
+					Expect(got).To(BeNil())
+					return
+				}
+				Expect(got).NotTo(BeNil())
+				Expect(*got).To(Equal(want))
+			},
+			Entry("int", 7, 7, false),
+			Entry("int64", int64(8), 8, false),
+			Entry("float64", 9.0, 9, false),
+			Entry("numeric string", "10", 10, false),
+			Entry("non-numeric string", "abc", 0, true),
+			Entry("bool", true, 0, true),
+			Entry("nil", nil, 0, true),
+		)
+	})
+
 	Describe("MetricsCycles", func() {
 		It("preserves prior cycles when appending", func() {
 			fm.AppendMetricsCycle(domain.MetricsCycle{
@@ -238,6 +269,7 @@ var _ = Describe("TaskFrontmatter metrics", func() {
 			completed := libtime.DateOrDateTime(time.Date(2026, 8, 24, 18, 14, 35, 0, time.UTC))
 			fm.SetMetricsCompletedAt(&completed)
 			fm.SetMetricsInteractionCount(7)
+			fm.SetMetricsOperatorPromptCount(5)
 
 			cycleStart := libtime.DateOrDateTime(time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC))
 			cycleEnd := libtime.DateOrDateTime(time.Date(2026, 8, 7, 0, 0, 0, 0, time.UTC))
@@ -258,6 +290,7 @@ var _ = Describe("TaskFrontmatter metrics", func() {
 				"started_at:",
 				"metrics_completed_at:",
 				"metrics_interaction_count:",
+				"metrics_operator_prompt_count:",
 				"metrics_cycles:",
 				"completed_at:",
 				"interaction_count:",
@@ -284,6 +317,10 @@ var _ = Describe("TaskFrontmatter metrics", func() {
 			gotCount := re.MetricsInteractionCount()
 			Expect(gotCount).NotTo(BeNil())
 			Expect(*gotCount).To(Equal(7))
+
+			gotOperatorCount := re.MetricsOperatorPromptCount()
+			Expect(gotOperatorCount).NotTo(BeNil())
+			Expect(*gotOperatorCount).To(Equal(5))
 
 			cycles := re.MetricsCycles()
 			Expect(cycles).To(HaveLen(1))
@@ -386,6 +423,11 @@ var _ = Describe("TaskFrontmatter metrics", func() {
 			fm.ClearMetricsInteractionCount()
 			Expect(fm.MetricsInteractionCount()).To(BeNil())
 			Expect(fm.Get("metrics_interaction_count")).To(BeNil())
+
+			fm.SetMetricsOperatorPromptCount(2)
+			fm.ClearMetricsOperatorPromptCount()
+			Expect(fm.MetricsOperatorPromptCount()).To(BeNil())
+			Expect(fm.Get("metrics_operator_prompt_count")).To(BeNil())
 		})
 
 		It("SetMetricsCompletedAt(nil) deletes the key", func() {

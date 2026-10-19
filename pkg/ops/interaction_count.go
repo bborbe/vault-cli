@@ -25,6 +25,14 @@ type InteractionCounter interface {
 	// logs for the given session ids. Missing, unreadable, malformed, or unsafe session
 	// ids contribute 0. It never returns an error and never blocks completion.
 	Count(ctx context.Context, sessionIDs []string) int
+
+	// CountOperatorPrompts returns the number of entries across the session JSONL
+	// logs for the given session ids that the operator typed: user turns that are
+	// not tool results, not isMeta injections, not non-human turn origins, not
+	// system prompt sources, and not one of the known legacy noise prefixes.
+	// Missing, unreadable, malformed, or unsafe session ids contribute 0. It never
+	// returns an error and never blocks completion.
+	CountOperatorPrompts(ctx context.Context, sessionIDs []string) int
 }
 
 // NewInteractionCounter creates an InteractionCounter that reads session logs under
@@ -44,6 +52,26 @@ type interactionCounter struct {
 // given session ids, counting each distinct id once. An unsafe id is skipped
 // before any path is built.
 func (c *interactionCounter) Count(ctx context.Context, sessionIDs []string) int {
+	return c.sum(ctx, sessionIDs, countUserTurnsInSessionLog)
+}
+
+// CountOperatorPrompts returns the number of operator-typed prompts across the
+// session logs for the given session ids, counting each distinct id once.
+func (c *interactionCounter) CountOperatorPrompts(
+	ctx context.Context,
+	sessionIDs []string,
+) int {
+	return c.sum(ctx, sessionIDs, countOperatorPromptsInSessionLog)
+}
+
+// sum walks the distinct, safe session ids in order and adds one per-file count
+// for each. countFile is either the all-user counter or the operator-prompt
+// counter, so both measures share the same traversal rules.
+func (c *interactionCounter) sum(
+	ctx context.Context,
+	sessionIDs []string,
+	countFile func(context.Context, string) int,
+) int {
 	total := 0
 	seen := make(map[string]struct{}, len(sessionIDs))
 	for _, id := range sessionIDs {
@@ -60,7 +88,7 @@ func (c *interactionCounter) Count(ctx context.Context, sessionIDs []string) int
 		}
 		seen[id] = struct{}{}
 		path := filepath.Join(c.projectsDir, encodeProjectDir(c.sessionDir), id+".jsonl")
-		total += countUserTurnsInSessionLog(ctx, path)
+		total += countFile(ctx, path)
 	}
 	return total
 }
@@ -131,6 +159,147 @@ func countUserTurnsInSessionLog(ctx context.Context, path string) int {
 		}
 	}
 	return count
+}
+
+// operatorPromptSources are the promptSource values that identify an
+// operator-typed prompt. Every other non-empty value (notably "system") is
+// excluded.
+var operatorPromptSources = map[string]struct{}{
+	"typed":               {},
+	"queued":              {},
+	"suggestion_accepted": {},
+}
+
+// operatorPromptNoisePrefixes are the legacy transcript rows that carry none of
+// the signal fields and are not operator prompts. A legacy row whose text starts
+// with one of these is excluded. Slash-command markers are deliberately absent:
+// <command-name> and <command-message> rows are operator-typed and count.
+var operatorPromptNoisePrefixes = []string{
+	"<local-command-stdout>",
+	"<local-command-caveat>",
+	"Caveat: The messages below",
+	"This session is being continued",
+	"[Request interrupted by user]",
+	"<task-notification>",
+	"Another Claude session sent a message:",
+}
+
+// operatorPromptEntry is the subset of a session JSONL line the operator-prompt
+// predicate reads. A field left absent decodes to its zero value; ToolUseResult
+// is a RawMessage so presence (including a literal null) is distinguishable.
+type operatorPromptEntry struct {
+	Type          string          `json:"type"`
+	IsMeta        bool            `json:"isMeta"`
+	TurnOrigin    string          `json:"turnOrigin"`
+	PromptSource  string          `json:"promptSource"`
+	ToolUseResult json.RawMessage `json:"toolUseResult"`
+	Message       struct {
+		Content json.RawMessage `json:"content"`
+	} `json:"message"`
+}
+
+// countOperatorPromptsInSessionLog counts the operator-typed prompts in one
+// session JSONL log. A missing, unreadable, or malformed log contributes 0 and
+// never fails; the log is streamed line by line so a very large session never
+// loads fully into memory.
+func countOperatorPromptsInSessionLog(ctx context.Context, path string) int {
+	f, err := os.Open(path) //#nosec G304 -- session ids are validated by isSafeSessionID; read-only best-effort
+	if err != nil {
+		return 0
+	}
+	defer f.Close()
+
+	count := 0
+	scanner := bufio.NewScanner(f)
+	scanner.Buffer(make([]byte, 0, 64*1024), 16*1024*1024)
+	for scanner.Scan() {
+		select {
+		case <-ctx.Done():
+			return count
+		default:
+		}
+		var entry operatorPromptEntry
+		if err := json.Unmarshal(scanner.Bytes(), &entry); err != nil {
+			continue
+		}
+		if entry.Type != "user" {
+			continue
+		}
+		if isOperatorPrompt(entry) {
+			count++
+		}
+	}
+	return count
+}
+
+// isOperatorPrompt reports whether one type:"user" entry is a prompt the
+// operator typed, applying the measured predicate.
+func isOperatorPrompt(entry operatorPromptEntry) bool {
+	if len(entry.ToolUseResult) > 0 {
+		return false
+	}
+	text, hasToolResult := operatorPromptText(entry.Message.Content)
+	if hasToolResult {
+		return false
+	}
+	if entry.IsMeta {
+		return false
+	}
+	if entry.TurnOrigin != "" && entry.TurnOrigin != "human" {
+		return false
+	}
+	if entry.PromptSource != "" {
+		if _, ok := operatorPromptSources[entry.PromptSource]; !ok {
+			return false
+		}
+	}
+	legacy := entry.TurnOrigin == "" && entry.PromptSource == ""
+	if legacy && hasOperatorPromptNoisePrefix(text) {
+		return false
+	}
+	return true
+}
+
+// operatorPromptText returns the entry's text and whether its content carries a
+// tool_result block. Content may be a plain string or an array of blocks; only
+// text blocks contribute to the returned text.
+func operatorPromptText(content json.RawMessage) (string, bool) {
+	if len(content) == 0 {
+		return "", false
+	}
+	var text string
+	if err := json.Unmarshal(content, &text); err == nil {
+		return text, false
+	}
+	var blocks []struct {
+		Type string `json:"type"`
+		Text string `json:"text"`
+	}
+	if err := json.Unmarshal(content, &blocks); err != nil {
+		return "", false
+	}
+	var builder strings.Builder
+	for _, block := range blocks {
+		if block.Type == "tool_result" {
+			return "", true
+		}
+		if block.Type == "text" {
+			builder.WriteString(block.Text)
+		}
+	}
+	return builder.String(), false
+}
+
+// hasOperatorPromptNoisePrefix reports whether a legacy row's text starts with
+// one of the known non-operator prefixes.
+func hasOperatorPromptNoisePrefix(text string) bool {
+	trimmed := strings.TrimSpace(text)
+	for _, prefix := range operatorPromptNoisePrefixes {
+		if strings.HasPrefix(trimmed, prefix) {
+			return true
+		}
+	}
+	return false
 }
 
 // metricsSessionIDs extracts the session ids from metrics_sessions entries.

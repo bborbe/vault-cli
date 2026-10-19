@@ -57,7 +57,7 @@ func createRollupCommands(
 // other command with a single vault name goes through `getVaults`, whose
 // no-flag default is every configured vault, whereas this command resolves
 // exactly one vault through the loader's `GetVault` with an empty name, which
-// falls back to the config's default_vault key. The three figures are
+// falls back to the config's default_vault key. The four figures are
 // properties of one task population, so summing Personal with Brogrammers
 // would produce a number that answers no question anyone asked. `watch` is the
 // only other command that leaves the all-vaults default behind.
@@ -206,11 +206,12 @@ func writeRollupWeeklyHeader(builder *strings.Builder, result ops.RollupWeeklyRe
 	)
 }
 
-// writeRollupWeeklyFigures writes the three headline figures at column 0. Every
+// writeRollupWeeklyFigures writes the four headline figures at column 0. Every
 // value is written verbatim: a figure with no measurement behind it arrives as
 // "undefined" or "no data" and is never replaced by a zero here.
 func writeRollupWeeklyFigures(builder *strings.Builder, result ops.RollupWeeklyResult) {
 	fmt.Fprintf(builder, "Human interactions: %s\n", result.HumanInteractions)
+	fmt.Fprintf(builder, "Operator prompts: %s\n", result.OperatorPrompts)
 	fmt.Fprintf(builder, "Unattended deliveries: %s\n", result.UnattendedDeliveries)
 	fmt.Fprintf(builder, "Per-family median: %s\n", result.PerFamilyMedian)
 }

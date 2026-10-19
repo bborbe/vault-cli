@@ -100,8 +100,12 @@ Mark task as complete using vault-cli. Handles normal and recurring tasks approp
 ## Passive metrics
 
 Completion writes `metrics_completed_at` and, when the task was worked on,
-`metrics_interaction_count`. Recurring completion archives the finished cycle into
-`metrics_cycles` and resets the accumulator. These metrics fields are written passively
-by vault-cli and must not be hand-edited. `metrics_interaction_count` counts each
-distinct `session_id` in `metrics_sessions` exactly once — a session reused across
-multiple work-on runs is counted a single time.
+`metrics_interaction_count` and `metrics_operator_prompt_count`. Recurring completion
+archives the finished cycle into `metrics_cycles` and resets the accumulator. These
+metrics fields are written passively by vault-cli and must not be hand-edited.
+`metrics_interaction_count` counts each distinct `session_id` in `metrics_sessions`
+exactly once — a session reused across multiple work-on runs is counted a single time.
+`metrics_operator_prompt_count` counts only the prompts the operator actually typed,
+excluding tool results, `isMeta` injections, non-human `turnOrigin` values, `system`
+`promptSource` entries, and the known legacy noise prefixes (`<command-name>` and
+`<command-message>` slash commands still count).

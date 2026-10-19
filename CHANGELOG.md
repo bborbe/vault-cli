@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.171.0
 
 - feat: Expose `manager_session_id` on every `list --output json` read model (`task`, `goal`, `topic`, `theme`, `objective`, `vision`), populated verbatim from page frontmatter and omitted when absent, so consumers can classify a page against the manager session that armed it.
 

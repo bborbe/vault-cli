@@ -340,6 +340,8 @@ python3 "$LIVENESS" --check "<id>"; echo "exit=$?"
 
 Only exit 0 `LIVE` counts as a live manager; exit 1 `ABSENT`, 2 `UNKNOWN`, 3 `AMBIGUOUS`, 4 `MALFORMED`, and no id anywhere all read as **no live manager**.
 
+⚠️ **This is deliberately narrower than that section's task-level chain**, which ends at the Fleet Manager. That chain answers *who owns this task*; this one answers *who can be told a goal is closable*. A worker messages only a manager it can prove is live, and never escalates to the Fleet Manager on its own — so "no live manager" is a real answer here, not a fall-through.
+
 **A goal with ≥1 open task — report only, never ask.** Goals span 1–4 weeks and sessions do not, so an open goal is the ordinary steady state, and its status is the managing session's own write (`claude-supervisor` `commands/manager-loop.md` § Manager contract: `status` / `phase` stay the manager's own). A task-anchored session that finished its anchor owes no decision here, so emit **one information line and nothing else** — no outstanding item, no `approve:` / `pick` / `you run:` / `review:` line, no `AskUserQuestion` naming the goal:
 
 ```

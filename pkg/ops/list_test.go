@@ -481,6 +481,56 @@ var _ = Describe("ListOperation JSON output", func() {
 		})
 	})
 
+	Context("ManagerSessionID field in TaskListItem", func() {
+		It("returns the manager_session_id value from frontmatter", func() {
+			taskWithManager := domain.NewPage(
+				map[string]any{
+					"status":             "todo",
+					"manager_session_id": "manager-sess-abc123",
+				},
+				domain.FileMetadata{Name: "Managed Task"},
+				domain.Content(""),
+			)
+			mockPageStorage.ListPagesReturns([]*domain.Page{taskWithManager}, nil)
+			items, execErr = listOp.Execute(ctx, "/vault", "my-vault", "Tasks", nil, true, "", "")
+			Expect(execErr).To(BeNil())
+			Expect(items).To(HaveLen(1))
+			Expect(items[0].ManagerSessionID).To(Equal("manager-sess-abc123"))
+		})
+
+		It("returns an empty manager_session_id when the key is absent", func() {
+			taskWithoutManager := domain.NewPage(
+				map[string]any{"status": "todo"},
+				domain.FileMetadata{Name: "Unmanaged Task"},
+				domain.Content(""),
+			)
+			mockPageStorage.ListPagesReturns([]*domain.Page{taskWithoutManager}, nil)
+			items, execErr = listOp.Execute(ctx, "/vault", "my-vault", "Tasks", nil, true, "", "")
+			Expect(execErr).To(BeNil())
+			Expect(items).To(HaveLen(1))
+			Expect(items[0].ManagerSessionID).To(BeEmpty())
+		})
+
+		It("omits manager_session_id from JSON when empty", func() {
+			item := ops.TaskListItem{Name: "X", Status: "todo", Vault: "v"}
+			data, marshalErr := json.Marshal(item)
+			Expect(marshalErr).To(BeNil())
+			Expect(string(data)).NotTo(ContainSubstring(`"manager_session_id"`))
+		})
+
+		It("includes manager_session_id in JSON when set", func() {
+			item := ops.TaskListItem{
+				Name:             "X",
+				Status:           "todo",
+				Vault:            "v",
+				ManagerSessionID: "manager-sess-abc123",
+			}
+			data, marshalErr := json.Marshal(item)
+			Expect(marshalErr).To(BeNil())
+			Expect(string(data)).To(ContainSubstring(`"manager_session_id":"manager-sess-abc123"`))
+		})
+	})
+
 	Context("with --goal filter", func() {
 		BeforeEach(func() {
 			matchingTask := domain.NewPage(

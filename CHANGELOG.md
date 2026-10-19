@@ -12,9 +12,9 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 
 - fix: `work-on-task-assistant` § Session connect now detects the current session deterministically from `$CLAUDE_CODE_SESSION_ID`, falling back to a title match only when it is unset — and the fallback tolerates the supervisor's truncated spawn title. A supervisor passes a caller-chosen short label, so the spawned title is `⚙ <short label>`: decorated **and** usually a truncation of the task name. The guard's exact-equality compare returned zero for every such spawn, so the task kept whatever `claude_session_id` it already held (often a dead session) and every supervisor-spawned worker failed to connect. The fallback mirrors `claude-supervisor`'s `_matches_one_title`: exact match first, then a prefix of at least 20 characters (`_TRUNCATION_MIN_PREFIX`) that identifies exactly one live session; an exact match always wins over a prefix, and an ambiguous tier refuses rather than picking. New `scripts/session-connect-fixture-test.sh` extracts the guard's bash block from the agent file and runs it against synthetic transcripts — env-var path, exact title, unique 30-character prefix, 19-character prefix refused, shared prefix refused — wired into `make test` with a self-check proving the env-var branch's absence fails the suite.
 
-## v0.171.0
-
 - fix: `session-close` removes a finished worktree without asking — for real this time. v0.169.1 added the three no-ask conditions, but the unconditional *"Surface in Phase 9 as outstanding"* instruction stood **above** them, so a session reading Phase 3.5 top-down executed the listing first and asked anyway. Observed 2026-10-18 on `claude-supervisor-receipt`: the session created the worktree itself, merged its branch 36 minutes earlier (`ed056aae`), read `merged, clean` in its own session-close output — and still emitted `approve: git worktree remove`. The removal conditions now come first, the Phase 9 template and its three still-asks cases follow them, and the block states outright that the two arms are exclusive.
+
+## v0.171.0
 
 - feat: Expose `manager_session_id` on every `list --output json` read model (`task`, `goal`, `topic`, `theme`, `objective`, `vision`), populated verbatim from page frontmatter and omitted when absent, so consumers can classify a page against the manager session that armed it.
 

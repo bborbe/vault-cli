@@ -22,9 +22,12 @@ allowed-tools:
   - Bash(find:*)
   - Bash(lsof:*)
   - Bash(command -v:*)
+  - Bash(python3:*)
 ---
 
-End-of-session safety check. Verifies progress is documented, working trees are clean, and nothing important is still in flight. **Output is terse:** either `✅ Nothing to do — safe to close Claude :)` or a short numbered list of open items. Never prints a checklist table. Never asks yes/no. Never auto-closes anything.
+End-of-session safety check. Verifies progress is documented, working trees are clean, and nothing important is still in flight. **Output is terse:** either `✅ Nothing to do — safe to close Claude :)` or a short numbered list of open items. Never prints a checklist table. Never asks yes/no.
+
+**A clean verdict releases the worker's own slot.** After printing `✅ Nothing to do — safe to close Claude :)`, the command runs `scripts/session-self-exit.py` (Phase 9.5), which ends the process only when every condition is re-verified on disk: the task is terminal, no box is open, no attention card is open, and this session owns its own pane. A refusal prints one named line and the session stays alive. A session with outstanding items is never auto-closed.
 
 This command **must stay inline** — it analyzes the parent conversation (touched files, completion signals, reflect + self-improve signals); a sub-agent cannot see the conversation.
 
@@ -707,6 +710,25 @@ Append the reflect, self-improve, and runbook-improvement suggestions as the las
 ⚠️ **Item 3 covers the still-asks cases only.** A worktree this session created, whose branch is merged by the file's own test and whose working tree is clean, is **removed** under the no-ask rule in Phase 3.5 and reported in the close summary — it never reaches this list, so it never becomes a mode-3 blocker.
 
 Never auto-close, never auto-commit, never auto-kill, never auto-reflect, never auto-self-improve. The command's only job is the one-line verdict or the numbered open list.
+
+### Phase 9.5: Release the worker's slot (clean verdict only)
+
+**Mode 1 only.** A clean verdict means no outstanding item and no open gate. Mode 2 carries a `pick` line the operator has not answered, and mode 3 has outstanding items — neither may end the process.
+
+```bash
+VAULT_CLI_SCRIPTS="$(ls -d ~/.claude/plugins/cache/vault-cli/vault-cli/*/scripts 2>/dev/null | sort -V | tail -1)"
+python3 "$VAULT_CLI_SCRIPTS/session-self-exit.py"
+```
+
+The script re-verifies every condition itself — it does not trust this command's verdict:
+
+- a session-registry entry names this session, so it owns a WezTerm pane (a headless worker has none, and it inherits its spawner's `$WEZTERM_PANE` — killing that pane would close the manager's tab);
+- the task carrying this session's `claude_session_id` is `status: aborted`, or `status: completed` with `phase: done` and zero `[ ]` / `[/]` boxes — `hold` is parked, not finished;
+- the attention store holds no open card for this session, and an unreachable store is a refusal, never a clear gate.
+
+On success it prints `SELF-EXIT: exit — …` and closes its own pane, ending the process. On any failed condition it prints `SELF-EXIT: stay — <reason>` and returns; **that line is informational, not an outstanding item** — do not add it to the verdict, and never re-run the script to force an exit.
+
+Resolve the script under the installed plugin cache, never the cwd — this phase runs from a vault, which has no `scripts/`, so a bare `scripts/…` resolves to nothing and the exit silently never happens.
 
 ### Closer panel — verbatim, no rewording
 

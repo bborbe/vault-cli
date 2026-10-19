@@ -10,6 +10,8 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 
 ## v0.171.0
 
+- fix: `session-close` removes a finished worktree without asking — for real this time. v0.169.1 added the three no-ask conditions, but the unconditional *"Surface in Phase 9 as outstanding"* instruction stood **above** them, so a session reading Phase 3.5 top-down executed the listing first and asked anyway. Observed 2026-10-18 on `claude-supervisor-receipt`: the session created the worktree itself, merged its branch 36 minutes earlier (`ed056aae`), read `merged, clean` in its own session-close output — and still emitted `approve: git worktree remove`. The removal conditions now come first, the Phase 9 template and its three still-asks cases follow them, and the block states outright that the two arms are exclusive.
+
 - feat: Expose `manager_session_id` on every `list --output json` read model (`task`, `goal`, `topic`, `theme`, `objective`, `vision`), populated verbatim from page frontmatter and omitted when absent, so consumers can classify a page against the manager session that armed it.
 
 ## v0.170.2

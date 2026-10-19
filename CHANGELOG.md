@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.172.1
 
 - docs: The Evidence Shape table's **Negative evidence** row now shows a diff scoped to the task's own changed set — `git diff --numstat -- <paths this task changed>` — and forbids the whole working tree, because sibling sessions' edits share the checkout. A whole-tree `numstat` criterion reads satisfiable in a shared checkout and is not, so the canonical vocabulary both `task-auditor` and `plan-task` cite taught an unsatisfiable probe.
 

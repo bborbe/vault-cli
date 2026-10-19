@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [060-bug-rollup-aborts-on-frontmatterless-task-file]
+summary: 'Locked the skip behaviour and documented it: neutralising ListTasksTolerant and the renderer produced 8 expected spec failures across AC1/AC2/AC3/AC4 (cli: ''writes one final skipped line naming a single file'', ''names several skipped files on one comma-separated line''; ops: ''returns an error naming an unreadable task file'', ''measures the readable tasks and names the unparseable ones'', ''serializes the skipped files as a JSON array''; storage: ''skips a frontmatter-less file and names it'', ''reports subdirectory paths, sorted and distinct'', ''replaces a control character with a space''), after which both files were restored byte-identically (cmp exit 0), make test exited 0, the Unreleased changelog bullet and README rollup paragraph were added, and make precommit exited 0; AC7 pre-fix evidence from /tmp/rollup-prefix-failure.txt, first failure line verbatim: ''[FAILED] Expected <string>: Grouping rule: A task family is the filename stem with dates, week numbers, versions and month names stripped, compared case-insensitively. to equal <string>: skipped: Broken.md''.'
+execution_id: vault-cli-rollup-skip-frontmatter-exec-259-rollup-skip-regression-lock-docs
+dark-factory-version: v0.198.7
 created: "2026-10-19T17:57:00Z"
 queued: "2026-10-19T18:14:28Z"
+started: "2026-10-19T18:20:46Z"
+completed: "2026-10-19T18:26:17Z"
 branch: dark-factory/bug-rollup-aborts-on-frontmatterless-task-file
 ---
 

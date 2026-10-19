@@ -2409,6 +2409,95 @@ blocked_by: A
 		})
 	})
 
+	Describe("vault-cli list manager_session_id surface", func() {
+		It("goal list emits manager_session_id for a goal that carries it", func() {
+			_, configPath, cleanup := createTempVaultWithGoals(
+				map[string]string{},
+				map[string]string{
+					"managed-goal": `---
+status: next
+manager_session_id: manager-sess-abc123
+---
+`,
+				},
+			)
+			defer cleanup()
+
+			cmd := exec.Command(
+				binPath,
+				"--config", configPath,
+				"--vault", "test",
+				"goal", "list",
+				"--output", "json",
+			)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(0))
+			var items []map[string]any
+			Expect(json.Unmarshal(session.Out.Contents(), &items)).To(Succeed())
+			Expect(items).To(HaveLen(1))
+			Expect(items[0]).To(HaveKeyWithValue("name", "managed-goal"))
+			Expect(items[0]).To(HaveKeyWithValue("manager_session_id", "manager-sess-abc123"))
+		})
+
+		It("topic list emits manager_session_id for a topic that carries it", func() {
+			vaultPath, configPath, cleanup := createTempVaultWithTopics("Topics")
+			defer cleanup()
+
+			topicsDirPath := filepath.Join(vaultPath, "Topics")
+			Expect(os.MkdirAll(topicsDirPath, 0755)).To(Succeed())
+			Expect(os.WriteFile(
+				filepath.Join(topicsDirPath, "Managed Topic.md"),
+				[]byte("---\nstatus: in_progress\nmanager_session_id: manager-sess-abc123\n---\n"),
+				0600,
+			)).To(Succeed())
+
+			cmd := exec.Command(
+				binPath,
+				"--config", configPath,
+				"--vault", "test",
+				"topic", "list",
+				"--output", "json",
+			)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(0))
+			var items []map[string]any
+			Expect(json.Unmarshal(session.Out.Contents(), &items)).To(Succeed())
+			Expect(items).To(HaveLen(1))
+			Expect(items[0]).To(HaveKeyWithValue("name", "Managed Topic"))
+			Expect(items[0]).To(HaveKeyWithValue("manager_session_id", "manager-sess-abc123"))
+		})
+
+		It("omits manager_session_id for a goal that does not carry it", func() {
+			_, configPath, cleanup := createTempVaultWithGoals(
+				map[string]string{},
+				map[string]string{
+					"plain-goal": `---
+status: next
+---
+`,
+				},
+			)
+			defer cleanup()
+
+			cmd := exec.Command(
+				binPath,
+				"--config", configPath,
+				"--vault", "test",
+				"goal", "list",
+				"--output", "json",
+			)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(0))
+			var items []map[string]any
+			Expect(json.Unmarshal(session.Out.Contents(), &items)).To(Succeed())
+			Expect(items).To(HaveLen(1))
+			Expect(items[0]).NotTo(HaveKey("manager_session_id"))
+		})
+	})
+
 	Describe("vault-cli blocked_by list add and remove", func() {
 		var vaultPath, configPath string
 		var cleanup func()

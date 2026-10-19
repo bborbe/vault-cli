@@ -44,26 +44,27 @@ type listOperation struct {
 
 // TaskListItem represents a task in list output.
 type TaskListItem struct {
-	Name            string   `json:"name"`
-	Status          string   `json:"status"`
-	Assignee        string   `json:"assignee,omitempty"`
-	Priority        int      `json:"priority,omitempty"`
-	Vault           string   `json:"vault"`
-	Category        string   `json:"category,omitempty"`
-	Recurring       string   `json:"recurring,omitempty"`
-	DeferDate       string   `json:"defer_date,omitempty"`
-	PlannedDate     string   `json:"planned_date,omitempty"`
-	DueDate         string   `json:"due_date,omitempty"`
-	ClaudeSessionID string   `json:"claude_session_id,omitempty"`
-	Phase           string   `json:"phase,omitempty"`
-	ModifiedDate    string   `json:"modified_date,omitempty"`
-	CompletedDate   string   `json:"completed_date,omitempty"`
-	Goals           []string `json:"goals,omitempty"`
-	Flag            bool     `json:"flag,omitempty"`
-	FlagSetBy       string   `json:"flag_set_by,omitempty"`
-	FlagSetAt       string   `json:"flag_set_at,omitempty"`
-	BlockedBy       []string `json:"blocked_by,omitempty"`
-	Blocked         *bool    `json:"blocked,omitempty"`
+	Name             string   `json:"name"`
+	Status           string   `json:"status"`
+	Assignee         string   `json:"assignee,omitempty"`
+	Priority         int      `json:"priority,omitempty"`
+	Vault            string   `json:"vault"`
+	Category         string   `json:"category,omitempty"`
+	Recurring        string   `json:"recurring,omitempty"`
+	DeferDate        string   `json:"defer_date,omitempty"`
+	PlannedDate      string   `json:"planned_date,omitempty"`
+	DueDate          string   `json:"due_date,omitempty"`
+	ClaudeSessionID  string   `json:"claude_session_id,omitempty"`
+	ManagerSessionID string   `json:"manager_session_id,omitempty"`
+	Phase            string   `json:"phase,omitempty"`
+	ModifiedDate     string   `json:"modified_date,omitempty"`
+	CompletedDate    string   `json:"completed_date,omitempty"`
+	Goals            []string `json:"goals,omitempty"`
+	Flag             bool     `json:"flag,omitempty"`
+	FlagSetBy        string   `json:"flag_set_by,omitempty"`
+	FlagSetAt        string   `json:"flag_set_at,omitempty"`
+	BlockedBy        []string `json:"blocked_by,omitempty"`
+	Blocked          *bool    `json:"blocked,omitempty"`
 }
 
 // Execute lists tasks from the vault, optionally filtered by status, assignee, and goal.
@@ -103,14 +104,15 @@ func (l *listOperation) Execute(
 	items := make([]TaskListItem, len(filteredTasks))
 	for i, task := range filteredTasks {
 		items[i] = TaskListItem{
-			Name:            task.Name,
-			Status:          string(task.Status()),
-			Assignee:        task.Assignee(),
-			Priority:        int(task.Priority()),
-			Vault:           vaultName,
-			Category:        task.PageType(),
-			Recurring:       task.Recurring(),
-			ClaudeSessionID: task.ClaudeSessionID(),
+			Name:             task.Name,
+			Status:           string(task.Status()),
+			Assignee:         task.Assignee(),
+			Priority:         int(task.Priority()),
+			Vault:            vaultName,
+			Category:         task.PageType(),
+			Recurring:        task.Recurring(),
+			ClaudeSessionID:  task.ClaudeSessionID(),
+			ManagerSessionID: task.GetString("manager_session_id"),
 			Phase: func() string {
 				if task.Phase() != nil {
 					return task.Phase().String()

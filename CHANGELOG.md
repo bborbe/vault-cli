@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat: Add `TaskStorage.ListTasksTolerant` — lists every readable task and returns the sorted, control-character-sanitised `tasks_dir`-relative names of files skipped on read/parse errors, while still failing on a missing or unreadable tasks directory.
+
 ## v0.171.1
 
 - fix: `work-on-task-assistant` § Session connect now detects the current session deterministically from `$CLAUDE_CODE_SESSION_ID`, falling back to a title match only when it is unset — and the fallback tolerates the supervisor's truncated spawn title. A supervisor passes a caller-chosen short label, so the spawned title is `⚙ <short label>`: decorated **and** usually a truncation of the task name. The guard's exact-equality compare returned zero for every such spawn, so the task kept whatever `claude_session_id` it already held (often a dead session) and every supervisor-spawned worker failed to connect. The fallback mirrors `claude-supervisor`'s `_matches_one_title`: exact match first, then a prefix of at least 20 characters (`_TRUNCATION_MIN_PREFIX`) that identifies exactly one live session; an exact match always wins over a prefix, and an ambiguous tier refuses rather than picking. New `scripts/session-connect-fixture-test.sh` extracts the guard's bash block from the agent file and runs it against synthetic transcripts — env-var path, exact title, unique 30-character prefix, 19-character prefix refused, shared prefix refused — wired into `make test` with a self-check proving the env-var branch's absence fails the suite.

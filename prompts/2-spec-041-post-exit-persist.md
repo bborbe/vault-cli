@@ -1,7 +1,7 @@
 ---
 spec: ["041-bug-resume-races-live-headless-turn"]
 status: draft
-created: "2026-09-30T07:13:46Z"
+created: "2026-10-19T17:47:30Z"
 ---
 
 # Persist the task session id only after the headless turn exits (spec 041, prompt 2 of 3)
@@ -14,7 +14,7 @@ created: "2026-09-30T07:13:46Z"
 - Confirms the goal path and its tests are already in the target state and leaves them untouched.
 - Runs the spec's AC7-9 evidence gate plus the full repository gate.
 - IMPORTANT FLAG FOR THE HUMAN REVIEWER: the task-side half of this spec was deliberately REVERTED in the tree after the spec was approved, because persisting only after the turn left the field empty while the child ran and the child's own session-connect then bound the task to a live, unrelated session. This prompt implements the spec as approved and re-applies the reversion's opposite; the reviewer must adjudicate at audit time (details and the two options are in the comment at the top of `<requirements>`). The docs prompt is coupled to that decision.
-- Carries no git commands: `git` is masked in this container, and the scenario-005 guard is prompt 1's content checksum.
+- Carries no git commands: `git` is masked in this container, and the scenario-005 guard is a content checksum.
 </summary>
 
 <objective>
@@ -25,9 +25,9 @@ Make the task path of `work-on` persist `claude_session_id` only after the detac
 Read `CLAUDE.md` for project conventions.
 
 Read fully (in this order):
-- `pkg/ops/workon.go` — the whole file (432 lines). Focus on `handleClaudeSession`, `persistSessionAndMetrics`, `clearSessionAndMetrics`, and `sessionFailureResult`.
+- `pkg/ops/workon.go` — the whole file (541 lines). Focus on `handleClaudeSession`, `persistSessionAndMetrics`, `clearSessionAndMetrics`, and `sessionFailureResult`.
 - `pkg/ops/goal_workon.go` — the whole file (240 lines). This is the structural TEMPLATE the reordered task path must match: its `handleClaudeSession` starts the turn first and persists only after it returns cleanly, on both branches, with no compensating clear.
-- `pkg/ops/workon_test.go` — the whole file (1138 lines). The contexts this prompt reworks are `"success"`, `"when the session id write precedes the spawn"`, `"when the pre-spawn persist re-read fails"`, `"when persisting the session id before spawning"`, and `"when the spawn fails"`.
+- `pkg/ops/workon_test.go` — the whole file (1144 lines). The contexts this prompt reworks are `"success"`, `"when the session id write precedes the spawn"`, `"when the pre-spawn persist re-read fails"`, `"when persisting the session id before spawning"`, and `"when the spawn fails"`.
 - `pkg/ops/goal_workon_test.go` — read `Context("when persisting the goal session id after the child exits", ...)` (~line 356) and `Context("goal work-on persists nothing for a failed turn", ...)` (~line 644) to confirm the goal path is already in the target state. Do not modify this file.
 - `pkg/ops/workon_session_writeback_test.go` — the whole file (524 lines). Note the shared `newStarter(detachRun)` helper, the `pinnedSessionID` constant, and that every success-path fake already writes a valid turn-JSON line to the caller-owned `stdout *os.File` and then feeds `done <- nil` with a blocking waiter.
 - `docs/work-on-session-lifecycle.md` — the design record. Its task-path sections currently describe the pre-spawn ordering; prompt 3 rewords them. Do NOT edit the doc here.
@@ -36,7 +36,7 @@ Coding-plugin docs (in-container paths):
 - `/home/node/.claude/plugins/marketplaces/coding/docs/go-error-wrapping-guide.md` — the `errors.Wrapf(ctx, ...)` / `errors.Wrap(ctx, ...)` / `errors.Errorf(ctx, ...)` idiom from `github.com/bborbe/errors`.
 - `/home/node/.claude/plugins/marketplaces/coding/docs/go-testing-guide.md` — Ginkgo v2 / Gomega conventions, Counterfeiter mocks.
 
-**`git` is MASKED in this container.** `.git` is a character device (`crw-rw-rw-`), so every `git` invocation fails with `fatal: not a git repository`. This prompt issues no git commands; do not add any. The spec's AC10 `git diff --exit-code HEAD -- scenarios/005-...` guard cannot run here and is replaced by a content checksum in prompt 1 — do not repeat or reinvent it here. Nothing in this prompt modifies `scenarios/005-work-on-resume-auto-invokes-subtask.md`.
+**`git` is MASKED in this container.** `.git` is a character device (`crw-rw-rw-`), so every `git` invocation fails with `fatal: not a git repository`. This prompt issues no git commands; do not add any. The spec's AC10 `git diff --exit-code HEAD -- scenarios/005-...` guard cannot run here and is replaced by a content checksum — do not repeat or reinvent it here. Nothing in this prompt modifies `scenarios/005-work-on-resume-auto-invokes-subtask.md`.
 </context>
 
 <requirements>
@@ -44,7 +44,7 @@ Coding-plugin docs (in-container paths):
 
 The task-side half of spec 041 was REVERTED in the tree AFTER the spec was approved:
 
-- The spec-041 task-side reorder (persist claude_session_id only AFTER the turn, no compensating clear) landed in workon.go, was released, and was then REVERTED by a later commit, "fix(workon): persist the fresh session id before the headless turn". Its stated rationale: with the field left empty for the whole turn, the child's own `/vault-cli:work-on-task` session-connect did not find an id, fell back to scanning the transcript directory by mtime, and wrote a LIVE UNRELATED session's id into the field. Reproduced live 2026-09-01 on a probe task: it spawned session 892ab117 and ended up bound to 34d27423, a live session on a different task. The post-turn persist then no-op'd because the field was no longer empty. The reversion re-adopted spec 040's persist-before-spawn plus a re-read-based compensating clear, on the task path only.
+- The spec-041 task-side reorder (persist claude_session_id only AFTER the turn, no compensating clear) landed in workon.go, was released, and was then REVERTED. The reversion is recorded in CHANGELOG.md `## v0.118.3` ("fix: `task work-on` now persists the fresh `claude_session_id` ... before the headless Claude session is spawned, so the session's own `/vault-cli:work-on-task` session-connect reads the field already set and keeps the fresh session instead of scanning the transcript directory and attaching whichever transcript was most recently modified"). Its rationale: with the field left empty for the whole turn, the child's own session-connect did not find an id, fell back to scanning the transcript directory by mtime, and wrote a LIVE UNRELATED session's id into the field. Reproduced live 2026-09-01 on a probe task: it spawned session 892ab117 and ended up bound to 34d27423, a live session on a different task. The post-turn persist then no-op'd because the field was no longer empty.
 - The reversion did NOT touch claude_session.go's block-until-exit + validation (spec 041 prompt 1), the spec 042 per-session lock, or goal_workon.go (which still persists post-exit).
 
 The current tree therefore FAILS spec 041 AC7 (`grep -c 'After(childExitAt)' pkg/ops/workon_test.go` == 0) and AC9 (`grep -c 'clearSessionAndMetrics' pkg/ops/workon.go` == 3).

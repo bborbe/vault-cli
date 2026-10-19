@@ -63,6 +63,13 @@ type TaskStorage interface {
 	// result must not silently describe a smaller set (the weekly rollup) uses
 	// this; the error names the offending file.
 	ListTasksStrict(ctx context.Context, vaultPath string) ([]*domain.Task, error)
+	// ListTasksTolerant returns every task in the vault's configured tasks_dir and
+	// names the files it skipped because they could not be read or parsed. A walk
+	// error (a missing or unreadable directory) is returned rather than reported as
+	// an empty set. Unlike ListTasks the skipped names are returned to the caller,
+	// not logged; unlike ListTasksStrict a single unreadable file does not abort the
+	// listing.
+	ListTasksTolerant(ctx context.Context, vaultPath string) ([]*domain.Task, []string, error)
 }
 
 //counterfeiter:generate -o ../../mocks/goal-storage.go --fake-name GoalStorage . GoalStorage

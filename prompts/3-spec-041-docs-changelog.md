@@ -1,13 +1,14 @@
 ---
 spec: ["041-bug-resume-races-live-headless-turn"]
 status: draft
-created: "2026-09-30T07:13:46Z"
+created: "2026-10-19T17:47:30Z"
 ---
 
 # Reword the work-on lifecycle doc, confirm the scenario, and record the change (spec 041, prompt 3 of 3)
 
 <summary>
 - Rewords the task-path sections of the work-on session lifecycle document so they describe both paths persisting the session id only after the headless turn exits, with no compensating clear — removing the pre-spawn wording a later reversion left behind under an already-correct heading.
+- Removes the last stale mention of a compensating clear from the per-session lock section, where the sentence is a leftover from the pre-spawn design rather than a statement about locks.
 - Confirms the task-lifecycle scenario already states that the headless turn blocks until completion and no longer claims a fast return, so no edit is needed there.
 - Creates the changelog's unreleased section (it does not exist today) and records the change under it with a conventional prefix.
 - Does not touch the plugin version strings or any tag — this repository's release agent owns version bumps and tagging after merge, so a feature branch only adds an unreleased bullet.
@@ -27,7 +28,7 @@ Read `CLAUDE.md` for project conventions.
 Read fully (in this order):
 - `docs/work-on-session-lifecycle.md` — the whole file (261 lines). This is the file under test.
 - `scenarios/002-task-lifecycle.md` — the whole file (67 lines).
-- `CHANGELOG.md` — read the top ~40 lines only (the frozen `# Changelog` preamble and the newest versioned sections; the newest section today is `## v0.158.2`). That is where the new section and bullet land; the rest of the file is not needed.
+- `CHANGELOG.md` — read the top ~40 lines only (the frozen `# Changelog` preamble and the newest versioned sections; the newest section today is `## v0.171.1`). That is where the new section and bullet land; the rest of the file is not needed.
 - `pkg/ops/workon.go` and `pkg/ops/goal_workon.go` — read only to confirm the ordering the documentation must describe. Do not modify either.
 - `prompts/2-spec-041-post-exit-persist.md` — read the reviewer comment at the top of its `<requirements>` block; it records the conflict this prompt is coupled to.
 
@@ -77,23 +78,25 @@ The documentation is in a DRIFTED state. A later change rewrote the BODIES of th
      `claude_session_id` lands. The UI correctly keeps offering **Start**.
      ```
      Keep the following paragraph about the empty-id rule verbatim — it is already correct.
-   - **`## The per-session lock`** — the `**The detached-child safety property.**` paragraph is stale. Replace it with:
-     ```
-     **The detached-child safety property.** On the spawn path, when the parent stops
-     waiting — a failed turn, ctx cancel, or the 30m bound — the detached child keeps
-     running *without* the parent's lock. The id is never on disk while the child runs:
-     both paths persist only after exit, so during the running window Resume is not
-     offered for a live turn (the Vault UI resolver fix, shipped separately) and the
-     per-session lock (spec 042) refuses a second writer on the same id — the child
-     running unlocked is not targetable. On any failure nothing was persisted, so the id
-     cannot stay resumable-looking.
-     ```
+   - **`## The per-session lock`** — two stale passages:
+     - In the `**No stale lock.**` paragraph, the clause `There are no cleanup sweeps, no compensating clears, and no lock TTL` still names a mechanism that no longer exists. Replace it with `There are no cleanup sweeps and no lock TTL`. The sentence's point is that the kernel frees the lock; the clear clause adds nothing and is the only remaining stale vocabulary in this section.
+     - The `**The detached-child safety property.**` paragraph is stale. Replace it with:
+       ```
+       **The detached-child safety property.** On the spawn path, when the parent stops
+       waiting — a failed turn, ctx cancel, or the 30m bound — the detached child keeps
+       running *without* the parent's lock. The id is never on disk while the child runs:
+       both paths persist only after the child exits, so during the running window Resume is
+       not offered for a live turn (the Vault UI resolver fix, shipped separately) and the
+       per-session lock (spec 042) refuses a second writer on the same id — the child
+       running unlocked is not targetable. On any failure nothing was persisted, so the id
+       cannot stay resumable-looking.
+       ```
    - Do NOT touch `## Session id ownership`, `## Why stream-json was rejected`, `## Why the TTY branch is untouched`, `## The fate of --output-format json`, or the rest of `## The per-session lock`. In particular, the phrase "liveness gating" in the lock's "Lock scope" paragraph is a spec-042 Vault UI follow-on concept, NOT the removed liveness-window concept — leave it. `scenarios/005-work-on-resume-auto-invokes-subtask.md` is never edited.
    - After the reword the whole file must contain none of the reverted vocabulary — see the drift-guard grep in `<verification>`.
 
 3. **Confirm `scenarios/002-task-lifecycle.md` — no edit expected (AC11).** Its work-on action note must already state that the headless turn blocks until completion (it does: `**Both branches block until the turn completes**`, `bounded by a 30m turn timeout`, and `A fast return is a FAIL, not a pass`). Confirm `grep -c '~10s' scenarios/002-task-lifecycle.md` is 0. If it is non-zero, replace the fast-return wording with the blocking wording. Make no other change to this file.
 
-4. **Create the unreleased section in `CHANGELOG.md` and record the change under it (AC12).** Today `CHANGELOG.md` has NO unreleased section — the newest section is `## v0.158.2`. Insert, immediately after the frozen preamble (the `* MAJOR version...` bullet block) and immediately above the newest versioned section (today `## v0.158.2`):
+4. **Create the unreleased section in `CHANGELOG.md` and record the change under it (AC12).** Today `CHANGELOG.md` has NO unreleased section — the newest section is `## v0.171.1`. Insert, immediately after the frozen preamble (the `* MAJOR version...` bullet block) and immediately above the newest versioned section (today `## v0.171.1`):
    ```
    ## Unreleased
 
@@ -106,7 +109,7 @@ The documentation is in a DRIFTED state. A later change rewrote the BODIES of th
    - Do NOT bump the plugin version strings in `.claude-plugin/plugin.json` or `.claude-plugin/marketplace.json`, and do NOT create a tag. This repository's release agent owns version bumps and tagging after merge (see `CLAUDE.md` § Plugin Release Checklist and the changelog guide's "Version Alignment Is Release-Time"). Write `## Unreleased`, never `## vX.Y.Z`.
    - The bullet must be within the first 15 lines after the `## Unreleased` heading, and must contain the substring "Resume" (case-insensitive), because AC12's evidence grep reads exactly those 15 lines.
 
-   <!-- OPEN QUESTION FOR THE HUMAN REVIEWER: this bullet re-describes the post-exit ordering that an earlier release shipped, while a later release note documented the task-side REVERSION back to persist-before-spawn ("fix(workon): persist the fresh session id before the headless turn"), whose rationale was a live-reproduced session-connect mis-binding. The bullet and the documentation reword in requirement 2 are correct only if prompt 2 is approved. If prompt 2 is rejected at audit, reject this prompt as well and re-scope spec 041 instead. Separately, spec Open Question 2 — the Vault UI "Creating session… up to 2 minutes" modal copy — lives in the vault-ui repository and is out of scope here; no Vault UI change is made by this prompt. -->
+   <!-- OPEN QUESTION FOR THE HUMAN REVIEWER: this bullet re-describes the post-exit ordering that an earlier release shipped, while CHANGELOG.md `## v0.118.3` documented the task-side REVERSION back to persist-before-spawn ("fix: `task work-on` now persists the fresh `claude_session_id` ... before the headless Claude session is spawned"), whose rationale was a live-reproduced session-connect mis-binding. The bullet and the documentation reword in requirement 2 are correct only if prompt 2 is approved. If prompt 2 is rejected at audit, reject this prompt as well and re-scope spec 041 instead. Separately, spec Open Question 2 — the Vault UI "Creating session… up to 2 minutes" modal copy — lives in the vault-ui repository and is out of scope here; no Vault UI change is made by this prompt. -->
 
 5. **Confirm the spec's two open questions need no code change.** Open Question 1: the turn bound stays an unexported tunable constant with no config field — do not add one (spec Non-goals). Open Question 2: the Vault UI modal copy is a different repository — no change here.
 

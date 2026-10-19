@@ -10,7 +10,9 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
+	"unicode"
 
 	"github.com/bborbe/errors"
 	"github.com/google/uuid"
@@ -124,6 +126,53 @@ func (t *taskStorage) ListTasksStrict(
 	}
 
 	return tasks, nil
+}
+
+// ListTasksTolerant returns every task in the vault's configured tasks_dir,
+// including subdirectories, and names the files it could not read. A per-file
+// read/parse error is skipped and its tasks_dir-relative path recorded; a walk
+// error (a missing or unreadable directory) is returned, so a misconfigured
+// vault is never reported as an empty one. The skipped names are sorted and
+// carry no control characters, so each renders on one line.
+func (t *taskStorage) ListTasksTolerant(
+	ctx context.Context,
+	vaultPath string,
+) ([]*domain.Task, []string, error) {
+	tasksDir := filepath.Join(vaultPath, t.config.TasksDir)
+	var tasks []*domain.Task
+	skipped := make([]string, 0)
+	if err := t.walkTaskFiles(
+		ctx,
+		vaultPath,
+		func(task *domain.Task, _, path string, err error) error {
+			if err != nil {
+				skipped = append(skipped, skippedTaskName(tasksDir, path))
+				return nil
+			}
+			tasks = append(tasks, task)
+			return nil
+		},
+	); err != nil {
+		return nil, nil, err
+	}
+	sort.Strings(skipped)
+	return tasks, skipped, nil
+}
+
+// skippedTaskName reduces an absolute task file path to the path relative to
+// tasks_dir, with each control character replaced by a single space so a
+// filename can never forge an extra line in a report.
+func skippedTaskName(tasksDir, path string) string {
+	rel, err := filepath.Rel(tasksDir, path)
+	if err != nil {
+		rel = filepath.Base(path)
+	}
+	return strings.Map(func(r rune) rune {
+		if unicode.IsControl(r) {
+			return ' '
+		}
+		return r
+	}, filepath.ToSlash(rel))
 }
 
 // walkTaskFiles walks the vault's configured tasks_dir recursively and calls

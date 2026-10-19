@@ -6,6 +6,7 @@ allowed-tools:
   - Grep
   - AskUserQuestion
   - Skill
+  - SendMessage
   - Bash(vault-cli:*)
   - Bash(git status:*)
   - Bash(git log:*)
@@ -328,11 +329,35 @@ STATUS_EXIT=$?
 
 Interpretation is identical to the task branch above — `completed` / `hold` / `aborted` / `next` / `backlog` are silent OK, `in_progress` flags, a non-zero exit or parse failure surfaces as its own outstanding line rather than being skipped. Same scoping rule too: **touched goals only**. A goal this session never edited belongs to another session.
 
-For each `in_progress` goal, surface in Phase 9 as outstanding — except the anchor goal of a goal-anchored session (Phase 1's `GOAL_ANCHORED`): see the goal-anchored exemption below.
+For each `in_progress` goal — except the anchor goal of a goal-anchored session (Phase 1's `GOAL_ANCHORED`), which the goal-anchored exemption below covers — first resolve its manager, then decide **whether a decision is owed**. Those are two separate questions, and the split is what this phase is for.
+
+**Resolve the manager.** Read the goal page's `manager_session_id`; failing that, the `manager_session_id` of a topic page whose `## Goals` section lists the goal. Treat the id as a **lead, never a verdict** (`claude-supervisor` `docs/fleet-surface.md` § Which manager owns a subject) and run `session-liveness.py --check <id>`. Resolve the script from the installed supervisor cache, never the cwd — this phase runs from a vault, which has no `scripts/`:
+
+```bash
+LIVENESS="$(ls -d ~/.claude/plugins/cache/claude-supervisor/*/*/scripts 2>/dev/null | sort -V | tail -1)/session-liveness.py"
+python3 "$LIVENESS" --check "<id>"; echo "exit=$?"
+```
+
+Only exit 0 `LIVE` counts as a live manager; exit 1 `ABSENT`, 2 `UNKNOWN`, 3 `AMBIGUOUS`, 4 `MALFORMED`, and no id anywhere all read as **no live manager**.
+
+⚠️ **This is deliberately narrower than that section's task-level chain**, which ends at the Fleet Manager. That chain answers *who owns this task*; this one answers *who can be told a goal is closable*. A worker messages only a manager it can prove is live, and never escalates to the Fleet Manager on its own — so "no live manager" is a real answer here, not a fall-through.
+
+**A goal with ≥1 open task — report only, never ask.** Goals span 1–4 weeks and sessions do not, so an open goal is the ordinary steady state, and its status is the managing session's own write (`claude-supervisor` `commands/manager-loop.md` § Manager contract: `status` / `phase` stay the manager's own). A task-anchored session that finished its anchor owes no decision here, so emit **one information line and nothing else** — no outstanding item, no `approve:` / `pick` / `you run:` / `review:` line, no `AskUserQuestion` naming the goal:
+
+```
+goal <title>: in_progress, <n>/<m> SC — managed by <manager>
+goal <title>: in_progress, <n>/<m> SC — no live manager
+```
+
+`<n>/<m>` is ticked SC over total SC, read from the goal page's `# Success Criteria`. Emit exactly one of the two forms — never both, and never the `managed by` form when `--check` was non-zero. It belongs in Phase 9's **Session summary** area (see there), never in the numbered outstanding list.
+
+**A closable goal (every task terminal, every SC ticked) — a decision is owed.** Someone must close it, so it does not become an information line. Route it to its live manager first: when `--check` returned 0, `SendMessage` that manager naming the goal and emit **no** operator line for it. `SendMessage` addresses a session by **name**, so map the id first — `session-liveness.py --list --json` carries both `sessionId` and `name`; the `ListAgents` roster shows only a registry ref, never the session id. Otherwise — no live manager — surface it in Phase 9 as outstanding, exactly as today:
 
 ```
 N. Goal [[<title>]] still in_progress — `/vault-cli:complete-goal "<title>"` to close, `/vault-cli:defer-goal "<title>" <date>` to push out, set status hold/aborted if abandoning, or **leave it open and say so plainly**
 ```
+
+⚠️ **`SendMessage` is the only action available here.** A worker never resumes or starts a manager (`~/.claude/CLAUDE.md` § Worker Does Not Open Sessions), so an `ABSENT` or `UNKNOWN` manager is **not** a resume invitation — it is simply no live manager, and the operator line stands. ⚠️ **`manager-liveness.py --state --topic` is not a substitute:** it answers whether the manager's *loop* is armed, not whether a session is addressable.
 
 **Within one session, a resolution already given is not re-asked.** Before flagging a goal, scan this conversation for an explicit resolution the operator already stated for it — "leave it open", a complete/hold/abort decision, or a `pick`/`approve:` reply naming it. If one exists, do NOT re-surface the goal as an outstanding item and do NOT re-emit its `approve:` line; carry it forward in one clause instead (`[[<goal>]] still in_progress — left open by your earlier decision, unchanged`), placed in the **Session summary** block — never in the numbered outstanding list, which would re-surface it. With the item suppressed, the run takes the clean verdict **when no other outstanding item remains** — a dirty repo, an orphan worktree, or a Phase 8 signal still forces mode 3; the carry-forward clause is what keeps the still-open anchor visible. Re-flag it only if its `status` or its `# Tasks` set changed since. ⚠️ **The hard flag on the FIRST run is unchanged** — this governs the repeat only; the flag exists to make an unresolved anchor visible once, not to demand the same answer on every invocation.
 
@@ -353,7 +378,7 @@ A goal legitimately outliving the session is common — goals span 1–4 weeks, 
 2. **Open tasks remain** (≥1 task not `completed` / `aborted`) → the goal is not outstanding; Phase 9 names the next open task (the first in `# Tasks` order) under the goal (the global rule: *"When the anchored goal has remaining tasks, the next action is the next task under that same goal — name it"*).
 3. **All tasks terminal** → the goal has drained; Phase 9 lists it normally as the outstanding item to close (`/vault-cli:complete-goal "<title>"`), and the `sync-progress` → `session-close` recommendation becomes available.
 
-For task-anchored sessions touching a goal, nothing changes — the `in_progress` flag stands as the "confirm this is deliberate" prompt.
+For task-anchored sessions touching a goal, the split above applies unchanged: an open goal is a report-only information line, and only a **closable** goal reaches a manager or the operator. The old blanket "confirm this is deliberate" prompt is gone — it asked the operator to ratify a decision that belongs to the manager, and it parked a finished worker on a question nobody needed to answer.
 
 ### Phase 4.6: Check tasks this session CAUSED (not just touched)
 
@@ -652,13 +677,21 @@ Session worked on:
 
 Omit any line with zero entries. If nothing was touched (e.g. talk-only session), omit the block entirely.
 
+**Open-goal status lines (Phase 4.5).** For each touched `in_progress` goal with **≥1 open task**, append one line directly below the summary block — not a bullet, and never inside the numbered outstanding list, so it reads as information rather than an item:
+
+```
+goal <title>: in_progress, <n>/<m> SC — managed by <manager>
+```
+
+Use `— no live manager` instead when no live manager resolves. This line is what keeps the open goal visible while removing the ask; a closable goal does not appear here (it reaches a manager or the outstanding list instead).
+
 The `Carried forward:` line is emitted only on a repeat run, for an anchor the operator already resolved this session — Phase 4.5's within-one-session clause. It is that clause's only home; never also list the item in the mode-3 numbered list.
 
 **Verdict — three modes:**
 
 **Mode gate (Phase 4.5 is a hard block, not a suggestion):** if any touched task is `in_progress`, modes 1 and 2 (the clean verdicts) are **forbidden** — the verdict MUST be mode 3 (outstanding), with that task as an outstanding item. An `in_progress` anchor task can never be annotated away ("no action needed", "standing trigger", "deliberate") into a clean verdict; the operator must resolve it (complete / defer / hold / abort, or explicitly choose to leave it open) before the session can be suggested as closeable. Leaving it open is a resolution, not an annotation — the verdict stays mode 3 and the task stays on the list. ⚠️ **That sentence governs the FIRST resolution only.** Once the operator has given one in this session, Phase 4.5's within-one-session clause applies on any repeat run: the item is carried forward in one clause in the summary block instead of being re-listed, its `approve:` line is not re-emitted, and the run reaches the clean verdicts. Without this carve-out the gate and the clause deadlock — mode 3 would demand an `approve:` line the clause forbids. Modes 1 and 2 are reachable only when every touched task is `completed`, `hold`, `aborted`, `next`, `backlog`, **or** is a task the operator already resolved this session (Phase 4.5's within-one-session clause) — a carried-forward `in_progress` task does not block them.
 
-**Goal-anchored sessions are exempt from the goal half of the gate.** The Phase 4.5 block above is about touched *tasks* — that stands unchanged. But an anchor goal left `in_progress` with open tasks does NOT force mode 3: it is the goal session's designed steady state, exempted in Phase 4.5. A goal-anchored session reaches the clean verdicts on the same task conditions as any session; the open goal is then reflected in the closer panel (below), never as an outstanding item — the one exception is a DRAINED anchor goal (all tasks terminal), which Phase 4.5 lists normally as outstanding (drained goals go through mode 3, not this path).
+**Goal-anchored sessions are exempt from the goal half of the gate.** The Phase 4.5 block above is about touched *tasks* — that stands unchanged. But an anchor goal left `in_progress` with open tasks does NOT force mode 3: it is the goal session's designed steady state, exempted in Phase 4.5. A goal-anchored session reaches the clean verdicts on the same task conditions as any session; the open goal is then reflected in Phase 9's `goal …` information line, never as an outstanding item — the one exception is a DRAINED anchor goal (all tasks terminal), which Phase 4.5 routes to its live manager or lists as outstanding (drained goals go through mode 3, not this path). ⚠️ **Phase 4.5's split governs every session, not only goal-anchored ones** — an open goal never forces mode 3 for anyone; only a closable goal does.
 
 **1. Clean + no follow-up signals fired** (all phases ✅ — including every touched task resolved, **and** reflect score < 3, **and** self-improve score < 3, **and** no Phase 8.5 runbook gap):
 

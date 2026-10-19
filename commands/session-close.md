@@ -209,11 +209,7 @@ Cross-check against other still-active Claude sessions: a worktree from a siblin
 
 **The session's own cwd is never a mode-3 blocker.** A worktree whose path is this session's working directory is by definition in use, and it cannot be removed while the session lives — so listing it as outstanding creates a blocker no run can clear, and every repeat run reports the identical verdict. Report it under a post-close heading and keep it out of the mode-3 list. Observed 2026-10-12 on `lib-mdm-fix-lint`: genuinely orphaned (branch merged as `e8db2f8d`, deleted from the remote, 0 commits beyond master), yet two consecutive runs emitted the same `🔵 READY` naming only it. The own-process exclusion above is what makes this reachable — it is right for judging *other* worktrees, and it is exactly what leaves the session's own one flagged.
 
-Surface in Phase 9 as outstanding:
-
-```
-N. Orphan worktree: ~/Documents/workspaces/<name> (branch <feat>, deleted from remote) — `git worktree remove ~/Documents/workspaces/<name>`
-```
+**Decide first, list second.** A flagged worktree is either removed now or surfaced as outstanding — **never both**. Evaluate the three removal conditions below before writing any Phase 9 line.
 
 **Remove it yourself, without an `approve:` line, when all three hold:**
 
@@ -223,11 +219,19 @@ N. Orphan worktree: ~/Documents/workspaces/<name> (branch <feat>, deleted from r
 
 Removal loses nothing and is reversible: the branch's commits are merged and reachable from `origin/master`, and `git worktree add` recreates the checkout. Run `git worktree remove <path>` yourself, then report the removal in the close summary instead of listing it as outstanding.
 
-**Still surface it as outstanding — keeping the `approve:` line — when any of these hold:**
+**Only when any of these hold, surface it in Phase 9 as outstanding — keeping the `approve:` line:**
 
 - **Uncommitted work.** `git status` in the worktree is not clean, or it holds commits not reachable from `origin/master`. The user may have local changes they want to inspect first; that is the whole reason removal was never automatic here, and it still governs this case.
 - **Another session's worktree.** This session did not create it, or a live process still has it as its cwd. A sibling session's worktree is not this session's to remove.
 - **The merge test is inconclusive.** If you cannot show the branch merged by the file's own test, treat it as unmerged and surface it.
+
+The Phase 9 line, for a worktree you did **not** remove:
+
+```
+N. Orphan worktree: ~/Documents/workspaces/<name> (branch <feat>, deleted from remote) — `git worktree remove ~/Documents/workspaces/<name>`
+```
+
+⚠️ **The ordering above is the fix, not a style choice.** Observed 2026-10-18 on `claude-supervisor-receipt`: a session created the worktree itself, merged its branch 36 minutes earlier (`ed056aae`), read `merged, clean` in its own session-close output — and still emitted `approve: git worktree remove`, because the unconditional *"Surface in Phase 9 as outstanding"* instruction stood **above** the removal conditions and was executed first. A rule that permits removal while instructing the listing first produces the ask anyway.
 
 ### Phase 4: Check active task list (TaskCreate)
 

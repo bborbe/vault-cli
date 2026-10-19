@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: `session-close` removes a finished worktree without asking — for real this time. v0.169.1 added the three no-ask conditions, but the unconditional *"Surface in Phase 9 as outstanding"* instruction stood **above** them, so a session reading Phase 3.5 top-down executed the listing first and asked anyway. Observed 2026-10-18 on `claude-supervisor-receipt`: the session created the worktree itself, merged its branch 36 minutes earlier (`ed056aae`), read `merged, clean` in its own session-close output — and still emitted `approve: git worktree remove`. The removal conditions now come first, the Phase 9 template and its three still-asks cases follow them, and the block states outright that the two arms are exclusive.
+
 ## v0.170.2
 
 - docs(plan-task): close two gaps the 2026-10-18 TeamVault planning run exposed. (a) **The exit condition and the auditor's *Critical Issues* section disagreed.** § 7 exits at `score ≥ 8` with the hard gates green, but nothing said whether the auditor's Critical Issues block — so the run looped six times at ~80k tokens per audit round after the gate was already met at round 1. Now stated: a Critical Issue blocks only where it also fails one of the nine hard non-negotiables; otherwise record the remainder and exit. (b) **Probe expected values were unchecked.** § 5's producer rule covered a probe naming an artifact nothing produces, but not a probe whose *expected value* is wrong: a criterion asserted `curl … /groups/` prints `200` for a view decorated `user_passes_test(lambda u: u.is_superuser)`, where a correct deploy returns `302` — the probe could never pass and would have read as a broken deploy. Both carry the observed case inline.

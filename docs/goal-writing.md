@@ -120,6 +120,7 @@ binding: <free text>                             # optional — the hard deadlin
                                                  # gating the completion verdict; rendered on
                                                  # the status anchor line ("binding: <value>")
 launcher: cc-private-claude                      # optional — default launcher for this goal's tasks
+manager_session_id: <session id>                 # optional — written by claude-supervisor; surfaced by list
 ---
 ```
 
@@ -140,6 +141,12 @@ Blocked state is derived and is never written. Nothing sets `status: hold` from 
 **When the blocker's condition has already shipped, do not record it.** The goal-side equivalent of the exclusion in `task-writing.md` § Dependencies (`blocked_by`). `blocked_by` is read as `status: completed` on the blocker's *file*, and **nothing flips a status when a blocker completes** (above) — so a blocker whose own prose names a condition already **met** (a merge that landed, a release that cut, a binary that deployed) while its file still reads `in_progress` blocks its dependent **forever**: the event already happened and the field is not watching for it. Read the condition the blocker's own body names, from its own source — `gh pr view <n> --json mergedAt,mergeCommit` for a merge, the tag for a release — and if it is already met, record the dependency as prose naming the condition instead of recording the field.
 
 Where it surfaces: `vault-cli goal list --output json` emits `blocked_by` (the raw list) and a computed `blocked` boolean for any goal that declares a dependency list; a goal with no `blocked_by` emits neither key. `/vault-cli:next-task` does not recommend a goal or task whose `blocked` flag is true.
+
+### Manager session (`manager_session_id`)
+
+`manager_session_id` records the manager session that armed this goal. It is written by the producer — claude-supervisor's manager-resolve step — through the existing generic `vault-cli goal set "<subject>" manager_session_id "$CLAUDE_CODE_SESSION_ID"` verb (and `topic set` on a topic page). This repo adds no setter and no CLI flag of its own; the field is set through those generic verbs, so it is not unsettable.
+
+Where it surfaces: every list command's `--output json` carries `manager_session_id` verbatim when the page's frontmatter sets it, and omits the key when it does not. Because `goal list`, `topic list`, `task list`, `theme list`, `objective list`, and `vision list` share one list read model, the field appears on all six without a page-type condition. The value is read-only in the list model: it is never derived, normalized, or written back.
 
 **Recording a dependency.** One entry per invocation, appended to whatever list is already there:
 

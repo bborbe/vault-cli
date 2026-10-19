@@ -10,9 +10,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 
 ## Unreleased
 
-- feat: Add `TaskStorage.ListTasksTolerant` — lists every readable task and returns the sorted, control-character-sanitised `tasks_dir`-relative names of files skipped on read/parse errors, while still failing on a missing or unreadable tasks directory.
-- feat: `rollup weekly` reads tasks tolerantly and reports the files it skipped in a new `Skipped` field (`skipped` in JSON, always an array, empty when nothing was skipped) and as a final `skipped: <path>` line in the plain report; one unparseable task file no longer aborts the week's measurement, while a missing tasks directory still fails.
-- fix: `rollup weekly` skips task files it cannot read or parse and names them on a final `skipped:` line and a `skipped` JSON array, instead of aborting the whole week's report; a walk-level failure such as a missing `tasks_dir` still errors.
+- fix: `rollup weekly` skips task files it cannot read or parse and names them on a final `skipped:` line and a `skipped` JSON array (always an array, empty when nothing was skipped), instead of aborting the whole week's report; a walk-level failure such as a missing `tasks_dir` still errors. Backed by a new `TaskStorage.ListTasksTolerant` that returns the readable tasks plus the sorted, control-character-sanitised `tasks_dir`-relative names of the files it skipped.
 
 ## v0.171.1
 

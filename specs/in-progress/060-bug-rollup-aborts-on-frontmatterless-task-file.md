@@ -1,7 +1,7 @@
 ---
-status: draft
-kind: bug
-created: "2026-10-19"
+status: approved
+approved: "2026-10-19T17:49:55Z"
+branch: dark-factory/bug-rollup-aborts-on-frontmatterless-task-file
 ---
 
 ## Summary

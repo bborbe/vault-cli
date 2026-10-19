@@ -129,11 +129,12 @@ If found:
 Connect the current session to the task so the task's `claude_session_id` points at the session working on it, and the session is renamed after the task. This makes the task↔session link visible in the session list / Vault UI.
 
 1. Read the task's `claude_session_id` frontmatter.
-2. If it is **empty or absent**: detect the current session's UUID by title-match, never by newest-transcript. The `ls -t ... | head -1` mtime scan is forbidden — in a fleet of concurrent sessions the newest transcript is almost never the current session (observed: a fresh headless Start session got bound to a live unrelated session this way).
+2. If it is **empty or absent**: detect the current session's UUID **deterministically first** — `$CLAUDE_CODE_SESSION_ID`, which the harness sets for the session it launched — and fall back to a title-match only when it is unset. Never detect by newest-transcript: the `ls -t ... | head -1` mtime scan is forbidden — in a fleet of concurrent sessions the newest transcript is almost never the current session (observed: a fresh headless Start session got bound to a live unrelated session this way).
 
-   The match is **strip + scope + require uniqueness**, and all three parts are load-bearing:
+   The fallback match is **strip + truncation + scope + require uniqueness**, and all four parts are load-bearing:
 
    - **Strip leading decoration.** A supervisor prefixes the title it gives a spawned session (e.g. `⚙ <task>`), set at spawn — before this step runs. An exact compare against the bare task name therefore returns **zero**, and this guard silently refuses to connect the task at all. `claude-supervisor` § Subject resolution already carries this rule (*"Strip leading decoration before matching"*); this step needs it too.
+   - **Tolerate a truncated title.** A supervisor passes a caller-chosen SHORT label, so the spawned title is usually a *prefix* of the task name rather than the whole of it (`⚙ <short label>`). An exact-only compare therefore returns zero for every such spawn — the defect this branch fixes. Accept a prefix only under the same two conditions `claude-supervisor`'s `_matches_one_title` uses: the prefix is at least 20 characters (`_TRUNCATION_MIN_PREFIX`, `scripts/fleet-board.py:186`), and it identifies exactly one candidate. An exact match always wins over a prefix; a prefix never displaces a certainty, and an ambiguous one is never picked.
    - **Scope to live sessions.** A title can match a transcript whose session has ended. Binding that id leaves the task owned by a dead session, and the id is then not resumable — which is the whole point of writing it. Use **transcript recency** for this: fresh within `LIVE_WINDOW` = 5 minutes, per `docs/session-liveness.md`. Do **not** add that doc's process cross-check here — it cannot see this session's own process. Sessions are launched with `--resume <uuid>`, `--resume <name>`, or neither, so a uuid-keyed `pgrep` returns nothing for the very session running this step (measured 2026-09-19: `pgrep -f <own-uuid>` = 0 while the transcript was fresh) and would filter out the correct answer. Recency is the usable half from *inside* a session; the doc's two-signal rule is for classifying a task from outside.
    - **Still refuse on zero or multiple.** Do NOT add a "pick the newest" tiebreak; that is the mtime scan this guard exists to replace. Stripping alone is not enough — across a real fleet many titles collide, so uniqueness is checked *after* both filters, never instead of them.
 
@@ -170,20 +171,40 @@ Connect the current session to the task so the task's `claude_session_id` points
    # only untitled `agent-*.jsonl` subagent transcripts, which the strip rule skips anyway. Bounding
    # therefore loses no match, cuts the stat walk ~11x, and stops a symlink inside the store from
    # widening the scan past it. The store grows, so treat these counts as a dated sample, not constants.
-   find -L "$DIR" -maxdepth 1 -name '*.jsonl' -mmin -5 2>/dev/null | while read -r f; do
-     stem=$(basename "$f" .jsonl)
-     cur=$(grep '"type":"custom-title"' "$f" 2>/dev/null | grep '"customTitle"' | tail -1 | sed 's/.*"customTitle":"//; s/".*$//')
-     # strip the leading decoration a supervisor adds at spawn ("⚙ <task>"); skip untitled (subagent) transcripts
-     cur=$(printf '%s' "$cur" | sed 's/^[^[:alnum:]]*//')
-     [ -n "$cur" ] && [ "$cur" = "<task_name>" ] && echo "$stem"
-   done | sort -u
+   # Detection. Deterministic first: the harness sets this for the session it launched,
+   # so it is the current session by definition — no title needed, nothing to guess.
+   # Fallback: exact title match, then a >= 20-char prefix (a spawned title is a
+   # TRUNCATED task name, i.e. a prefix of it) — each tier must be unique.
+   TASK_NAME="<task_name>"
+   matches=$(
+     if [ -n "${CLAUDE_CODE_SESSION_ID:-}" ]; then
+       printf 'exact %s\n' "$CLAUDE_CODE_SESSION_ID"
+     else
+       find -L "$DIR" -maxdepth 1 -name '*.jsonl' -mmin -5 2>/dev/null | while read -r f; do
+         stem=$(basename "$f" .jsonl)
+         cur=$(grep '"type":"custom-title"' "$f" 2>/dev/null | grep '"customTitle"' | tail -1 | sed 's/.*"customTitle":"//; s/".*$//')
+         # strip the leading decoration a supervisor adds at spawn ("⚙ <task>"); skip untitled (subagent) transcripts
+         cur=$(printf '%s' "$cur" | sed 's/^[^[:alnum:]]*//')
+         [ -z "$cur" ] && continue
+         if [ "$cur" = "$TASK_NAME" ]; then
+           printf 'exact %s\n' "$stem"
+         elif [ ${#cur} -ge 20 ] && [[ "$TASK_NAME" == "$cur"* ]]; then
+           printf 'prefix %s\n' "$stem"
+         fi
+       done | sort -u
+     fi
+   )
+   # exact beats prefix; a tier that is not unique yields nothing (refuse, never pick)
+   uuid=$(printf '%s\n' "$matches" | awk '$1=="exact"{n++; u=$2} END{if(n==1) print u}')
+   [ -n "$uuid" ] || uuid=$(printf '%s\n' "$matches" | awk '$1=="prefix"{n++; u=$2} END{if(n==1) print u}')
+   printf '%s\n' "$uuid"
    ```
    - If EXACTLY ONE UUID is returned: `vault-cli task set "<task_name>" claude_session_id "<uuid>"`
      - Then, in this same branch and only after the id write above has landed, append the session to the task's metrics: `vault-cli task append-metrics-session "<task_name>" "<uuid>"`. This is the only way a session-connect records metrics — never `vault-cli task set` / `task add` / `task remove` on `metrics_sessions`, and never a hand-edit of the frontmatter, which is written passively by vault-cli. A non-zero exit is a warning, not a ⚠️ failure: report `ℹ️ Metrics: not recorded — <reason>` and leave the `claude_session_id` write in place. The warning names metrics and the reason; the id is the load-bearing field, the metrics entry is analytics.
    - If zero OR multiple UUIDs are returned (ambiguous / no match — the task is not the session's current title, several *live* sessions share it, or the session has already ended): do NOT write the field, and report `ℹ️ Session: not connected — <n> matching session(s), refusing to guess`. **If the `transcript store not found` warning fired above, surface that line in the report too** — a missing or wrong store must never be reported as an ordinary title ambiguity, because reading one as the other is precisely the confusion the scan's path bugs produced. Do NOT fall back to the task name: a name is not a UUID and the vault-ui resolver would then mis-resolve it. Do not widen the window or drop the strip to force a match either — a miss here means no *live* session carries this title, and a guessed id is worse than an empty field (see the third failure face in the session-id gotcha). A miss is safe **only** on the headless Start path, which pre-sets this field via vault-cli before the turn; from an interactive session nothing pre-set it, so the status flip below must then not route through `work-on`, or it spawns a second session onto this task.
    - Report: `✅ Session: connected (<uuid>)`
 3. If `claude_session_id` is **already set**: classify the recorded owner per `docs/session-liveness.md` before deciding — the field records the **filer**, but every consumer reads it as an **ownership** stamp, and the two coincide only when the filing session is also the working one. Read that rule there; do not restate it here.
-   - **`quiet`** (transcript stale, no live process — the recorded owner has ended) → resolve THIS session's uuid by the same **title-match** step 2 uses (strip the leading decoration, scope to live transcripts, require exactly one match — step 2's detection lives in its empty-field branch and does NOT run here, so it must be performed on this path), then **claim** the task: `vault-cli task set "<task_name>" claude_session_id "<uuid>"`, then append the metrics entry exactly as the `EXACTLY ONE UUID` branch above does. If the title-match returns zero or multiple uuids, do NOT claim — report `ℹ️ Session: not connected — <n> matching session(s), refusing to guess`, the same refusal step 2 makes, because a guessed id in an ownership stamp is worse than a stale one. That metrics append is also what preserves the prior owner: `metrics_sessions` accumulates and is never replaced, so the superseded session stays on the record as authorship history — **do not edit the task body**, which is outside this agent's write surface. Report `✅ Session: claimed (<old-id8> → <new-id8>)`.
+   - **`quiet`** (transcript stale, no live process — the recorded owner has ended) → resolve THIS session's uuid by the same **detection** step 2 uses — `$CLAUDE_CODE_SESSION_ID` when set, else the title-match (strip the leading decoration, scope to live transcripts, exact-then-≥20-char-prefix, require exactly one match at the chosen tier — step 2's detection lives in its empty-field branch and does NOT run here, so it must be performed on this path), then **claim** the task: `vault-cli task set "<task_name>" claude_session_id "<uuid>"`, then append the metrics entry exactly as the `EXACTLY ONE UUID` branch above does. If the title-match returns zero or multiple uuids, do NOT claim — report `ℹ️ Session: not connected — <n> matching session(s), refusing to guess`, the same refusal step 2 makes, because a guessed id in an ownership stamp is worse than a stale one. That metrics append is also what preserves the prior owner: `metrics_sessions` accumulates and is never replaced, so the superseded session stays on the record as authorship history — **do not edit the task body**, which is outside this agent's write surface. Report `✅ Session: claimed (<old-id8> → <new-id8>)`.
    - **`live`** (the recorded owner is still running) or **`indeterminate`** (a fresh transcript with no process, or an id with no transcript — it cannot be proven dead) → do NOT claim, and do NOT append a metrics entry: the run that set the id already appended its own, so an append here would double-record the same session. Report `ℹ️ Session: already connected (<value>)`, and for `indeterminate` append ` — owner unproven; claim it by hand only if you know it has ended`. Claiming either hard-locks the task against the session actually working it (observed 2026-09-11: a detached one-turn spawn's fresh transcript read `live` for five minutes against its real owner).
    ⚠️ **Never claim unconditionally.** An overwrite without the `quiet` test is the documented defect in `docs/work-on-session-lifecycle.md` — it launders a false ownership fact into every downstream artifact written while it was wrong, and it outlives the restore.
 4. Add to the report (always, found case): `💡 Suggest: run /rename <task_name> to name this session after the task` — connects the session to the task by name. No quotes: /rename takes the rest of the line verbatim, so a quoted suggestion names the session with literal quote characters.

@@ -73,6 +73,7 @@ test:
 	@bash scripts/closes-sc-rule-test.sh
 	@bash scripts/metrics-append-call-site-test.sh
 	@bash scripts/session-claim-branch-test.sh
+	@bash scripts/session-connect-fixture-test.sh
 
 .PHONY: check
 check: lint vet vulncheck osv-scanner trivy check-changelog

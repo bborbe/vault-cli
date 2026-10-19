@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.172.2
 
 - fix: operator-prompt count no longer counts three measured classes of transcript row that pass every existing signal check but are not prompts the operator typed: attention-board answers (text starts with `Operator answer, via attention board:`), `!` shell input (text starts with `<bash-input>`) and rendered prompt echoes (text starts with U+276F followed by a space). Attention-board answers are operator input but not operator *typed* prompts, so the typed criterion excludes them. The exclusion applies to both modern and legacy transcript rows, and the legacy-only noise list keeps its existing scope. `<command-name>` and `<command-message>` slash-command rows still count, `metrics_interaction_count` still counts every `type:"user"` entry, and the stored metric's meaning is unchanged. The 2026-10-18 sample measured 611 over-counted entries (12.2%) against a ±5% acceptance bound. Change set: `pkg/ops/interaction_count.go`, `pkg/ops/interaction_count_test.go`, `README.md`, `commands/complete-task.md`, `CHANGELOG.md`.
 

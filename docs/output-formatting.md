@@ -99,6 +99,12 @@ Two or three lines, not a paragraph:
 | Waiting on something | `⌛` or `⏳` |
 | Next action | `▶` or `🔜` |
 
+## List JSON read model
+
+Every `list --output json` command (`task`, `goal`, `topic`, `theme`, `objective`, `vision`) shares one read model, so a field added there surfaces on all six.
+
+- `manager_session_id` — emitted verbatim when the page's frontmatter carries the key, omitted when it does not. It records the manager session that armed the page and is written by the producer (claude-supervisor) through the generic `goal set` / `topic set` verbs. The list model only reads it: nothing derives, normalizes, or writes it back, and no CLI flag sets it. See [`goal-writing.md`](goal-writing.md) § Manager session (`manager_session_id`).
+
 ## Anti-patterns
 
 - Echoing raw `[x]`/`[ ]`/`[/]` tokens into a terminal report.

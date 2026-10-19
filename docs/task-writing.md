@@ -377,7 +377,7 @@ A criterion's evidence takes one of these shapes. Any one is sufficient; combina
 | **Observable** | a result to check | `HTTP 200` · `exit 0` · log contains `startup complete` |
 | **Artifact** | a thing to inspect | output matches `docs/widget-response.schema.json` · `marketplace.json` version equals the git tag |
 | **State transition** | a before/after delta | frontmatter `status` moves `in_progress → completed` · `go.mod` go-directive moves 1.26.6 → 1.27.1 on master |
-| **Negative evidence** | a proven absence | `git diff config/Y.yaml` is empty · `grep ERROR run.log` returns 0 lines · no message published on topic `Z` in the window |
+| **Negative evidence** | a proven absence | `git diff config/Y.yaml` is empty · `grep ERROR run.log` returns 0 lines · no message published on topic `Z` in the window · `git diff --numstat -- <paths this task changed>` shows equal insertions and deletions on every file **this task changed** — scope the diff to your own changed set, never the whole working tree, since sibling sessions' edits share the checkout |
 
 **A criterion needs a procedure *and* a result a reader could independently confirm.** "Verify the endpoint" names a target but no action and no expected result. "Run a check on the endpoint" names an action but no result. "`curl /widgets`, confirm 200 and body matches the schema" satisfies both.
 

@@ -142,9 +142,9 @@ EOF
 	printf '%s' "$out" | tr -d '[:space:]'
 }
 
-EXACT_STEM='aaaaaaaa-0000-0000-0000-000000000001'
-FIRST_STEM='aaaaaaaa-0000-0000-0000-000000000001'
-SECOND_STEM='aaaaaaaa-0000-0000-0000-000000000002'
+# The transcript stems run_block writes, in order: the first is the one an
+# accepted match must resolve to.
+STEM1='aaaaaaaa-0000-0000-0000-000000000001'
 TRUNC30=$(printf '%s' "$TASK" | cut -c1-30)
 TRUNC19=$(printf '%s' "$TASK" | cut -c1-19)
 
@@ -152,9 +152,9 @@ check "env var set + no title match → the env id" "$(printf '%s' "$ENV_ID" | t
 	"$(run_block "$ENV_ID" '⚙ Something Entirely Unrelated To The Task')"
 check "env var set + TWO truncation matches → still the env id" "$(printf '%s' "$ENV_ID" | tr -d '[:space:]')" \
 	"$(run_block "$ENV_ID" "⚙ $TRUNC30" "⚙ $TRUNC30")"
-check "env unset + exact title → that session" "$EXACT_STEM" \
+check "env unset + exact title → that session" "$STEM1" \
 	"$(run_block '' "⚙ $TASK")"
-check "env unset + unique 30-char prefix → that session" "$FIRST_STEM" \
+check "env unset + unique 30-char prefix → that session" "$STEM1" \
 	"$(run_block '' "⚙ $TRUNC30")"
 check "env unset + 19-char prefix → refuses" "" \
 	"$(run_block '' "⚙ $TRUNC19")"

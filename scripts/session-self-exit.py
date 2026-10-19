@@ -52,7 +52,6 @@ import urllib.request
 
 EXIT_TAKEN = 0
 EXIT_REFUSED = 10
-EXIT_USAGE = 2
 
 STORE_TIMEOUT = float(os.environ.get("ATTENTION_STORE_TIMEOUT", "5"))
 
@@ -189,6 +188,10 @@ def main() -> int:
     pane = (os.environ.get("WEZTERM_PANE") or "").strip()
     if not pane:
         return refuse("$WEZTERM_PANE is unset — this session is not inside a WezTerm pane")
+    if not pane.isdigit():
+        # The value reaches `wezterm cli kill-pane` as an argument; a non-numeric
+        # one could be read as a flag rather than a pane id.
+        return refuse(f"$WEZTERM_PANE is not a pane id ({pane!r})")
 
     found = anchor_task(sid)
     if found is None:

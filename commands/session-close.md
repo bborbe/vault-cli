@@ -709,7 +709,7 @@ Append the reflect, self-improve, and runbook-improvement suggestions as the las
 
 ⚠️ **Item 3 covers the still-asks cases only.** A worktree this session created, whose branch is merged by the file's own test and whose working tree is clean, is **removed** under the no-ask rule in Phase 3.5 and reported in the close summary — it never reaches this list, so it never becomes a mode-3 blocker.
 
-Never auto-close, never auto-commit, never auto-kill, never auto-reflect, never auto-self-improve. The command's only job is the one-line verdict or the numbered open list.
+Never auto-close a session with outstanding items, never auto-commit, never auto-kill anything but this session's own pane (Phase 9.5), never auto-reflect, never auto-self-improve. The command's own write is the worker's self-exit on a clean verdict; everything else is the one-line verdict or the numbered open list.
 
 ### Phase 9.5: Release the worker's slot (clean verdict only)
 

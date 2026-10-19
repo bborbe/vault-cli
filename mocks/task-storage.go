@@ -53,6 +53,22 @@ type TaskStorage struct {
 		result1 []*domain.Task
 		result2 error
 	}
+	ListTasksTolerantStub        func(context.Context, string) ([]*domain.Task, []string, error)
+	listTasksTolerantMutex       sync.RWMutex
+	listTasksTolerantArgsForCall []struct {
+		arg1 context.Context
+		arg2 string
+	}
+	listTasksTolerantReturns struct {
+		result1 []*domain.Task
+		result2 []string
+		result3 error
+	}
+	listTasksTolerantReturnsOnCall map[int]struct {
+		result1 []*domain.Task
+		result2 []string
+		result3 error
+	}
 	WriteTaskStub        func(context.Context, *domain.Task) error
 	writeTaskMutex       sync.RWMutex
 	writeTaskArgsForCall []struct {
@@ -263,6 +279,74 @@ func (fake *TaskStorage) ListTasksStrictReturnsOnCall(i int, result1 []*domain.T
 		result1 []*domain.Task
 		result2 error
 	}{result1, result2}
+}
+
+func (fake *TaskStorage) ListTasksTolerant(arg1 context.Context, arg2 string) ([]*domain.Task, []string, error) {
+	fake.listTasksTolerantMutex.Lock()
+	ret, specificReturn := fake.listTasksTolerantReturnsOnCall[len(fake.listTasksTolerantArgsForCall)]
+	fake.listTasksTolerantArgsForCall = append(fake.listTasksTolerantArgsForCall, struct {
+		arg1 context.Context
+		arg2 string
+	}{arg1, arg2})
+	stub := fake.ListTasksTolerantStub
+	fakeReturns := fake.listTasksTolerantReturns
+	fake.recordInvocation("ListTasksTolerant", []interface{}{arg1, arg2})
+	fake.listTasksTolerantMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2, ret.result3
+	}
+	return fakeReturns.result1, fakeReturns.result2, fakeReturns.result3
+}
+
+func (fake *TaskStorage) ListTasksTolerantCallCount() int {
+	fake.listTasksTolerantMutex.RLock()
+	defer fake.listTasksTolerantMutex.RUnlock()
+	return len(fake.listTasksTolerantArgsForCall)
+}
+
+func (fake *TaskStorage) ListTasksTolerantCalls(stub func(context.Context, string) ([]*domain.Task, []string, error)) {
+	fake.listTasksTolerantMutex.Lock()
+	defer fake.listTasksTolerantMutex.Unlock()
+	fake.ListTasksTolerantStub = stub
+}
+
+func (fake *TaskStorage) ListTasksTolerantArgsForCall(i int) (context.Context, string) {
+	fake.listTasksTolerantMutex.RLock()
+	defer fake.listTasksTolerantMutex.RUnlock()
+	argsForCall := fake.listTasksTolerantArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2
+}
+
+func (fake *TaskStorage) ListTasksTolerantReturns(result1 []*domain.Task, result2 []string, result3 error) {
+	fake.listTasksTolerantMutex.Lock()
+	defer fake.listTasksTolerantMutex.Unlock()
+	fake.ListTasksTolerantStub = nil
+	fake.listTasksTolerantReturns = struct {
+		result1 []*domain.Task
+		result2 []string
+		result3 error
+	}{result1, result2, result3}
+}
+
+func (fake *TaskStorage) ListTasksTolerantReturnsOnCall(i int, result1 []*domain.Task, result2 []string, result3 error) {
+	fake.listTasksTolerantMutex.Lock()
+	defer fake.listTasksTolerantMutex.Unlock()
+	fake.ListTasksTolerantStub = nil
+	if fake.listTasksTolerantReturnsOnCall == nil {
+		fake.listTasksTolerantReturnsOnCall = make(map[int]struct {
+			result1 []*domain.Task
+			result2 []string
+			result3 error
+		})
+	}
+	fake.listTasksTolerantReturnsOnCall[i] = struct {
+		result1 []*domain.Task
+		result2 []string
+		result3 error
+	}{result1, result2, result3}
 }
 
 func (fake *TaskStorage) WriteTask(arg1 context.Context, arg2 *domain.Task) error {

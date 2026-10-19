@@ -36,6 +36,11 @@ func SerializeMapAsFrontmatterForTest(
 	return b.serializeMapAsFrontmatter(ctx, data, orig)
 }
 
+// SkippedTaskNameForTest exposes skippedTaskName for testing.
+func SkippedTaskNameForTest(tasksDir, path string) string {
+	return skippedTaskName(tasksDir, path)
+}
+
 // FindFileByNameForTest exposes findFileByName for testing.
 func FindFileByNameForTest(
 	ctx context.Context,

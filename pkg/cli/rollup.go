@@ -119,6 +119,7 @@ func formatRollupWeeklyPlain(result ops.RollupWeeklyResult) string {
 	writeRollupWeeklyFamilies(&builder, result.Families)
 	writeRollupWeeklyRules(&builder)
 	writeRollupWeeklyDeltas(&builder, result)
+	writeRollupWeeklySkipped(&builder, result.Skipped)
 	return builder.String()
 }
 
@@ -183,6 +184,17 @@ func writeRollupWeeklyDeltas(builder *strings.Builder, result ops.RollupWeeklyRe
 			marker,
 		)
 	}
+}
+
+// writeRollupWeeklySkipped writes the report's final line: one `skipped:` line
+// naming every task file the run could not read, as a tasks_dir-relative path.
+// A run that skipped nothing writes nothing, so a clean report carries no skip
+// noise and keeps its pre-skip bytes.
+func writeRollupWeeklySkipped(builder *strings.Builder, skipped []string) {
+	if len(skipped) == 0 {
+		return
+	}
+	fmt.Fprintf(builder, "skipped: %s\n", strings.Join(skipped, ", "))
 }
 
 // formatRollupNumber renders a delta value the same way the computed figures are

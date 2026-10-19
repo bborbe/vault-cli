@@ -59,9 +59,10 @@ type TaskStorage interface {
 	// succeeds — see ListTasksStrict for the caller that must not lose a file.
 	ListTasks(ctx context.Context, vaultPath string) ([]*domain.Task, error)
 	// ListTasksStrict returns every task in the vault's configured tasks_dir and
-	// fails on an unreadable task file instead of skipping it. A caller whose
-	// result must not silently describe a smaller set (the weekly rollup) uses
-	// this; the error names the offending file.
+	// fails on an unreadable task file instead of skipping it. A caller that must
+	// not silently describe a smaller set uses this; the error names the offending
+	// file. A caller that wants to report the readable set and name the skipped
+	// files uses ListTasksTolerant.
 	ListTasksStrict(ctx context.Context, vaultPath string) ([]*domain.Task, error)
 	// ListTasksTolerant returns every task in the vault's configured tasks_dir and
 	// names the files it skipped because they could not be read or parsed. A walk

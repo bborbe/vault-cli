@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [060-bug-rollup-aborts-on-frontmatterless-task-file]
+summary: Weekly rollup now reads tasks tolerantly, reports skipped task files in the result's `skipped` JSON array and a final `skipped:` plain-report line, with ops and CLI specs covering the reproduction fixture, JSON array-not-null, missing tasks_dir, and report ordering.
+execution_id: vault-cli-rollup-skip-frontmatter-exec-258-rollup-skip-result-and-renderers
+dark-factory-version: v0.198.7
 created: "2026-10-19T17:56:00Z"
 queued: "2026-10-19T18:10:28Z"
+started: "2026-10-19T18:16:55Z"
+completed: "2026-10-19T18:20:44Z"
 branch: dark-factory/bug-rollup-aborts-on-frontmatterless-task-file
 ---
 

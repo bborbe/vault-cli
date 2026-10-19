@@ -247,6 +247,15 @@ with no baseline configured prints exactly what it printed before.
 and the analogue mapping; `vault-cli config set-baseline <vault> <path>` records
 the vault-relative path of the file the rollup reads.
 
+A task file the rollup cannot read or parse — for example a file with no
+frontmatter block — is skipped rather than failing the whole report. The figures
+are computed from the files that did parse; a skipped file contributes nothing.
+Each skipped file is named on one final line beginning `skipped:`, as a path
+relative to the vault's `tasks_dir`, and a clean run prints no such line.
+`--output json` carries the same names in a `skipped` array, which is empty when
+nothing was skipped and never `null`. A missing or unreadable tasks directory is
+still an error and is never reported as a vault with no tasks.
+
 ## Claude Code Plugin
 
 vault-cli includes a Claude Code plugin for task management commands.

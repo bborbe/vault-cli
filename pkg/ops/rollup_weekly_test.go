@@ -421,14 +421,42 @@ var _ = Describe("RollupWeeklyOperation", func() {
 		DeferCleanup(func() { _ = os.Chmod(taskPath, 0600) })
 
 		result, err := rollupOp.Execute(ctx, vaultPath, vaultName, "2026-W37")
+		Expect(err).To(BeNil())
+		Expect(result.Skipped).To(Equal([]string{"Unreadable Task.md"}))
+		Expect(result.HumanInteractions).To(Equal("no data"))
+		Expect(result.UnattendedDeliveries).To(Equal("no data"))
+		Expect(result.PerFamilyMedian).To(Equal("no data"))
+	})
+
+	It("measures the readable tasks and names the unparseable ones", func() {
+		writeRollupTask(vaultPath, "Healthy", rollupTaskFrontmatter(
+			"completed", "2026-10-14T10:00:00Z", "0",
+		))
+		Expect(os.WriteFile(
+			filepath.Join(vaultPath, "Tasks", "Broken.md"),
+			[]byte("Failed to authenticate: OAuth session expired and could not be refreshed\n"),
+			0600,
+		)).To(Succeed())
+
+		result, err := rollupOp.Execute(ctx, vaultPath, vaultName, "2026-W42")
+		Expect(err).To(BeNil())
+		Expect(result.HumanInteractions).To(Equal("0"))
+		Expect(result.UnattendedDeliveries).To(Equal("1"))
+		Expect(result.Skipped).To(Equal([]string{"Broken.md"}))
+	})
+
+	It("fails when the tasks directory is missing", func() {
+		Expect(os.RemoveAll(filepath.Join(vaultPath, "Tasks"))).To(Succeed())
+
+		result, err := rollupOp.Execute(ctx, vaultPath, vaultName, "2026-W42")
 		Expect(err).NotTo(BeNil())
-		Expect(err.Error()).To(ContainSubstring("Unreadable Task.md"))
 		Expect(result).To(Equal(ops.RollupWeeklyResult{}))
 	})
 
 	It("renders the result under the frozen JSON keys", func() {
 		payload, err := json.Marshal(ops.RollupWeeklyResult{
 			Families: []ops.RollupFamily{},
+			Skipped:  []string{},
 		})
 		Expect(err).To(BeNil())
 
@@ -444,10 +472,56 @@ var _ = Describe("RollupWeeklyOperation", func() {
 			"unattended_deliveries",
 			"per_family_median",
 			"families",
+			"skipped",
 		} {
 			Expect(decoded).To(HaveKey(key))
 		}
 		Expect(string(decoded["families"])).To(Equal("[]"))
+		Expect(string(decoded["skipped"])).To(Equal("[]"))
+	})
+
+	It("serializes the skipped files as a JSON array", func() {
+		writeRollupTask(vaultPath, "Healthy", rollupTaskFrontmatter(
+			"completed", "2026-10-14T10:00:00Z", "0",
+		))
+		Expect(os.WriteFile(
+			filepath.Join(vaultPath, "Tasks", "Broken.md"),
+			[]byte("Failed to authenticate: OAuth session expired and could not be refreshed\n"),
+			0600,
+		)).To(Succeed())
+
+		result, err := rollupOp.Execute(ctx, vaultPath, vaultName, "2026-W42")
+		Expect(err).To(BeNil())
+
+		payload, err := json.Marshal(result)
+		Expect(err).To(BeNil())
+		Expect(string(payload)).To(ContainSubstring(`"skipped":["Broken.md"]`))
+
+		var decoded struct {
+			Skipped []string `json:"skipped"`
+		}
+		Expect(json.Unmarshal(payload, &decoded)).To(Succeed())
+		Expect(decoded.Skipped).To(Equal([]string{"Broken.md"}))
+	})
+
+	It("serializes an empty skipped list as an empty JSON array, never null", func() {
+		writeRollupTask(vaultPath, "Attended", rollupTaskFrontmatter(
+			"completed", "2026-10-14T10:00:00Z", "2",
+		))
+
+		result, err := rollupOp.Execute(ctx, vaultPath, vaultName, "2026-W42")
+		Expect(err).To(BeNil())
+
+		payload, err := json.Marshal(result)
+		Expect(err).To(BeNil())
+		Expect(string(payload)).To(ContainSubstring(`"skipped":[]`))
+		Expect(string(payload)).NotTo(ContainSubstring(`"skipped":null`))
+
+		var decoded struct {
+			Skipped []string `json:"skipped"`
+		}
+		Expect(json.Unmarshal(payload, &decoded)).To(Succeed())
+		Expect(decoded.Skipped).To(BeEmpty())
 	})
 
 	DescribeTable("reduces a filename stem to its family key",

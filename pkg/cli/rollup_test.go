@@ -146,6 +146,64 @@ Grouping rule: A task family is the filename stem with dates, week numbers, vers
 	})
 })
 
+var _ = Describe("rollup weekly plain report with skipped files", func() {
+	// skippedLines returns every report line beginning "skipped: ".
+	skippedLines := func(rendered string) []string {
+		var lines []string
+		for _, line := range strings.Split(strings.TrimRight(rendered, "\n"), "\n") {
+			if strings.HasPrefix(line, "skipped: ") {
+				lines = append(lines, line)
+			}
+		}
+		return lines
+	}
+
+	It("writes one final skipped line naming a single file", func() {
+		result := ops.RollupWeeklyResult{
+			Year:      2026,
+			Week:      37,
+			WeekStart: "2026-09-07",
+			WeekEnd:   "2026-09-13",
+			Families:  []ops.RollupFamily{},
+			Skipped:   []string{"Broken.md"},
+		}
+
+		rendered := cli.FormatRollupWeeklyPlainForTest(result)
+		lines := strings.Split(strings.TrimRight(rendered, "\n"), "\n")
+
+		Expect(lines[len(lines)-1]).To(Equal("skipped: Broken.md"))
+		Expect(skippedLines(rendered)).To(HaveLen(1))
+		Expect(rendered).To(ContainSubstring("Broken.md"))
+	})
+
+	It("names several skipped files on one comma-separated line", func() {
+		result := ops.RollupWeeklyResult{
+			Year:      2026,
+			Week:      37,
+			WeekStart: "2026-09-07",
+			WeekEnd:   "2026-09-13",
+			Families:  []ops.RollupFamily{},
+			Skipped:   []string{"sub-a/Broken.md", "sub-b/Broken.md"},
+		}
+
+		rendered := cli.FormatRollupWeeklyPlainForTest(result)
+		lines := strings.Split(strings.TrimRight(rendered, "\n"), "\n")
+
+		Expect(lines[len(lines)-1]).To(Equal("skipped: sub-a/Broken.md, sub-b/Broken.md"))
+		Expect(skippedLines(rendered)).To(HaveLen(1))
+	})
+
+	It("writes no skipped line for an empty or nil skipped list", func() {
+		for _, skipped := range [][]string{{}, nil} {
+			rendered := cli.FormatRollupWeeklyPlainForTest(ops.RollupWeeklyResult{
+				Families: []ops.RollupFamily{},
+				Skipped:  skipped,
+			})
+			Expect(strings.Contains(rendered, "skipped:")).To(BeFalse())
+		}
+	})
+})
+
 var _ = Describe("rollup weekly plain report with a baseline", func() {
 	// baselineResult is the fully-populated result the first three specs render:
 	// the figures of section 2d's frozen report plus the real 2026-09-12 capture.

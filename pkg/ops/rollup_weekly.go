@@ -111,6 +111,7 @@ type RollupWeeklyResult struct {
 	UnattendedDeliveries string          `json:"unattended_deliveries"`
 	PerFamilyMedian      string          `json:"per_family_median"`
 	Families             []RollupFamily  `json:"families"`
+	Skipped              []string        `json:"skipped"`
 	Baseline             *RollupBaseline `json:"baseline,omitempty"`
 }
 
@@ -120,8 +121,10 @@ type RollupFamily struct {
 	Median string `json:"median"`
 }
 
-// Execute resolves the week, reads the vault's task files strictly, and derives
-// the four figures plus the per-family breakdown behind them.
+// Execute resolves the week, reads the vault's task files tolerantly, and derives
+// the four figures plus the per-family breakdown behind them. A task file that
+// could not be read or parsed is named in the result's Skipped list rather than
+// aborting the week's measurement.
 func (o *rollupWeeklyOperation) Execute(
 	ctx context.Context,
 	vaultPath string,
@@ -139,6 +142,7 @@ func (o *rollupWeeklyOperation) Execute(
 		WeekStart: monday.Format(rollupDateLayout),
 		WeekEnd:   sunday.Format(rollupDateLayout),
 		Families:  []RollupFamily{},
+		Skipped:   []string{},
 	}
 
 	if o.baselinePath != "" {
@@ -153,9 +157,12 @@ func (o *rollupWeeklyOperation) Execute(
 		result.Baseline = baseline
 	}
 
-	tasks, err := o.taskStorage.ListTasksStrict(ctx, vaultPath)
+	tasks, skipped, err := o.taskStorage.ListTasksTolerant(ctx, vaultPath)
 	if err != nil {
 		return RollupWeeklyResult{}, errors.Wrapf(ctx, err, "list tasks of vault %s", vaultName)
+	}
+	if len(skipped) != 0 {
+		result.Skipped = skipped
 	}
 
 	weekTasks := selectRollupWeekTasks(tasks, year, weekNumber)

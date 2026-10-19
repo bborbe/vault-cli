@@ -172,6 +172,22 @@ type Storage struct {
 		result1 []*domain.Task
 		result2 error
 	}
+	ListTasksTolerantStub        func(context.Context, string) ([]*domain.Task, []string, error)
+	listTasksTolerantMutex       sync.RWMutex
+	listTasksTolerantArgsForCall []struct {
+		arg1 context.Context
+		arg2 string
+	}
+	listTasksTolerantReturns struct {
+		result1 []*domain.Task
+		result2 []string
+		result3 error
+	}
+	listTasksTolerantReturnsOnCall map[int]struct {
+		result1 []*domain.Task
+		result2 []string
+		result3 error
+	}
 	ReadDailyNoteStub        func(context.Context, string, string) (string, error)
 	readDailyNoteMutex       sync.RWMutex
 	readDailyNoteArgsForCall []struct {
@@ -1101,6 +1117,74 @@ func (fake *Storage) ListTasksStrictReturnsOnCall(i int, result1 []*domain.Task,
 		result1 []*domain.Task
 		result2 error
 	}{result1, result2}
+}
+
+func (fake *Storage) ListTasksTolerant(arg1 context.Context, arg2 string) ([]*domain.Task, []string, error) {
+	fake.listTasksTolerantMutex.Lock()
+	ret, specificReturn := fake.listTasksTolerantReturnsOnCall[len(fake.listTasksTolerantArgsForCall)]
+	fake.listTasksTolerantArgsForCall = append(fake.listTasksTolerantArgsForCall, struct {
+		arg1 context.Context
+		arg2 string
+	}{arg1, arg2})
+	stub := fake.ListTasksTolerantStub
+	fakeReturns := fake.listTasksTolerantReturns
+	fake.recordInvocation("ListTasksTolerant", []interface{}{arg1, arg2})
+	fake.listTasksTolerantMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2, ret.result3
+	}
+	return fakeReturns.result1, fakeReturns.result2, fakeReturns.result3
+}
+
+func (fake *Storage) ListTasksTolerantCallCount() int {
+	fake.listTasksTolerantMutex.RLock()
+	defer fake.listTasksTolerantMutex.RUnlock()
+	return len(fake.listTasksTolerantArgsForCall)
+}
+
+func (fake *Storage) ListTasksTolerantCalls(stub func(context.Context, string) ([]*domain.Task, []string, error)) {
+	fake.listTasksTolerantMutex.Lock()
+	defer fake.listTasksTolerantMutex.Unlock()
+	fake.ListTasksTolerantStub = stub
+}
+
+func (fake *Storage) ListTasksTolerantArgsForCall(i int) (context.Context, string) {
+	fake.listTasksTolerantMutex.RLock()
+	defer fake.listTasksTolerantMutex.RUnlock()
+	argsForCall := fake.listTasksTolerantArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2
+}
+
+func (fake *Storage) ListTasksTolerantReturns(result1 []*domain.Task, result2 []string, result3 error) {
+	fake.listTasksTolerantMutex.Lock()
+	defer fake.listTasksTolerantMutex.Unlock()
+	fake.ListTasksTolerantStub = nil
+	fake.listTasksTolerantReturns = struct {
+		result1 []*domain.Task
+		result2 []string
+		result3 error
+	}{result1, result2, result3}
+}
+
+func (fake *Storage) ListTasksTolerantReturnsOnCall(i int, result1 []*domain.Task, result2 []string, result3 error) {
+	fake.listTasksTolerantMutex.Lock()
+	defer fake.listTasksTolerantMutex.Unlock()
+	fake.ListTasksTolerantStub = nil
+	if fake.listTasksTolerantReturnsOnCall == nil {
+		fake.listTasksTolerantReturnsOnCall = make(map[int]struct {
+			result1 []*domain.Task
+			result2 []string
+			result3 error
+		})
+	}
+	fake.listTasksTolerantReturnsOnCall[i] = struct {
+		result1 []*domain.Task
+		result2 []string
+		result3 error
+	}{result1, result2, result3}
 }
 
 func (fake *Storage) ReadDailyNote(arg1 context.Context, arg2 string, arg3 string) (string, error) {

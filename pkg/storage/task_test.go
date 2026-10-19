@@ -129,6 +129,125 @@ This is a test task.
 		})
 	})
 
+	Describe("ListTasksTolerant", func() {
+		It("skips a frontmatter-less file and names it", func() {
+			Expect(os.WriteFile(
+				filepath.Join(tasksDir, "Healthy.md"),
+				[]byte(taskContent()),
+				0600,
+			)).To(Succeed())
+			Expect(os.WriteFile(
+				filepath.Join(tasksDir, "Broken.md"),
+				[]byte("Failed to authenticate: OAuth session expired and could not be refreshed\n"),
+				0600,
+			)).To(Succeed())
+
+			tasks, skipped, err := store.ListTasksTolerant(ctx, vaultDir)
+			Expect(err).To(BeNil())
+			Expect(tasks).To(HaveLen(1))
+			Expect(tasks[0].Name).To(Equal("Healthy"))
+			Expect(skipped).To(Equal([]string{"Broken.md"}))
+		})
+
+		It("reports subdirectory paths, sorted and distinct", func() {
+			Expect(os.WriteFile(
+				filepath.Join(tasksDir, "Healthy.md"),
+				[]byte(taskContent()),
+				0600,
+			)).To(Succeed())
+			for _, sub := range []string{"sub-a", "sub-b"} {
+				Expect(os.MkdirAll(filepath.Join(tasksDir, sub), 0755)).To(Succeed())
+				Expect(os.WriteFile(
+					filepath.Join(tasksDir, sub, "Broken.md"),
+					[]byte("no frontmatter here\n"),
+					0600,
+				)).To(Succeed())
+			}
+
+			tasks, skipped, err := store.ListTasksTolerant(ctx, vaultDir)
+			Expect(err).To(BeNil())
+			Expect(tasks).To(HaveLen(1))
+			Expect(skipped).To(Equal([]string{"sub-a/Broken.md", "sub-b/Broken.md"}))
+		})
+
+		It("replaces a control character with a space", func() {
+			Expect(os.WriteFile(
+				filepath.Join(tasksDir, "bad\nname.md"),
+				[]byte("no frontmatter here\n"),
+				0600,
+			)).To(Succeed())
+
+			_, skipped, err := store.ListTasksTolerant(ctx, vaultDir)
+			Expect(err).To(BeNil())
+			Expect(skipped).To(Equal([]string{"bad name.md"}))
+		})
+
+		It("returns a walk error for a missing tasks directory", func() {
+			Expect(os.RemoveAll(tasksDir)).To(Succeed())
+
+			tasks, skipped, err := store.ListTasksTolerant(ctx, vaultDir)
+			Expect(err).NotTo(BeNil())
+			Expect(tasks).To(BeNil())
+			Expect(skipped).To(BeNil())
+		})
+
+		It("reports an empty, non-nil skipped list for a clean vault", func() {
+			Expect(os.WriteFile(
+				filepath.Join(tasksDir, "Healthy.md"),
+				[]byte(taskContent()),
+				0600,
+			)).To(Succeed())
+
+			_, skipped, err := store.ListTasksTolerant(ctx, vaultDir)
+			Expect(err).To(BeNil())
+			Expect(skipped).NotTo(BeNil())
+			Expect(skipped).To(BeEmpty())
+		})
+	})
+
+	Describe("ListTasksStrict", func() {
+		It("fails loudly and names the broken file", func() {
+			Expect(os.WriteFile(
+				filepath.Join(tasksDir, "Broken.md"),
+				[]byte("no frontmatter here\n"),
+				0600,
+			)).To(Succeed())
+
+			tasks, err := store.ListTasksStrict(ctx, vaultDir)
+			Expect(err).NotTo(BeNil())
+			Expect(err.Error()).To(ContainSubstring("Broken.md"))
+			Expect(tasks).To(BeNil())
+		})
+	})
+
+	Describe("ListTasks", func() {
+		It("still succeeds with a broken file", func() {
+			Expect(os.WriteFile(
+				filepath.Join(tasksDir, "Healthy.md"),
+				[]byte(taskContent()),
+				0600,
+			)).To(Succeed())
+			Expect(os.WriteFile(
+				filepath.Join(tasksDir, "Broken.md"),
+				[]byte("no frontmatter here\n"),
+				0600,
+			)).To(Succeed())
+
+			tasks, err := store.ListTasks(ctx, vaultDir)
+			Expect(err).To(BeNil())
+			Expect(tasks).To(HaveLen(1))
+		})
+	})
+
+	DescribeTable("skippedTaskName",
+		func(tasksDirArg, path, expected string) {
+			Expect(storage.SkippedTaskNameForTest(tasksDirArg, path)).To(Equal(expected))
+		},
+		Entry("path under tasks_dir", "/vault/Tasks", "/vault/Tasks/sub/Broken.md", "sub/Broken.md"),
+		Entry("path not under tasks_dir", "/vault/Tasks", "relative/path.md", "path.md"),
+		Entry("control character sanitised", "/vault/Tasks", "/vault/Tasks/bad\nname.md", "bad name.md"),
+	)
+
 	Describe("ReadTask", func() {
 		It("finds a task in root dir (fast path)", func() {
 			taskPath := filepath.Join(tasksDir, "My Task.md")

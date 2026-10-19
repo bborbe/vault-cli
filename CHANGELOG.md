@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- docs: The Evidence Shape table's **Negative evidence** row now shows a diff scoped to the task's own changed set — `git diff --numstat -- <paths this task changed>` — and forbids the whole working tree, because sibling sessions' edits share the checkout. A whole-tree `numstat` criterion reads satisfiable in a shared checkout and is not, so the canonical vocabulary both `task-auditor` and `plan-task` cite taught an unsatisfiable probe.
+
 ## v0.172.0
 
 - feat: Completion now writes `metrics_operator_prompt_count` beside `metrics_interaction_count`, measuring only the prompts the operator actually typed: tool results, `isMeta` injections, non-human `turnOrigin` values (`scheduled`, `task_notification`, `peer`), `system` `promptSource` entries and the known legacy noise prefixes are excluded, while `<command-name>` and `<command-message>` slash commands still count. The field is written in the same completion mutation as `metrics_interaction_count` and is absent when the task has no `metrics_sessions`; `metrics_interaction_count` is unchanged and still counts every `type:"user"` entry. `vault-cli rollup weekly` now prints `Operator prompts` beside `Human interactions`, summing `metrics_operator_prompt_count` over the week's tasks and carrying the existing `no data` / `no recorded counts` sentinels instead of a forged zero; the JSON output gains an `operator_prompts` key. Change set: `pkg/domain/task_frontmatter_metrics.go`, `pkg/ops/interaction_count.go`, `pkg/ops/complete.go`, `pkg/ops/rollup_weekly.go`, `pkg/cli/rollup.go`, `mocks/interaction-counter.go`, tests, `README.md`, `commands/complete-task.md`, `CHANGELOG.md`.

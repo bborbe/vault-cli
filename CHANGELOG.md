@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.174.0
 
 - feat: `session-close` stops asking the operator to confirm a parent goal left `in_progress`. Phase 4.5 now splits the two cases it used to merge: a goal with **≥1 open task** is the ordinary steady state (goals span 1–4 weeks, sessions do not) and its status is the manager's own write, so it emits one report-only information line — `goal <title>: in_progress, <n>/<m> SC — managed by <manager>` (or `— no live manager`) — and never an outstanding item, `approve:` line, or `AskUserQuestion`; a **closable** goal (every task terminal, every SC ticked) still owes a decision, so it is `SendMessage`-routed to its live manager (`manager_session_id` from the goal page, else the topic page whose `## Goals` lists it, verified with `session-liveness.py --check` — only exit 0 `LIVE` counts) and falls back to today's operator line when no live manager resolves. The anchor-task block is unchanged. Change set: `commands/session-close.md`, `CHANGELOG.md`.
 

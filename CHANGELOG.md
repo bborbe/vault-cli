@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.173.0
 
 - feat: `session-close` now releases a finished worker's spawn-cap slot. On a clean verdict (mode 1 — no outstanding item, no open gate) it runs `scripts/session-self-exit.py`, which ends the session's own WezTerm pane only after re-verifying every condition on disk: a session-registry entry names this session, so it owns its pane (a headless worker has none and inherits its spawner's `$WEZTERM_PANE` — killing that pane would close the manager's tab); the task carrying its `claude_session_id` is `status: aborted`, or `status: completed` with `phase: done` and zero `[ ]` / `[/]` boxes (`hold` is parked, not finished); and the attention store holds no open card for the session, where an unreachable store refuses rather than reading as clear. Any failed condition prints `SELF-EXIT: stay — <reason>` and leaves the session alive; a session with outstanding items is never auto-closed. The script takes no approval prompt and never touches `spawn.maxConcurrent`. Change set: `commands/session-close.md`, `scripts/session-self-exit.py`, `scripts/session-self-exit-test.sh`, `Makefile`, `CHANGELOG.md`.
 

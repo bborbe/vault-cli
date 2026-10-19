@@ -123,7 +123,7 @@ Coding-plugin docs (in-container paths — never use host paths):
 
 2. **Extend the regression fixture** in `pkg/ops/interaction_count_test.go`, inside the existing spec `Counts only operator prompts while the interaction count counts every user turn`, so it reuses `ctx`, `counter` and `writeFixture`.
 
-   a. Append exactly these six lines to the excluded block of `operatorPromptFixture`, grouped and commented as shown — one line per new class in each transcript shape:
+   a. Append exactly these six lines to the excluded block of `operatorPromptFixture`, grouped and commented as shown — one line per new class in each transcript shape — and change that block's `// excluded — 14 type:"user" lines` comment to `// excluded — 20 type:"user" lines`:
 
    ```go
    	// excluded — attention-board answers, both shapes (2 lines)
@@ -157,7 +157,8 @@ Coding-plugin docs (in-container paths — never use host paths):
    c. Run the focused spec and confirm it **FAILS** (non-zero exit, got 27, want 7), capturing the output:
       ```
       go test ./pkg/ops/... -count=1 -ginkgo.focus='operator prompts' > /tmp/falsify.log 2>&1
-      grep -nE '<int>: (27|7)' /tmp/falsify.log
+      grep -nE '<int>: 27' /tmp/falsify.log
+      grep -nE '<int>: 7' /tmp/falsify.log
       ```
       The grep must print the 27-vs-7 mismatch. If it prints nothing, the spec did not run or did not discriminate — do not proceed. Do not weaken the assertion to make it pass.
    d. Restore: `cp /tmp/interaction_count.go.fixed pkg/ops/interaction_count.go`
@@ -172,7 +173,7 @@ Coding-plugin docs (in-container paths — never use host paths):
 
    b. `README.md`, the `rollup weekly` paragraph: extend the operator-prompts parenthetical's exclusion list the same way. Change nothing else in the paragraph.
 
-5. **Add one `## Unreleased` `fix:` bullet to `CHANGELOG.md`.** The section does not exist today: create it below the preamble's last line (`* PATCH version when you make backwards-compatible bug fixes.`) and above `## v0.172.0` (or above whatever the newest `## vX.Y.Z` heading is if a release landed meanwhile). One flat bullet, no category heading, no date suffix, ending with a `Change set:` clause. It must carry: the three excluded classes and how each is recognised; that attention-board answers are operator input but not typed prompts, which is why they are excluded; that the exclusion applies to modern and legacy transcript rows; that slash-command rows, the interaction count and the stored metric's meaning are unchanged; and that the 2026-10-18 sample measured 611 over-counted entries (12.2%) against a ±5% acceptance bound.
+5. **Add one `## Unreleased` `fix:` bullet to `CHANGELOG.md`.** The section does not exist today: create it below the preamble's last line (`* PATCH version when you make backwards-compatible bug fixes.`) and above `## v0.172.0` (or above whatever the newest `## vX.Y.Z` heading is if a release landed meanwhile). One flat bullet, no category heading, no date suffix, ending with a `Change set:` clause. It must carry: the three excluded classes and how each is recognised; that attention-board answers are operator input but not typed prompts, which is why they are excluded; that the exclusion applies to modern and legacy transcript rows; that slash-command rows, the interaction count and the stored metric's meaning are unchanged; and that the 2026-10-18 sample measured 611 over-counted entries (12.2%) against a ±5% acceptance bound. Begin the bullet `- fix: operator-prompt count …` so the verification's `awk` matches it.
 
 6. **Self-check before finishing.** Re-run `<verification>` and confirm each printed line against its expectation. Walk the change: the predicate excludes all three classes in both transcript shapes; the legacy list still fires only on legacy rows; the seven operator-typed lines and the slash-command lines still count; `Count` still counts every user turn (27); the falsification failed against the loosened filter and passed once restored; both docs name the new exclusions; the CHANGELOG bullet is under `## Unreleased`; `make precommit` and `make test` are green. State in your final report which signal was found for each class (structural field versus text prefix) and why the structural search came up empty, so the measurement decision is recorded with the change.
 </requirements>
@@ -204,10 +205,10 @@ grep -n 'Operator answer, via attention board:' pkg/ops/interaction_count.go
 grep -n '<bash-input>' pkg/ops/interaction_count.go
 grep -n 'u276f' pkg/ops/interaction_count.go
 grep -n 'return c.sum(ctx, sessionIDs, countOperatorPromptsInSessionLog)' pkg/ops/interaction_count.go
-! grep -q 'return c.Count(ctx, sessionIDs)' pkg/ops/interaction_count.go
+grep -c 'return c.Count(ctx, sessionIDs)' pkg/ops/interaction_count.go
 ```
 
-Expect: the declaration and both call sites; all three prefixes; the delegation restored; and the absence check silent (no sabotage left behind).
+Expect: the declaration and both call sites; all three prefixes; the delegation restored; and the absence check printing `0` (no sabotage left behind).
 
 **TESTS — focused first, then the full suite.**
 

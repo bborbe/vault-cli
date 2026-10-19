@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.171.2
 
 - fix: `rollup weekly` skips task files it cannot read or parse and names them on a final `skipped:` line and a `skipped` JSON array (always an array, empty when nothing was skipped), instead of aborting the whole week's report; a walk-level failure such as a missing `tasks_dir` still errors. Backed by a new `TaskStorage.ListTasksTolerant` that returns the readable tasks plus the sorted, control-character-sanitised `tasks_dir`-relative names of the files it skipped.
 

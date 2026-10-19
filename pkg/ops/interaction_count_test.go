@@ -132,7 +132,7 @@ var _ = Describe("InteractionCounter", func() {
 			`{"type":"user","message":{"role":"user","content":"legacy typed prompt"}}`,
 			`{"type":"user","message":{"role":"user","content":"<command-name>/compact</command-name>"}}`,
 			`{"type":"user","message":{"role":"user","content":"<command-message>vault-cli:work-on-task</command-message>"}}`,
-			// excluded — 14 type:"user" lines
+			// excluded — 20 type:"user" lines
 			`{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"t1","content":"output"}]}}`,
 			`{"type":"user","toolUseResult":{"stdout":"x"},"message":{"role":"user","content":[{"type":"text","text":"tool output"}]}}`,
 			`{"type":"user","isMeta":true,"message":{"role":"user","content":"injected system prompt"}}`,
@@ -147,6 +147,15 @@ var _ = Describe("InteractionCounter", func() {
 			`{"type":"user","message":{"role":"user","content":"[Request interrupted by user]"}}`,
 			`{"type":"user","message":{"role":"user","content":"<task-notification>done</task-notification>"}}`,
 			`{"type":"user","message":{"role":"user","content":"Another Claude session sent a message: hi"}}`,
+			// excluded — attention-board answers, both shapes (2 lines)
+			`{"type":"user","turnOrigin":"human","promptSource":"typed","message":{"role":"user","content":"Operator answer, via attention board: approve: /x"}}`,
+			`{"type":"user","message":{"role":"user","content":"Operator answer, via attention board: approve: /x"}}`,
+			// excluded — ! shell input, both shapes (2 lines)
+			`{"type":"user","turnOrigin":"human","promptSource":"typed","message":{"role":"user","content":"<bash-input>ls</bash-input>"}}`,
+			`{"type":"user","message":{"role":"user","content":"<bash-input>ls</bash-input>"}}`,
+			// excluded — rendered prompt echo, both shapes (2 lines)
+			`{"type":"user","turnOrigin":"human","promptSource":"typed","message":{"role":"user","content":"\u276f /reload-plugins\n  \u23bf  Reloaded: 12 plugins"}}`,
+			`{"type":"user","message":{"role":"user","content":"\u276f /reload-plugins\n  \u23bf  Reloaded: 12 plugins"}}`,
 			// excluded — not a user turn
 			`{"type":"assistant","message":{"role":"assistant","content":"x"}}`,
 			`not json at all {`,
@@ -155,11 +164,18 @@ var _ = Describe("InteractionCounter", func() {
 
 		// Only the seven operator-typed prompts count.
 		Expect(counter.CountOperatorPrompts(ctx, []string{"s1"})).To(Equal(7))
-		// The interaction count is unchanged: every type:"user" line counts (7 + 14).
-		Expect(counter.Count(ctx, []string{"s1"})).To(Equal(21))
+		// The interaction count is unchanged: every type:"user" line counts (7 + 20).
+		Expect(counter.Count(ctx, []string{"s1"})).To(Equal(27))
 
 		// The same guards apply: a missing file and an unsafe id contribute 0.
 		Expect(counter.CountOperatorPrompts(ctx, []string{"missing"})).To(Equal(0))
 		Expect(counter.CountOperatorPrompts(ctx, []string{"../x"})).To(Equal(0))
+	})
+
+	// This spec locks the deliberate split between the two prefix lists: a legacy
+	// noise prefix must not be blanket-widened onto modern rows.
+	It("Counts a modern row carrying a legacy-only noise prefix", func() {
+		writeFixture("s1", `{"type":"user","turnOrigin":"human","promptSource":"typed","message":{"role":"user","content":"<local-command-stdout>Compacted</local-command-stdout>"}}`)
+		Expect(counter.CountOperatorPrompts(ctx, []string{"s1"})).To(Equal(1))
 	})
 })

@@ -107,5 +107,6 @@ metrics fields are written passively by vault-cli and must not be hand-edited.
 exactly once — a session reused across multiple work-on runs is counted a single time.
 `metrics_operator_prompt_count` counts only the prompts the operator actually typed,
 excluding tool results, `isMeta` injections, non-human `turnOrigin` values, `system`
-`promptSource` entries, and the known legacy noise prefixes (`<command-name>` and
-`<command-message>` slash commands still count).
+`promptSource` entries, and the known non-prompt text prefixes — legacy noise,
+attention-board answers, `!` shell input and rendered prompt echoes (`<command-name>`
+and `<command-message>` slash commands still count).

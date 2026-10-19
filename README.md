@@ -223,7 +223,8 @@ interactions** (the sum of `metrics_interaction_count` over the tasks completed
 in that week), its **operator prompts** (the sum of
 `metrics_operator_prompt_count` over those tasks — the prompts the operator
 actually typed, excluding tool results, meta injections, scheduled wakeups, task
-notifications and peer messages), its **unattended deliveries** (completed tasks
+notifications, peer messages, attention-board answers, `!` shell input and
+rendered prompt echoes), its **unattended deliveries** (completed tasks
 whose recorded interaction count is exactly zero), and the **median interactions
 of a recurring task family** — the headline median of the per-family medians,
 with each family listed beneath it. A week with no recorded operator counts

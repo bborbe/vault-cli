@@ -14,7 +14,7 @@ created: "2026-10-19T19:45:16Z"
 - Slash-command prompts keep counting exactly as before; scheduled wakeups, peer messages and tool results stay excluded exactly as before
 - The all-interaction count is untouched and still counts every user turn
 - A regression fixture covers each new excluded class in both transcript shapes, and a sabotage check proves the fixture fails if the filter is loosened
-- The change ships as one unreleased fix note; no version is bumped, nothing is tagged, nothing is committed
+- The weekly operator-prompt figure falls back inside its ±5% acceptance bound
 </summary>
 
 <objective>
@@ -157,7 +157,7 @@ Coding-plugin docs (in-container paths — never use host paths):
    c. Run the focused spec and confirm it **FAILS** (non-zero exit, got 27, want 7), capturing the output:
       ```
       go test ./pkg/ops/... -count=1 -ginkgo.focus='operator prompts' > /tmp/falsify.log 2>&1
-      grep -nE 'Expected.*(27|7)' /tmp/falsify.log
+      grep -nE '<int>: (27|7)' /tmp/falsify.log
       ```
       The grep must print the 27-vs-7 mismatch. If it prints nothing, the spec did not run or did not discriminate — do not proceed. Do not weaken the assertion to make it pass.
    d. Restore: `cp /tmp/interaction_count.go.fixed pkg/ops/interaction_count.go`
@@ -179,7 +179,7 @@ Coding-plugin docs (in-container paths — never use host paths):
 
 <constraints>
 - Do NOT commit — dark-factory handles git. Never stage, commit, tag or push.
-- Do NOT bump any version string. `.dark-factory.yaml` sets `autoRelease: false`; the operator owns the bump. Do not edit `CHANGELOG.md`'s newest `## vX.Y.Z` section, `.claude-plugin/plugin.json`, or either version field in `.claude-plugin/marketplace.json`, and do not run `git tag`, `make release-check` or `make check-versions`.
+- Do NOT bump any version string. `.dark-factory.yaml` sets `autoRelease: false` and `.maintainer.yaml`'s github-releaser owns the bump and tag post-merge. Do not edit `CHANGELOG.md`'s newest `## vX.Y.Z` section, `.claude-plugin/plugin.json`, or either version field in `.claude-plugin/marketplace.json`, and do not run `git tag`, `make release-check` or `make check-versions`.
 - `metrics_interaction_count` behaviour is frozen: every `type:"user"` line still counts, the same session-id dedup and unsafe-id guard apply. Do not touch `rollupFigures`, `RollupWeeklyResult`, `pkg/cli/rollup.go`, the baseline file or the delta block.
 - Slash-command counting is frozen: `<command-name>` and `<command-message>` rows keep counting, and the `scheduled` / `task_notification` / `peer` / `system` exclusions keep working. Do not add or remove any exclusion beyond the three named classes.
 - Attention-board answers are excluded because the metric's criterion is *typed* prompts. Do not add a separate "operator input" metric, a config knob, a CLI flag or a new frontmatter field.
@@ -212,8 +212,8 @@ Expect: the declaration and both call sites; all three prefixes; the delegation 
 **TESTS — focused first, then the full suite.**
 
 ```
-go test ./pkg/ops/... -count=1 -ginkgo.focus='operator prompts' -ginkgo.v
-go test ./pkg/ops/... -count=1 -ginkgo.focus='legacy-only' -ginkgo.v
+go test -v ./pkg/ops/... -count=1 -ginkgo.focus='operator prompts' -ginkgo.v
+go test -v ./pkg/ops/... -count=1 -ginkgo.focus='legacy-only' -ginkgo.v
 go test ./pkg/ops/... -count=1
 make test
 make precommit

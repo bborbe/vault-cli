@@ -1,6 +1,12 @@
 ---
-status: draft
+status: completed
+summary: Excluded attention-board answers, ! shell input and rendered prompt echoes from the operator-prompt count via a new always-applied prefix list, extended the fixture, updated docs and CHANGELOG
+execution_id: vault-cli-operator-prompt-tighten-exec-260-tighten-operator-prompt-predicate
+dark-factory-version: v0.198.7
 created: "2026-10-19T19:45:16Z"
+queued: "2026-10-19T20:04:10Z"
+started: "2026-10-19T20:06:06Z"
+completed: "2026-10-19T20:09:57Z"
 ---
 
 # Exclude attention-board answers, shell input and rendered prompt echoes from the operator-prompt count

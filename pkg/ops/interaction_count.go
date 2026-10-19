@@ -28,10 +28,11 @@ type InteractionCounter interface {
 
 	// CountOperatorPrompts returns the number of entries across the session JSONL
 	// logs for the given session ids that the operator typed: user turns that are
-	// not tool results, not isMeta injections, not non-human turn origins, not
-	// system prompt sources, and not one of the known legacy noise prefixes.
-	// Missing, unreadable, malformed, or unsafe session ids contribute 0. It never
-	// returns an error and never blocks completion.
+	// not tool results, not isMeta injections, not non-human turn origins or
+	// non-operator prompt sources, and not one of the known non-prompt text
+	// prefixes (legacy noise, attention-board answers, shell input, rendered prompt
+	// echoes). Missing, unreadable, malformed, or unsafe session ids contribute 0.
+	// It never returns an error and never blocks completion.
 	CountOperatorPrompts(ctx context.Context, sessionIDs []string) int
 }
 
@@ -171,9 +172,10 @@ var operatorPromptSources = map[string]struct{}{
 }
 
 // operatorPromptNoisePrefixes are the legacy transcript rows that carry none of
-// the signal fields and are not operator prompts. A legacy row whose text starts
-// with one of these is excluded. Slash-command markers are deliberately absent:
-// <command-name> and <command-message> rows are operator-typed and count.
+// the signal fields and are not operator prompts. They apply to legacy rows only:
+// a modern row whose text starts with one of these still counts. Slash-command
+// markers are deliberately absent: <command-name> and <command-message> rows are
+// operator-typed and count.
 var operatorPromptNoisePrefixes = []string{
 	"<local-command-stdout>",
 	"<local-command-caveat>",
@@ -182,6 +184,22 @@ var operatorPromptNoisePrefixes = []string{
 	"[Request interrupted by user]",
 	"<task-notification>",
 	"Another Claude session sent a message:",
+}
+
+// operatorPromptAlwaysNoisePrefixes are transcript rows that pass every signal
+// check — no toolUseResult, no tool_result block, isMeta not set, turnOrigin
+// "human", promptSource "typed"/"queued" — but are not prompts the operator
+// typed. Unlike operatorPromptNoisePrefixes these apply to modern rows as well
+// as legacy ones: measured on the 2026-10-18 sample, attention-board answers and
+// rendered prompt echoes carry turnOrigin "human" and promptSource
+// "typed"/"queued", with origin.kind "human", and no structural field
+// distinguishes them from a genuine prompt, so the text prefix is the only
+// discriminator. Shell input rows were legacy in the same sample; the prefix is
+// listed here so a modern row carrying it is excluded too.
+var operatorPromptAlwaysNoisePrefixes = []string{
+	"Operator answer, via attention board:",
+	"<bash-input>",
+	"\u276f ",
 }
 
 // operatorPromptEntry is the subset of a session JSONL line the operator-prompt
@@ -253,8 +271,11 @@ func isOperatorPrompt(entry operatorPromptEntry) bool {
 			return false
 		}
 	}
+	if hasOperatorPromptNoisePrefix(text, operatorPromptAlwaysNoisePrefixes) {
+		return false
+	}
 	legacy := entry.TurnOrigin == "" && entry.PromptSource == ""
-	if legacy && hasOperatorPromptNoisePrefix(text) {
+	if legacy && hasOperatorPromptNoisePrefix(text, operatorPromptNoisePrefixes) {
 		return false
 	}
 	return true
@@ -290,11 +311,11 @@ func operatorPromptText(content json.RawMessage) (string, bool) {
 	return builder.String(), false
 }
 
-// hasOperatorPromptNoisePrefix reports whether a legacy row's text starts with
-// one of the known non-operator prefixes.
-func hasOperatorPromptNoisePrefix(text string) bool {
+// hasOperatorPromptNoisePrefix reports whether text starts with one of the given
+// non-operator prefixes, after trimming surrounding whitespace.
+func hasOperatorPromptNoisePrefix(text string, prefixes []string) bool {
 	trimmed := strings.TrimSpace(text)
-	for _, prefix := range operatorPromptNoisePrefixes {
+	for _, prefix := range prefixes {
 		if strings.HasPrefix(trimmed, prefix) {
 			return true
 		}

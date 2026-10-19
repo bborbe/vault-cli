@@ -173,8 +173,9 @@ func (c *completeOperation) Execute(
 
 // applyCompletionMetrics writes the passive metrics fields into the task before
 // the completion write: metrics_completed_at always, and metrics_interaction_count
-// only when the task was worked on (it has metrics_sessions). A task that was never
-// worked on keeps its interaction count unknown — never forged as zero.
+// and metrics_operator_prompt_count only when the task was worked on (it has
+// metrics_sessions). A task that was never worked on keeps both counts unknown —
+// never forged as zero.
 func (c *completeOperation) applyCompletionMetrics(
 	ctx context.Context,
 	task *domain.Task,
@@ -182,7 +183,11 @@ func (c *completeOperation) applyCompletionMetrics(
 ) {
 	task.SetMetricsCompletedAt(&completedD)
 	if sessions := task.MetricsSessions(); len(sessions) > 0 {
-		task.SetMetricsInteractionCount(c.interactionCounter.Count(ctx, metricsSessionIDs(sessions)))
+		sessionIDs := metricsSessionIDs(sessions)
+		task.SetMetricsInteractionCount(c.interactionCounter.Count(ctx, sessionIDs))
+		task.SetMetricsOperatorPromptCount(
+			c.interactionCounter.CountOperatorPrompts(ctx, sessionIDs),
+		)
 	}
 }
 
@@ -303,6 +308,7 @@ func (c *completeOperation) handleRecurringTask(
 	task.ClearMetricsSessions()
 	task.ClearMetricsCompletedAt()
 	task.ClearMetricsInteractionCount()
+	task.ClearMetricsOperatorPromptCount()
 
 	// Write updated task
 	if err := c.taskStorage.WriteTask(ctx, task); err != nil {

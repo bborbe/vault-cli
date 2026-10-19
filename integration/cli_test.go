@@ -605,6 +605,7 @@ status: completed
 page_type: task
 metrics_completed_at: "2026-09-08T10:00:00+02:00"
 metrics_interaction_count: 7
+metrics_operator_prompt_count: 2
 ---
 Fixture body.
 `,
@@ -625,7 +626,7 @@ Fixture body.
 `,
 		}
 
-		It("rollup weekly prints the three figures with the rule and the grouping", func() {
+		It("rollup weekly prints the four figures with the rule and the grouping", func() {
 			_, configPath, cleanup := createTempVault(rollupFixtureTasks)
 			defer cleanup()
 
@@ -639,6 +640,8 @@ Fixture body.
 
 			out := string(session.Out.Contents())
 			Expect(out).To(MatchRegexp(`(?m)^Human interactions: `))
+			Expect(out).To(MatchRegexp(`(?m)^Operator prompts: `))
+			Expect(out).To(ContainSubstring("Operator prompts: 2"))
 			Expect(out).To(MatchRegexp(`(?m)^Unattended deliveries: `))
 			Expect(out).To(MatchRegexp(`(?m)^Per-family median: `))
 			Expect(out).To(ContainSubstring(
@@ -672,6 +675,8 @@ Fixture body.
 
 			out := string(session.Out.Contents())
 			Expect(out).To(ContainSubstring("no data"))
+			Expect(out).To(ContainSubstring("Operator prompts: no data"))
+			Expect(out).NotTo(MatchRegexp(`(?m)^Operator prompts: 0$`))
 			Expect(out).NotTo(MatchRegexp(`(?m)^Human interactions: 0$`))
 			Expect(out).NotTo(MatchRegexp(`(?m)^Human interactions: no recorded counts$`))
 			Expect(out).NotTo(MatchRegexp(`(?m)^\s+[^:]+: 0$`))
@@ -696,7 +701,7 @@ Fixture body.
 			Expect(run(jsonArgs...)).To(Equal(run(jsonArgs...)))
 		})
 
-		It("rollup weekly --output json carries the same three figures as plain", func() {
+		It("rollup weekly --output json carries the same four figures as plain", func() {
 			_, configPath, cleanup := createTempVault(rollupFixtureTasks)
 			defer cleanup()
 
@@ -713,16 +718,19 @@ Fixture body.
 
 			var figures struct {
 				HumanInteractions    string `json:"human_interactions"`
+				OperatorPrompts      string `json:"operator_prompts"`
 				UnattendedDeliveries string `json:"unattended_deliveries"`
 				PerFamilyMedian      string `json:"per_family_median"`
 			}
 			Expect(json.Unmarshal(rawJSON, &figures)).To(Succeed())
 
 			Expect(figures.HumanInteractions).NotTo(BeEmpty())
+			Expect(figures.OperatorPrompts).NotTo(BeEmpty())
 			Expect(figures.UnattendedDeliveries).NotTo(BeEmpty())
 			Expect(figures.PerFamilyMedian).NotTo(BeEmpty())
 
 			Expect(plain).To(ContainSubstring("Human interactions: " + figures.HumanInteractions))
+			Expect(plain).To(ContainSubstring("Operator prompts: " + figures.OperatorPrompts))
 			Expect(plain).To(ContainSubstring("Unattended deliveries: " + figures.UnattendedDeliveries))
 			Expect(plain).To(ContainSubstring("Per-family median: " + figures.PerFamilyMedian))
 		})

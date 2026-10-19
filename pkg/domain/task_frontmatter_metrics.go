@@ -122,6 +122,27 @@ func (f *TaskFrontmatter) SetMetricsInteractionCount(count int) {
 // ClearMetricsInteractionCount removes the "metrics_interaction_count" key entirely.
 func (f *TaskFrontmatter) ClearMetricsInteractionCount() { f.Delete("metrics_interaction_count") }
 
+// MetricsOperatorPromptCount reads "metrics_operator_prompt_count" as *int.
+// Returns nil when the key is absent or the value is not a number — "unknown"
+// must never be forged as 0.
+func (f TaskFrontmatter) MetricsOperatorPromptCount() *int {
+	n, ok := coerceMetricsInt(f.Get("metrics_operator_prompt_count"))
+	if !ok {
+		return nil
+	}
+	return &n
+}
+
+// SetMetricsOperatorPromptCount stores "metrics_operator_prompt_count".
+func (f *TaskFrontmatter) SetMetricsOperatorPromptCount(count int) {
+	f.Set("metrics_operator_prompt_count", count)
+}
+
+// ClearMetricsOperatorPromptCount removes the "metrics_operator_prompt_count" key entirely.
+func (f *TaskFrontmatter) ClearMetricsOperatorPromptCount() {
+	f.Delete("metrics_operator_prompt_count")
+}
+
 // MetricsCycles reads "metrics_cycles" as a slice of MetricsCycle.
 // Returns nil when the key is absent, the value is not a list, or every element is malformed.
 func (f TaskFrontmatter) MetricsCycles() []MetricsCycle {

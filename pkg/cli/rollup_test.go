@@ -19,13 +19,14 @@ import (
 )
 
 var _ = Describe("rollup weekly plain report", func() {
-	It("renders the three figures, the family block and both rules", func() {
+	It("renders the four figures, the family block and both rules", func() {
 		result := ops.RollupWeeklyResult{
 			Year:                 2026,
 			Week:                 37,
 			WeekStart:            "2026-09-07",
 			WeekEnd:              "2026-09-13",
 			HumanInteractions:    "26476",
+			OperatorPrompts:      "1423",
 			UnattendedDeliveries: "12",
 			PerFamilyMedian:      "52",
 			Families: []ops.RollupFamily{
@@ -36,6 +37,7 @@ var _ = Describe("rollup weekly plain report", func() {
 
 		Expect(cli.FormatRollupWeeklyPlainForTest(result)).To(Equal(`Week: 2026-W37 (2026-09-07 to 2026-09-13)
 Human interactions: 26476
+Operator prompts: 1423
 Unattended deliveries: 12
 Per-family median: 52
   check prometheus alerts: 52
@@ -79,13 +81,14 @@ Grouping rule: A task family is the filename stem with dates, week numbers, vers
 		Expect(rendered).NotTo(ContainSubstring("Per-family median: 0"))
 	})
 
-	It("renders a no-data week as three no-data lines and no family block", func() {
+	It("renders a no-data week as four no-data lines and no family block", func() {
 		result := ops.RollupWeeklyResult{
 			Year:                 2026,
 			Week:                 20,
 			WeekStart:            "2026-05-11",
 			WeekEnd:              "2026-05-17",
 			HumanInteractions:    "no data",
+			OperatorPrompts:      "no data",
 			UnattendedDeliveries: "no data",
 			PerFamilyMedian:      "no data",
 			Families:             []ops.RollupFamily{},
@@ -94,11 +97,31 @@ Grouping rule: A task family is the filename stem with dates, week numbers, vers
 		rendered := cli.FormatRollupWeeklyPlainForTest(result)
 
 		Expect(rendered).To(ContainSubstring("Human interactions: no data"))
+		Expect(rendered).To(ContainSubstring("Operator prompts: no data"))
 		Expect(rendered).To(ContainSubstring("Unattended deliveries: no data"))
 		Expect(rendered).To(ContainSubstring("Per-family median: no data"))
 		Expect(rendered).NotTo(MatchRegexp(`(?m)^\s+[^:]+: 0$`))
 		Expect(rendered).To(ContainSubstring("Unattended rule:"))
 		Expect(rendered).To(ContainSubstring("Grouping rule:"))
+	})
+
+	It("renders operator prompts with no recorded counts instead of zero", func() {
+		result := ops.RollupWeeklyResult{
+			Year:                 2026,
+			Week:                 37,
+			WeekStart:            "2026-09-07",
+			WeekEnd:              "2026-09-13",
+			HumanInteractions:    "10",
+			OperatorPrompts:      "no recorded counts",
+			UnattendedDeliveries: "1",
+			PerFamilyMedian:      "5",
+			Families:             []ops.RollupFamily{},
+		}
+
+		rendered := cli.FormatRollupWeeklyPlainForTest(result)
+
+		Expect(rendered).To(ContainSubstring("Operator prompts: no recorded counts"))
+		Expect(rendered).NotTo(MatchRegexp(`(?m)^Operator prompts: 0$`))
 	})
 
 	It("prints the unattended rule sentence verbatim", func() {
@@ -191,6 +214,7 @@ var _ = Describe("rollup weekly plain report with a baseline", func() {
 			WeekStart:            "2026-09-07",
 			WeekEnd:              "2026-09-13",
 			HumanInteractions:    "39055",
+			OperatorPrompts:      "1200",
 			UnattendedDeliveries: "12",
 			PerFamilyMedian:      "113",
 			Families: []ops.RollupFamily{
@@ -229,6 +253,7 @@ Baseline (captured 2026-09-12)
   Week 2026-W37: 26476
   Agent coverage: 1 of 420
 Human interactions: 39055
+Operator prompts: 1200
 Unattended deliveries: 12
 Per-family median: 113
   check prometheus alerts: 52

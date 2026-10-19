@@ -218,12 +218,16 @@ vault-cli rollup weekly --vault personal       # A named vault (default_vault wh
 vault-cli rollup weekly --output json          # The same figures as JSON
 ```
 
-`rollup weekly` reports three figures for one ISO week: the week's **human
+`rollup weekly` reports four figures for one ISO week: the week's **human
 interactions** (the sum of `metrics_interaction_count` over the tasks completed
-in that week), its **unattended deliveries** (completed tasks whose recorded
-interaction count is exactly zero), and the **median interactions of a recurring
-task family** — the headline median of the per-family medians, with each family
-listed beneath it.
+in that week), its **operator prompts** (the sum of
+`metrics_operator_prompt_count` over those tasks — the prompts the operator
+actually typed, excluding tool results, meta injections, scheduled wakeups, task
+notifications and peer messages), its **unattended deliveries** (completed tasks
+whose recorded interaction count is exactly zero), and the **median interactions
+of a recurring task family** — the headline median of the per-family medians,
+with each family listed beneath it. A week with no recorded operator counts
+reads `no recorded counts`, never `0`.
 
 The command reads only task frontmatter from one vault — the vault named by
 `--vault`, or the config's `default_vault` when the flag is omitted, never every

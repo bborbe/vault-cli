@@ -68,6 +68,27 @@ run() { # run <want-exit> <label> [extra env...]
 	fi
 }
 
+run_live() { # run_live <want-exit> <label> [extra env...] — exercises the kill path, no --dry-run
+	local want=$1 label=$2
+	shift 2
+	local got=0
+	env -i PATH="$TMP/bin:$PATH" \
+		SESSION_ID="$SID" SESSIONS_DIR="$SESSIONS" TASKS_ROOTS="$TASKS" \
+		WEZTERM_PANE=777 ATTENTION_STORE_URL="$STORE_URL" "$@" \
+		python3 "$SCRIPT" > "$TMP/out" 2>&1 || got=$?
+	if [ "$got" -eq "$want" ]; then
+		pass=$((pass + 1))
+	else
+		fail=$((fail + 1))
+		echo "❌ $label: want exit $want, got $got — $(cat "$TMP/out")" >&2
+	fi
+}
+
+# A failing `wezterm` proves the kill path reports a refusal rather than claiming success.
+mkdir -p "$TMP/bin"
+printf '#!/bin/sh\nexit 1\n' > "$TMP/bin/wezterm"
+chmod +x "$TMP/bin/wezterm"
+
 cards '[]'
 python3 -m http.server "$PORT" --bind 127.0.0.1 --directory "$TMP/store" >/dev/null 2>&1 &
 SERVER_PID=$!
@@ -103,6 +124,14 @@ run 10 "open attention card for this session refuses"
 
 cards "[{\"item_id\":\"abc\",\"producer_id\":\"someone-else\",\"state\":\"open\"}]"
 run 0 "another session's card does not block"
+
+# --- negative path: the pane id is not a number
+task completed done 0
+run 10 "non-numeric pane id refuses" WEZTERM_PANE=abc
+
+# --- negative path: kill-pane fails on a live run (no --dry-run)
+task completed done 0
+run_live 10 "a failing kill-pane reports a refusal, not success"
 
 # --- negative path: the store cannot be read
 task completed done 0

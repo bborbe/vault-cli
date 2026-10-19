@@ -1,8 +1,9 @@
 ---
-status: prompted
+status: verifying
 approved: "2026-10-19T17:49:55Z"
 generating: "2026-10-19T17:51:03Z"
 prompted: "2026-10-19T18:03:01Z"
+verifying: "2026-10-19T18:26:17Z"
 branch: dark-factory/bug-rollup-aborts-on-frontmatterless-task-file
 ---
 

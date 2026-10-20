@@ -1,7 +1,8 @@
 ---
-status: verifying
+status: completed
 approved: "2026-10-20T09:50:13Z"
 verifying: "2026-10-20T10:32:47Z"
+completed: "2026-10-20T10:40:32Z"
 branch: dark-factory/goal-topic-approve
 ---
 

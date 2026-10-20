@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [061-goal-topic-approve]
+summary: Added TopicApproveOperation recording phase planning, approved_by and approved_at in one write, reusing the shared approval-record guard, with 16 focused unit tests; make precommit exited 0.
+execution_id: vault-cli-goal-topic-approve-exec-263-spec-061-topic-approve
+dark-factory-version: v0.198.7
 created: "2026-10-20T10:03:18Z"
 queued: "2026-10-20T10:16:58Z"
+started: "2026-10-20T10:23:48Z"
+completed: "2026-10-20T10:27:12Z"
 ---
 
 # Add the topic approve operation that records phase, approver and instant (spec 061, prompt 3 of 5)

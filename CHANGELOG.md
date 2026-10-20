@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: `scripts/session-self-exit.py` lets a session that was handed off from a task exit. When `claude_session_id` has moved to another session, the task is resolved through its `metrics_sessions` instead, and that branch skips the terminal check — its own work is already on the record. The pane-ownership and open-card guards still refuse.
+
 ## v0.175.0
 
 - feat: `vault-cli goal set` and `topic set` accept the full canonical task phase set (`todo`, `planning`, `execution`, `ai_review`, `human_review`, `done`), and an invalid phase now exits non-zero with the validator's message listing the accepted values, rendered from the enum collection so the list cannot drift. `in_progress` stays a task-only alias and is still rejected.

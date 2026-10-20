@@ -51,9 +51,9 @@ vault-cli topic get "<name>" phase --output json
 
 Refuse and STOP if any apply:
 
-- `status: completed` OR `status: aborted` → `❌ Topic closed (status: <value>). Reopen: vault-cli topic set "<name>" status in_progress; vault-cli topic set "<name>" phase planning — there is no reopen subcommand.`
+- `status: completed` OR `status: aborted` → `❌ Topic closed (status: <value>). Reopen: vault-cli topic set "<name>" status in_progress; vault-cli topic set "<name>" phase planning — there is no reopen subcommand.` (the phase set is legal here because the topic is not in the inbox)
 - `phase: done` → `❌ Topic phase is done. Reopen with the same two commands as above.`
-- `phase: todo` OR `phase` empty AND `status: in_progress` → `❌ Topic has no plan yet (phase: todo). Set it with vault-cli topic set "<name>" phase planning once the topic passes /verify-topic.` (planning is non-skippable)
+- `phase: todo` OR `phase` empty AND `status: in_progress` → `❌ Topic has no plan yet (phase: todo). Approve it with vault-cli topic approve "<name>" once the topic passes /verify-topic.` (planning is non-skippable; a topic with no `phase` key is exempt from the gate, so set `phase: todo` first with `vault-cli topic set "<name>" phase todo`)
 
 ### 4. Status entry contract (mutate, then continue)
 

@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [061-goal-topic-approve]
+summary: Updated plan-goal and execute-topic to teach goal/topic approve, documented the approval transition in goal-writing.md, and added the Unreleased changelog entry
+execution_id: vault-cli-goal-topic-approve-exec-265-spec-061-docs-changelog
+dark-factory-version: v0.198.7
 created: "2026-10-20T10:03:18Z"
 queued: "2026-10-20T10:16:58Z"
+started: "2026-10-20T10:31:16Z"
+completed: "2026-10-20T10:32:46Z"
 ---
 
 # Teach the goal and topic commands the approve verb (spec 061, prompt 5 of 5)

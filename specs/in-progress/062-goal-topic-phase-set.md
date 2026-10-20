@@ -1,8 +1,9 @@
 ---
-status: prompted
+status: verifying
 approved: "2026-10-20T10:46:01Z"
 generating: "2026-10-20T10:51:08Z"
 prompted: "2026-10-20T10:51:08Z"
+verifying: "2026-10-20T11:00:34Z"
 branch: dark-factory/goal-topic-phase-set
 ---
 

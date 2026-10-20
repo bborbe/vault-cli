@@ -11,6 +11,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 ## Unreleased
 
 - feat: Goal and topic phases now accept the full canonical task phase set (`ai_review`, `human_review`), and their validator errors list the accepted values derived from the enum collection, so `vault-cli goal set … phase bogus` surfaces the validator's own message.
+- feat: `vault-cli goal set` and `topic set` accept the full task phase set (`todo`, `planning`, `execution`, `ai_review`, `human_review`, `done`), and an invalid phase now exits non-zero with a message listing the accepted values, rendered from the enum.
 
 ## v0.174.1
 

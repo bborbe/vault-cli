@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [062-goal-topic-phase-set]
+summary: Added end-to-end integration coverage for the widened goal/topic phase enums (ai_review, human_review accepted; bogus and in_progress rejected with the six valid values listed) and an Unreleased CHANGELOG bullet.
+execution_id: vault-cli-goal-topic-phase-set-exec-262-spec-062-integration-changelog
+dark-factory-version: v0.198.7
 created: "2026-10-20T10:52:00Z"
 queued: "2026-10-20T10:51:07Z"
+started: "2026-10-20T10:58:00Z"
+completed: "2026-10-20T11:00:33Z"
 ---
 
 # Lock the widened goal/topic phase set end-to-end and record it (spec 062, prompt 2 of 2)

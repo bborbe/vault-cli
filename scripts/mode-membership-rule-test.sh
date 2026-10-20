@@ -69,7 +69,7 @@ SIGNALS=(
 #   mode-2 closer      — the `pick` line, which must offer every fired signal
 MODE1_HEADER='**1. Clean +'
 MODE2_HEADER='**2. Clean +'
-MODE2_CLOSER='👤 You: pick —'
+MODE2_CLOSER='👤 You: pick any —'
 #   mode-2 body / mode-3 tail — fenced blocks opened by their headers
 MODE2_BLOCK='**2. Clean +'
 MODE3_BLOCK='**3. Outstanding items**'

@@ -12,10 +12,22 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 
 - feat: **A vault can name its default A2A cluster.** A config entry gains `a2a_default_cluster`, a cluster **name** (`nukedev`, never a target string `k8s:nukedev`), set with `vault-cli config set-a2a-default-cluster <vault> <cluster>` and emitted in `config list --output json` so a consumer can resolve it without parsing the YAML. The value is validated on write as an RFC 1123 label (lowercase alphanumerics and interior hyphens, at most 63 characters), which is the shape a Kubernetes cluster identifier takes — an unknown-but-well-formed name is accepted here and refused by the consumer, because the cluster set is that side's knowledge, not this repo's. ⚠️ **Reading never validates**: a hand-edited malformed value still lists, emitted verbatim, because refusing it would turn a config typo into an unopenable vault. ⚠️ **Both tags are `omitempty`**, so a vault that names no default round-trips unchanged and `scenarios/001-config-list.md`'s exhaustive key set for the `minimal` vault still holds. A refused value or an unknown vault writes nothing — the config file is byte-identical afterwards. Documented in `docs/a2a-default-cluster.md`.
 
-## v0.175.1
+## v0.176.2
 
+- fix: `vault-cli task set <task> claude_session_id <new>` appends the displaced owner to `metrics_sessions` before writing the new id, so a session handed off by a take-over stays resolvable by `session-self-exit.py` and `close-worker.py`. A first bind and a re-bind to the same value append nothing; the completion and spawn-failure clears are unchanged.
+
+## v0.176.1
+
+- fix: **`session-close`'s mode-2 closer is now a combinable menu, so a session that wants both the reflection and the self-improvement can answer for both on the attention board.** The closer emitted `pick — 1. /vault-cli:reflect · 2. /coding:self-improve · 3. nothing — close`, and a closer reaches the board with no `tool_input` at all, so the card declared no cardinality and rendered as radios with "(pick one)" — the operator could answer "1 + 2" in the console and not on the board. It now emits `pick any — …`, the combinable form the global closer rule defines: checkboxes on the board, with `nothing — close` last and exclusive, so the escape clears the other picks and any pick clears it. The producer half ships in `bborbe/claude` (the `Stop` hook that parses the marker and marks the last option exclusive) and the rendering half in `bborbe/attention-controller` v0.61.0 (the `exclusive` field and its board rule); an older board ignores the unknown field and renders the escape as an ordinary checkbox rather than rejecting the card. `commands/session-close.md` only — no Go change.
+
+## v0.176.0
+
+- fix: `session-self-exit-test.sh` binds an ephemeral port instead of the hardcoded 18099, so `make test` no longer fails on a host where anything else already holds that port — the stub server failed to bind silently and the test read the other server's directory as a 404. A stub server that never answers now fails loudly instead.
 - feat: Add `GoalApproveOperation` and `TopicApproveOperation`, which move a `phase: todo` row to `phase: planning` and record `approved_by` / `approved_at` in one write; a row outside the approval inbox, or one already carrying an approval record, is refused with nothing written.
 - feat: Add `vault-cli goal approve` and `vault-cli topic approve`, the CLI surface over those operations (`--by` defaults to `operator`, an empty `--by` is refused, and a refusal exits non-zero in both plain and `--output json` modes). `goal set … phase planning` and `topic set … phase planning` on a `todo` row are now refused and point at the approve verb.
+
+## v0.175.1
+
 - fix: `scripts/session-self-exit.py` lets a session that was handed off from a task exit. When `claude_session_id` has moved to another session, the task is resolved through its `metrics_sessions` instead, and that branch skips the terminal check — its own work is already on the record. The pane-ownership and open-card guards still refuse.
 
 ## v0.175.0

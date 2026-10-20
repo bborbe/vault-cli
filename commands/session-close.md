@@ -785,15 +785,15 @@ Append below the verdict. This command is terminal; without a fixed closer the t
 
 ```
 ⚪ DONE
-👤 You: pick — 1. /vault-cli:reflect · 2. /coding:self-improve · 3. review the runbook gap · 4. nothing — close
+👤 You: pick any — 1. /vault-cli:reflect · 2. /coding:self-improve · 3. review the runbook gap · 4. nothing — close
 ⏰ Next: your reply
 ```
 
-Include only the options whose signals actually fired, renumbered from 1, and keep `nothing — close` last so closing stays one keystroke away.
+Include only the options whose signals actually fired, renumbered from 1, and keep `nothing — close` last so closing stays one keystroke away. The verb is `pick any —`, not `pick —`: these are not alternatives — a session that wants both the reflection and the self-improvement runs both — so the board renders checkboxes rather than radios, and the exclusive `nothing — close` clears them.
 
 **A runbook-improvement item has no command of its own**, so its option is the plain action — `review the runbook gap` — rather than a slash command. Phase 8.5 explicitly never auto-edits the runbook, so the operator's move is to open it; there is nothing to invoke. Name the runbook when exactly one gap fired (`review [[<runbook>]]`); with two or more, keep the generic form and let the body's numbered list name them. ⚠️ **This option is required whenever a runbook gap is what put the session in mode 2** — omitting it is the drift that leaves the body's item with no slot in the closer, and this section's own verbatim rule forbids improvising one, so the model has no legal output. Leaving the gap is a legitimate resolution and `nothing — close` already covers it.
 
-**`nothing — session closed` is wrong for mode 2** — it asserts there is nothing to do directly above a list of things to do. The global closer rule already forbids `nothing` while something is pending; mode 2 is exactly that case. This is not a "fork" in the `/supervisor:worker-drive` sense either: these are optional follow-ups on a finished task, which is precisely what a `pick` is for.
+**`nothing — session closed` is wrong for mode 2** — it asserts there is nothing to do directly above a list of things to do. The global closer rule already forbids `nothing` while something is pending; mode 2 is exactly that case. This is not a "fork" in the `/supervisor:worker-drive` sense either: these are optional follow-ups on a finished task, which is precisely what a `pick any` is for.
 
 **Goal-anchored clean verdict** (Phase 1's `GOAL_ANCHORED` and the anchor goal still has open tasks — exempted in Phase 4.5, so the session can close clean): the `⏰ Next:` line names the next open task under the anchor goal instead of deferring to the orchestrator:
 

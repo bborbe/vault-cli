@@ -73,11 +73,16 @@ The id is the load-bearing field — an id on disk means the session is resumabl
 the metrics entry is analytics. The append is deliberately not in the agent
 definition's `<critical_writes>` list.
 
-**The generic write verbs refuse the field.** `task set`, `task add` and `task remove`
-refuse `metrics_sessions` before any mutation, with no `--force` bypass, because `set`
-stores a scalar and `add` / `remove` comma-split into a list of scalars — both shapes
-the dedicated list reader discards. That refusal lives in
-`pkg/ops/metrics_session_write.go`.
+**The generic write verbs refuse a caller-supplied value for the field.** `task set`,
+`task add` and `task remove` refuse a `metrics_sessions` value supplied by the caller,
+before any mutation, with no `--force` bypass, because `set` stores a scalar and `add` /
+`remove` comma-split into a list of scalars — both shapes the dedicated list reader
+discards. That refusal lives in `pkg/ops/metrics_session_write.go`. The one internal
+exception is the `claude_session_id` write: `task set <task> claude_session_id <new>`
+that displaces a different non-empty owner appends that outgoing id to
+`metrics_sessions` before storing the new id, so a taken-over session stays resolvable
+by the exit and close paths. The append is internal to the session-id write, not a
+caller-facing way to write the field.
 
 **The removal is its own verb.** `vault-cli task remove-metrics-session <task-name>
 <session-id>` removes **every** entry carrying that id while preserving every other

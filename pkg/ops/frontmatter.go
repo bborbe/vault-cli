@@ -138,6 +138,11 @@ func (o *frontmatterSetOperation) Execute(
 	// tell a cleared assignee from one that was never set.
 	previousAssignee := task.Assignee()
 
+	// The displaced owner must be appended before SetField overwrites it, so the
+	// single WriteTask below persists the new id and the recorded outgoing id
+	// together.
+	o.appendDisplacedSession(task, key, value)
+
 	// One-step close-out: when this invocation sets a close-out status, persist
 	// reason and successor first so both land in a single WriteTask. Fields are
 	// written only when provided; non-close-out targets never receive them.
@@ -168,6 +173,25 @@ func (o *frontmatterSetOperation) Execute(
 	publishAssigneeClearEscalation(ctx, o.publisher, task, key, value, previousAssignee, o.vaultName, o.tasksDir)
 
 	return nil
+}
+
+// appendDisplacedSession appends the outgoing owner to metrics_sessions when a
+// claude_session_id write replaces a different non-empty id. The exit and close
+// paths resolve a session by matching claude_session_id or any metrics_sessions
+// entry, so the displaced id must stay on the task or it can never be resolved
+// again. A first bind (no previous owner) and a re-bind to the same value append
+// nothing. The incoming id is deliberately not appended: work-on and the
+// session-connect append are the writers that establish ownership, and appending
+// both would double-count the incoming session.
+func (o *frontmatterSetOperation) appendDisplacedSession(task *domain.Task, key, value string) {
+	previous := task.ClaudeSessionID()
+	if key != "claude_session_id" || previous == "" || previous == value {
+		return
+	}
+	task.AppendMetricsSession(domain.MetricsSession{
+		SessionID: previous,
+		StartedAt: libtime.DateOrDateTime(o.currentDateTime.Now().Time()),
+	})
 }
 
 // writeTaskCloseOutFieldsIfCloseOut writes the one-step close-out fields when

@@ -119,7 +119,7 @@ manager_id_for() {
   f="$VAULT/$GOALS_DIR/$title.md"
   if [ -f "$f" ]; then
     id="$(field manager_session_id "$f")"
-    [ -n "$id" ] && { printf '%s' "$id"; return; }
+    if [ -n "$id" ]; then printf '%s' "$id"; return; fi
   fi
   while IFS= read -r tf; do
     [ -f "$tf" ] || continue
@@ -129,7 +129,7 @@ manager_id_for() {
       END{exit found?0:1}
     ' "$tf" || continue
     id="$(field manager_session_id "$tf")"
-    [ -n "$id" ] && { printf '%s' "$id"; return; }
+    if [ -n "$id" ]; then printf '%s' "$id"; return; fi
   done < <(find "$VAULT/$TOPICS_DIR" -name '*.md' 2>/dev/null)
 }
 

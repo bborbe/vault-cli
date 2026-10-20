@@ -125,3 +125,18 @@ The verbs write to a markdown file inside the configured vault. They take a row 
 ## Do-Nothing Option
 
 Without this verb, no goal or topic can move from `todo` to `planning` with a recorded approval, and the generic `set` path can move it without one. The manager-start gate would keep inferring readiness from task counts, which is exactly the ambiguity this work exists to remove. The cost is one small command per repository; the alternative is that the `phase` field stays half-wired.
+
+## Verification Result
+
+**Verified:** 2026-10-20T10:40:02Z (HEAD c786b1f)
+**Binary:** ./bin/vault-cli (rebuilt from HEAD via `make build`)
+**Scenario:** spec `## Verification` operator walk against scratch vault `/tmp/vault-approve-e2e` with fresh goal and topic fixtures
+**Evidence:**
+- `goal approve "E2E Todo Goal"` -> exit 0, prints `Goal approved: E2E Todo Goal (phase planning)`; phase=planning, approved_by=operator, raw file line `approved_at: 2026-10-20T12:35:55.401684+02:00` against `date -u` = 2026-10-20T10:35:55Z
+- `topic approve "E2E Todo Topic"` -> exit 0, phase=planning, approved_by=operator; `--by alice` recorded alice on both a goal and a topic
+- 16 refusal cases (goal+topic x planning/execution/done/no-phase/already-approved_by/already-approved_at/`--by ""`/unknown row): all exit 1, message names the row and the found-vs-required phase or present key, `shasum -a 256` unchanged
+- `goal set ... phase planning` and `topic set ... phase planning` on a todo row -> exit 1 naming `vault-cli goal approve` / `vault-cli topic approve`, checksum unchanged; `set phase execution` and `set priority 2` on a todo row -> exit 0 with the value applied
+- preservation: diff excluding `phase`/`approved_by`/`approved_at` empty (order-insensitive on a natural fixture, literal on a serializer-ordered fixture); `custom_key: keep` count 1
+- docs: todo arms of `commands/plan-goal.md` and `commands/execute-topic.md` name the approve verbs; execute-topic reopen arm still names `set ... phase planning`; `grep -c "goal approve" docs/goal-writing.md` = 1
+- `make precommit` exit 0; `make test` exit 0
+**Verdict:** PASS

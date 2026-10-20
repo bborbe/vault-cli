@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.176.0
 
 - feat: Add `GoalApproveOperation` and `TopicApproveOperation`, which move a `phase: todo` row to `phase: planning` and record `approved_by` / `approved_at` in one write; a row outside the approval inbox, or one already carrying an approval record, is refused with nothing written.
 - feat: Add `vault-cli goal approve` and `vault-cli topic approve`, the CLI surface over those operations (`--by` defaults to `operator`, an empty `--by` is refused, and a refusal exits non-zero in both plain and `--output json` modes). `goal set … phase planning` and `topic set … phase planning` on a `todo` row are now refused and point at the approve verb.

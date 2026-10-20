@@ -125,6 +125,13 @@ func (o *goalSetOperation) Execute(
 		return err
 	}
 
+	// Refuse a direct todo -> planning move before anything is mutated — see
+	// goalTodoPlanningSetRefusal. Nothing below runs on this path, so the goal
+	// file stays byte-identical.
+	if err := goalTodoPlanningSetRefusal(ctx, goal, entityName, key, value); err != nil {
+		return err
+	}
+
 	// One-step close-out: when this invocation sets a close-out goal status,
 	// persist reason and successor first so both land in a single WriteGoal.
 	if err := writeGoalCloseOutFieldsIfCloseOut(ctx, goal, value, reason, gateSuccessor); err != nil {
@@ -274,6 +281,14 @@ func (o *topicSetOperation) Execute(
 	if err != nil {
 		return errors.Wrap(ctx, err, "find topic")
 	}
+
+	// Refuse a direct todo -> planning move before anything is mutated — see
+	// topicTodoPlanningSetRefusal. Nothing below runs on this path, so the topic
+	// file stays byte-identical.
+	if err := topicTodoPlanningSetRefusal(ctx, topic, entityName, key, value); err != nil {
+		return err
+	}
+
 	if err := topic.SetField(ctx, key, value); err != nil {
 		return errors.Wrap(ctx, err, fmt.Sprintf("set field %q", key))
 	}
@@ -286,6 +301,69 @@ func (o *topicSetOperation) Execute(
 // NewTopicSetOperation creates an EntitySetOperation for topics.
 func NewTopicSetOperation(topicStorage storage.TopicStorage) EntitySetOperation {
 	return &topicSetOperation{topicStorage: topicStorage}
+}
+
+// goalTodoPlanningSetRefusal returns an error when a `goal set` invocation would
+// move a goal out of the operator's approval inbox by setting the phase to
+// planning.
+//
+// "todo" is the operator's approval inbox. Leaving it is the operator's approval
+// and is performed by `vault-cli goal approve`, which records approved_by and
+// approved_at in the same write. `goal set <name> phase planning` writes the
+// field and nothing else, leaving the row at planning with no evidence that
+// anyone approved it. The refusal closes that route.
+//
+// The guard is deliberately one (field, value, current-phase) combination: key
+// "phase", the canonical value "planning", and a current phase of "todo". A goal
+// with no phase key is exempt — an absent phase does not mean todo. Every other
+// target phase, every non-phase key and every unknown phase value keep their
+// existing behaviour; an unknown value is still rejected by setPhaseField.
+//
+// Nothing is written on the refusal path: the check runs before any mutation, so
+// the file on disk is byte-identical.
+func goalTodoPlanningSetRefusal(
+	ctx context.Context,
+	goal *domain.Goal,
+	goalName, key, value string,
+) error {
+	if key != "phase" {
+		return nil
+	}
+	if domain.GoalPhase(value) != domain.GoalPhasePlanning {
+		return nil
+	}
+	current := goal.Phase()
+	if current == nil || *current != domain.GoalPhaseTodo {
+		return nil
+	}
+	return errors.Errorf(ctx,
+		"refusing to set phase %q on goal %q: the goal is at phase %q, the operator's approval inbox. Leaving it is the operator's approval and is performed by `vault-cli goal approve %q`, which records approved_by and approved_at in the same write",
+		domain.GoalPhasePlanning, goalName, string(domain.GoalPhaseTodo), goalName,
+	)
+}
+
+// topicTodoPlanningSetRefusal is the topic arm of goalTodoPlanningSetRefusal:
+// the same single (field, value, current-phase) triple, the same exemption for a
+// missing phase key, and the same byte-identical refusal path.
+func topicTodoPlanningSetRefusal(
+	ctx context.Context,
+	topic *domain.Topic,
+	topicName, key, value string,
+) error {
+	if key != "phase" {
+		return nil
+	}
+	if domain.TopicPhase(value) != domain.TopicPhasePlanning {
+		return nil
+	}
+	current := topic.Phase()
+	if current == nil || *current != domain.TopicPhaseTodo {
+		return nil
+	}
+	return errors.Errorf(ctx,
+		"refusing to set phase %q on topic %q: the topic is at phase %q, the operator's approval inbox. Leaving it is the operator's approval and is performed by `vault-cli topic approve %q`, which records approved_by and approved_at in the same write",
+		domain.TopicPhasePlanning, topicName, string(domain.TopicPhaseTodo), topicName,
+	)
 }
 
 // EntityClearOperation clears a single frontmatter field value on an entity.

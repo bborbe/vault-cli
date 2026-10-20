@@ -328,6 +328,90 @@ var _ = Describe("NewGoalSetOperation", func() {
 			Expect(err).To(MatchError(ContainSubstring("write goal")))
 		})
 	})
+
+	Context("goal at phase todo", func() {
+		BeforeEach(func() {
+			goal = domain.NewGoal(
+				map[string]any{"phase": "todo", "status": "next"},
+				domain.FileMetadata{Name: goalName},
+				domain.Content(""),
+			)
+			mockGoalStorage.FindGoalByNameReturns(goal, nil)
+		})
+
+		Context("setting phase planning", func() {
+			BeforeEach(func() {
+				key = "phase"
+				value = "planning"
+			})
+
+			It("refuses and writes nothing", func() {
+				Expect(err).To(MatchError(ContainSubstring("goal approve")))
+				Expect(mockGoalStorage.WriteGoalCallCount()).To(Equal(0))
+				Expect(goal.Phase()).NotTo(BeNil())
+				Expect(*goal.Phase()).To(Equal(domain.GoalPhaseTodo))
+			})
+		})
+
+		Context("setting phase execution", func() {
+			BeforeEach(func() {
+				key = "phase"
+				value = "execution"
+			})
+
+			It("allows the move and writes the goal", func() {
+				Expect(err).To(BeNil())
+				Expect(mockGoalStorage.WriteGoalCallCount()).To(Equal(1))
+				_, writtenGoal := mockGoalStorage.WriteGoalArgsForCall(0)
+				Expect(writtenGoal.Phase()).NotTo(BeNil())
+				Expect(*writtenGoal.Phase()).To(Equal(domain.GoalPhaseExecution))
+			})
+		})
+
+		Context("setting a non-phase key", func() {
+			BeforeEach(func() {
+				key = "priority"
+				value = "2"
+			})
+
+			It("allows the write", func() {
+				Expect(err).To(BeNil())
+				Expect(mockGoalStorage.WriteGoalCallCount()).To(Equal(1))
+				_, writtenGoal := mockGoalStorage.WriteGoalArgsForCall(0)
+				Expect(writtenGoal.Priority()).To(Equal(domain.Priority(2)))
+			})
+		})
+	})
+
+	Context("goal with no phase key", func() {
+		BeforeEach(func() {
+			key = "phase"
+			value = "planning"
+		})
+
+		It("stays exempt from the refusal", func() {
+			Expect(err).To(BeNil())
+			Expect(mockGoalStorage.WriteGoalCallCount()).To(Equal(1))
+		})
+	})
+
+	Context("goal at phase planning", func() {
+		BeforeEach(func() {
+			goal = domain.NewGoal(
+				map[string]any{"phase": "planning"},
+				domain.FileMetadata{Name: goalName},
+				domain.Content(""),
+			)
+			mockGoalStorage.FindGoalByNameReturns(goal, nil)
+			key = "phase"
+			value = "planning"
+		})
+
+		It("is not guarded", func() {
+			Expect(err).To(BeNil())
+			Expect(mockGoalStorage.WriteGoalCallCount()).To(Equal(1))
+		})
+	})
 })
 
 var _ = Describe("NewGoalClearOperation", func() {
@@ -1271,6 +1355,89 @@ var _ = Describe("NewTopicSetOperation", func() {
 
 		It("returns an error wrapped with write topic", func() {
 			Expect(err).To(MatchError(ContainSubstring("write topic")))
+		})
+	})
+
+	Context("topic at phase todo", func() {
+		BeforeEach(func() {
+			topic = domain.NewTopic(
+				map[string]any{"phase": "todo", "status": "next"},
+				domain.FileMetadata{Name: topicName, FilePath: "/vault/Topics/my-topic.md"},
+				domain.Content(""),
+			)
+			mockTopicStorage.FindTopicByNameReturns(topic, nil)
+		})
+
+		Context("setting phase planning", func() {
+			BeforeEach(func() {
+				key = "phase"
+				value = "planning"
+			})
+
+			It("refuses and writes nothing", func() {
+				Expect(err).To(MatchError(ContainSubstring("topic approve")))
+				Expect(mockTopicStorage.WriteTopicCallCount()).To(Equal(0))
+				Expect(topic.Phase()).NotTo(BeNil())
+				Expect(*topic.Phase()).To(Equal(domain.TopicPhaseTodo))
+			})
+		})
+
+		Context("setting phase execution", func() {
+			BeforeEach(func() {
+				key = "phase"
+				value = "execution"
+			})
+
+			It("allows the move and writes the topic", func() {
+				Expect(err).To(BeNil())
+				Expect(mockTopicStorage.WriteTopicCallCount()).To(Equal(1))
+				_, written := mockTopicStorage.WriteTopicArgsForCall(0)
+				Expect(written.GetField("phase")).To(Equal("execution"))
+			})
+		})
+
+		Context("setting a non-phase key", func() {
+			BeforeEach(func() {
+				key = "priority"
+				value = "2"
+			})
+
+			It("allows the write", func() {
+				Expect(err).To(BeNil())
+				Expect(mockTopicStorage.WriteTopicCallCount()).To(Equal(1))
+				_, written := mockTopicStorage.WriteTopicArgsForCall(0)
+				Expect(written.GetField("priority")).To(Equal("2"))
+			})
+		})
+	})
+
+	Context("topic with no phase key", func() {
+		BeforeEach(func() {
+			key = "phase"
+			value = "planning"
+		})
+
+		It("stays exempt from the refusal", func() {
+			Expect(err).To(BeNil())
+			Expect(mockTopicStorage.WriteTopicCallCount()).To(Equal(1))
+		})
+	})
+
+	Context("topic at phase planning", func() {
+		BeforeEach(func() {
+			topic = domain.NewTopic(
+				map[string]any{"phase": "planning"},
+				domain.FileMetadata{Name: topicName, FilePath: "/vault/Topics/my-topic.md"},
+				domain.Content(""),
+			)
+			mockTopicStorage.FindTopicByNameReturns(topic, nil)
+			key = "phase"
+			value = "planning"
+		})
+
+		It("is not guarded", func() {
+			Expect(err).To(BeNil())
+			Expect(mockTopicStorage.WriteTopicCallCount()).To(Equal(1))
 		})
 	})
 })

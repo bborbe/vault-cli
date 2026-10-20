@@ -4821,6 +4821,56 @@ page_type: goal
 			Expect(showPhaseField(configPath, "topic", "Phase Target")).To(Equal("execution"))
 		})
 
+		It("topic set accepts ai_review and writes it to the page on disk", func() {
+			vaultPath, configPath, cleanup := createTempVaultWithTopicPages(
+				"Topics",
+				map[string]string{
+					"Phase Target": "---\nstatus: in_progress\n---\n# Phase Target\n",
+				},
+				nil,
+			)
+			defer cleanup()
+
+			cmd := exec.Command(
+				binPath, "--config", configPath, "--vault", "test",
+				"topic", "set", "Phase Target", "phase", "ai_review",
+			)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(0))
+
+			content, err := os.ReadFile(filepath.Join(vaultPath, "Topics", "Phase Target.md"))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(content)).To(ContainSubstring("phase: ai_review"))
+
+			Expect(showPhaseField(configPath, "topic", "Phase Target")).To(Equal("ai_review"))
+		})
+
+		It("topic set accepts human_review and writes it to the page on disk", func() {
+			vaultPath, configPath, cleanup := createTempVaultWithTopicPages(
+				"Topics",
+				map[string]string{
+					"Phase Target": "---\nstatus: in_progress\n---\n# Phase Target\n",
+				},
+				nil,
+			)
+			defer cleanup()
+
+			cmd := exec.Command(
+				binPath, "--config", configPath, "--vault", "test",
+				"topic", "set", "Phase Target", "phase", "human_review",
+			)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(0))
+
+			content, err := os.ReadFile(filepath.Join(vaultPath, "Topics", "Phase Target.md"))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(content)).To(ContainSubstring("phase: human_review"))
+
+			Expect(showPhaseField(configPath, "topic", "Phase Target")).To(Equal("human_review"))
+		})
+
 		It("topic set refuses a non-canonical phase with the validator's wording and leaves the page byte-identical", func() {
 			vaultPath, configPath, cleanup := createTempVaultWithTopicPages(
 				"Topics",
@@ -4849,7 +4899,51 @@ page_type: goal
 			Expect(err).NotTo(HaveOccurred())
 			Eventually(session).Should(gexec.Exit(1))
 
-			Expect(string(session.Err.Contents())).To(ContainSubstring("unknown topic phase 'bogus'"))
+			stderr := string(session.Err.Contents())
+			Expect(stderr).To(ContainSubstring("unknown topic phase 'bogus'"))
+			for _, valid := range []string{
+				"todo", "planning", "execution", "ai_review", "human_review", "done",
+			} {
+				Expect(stderr).To(ContainSubstring(valid))
+			}
+			Expect(sha256OfFile(topicPath)).To(Equal(before))
+		})
+
+		It("topic set refuses in_progress as a phase and names the six accepted values", func() {
+			vaultPath, configPath, cleanup := createTempVaultWithTopicPages(
+				"Topics",
+				map[string]string{
+					"Phase Target": "---\nstatus: in_progress\n---\n# Phase Target\n",
+				},
+				nil,
+			)
+			defer cleanup()
+
+			sha256OfFile := func(path string) string {
+				data, err := os.ReadFile(path)
+				Expect(err).NotTo(HaveOccurred())
+				sum := sha256.Sum256(data)
+				return fmt.Sprintf("%x", sum)
+			}
+
+			topicPath := filepath.Join(vaultPath, "Topics", "Phase Target.md")
+			before := sha256OfFile(topicPath)
+
+			cmd := exec.Command(
+				binPath, "--config", configPath, "--vault", "test",
+				"topic", "set", "Phase Target", "phase", "in_progress",
+			)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(1))
+
+			stderr := string(session.Err.Contents())
+			Expect(stderr).To(ContainSubstring("unknown topic phase 'in_progress'"))
+			for _, valid := range []string{
+				"todo", "planning", "execution", "ai_review", "human_review", "done",
+			} {
+				Expect(stderr).To(ContainSubstring(valid))
+			}
 			Expect(sha256OfFile(topicPath)).To(Equal(before))
 		})
 
@@ -5403,6 +5497,160 @@ page_type: goal
 			Expect(err).NotTo(HaveOccurred())
 			Expect(string(content)).To(ContainSubstring("status: in_progress"))
 			Expect(string(content)).To(ContainSubstring("assignee: tester@example.com"))
+		})
+	})
+
+	Describe("vault-cli goal command family", func() {
+		It("goal set accepts ai_review and writes it to the page on disk", func() {
+			vaultPath, configPath, cleanup := createTempVaultWithTopicPages(
+				"Topics",
+				nil,
+				map[string]string{
+					"Phase Target": "---\nstatus: in_progress\n---\n# Phase Target\n",
+				},
+			)
+			defer cleanup()
+
+			cmd := exec.Command(
+				binPath, "--config", configPath, "--vault", "test",
+				"goal", "set", "Phase Target", "phase", "ai_review",
+			)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(0))
+
+			content, err := os.ReadFile(filepath.Join(vaultPath, "Goals", "Phase Target.md"))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(content)).To(ContainSubstring("phase: ai_review"))
+
+			Expect(showPhaseField(configPath, "goal", "Phase Target")).To(Equal("ai_review"))
+		})
+
+		It("goal set accepts human_review and writes it to the page on disk", func() {
+			vaultPath, configPath, cleanup := createTempVaultWithTopicPages(
+				"Topics",
+				nil,
+				map[string]string{
+					"Phase Target": "---\nstatus: in_progress\n---\n# Phase Target\n",
+				},
+			)
+			defer cleanup()
+
+			cmd := exec.Command(
+				binPath, "--config", configPath, "--vault", "test",
+				"goal", "set", "Phase Target", "phase", "human_review",
+			)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(0))
+
+			content, err := os.ReadFile(filepath.Join(vaultPath, "Goals", "Phase Target.md"))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(content)).To(ContainSubstring("phase: human_review"))
+
+			Expect(showPhaseField(configPath, "goal", "Phase Target")).To(Equal("human_review"))
+		})
+
+		It("goal set refuses a non-canonical phase with the six accepted values and leaves the page byte-identical", func() {
+			vaultPath, configPath, cleanup := createTempVaultWithTopicPages(
+				"Topics",
+				nil,
+				map[string]string{
+					"Phase Target": "---\nstatus: in_progress\n---\n# Phase Target\n",
+				},
+			)
+			defer cleanup()
+
+			sha256OfFile := func(path string) string {
+				data, err := os.ReadFile(path)
+				Expect(err).NotTo(HaveOccurred())
+				sum := sha256.Sum256(data)
+				return fmt.Sprintf("%x", sum)
+			}
+
+			goalPath := filepath.Join(vaultPath, "Goals", "Phase Target.md")
+			before := sha256OfFile(goalPath)
+
+			cmd := exec.Command(
+				binPath, "--config", configPath, "--vault", "test",
+				"goal", "set", "Phase Target", "phase", "bogus",
+			)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(1))
+
+			stderr := string(session.Err.Contents())
+			Expect(stderr).To(ContainSubstring("unknown goal phase 'bogus'"))
+			for _, valid := range []string{
+				"todo", "planning", "execution", "ai_review", "human_review", "done",
+			} {
+				Expect(stderr).To(ContainSubstring(valid))
+			}
+			Expect(sha256OfFile(goalPath)).To(Equal(before))
+		})
+
+		It("goal set refuses in_progress as a phase and names the six accepted values", func() {
+			vaultPath, configPath, cleanup := createTempVaultWithTopicPages(
+				"Topics",
+				nil,
+				map[string]string{
+					"Phase Target": "---\nstatus: in_progress\n---\n# Phase Target\n",
+				},
+			)
+			defer cleanup()
+
+			sha256OfFile := func(path string) string {
+				data, err := os.ReadFile(path)
+				Expect(err).NotTo(HaveOccurred())
+				sum := sha256.Sum256(data)
+				return fmt.Sprintf("%x", sum)
+			}
+
+			goalPath := filepath.Join(vaultPath, "Goals", "Phase Target.md")
+			before := sha256OfFile(goalPath)
+
+			cmd := exec.Command(
+				binPath, "--config", configPath, "--vault", "test",
+				"goal", "set", "Phase Target", "phase", "in_progress",
+			)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(1))
+
+			stderr := string(session.Err.Contents())
+			Expect(stderr).To(ContainSubstring("unknown goal phase 'in_progress'"))
+			for _, valid := range []string{
+				"todo", "planning", "execution", "ai_review", "human_review", "done",
+			} {
+				Expect(stderr).To(ContainSubstring(valid))
+			}
+			Expect(sha256OfFile(goalPath)).To(Equal(before))
+		})
+
+		It("goal get reads a hand-typed in_progress phase back unchanged", func() {
+			vaultPath, configPath, cleanup := createTempVaultWithTopicPages(
+				"Topics",
+				nil,
+				map[string]string{
+					"Legacy Phase": "---\nstatus: in_progress\nphase: in_progress\n---\n# Legacy Phase\n",
+				},
+			)
+			defer cleanup()
+
+			Expect(showPhaseField(configPath, "goal", "Legacy Phase")).To(Equal("in_progress"))
+
+			cmd := exec.Command(
+				binPath, "--config", configPath, "--vault", "test",
+				"goal", "get", "Legacy Phase", "phase",
+			)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(0))
+			Expect(string(session.Out.Contents())).To(Equal("in_progress\n"))
+
+			content, err := os.ReadFile(filepath.Join(vaultPath, "Goals", "Legacy Phase.md"))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(content)).To(ContainSubstring("phase: in_progress"))
 		})
 	})
 

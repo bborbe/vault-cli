@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat: `vault-cli goal set` and `topic set` accept the full canonical task phase set (`todo`, `planning`, `execution`, `ai_review`, `human_review`, `done`), and an invalid phase now exits non-zero with the validator's message listing the accepted values, rendered from the enum collection so the list cannot drift. `in_progress` stays a task-only alias and is still rejected.
+
 ## v0.174.1
 
 - fix: `session-close` prints its open-goal status lines from a new `session-close-goals.sh` resolver and requires the closer to reproduce them, so a close can no longer drop the line silently. Measured 2026-10-20: one real close ran the phase's own lookup, received `status=in_progress`, and emitted no goal line at all.

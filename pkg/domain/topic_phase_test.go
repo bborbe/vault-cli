@@ -6,6 +6,7 @@ package domain_test
 
 import (
 	"context"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -28,6 +29,8 @@ var _ = Describe("TopicPhase", func() {
 			Entry("todo", domain.TopicPhaseTodo),
 			Entry("planning", domain.TopicPhasePlanning),
 			Entry("execution", domain.TopicPhaseExecution),
+			Entry("ai_review", domain.TopicPhaseAIReview),
+			Entry("human_review", domain.TopicPhaseHumanReview),
 			Entry("done", domain.TopicPhaseDone),
 		)
 
@@ -53,11 +56,15 @@ var _ = Describe("TopicPhase", func() {
 				Expect(err.Error()).To(ContainSubstring("unknown topic phase"))
 			})
 
-			It("returns an error for the task-only phase ai_review", func() {
-				phase := domain.TopicPhase("ai_review")
-				err := phase.Validate(ctx)
+			It("names the value and lists the accepted set", func() {
+				err := domain.TopicPhase("bogus").Validate(ctx)
 				Expect(err).NotTo(BeNil())
-				Expect(err.Error()).To(ContainSubstring("unknown topic phase"))
+				Expect(err.Error()).To(ContainSubstring("bogus"))
+				parts := make([]string, 0, len(domain.AvailableTopicPhases))
+				for _, p := range domain.AvailableTopicPhases {
+					parts = append(parts, string(p))
+				}
+				Expect(err.Error()).To(ContainSubstring(strings.Join(parts, ", ")))
 			})
 		})
 	})
@@ -90,6 +97,8 @@ var _ = Describe("TopicPhase", func() {
 			Expect(domain.AvailableTopicPhases.Contains(domain.TopicPhaseTodo)).To(BeTrue())
 			Expect(domain.AvailableTopicPhases.Contains(domain.TopicPhasePlanning)).To(BeTrue())
 			Expect(domain.AvailableTopicPhases.Contains(domain.TopicPhaseExecution)).To(BeTrue())
+			Expect(domain.AvailableTopicPhases.Contains(domain.TopicPhaseAIReview)).To(BeTrue())
+			Expect(domain.AvailableTopicPhases.Contains(domain.TopicPhaseHumanReview)).To(BeTrue())
 			Expect(domain.AvailableTopicPhases.Contains(domain.TopicPhaseDone)).To(BeTrue())
 		})
 
@@ -99,6 +108,25 @@ var _ = Describe("TopicPhase", func() {
 			Expect(
 				domain.AvailableTopicPhases.Contains(domain.TopicPhase("in_progress")),
 			).To(BeFalse())
+		})
+	})
+
+	Describe("AvailableTopicPhases", func() {
+		It("matches the canonical task phase set element for element", func() {
+			Expect(domain.AvailableTopicPhases).To(HaveLen(6))
+			Expect(domain.AvailableTaskPhases).To(HaveLen(6))
+			for i := range domain.AvailableTopicPhases {
+				Expect(string(domain.AvailableTopicPhases[i])).
+					To(Equal(string(domain.AvailableTaskPhases[i])))
+			}
+		})
+
+		It("renders the accepted set comma-separated in declaration order", func() {
+			parts := make([]string, 0, len(domain.AvailableTaskPhases))
+			for _, p := range domain.AvailableTaskPhases {
+				parts = append(parts, string(p))
+			}
+			Expect(domain.AvailableTopicPhases.String()).To(Equal(strings.Join(parts, ", ")))
 		})
 	})
 })

@@ -562,6 +562,7 @@ var _ = Describe("vault-cli integration tests", func() {
 			Entry("config list", "config", "list"),
 			Entry("config current-user", "config", "current-user"),
 			Entry("config set-baseline", "config", "set-baseline"),
+			Entry("config set-a2a-default-cluster", "config", "set-a2a-default-cluster"),
 		)
 	})
 

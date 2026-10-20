@@ -184,12 +184,19 @@ vault-cli search "improve performance" --top-k 10  # Return more results
 vault-cli config list          # List configured vaults
 vault-cli config current-user  # Print the current user
 vault-cli config set-baseline personal "60 Baseline.md"  # Point a vault at its baseline file
+vault-cli config set-a2a-default-cluster personal nukedev  # Name the cluster this vault's A2A workers default to
 ```
 
 The path passed to `config set-baseline` is vault-relative — an absolute path, or
 one whose cleaned form escapes the vault root, is refused. The value is written
 to the named vault's entry in the config file under the key `baseline`;
 `docs/baseline-file.md` documents the file's frontmatter contract.
+
+`config set-a2a-default-cluster` takes a cluster **name** (`nukedev`, not
+`k8s:nukedev`) and writes it under the key `a2a_default_cluster`, which
+`config list --output json` then emits for consumers. The name is validated as an
+RFC 1123 label on write and never on read; `docs/a2a-default-cluster.md` documents
+the contract.
 
 ### filename
 

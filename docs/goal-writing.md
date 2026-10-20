@@ -128,6 +128,12 @@ manager_session_id: <session id>                 # optional — written by claud
 
 `status` valid values: `next`, `in_progress`, `backlog`, `hold`, `completed`, `aborted`. `todo` is accepted as a legacy alias for `next` on read; do not write it.
 
+### Phase and approval
+
+`phase` walks `todo → planning → execution → done`, and `todo` is the operator's approval inbox — the same phase lifecycle tasks carry. `vault-cli goal approve "<name>"` performs the `todo → planning` transition and records `approved_by` (default `operator`; `--by <name>` names another) and `approved_at` in the same write. `vault-cli goal set "<name>" phase planning` is refused on a `todo` goal, and the refusal points at `goal approve`: a phase set without an approval record is not an approval. This is the same contract as `task approve`, stated in full in `task-writing.md` § Phase transitions.
+
+A goal with no `phase` key is exempt from the gate and cannot be approved; set `phase: todo` first. A goal that already carries `approved_by` or `approved_at` is refused rather than re-approved, and the refusal writes nothing.
+
 ### Dependencies (`blocked_by`)
 
 `blocked_by` declares the goals this goal cannot start before. It is a YAML list of goal names; each entry may be a plain name (`Blocker Goal`) or a wikilink (`[[Blocker Goal]]`) — both forms resolve the same way. A scalar value (`blocked_by: Blocker Goal`) is malformed and reads as an empty list, so it never blocks. `vault-cli goal lint` reports a goal whose `blocked_by` is shaped this way; `vault-cli task validate` and `vault-cli task lint` report the task-side equivalent.

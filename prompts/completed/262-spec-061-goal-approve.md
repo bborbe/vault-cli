@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [061-goal-topic-approve]
+summary: Added GoalApproveOperation that moves a phase:todo goal to planning while recording approved_by and approved_at in one write, with a shared approval-record guard and Ginkgo coverage of every fact and refusal
+execution_id: vault-cli-goal-topic-approve-exec-262-spec-061-goal-approve
+dark-factory-version: v0.198.7
 created: "2026-10-20T10:03:18Z"
 queued: "2026-10-20T10:16:58Z"
+started: "2026-10-20T10:21:00Z"
+completed: "2026-10-20T10:23:46Z"
 ---
 
 # Add the goal approve operation that records phase, approver and instant (spec 061, prompt 2 of 5)

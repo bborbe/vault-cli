@@ -14,7 +14,17 @@ cd "$ROOT" || exit 2
 
 SCRIPT=scripts/session-self-exit.py
 SID=11111111-2222-3333-4444-555555555555
-PORT=18099
+
+# Bind an ephemeral port instead of a fixed one. A hardcoded port collides with
+# anything else already listening on the host, and the collision is silent: the
+# stub server fails to bind, the test then reads whatever *is* on that port, and
+# every "clear gate" case reads the 404 as "store unreadable". Observed
+# 2026-10-20 — two unrelated processes held 18099 and `make test` was red on the
+# host while green in CI.
+free_port() {
+	python3 -c 'import socket; s = socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1]); s.close()'
+}
+PORT=$(free_port)
 STORE_URL="http://127.0.0.1:$PORT"
 
 TMP=$(mktemp -d)
@@ -145,10 +155,18 @@ chmod +x "$TMP/bin/wezterm"
 cards '[]'
 python3 -m http.server "$PORT" --bind 127.0.0.1 --directory "$TMP/store" >/dev/null 2>&1 &
 SERVER_PID=$!
+server_up=0
 for _ in $(seq 1 50); do
-	curl -sf "$STORE_URL/api/1.0/attention" >/dev/null 2>&1 && break
+	if curl -sf "$STORE_URL/api/1.0/attention" >/dev/null 2>&1; then
+		server_up=1
+		break
+	fi
 	sleep 0.1
 done
+if [ "$server_up" -ne 1 ]; then
+	echo "❌ stub attention store never answered on $STORE_URL" >&2
+	exit 2
+fi
 
 # --- positive path
 task completed done 0

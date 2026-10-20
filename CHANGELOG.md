@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.176.2
 
 - fix: `vault-cli task set <task> claude_session_id <new>` appends the displaced owner to `metrics_sessions` before writing the new id, so a session handed off by a take-over stays resolvable by `session-self-exit.py` and `close-worker.py`. A first bind and a re-bind to the same value append nothing; the completion and spawn-failure clears are unchanged.
 

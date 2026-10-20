@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.175.1
 
 - fix: `scripts/session-self-exit.py` lets a session that was handed off from a task exit. When `claude_session_id` has moved to another session, the task is resolved through its `metrics_sessions` instead, and that branch skips the terminal check — its own work is already on the record. The pane-ownership and open-card guards still refuse.
 

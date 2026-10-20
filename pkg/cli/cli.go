@@ -204,6 +204,7 @@ func NewRootCommand(ctx context.Context) *cobra.Command {
 	configCmd.AddCommand(createConfigListCommand(ctx, &configLoader, &vaultName, &outputFormat))
 	configCmd.AddCommand(createConfigCurrentUserCommand(ctx, &configLoader))
 	configCmd.AddCommand(createConfigSetBaselineCommand(ctx, &configPath))
+	configCmd.AddCommand(createConfigSetA2ADefaultClusterCommand(ctx, &configPath))
 	rootCmd.AddCommand(configCmd)
 
 	return rootCmd

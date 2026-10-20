@@ -34,3 +34,25 @@ func createConfigSetBaselineCommand(
 		},
 	}
 }
+
+// createConfigSetA2ADefaultClusterCommand returns the "config
+// set-a2a-default-cluster" leaf command. It writes the cluster NAME a vault's
+// A2A spawns fall back to onto that vault's config entry, so a consumer reading
+// `config list --output json` can resolve the default without parsing the YAML.
+func createConfigSetA2ADefaultClusterCommand(
+	ctx context.Context,
+	configPath *string,
+) *cobra.Command {
+	return &cobra.Command{
+		Use:   "set-a2a-default-cluster <vault> <cluster>",
+		Short: "Set a vault's default A2A cluster name",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			writer := config.NewA2ADefaultClusterWriter(*configPath)
+			if err := writer.SetA2ADefaultCluster(ctx, args[0], args[1]); err != nil {
+				return errors.Wrap(ctx, err, "set a2a default cluster")
+			}
+			return nil
+		},
+	}
+}

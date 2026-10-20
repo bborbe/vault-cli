@@ -56,6 +56,12 @@ type Vault struct {
 	// file. Empty means the vault has no baseline: `rollup weekly` then prints
 	// exactly what it printed before the baseline feature existed.
 	Baseline string `yaml:"baseline,omitempty" json:"baseline,omitempty"`
+	// A2ADefaultCluster is the cluster NAME (nukedev, not k8s:nukedev) that an
+	// A2A spawn for this vault falls back to when the task carries no explicit
+	// target. Empty means the vault names no default: the consumer keeps its own
+	// fallback behaviour. The value is validated when written and never when
+	// read, so a hand-edited config carrying a malformed value still lists.
+	A2ADefaultCluster string `yaml:"a2a_default_cluster,omitempty" json:"a2a_default_cluster,omitempty"`
 }
 
 // GetTasksDir returns the tasks directory, defaulting to "Tasks" if not set.

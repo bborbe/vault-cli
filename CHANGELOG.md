@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: `vault-cli task set <task> claude_session_id <new>` appends the displaced owner to `metrics_sessions` before writing the new id, so a session handed off by a take-over stays resolvable by `session-self-exit.py` and `close-worker.py`. A first bind and a re-bind to the same value append nothing; the completion and spawn-failure clears are unchanged.
+
 ## v0.176.0
 
 - fix: `session-self-exit-test.sh` binds an ephemeral port instead of the hardcoded 18099, so `make test` no longer fails on a host where anything else already holds that port — the stub server failed to bind silently and the test read the other server's directory as a 404. A stub server that never answers now fails loudly instead.

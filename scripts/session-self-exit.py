@@ -16,10 +16,13 @@ line so the refusal is diagnosable):
      no entry — it is an in-process SDK query with no pid — and it INHERITS its
      spawner's `$WEZTERM_PANE`, so killing that pane would close the manager's
      tab. This is the guard that makes the exit safe.
-  3. The session's anchor task exists, resolved by `claude_session_id`.
+  3. The session's anchor task exists — resolved by `claude_session_id`, or, when
+     that id has moved to another session, by the session appearing in the task's
+     `metrics_sessions` (a recorded handover).
   4. The task is terminal on disk: `status: aborted`, or `status: completed`
      with `phase: done` and zero `[ ]` / `[/]` boxes. `hold` does not qualify —
-     it is parked, not finished.
+     it is parked, not finished. A handed-off session skips this guard: its own
+     work is on the record, so the successor's progress is not its proof.
   5. The attention store holds no open card for this session. An unreachable
      store refuses: a failed read is not evidence that no gate is open.
 
@@ -109,32 +112,66 @@ def tasks_roots() -> list[str]:
     return roots
 
 
-def read_frontmatter(path: str) -> tuple[dict[str, str], str]:
+def read_frontmatter(path: str) -> tuple[dict[str, str], str, str]:
     with open(path, encoding="utf-8") as fh:
         text = fh.read()
     if not text.startswith("---\n"):
-        return {}, text
+        return {}, text, ""
     end = text.find("\n---\n", 4)
     if end == -1:
-        return {}, text
+        return {}, text, ""
+    block = text[4:end]
     meta: dict[str, str] = {}
-    for line in text[4:end].splitlines():
+    for line in block.splitlines():
         key, sep, value = line.partition(":")
         if sep:
             meta[key.strip()] = value.strip().strip("'\"")
-    return meta, text[end + 5:]
+    return meta, text[end + 5:], block
 
 
-def anchor_task(sid: str) -> tuple[str, dict[str, str], str] | None:
+def metrics_session_ids(block: str) -> list[str]:
+    """Session ids under `metrics_sessions` — every session that ever worked the task.
+
+    The block is a list of maps (`session_id` + `started_at`), which the flat
+    frontmatter reader above cannot see: it keeps the empty `metrics_sessions:`
+    line and reads each nested key as a top-level one. The ids are read here.
+    """
+    ids: list[str] = []
+    in_block = False
+    for line in block.splitlines():
+        if not line.strip():
+            continue
+        if not line[0].isspace():
+            in_block = line.partition(":")[0].strip() == "metrics_sessions"
+            continue
+        if in_block:
+            key, sep, value = line.strip().lstrip("- ").partition(":")
+            if sep and key.strip() == "session_id":
+                ids.append(value.strip().strip("'\""))
+    return ids
+
+
+def anchor_task(sid: str) -> tuple[str, dict[str, str], str, bool] | None:
+    """Resolve the task this session may exit against.
+
+    A session's own anchor (`claude_session_id`) wins. Failing that, a task the
+    session was handed off from still counts: the id appears in its
+    `metrics_sessions` while `claude_session_id` names the successor. The fourth
+    element says which branch matched, because a handed-off session has already
+    put its work on the record and does not wait for the task to go terminal.
+    """
+    handed_off: tuple[str, dict[str, str], str, bool] | None = None
     for root in tasks_roots():
         for path in glob.glob(os.path.join(root, "*.md")):
             try:
-                meta, body = read_frontmatter(path)
+                meta, body, block = read_frontmatter(path)
             except OSError:
                 continue
             if meta.get("claude_session_id") == sid:
-                return path, meta, body
-    return None
+                return path, meta, body, False
+            if handed_off is None and sid in metrics_session_ids(block):
+                handed_off = (path, meta, body, True)
+    return handed_off
 
 
 def terminal_verdict(meta: dict[str, str], body: str) -> tuple[bool, str]:
@@ -196,17 +233,21 @@ def main() -> int:
     found = anchor_task(sid)
     if found is None:
         return refuse(f"no task carries claude_session_id {sid} — nothing proves the work is finished")
-    path, meta, body = found
+    path, meta, body, handed_off = found
 
-    terminal, verdict = terminal_verdict(meta, body)
-    if not terminal:
-        return refuse(f"{os.path.basename(path)}: {verdict}")
+    if handed_off:
+        reason = f"handed off to {meta.get('claude_session_id') or '(none)'}"
+    else:
+        terminal, verdict = terminal_verdict(meta, body)
+        if not terminal:
+            return refuse(f"{os.path.basename(path)}: {verdict}")
+        reason = f"{os.path.basename(path)} is {verdict}"
 
     clear, why = gate_state(sid)
     if not clear:
         return refuse(why)
 
-    print(f"SELF-EXIT: exit — {os.path.basename(path)} is {verdict}, no open card, pane {pane}")
+    print(f"SELF-EXIT: exit — {reason}, no open card, pane {pane}")
     if args.dry_run:
         return EXIT_TAKEN
 

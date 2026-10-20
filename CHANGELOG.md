@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: `scripts/session-self-exit.py` lets a session that was handed off from a task exit. When `claude_session_id` has moved to another session, the task is resolved through its `metrics_sessions` instead, and that branch skips the terminal check — its own work is already on the record. The pane-ownership and open-card guards still refuse.
+
 ## v0.174.1
 
 - fix: `session-close` prints its open-goal status lines from a new `session-close-goals.sh` resolver and requires the closer to reproduce them, so a close can no longer drop the line silently. Measured 2026-10-20: one real close ran the phase's own lookup, received `status=in_progress`, and emitted no goal line at all.

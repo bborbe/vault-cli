@@ -45,6 +45,43 @@ task() { # task <status> <phase> <open-box-count>
 	} > "$TASKS/Anchor.md"
 }
 
+handed_off_task() { # handed_off_task <status> <phase> <current-owner-sid>
+	local status=$1 phase=$2 owner=$3
+	{
+		echo "---"
+		echo "status: $status"
+		echo "phase: $phase"
+		echo "claude_session_id: $owner"
+		echo "metrics_sessions:"
+		echo "    - session_id: $SID"
+		echo "      started_at: \"2026-10-20T11:51:47.321573+02:00\""
+		echo "    - session_id: $owner"
+		echo "      started_at: \"2026-10-20T11:52:00.000000+02:00\""
+		echo "---"
+		echo ""
+		echo "# Tasks"
+		echo ""
+		echo "- [ ] open"
+	} > "$TASKS/Anchor.md"
+}
+
+other_owner_task() { # other_owner_task <owner-sid> — no handoff record for $SID
+	{
+		echo "---"
+		echo "status: in_progress"
+		echo "phase: execution"
+		echo "claude_session_id: $1"
+		echo "metrics_sessions:"
+		echo "    - session_id: $1"
+		echo "      started_at: \"2026-10-20T11:52:00.000000+02:00\""
+		echo "---"
+		echo ""
+		echo "# Tasks"
+		echo ""
+		echo "- [ ] open"
+	} > "$TASKS/Anchor.md"
+}
+
 cards() { # cards <json>
 	printf '%s' "$1" > "$TMP/store/api/1.0/attention"
 }
@@ -65,6 +102,22 @@ run() { # run <want-exit> <label> [extra env...]
 	else
 		fail=$((fail + 1))
 		echo "❌ $label: want exit $want, got $got — $(cat "$TMP/out")" >&2
+	fi
+}
+
+run_msg() { # run_msg <want-exit> <label> <expected-substring> [extra env...]
+	local want=$1 label=$2 want_msg=$3
+	shift 3
+	local got=0
+	env -i PATH="$PATH" \
+		SESSION_ID="$SID" SESSIONS_DIR="$SESSIONS" TASKS_ROOTS="$TASKS" \
+		WEZTERM_PANE=777 ATTENTION_STORE_URL="$STORE_URL" "$@" \
+		python3 "$SCRIPT" --dry-run > "$TMP/out" 2>&1 || got=$?
+	if [ "$got" -eq "$want" ] && grep -qF "$want_msg" "$TMP/out"; then
+		pass=$((pass + 1))
+	else
+		fail=$((fail + 1))
+		echo "❌ $label: want exit $want and '$want_msg', got $got — $(cat "$TMP/out")" >&2
 	fi
 }
 
@@ -103,6 +156,40 @@ run 0 "completed + phase done + zero boxes exits"
 
 task aborted planning 3
 run 0 "aborted exits even with open boxes"
+
+# --- positive path: handed off to another session
+OTHER=99999999-8888-7777-6666-555555555555
+handed_off_task in_progress execution "$OTHER"
+run_msg 0 "handed-off session exits while the task is still in progress" "SELF-EXIT: exit — handed off to $OTHER"
+
+handed_off_task completed done "$OTHER"
+run_msg 0 "handed-off session exits after the task goes terminal" "SELF-EXIT: exit — handed off to $OTHER"
+
+# --- negative path: handed off but holding an open card
+cards "[{\"item_id\":\"abc\",\"producer_id\":\"$SID\",\"state\":\"open\"}]"
+handed_off_task in_progress execution "$OTHER"
+run 10 "handed-off session with an open attention card refuses"
+cards '[]'
+
+# --- negative path: another owner and no handoff record for this session
+other_owner_task "$OTHER"
+run 10 "a task owned elsewhere with no handoff record refuses"
+
+# --- negative path: the id appears only in the task body, never in frontmatter
+{
+	echo "---"
+	echo "status: completed"
+	echo "phase: done"
+	echo "claude_session_id: $OTHER"
+	echo "---"
+	echo ""
+	echo "# Tasks"
+	echo ""
+	echo "- [x] done"
+	echo ""
+	echo "Session $SID reviewed this task."
+} > "$TASKS/Anchor.md"
+run 10 "an id present only in the task body refuses"
 
 # --- negative paths: the task is not terminal
 task completed planning 0

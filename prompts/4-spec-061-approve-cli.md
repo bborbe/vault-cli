@@ -110,7 +110,7 @@ Coding-plugin docs (in-container paths):
      - `phase: planning`, `phase: execution`, `phase: done`, and no `phase` key at all — stderr names both the phase found and the phase required (`todo`);
      - `phase: todo` carrying only `approved_by: someone`, only `approved_at: 2026-01-01T00:00:00Z`, and both — stderr names the present key;
      - an unknown row name (`Missing`) — stderr contains `Missing`.
-   - **AC 4 — key preservation.** A `todo` fixture carrying `custom_key: keep`, `priority: 1`, `page_type: goal` (topics: `page_type: topic`, `tags: [a]`). After a successful approve, drop every line matching `^(phase|approved_by|approved_at):` from the pre and post content and assert the two slices are equal — whole-slice equality, not a count. Assert `custom_key` still reads `keep`.
+   - **AC 4 — key preservation.** A `todo` fixture carrying `custom_key: keep`, `page_type: goal`, `priority: 1` (topics: `custom_key: keep`, `page_type: topic`). Keep every value in this fixture a scalar: the writer re-serializes the raw map with `yaml.Marshal`, which renders a flow list (`tags: [a]`) as a block list indented four spaces, so a list key would break the byte comparison for a reason unrelated to approval. After a successful approve, drop every line matching `^(phase|approved_by|approved_at):` from the pre and post content and assert the two slices are equal — whole-slice equality, not a count. Assert `custom_key` still reads `keep`.
    - **JSON output.** `--output json` on a fresh `todo` fixture exits 0 and stdout parses into an object with `name == "Alpha"` and `phase == "planning"`; `--output json` on a `phase: planning` fixture exits non-zero.
 
 5. **Register both verbs** in the `Describe("command registration", …)` table, beside the other goal/topic entries:
@@ -154,7 +154,7 @@ grep -c 'Entry("topic approve", "topic", "approve")' integration/cli_test.go  # 
 
 ⚠️ Do not gate on `grep -cE 'AC[0-9]+: ' integration/cli_test.go` — the file already contains many AC labels, so that count proves nothing. The rows above are the non-vacuous ones.
 
-FROZEN-NEIGHBOUR GUARD — the container has no usable `.git` (the daemon runs with `hideGit=true`), so this cannot be checked with git. The `<constraints>` forbid touching these files, and `make precommit` catches a broken neighbour. If a hard guard is wanted, record `shasum -a 256` of the four files at authoring time and compare, and assert task approve's Use line is untouched with:
+FROZEN-NEIGHBOUR GUARD — the container has no usable `.git` (the daemon runs with `hideGit=true`), so this cannot be checked with git. The `<constraints>` forbid touching these files, and `make precommit` catches a broken neighbour. If a hard guard is wanted, record the `sha256sum` baseline of the three ops files at authoring time and compare; `pkg/cli/cli.go` is the fourth frozen file and is covered by the following `grep`:
 
 ```
 sha256sum pkg/ops/goal_approve.go pkg/ops/topic_approve.go pkg/ops/approval_record.go > /tmp/frozen.sha256   # BEFORE editing
@@ -178,5 +178,5 @@ SYNTAX:
 gofmt -e -l pkg/cli/cli.go integration/cli_test.go
 ```
 
-`make precommit` must exit 0 apart from the named pre-existing `topic defer` integration failure. `make precommit` runs `generate` (which re-creates `mocks/`) and then `addlicense` (which restores the copyright header on every `.go` file, including `mocks/mocks.go`). Do not use git to restore anything — `.git` is masked in the container.
+`make precommit` must exit 0 apart from the named pre-existing `topic defer` integration failure. `make precommit` runs `ensure format generate test check addlicense`. If the known `topic defer` failure stops the chain at `test`, `addlicense` never runs — run `make addlicense` as the last action in that case. Do not use git to restore anything — `.git` is masked in the container.
 </verification>

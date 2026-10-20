@@ -41,7 +41,7 @@ A goal or topic at `phase: todo` is approved by one command, which atomically wr
 
 ## Acceptance Criteria
 
-- [ ] Happy path, goal and topic. `vault-cli goal approve <goal>` on a goal at `phase: todo` exits 0 and prints one confirmation line containing the goal name; afterwards `vault-cli goal get <goal> phase` reads `planning`, `vault-cli goal get <goal> approved_by` reads `operator`, and `vault-cli goal get <goal> approved_at` parses as RFC3339 and falls within 60 seconds of `date -u` read before the invocation. `vault-cli topic approve <topic>` behaves identically on a topic. `--by alice` records `alice` on both.
+- [ ] Happy path, goal and topic. `vault-cli goal approve <goal>` on a goal at `phase: todo` exits 0 and prints one confirmation line containing the goal name; afterwards `vault-cli goal get <goal> phase` reads `planning`, `vault-cli goal get <goal> approved_by` reads `operator`, and the raw `approved_at:` line in the goal file is RFC3339 and falls within 60 seconds of `date -u` read before the invocation (`vault-cli goal get <goal> approved_at` is non-empty — the getter renders a `time.Time` as Go's `%v` form, not RFC3339). `vault-cli topic approve <topic>` behaves identically on a topic. `--by alice` records `alice` on both.
 - [ ] Table-driven refusals, goal and topic rows. Each exits non-zero, prints a message naming the row and the phase found vs required, and leaves `shasum -a 256` of the file unchanged, under **default text output**:
   - approve on a row at `phase: planning`, `execution`, `done`, or with no `phase` key
   - approve on a `todo` row that already carries `approved_by` or `approved_at`

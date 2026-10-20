@@ -4406,6 +4406,20 @@ body line
 			session := runEntityCommand("goal", "approve", "Alpha", "--output", "json")
 			Eventually(session).Should(gexec.Exit(1))
 		})
+
+		It("security: a newline in --by cannot introduce a sibling frontmatter key", func() {
+			vaultPath, configPath, cleanup = createTempVaultWithGoals(nil, map[string]string{
+				"Alpha": todoFrontmatter,
+			})
+			goalFile := filepath.Join(vaultPath, "Goals", "Alpha.md")
+
+			session := runEntityCommand("goal", "approve", "Alpha", "--by", "line1\nline2")
+			Eventually(session).Should(gexec.Exit(0))
+
+			after := readFile(goalFile)
+			Expect(strings.Count(after, "\napproved_by:")).To(Equal(1))
+			Expect(after).NotTo(ContainSubstring("\nline2:"))
+		})
 	})
 
 	Describe("topic approve", func() {
@@ -4658,6 +4672,17 @@ body line
 
 			session := runEntityCommand("topic", "approve", "Alpha", "--output", "json")
 			Eventually(session).Should(gexec.Exit(1))
+		})
+
+		It("security: a newline in --by cannot introduce a sibling frontmatter key", func() {
+			_, _, topicFile := createTopicVault(todoFrontmatter)
+
+			session := runEntityCommand("topic", "approve", "Alpha", "--by", "line1\nline2")
+			Eventually(session).Should(gexec.Exit(0))
+
+			after := readFile(topicFile)
+			Expect(strings.Count(after, "\napproved_by:")).To(Equal(1))
+			Expect(after).NotTo(ContainSubstring("\nline2:"))
 		})
 	})
 

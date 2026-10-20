@@ -1,7 +1,8 @@
 ---
-status: generating
+status: prompted
 approved: "2026-08-28T08:35:16Z"
 generating: "2026-08-30T17:05:06Z"
+prompted: "2026-10-20T14:36:57Z"
 branch: dark-factory/bug-resume-races-live-headless-turn
 ---
 

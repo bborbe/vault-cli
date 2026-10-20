@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat: Goal and topic phases now accept the full canonical task phase set (`ai_review`, `human_review`), and their validator errors list the accepted values derived from the enum collection, so `vault-cli goal set … phase bogus` surfaces the validator's own message.
+
 ## v0.174.1
 
 - fix: `session-close` prints its open-goal status lines from a new `session-close-goals.sh` resolver and requires the closer to reproduce them, so a close can no longer drop the line silently. Measured 2026-10-20: one real close ran the phase's own lookup, received `status=in_progress`, and emitted no goal line at all.

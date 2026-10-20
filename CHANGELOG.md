@@ -12,6 +12,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 
 - fix: `vault-cli task set <task> claude_session_id <new>` appends the displaced owner to `metrics_sessions` before writing the new id, so a session handed off by a take-over stays resolvable by `session-self-exit.py` and `close-worker.py`. A first bind and a re-bind to the same value append nothing; the completion and spawn-failure clears are unchanged.
 
+## v0.176.1
+
+- fix: **`session-close`'s mode-2 closer is now a combinable menu, so a session that wants both the reflection and the self-improvement can answer for both on the attention board.** The closer emitted `pick — 1. /vault-cli:reflect · 2. /coding:self-improve · 3. nothing — close`, and a closer reaches the board with no `tool_input` at all, so the card declared no cardinality and rendered as radios with "(pick one)" — the operator could answer "1 + 2" in the console and not on the board. It now emits `pick any — …`, the combinable form the global closer rule defines: checkboxes on the board, with `nothing — close` last and exclusive, so the escape clears the other picks and any pick clears it. The producer half ships in `bborbe/claude` (the `Stop` hook that parses the marker and marks the last option exclusive) and the rendering half in `bborbe/attention-controller` v0.61.0 (the `exclusive` field and its board rule); an older board ignores the unknown field and renders the escape as an ordinary checkbox rather than rejecting the card. `commands/session-close.md` only — no Go change.
+
 ## v0.176.0
 
 - fix: `session-self-exit-test.sh` binds an ephemeral port instead of the hardcoded 18099, so `make test` no longer fails on a host where anything else already holds that port — the stub server failed to bind silently and the test read the other server's directory as a 404. A stub server that never answers now fails loudly instead.

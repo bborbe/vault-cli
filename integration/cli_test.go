@@ -498,6 +498,7 @@ var _ = Describe("vault-cli integration tests", func() {
 			Entry("goal set", "goal", "set"),
 			Entry("goal clear", "goal", "clear"),
 			Entry("goal complete", "goal", "complete"),
+			Entry("goal approve", "goal", "approve"),
 			Entry("goal add", "goal", "add"),
 			Entry("goal remove", "goal", "remove"),
 			Entry("goal work-on", "goal", "work-on"),
@@ -510,6 +511,7 @@ var _ = Describe("vault-cli integration tests", func() {
 			Entry("topic set", "topic", "set"),
 			Entry("topic clear", "topic", "clear"),
 			Entry("topic complete", "topic", "complete"),
+			Entry("topic approve", "topic", "approve"),
 			Entry("topic defer", "topic", "defer"),
 			Entry("topic add", "topic", "add"),
 			Entry("topic remove", "topic", "remove"),
@@ -4128,6 +4130,537 @@ body line
 		})
 	})
 
+	Describe("goal approve", func() {
+		var vaultPath, configPath string
+		var cleanup func()
+
+		AfterEach(func() {
+			cleanup()
+		})
+
+		runEntityCommand := func(args ...string) *gexec.Session {
+			fullArgs := append(
+				[]string{"--config", configPath, "--vault", "test"},
+				args...,
+			)
+			session, err := gexec.Start(exec.Command(binPath, fullArgs...), GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			return session
+		}
+
+		sha256OfFile := func(path string) string {
+			data, err := os.ReadFile(path) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			sum := sha256.Sum256(data)
+			return fmt.Sprintf("%x", sum)
+		}
+
+		readFile := func(path string) string {
+			content, err := os.ReadFile(path) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			return string(content)
+		}
+
+		// valueOf returns the value of a top-level frontmatter key line, or "".
+		valueOf := func(content, key string) string {
+			for _, line := range strings.Split(content, "\n") {
+				if strings.HasPrefix(line, key+": ") {
+					return strings.TrimPrefix(line, key+": ")
+				}
+			}
+			return ""
+		}
+
+		// withoutApprovalKeys drops the three keys the approval settles, so the
+		// remainder of the file can be compared as a whole.
+		approvalKeyPattern := regexp.MustCompile(`^(phase|approved_by|approved_at):`)
+		withoutApprovalKeys := func(content string) []string {
+			var out []string
+			for _, line := range strings.Split(content, "\n") {
+				if !approvalKeyPattern.MatchString(line) {
+					out = append(out, line)
+				}
+			}
+			return out
+		}
+
+		// Every fixture's frontmatter keys are authored in alphabetical order: the
+		// storage writer re-serializes the whole frontmatter in that order.
+
+		// A goal waiting in the operator's inbox.
+		todoFrontmatter := `---
+page_type: goal
+phase: todo
+priority: 1
+status: next
+---
+body line
+`
+
+		// A goal carrying an unrelated scalar key alongside the inbox phase.
+		todoWithUnrelatedKeys := `---
+custom_key: keep
+page_type: goal
+phase: todo
+priority: 1
+status: next
+---
+body line
+`
+
+		planningFrontmatter := `---
+page_type: goal
+phase: planning
+priority: 1
+status: next
+---
+body line
+`
+
+		executionFrontmatter := `---
+page_type: goal
+phase: execution
+priority: 1
+status: next
+---
+body line
+`
+
+		doneFrontmatter := `---
+page_type: goal
+phase: done
+priority: 1
+status: next
+---
+body line
+`
+
+		// The nil-phase arm: a goal with no phase key at all.
+		noPhaseFrontmatter := `---
+page_type: goal
+priority: 1
+status: next
+---
+body line
+`
+
+		// One-key-each fixtures are load-bearing: a guard that checks only one key
+		// passes the both-keys fixture, so a combined fixture cannot distinguish
+		// "refuses either key" from "refuses one key".
+		approvedByOnlyFrontmatter := `---
+approved_by: someone
+page_type: goal
+phase: todo
+priority: 1
+status: next
+---
+body line
+`
+
+		approvedAtOnlyFrontmatter := `---
+approved_at: 2026-01-01T00:00:00Z
+page_type: goal
+phase: todo
+priority: 1
+status: next
+---
+body line
+`
+
+		approvedBothFrontmatter := `---
+approved_at: 2026-01-01T00:00:00Z
+approved_by: someone
+page_type: goal
+phase: todo
+priority: 1
+status: next
+---
+body line
+`
+
+		It("AC1: goal approve records the todo -> planning transition and its record", func() {
+			vaultPath, configPath, cleanup = createTempVaultWithGoals(nil, map[string]string{
+				"Alpha": todoFrontmatter,
+			})
+			goalFile := filepath.Join(vaultPath, "Goals", "Alpha.md")
+
+			before := time.Now().UTC()
+			session := runEntityCommand("goal", "approve", "Alpha")
+			Eventually(session).Should(gexec.Exit(0))
+			Expect(string(session.Out.Contents())).To(ContainSubstring("Alpha"))
+
+			after := readFile(goalFile)
+			Expect(valueOf(after, "phase")).To(Equal("planning"))
+			Expect(valueOf(after, "approved_by")).To(Equal("operator"))
+
+			// yaml.v3 renders a bare time.Time unquoted; tolerate a quoted form rather
+			// than pinning the encoder's choice. The raw line is parsed, because
+			// `goal get` renders the value through Go's %v form.
+			approvedAt := strings.Trim(valueOf(after, "approved_at"), `"`)
+			parsed, err := time.Parse(time.RFC3339, approvedAt)
+			Expect(err).NotTo(HaveOccurred(), "approved_at %q is not RFC3339", approvedAt)
+			Expect(parsed).To(BeTemporally(">=", before))
+			Expect(parsed).To(BeTemporally("<=", before.Add(60*time.Second)))
+
+			phaseSession := runEntityCommand("goal", "get", "Alpha", "phase")
+			Eventually(phaseSession).Should(gexec.Exit(0))
+			Expect(string(phaseSession.Out.Contents())).To(ContainSubstring("planning"))
+
+			bySession := runEntityCommand("goal", "get", "Alpha", "approved_by")
+			Eventually(bySession).Should(gexec.Exit(0))
+			Expect(string(bySession.Out.Contents())).To(ContainSubstring("operator"))
+
+			atSession := runEntityCommand("goal", "get", "Alpha", "approved_at")
+			Eventually(atSession).Should(gexec.Exit(0))
+			Expect(strings.TrimSpace(string(atSession.Out.Contents()))).NotTo(BeEmpty())
+		})
+
+		It("AC1: goal approve --by records the named approver", func() {
+			vaultPath, configPath, cleanup = createTempVaultWithGoals(nil, map[string]string{
+				"Alpha": todoFrontmatter,
+			})
+			goalFile := filepath.Join(vaultPath, "Goals", "Alpha.md")
+
+			session := runEntityCommand("goal", "approve", "Alpha", "--by", "alice")
+			Eventually(session).Should(gexec.Exit(0))
+
+			Expect(valueOf(readFile(goalFile), "approved_by")).To(Equal("alice"))
+		})
+
+		It("AC2: an empty --by is refused and nothing is written", func() {
+			vaultPath, configPath, cleanup = createTempVaultWithGoals(nil, map[string]string{
+				"Alpha": todoFrontmatter,
+			})
+			goalFile := filepath.Join(vaultPath, "Goals", "Alpha.md")
+			before := sha256OfFile(goalFile)
+
+			session := runEntityCommand("goal", "approve", "Alpha", "--by", "")
+			Eventually(session).Should(gexec.Exit(1))
+			Expect(string(session.Err.Contents())).To(ContainSubstring("approved_by"))
+			Expect(sha256OfFile(goalFile)).To(Equal(before))
+		})
+
+		DescribeTable("AC4: a refusal writes nothing and names what was found",
+			func(name string, fixture string, wantStderr []string) {
+				vaultPath, configPath, cleanup = createTempVaultWithGoals(nil, map[string]string{
+					"Alpha": fixture,
+				})
+				goalFile := filepath.Join(vaultPath, "Goals", "Alpha.md")
+				before := sha256OfFile(goalFile)
+
+				session := runEntityCommand("goal", "approve", name)
+				Eventually(session).Should(gexec.Exit(1))
+
+				stderr := string(session.Err.Contents())
+				for _, want := range wantStderr {
+					Expect(stderr).To(ContainSubstring(want))
+				}
+				Expect(sha256OfFile(goalFile)).To(Equal(before))
+			},
+			Entry("planning", "Alpha", planningFrontmatter, []string{"planning", "todo"}),
+			Entry("execution", "Alpha", executionFrontmatter, []string{"execution", "todo"}),
+			Entry("done", "Alpha", doneFrontmatter, []string{"done", "todo"}),
+			Entry("nil phase", "Alpha", noPhaseFrontmatter, []string{"todo"}),
+			Entry("approved_by only", "Alpha", approvedByOnlyFrontmatter, []string{"approved_by"}),
+			Entry("approved_at only", "Alpha", approvedAtOnlyFrontmatter, []string{"approved_at"}),
+			Entry("both approval keys", "Alpha", approvedBothFrontmatter, []string{"approved_by", "approved_at"}),
+			Entry("unknown name", "Missing", todoFrontmatter, []string{"Missing"}),
+		)
+
+		It("AC4: goal approve preserves every unrelated key", func() {
+			vaultPath, configPath, cleanup = createTempVaultWithGoals(nil, map[string]string{
+				"Alpha": todoWithUnrelatedKeys,
+			})
+			goalFile := filepath.Join(vaultPath, "Goals", "Alpha.md")
+			before := readFile(goalFile)
+
+			session := runEntityCommand("goal", "approve", "Alpha")
+			Eventually(session).Should(gexec.Exit(0))
+
+			after := readFile(goalFile)
+			Expect(valueOf(after, "custom_key")).To(Equal("keep"))
+			// Whole-slice equality: a count would prove only that nothing was
+			// removed, not that nothing stray was added.
+			Expect(withoutApprovalKeys(after)).To(Equal(withoutApprovalKeys(before)))
+		})
+
+		It("JSON: --output json carries the goal name and the new phase", func() {
+			vaultPath, configPath, cleanup = createTempVaultWithGoals(nil, map[string]string{
+				"Alpha": todoFrontmatter,
+			})
+
+			session := runEntityCommand("goal", "approve", "Alpha", "--output", "json")
+			Eventually(session).Should(gexec.Exit(0))
+
+			var parsed map[string]any
+			Expect(json.Unmarshal(session.Out.Contents(), &parsed)).To(Succeed())
+			Expect(parsed["name"]).To(Equal("Alpha"))
+			Expect(parsed["phase"]).To(Equal("planning"))
+		})
+
+		It("JSON: a refusal with --output json exits non-zero", func() {
+			vaultPath, configPath, cleanup = createTempVaultWithGoals(nil, map[string]string{
+				"Alpha": planningFrontmatter,
+			})
+
+			session := runEntityCommand("goal", "approve", "Alpha", "--output", "json")
+			Eventually(session).Should(gexec.Exit(1))
+		})
+	})
+
+	Describe("topic approve", func() {
+		var configPath string
+		var cleanup func()
+
+		AfterEach(func() {
+			cleanup()
+		})
+
+		runEntityCommand := func(args ...string) *gexec.Session {
+			fullArgs := append(
+				[]string{"--config", configPath, "--vault", "test"},
+				args...,
+			)
+			session, err := gexec.Start(exec.Command(binPath, fullArgs...), GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			return session
+		}
+
+		sha256OfFile := func(path string) string {
+			data, err := os.ReadFile(path) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			sum := sha256.Sum256(data)
+			return fmt.Sprintf("%x", sum)
+		}
+
+		readFile := func(path string) string {
+			content, err := os.ReadFile(path) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			return string(content)
+		}
+
+		valueOf := func(content, key string) string {
+			for _, line := range strings.Split(content, "\n") {
+				if strings.HasPrefix(line, key+": ") {
+					return strings.TrimPrefix(line, key+": ")
+				}
+			}
+			return ""
+		}
+
+		approvalKeyPattern := regexp.MustCompile(`^(phase|approved_by|approved_at):`)
+		withoutApprovalKeys := func(content string) []string {
+			var out []string
+			for _, line := range strings.Split(content, "\n") {
+				if !approvalKeyPattern.MatchString(line) {
+					out = append(out, line)
+				}
+			}
+			return out
+		}
+
+		// createTopicVault writes one topic page into a fresh vault and returns the
+		// vault path, config path and page path.
+		createTopicVault := func(content string) (string, string, string) {
+			vp, cp, cl := createTempVaultWithTopics("Topics")
+			configPath, cleanup = cp, cl
+			Expect(os.MkdirAll(filepath.Join(vp, "Topics"), 0755)).To(Succeed())
+			topicFile := filepath.Join(vp, "Topics", "Alpha.md")
+			Expect(os.WriteFile(topicFile, []byte(content), 0600)).To(Succeed())
+			return vp, cp, topicFile
+		}
+
+		todoFrontmatter := `---
+page_type: topic
+phase: todo
+priority: 1
+status: next
+---
+body line
+`
+
+		todoWithUnrelatedKeys := `---
+custom_key: keep
+page_type: topic
+phase: todo
+priority: 1
+status: next
+---
+body line
+`
+
+		planningFrontmatter := `---
+page_type: topic
+phase: planning
+priority: 1
+status: next
+---
+body line
+`
+
+		executionFrontmatter := `---
+page_type: topic
+phase: execution
+priority: 1
+status: next
+---
+body line
+`
+
+		doneFrontmatter := `---
+page_type: topic
+phase: done
+priority: 1
+status: next
+---
+body line
+`
+
+		noPhaseFrontmatter := `---
+page_type: topic
+priority: 1
+status: next
+---
+body line
+`
+
+		approvedByOnlyFrontmatter := `---
+approved_by: someone
+page_type: topic
+phase: todo
+priority: 1
+status: next
+---
+body line
+`
+
+		approvedAtOnlyFrontmatter := `---
+approved_at: 2026-01-01T00:00:00Z
+page_type: topic
+phase: todo
+priority: 1
+status: next
+---
+body line
+`
+
+		approvedBothFrontmatter := `---
+approved_at: 2026-01-01T00:00:00Z
+approved_by: someone
+page_type: topic
+phase: todo
+priority: 1
+status: next
+---
+body line
+`
+
+		It("AC1: topic approve records the todo -> planning transition and its record", func() {
+			_, _, topicFile := createTopicVault(todoFrontmatter)
+
+			before := time.Now().UTC()
+			session := runEntityCommand("topic", "approve", "Alpha")
+			Eventually(session).Should(gexec.Exit(0))
+			Expect(string(session.Out.Contents())).To(ContainSubstring("Alpha"))
+
+			after := readFile(topicFile)
+			Expect(valueOf(after, "phase")).To(Equal("planning"))
+			Expect(valueOf(after, "approved_by")).To(Equal("operator"))
+
+			approvedAt := strings.Trim(valueOf(after, "approved_at"), `"`)
+			parsed, err := time.Parse(time.RFC3339, approvedAt)
+			Expect(err).NotTo(HaveOccurred(), "approved_at %q is not RFC3339", approvedAt)
+			Expect(parsed).To(BeTemporally(">=", before))
+			Expect(parsed).To(BeTemporally("<=", before.Add(60*time.Second)))
+
+			phaseSession := runEntityCommand("topic", "get", "Alpha", "phase")
+			Eventually(phaseSession).Should(gexec.Exit(0))
+			Expect(string(phaseSession.Out.Contents())).To(ContainSubstring("planning"))
+
+			bySession := runEntityCommand("topic", "get", "Alpha", "approved_by")
+			Eventually(bySession).Should(gexec.Exit(0))
+			Expect(string(bySession.Out.Contents())).To(ContainSubstring("operator"))
+
+			atSession := runEntityCommand("topic", "get", "Alpha", "approved_at")
+			Eventually(atSession).Should(gexec.Exit(0))
+			Expect(strings.TrimSpace(string(atSession.Out.Contents()))).NotTo(BeEmpty())
+		})
+
+		It("AC1: topic approve --by records the named approver", func() {
+			_, _, topicFile := createTopicVault(todoFrontmatter)
+
+			session := runEntityCommand("topic", "approve", "Alpha", "--by", "alice")
+			Eventually(session).Should(gexec.Exit(0))
+
+			Expect(valueOf(readFile(topicFile), "approved_by")).To(Equal("alice"))
+		})
+
+		It("AC2: an empty --by is refused and nothing is written", func() {
+			_, _, topicFile := createTopicVault(todoFrontmatter)
+			before := sha256OfFile(topicFile)
+
+			session := runEntityCommand("topic", "approve", "Alpha", "--by", "")
+			Eventually(session).Should(gexec.Exit(1))
+			Expect(string(session.Err.Contents())).To(ContainSubstring("approved_by"))
+			Expect(sha256OfFile(topicFile)).To(Equal(before))
+		})
+
+		DescribeTable("AC4: a refusal writes nothing and names what was found",
+			func(name string, fixture string, wantStderr []string) {
+				_, _, topicFile := createTopicVault(fixture)
+				before := sha256OfFile(topicFile)
+
+				session := runEntityCommand("topic", "approve", name)
+				Eventually(session).Should(gexec.Exit(1))
+
+				stderr := string(session.Err.Contents())
+				for _, want := range wantStderr {
+					Expect(stderr).To(ContainSubstring(want))
+				}
+				Expect(sha256OfFile(topicFile)).To(Equal(before))
+			},
+			Entry("planning", "Alpha", planningFrontmatter, []string{"planning", "todo"}),
+			Entry("execution", "Alpha", executionFrontmatter, []string{"execution", "todo"}),
+			Entry("done", "Alpha", doneFrontmatter, []string{"done", "todo"}),
+			Entry("nil phase", "Alpha", noPhaseFrontmatter, []string{"todo"}),
+			Entry("approved_by only", "Alpha", approvedByOnlyFrontmatter, []string{"approved_by"}),
+			Entry("approved_at only", "Alpha", approvedAtOnlyFrontmatter, []string{"approved_at"}),
+			Entry("both approval keys", "Alpha", approvedBothFrontmatter, []string{"approved_by", "approved_at"}),
+			Entry("unknown name", "Missing", todoFrontmatter, []string{"Missing"}),
+		)
+
+		It("AC4: topic approve preserves every unrelated key", func() {
+			_, _, topicFile := createTopicVault(todoWithUnrelatedKeys)
+			before := readFile(topicFile)
+
+			session := runEntityCommand("topic", "approve", "Alpha")
+			Eventually(session).Should(gexec.Exit(0))
+
+			after := readFile(topicFile)
+			Expect(valueOf(after, "custom_key")).To(Equal("keep"))
+			Expect(withoutApprovalKeys(after)).To(Equal(withoutApprovalKeys(before)))
+		})
+
+		It("JSON: --output json carries the topic name and the new phase", func() {
+			createTopicVault(todoFrontmatter)
+
+			session := runEntityCommand("topic", "approve", "Alpha", "--output", "json")
+			Eventually(session).Should(gexec.Exit(0))
+
+			var parsed map[string]any
+			Expect(json.Unmarshal(session.Out.Contents(), &parsed)).To(Succeed())
+			Expect(parsed["name"]).To(Equal("Alpha"))
+			Expect(parsed["phase"]).To(Equal("planning"))
+		})
+
+		It("JSON: a refusal with --output json exits non-zero", func() {
+			createTopicVault(planningFrontmatter)
+
+			session := runEntityCommand("topic", "approve", "Alpha", "--output", "json")
+			Eventually(session).Should(gexec.Exit(1))
+		})
+	})
+
 	Describe("task answer", func() {
 		var vaultPath, configPath string
 		var cleanup func()
@@ -4756,7 +5289,7 @@ page_type: goal
 	})
 
 	Describe("vault-cli topic command family", func() {
-		It("topic --help lists exactly the twelve leaves", func() {
+		It("topic --help lists exactly the thirteen leaves", func() {
 			cmd := exec.Command(binPath, "topic", "--help")
 			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 			Expect(err).NotTo(HaveOccurred())
@@ -4764,9 +5297,9 @@ page_type: goal
 
 			leaves := helpLeafNames(string(session.Out.Contents()))
 			Expect(leaves).NotTo(BeEmpty())
-			Expect(leaves).To(HaveLen(12))
+			Expect(leaves).To(HaveLen(13))
 			Expect(leaves).To(ConsistOf(
-				"add", "clear", "complete", "defer", "get", "lint", "list",
+				"add", "approve", "clear", "complete", "defer", "get", "lint", "list",
 				"remove", "search", "set", "show", "work-on",
 			))
 		})

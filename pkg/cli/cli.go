@@ -1442,6 +1442,7 @@ func createGoalCommands(
 		},
 	))
 	cmd.AddCommand(createGoalCompleteCommand(ctx, configLoader, vaultName, outputFormat))
+	cmd.AddCommand(createGoalApproveCommand(ctx, configLoader, vaultName, outputFormat))
 	cmd.AddCommand(createGoalDeferCommand(ctx, configLoader, vaultName, outputFormat))
 	cmd.AddCommand(createWorkOnGoalCommand(ctx, configLoader, vaultName, outputFormat))
 	return cmd
@@ -1507,6 +1508,68 @@ func createGoalCompleteCommand(
 		BoolVar(&force, "force", false, "Complete even if open tasks are linked to this goal")
 	cmd.Flags().StringVar(&reason, "reason", "", "Close-out reason (aborted_reason); required for aborted, optional for completed")
 	cmd.Flags().StringVar(&gateSuccessor, "gate-successor", "", "Where any risk gate moves, or 'none' (gate_successor); required for aborted, optional for completed")
+	return cmd
+}
+
+// createGoalApproveCommand builds `vault-cli goal approve`, the CLI surface over
+// the pkg/ops goal approval operation. It performs the recorded todo -> planning
+// transition and, like `task approve`, exits non-zero when a refusal is printed
+// as JSON.
+//
+//nolint:dupl // Mutation commands have similar structure but different operations
+func createGoalApproveCommand(
+	ctx context.Context,
+	configLoader *config.Loader,
+	vaultName *string,
+	outputFormat *string,
+) *cobra.Command {
+	var approvedBy string
+
+	cmd := &cobra.Command{
+		Use:   "approve <goal-name>",
+		Short: "Approve a goal in the operator's inbox (todo -> planning)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			goalName := args[0]
+
+			vaults, err := getVaults(ctx, configLoader, vaultName)
+			if err != nil {
+				return errors.Wrap(ctx, err, "get vaults")
+			}
+
+			currentDateTime := libtime.NewCurrentDateTime()
+
+			dispatcher := ops.NewVaultDispatcher()
+			err = dispatcher.FirstSuccess(ctx, vaults, func(vault *config.Vault) error {
+				storageConfig := storage.NewConfigFromVault(vault)
+				goalStore := storage.NewGoalStorage(storageConfig)
+				approveOp := ops.NewGoalApproveOperation(goalStore, currentDateTime)
+				result, err := approveOp.Execute(ctx, vault.Path, goalName, vault.Name, approvedBy)
+				if err != nil {
+					return err
+				}
+				if OutputFormat(*outputFormat).IsJSON() {
+					return PrintJSON(map[string]any{
+						"success": true,
+						"name":    result.Name,
+						"phase":   string(domain.GoalPhasePlanning),
+					})
+				}
+				fmt.Printf("✅ Goal approved: %s (phase %s)\n", result.Name, domain.GoalPhasePlanning)
+				return nil
+			})
+			if err != nil {
+				// The JSON error object is printed and the error is then returned, so a
+				// refusal exits non-zero in both output modes.
+				if OutputFormat(*outputFormat).IsJSON() {
+					_ = PrintJSON(map[string]any{"success": false, "error": err.Error()})
+				}
+				return err
+			}
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&approvedBy, "by", "operator", "Who is approving; recorded as approved_by")
 	return cmd
 }
 
@@ -1697,6 +1760,7 @@ func createTopicCommands(
 		},
 	))
 	cmd.AddCommand(createTopicCompleteCommand(ctx, configLoader, vaultName, outputFormat))
+	cmd.AddCommand(createTopicApproveCommand(ctx, configLoader, vaultName, outputFormat))
 	cmd.AddCommand(createTopicDeferCommand(ctx, configLoader, vaultName, outputFormat))
 	cmd.AddCommand(createWorkOnTopicCommand(ctx, configLoader, vaultName, outputFormat))
 	return cmd
@@ -1745,6 +1809,68 @@ func createTopicCompleteCommand(
 			)
 		},
 	}
+}
+
+// createTopicApproveCommand builds `vault-cli topic approve`, the CLI surface
+// over the pkg/ops topic approval operation. It performs the recorded
+// todo -> planning transition and, like `task approve`, exits non-zero when a
+// refusal is printed as JSON.
+//
+//nolint:dupl // Mutation commands have similar structure but different operations
+func createTopicApproveCommand(
+	ctx context.Context,
+	configLoader *config.Loader,
+	vaultName *string,
+	outputFormat *string,
+) *cobra.Command {
+	var approvedBy string
+
+	cmd := &cobra.Command{
+		Use:   "approve <topic-name>",
+		Short: "Approve a topic in the operator's inbox (todo -> planning)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			topicName := args[0]
+
+			vaults, err := getVaults(ctx, configLoader, vaultName)
+			if err != nil {
+				return errors.Wrap(ctx, err, "get vaults")
+			}
+
+			currentDateTime := libtime.NewCurrentDateTime()
+
+			dispatcher := ops.NewVaultDispatcher()
+			err = dispatcher.FirstSuccess(ctx, vaults, func(vault *config.Vault) error {
+				storageConfig := storage.NewConfigFromVault(vault)
+				topicStore := storage.NewTopicStorage(storageConfig)
+				approveOp := ops.NewTopicApproveOperation(topicStore, currentDateTime)
+				result, err := approveOp.Execute(ctx, vault.Path, topicName, vault.Name, approvedBy)
+				if err != nil {
+					return err
+				}
+				if OutputFormat(*outputFormat).IsJSON() {
+					return PrintJSON(map[string]any{
+						"success": true,
+						"name":    result.Name,
+						"phase":   string(domain.TopicPhasePlanning),
+					})
+				}
+				fmt.Printf("✅ Topic approved: %s (phase %s)\n", result.Name, domain.TopicPhasePlanning)
+				return nil
+			})
+			if err != nil {
+				// The JSON error object is printed and the error is then returned, so a
+				// refusal exits non-zero in both output modes.
+				if OutputFormat(*outputFormat).IsJSON() {
+					_ = PrintJSON(map[string]any{"success": false, "error": err.Error()})
+				}
+				return err
+			}
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&approvedBy, "by", "operator", "Who is approving; recorded as approved_by")
+	return cmd
 }
 
 // createTopicDeferCommand defers a topic to a date.

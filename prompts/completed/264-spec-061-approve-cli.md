@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [061-goal-topic-approve]
+summary: Added `vault-cli goal approve` and `vault-cli topic approve` leaf commands with --by/JSON output and binary-level end-to-end coverage, plus changelog and command-registration updates
+execution_id: vault-cli-goal-topic-approve-exec-264-spec-061-approve-cli
+dark-factory-version: v0.198.7
 created: "2026-10-20T10:03:18Z"
 queued: "2026-10-20T10:16:58Z"
+started: "2026-10-20T10:27:13Z"
+completed: "2026-10-20T10:31:14Z"
 ---
 
 # Wire `vault-cli goal approve` and `vault-cli topic approve` and prove them end to end (spec 061, prompt 4 of 5)

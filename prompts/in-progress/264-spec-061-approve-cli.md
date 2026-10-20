@@ -1,7 +1,8 @@
 ---
-spec: ["061-goal-topic-approve"]
-status: draft
+status: approved
+spec: [061-goal-topic-approve]
 created: "2026-10-20T10:03:18Z"
+queued: "2026-10-20T10:16:58Z"
 ---
 
 # Wire `vault-cli goal approve` and `vault-cli topic approve` and prove them end to end (spec 061, prompt 4 of 5)

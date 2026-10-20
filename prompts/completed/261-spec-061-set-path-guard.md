@@ -1,7 +1,13 @@
 ---
-spec: ["061-goal-topic-approve"]
-status: draft
+status: completed
+spec: [061-goal-topic-approve]
+summary: Added goal/topic todo-to-planning set refusals with unit and binary-level coverage
+execution_id: vault-cli-goal-topic-approve-exec-261-spec-061-set-path-guard
+dark-factory-version: v0.198.7
 created: "2026-10-20T10:03:18Z"
+queued: "2026-10-20T10:16:58Z"
+started: "2026-10-20T10:17:58Z"
+completed: "2026-10-20T10:20:59Z"
 ---
 
 # Refuse the unrecorded exit from the goal and topic approval inbox (spec 061, prompt 1 of 5)

@@ -1,7 +1,8 @@
 ---
-spec: ["061-goal-topic-approve"]
-status: draft
+status: approved
+spec: [061-goal-topic-approve]
 created: "2026-10-20T10:03:18Z"
+queued: "2026-10-20T10:16:58Z"
 ---
 
 # Add the topic approve operation that records phase, approver and instant (spec 061, prompt 3 of 5)

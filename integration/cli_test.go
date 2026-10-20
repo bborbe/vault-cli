@@ -2808,6 +2808,112 @@ blocked_by:
 		})
 	})
 
+	Describe("goal and topic set phase guard", func() {
+		var vaultPath, configPath string
+		var cleanup func()
+
+		AfterEach(func() {
+			cleanup()
+		})
+
+		runEntityCommand := func(args ...string) *gexec.Session {
+			fullArgs := append(
+				[]string{"--config", configPath, "--vault", "test"},
+				args...,
+			)
+			session, err := gexec.Start(exec.Command(binPath, fullArgs...), GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			return session
+		}
+
+		readFile := func(path string) []byte {
+			content, err := os.ReadFile(path) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			return content
+		}
+
+		sha256OfFile := func(path string) string {
+			sum := sha256.Sum256(readFile(path))
+			return fmt.Sprintf("%x", sum)
+		}
+
+		// Keys are alphabetical because the storage writer re-serializes the whole
+		// frontmatter in that order.
+		goalInbox := `---
+page_type: goal
+phase: todo
+priority: 1
+status: next
+---
+`
+
+		topicInbox := `---
+page_type: topic
+phase: todo
+priority: 1
+status: next
+---
+`
+
+		It("AC3a: goal set phase planning refuses, names the approve verb, and writes nothing", func() {
+			vaultPath, configPath, cleanup = createTempVaultWithGoals(nil, map[string]string{
+				"Alpha": goalInbox,
+			})
+			goalFile := filepath.Join(vaultPath, "Goals", "Alpha.md")
+			before := sha256OfFile(goalFile)
+
+			session := runEntityCommand("goal", "set", "Alpha", "phase", "planning")
+			Eventually(session).Should(gexec.Exit(1))
+
+			Expect(string(session.Err.Contents())).To(ContainSubstring("vault-cli goal approve"))
+			Expect(sha256OfFile(goalFile)).To(Equal(before))
+		})
+
+		It("AC3b: topic set phase planning refuses, names the approve verb, and writes nothing", func() {
+			vaultPath, configPath, cleanup = createTempVaultWithTopics("Topics")
+			Expect(os.MkdirAll(filepath.Join(vaultPath, "Topics"), 0755)).To(Succeed())
+			Expect(os.WriteFile(
+				filepath.Join(vaultPath, "Topics", "Alpha.md"),
+				[]byte(topicInbox),
+				0600,
+			)).To(Succeed())
+			topicFile := filepath.Join(vaultPath, "Topics", "Alpha.md")
+			before := sha256OfFile(topicFile)
+
+			session := runEntityCommand("topic", "set", "Alpha", "phase", "planning")
+			Eventually(session).Should(gexec.Exit(1))
+
+			Expect(string(session.Err.Contents())).To(ContainSubstring("vault-cli topic approve"))
+			Expect(sha256OfFile(topicFile)).To(Equal(before))
+		})
+
+		It("AC3c: goal set phase execution stays allowed", func() {
+			vaultPath, configPath, cleanup = createTempVaultWithGoals(nil, map[string]string{
+				"Alpha": goalInbox,
+			})
+
+			Eventually(runEntityCommand("goal", "set", "Alpha", "phase", "execution")).
+				Should(gexec.Exit(0))
+
+			getSession := runEntityCommand("goal", "get", "Alpha", "phase")
+			Eventually(getSession).Should(gexec.Exit(0))
+			Expect(string(getSession.Out.Contents())).To(ContainSubstring("execution"))
+		})
+
+		It("AC3d: goal set a non-phase key stays allowed", func() {
+			vaultPath, configPath, cleanup = createTempVaultWithGoals(nil, map[string]string{
+				"Alpha": goalInbox,
+			})
+
+			Eventually(runEntityCommand("goal", "set", "Alpha", "priority", "2")).
+				Should(gexec.Exit(0))
+
+			getSession := runEntityCommand("goal", "get", "Alpha", "priority")
+			Eventually(getSession).Should(gexec.Exit(0))
+			Expect(string(getSession.Out.Contents())).To(ContainSubstring("2"))
+		})
+	})
+
 	Describe("vault-cli task set flag provenance", func() {
 		var vaultPath, configPath string
 		var cleanup func()

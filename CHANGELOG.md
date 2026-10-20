@@ -8,10 +8,13 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## v0.175.1
+## Unreleased
 
 - feat: Add `GoalApproveOperation` and `TopicApproveOperation`, which move a `phase: todo` row to `phase: planning` and record `approved_by` / `approved_at` in one write; a row outside the approval inbox, or one already carrying an approval record, is refused with nothing written.
 - feat: Add `vault-cli goal approve` and `vault-cli topic approve`, the CLI surface over those operations (`--by` defaults to `operator`, an empty `--by` is refused, and a refusal exits non-zero in both plain and `--output json` modes). `goal set … phase planning` and `topic set … phase planning` on a `todo` row are now refused and point at the approve verb.
+
+## v0.175.1
+
 - fix: `scripts/session-self-exit.py` lets a session that was handed off from a task exit. When `claude_session_id` has moved to another session, the task is resolved through its `metrics_sessions` instead, and that branch skips the terminal check — its own work is already on the record. The pane-ownership and open-card guards still refuse.
 
 ## v0.175.0

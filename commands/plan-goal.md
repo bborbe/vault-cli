@@ -45,8 +45,12 @@ vault-cli goal get "<name>" phase --output json
 
 The goal is to land at `status: in_progress, phase: planning` for fresh goals; respect a deliberate post-planning phase setting.
 
-- `status` in `next`/`todo`/`backlog` → flip status AND phase together: `vault-cli goal set "<name>" status in_progress` + `vault-cli goal set "<name>" phase planning` (if phase is empty/`todo`/`planning`). Skip the phase flip if phase is `execution` / `done` (treat as deliberate — sharpen but don't move phase backward).
-- `status` already `in_progress` and `phase` is `todo`/empty → `vault-cli goal set "<name>" phase planning`
+- `status` in `next`/`todo`/`backlog` → `vault-cli goal set "<name>" status in_progress`, then the phase entry:
+  - `phase: todo` → `vault-cli goal approve "<name>"` — the approval records `approved_by` and `approved_at` and flips to `planning` in one write; `vault-cli goal set "<name>" phase planning` is refused on a `todo` row.
+  - `phase` empty → `vault-cli goal set "<name>" phase todo`, then `vault-cli goal approve "<name>"` — a goal with no phase is exempt from the gate and cannot be approved until it is in the inbox.
+  - `phase: planning` → no flip.
+  - `phase` is `execution` / `done` → skip the flip (treat as deliberate — sharpen but don't move phase backward).
+- `status` already `in_progress` and `phase` is `todo` → `vault-cli goal approve "<name>"`; `phase` empty → `vault-cli goal set "<name>" phase todo`, then `vault-cli goal approve "<name>"`.
 - `status` already `in_progress` and `phase` is past planning → continue without flip; step 7 will skip the phase transition.
 
 ### 4. Run goal-auditor

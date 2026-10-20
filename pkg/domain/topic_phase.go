@@ -2,10 +2,11 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package domain
+package domain //nolint:dupl // Goal and topic phases share the same enum shape but are distinct types
 
 import (
 	"context"
+	"strings"
 
 	"github.com/bborbe/collection"
 	"github.com/bborbe/errors"
@@ -22,6 +23,10 @@ const (
 	TopicPhasePlanning TopicPhase = "planning"
 	// TopicPhaseExecution means active work is underway.
 	TopicPhaseExecution TopicPhase = "execution"
+	// TopicPhaseAIReview means automated checks are running.
+	TopicPhaseAIReview TopicPhase = "ai_review"
+	// TopicPhaseHumanReview means manual review is required.
+	TopicPhaseHumanReview TopicPhase = "human_review"
 	// TopicPhaseDone means the topic is ready to close.
 	TopicPhaseDone TopicPhase = "done"
 )
@@ -31,6 +36,8 @@ var AvailableTopicPhases = TopicPhases{
 	TopicPhaseTodo,
 	TopicPhasePlanning,
 	TopicPhaseExecution,
+	TopicPhaseAIReview,
+	TopicPhaseHumanReview,
 	TopicPhaseDone,
 }
 
@@ -47,10 +54,20 @@ func (t TopicPhase) String() string {
 	return string(t)
 }
 
+// String returns the comma-separated list of phases in declaration order.
+func (t TopicPhases) String() string {
+	parts := make([]string, 0, len(t))
+	for _, p := range t {
+		parts = append(parts, string(p))
+	}
+	return strings.Join(parts, ", ")
+}
+
 // Validate returns an error if the phase is not a valid canonical value.
 func (t TopicPhase) Validate(ctx context.Context) error {
 	if !AvailableTopicPhases.Contains(t) {
-		return errors.Wrapf(ctx, validation.Error, "unknown topic phase '%s'", t)
+		return errors.Wrapf(ctx, validation.Error,
+			"unknown topic phase '%s' (valid: %s)", t, AvailableTopicPhases)
 	}
 	return nil
 }

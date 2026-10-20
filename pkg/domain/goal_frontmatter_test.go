@@ -424,6 +424,8 @@ var _ = Describe("GoalFrontmatter", func() {
 			Entry("todo", "todo"),
 			Entry("planning", "planning"),
 			Entry("execution", "execution"),
+			Entry("ai_review", "ai_review"),
+			Entry("human_review", "human_review"),
 			Entry("done", "done"),
 		)
 

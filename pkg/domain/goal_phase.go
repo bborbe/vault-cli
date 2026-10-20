@@ -2,10 +2,11 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package domain
+package domain //nolint:dupl // Goal and topic phases share the same enum shape but are distinct types
 
 import (
 	"context"
+	"strings"
 
 	"github.com/bborbe/collection"
 	"github.com/bborbe/errors"
@@ -22,6 +23,10 @@ const (
 	GoalPhasePlanning GoalPhase = "planning"
 	// GoalPhaseExecution means active work is underway.
 	GoalPhaseExecution GoalPhase = "execution"
+	// GoalPhaseAIReview means automated checks are running.
+	GoalPhaseAIReview GoalPhase = "ai_review"
+	// GoalPhaseHumanReview means manual review is required.
+	GoalPhaseHumanReview GoalPhase = "human_review"
 	// GoalPhaseDone means the goal is ready to close.
 	GoalPhaseDone GoalPhase = "done"
 )
@@ -31,6 +36,8 @@ var AvailableGoalPhases = GoalPhases{
 	GoalPhaseTodo,
 	GoalPhasePlanning,
 	GoalPhaseExecution,
+	GoalPhaseAIReview,
+	GoalPhaseHumanReview,
 	GoalPhaseDone,
 }
 
@@ -47,10 +54,20 @@ func (g GoalPhase) String() string {
 	return string(g)
 }
 
+// String returns the comma-separated list of phases in declaration order.
+func (g GoalPhases) String() string {
+	parts := make([]string, 0, len(g))
+	for _, p := range g {
+		parts = append(parts, string(p))
+	}
+	return strings.Join(parts, ", ")
+}
+
 // Validate returns an error if the phase is not a valid canonical value.
 func (g GoalPhase) Validate(ctx context.Context) error {
 	if !AvailableGoalPhases.Contains(g) {
-		return errors.Wrapf(ctx, validation.Error, "unknown goal phase '%s'", g)
+		return errors.Wrapf(ctx, validation.Error,
+			"unknown goal phase '%s' (valid: %s)", g, AvailableGoalPhases)
 	}
 	return nil
 }

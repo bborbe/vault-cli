@@ -379,7 +379,7 @@ func (f *GoalFrontmatter) setPhaseField(ctx context.Context, value string) error
 	}
 	phase := GoalPhase(value)
 	if err := phase.Validate(ctx); err != nil {
-		return errors.Wrapf(ctx, validation.Error, "unknown goal phase '%s'", value)
+		return err
 	}
 	f.SetPhase(&phase)
 	return nil

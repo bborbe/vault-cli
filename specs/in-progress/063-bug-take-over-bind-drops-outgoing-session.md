@@ -1,6 +1,8 @@
 ---
-status: approved
+status: prompted
 approved: "2026-10-20T14:08:55Z"
+generating: "2026-10-20T14:38:21Z"
+prompted: "2026-10-20T14:45:24Z"
 branch: dark-factory/bug-take-over-bind-drops-outgoing-session
 ---
 
@@ -191,7 +193,7 @@ the other path — stamp only when empty, always append. The direct set path is 
 | Trigger | Expected behavior | Recovery |
 |---|---|---|
 | Task file unreadable | command exits non-zero, file untouched | re-run once the file is readable; no partial state to repair |
-| `metrics_sessions` holds a malformed entry | existing entries are preserved verbatim; the new entry is appended | inspect the file; the malformed entry is the operator's to fix |
+| `metrics_sessions` holds a malformed entry | well-formed entries are preserved in order and the new entry is appended last. An entry with no `session_id` is dropped and a non-list value is normalized — the behaviour `work-on` and the public append verb already have, because all three go through `domain.TaskFrontmatter.AppendMetricsSession` | the dropped entry stays in the task file's git history; the fix itself needs no repair |
 | Two writers race on the same task | last write wins; both sessions may appear in `metrics_sessions` | entries accumulate by design; a duplicate is harmless to both readers |
 | Bind to the same value | no entry appended | none needed |
 

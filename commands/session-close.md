@@ -331,14 +331,18 @@ Interpretation is identical to the task branch above — `completed` / `hold` / 
 
 For each `in_progress` goal — except the anchor goal of a goal-anchored session (Phase 1's `GOAL_ANCHORED`), which the goal-anchored exemption below covers — first resolve its manager, then decide **whether a decision is owed**. Those are two separate questions, and the split is what this phase is for.
 
-**Resolve the manager.** Read the goal page's `manager_session_id`; failing that, the `manager_session_id` of a topic page whose `## Goals` section lists the goal. Treat the id as a **lead, never a verdict** (`claude-supervisor` `docs/fleet-surface.md` § Which manager owns a subject) and run `session-liveness.py --check <id>`. Resolve the script from the installed supervisor cache, never the cwd — this phase runs from a vault, which has no `scripts/`:
+**Run the resolver — never compose these lines by hand.** Pass it every goal this session touched (Phase 1's `Goals` list). It reads each goal's `status`, counts SC, resolves the manager (goal page first, then a topic page whose `## Goals` section lists the goal), probes that id with `session-liveness.py --check`, and prints exactly one line per in-scope goal — the `goal …` report-only form for a goal with an open task, and `closable goal …` for a drained one:
 
 ```bash
-LIVENESS="$(ls -d ~/.claude/plugins/cache/claude-supervisor/*/*/scripts 2>/dev/null | sort -V | tail -1)/session-liveness.py"
-python3 "$LIVENESS" --check "<id>"; echo "exit=$?"
+VAULT_CLI_SCRIPTS="$(ls -d ~/.claude/plugins/cache/vault-cli/vault-cli/*/scripts 2>/dev/null | sort -V | tail -1)"
+bash "$VAULT_CLI_SCRIPTS/session-close-goals.sh" "<vault-root>" --goal "<title>" --goal "<title>"
 ```
 
-Only exit 0 `LIVE` counts as a live manager; exit 1 `ABSENT`, 2 `UNKNOWN`, 3 `AMBIGUOUS`, 4 `MALFORMED`, and no id anywhere all read as **no live manager**.
+Copy its stdout into the closer **verbatim**. An empty stdout means no goal is in scope and Phase 4.5 owes no line — express that by omission, never by inventing a line.
+
+⚠️ **A close whose summary block lacks a line the resolver printed is invalid**, even when every other check passes. Re-print the closer with the line before finishing. That rule is the whole point of the script: a line the session must *compose* is droppable, and one it must *reproduce* is checkable. Measured 2026-10-20 — session `44db8e09` ran this phase's lookup itself, received `status=in_progress` for a touched goal, and printed a closer containing no goal line at all; neither the report-only line nor the old outstanding item appeared.
+
+Only exit 0 `LIVE` counts as a live manager; exit 1 `ABSENT`, 2 `UNKNOWN`, 3 `AMBIGUOUS`, 4 `MALFORMED`, and no id anywhere all read as **no live manager** — the resolver applies exactly that rule, so an indeterminate id never prints as a manager.
 
 ⚠️ **This is deliberately narrower than that section's task-level chain**, which ends at the Fleet Manager. That chain answers *who owns this task*; this one answers *who can be told a goal is closable*. A worker messages only a manager it can prove is live, and never escalates to the Fleet Manager on its own — so "no live manager" is a real answer here, not a fall-through.
 
@@ -683,7 +687,7 @@ Omit any line with zero entries. If nothing was touched (e.g. talk-only session)
 goal <title>: in_progress, <n>/<m> SC — managed by <manager>
 ```
 
-Use `— no live manager` instead when no live manager resolves. This line is what keeps the open goal visible while removing the ask; a closable goal does not appear here (it reaches a manager or the outstanding list instead).
+Use `— no live manager` instead when no live manager resolves. This line is what keeps the open goal visible while removing the ask; a closable goal does not appear here (it reaches a manager or the outstanding list instead). ⚠️ **These lines come from `session-close-goals.sh` and are copied, not written** — see Phase 4.5. If the resolver printed a line for a goal and this block lacks it, the close is invalid: add it and re-print.
 
 The `Carried forward:` line is emitted only on a repeat run, for an anchor the operator already resolved this session — Phase 4.5's within-one-session clause. It is that clause's only home; never also list the item in the mode-3 numbered list.
 

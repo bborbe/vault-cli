@@ -65,6 +65,7 @@ test:
 	go test -mod=mod -count=1 -p=$${GO_TEST_PARALLEL:-1} -cover $(TESTFLAGS_RACE) $(shell go list -mod=mod ./... | grep -v /vendor/)
 	@bash scripts/daily-note-has-entry-test.sh
 	@bash scripts/goal-task-link-count-test.sh
+	@bash scripts/session-close-goals-test.sh
 	@bash scripts/struck-row-rule-test.sh
 	@bash scripts/mode-membership-rule-test.sh
 	@bash scripts/necessity-rule-test.sh

@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.177.0
 
 - feat: **A vault can name its default A2A cluster.** A config entry gains `a2a_default_cluster`, a cluster **name** (`nukedev`, never a target string `k8s:nukedev`), set with `vault-cli config set-a2a-default-cluster <vault> <cluster>` and emitted in `config list --output json` so a consumer can resolve it without parsing the YAML. The value is validated on write as an RFC 1123 label (lowercase alphanumerics and interior hyphens, at most 63 characters), which is the shape a Kubernetes cluster identifier takes — an unknown-but-well-formed name is accepted here and refused by the consumer, because the cluster set is that side's knowledge, not this repo's. ⚠️ **Reading never validates**: a hand-edited malformed value still lists, emitted verbatim, because refusing it would turn a config typo into an unopenable vault. ⚠️ **Both tags are `omitempty`**, so a vault that names no default round-trips unchanged and `scenarios/001-config-list.md`'s exhaustive key set for the `minimal` vault still holds. A refused value or an unknown vault writes nothing — the config file is byte-identical afterwards. Documented in `docs/a2a-default-cluster.md`.
 

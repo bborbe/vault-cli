@@ -36,6 +36,8 @@ Print `Detected topic: <name>` on the first line, before any state mutation.
 
 ### 3. Invoke topic-manager-agent
 
+`MODE` is `interactive` unless the caller passed `--non-interactive`, in which case it is `tool` — the headless contract: the agent prints the proposal and writes nothing.
+
 ```
 Task tool with:
   subagent_type: 'vault-cli:topic-manager-agent'

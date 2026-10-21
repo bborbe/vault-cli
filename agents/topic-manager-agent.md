@@ -127,5 +127,5 @@ Read the goal file's frontmatter `status:`. That value is the only thing the ref
 ## Implementation Notes
 
 **Conciseness:** extremely concise output
-**Idempotent:** a second run on a reconciled page reports `none — page matches disk` and appends no duplicate Progress entry beyond its own dated line
+**Idempotent:** a second run on an already-reconciled page reports `none — page matches disk` and adds no `## Goals` entry; it still appends its own dated `# Progress` line, which is the run record
 **Conservative:** confirmation-gated, never destructive

@@ -24,16 +24,20 @@ Reconciles a topic page against disk. Confirmation-gated on every `## Goals` add
 **interactive** (default): prints the diff, asks for confirmation, applies on yes.
 **tool**: prints the proposed additions and writes nothing — no `AskUserQuestion`. This is the non-interactive contract.
 
-**ALWAYS get current date at start:** `date +"%Y-%m-%d"`
+**ALWAYS get the current date and time at start:** `date +"%Y-%m-%d %H:%M"` — both parts. The `# Progress` template needs `<HH:MM>`, and inventing a timestamp is worse than printing the real one.
 
 ## Constants
 
 - Topics directory: `<topics_dir>` (resolved from vault-cli config — never a hardcoded folder name)
 - Goals directory: `<goals_dir>` (resolved from vault-cli config — never a hardcoded folder name)
 
+Resolve both from one call, not by guessing a folder name:
+
 ```bash
 vault-cli config list --output json
 ```
+
+Match the entry whose `path` realpaths to `$PWD`, then read its `topics_dir` (default `23 Topics`) and `goals_dir` (default `24 Goals`). The defaults are last-resort fallbacks, not the preferred value.
 
 ## Shared Operations
 
@@ -41,7 +45,11 @@ vault-cli config list --output json
 
 1. Absolute path with `.md` and exists → return it
 2. `<topics_dir>/<name>.md` exists → return it
-3. `Glob "<topics_dir>/*<name>*.md"` → 0 matches = error, >1 = `AskUserQuestion`, 1 = return it
+3. `Glob "<topics_dir>/*<name>*.md"` → 0 matches = error, >1 = `AskUserQuestion` (interactive only), 1 = return it
+
+### topic_name_of(page_path)
+
+The page **basename without `.md`**. This is the value the command printed as `Detected topic: <name>`, the value passed to `taggers`, and the value reported back. Never re-derive it from the goal set.
 
 ### parse_goal_entries(page_path)
 
@@ -56,17 +64,28 @@ Return each entry with:
 
 ### taggers(topic_name)
 
-Goal files whose frontmatter `topics:` (or the legacy singular `topic:`) names this topic:
+Goal **names** (basenames, no `.md`) whose frontmatter `topics:` — or the legacy singular `topic:` — names this topic. The rule is a shipped, tested script; do not re-implement it inline:
 
 ```bash
-awk -v t="<topic_name>" 'FNR==1{fm=0} /^---$/{fm++; next} fm==1 && index($0,t){print FILENAME; nextfile}' <goals_dir>/*.md
+VAULT_CLI_SCRIPTS="$(ls -d ~/.claude/plugins/cache/vault-cli/vault-cli/*/scripts 2>/dev/null | sort -V | tail -1)"
+bash "$VAULT_CLI_SCRIPTS/update-topic-taggers.sh" "<goals_dir>" "<topic_name>"
 ```
 
-⚠️ **Read the field, not the whole file.** A goal that merely *mentions* the topic in its body is not a member — a whole-file grep reports members that do not exist and inflates the diff.
+It resolves the plugin's script under the **plugin root, never the cwd** — this agent runs from a vault, which has no `scripts/`. It prints sorted, de-duplicated goal names and exits non-zero on a missing goals directory.
+
+⚠️ **Read the field, not the whole file.** A goal that merely *mentions* the topic in its body, `title:` or tags is not a member — a whole-file grep reports members that do not exist and inflates the diff. `scripts/update-topic-taggers-test.sh` pins this, the spaced-folder case, and the `German`-vs-`German-Spanish` substring case.
 
 ### on_disk_status(goal_name)
 
-Read the goal file's frontmatter `status:`. That value is the only thing the refresh writes.
+Resolve the goal file, then read its frontmatter `status:`. That value is the only thing the refresh writes.
+
+**Resolution — same algorithm as `find_goal`:**
+1. `"<goals_dir>/<goal_name>.md"` exists → use it
+2. otherwise `Glob "<goals_dir>/*.md"`, filter by basename equal to `<goal_name>`
+3. 0 matches → **report the entry as a dangling wikilink** (`⚠ <name>: no goal file`) and leave its line untouched
+4. \>1 matches → report ambiguity and leave the line untouched
+
+Never guess a status for an unresolved entry, and never silently skip one: an unreported miss is indistinguishable from "already correct".
 
 ## Actions
 
@@ -76,7 +95,7 @@ Read the goal file's frontmatter `status:`. That value is the only thing the ref
 
 **Steps:**
 
-1. **Resolve the page.** `resolve_page($ARGS)`. Read it once.
+1. **Resolve the page.** `resolve_page($ARGS)`. Read it once. Derive `topic_name` via `topic_name_of`.
 
 2. **Parse the current `## Goals` entries** — `parse_goal_entries(page_path)`.
 
@@ -101,11 +120,11 @@ Read the goal file's frontmatter `status:`. That value is the only thing the ref
 
 8. **Refresh status tokens** — for each entry carrying a status token whose `on_disk_status` differs, rewrite **only that token**, preserving the entry's trailing clause verbatim. Entries with no status token are skipped.
 
-9. **Re-date `# Current Reading`** — if the heading carries a date suffix (`# Current Reading 2026-10-19`), rewrite it to today's date. Do not touch its body: it holds measurements, and this agent has none to add.
+9. **Re-date `# Current Reading`** — if the heading carries a date suffix (`# Current Reading 2026-10-19`), rewrite it to today's date. Do not touch its body: it holds measurements, and this agent has none to add. Because a re-date with no new measurement can read as fresh data, step 10's Progress entry must say `no new reading` explicitly — that is what keeps a no-op run distinguishable from one that measured something.
 
-10. **Append `# Progress`** — one dated entry under the section:
+10. **Append `# Progress`** — one dated entry under the section. Use the page's **existing** heading at either level (`# Progress` or `## Progress`); if neither exists, do not invent one — report `⚠ no Progress section — not appended` and name it as a documentation gap.
     ```
-    - <YYYY-MM-DD> <HH:MM> — `/vault-cli:update-topic`: <n> goal(s) added (<names> or "none"), <m> status token(s) refreshed, Current Reading re-dated.
+    - <YYYY-MM-DD> <HH:MM> — `/vault-cli:update-topic`: <n> goal(s) added (<names> or "none"), <m> status token(s) refreshed, Current Reading re-dated (no new reading).
     ```
 
 11. **Report:**
@@ -113,6 +132,7 @@ Read the goal file's frontmatter `status:`. That value is the only thing the ref
     ✅ Topic updated: <name>
     ## Goals: <n> → <n+k> entries
     Statuses refreshed: <list or "none">
+    Dangling: <list or "none">
     Progress: appended
     ```
 

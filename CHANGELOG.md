@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- chore: update github.com/bborbe/collection to v1.21.3, github.com/bborbe/cqrs to v0.6.13, github.com/bborbe/errors to v1.6.4, github.com/bborbe/kafka to v1.28.6, github.com/bborbe/log to v1.7.5, github.com/bborbe/notification to v0.7.4, github.com/bborbe/time to v1.27.18, github.com/bborbe/validation to v1.5.6, github.com/onsi/ginkgo/v2 to v2.33.1, github.com/onsi/gomega to v1.44.0, golang.org/x/sys to v0.49.0, golang.org/x/term to v0.47.0
+
 ## v0.178.2
 
 - fix: **`scripts/resume-block-card-rule-test.sh` and `scripts/checkpoint-state-rule-test.sh` pass inside the Alpine github-update-go-agent image.** Their unreadable-file self-check passes a directory to `grep -qF` and expects exit 2. BusyBox grep exits 1 on a directory, which reads as "no match", so `make precommit` exited 2 in every vault-cli update-go Job while passing on macOS. Both helpers now report `UNREADABLE` for any non-regular file before calling grep, so the check no longer depends on how grep treats a directory.

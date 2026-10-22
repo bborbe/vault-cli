@@ -56,6 +56,7 @@ The page **basename without `.md`**. This is the value the command printed as `D
 The rule is a shipped, tested script; do not re-implement it inline:
 
 ```bash
+VAULT_CLI_SCRIPTS="$(ls -d ~/.claude/plugins/cache/vault-cli/vault-cli/*/scripts 2>/dev/null | sort -V | tail -1)"
 bash "$VAULT_CLI_SCRIPTS/update-topic-goal-entries.sh" "<page_path>"
 ```
 
@@ -69,7 +70,7 @@ Three properties it already guarantees, so you do not have to:
 
 ⚠️ Some entries carry no status token — e.g. `- [[Goal]] — SC1`. Those come back as `none` and are left untouched; rewriting them would destroy the topic-SC mapping.
 
-⚠️ **`VAULT_CLI_SCRIPTS` is not set by this script's caller.** Resolve it once at the top of your run, exactly as `taggers` does below, and use the same value for both.
+⚠️ **Resolve `VAULT_CLI_SCRIPTS` once and reuse it** for both this script and `taggers` below — the expression is identical. It points at the plugin root, never the cwd: this agent runs from a vault, which has no `scripts/`.
 
 ### taggers(topic_name)
 

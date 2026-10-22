@@ -8,6 +8,9 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- docs: **plan-task's fix loop now enumerates a defect CLASS on the second sighting instead of fixing the instance.** A seven-round planning run on 2026-10-22 fixed the same class five times — evidence naming an artifact or a probe that does not hold up — because each round repaired only the criterion the auditor named. The rule already existed inside the gate (§ 5 *E2E verify subtask* sub-check 4: *"Repetition is the diagnostic"*), but nothing applied it while *repairing*; the loop now says so, and names the auditor sentence that announces it.
 ## v0.188.2
 
 - chore: restate the `do-not-merge` gate message to name its bypass actors — the Admin repository role and Integration `3907226`, both `bypass_mode: always` in the `master-protection` ruleset — instead of asserting an unqualified block

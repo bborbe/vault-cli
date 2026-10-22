@@ -77,6 +77,7 @@ test:
 	@bash scripts/session-connect-fixture-test.sh
 	@bash scripts/session-self-exit-test.sh
 	@bash scripts/update-topic-taggers-test.sh
+	@bash scripts/update-topic-goal-entries-test.sh
 
 .PHONY: check
 check: lint vet vulncheck osv-scanner trivy check-changelog

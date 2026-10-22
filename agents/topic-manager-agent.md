@@ -53,18 +53,23 @@ The page **basename without `.md`**. This is the value the command printed as `D
 
 ### parse_goal_entries(page_path)
 
-Read the Goals section. The heading level is `##` **or** `#` — both are valid, and `agents/goal-manager-agent.md` treats `# Goals` as a topic heading; an `##`-only scan returns zero entries on an H1 page and then proposes adding every tagging goal.
+The rule is a shipped, tested script; do not re-implement it inline:
 
-Its body runs to the next heading of **any** level (`^#{1,6} `). Bounding only at `## ` or `# ` is not enough: a `### ` subsection does not match either, so the scan continues into it and a bulleted `- [[X]]` there is read as a goal entry whose status token then gets rewritten.
+```bash
+bash "$VAULT_CLI_SCRIPTS/update-topic-goal-entries.sh" "<page_path>"
+```
 
-Within the section, an entry is a line matching `^- \[\[<Name>\]\]` at line start. **Nothing looser**: a prose wikilink recording a removal is not a declaration.
+It prints one line per entry — `<goal name><TAB><status token or "none">` — and exits **3** when the page has no Goals heading. Treat that exit as `⚠ no Goals section on <page> — not a page this command can reconcile` and STOP: an empty entry list is otherwise indistinguishable from an absent section, and you would then propose adding every tagging goal.
 
-Return each entry with:
-- `name` — the wikilink target
-- `line` — the full line, verbatim
-- `status_token` — the backticked status if present (e.g. `` `in_progress` ``), else `none`
+Three properties it already guarantees, so you do not have to:
 
-⚠️ Some entries carry no status token — e.g. `- [[Goal]] — SC1`. Those are left untouched; rewriting them would destroy the topic-SC mapping.
+- **The section is level-relative.** `## Goals` runs past `### Lever A` and ends at the next `#` or `##`; `# Goals` ends at the next `#`. Bounding at *any* heading reads only the entries above the first `###` and reports every grouped entry as missing — on the Development Pipeline Throughput page that is a diff of 28 against a true diff of 0.
+- **A declaration, not a mention.** Only `^- \[\[<Name>\]\]` at line start counts; a numbered list item, a bold prose line and a wikilink mid-sentence are the page's prose.
+- **The status token is the first backticked span that is a known goal status**, not the first backticked span — an entry reading ``— SC5 lever on `intake/spec`, `in_progress` (phase `planning`)`` reports `in_progress`, and a phase value is never mistaken for a status.
+
+⚠️ Some entries carry no status token — e.g. `- [[Goal]] — SC1`. Those come back as `none` and are left untouched; rewriting them would destroy the topic-SC mapping.
+
+⚠️ **`VAULT_CLI_SCRIPTS` is not set by this script's caller.** Resolve it once at the top of your run, exactly as `taggers` does below, and use the same value for both.
 
 ### taggers(topic_name)
 

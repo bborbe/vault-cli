@@ -38,7 +38,15 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 # vault folder names contain spaces ("24 Goals", "23 Topics"), so an unquoted
 # glob word-splits into `24` and `Goals/*.md` and the scan silently reads the
 # wrong files. `{} +` also means awk never runs at all when nothing matches.
+# LC_ALL=C is load-bearing, not hygiene. The parser strips a UTF-8 BOM by
+# building it with sprintf("%c%c%c", 239, 187, 191), and in a UTF-8 locale gawk
+# encodes each of those as a TWO-byte character instead of emitting the byte —
+# so the constructed value stops matching the real BOM and every BOM-prefixed
+# goal is silently dropped from the membership set. BSD awk is byte-oriented
+# either way, which is why this passes on a Mac and failed in CI. Under C every
+# awk (gawk, mawk, BSD) works in bytes, and byte semantics is what the parser
+# and its tests assume throughout.
 find "$GOALS_DIR" -maxdepth 1 -name '*.md' -exec \
-  awk -v t="$TOPIC" -f "$HERE/update-topic-taggers.awk" {} + |
+  env LC_ALL=C awk -v t="$TOPIC" -f "$HERE/update-topic-taggers.awk" {} + |
   sed 's|.*/||; s|\.md$||' |
   sort -u

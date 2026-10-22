@@ -28,9 +28,10 @@ FNR == 1 {
   # file is skipped — a member silently absent from the set.
   #
   # Built with sprintf("%c%c%c", …) and compared via substr() rather than written
-  # as an octal escape in a regex: not every awk (BSD awk on macOS among them)
-  # interprets `\357` in an ERE, and a silently-unstripped BOM is exactly the
-  # failure this line exists to prevent.
+  # as an octal escape in a regex: BSD awk does not interpret `\357` in an ERE,
+  # and a silently-unstripped BOM is exactly the failure this line exists to
+  # prevent. The wrapper runs this under LC_ALL=C, which is what makes `%c` emit
+  # a byte under gawk too — see the comment there.
   bom = sprintf("%c%c%c", 239, 187, 191)
   if (substr($0, 1, 3) == bom) $0 = substr($0, 4)
 }

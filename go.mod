@@ -3,7 +3,7 @@ module github.com/bborbe/vault-cli
 go 1.27.3
 
 require (
-	github.com/bborbe/collection v1.21.3
+	github.com/bborbe/collection v1.21.4
 	github.com/bborbe/cqrs v0.6.13
 	github.com/bborbe/errors v1.6.4
 	github.com/bborbe/kafka v1.28.6
@@ -29,7 +29,7 @@ require (
 	github.com/bborbe/kv v1.21.19 // indirect
 	github.com/bborbe/math v1.4.16 // indirect
 	github.com/bborbe/parse v1.12.4 // indirect
-	github.com/bborbe/run v1.11.2 // indirect
+	github.com/bborbe/run v1.11.3 // indirect
 	github.com/bborbe/sentry v1.10.6 // indirect
 	github.com/bborbe/strimzi v1.8.22 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect

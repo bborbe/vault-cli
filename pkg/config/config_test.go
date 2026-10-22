@@ -610,6 +610,34 @@ vaults:
 				Expect(err).To(BeNil())
 				Expect(string(data)).NotTo(ContainSubstring("task_template"))
 			})
+
+			It("preserves worker_launcher and manager_launcher across a reload", func() {
+				configData := `vaults:
+  main:
+    name: main
+    path: /vault/main
+    claude_script: /s/x
+    worker_launcher: /s/x-deepseek
+    manager_launcher: /s/x-claude
+`
+				Expect(os.WriteFile(configPath, []byte(configData), 0600)).To(Succeed())
+				loader = config.NewLoader(configPath)
+
+				loaded, err := loader.Load(ctx)
+				Expect(err).To(BeNil())
+				Expect(loaded.Vaults["main"].WorkerLauncher).To(Equal("/s/x-deepseek"))
+				Expect(loaded.Vaults["main"].ManagerLauncher).To(Equal("/s/x-claude"))
+
+				data, err := yaml.Marshal(loaded)
+				Expect(err).To(BeNil())
+				Expect(string(data)).To(ContainSubstring("worker_launcher: /s/x-deepseek"))
+				Expect(string(data)).To(ContainSubstring("manager_launcher: /s/x-claude"))
+
+				var reloaded config.Config
+				Expect(yaml.Unmarshal(data, &reloaded)).To(Succeed())
+				Expect(reloaded.Vaults["main"].WorkerLauncher).To(Equal("/s/x-deepseek"))
+				Expect(reloaded.Vaults["main"].ManagerLauncher).To(Equal("/s/x-claude"))
+			})
 		})
 
 		Context("GetAllVaults resolves template paths", func() {

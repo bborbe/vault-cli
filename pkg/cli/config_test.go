@@ -213,6 +213,37 @@ vaults:
 		// failed run cannot satisfy this spec.
 		Expect(out).To(ContainSubstring(`"name": "test"`))
 		Expect(out).NotTo(ContainSubstring("a2a_default_cluster"))
+		// A vault with neither launcher key nor claude_script emits neither.
+		Expect(out).NotTo(ContainSubstring("worker_launcher"))
+		Expect(out).NotTo(ContainSubstring("manager_launcher"))
+	})
+
+	It("emits the resolved worker and manager launchers", func() {
+		scriptsDir := filepath.Join(tempDir, "scripts")
+		Expect(os.MkdirAll(scriptsDir, 0750)).To(Succeed())
+		for _, name := range []string{"cc-private-deepseek", "cc-private-claude"} {
+			Expect(os.WriteFile(filepath.Join(scriptsDir, name), []byte("#!/bin/sh\n"), 0600)).
+				To(Succeed())
+		}
+		launcherConfig := fmt.Sprintf(`vaults:
+  test:
+    name: test
+    path: %s
+    claude_script: %s/cc-private
+`, vaultDir, scriptsDir)
+		Expect(os.WriteFile(configPath, []byte(launcherConfig), 0600)).To(Succeed())
+
+		out, err := captureStdout(func() error {
+			return cli.Run(ctx, []string{"--config", configPath, "config", "list", "--output", "json"})
+		})
+		Expect(err).To(BeNil())
+		Expect(out).To(ContainSubstring(`"name": "test"`))
+		Expect(out).To(ContainSubstring(
+			`"worker_launcher": "` + filepath.Join(scriptsDir, "cc-private-deepseek") + `"`,
+		))
+		Expect(out).To(ContainSubstring(
+			`"manager_launcher": "` + filepath.Join(scriptsDir, "cc-private-claude") + `"`,
+		))
 	})
 
 	It("emits a hand-edited malformed value verbatim rather than refusing it", func() {

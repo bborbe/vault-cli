@@ -3195,6 +3195,17 @@ func buildWatchTargets(vaults []*config.Vault) []ops.WatchTarget {
 	return targets
 }
 
+// configListEntry is the JSON projection `config list --output json` emits.
+// Embedding the stored vault keeps every existing key unchanged and cannot
+// drift when config.Vault grows; the two outer fields shadow the stored
+// launcher keys with the resolved values a consumer reads instead of
+// re-deriving them from claude_script.
+type configListEntry struct {
+	*config.Vault
+	WorkerLauncher  string `json:"worker_launcher,omitempty"`
+	ManagerLauncher string `json:"manager_launcher,omitempty"`
+}
+
 func createConfigListCommand(
 	ctx context.Context,
 	configLoader *config.Loader,
@@ -3212,7 +3223,15 @@ func createConfigListCommand(
 			}
 
 			if OutputFormat(*outputFormat).IsJSON() {
-				return PrintJSON(vaults)
+				entries := make([]configListEntry, 0, len(vaults))
+				for _, vault := range vaults {
+					entries = append(entries, configListEntry{
+						Vault:           vault,
+						WorkerLauncher:  vault.GetWorkerLauncher(),
+						ManagerLauncher: vault.GetManagerLauncher(),
+					})
+				}
+				return PrintJSON(entries)
 			}
 
 			for _, vault := range vaults {

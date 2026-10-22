@@ -32,17 +32,23 @@ type Notification struct {
 
 // Vault represents a single vault configuration.
 type Vault struct {
-	Path              string   `yaml:"path"                           json:"path"`
-	Name              string   `yaml:"name"                           json:"name"`
-	TasksDir          string   `yaml:"tasks_dir,omitempty"            json:"tasks_dir,omitempty"`
-	GoalsDir          string   `yaml:"goals_dir,omitempty"            json:"goals_dir,omitempty"`
-	ThemesDir         string   `yaml:"themes_dir,omitempty"           json:"themes_dir,omitempty"`
-	ObjectivesDir     string   `yaml:"objectives_dir,omitempty"       json:"objectives_dir,omitempty"`
-	VisionDir         string   `yaml:"vision_dir,omitempty"           json:"vision_dir,omitempty"`
-	DailyDir          string   `yaml:"daily_dir,omitempty"            json:"daily_dir,omitempty"`
-	KnowledgeDir      string   `yaml:"knowledge_dir,omitempty"        json:"knowledge_dir,omitempty"`
-	TopicsDir         string   `yaml:"topics_dir,omitempty"           json:"topics_dir,omitempty"`
-	ClaudeScript      string   `yaml:"claude_script,omitempty"        json:"claude_script,omitempty"`
+	Path          string `yaml:"path"                           json:"path"`
+	Name          string `yaml:"name"                           json:"name"`
+	TasksDir      string `yaml:"tasks_dir,omitempty"            json:"tasks_dir,omitempty"`
+	GoalsDir      string `yaml:"goals_dir,omitempty"            json:"goals_dir,omitempty"`
+	ThemesDir     string `yaml:"themes_dir,omitempty"           json:"themes_dir,omitempty"`
+	ObjectivesDir string `yaml:"objectives_dir,omitempty"       json:"objectives_dir,omitempty"`
+	VisionDir     string `yaml:"vision_dir,omitempty"           json:"vision_dir,omitempty"`
+	DailyDir      string `yaml:"daily_dir,omitempty"            json:"daily_dir,omitempty"`
+	KnowledgeDir  string `yaml:"knowledge_dir,omitempty"        json:"knowledge_dir,omitempty"`
+	TopicsDir     string `yaml:"topics_dir,omitempty"           json:"topics_dir,omitempty"`
+	ClaudeScript  string `yaml:"claude_script,omitempty"        json:"claude_script,omitempty"`
+	// WorkerLauncher is the launcher a worker session of this vault opens on.
+	// Empty means "derive from claude_script" via GetWorkerLauncher.
+	WorkerLauncher string `yaml:"worker_launcher,omitempty" json:"worker_launcher,omitempty"`
+	// ManagerLauncher is the launcher a manager session of this vault opens on.
+	// Empty means "derive from claude_script" via GetManagerLauncher.
+	ManagerLauncher   string   `yaml:"manager_launcher,omitempty"     json:"manager_launcher,omitempty"`
 	SessionProjectDir string   `yaml:"session_project_dir,omitempty"  json:"session_project_dir,omitempty"`
 	WorkOnCommand     string   `yaml:"work_on_command,omitempty"      json:"work_on_command,omitempty"`
 	WorkOnGoalCommand string   `yaml:"work_on_goal_command,omitempty" json:"work_on_goal_command,omitempty"`
@@ -187,6 +193,59 @@ func (v *Vault) GetClaudeScript() string {
 		return v.ClaudeScript
 	}
 	return "claude"
+}
+
+// GetWorkerLauncher returns the launcher a worker session of this vault opens
+// on. An explicitly configured WorkerLauncher wins; otherwise the value is
+// derived from the raw ClaudeScript by swapping its role suffix for -deepseek.
+//
+// This accessor touches the filesystem: a derived candidate is returned only
+// when it exists. That check is what stops it inventing a launcher from a
+// script outside the cc-* convention — `claude.sh` would otherwise derive
+// `claude.sh-deepseek`, which names nothing and would be exec'd literally. When
+// the candidate does not exist, or ClaudeScript is empty, it returns "" and the
+// caller keeps its own fallback.
+func (v *Vault) GetWorkerLauncher() string {
+	return v.resolveRoleLauncher(v.WorkerLauncher, "-deepseek", "-claude")
+}
+
+// GetManagerLauncher returns the launcher a manager session of this vault opens
+// on. An explicitly configured ManagerLauncher wins; otherwise the value is
+// derived from the raw ClaudeScript by swapping its role suffix for -claude.
+//
+// Like GetWorkerLauncher this accessor touches the filesystem: a derived
+// candidate is returned only when it exists, so a script outside the cc-*
+// convention never produces a fabricated path. When the candidate does not
+// exist, or ClaudeScript is empty, it returns "" and the caller keeps its own
+// fallback.
+func (v *Vault) GetManagerLauncher() string {
+	return v.resolveRoleLauncher(v.ManagerLauncher, "-claude", "-deepseek")
+}
+
+// resolveRoleLauncher returns explicit when set, expanding a bare name beside
+// the configured claude_script's directory so a consumer receives a path it can
+// exec. Otherwise it derives the sibling of claude_script whose role suffix is
+// roleSuffix, returning "" unless that file exists on disk.
+func (v *Vault) resolveRoleLauncher(explicit, roleSuffix, stripSuffix string) string {
+	if explicit != "" {
+		if strings.Contains(explicit, "/") {
+			return explicit
+		}
+		return filepath.Join(filepath.Dir(v.ClaudeScript), explicit)
+	}
+	if v.ClaudeScript == "" {
+		return ""
+	}
+	dir, base := filepath.Split(v.ClaudeScript)
+	base = strings.TrimSuffix(base, stripSuffix)
+	if !strings.HasSuffix(base, roleSuffix) {
+		base += roleSuffix
+	}
+	candidate := filepath.Join(dir, base)
+	if _, err := os.Stat(candidate); err != nil {
+		return ""
+	}
+	return candidate
 }
 
 // FindConfigDir returns the config directory for the given tool, applying

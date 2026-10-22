@@ -6,6 +6,8 @@ package config_test
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -121,6 +123,98 @@ var _ = Describe("Vault", func() {
 			vault := &config.Vault{}
 			Expect(vault.GetClaudeScript()).To(Equal("claude"))
 		})
+	})
+
+	Describe("GetWorkerLauncher and GetManagerLauncher", func() {
+		var dir string
+
+		BeforeEach(func() {
+			dir = GinkgoT().TempDir()
+		})
+
+		writeSiblings := func(names ...string) {
+			for _, name := range names {
+				Expect(os.WriteFile(filepath.Join(dir, name), []byte("#!/bin/sh\n"), 0600)).
+					To(Succeed())
+			}
+		}
+
+		// want values are relative to the fixture directory unless absolute or empty.
+		resolveWant := func(name string) string {
+			if name == "" || filepath.IsAbs(name) {
+				return name
+			}
+			return filepath.Join(dir, name)
+		}
+
+		DescribeTable(
+			"resolves a role launcher",
+			func(
+				script string,
+				siblings []string,
+				workerExplicit, managerExplicit, wantWorker, wantManager string,
+			) {
+				writeSiblings(siblings...)
+				vault := &config.Vault{
+					WorkerLauncher:  workerExplicit,
+					ManagerLauncher: managerExplicit,
+				}
+				if script != "" {
+					vault.ClaudeScript = filepath.Join(dir, script)
+				}
+
+				Expect(vault.GetWorkerLauncher()).To(Equal(resolveWant(wantWorker)))
+				Expect(vault.GetManagerLauncher()).To(Equal(resolveWant(wantManager)))
+			},
+			Entry(
+				"derives both siblings when neither key is set",
+				"cc-private",
+				[]string{"cc-private-deepseek", "cc-private-claude"},
+				"", "", "cc-private-deepseek", "cc-private-claude",
+			),
+			Entry(
+				"returns an explicit bare worker value beside the script directory",
+				"cc-private",
+				[]string{"cc-private-deepseek", "cc-private-claude"},
+				"cc-private-deepseek", "", "cc-private-deepseek", "cc-private-claude",
+			),
+			Entry(
+				"returns an explicit manager value as given, even when it does not exist",
+				"cc-private",
+				[]string{"cc-private-deepseek", "cc-private-claude"},
+				"", "/opt/manager-claude", "cc-private-deepseek", "/opt/manager-claude",
+			),
+			Entry(
+				"derives the worker sibling across an already-suffixed -claude script",
+				"cc-private-claude",
+				[]string{"cc-private-deepseek", "cc-private-claude"},
+				"", "", "cc-private-deepseek", "cc-private-claude",
+			),
+			Entry(
+				"derives the manager sibling across an already-suffixed -deepseek script",
+				"cc-private-deepseek",
+				[]string{"cc-private-deepseek", "cc-private-claude"},
+				"", "", "cc-private-deepseek", "cc-private-claude",
+			),
+			Entry(
+				"returns empty when the derived candidate does not exist",
+				"cc-private",
+				nil,
+				"", "", "", "",
+			),
+			Entry(
+				"returns empty for a non-conforming script rather than inventing a name",
+				"claude.sh",
+				nil,
+				"", "", "", "",
+			),
+			Entry(
+				"returns empty when claude_script is empty",
+				"",
+				nil,
+				"", "", "", "",
+			),
+		)
 	})
 
 	Describe("GetSessionProjectDir", func() {

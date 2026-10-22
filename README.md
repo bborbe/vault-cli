@@ -42,6 +42,9 @@ vaults:
   personal:
     name: personal
     path: ~/Documents/Obsidian/Personal
+    claude_script: ~/bin/cc-private
+    worker_launcher: ~/bin/cc-private-deepseek
+    manager_launcher: ~/bin/cc-private-claude
     tasks_dir: "25 Tasks"
     goals_dir: "24 Goals"
     topics_dir: "23 Topics"
@@ -197,6 +200,11 @@ to the named vault's entry in the config file under the key `baseline`;
 `config list --output json` then emits for consumers. The name is validated as an
 RFC 1123 label on write and never on read; `docs/a2a-default-cluster.md` documents
 the contract.
+
+`config list --output json` also emits a vault's resolved `worker_launcher` and
+`manager_launcher`, derived from `claude_script` when the keys are unset;
+`docs/worker-manager-launchers.md` documents the derivation and the JSON
+contract consumers read.
 
 ### filename
 

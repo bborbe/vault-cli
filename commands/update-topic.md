@@ -1,7 +1,7 @@
 ---
 description: Update a topic page from disk — propose missing `## Goals` members, refresh listed goal statuses, re-date Current Reading, append Progress — delegates to topic-manager-agent
 allowed-tools: [Read, Glob, Bash, AskUserQuestion, Task]
-argument-hint: [topic name] [--non-interactive]
+argument-hint: "[topic name] [--non-interactive]"
 ---
 
 Reconcile a topic page with disk: detect the topic, propose any goal whose `topics:` names it but which is absent from `## Goals`, refresh each listed goal's status, re-date `# Current Reading`, and append a dated `# Progress` entry. Every `## Goals` addition is confirmation-gated — never silent.
@@ -33,7 +33,7 @@ Never hardcode the folder — the per-vault folder is declared, not fixed:
 TOPICS_DIR=$(vault-cli config list --output json 2>/dev/null | python3 -c "import json,sys,os;cwd=os.path.realpath(os.getcwd());d=json.load(sys.stdin);print(next((v.get('topics_dir') or '23 Topics' for v in d if os.path.realpath(os.path.expanduser(v['path']))==cwd),'23 Topics'))" 2>/dev/null || echo "23 Topics")
 ```
 
-The `|| echo` is a last-resort fallback for a vault with no config entry, not a default to prefer. A failed lookup yields no `Glob` match, so the command STOPs rather than writing to the wrong folder.
+The `|| echo` is a last-resort fallback for a vault with no config entry, not a default to prefer. Note what it does **not** guarantee: it always supplies a real directory name, so a vault with no config entry whose tree also happens to contain a `23 Topics` folder proceeds against that folder rather than stopping. The STOP guarantee below comes from the `Glob` finding no page, not from the fallback.
 
 ### 3. Detect the topic (inline)
 

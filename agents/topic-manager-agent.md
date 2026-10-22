@@ -53,7 +53,11 @@ The page **basename without `.md`**. This is the value the command printed as `D
 
 ### parse_goal_entries(page_path)
 
-Read the `## Goals` section — its body runs to the next `## ` or `# ` heading. Within it, an entry is a line matching `^- \[\[<Name>\]\]` at line start. **Nothing looser**: a prose wikilink recording a removal is not a declaration.
+Read the Goals section. The heading level is `##` **or** `#` — both are valid, and `agents/goal-manager-agent.md` treats `# Goals` as a topic heading; an `##`-only scan returns zero entries on an H1 page and then proposes adding every tagging goal.
+
+Its body runs to the next heading of **any** level (`^#{1,6} `). Bounding only at `## ` or `# ` is not enough: a `### ` subsection does not match either, so the scan continues into it and a bulleted `- [[X]]` there is read as a goal entry whose status token then gets rewritten.
+
+Within the section, an entry is a line matching `^- \[\[<Name>\]\]` at line start. **Nothing looser**: a prose wikilink recording a removal is not a declaration.
 
 Return each entry with:
 - `name` — the wikilink target
@@ -116,11 +120,11 @@ Never guess a status for an unresolved entry, and never silently skip one: an un
 
 6. **Confirm before writing.** `AskUserQuestion`: add the listed missing goals? Decline → write no `## Goals` addition, print `ℹ️ Declined — ## Goals unchanged`, and continue to step 8 (the status refresh and Progress entry are not membership changes).
 
-7. **Apply the confirmed additions** — insert each as `- [[Goal Name]]` at the end of the `## Goals` section's entry list, in the page's existing shape. Never reorder or rewrite existing entries.
+7. **Apply the confirmed additions** — insert each as `- [[Goal Name]]` at the end of the Goals section's entry list (whichever heading level that page uses), in the page's existing shape. Never reorder or rewrite existing entries.
 
 8. **Refresh status tokens** — for each entry carrying a status token whose `on_disk_status` differs, rewrite **only that token**, preserving the entry's trailing clause verbatim. Entries with no status token are skipped.
 
-9. **Re-date `# Current Reading`** — if the heading carries a date suffix (`# Current Reading 2026-10-19`), rewrite it to today's date. Do not touch its body: it holds measurements, and this agent has none to add. Because a re-date with no new measurement can read as fresh data, step 10's Progress entry must say `no new reading` explicitly — that is what keeps a no-op run distinguishable from one that measured something.
+9. **Re-date Current Reading** — accept the heading at either level (`# Current Reading` or `## Current Reading`); if it carries a date suffix (`Current Reading 2026-10-19`), rewrite it to today's date. Do not touch its body: it holds measurements, and this agent has none to add. Because a re-date with no new measurement can read as fresh data, step 10's Progress entry must say `no new reading` explicitly — that is what keeps a no-op run distinguishable from one that measured something.
 
 10. **Append `# Progress`** — one dated entry under the section. Use the page's **existing** heading at either level (`# Progress` or `## Progress`); if neither exists, do not invent one — report `⚠ no Progress section — not appended` and name it as a documentation gap.
     ```

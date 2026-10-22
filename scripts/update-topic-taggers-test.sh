@@ -16,6 +16,11 @@
 #     `[[German-Spanish]]`.
 #   - the bare list form `topics: [Spanish]` and the legacy singular `topic:`
 #     are both real frontmatter shapes in this vault.
+#   - a file the parser fails to read is SILENTLY ABSENT from the set, which is
+#     indistinguishable from a correct exclusion and drops a goal from the diff
+#     without a word. So the shapes that used to do that — a UTF-8 BOM, a `---`
+#     horizontal rule in a file with no frontmatter, a block list at column 0 —
+#     are each pinned, and so are the wrapper's two error exits.
 #
 # Run from repo root (Makefile target `test`).
 
@@ -114,6 +119,43 @@ topic: '[[Legacy Topic]]'
 # Goal
 EOF
 
+# No frontmatter, with a `---` horizontal rule further down. That rule is not an
+# opener: treating it as one scans the body as frontmatter and reports a member
+# the file never declared.
+cat > "$GOALS/No Frontmatter.md" <<'EOF'
+# Goal
+
+Some prose.
+
+---
+
+topics:
+    - '[[Body Rule Topic]]'
+EOF
+
+# A UTF-8 BOM ahead of the opening `---`. Left in place, line 1 fails the
+# delimiter match and the whole file is skipped — the member disappears.
+printf '\357\273\277' > "$GOALS/BOM Member.md"
+cat >> "$GOALS/BOM Member.md" <<'EOF'
+---
+status: in_progress
+topics:
+    - '[[BOM Topic]]'
+---
+# Goal
+EOF
+
+# A block list at column 0 — valid YAML, and missed by a continuation rule that
+# insists on leading whitespace.
+cat > "$GOALS/Column Zero List.md" <<'EOF'
+---
+status: in_progress
+topics:
+- '[[Column Zero Topic]]'
+---
+# Goal
+EOF
+
 echo "update-topic-taggers:"
 
 expect "field-scoped wikilink membership, spaced folder, others excluded" \
@@ -139,6 +181,26 @@ expect "legacy singular topic: key is read" \
 expect "absent topic yields no output" \
   "" \
   "$(bash "$SCRIPT" "$GOALS" "No Such Topic")"
+
+expect "a later --- is a horizontal rule, not a frontmatter opener" \
+  "" \
+  "$(bash "$SCRIPT" "$GOALS" "Body Rule Topic")"
+
+expect "UTF-8 BOM before the opening --- does not drop the file" \
+  "BOM Member" \
+  "$(bash "$SCRIPT" "$GOALS" "BOM Topic")"
+
+expect "column-0 block list is read" \
+  "Column Zero List" \
+  "$(bash "$SCRIPT" "$GOALS" "Column Zero Topic")"
+
+# The wrapper's own error paths. Both exit 2 rather than printing an empty set,
+# because an empty set reads as "page matches disk".
+bash "$SCRIPT" >/dev/null 2>&1
+expect "no arguments exits 2" "2" "$?"
+
+bash "$SCRIPT" "$GOALS" "" >/dev/null 2>&1
+expect "empty topic exits 2" "2" "$?"
 
 # A missing directory must fail loudly, never report an empty membership set:
 # an empty diff reads as "page matches disk" and would hide a wrong folder.

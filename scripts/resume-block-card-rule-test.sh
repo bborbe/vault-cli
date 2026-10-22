@@ -91,12 +91,17 @@ check() { # check <label> <want> <got>
 # UNREADABLE file reports nothing and the half passes without measuring anything.
 # That is the second time this class surfaced in this file (the first was a missing
 # file), which is why both halves now separate 0 / 1 / 2+ rather than 0 / non-0.
+# ⚠️ **A non-regular file is UNREADABLE before grep ever runs.** grep's exit on a
+# directory is not portable: BSD and GNU grep exit 2 ("Is a directory"), but BusyBox
+# grep — the one in the Alpine github-update-go-agent image — exits 1, which reads as
+# "no match" and let self-check 5 report []. Measured 2026-10-22.
 GREP_NO_MATCH=1
 
 # missing_markers <root> <file> — the markers the file does not carry, or a single
 # UNREADABLE line when the file cannot be read at all.
 missing_markers() {
 	local root=$1 file=$2 m rc
+	[ -f "$root/$file" ] || { printf 'UNREADABLE: %s\n' "$file"; return 0; }
 	for m in "${MARKERS[@]}"; do
 		grep -qF -- "$m" "$root/$file" 2>/dev/null
 		rc=$?
@@ -113,6 +118,7 @@ missing_markers() {
 # or a single UNREADABLE line when the file cannot be read at all.
 restated_markers() {
 	local root=$1 file=$2 m rc
+	[ -f "$root/$file" ] || { printf 'UNREADABLE: %s\n' "$file"; return 0; }
 	for m in "${MARKERS[@]}"; do
 		grep -qF -- "$m" "$root/$file" 2>/dev/null
 		rc=$?

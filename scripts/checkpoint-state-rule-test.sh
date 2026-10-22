@@ -88,12 +88,16 @@ check() { # check <label> <want> <got>
 # Both helpers below separate 0 / 1 / 2+ rather than 0 / non-0 for that reason, and
 # their polarities are named in their own first line so a call site cannot invert
 # them by accident — which is exactly how this file's first draft failed.
+# ⚠️ **A non-regular file is UNREADABLE before grep ever runs.** grep's exit on a
+# directory is not portable: BSD and GNU grep exit 2, BusyBox grep (the Alpine
+# github-update-go-agent image) exits 1 — read as "no match". Measured 2026-10-22.
 GREP_NO_MATCH=1
 
 # absent_lines <root> <file> — prints each pattern NOT found (the "must be present"
 # half), or one UNREADABLE line when the file cannot be read.
 absent_lines() {
 	local root=$1 file=$2 pat rc
+	[ -f "$root/$file" ] || { printf 'UNREADABLE: %s\n' "$file"; return 0; }
 	for pat in "${MARKERS[@]}"; do
 		grep -qF -- "$pat" "$root/$file" 2>/dev/null
 		rc=$?
@@ -110,6 +114,7 @@ absent_lines() {
 # half), or one UNREADABLE line when the file cannot be read.
 present_lines() {
 	local root=$1 file=$2 pat rc
+	[ -f "$root/$file" ] || { printf 'UNREADABLE: %s\n' "$file"; return 0; }
 	for pat in "${MARKERS[@]}"; do
 		grep -qF -- "$pat" "$root/$file" 2>/dev/null
 		rc=$?

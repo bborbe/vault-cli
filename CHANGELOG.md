@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.178.1
 
 - fix: **`/vault-cli:update-topic` reads goals grouped under `###` subsections.** v0.178.0 bounded the Goals section at the next heading of *any* level, so it stopped at the first `### ` and read only the entries above it: on `Development Pipeline Throughput`, whose 31 entries keep 29 of themselves inside `### Lever A/B/C/D`, it reported **28 goals missing against a true diff of 0** and would have duplicated them all into `## Goals`. The bound is now **level-relative** — `## Goals` runs to the next `#` or `##`, `# Goals` to the next `#` — which keeps the protection against a sibling section while including the grouping the page actually uses. ⚠️ **The entry rule is now a shipped, tested script** rather than prose the model re-derives each run: `scripts/update-topic-goal-entries.sh` prints `<name><TAB><status token or "none">`, exits **3** on a page with no Goals heading instead of printing an empty list (which reads as "page matches disk" and would propose adding every tagging goal), and `scripts/update-topic-goal-entries-test.sh` pins the grouped-page case, the H1 case, a deeper `####` sub-grouping that must not end the section, a numbered list item and a bold prose line that must not be entries, and the token rule. ⚠️ **The status token is the first backticked span that is a known goal status**, not the first backticked span: a real entry reads ``— SC5 lever on `intake/spec`, `in_progress` (phase `planning`)``, where the first span is a flow-stage name and taking it would rewrite the wrong token.
 

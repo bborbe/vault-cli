@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.178.2
 
 - fix: **`scripts/resume-block-card-rule-test.sh` and `scripts/checkpoint-state-rule-test.sh` pass inside the Alpine github-update-go-agent image.** Their unreadable-file self-check passes a directory to `grep -qF` and expects exit 2. BusyBox grep exits 1 on a directory, which reads as "no match", so `make precommit` exited 2 in every vault-cli update-go Job while passing on macOS. Both helpers now report `UNREADABLE` for any non-regular file before calling grep, so the check no longer depends on how grep treats a directory.
 

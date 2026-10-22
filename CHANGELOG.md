@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- chore: update github.com/bborbe/collection to v1.21.4
+
 ## v0.179.0
 
 - feat: add per-vault `worker_launcher` and `manager_launcher` config keys with `GetWorkerLauncher`/`GetManagerLauncher` accessors that derive the role sibling of `claude_script` when unset (only when the candidate exists), and emit the resolved values from `config list --output json`

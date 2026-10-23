@@ -8,6 +8,11 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: `session-close` mode 2 no longer ends on an operator `pick any` wrap-up menu — the session takes the reflect default itself (Phase 9.4: `/vault-cli:reflect` only when the Phase 8 reflect signal fired *and* the session recorded a finding that names no existing KB page, else nothing) and exits via `session-self-exit`; the menu minted an attention card that made `session-self-exit.py` refuse, so a finished worker held its pane open until a human answered
+- feat: `reflect` gains a `--non-interactive` contract (no vault picker, no learning picker, no `Proceed?` prompt; takes every significant learning, prefers ENHANCE over a near-duplicate, ends on one `reflect: wrote …` / `reflect: skipped — …` line) so a caller can run it without blocking the session it is closing
+
 ## v0.180.0
 
 - feat: export `storage.SerializeFrontmatter` so a caller writing the rendered bytes through a remote store renders through the same serializer as every vault-cli write path instead of marshalling YAML itself

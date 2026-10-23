@@ -1,5 +1,6 @@
 ---
 description: Extract high-significance learnings from this conversation and document them in the vault's Knowledge Base — works in any vault via vault-cli config
+argument-hint: "[--non-interactive]"
 allowed-tools:
   - Read
   - Write
@@ -15,6 +16,20 @@ allowed-tools:
 Extract high-significance learnings from the current conversation and document them in the active vault's Knowledge Base directory.
 
 This command **must stay inline** — it analyzes the parent conversation; a sub-agent cannot see the conversation context.
+
+## Non-interactive contract
+
+If the arguments contain `--non-interactive`, strip that token and run under **NO-ASK**: never call `AskUserQuestion`. The caller is a session-close path invoking this command so a finished session can exit — an ask here would block the very exit it is meant to complete, which is worse than not running it at all.
+
+Under NO-ASK:
+
+- **Vault (the *Runtime context* section above):** never ask which vault. Use the vault matched from cwd. If none matches, **write nothing** and print `reflect: skipped — cwd matches no configured vault`. Never fall back to a guessed vault — a reflection written into the wrong vault is worse than none.
+- **Selection (Step 2):** no picker. Take **every** learning that passed the significance bar; if none did, write nothing and print `reflect: skipped — no significant learnings`.
+- **Action (Step 3):** no `Proceed?` prompt and no `REVIEW` menu. Take the recommended action — `ENHANCE` on a ≥ 0.6 match, `CREATE` below 0.4, and in the 0.4–0.6 band **prefer `ENHANCE` of the top match** over creating a near-duplicate. The caller has already decided to run reflect; the choices that remain are ones this command can make itself.
+- **Sensitivity:** NO-ASK removes the operator's review of the learning list, so the filter must carry the check the operator would have made. **Never write a learning whose text carries a credential, token, connection string, private key, or personal data** — skip it and say so in the terminal line. **This is a content scan over the drafted learning text, not a filename check.** Before writing, skip the learning on any hit for: `-----BEGIN … PRIVATE KEY-----`; the AWS key prefixes `AKIA` / `ASIA`; GitHub tokens `ghp_` / `gho_` / `github_pat_`; `sk-`; Slack tokens `xox[baprs]-`; a `Bearer ` token; a connection string with embedded credentials (`scheme://user:pass@`); and any `password=` / `token=` / `secret=` assignment with a non-empty value. The Phase 3 filename list in `commands/session-close.md` (`.env`, `*.key`, `credentials.json`) is a floor for *files* and cannot see a secret pasted into the conversation — which is exactly what an unreviewed write would publish. The significance filter (reusable / non-obvious / not-in-code) does not test sensitivity at all, so this scan is the only thing standing between the conversation and the vault.
+- **Terminal line:** every NO-ASK run ends with exactly one line — `reflect: wrote <N> page(s): [[<a>]], [[<b>]]`, `reflect: skipped — <reason>`, or `reflect: failed — <reason>` — so the calling session can record the outcome without re-reading the vault. **`failed` is required, not optional:** a run that wrote some pages and then errored must print `reflect: failed — <reason>` (naming what it did write), never `wrote`, so the caller's `failed:` branch is reachable.
+
+**If any step cannot proceed without a question, print the `skipped` line and stop** — never leave the caller waiting on a prompt.
 
 ## Runtime context
 
@@ -180,7 +195,7 @@ Wait for user confirmation.
 **CREATE (new page):**
 
 1. Pick a filename (PascalCase or natural language matching existing KB pages)
-2. **Pre-write duplicate check.** The file does not exist yet, so `check_duplicates(file_path=…)` cannot be called on it — it takes a path to an *existing* file. Instead run one final `mcp__semantic-search__search_related` on the **drafted summary sentence** (not the title), and treat any hit ≥ 0.6 under `<knowledge_dir>/` as a duplicate → open that page and ask the user whether to ENHANCE it instead. Only if `DUPLICATE_CHECK_AVAILABLE` and the file already exists on a re-run does `check_duplicates` apply.
+2. **Pre-write duplicate check.** The file does not exist yet, so `check_duplicates(file_path=…)` cannot be called on it — it takes a path to an *existing* file. Instead run one final `mcp__semantic-search__search_related` on the **drafted summary sentence** (not the title), and treat any hit ≥ 0.6 under `<knowledge_dir>/` as a duplicate → open that page and ask the user whether to ENHANCE it instead. **Under `--non-interactive` there is no one to ask: take the ENHANCE branch directly** — the Action bullet above already prescribes exactly that for the ≥ 0.6 band. Only if `DUPLICATE_CHECK_AVAILABLE` and the file already exists on a re-run does `check_duplicates` apply.
 3. Create the file at `<knowledge_dir>/<filename>.md`:
 
    ```markdown

@@ -28,7 +28,7 @@ allowed-tools:
 
 End-of-session safety check. Verifies progress is documented, working trees are clean, and nothing important is still in flight. **Output is terse:** either `✅ Nothing to do — safe to close Claude :)` or a short numbered list of open items. Never prints a checklist table. Never asks yes/no.
 
-**A clean verdict releases the worker's own slot.** After printing `✅ Nothing to do — safe to close Claude :)`, the command runs `scripts/session-self-exit.py` (Phase 9.5), which ends the process only when every condition is re-verified on disk: the task is terminal, no box is open, no attention card is open, and this session owns its own pane. A refusal prints one named line and the session stays alive. A session with outstanding items is never auto-closed.
+**A clean verdict releases the worker's own slot.** On a clean verdict — mode 1 or mode 2 — the command runs `scripts/session-self-exit.py` (Phase 9.5), which ends the process only when every condition is re-verified on disk: the task is terminal, no box is open, no attention card is open, and this session owns its own pane. A refusal prints one named line and the session stays alive. A session with outstanding items is never auto-closed.
 
 This command **must stay inline** — it analyzes the parent conversation (touched files, completion signals, reflect + self-improve signals); a sub-agent cannot see the conversation.
 
@@ -526,7 +526,7 @@ This is deliberately a flag, not an auto-fix: silently generating an entry here 
 
 ### Phase 8: Detect reflect-worthy signals
 
-Decide whether the session produced enough durable learning to warrant `/vault-cli:reflect`. Reflect is expensive (extracts → writes KB entries) and noisy if run on trivial sessions; auto-invoking it always erodes KB quality. Instead, **detect signals** and surface a suggestion only when they fire.
+Decide whether the session produced enough durable learning to warrant `/vault-cli:reflect`. Reflect is expensive (extracts → writes KB entries) and noisy if run on trivial sessions; running it on every session would erode KB quality. This phase therefore **only detects signals**. Whether to *run* reflect is decided in **Phase 9.4**, which applies the finding rule to what is detected here — do not read this phase's caution as a standing ban on auto-reflect.
 
 Resolve the knowledge dir(s) and runbooks dir(s) from `VAULT_CONFIG`:
 
@@ -545,7 +545,7 @@ Score the session silently:
 
 If **total score ≥ 3** → flag as reflect candidate. Otherwise skip silently.
 
-Do NOT run `/vault-cli:reflect` from here. Only surface the suggestion in Phase 9 output. The user decides whether to invoke it.
+Do NOT run `/vault-cli:reflect` from here — this phase detects only. Its signal is consumed by **Phase 9.4**, which is the single place that decides whether to run it. There is no operator question at session end any more.
 
 ### Phase 8.5: Detect runbook improvements
 
@@ -586,7 +586,7 @@ N. Runbook improvements: <N HIGH, M MEDIUM> in [[<runbook>]] — review + edit
 
 Measured 2026-10-11: a completed Sunday health check surfaced one HIGH runbook gap, and the identical `approve:` line was emitted across **two consecutive** `/vault-cli:session-close` runs — the operator resolved the gap by hand in-session rather than through the loop. The recurrence is not incidental: `[[Trading - Bot Health Check]]`'s own Change History records a gap found on 5 of its last 6 entries, so this path fires on most runs of that runbook.
 
-Treat it exactly like the reflect and self-improve suggestions: surfaced, numbered, and optional. A gap the operator leaves unaddressed costs nothing — it is re-detected on the next run that executes that runbook, which is the same property that makes a verdict file unnecessary here.
+Treat it like the self-improve suggestion: surfaced, numbered, and optional. A gap the operator leaves unaddressed costs nothing — it is re-detected on the next run that executes that runbook, which is the same property that makes a verdict file unnecessary here. (Reflect is **not** in this optional class any more — Phase 9.4 takes it itself when its signal fires.)
 
 ### Phase 8.6: Link hygiene for session-touched vault pages
 
@@ -647,7 +647,7 @@ N. Link hygiene: [[<hub>]] doesn't link back to [[<new page>]] — one-way (cons
 
 ### Phase 8.7: Detect self-improve-worthy signals
 
-Decide whether the session revealed enough **tooling friction** to warrant `/coding:self-improve` (reviews the session, proposes ≤2 durable improvements to commands / agents / rules). Like reflect, this is **suggest-only** — never auto-run; auto-invoking always erodes signal. Reflect captures durable *knowledge*; self-improve captures *friction in the tooling* — a different signal set, so score it separately.
+Decide whether the session revealed enough **tooling friction** to warrant `/coding:self-improve` (reviews the session, proposes ≤2 durable improvements to commands / agents / rules). Unlike reflect, this stays **suggest-only** — never auto-run; auto-invoking always erodes signal. (Reflect is decided in Phase 9.4; self-improve remains the operator's call, because it edits the harness.) Reflect captures durable *knowledge*; self-improve captures *friction in the tooling* — a different signal set, so score it separately.
 
 Score the session silently:
 
@@ -707,23 +707,25 @@ The `Carried forward:` line is emitted only on a repeat run, for an anchor the o
 
 **2. Clean + reflect, self-improve, and/or runbook-improvement signals fired** (all phases ✅, and reflect score ≥ 3, self-improve score ≥ 3, and/or a Phase 8.5 runbook gap):
 
+⚠️ **Run Phase 9.4 before emitting the block below.** This template carries the reflect outcome (`ran it` / `skipped:` / `failed:`), so emitting it first would leave that field guessed. Phase 9.4 sits later in this file only because the phases are grouped by kind, not by execution order — its own header states the ordering.
+
 ```
 <summary block>
 
 ✅ Nothing outstanding — but the session has follow-up-worthy moments. Append whichever fired, as a NUMBERED list:
 
-1. `/vault-cli:reflect` — <what fired it: new knowledge files, decisions captured>
+1. `/vault-cli:reflect` — <what fired it: new knowledge files, decisions captured> — <ran it | skipped: no finding that names no existing KB page | failed: <reason>>
 2. `/coding:self-improve` — <what fired it: corrections, retries, missing command>
 3. Runbook improvements: <N HIGH, M MEDIUM> in [[<runbook>]] — review + edit
 ```
 
 Phase 8.5's runbook-improvement item is an **advisory entry in this list, never a mode-3 *blocker*** — it is advisory and names no blocking action. It is therefore not what puts a session into mode 3; but when a session reaches mode 3 for an unrelated reason it also appears in that list's advisory tail, so it is never silently dropped. See Phase 8.5 and mode 3 below.
 
-**Number these items even though the verdict is clean.** The operator answers by pointing at them (`do 1 + 2`). Bullets force them to describe in prose what a digit would have said. Mode 3 has always been numbered; mode 2 emitting bullets was an inconsistency, not a design choice. Observed 2026-09-11, operator verbatim: *"why no numbers at … is more easy for me to say … do 1 + 2"*.
+**Number these items even though the verdict is clean.** Nothing is being asked — Phase 9.4 already took the reflect default — but the numbers give the operator a stable handle when they read the transcript back and want to pick one up later (`do 1 + 2`). Mode 3 has always been numbered; keeping the same shape here means a session that ends in either mode reads the same way.
 
-⚠️ **Most of these items are invocable commands; the runbook-improvement item is not.** Its action is a review of a runbook, and Phase 8.5 never auto-edits one, so there is nothing to invoke. That is why the closer section gives it a plain-action option rather than a slash command, and why "point at the number" still works for it — the number selects the follow-up, not necessarily a command.
+⚠️ **Most of these items are invocable commands; the runbook-improvement item is not.** Its action is a review of a runbook, and Phase 8.5 never auto-edits one, so there is nothing to invoke. That is why the list names it as a pointer rather than a command, and why `do 3` still reads correctly if the operator picks it up by hand later — the number selects the follow-up, not necessarily a command.
 
-**Renumber from `1` whenever fewer than all three fired** — the example's `1.` / `2.` / `3.` is the all-three case, not a fixed slot assignment. Two fired → `1.` and `2.`; one fired → still number it `1.`, because a one-item numbered list costs nothing and keeps the reply form identical across runs. The closer section renumbers its own options by the same rule, so the body list and the panel stay in lockstep — and since the panel is required verbatim, a body list numbered `2.` with no `1.` above it has no legal closer to match.
+**Renumber from `1` whenever fewer than all three fired** — the example's `1.` / `2.` / `3.` is the all-three case, not a fixed slot assignment. Two fired → `1.` and `2.`; one fired → still number it `1.`, because a one-item numbered list costs nothing and keeps the transcript's shape identical across runs. There is no closer list to stay in lockstep with any more — the mode-2 panel carries no options.
 
 **3. Outstanding items** (any phase ⚠ — Phase 8.5's runbook-improvement suggestion does **not** force mode 3 on its own, because it is advisory; but it is still **surfaced here** when the session reaches mode 3 for an unrelated reason, in the advisory tail below. "Does not force mode 3" is not "is dropped in mode 3" — the two are different claims, and only the first is what Phase 8.5's move to mode 2 means):
 
@@ -746,11 +748,27 @@ Append the reflect, self-improve, and runbook-improvement suggestions as the las
 
 ⚠️ **Item 3 covers the still-asks cases only.** A worktree this session created, whose branch is merged by the file's own test and whose working tree is clean, is **removed** under the no-ask rule in Phase 3.5 and reported in the close summary — it never reaches this list, so it never becomes a mode-3 blocker.
 
-Never auto-close a session with outstanding items, never auto-commit, never auto-kill anything but this session's own pane (Phase 9.5), never auto-reflect, never auto-self-improve. The command's own write is the worker's self-exit on a clean verdict; everything else is the one-line verdict or the numbered open list.
+Never auto-close a session with outstanding items, never auto-commit, never auto-kill anything but this session's own pane (Phase 9.5), never auto-self-improve. **`reflect` is no longer an operator question** — a mode-2 session takes the default itself in Phase 9.4 (run `/vault-cli:reflect` only when **the Phase 8 reflect signal fired (score ≥ 3)** *and* the session recorded a finding that names no existing KB page, else take nothing) and then exits. The command's own write is the worker's self-exit on a clean verdict; everything else is the one-line verdict or the numbered open list.
+
+### Phase 9.4: Take the mode-2 default (mode 2 only)
+
+**Runs before the verdict block is emitted and before Phase 9.5's self-exit** — the mode-2 body list in Phase 9 carries the outcome, so the outcome must exist first. One rule, no judgement call beyond it:
+
+**Run `/vault-cli:reflect` if and only if BOTH hold:** (a) **the Phase 8 reflect signal fired — score ≥ 3** — and (b) this session recorded a finding that names no existing KB page. Clause (a) is what keeps Phase 8's cost bound intact: a session that raised no reflect signal never runs it, whatever else put it in mode 2. A finding is a durable learning — a corrected cause, a measured mechanism, a decision with its evidence — written in the conversation or in the anchor task's `# Results` / `# Progress`. "Names no existing KB page" is checked against **Phase 8's resolved `KNOWLEDGE_DIRS`** — the `VAULT_CONFIG`-derived list, never the literal `50 Knowledge Base/`, which `commands/reflect.md` explicitly forbids hardcoding and which is the wrong folder on a vault whose `knowledge_dir` is e.g. `50 Knowledge`. **The check is performed the way `commands/reflect.md` Step 3 performs it** — ≥ 2 `search_related` framings drawn from the *domain and problem* (never from a title you just drafted), filtered to the resolved dirs, with ≥ 2 keyword sets over the same dirs via `Glob`/`Grep` as the fallback when semantic search is absent. A single clean filename match is weak evidence of novelty, not proof. If the resolved dirs already carry the lesson, the reflection would only duplicate it.
+
+**Otherwise take nothing.** When the call is genuinely close, take nothing — a missed reflection costs one deferred write the operator can trigger by hand; a spurious one costs a KB page they have to delete, and it delays every exit that follows.
+
+**Invoke it as `Skill: vault-cli:reflect --non-interactive`** — the same form Phase 2 uses for `sync-progress`, plus the flag. ⚠️ **The flag is load-bearing, not cosmetic.** `commands/reflect.md` asks two questions when run bare (which learnings, and `Proceed? (y / n / skip)`), so invoking it interactively would replace one operator gate with a worse one — it would block *before* the exit this phase exists to reach, and mint the attention card that makes `session-self-exit.py` refuse. `--non-interactive` is reflect's own NO-ASK contract: it takes every significant learning, prefers ENHANCE over a near-duplicate, writes nothing when no vault matches cwd, and ends on a single `reflect: wrote …` / `reflect: skipped — …` line.
+
+Then record the outcome on the mode-2 list's reflect item: `ran it`, `skipped: no finding that names no existing KB page`, `skipped: <reflect's own reason>`, or `failed: <reason>`. **When the reflect signal did not fire** there is no reflect item to annotate and none is invented — clause (a) already means reflect was never in scope for that session. **A reflect that errors or writes only partly is recorded `failed: <reason>`, never `ran it`, and still continues to Phase 9.5** — the pane closes either way, and the failure is visible in the transcript rather than silently reported as success.
+
+**Why a rule and not a question.** The menu this replaces was optional follow-ups on a finished task — exactly the shape that reads as a decision the session could have made itself. It was asked 43 times in one window, and every ask held a finished pane open. The rule above is the decision the operator was being asked for; taking it here is the fix.
+
+**What the rule does not cover.** `/coding:self-improve` stays an operator action — it edits the harness, and a session silently rewriting its own commands is a different risk class from writing a KB page. A Phase 8.5 runbook gap stays a pointer — Phase 8.5 never auto-edits a runbook. Both remain listed in the verdict as information.
 
 ### Phase 9.5: Release the worker's slot (clean verdict only)
 
-**Mode 1 only.** A clean verdict means no outstanding item and no open gate. Mode 2 carries a `pick` line the operator has not answered, and mode 3 has outstanding items — neither may end the process.
+**Modes 1 and 2.** A clean verdict means no outstanding item and no open gate. Mode 3 has outstanding items and may not end the process. Mode 2 reaches this phase only **after** Phase 9.4 has taken its default — it no longer carries an unanswered `pick` line, because it no longer asks.
 
 ```bash
 VAULT_CLI_SCRIPTS="$(ls -d ~/.claude/plugins/cache/vault-cli/vault-cli/*/scripts 2>/dev/null | sort -V | tail -1)"
@@ -781,19 +799,21 @@ Append below the verdict. This command is terminal; without a fixed closer the t
 ⏰ Next: you open a new session; the orchestrator picks the next anchor
 ```
 
-**Clean verdict, mode 2 (reflect, self-improve, and/or a runbook-improvement gap fired):** the verdict is still clean, but the body now lists follow-ups — so `👤 You:` must offer them, numbered to match the list above it:
+**Clean verdict, mode 2 (reflect, self-improve, and/or a runbook-improvement gap fired):** the verdict is still clean, and the body lists the follow-ups **as information**. It does not ask — Phase 9.4 has already taken the default, and this block is what ends the process:
 
 ```
 ⚪ DONE
-👤 You: pick any — 1. /vault-cli:reflect · 2. /coding:self-improve · 3. review the runbook gap · 4. nothing — close
-⏰ Next: your reply
+👤 You: nothing
+⏰ Next: this pane closes now (session-self-exit)
 ```
 
-Include only the options whose signals actually fired, renumbered from 1, and keep `nothing — close` last so closing stays one keystroke away. The verb is `pick any —`, not `pick —`: these are not alternatives — a session that wants both the reflection and the self-improvement runs both — so the board renders checkboxes rather than radios, and the exclusive `nothing — close` clears them.
+⚠️ **There is no `pick any —` line, and no `⏰ Next: your reply`.** This block used to end on an operator menu — `pick any — 1. /vault-cli:reflect · 2. /coding:self-improve · 3. review the runbook gap · 4. nothing — close` — and that menu was the single largest recurring operator gate on the board (43 of 47 sessions carrying a `pick any` closer over one window, 2026-10-23 measurement). It also **blocked the worker's own exit**: `session-self-exit.py` refuses while the attention store holds an open card for the session, and the menu minted one, so a finished worker sat on a pane until a human answered. A finished session now decides for itself (Phase 9.4) and exits.
 
-**A runbook-improvement item has no command of its own**, so its option is the plain action — `review the runbook gap` — rather than a slash command. Phase 8.5 explicitly never auto-edits the runbook, so the operator's move is to open it; there is nothing to invoke. Name the runbook when exactly one gap fired (`review [[<runbook>]]`); with two or more, keep the generic form and let the body's numbered list name them. ⚠️ **This option is required whenever a runbook gap is what put the session in mode 2** — omitting it is the drift that leaves the body's item with no slot in the closer, and this section's own verbatim rule forbids improvising one, so the model has no legal output. Leaving the gap is a legitimate resolution and `nothing — close` already covers it.
+⚠️ **The `⏰ Next:` line claims an exit the script can still refuse.** `session-self-exit.py` returns `SELF-EXIT: stay — <reason>` for a non-terminal anchor task, an open attention card, an unreachable store, or a session that owns no pane. When it does, **replace the `⏰ Next:` line with `⏰ Next: the exit was refused — <reason>`** and leave the rest of the panel as it stands. The panel must not assert a close that did not happen — the carve-out above already applies this to the `⚪ DONE` line for a carried-forward `in_progress` anchor, and this is the same rule one line down.
 
-**`nothing — session closed` is wrong for mode 2** — it asserts there is nothing to do directly above a list of things to do. The global closer rule already forbids `nothing` while something is pending; mode 2 is exactly that case. This is not a "fork" in the `/supervisor:worker-drive` sense either: these are optional follow-ups on a finished task, which is precisely what a `pick any` is for.
+**A runbook-improvement item has no command of its own** — Phase 8.5 never auto-edits a runbook, so the item is a pointer, not an action. Name the runbook when exactly one gap fired (`Runbook improvements: 2 HIGH in [[<runbook>]]`); with two or more, keep the generic form and let the body's list name them.
+
+**Never print `nothing — session closed` here.** The mode-2 list is information about work that already happened, not a queue of pending asks — `nothing` is correct precisely because Phase 9.4 has resolved the only actionable item (`reflect`) and the rest are records.
 
 **Goal-anchored clean verdict** (Phase 1's `GOAL_ANCHORED` and the anchor goal still has open tasks — exempted in Phase 4.5, so the session can close clean): the `⏰ Next:` line names the next open task under the anchor goal instead of deferring to the orchestrator:
 
@@ -837,7 +857,7 @@ Pairs with:
 
 ## Notes
 
-- This command is **read + report + ask**, not write+act. Only the embedded `/vault-cli:sync-progress` skill writes files; everything else is observation + questions.
+- This command is **read + report**, not a write tool — with **two named exceptions**: the embedded `/vault-cli:sync-progress` skill writes progress files, and Phase 9.4 invokes `/vault-cli:reflect --non-interactive`, which creates or edits KB pages. Everything else is observation. **It no longer asks**: a clean verdict takes its own default and exits (Phases 9.4 and 9.5); only an unclean verdict puts a question to the operator.
 - If the user has multiple Claude Code sessions running concurrently, this command only sees state of the current session's cwd and conversation — it cannot inspect sibling sessions.
 - Respect global preferences: terse output, numbered options not either/or, no Claude attribution.
 - Works in any vault registered with `vault-cli config`; gracefully skips integrations (dark-factory, gh, semantic-search, TaskList) not present in the session.

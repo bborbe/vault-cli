@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: `complete-task` and `sync-progress` Phase 6 no longer tell the session to ask the operator for approval before closing — both closer panels now read `👤 You: nothing` / `⏰ Next: /vault-cli:session-close — this session runs it now`, and the session runs the close itself; the approval line minted an attention card for a step the session was already allowed to take, and `session-self-exit.py` refuses while a card is open, so the card held a finished session's pane open
+
 ## v0.181.0
 
 - fix: `session-close` mode 2 no longer ends on an operator `pick any` wrap-up menu — the session takes the reflect default itself (Phase 9.4: `/vault-cli:reflect` only when the Phase 8 reflect signal fired *and* the session recorded a finding that names no existing KB page, else nothing) and exits via `session-self-exit`; the menu minted an attention card that made `session-self-exit.py` refuse, so a finished worker held its pane open until a human answered

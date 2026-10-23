@@ -55,9 +55,11 @@ Mark task as complete using vault-cli. Handles normal and recurring tasks approp
    e. **Emit closer panel** — append below the report, verbatim, no rewording:
       ```
       ⚪ DONE
-      👤 You: approve: /vault-cli:session-close
-      ⏰ Next: your reply
+      👤 You: nothing
+      ⏰ Next: /vault-cli:session-close — this session runs it now
       ```
+
+      Then run `/vault-cli:session-close` yourself. It is not an operator gate: at a task boundary the close belongs to the session, which runs it with no approval line and no pick menu.
 
       Rationale for this closer (one-task-per-session contract, why never `/vault-cli:next-task` here, why the "no end-of-day suggestions" global rule does NOT override): see [`sync-progress.md` Phase 6](sync-progress.md) — same contract applies. Single source of truth lives there to prevent drift.
 

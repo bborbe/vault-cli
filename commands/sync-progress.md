@@ -337,12 +337,13 @@ If a task was completed in Phase 4 (auto via 4a OR confirmed via 4b), append the
 
 ```
 ⚪ DONE
-👤 You: approve: /vault-cli:session-close
-⏰ Next: your reply
+👤 You: nothing
+⏰ Next: /vault-cli:session-close — this session runs it now
 ```
 
 Why this closer is the only correct one here:
 
+- **The session closes itself.** `/vault-cli:session-close` is not an operator gate: at a task boundary the close belongs to the session, which runs it with no approval line and no pick menu. An approval line here minted an attention card for a step the session was already allowed to take — and `session-self-exit.py` refuses while a card is open for the session, so the card held a finished session's pane open until a human answered.
 - **One task per session.** Completing a task = THIS session is done. Queued items on today's daily note are NOT "queued in this session" — they are picked up by the orchestrator in fresh Claude sessions, never by appending more tasks to the current one.
 - **Never recommend `/vault-cli:next-task` here.** That command exists for the orchestrator (or the user opening a new session); it is not a follow-up to `/vault-cli:sync-progress`.
 - **Never recommend a specific next task by name.** Same reason — the next session's anchor selection belongs to the orchestrator, not to this command.

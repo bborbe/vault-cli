@@ -191,8 +191,14 @@ check "mode-3 header does not read as an outright exclusion" "" \
 # whole change removes. Membership is the WRONG assertion for this surface: the
 # old menu named all three signals and was still the defect, so the pin is its
 # inverse.
-check "mode-2 closer carries no operator menu and no reply-waiting line" "" \
-	"$(fenced "$TARGET" "$MODE2_PANEL" | grep -E '👤 You: pick|⏰ Next: your reply' >/dev/null && echo found)"
+# Structural, not a literal blacklist: a reintroduced gate worded `👤 You: choose 1/2/3`
+# or `⏰ Next: waiting for you` would pass any fixed string list. Pin the SHAPE of the
+# panel instead — its answer slot is exactly `nothing`, and its next line names the exit.
+PANEL=$(fenced "$TARGET" "$MODE2_PANEL")
+check "mode-2 panel's 👤 You line is exactly nothing" "👤 You: nothing" \
+	"$(printf '%s\n' "$PANEL" | grep -E '^👤 You:')"
+check "mode-2 panel's ⏰ Next line names the self-exit" "found" \
+	"$(printf '%s\n' "$PANEL" | grep -E '^⏰ Next:' | grep -F 'session-self-exit' >/dev/null && echo found)"
 
 # --- and the self-exit gate must still admit modes 1 and 2 ONLY. Widening it to
 # mode 3 would end an unclean session, which is the opposite failure from the one

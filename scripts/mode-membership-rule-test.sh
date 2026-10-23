@@ -365,10 +365,18 @@ check "changelog unreleased names the failed terminal line" "found" \
 # script cannot be found — and nothing else would notice. The list is DERIVED
 # from the script's own `--classes` output, never restated here, so adding a
 # class to the script immediately fails until the prose names it too.
+# The list is captured FIRST, and its length asserted, because the `while read`
+# form fails OPEN: if `--classes` errors or the script is gone, the loop body
+# never executes, zero checks run, and the script reports a clean run having
+# pinned nothing. A missing script must fail the pin, not retire it.
+CLASSES=$(bash "$ROOT/scripts/reflect-secret-scan.sh" --classes 2>/dev/null)
+check "the secret-scan script publishes its class list" "10" \
+	"$(printf '%s\n' "$CLASSES" | grep -c .)"
 while IFS= read -r class; do
+	[ -n "$class" ] || continue
 	check "reflect.md names the '$class' secret class" "found" \
 		"$(grep -F "\`$class\`" "$REFLECT" >/dev/null && echo found)"
-done < <(bash "$ROOT/scripts/reflect-secret-scan.sh" --classes)
+done <<<"$CLASSES"
 
 # --- the two session-close prose collisions. Both were live contradictions, not
 # style nits: the goal-anchored clean verdict mandates one `⏰ Next:` line and

@@ -12,6 +12,7 @@ allowed-tools:
   - Bash(head:*)
   - Bash(git -c core.quotepath=off log:*)
   - Bash(git -c core.quotepath=off diff:*)
+  - Skill
 ---
 
 Synchronize progress documentation based on completed work in the conversation. Updates the daily note, task/goal pages, and (if integrations are available) records the matching PR and transitions Jira.
@@ -359,7 +360,7 @@ Why this closer is the only correct one here:
 
 **Skip the closer entirely** when Phase 4 did NOT complete a task — i.e. PR-only sync, progress-only sync, or any path where the active task is still `in_progress`. In those cases the session continues on the same task; emitting `⚪ DONE` would be wrong.
 
-**Skip it for a recurring completion too.** Probe with `vault-cli task get "<name>" recurring --output json` — a `value` other than `null` and non-empty means recurring. Neither completion path carries this otherwise: Phase 4a prints only `✅ Task completed: <name>`, and Phase 4b's `--non-interactive` JSON is `{"success": true, "path": …}` with no recurring or status field. A recurring completion resets the checkboxes and keeps `status: in_progress` (see `pkg/ops/complete.go`), so `⚪ DONE` is false for a task that is still open — and the self-close this panel instructs would then hit `session-close` Phase 4.5, which hard-flags an `in_progress` anchor into mode 3 and ends on an `approve:` line the panel just promised does not exist. Report the completion and stop.
+**Skip it for a recurring completion too.** Probe: `vault-cli task get "<name>" recurring --output json` — **any non-empty `value` other than `null` means recurring**; do not enumerate the intervals, because `yearly` and `weekdays` are valid alongside `daily` / `weekly` / `monthly` / `quarterly`. This probe is the canonical definition; `complete-task` step 2e points here rather than repeating it. The probe is required because neither completion path carries the flag: Phase 4a prints only `✅ Task completed: <name>`, and Phase 4b's `--non-interactive` JSON is `{"success": true, "path": …}` with no recurring or status field. A recurring completion resets the checkboxes and keeps `status: in_progress` (see `pkg/ops/complete.go`), so `⚪ DONE` is false for a task that is still open — and the self-close this panel instructs would then hit `session-close` Phase 4.5, which hard-flags an `in_progress` anchor into mode 3 and ends on an `approve:` line the panel just promised does not exist. Report the completion and stop.
 
 **Skip it entirely when `NESTED=true`.** Every caller that invokes this command from inside its own run — `session-close` Phase 2, `prepare-compact`, `task-status` — passes the flag, and each one continues afterwards. A completion established here (including a probe-established one, which Phase 3 routes straight to this section) would otherwise self-close the session: for `session-close` that re-enters the close that invoked this command, and for the other two it ends a session that still has a status report or a compaction to finish. Report the completion in the Phase 5 report and let the caller finish.
 

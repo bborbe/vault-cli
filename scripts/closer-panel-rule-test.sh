@@ -13,8 +13,10 @@
 #      the panel exists to prevent, so the positive half is the load-bearing one.
 #
 #   2. The operator-approval form of that close is GONE from commands/, agents/
-#      and docs/. CHANGELOG.md is deliberately outside that scope — it quotes
-#      the old line as history.
+#      and docs/. CHANGELOG.md is outside that scope on purpose: a released entry
+#      may quote the old line to describe what changed, and failing the build for
+#      a changelog that records history is not what this pin is for. (No entry
+#      quotes it today; the exclusion is for the next one that has to.)
 #
 #   3. The three skip conditions are present, because each one guards a recursion
 #      or a false `⚪ DONE` that the panel alone would introduce:
@@ -98,8 +100,10 @@ done
 
 check "complete-task skips the closer for recurring completions" "yes" \
 	"$(has commands/complete-task.md '**Recurring tasks.**')"
-check "complete-task names a runnable recurring probe" "yes" \
-	"$(has commands/complete-task.md 'vault-cli task get "{task_name}" recurring --output json')"
+check "complete-task points at the canonical recurring probe" "yes" \
+	"$(has commands/complete-task.md 'Probe as [`sync-progress.md` Phase 6](sync-progress.md) defines it')"
+check "sync-progress carries the canonical recurring probe" "yes" \
+	"$(has commands/sync-progress.md 'vault-cli task get "<name>" recurring --output json')"
 check "complete-task skips the closer for nested callers" "yes" \
 	"$(has commands/complete-task.md '**Nested callers.**')"
 check "sync-progress skips the closer for recurring completions" "yes" \
@@ -114,6 +118,14 @@ check "task-status passes --nested to sync-progress" "yes" \
 	"$(has commands/task-status.md 'Skill: vault-cli:sync-progress --nested')"
 check "sync-progress Phase 4b passes --non-interactive to complete-task" "yes" \
 	"$(has commands/sync-progress.md 'Skill: vault-cli:complete-task --non-interactive')"
+
+# Absence half: presence checks only pin the callers that exist today. A caller
+# added later would pass silently, so require that NO bare invocation survives.
+bare_callers() { # bare_callers [root] — count of sync-progress invocations without --nested
+	grep -rn --exclude-dir=.git 'Skill: vault-cli:sync-progress' "${1:-.}/commands" 2>/dev/null \
+		| grep -vF -- '--nested' | wc -l | tr -d ' '
+}
+check "no sync-progress caller omits --nested" "0" "$(bare_callers .)"
 
 # Self-checks: prove each predicate can fail.
 TMP=$(mktemp -d)
@@ -137,6 +149,10 @@ check "self-check: a stripped skip clause reads absent" "no" \
 
 check "self-check: a non-directory target is not a vacuous pass" "no-dir" \
 	"$(banned_hits "$TMP/does-not-exist")"
+
+mkdir -p "$TMP/bare/commands"
+printf 'Skill: vault-cli:sync-progress\n' >"$TMP/bare/commands/x.md"
+check "self-check: a caller without --nested is caught" "1" "$(bare_callers "$TMP/bare")"
 
 echo "closer-panel-rule: $pass passed, $fail failed"
 [ "$fail" -eq 0 ] || exit 1

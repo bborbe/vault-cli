@@ -10,6 +10,7 @@ allowed-tools:
   - Bash(grep:*)
   - Bash(command -v:*)
   - Task
+  - Skill
 ---
 
 Quick "where was I?" recovery tool. Detects active task from the parent conversation, syncs any in-flight progress to disk first (via `/vault-cli:sync-progress` logic, inline), re-evaluates the task's phase and plan state against its `# Success Criteria` / `# Tasks` sections, then emits a grouped-checkbox status report.

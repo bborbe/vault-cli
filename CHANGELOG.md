@@ -8,6 +8,11 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: `complete-task` and `sync-progress` Phase 6 no longer tell the session to ask the operator for approval before closing — both closer panels now read `👤 You: nothing` / `⏰ Next: /vault-cli:session-close — this session runs it now`, and the session runs the close itself; the approval line minted an attention card for a step the session was already allowed to take, and `session-self-exit.py` refuses while a card is open, so the card held a finished session's pane open
+- fix: the self-close is guarded at all four failure edges — a **recurring** completion keeps `status: in_progress`, where `⚪ DONE` is false and `session-close` Phase 4.5 forces mode 3, so both carriers skip the closer for it; `sync-progress` Phase 4b passes `--non-interactive` to `complete-task`, and every caller that invokes `sync-progress` from inside its own run and continues afterwards — `session-close` Phase 2, `prepare-compact`, `task-status` — passes the new `--nested` flag, closing both halves of the `session-close → sync-progress → complete-task → session-close` recursion and stopping a completion inside a compaction or a status check from ending that session; and `scripts/closer-panel-rule-test.sh` pins both panels, every skip clause and every caller's flag structurally — a deleted panel, a restored approval line, a stripped skip clause, a dropped flag and a missing scan directory each fail — so a later edit cannot drift them with `make test` still green
+
 ## v0.181.0
 
 - fix: `session-close` mode 2 no longer ends on an operator `pick any` wrap-up menu — the session takes the reflect default itself (Phase 9.4: `/vault-cli:reflect` only when the Phase 8 reflect signal fired *and* the session recorded a finding that names no existing KB page, else nothing) and exits via `session-self-exit`; the menu minted an attention card that made `session-self-exit.py` refuse, so a finished worker held its pane open until a human answered

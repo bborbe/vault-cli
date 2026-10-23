@@ -16,6 +16,19 @@ Extract high-significance learnings from the current conversation and document t
 
 This command **must stay inline** — it analyzes the parent conversation; a sub-agent cannot see the conversation context.
 
+## Non-interactive contract
+
+If the arguments contain `--non-interactive`, strip that token and run under **NO-ASK**: never call `AskUserQuestion`. The caller is a session-close path invoking this command so a finished session can exit — an ask here would block the very exit it is meant to complete, which is worse than not running it at all.
+
+Under NO-ASK:
+
+- **Vault (Step 0):** never ask which vault. Use the vault matched from cwd. If none matches, **write nothing** and print `reflect: skipped — cwd matches no configured vault`. Never fall back to a guessed vault — a reflection written into the wrong vault is worse than none.
+- **Selection (Step 2):** no picker. Take **every** learning that passed the significance bar; if none did, write nothing and print `reflect: skipped — no significant learnings`.
+- **Action (Step 3):** no `Proceed?` prompt and no `REVIEW` menu. Take the recommended action — `ENHANCE` on a ≥ 0.6 match, `CREATE` below 0.4, and in the 0.4–0.6 band **prefer `ENHANCE` of the top match** over creating a near-duplicate. The caller has already decided to run reflect; the choices that remain are ones this command can make itself.
+- **Terminal line:** every NO-ASK run ends with exactly one line — `reflect: wrote <N> page(s): [[<a>]], [[<b>]]` or `reflect: skipped — <reason>` — so the calling session can record the outcome without re-reading the vault.
+
+**If any step cannot proceed without a question, print the `skipped` line and stop** — never leave the caller waiting on a prompt.
+
 ## Runtime context
 
 ```bash

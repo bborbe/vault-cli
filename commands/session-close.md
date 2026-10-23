@@ -586,7 +586,7 @@ N. Runbook improvements: <N HIGH, M MEDIUM> in [[<runbook>]] — review + edit
 
 Measured 2026-10-11: a completed Sunday health check surfaced one HIGH runbook gap, and the identical `approve:` line was emitted across **two consecutive** `/vault-cli:session-close` runs — the operator resolved the gap by hand in-session rather than through the loop. The recurrence is not incidental: `[[Trading - Bot Health Check]]`'s own Change History records a gap found on 5 of its last 6 entries, so this path fires on most runs of that runbook.
 
-Treat it exactly like the reflect and self-improve suggestions: surfaced, numbered, and optional. A gap the operator leaves unaddressed costs nothing — it is re-detected on the next run that executes that runbook, which is the same property that makes a verdict file unnecessary here.
+Treat it like the self-improve suggestion: surfaced, numbered, and optional. A gap the operator leaves unaddressed costs nothing — it is re-detected on the next run that executes that runbook, which is the same property that makes a verdict file unnecessary here. (Reflect is **not** in this optional class any more — Phase 9.4 takes it itself when its signal fires.)
 
 ### Phase 8.6: Link hygiene for session-touched vault pages
 
@@ -647,7 +647,7 @@ N. Link hygiene: [[<hub>]] doesn't link back to [[<new page>]] — one-way (cons
 
 ### Phase 8.7: Detect self-improve-worthy signals
 
-Decide whether the session revealed enough **tooling friction** to warrant `/coding:self-improve` (reviews the session, proposes ≤2 durable improvements to commands / agents / rules). Like reflect, this is **suggest-only** — never auto-run; auto-invoking always erodes signal. Reflect captures durable *knowledge*; self-improve captures *friction in the tooling* — a different signal set, so score it separately.
+Decide whether the session revealed enough **tooling friction** to warrant `/coding:self-improve` (reviews the session, proposes ≤2 durable improvements to commands / agents / rules). Unlike reflect, this stays **suggest-only** — never auto-run; auto-invoking always erodes signal. (Reflect is decided in Phase 9.4; self-improve remains the operator's call, because it edits the harness.) Reflect captures durable *knowledge*; self-improve captures *friction in the tooling* — a different signal set, so score it separately.
 
 Score the session silently:
 
@@ -752,13 +752,13 @@ Never auto-close a session with outstanding items, never auto-commit, never auto
 
 **Runs before the verdict block is emitted and before Phase 9.5's self-exit** — the mode-2 body list in Phase 9 carries the outcome, so the outcome must exist first. One rule, no judgement call beyond it:
 
-**Run `/vault-cli:reflect` if and only if this session recorded a finding that names no existing KB page.** A finding is a durable learning — a corrected cause, a measured mechanism, a decision with its evidence — written in the conversation or in the anchor task's `# Results` / `# Progress`. "Names no existing KB page" is checked against the vault: if `50 Knowledge Base/` already carries the lesson, the reflection would only duplicate it.
+**Run `/vault-cli:reflect` if and only if BOTH hold:** (a) **the Phase 8 reflect signal fired — score ≥ 3** — and (b) this session recorded a finding that names no existing KB page. Clause (a) is what keeps Phase 8's cost bound intact: a session that raised no reflect signal never runs it, whatever else put it in mode 2. A finding is a durable learning — a corrected cause, a measured mechanism, a decision with its evidence — written in the conversation or in the anchor task's `# Results` / `# Progress`. "Names no existing KB page" is checked against the vault: if `50 Knowledge Base/` already carries the lesson, the reflection would only duplicate it.
 
 **Otherwise take nothing.** When the call is genuinely close, take nothing — a missed reflection costs one deferred write the operator can trigger by hand; a spurious one costs a KB page they have to delete, and it delays every exit that follows.
 
-**Invoke it as `Skill: vault-cli:reflect`** — the same form Phase 2 uses for `sync-progress` — never by describing the intent.
+**Invoke it as `Skill: vault-cli:reflect --non-interactive`** — the same form Phase 2 uses for `sync-progress`, plus the flag. ⚠️ **The flag is load-bearing, not cosmetic.** `commands/reflect.md` asks two questions when run bare (which learnings, and `Proceed? (y / n / skip)`), so invoking it interactively would replace one operator gate with a worse one — it would block *before* the exit this phase exists to reach, and mint the attention card that makes `session-self-exit.py` refuse. `--non-interactive` is reflect's own NO-ASK contract: it takes every significant learning, prefers ENHANCE over a near-duplicate, writes nothing when no vault matches cwd, and ends on a single `reflect: wrote …` / `reflect: skipped — …` line.
 
-Then record the outcome on the mode-2 list's reflect item: `ran it`, `skipped: no finding that names no existing KB page`, or `failed: <reason>`. **When the reflect signal did not fire**, there is no reflect item to annotate and none is invented — a self-improve-only or runbook-only mode 2 has nothing to say about reflect, and adding an item would report a decision that was never in scope. **A reflect that errors or writes only partly is recorded `failed: <reason>`, never `ran it`, and still continues to Phase 9.5** — the pane closes either way, and the failure is visible in the transcript rather than silently reported as success.
+Then record the outcome on the mode-2 list's reflect item: `ran it`, `skipped: no finding that names no existing KB page`, `skipped: <reflect's own reason>`, or `failed: <reason>`. **When the reflect signal did not fire** there is no reflect item to annotate and none is invented — clause (a) already means reflect was never in scope for that session. **A reflect that errors or writes only partly is recorded `failed: <reason>`, never `ran it`, and still continues to Phase 9.5** — the pane closes either way, and the failure is visible in the transcript rather than silently reported as success.
 
 **Why a rule and not a question.** The menu this replaces was optional follow-ups on a finished task — exactly the shape that reads as a decision the session could have made itself. It was asked 43 times in one window, and every ask held a finished pane open. The rule above is the decision the operator was being asked for; taking it here is the fix.
 

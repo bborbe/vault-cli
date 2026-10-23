@@ -202,6 +202,14 @@ check "self-exit gate admits modes 1 and 2" "found" \
 check "self-exit gate does not admit mode 3" "" \
 	"$(line "$TARGET" '**Modes 1 and 2.**' | grep -E 'Modes 1, 2 and 3|Modes 1 and 2 and 3' >/dev/null && echo found)"
 
+# --- Phase 9.4 must invoke reflect NON-INTERACTIVELY. `commands/reflect.md` asks
+# two questions when run bare (which learnings, then `Proceed?`), so an
+# interactive invocation replaces the removed gate with a worse one: it blocks
+# before the exit this phase exists to reach, and mints the card that makes
+# `session-self-exit.py` refuse. The flag is the whole fix, so it is pinned.
+check "mode-2 default invokes reflect with --non-interactive" "found" \
+	"$(between "$TARGET" '### Phase 9.4' '### Phase 9.5' | grep -F 'vault-cli:reflect --non-interactive' >/dev/null && echo found)"
+
 # --- self-check: remove ONE signal from ONE surface and require exactly that
 # surface to report it. Deleting the mode-3 advisory tail's runbook line is the
 # precise shape of the 2026-10-11 regression, so the self-check reproduces the

@@ -5,9 +5,17 @@
 # Phase 9 classifies a clean session into mode 1 (nothing fired) or mode 2
 # (an advisory signal fired), and an unclean one into mode 3 (outstanding
 # items). Three advisory signals can fire — reflect, self-improve, and a
-# Phase 8.5 runbook gap — and each is named on FIVE surfaces: the mode-1
-# header (as an exclusion), the mode-2 header, the mode-2 body list, the
-# mode-3 advisory tail, and the mode-2 closer panel.
+# Phase 8.5 runbook gap — and each is named on FOUR surfaces: the mode-1
+# header (as an exclusion), the mode-2 header, the mode-2 body list, and the
+# mode-3 advisory tail.
+#
+# A fifth surface, the mode-2 closer panel, used to carry them as a `pick any —`
+# operator menu. It no longer does: the session takes the reflect default
+# itself (Phase 9.6) and exits, so the panel carries no options at all. Its
+# membership obligation is therefore INVERTED into a pin that the menu stays
+# gone — dropping it from the surface list alone would leave the removal
+# unguarded, and a future edit could reintroduce the gate with every remaining
+# check still green.
 #
 # The rule has NO code. It lives in that prose, so the prose IS the
 # implementation and a silent edit to one surface is a behaviour regression.
@@ -63,13 +71,14 @@ SIGNALS=(
 	'runbook-improvement|runbook gap|Runbook improvements'
 )
 
-# The five surfaces, by the line prefix that opens each one.
+# The four membership surfaces, by the line prefix that opens each one.
 #   mode-1 header      — the exclusion (what does NOT fire)
 #   mode-2 header      — the admission
-#   mode-2 closer      — the `pick` line, which must offer every fired signal
 MODE1_HEADER='**1. Clean +'
 MODE2_HEADER='**2. Clean +'
-MODE2_CLOSER='👤 You: pick any —'
+#   mode-2 panel       — the closer block. Its obligation is INVERTED: it must
+#                        carry no operator menu at all. Pinned separately below.
+MODE2_PANEL='**Clean verdict, mode 2'
 #   mode-2 body / mode-3 tail — fenced blocks opened by their headers
 MODE2_BLOCK='**2. Clean +'
 MODE3_BLOCK='**3. Outstanding items**'
@@ -131,7 +140,6 @@ omitted() {
 for spec in \
 	"mode-1 header|$(line "$TARGET" "$MODE1_HEADER")" \
 	"mode-2 header|$(line "$TARGET" "$MODE2_HEADER")" \
-	"mode-2 closer|$(line "$TARGET" "$MODE2_CLOSER")" \
 	"mode-2 body list|$(fenced "$TARGET" "$MODE2_BLOCK")" \
 	"mode-3 advisory tail|$(fenced "$TARGET" "$MODE3_BLOCK")"; do
 	label=${spec%%|*}
@@ -175,6 +183,17 @@ check "no routing denial of the runbook gap's mode-2 membership remains" "" \
 check "mode-3 header does not read as an outright exclusion" "" \
 	"$(line "$TARGET" "$MODE3_BLOCK" | grep -F 'not** Phase 8.5' >/dev/null && echo found)"
 
+# --- the mode-2 closer must carry NO operator menu. The panel used to end on
+# `pick any — 1. /vault-cli:reflect · 2. /coding:self-improve · 3. review the
+# runbook gap · 4. nothing — close`. That menu minted an attention card, and
+# `session-self-exit.py` refuses while a card is open for the session, so a
+# finished worker held its pane open until a human answered — the gate this
+# whole change removes. Membership is the WRONG assertion for this surface: the
+# old menu named all three signals and was still the defect, so the pin is its
+# inverse.
+check "mode-2 closer carries no operator menu" "" \
+	"$(fenced "$TARGET" "$MODE2_PANEL" | grep -E '👤 You: pick' >/dev/null && echo found)"
+
 # --- self-check: remove ONE signal from ONE surface and require exactly that
 # surface to report it. Deleting the mode-3 advisory tail's runbook line is the
 # precise shape of the 2026-10-11 regression, so the self-check reproduces the
@@ -206,6 +225,18 @@ check "self-check: the superseded mode-3 exclusion is detected when restored" "f
 	"$(grep -F 'never the mode-3' "$RESTORED" >/dev/null && echo found)"
 check "self-check: the superseded mode-2 routing denial is detected when restored" "found" \
 	"$(grep -E 'not what puts a session into mode 2' "$RESTORED" >/dev/null && echo found)"
+
+# --- self-check (menu): restore the retired menu into the mode-2 panel and
+# require the inverse pin to fire. Same reason as the polarity controls above —
+# a pin that can never fire is indistinguishable from a file that never
+# regressed. The substitution targets the CURRENT `👤 You: nothing`, so a later
+# edit to that line turns it into a no-op and this control fails loudly.
+MENU_RESTORED="$TMP/menu/commands/session-close.md"
+mkdir -p "$(dirname "$MENU_RESTORED")"
+sed 's/👤 You: nothing/👤 You: pick any — 1. \/vault-cli:reflect/' \
+	"$ROOT/$TARGET" >"$MENU_RESTORED"
+check "self-check: the restored mode-2 menu is detected" "found" \
+	"$(fenced "$MENU_RESTORED" "$MODE2_PANEL" | grep -E '👤 You: pick' >/dev/null && echo found)"
 
 echo "mode-membership-rule: $pass passed, $fail failed"
 [ "$fail" -eq 0 ] || exit 1

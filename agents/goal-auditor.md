@@ -163,6 +163,8 @@ Count how many apply. **3+ smells → recommend splitting or moving items to fol
 8. **Filename describes a generic capability rather than an outcome** — "Improve Agent Platform" is theme-shaped; "Eliminate Agent Task Rot" is goal-shaped.
 9. **Summary first sentence is mechanism-shaped** — leads with "Split X / Build Y / Refactor Z" instead of the new state of the world. On its own → Summary Quality recommendation. Combined with title that also fails the outcome-vs-mechanism sniff test → strong signal the goal itself is activity-shaped, not just badly written. (This is a stricter condition than smell #8, which only catches generic-capability titles like "Improve Agent Platform" — a specific-but-activity-shaped title like "Migrate Auth to OAuth2" passes smell #8 but still triggers smell #9's escalation.)
 
+10. **Title names one symptom while the body covers a wider scope** — the title is a specific recurring event or single failure, but `# Impact` and `# Success Criteria` describe a broader class or a different root. Test: read the title's subject noun phrase, then ask whether every success criterion could still be true if that one symptom never recurred. If yes, the title is narrower than the goal. Emit **WARN** — this is a naming defect, not a scope defect (the goal is correctly scoped; only its name lags): "Title `<title>` names one symptom, but the goal covers <wider scope the criteria describe>. Rename to the end state the criteria describe — see `docs/goal-writing.md` § Naming Method." Do **not** recommend splitting for this smell.
+
 ### Signals that the goal scope IS appropriate
 
 - Task count ≤ 8, all tasks contribute to ≥ 1 success criterion

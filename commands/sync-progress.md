@@ -280,7 +280,7 @@ Question: "All N/N checkboxes ticked. Mark <task> as completed?"
 Options: "Yes — mark completed" | "Hold — keep as in_progress"
 ```
 
-If "Yes" → invoke `Skill: vault-cli:complete-task`.
+If "Yes" → invoke `Skill: vault-cli:complete-task --non-interactive`. The flag is not optional: this command is already inside the session's own run, and `session-close` Phase 2 is what invoked it — so the interactive path would emit `complete-task`'s closer and then re-enter `session-close`, recursing (`session-close → sync-progress → complete-task → session-close`). The JSON-only path returns the result with no panel.
 
 ### When NOT to mark complete
 
@@ -350,3 +350,7 @@ Why this closer is the only correct one here:
 - **The "no end-of-day suggestions" global rule does NOT override this.** Session-close ≠ day-close. The rule forbids unsolicited *stop for the day* nudges; closing one task's session is the routine step between two task sessions, not a wind-down.
 
 **Skip the closer entirely** when Phase 4 did NOT complete a task — i.e. PR-only sync, progress-only sync, or any path where the active task is still `in_progress`. In those cases the session continues on the same task; emitting `⚪ DONE` would be wrong.
+
+**Skip it for a recurring completion too.** A recurring completion resets the checkboxes and keeps `status: in_progress` (see `pkg/ops/complete.go`), so `⚪ DONE` is false for a task that is still open — and the self-close this panel instructs would then hit `session-close` Phase 4.5, which hard-flags an `in_progress` anchor into mode 3 and ends on an `approve:` line the panel just promised does not exist. Report the completion and stop.
+
+**`👤 You: nothing` is scoped to the close, not to the session.** `session-close` Phase 3 still asks whether to commit/push when a touched repo has uncommitted or unpushed work, and a mode-3 verdict emits its own `approve:` line. The panel promises no approval for *starting* the close; it does not promise the close comes back empty.

@@ -11,6 +11,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 ## Unreleased
 
 - fix: `complete-task` and `sync-progress` Phase 6 no longer tell the session to ask the operator for approval before closing — both closer panels now read `👤 You: nothing` / `⏰ Next: /vault-cli:session-close — this session runs it now`, and the session runs the close itself; the approval line minted an attention card for a step the session was already allowed to take, and `session-self-exit.py` refuses while a card is open, so the card held a finished session's pane open
+- fix: the self-close is guarded at its three failure edges — a **recurring** completion keeps `status: in_progress`, where `⚪ DONE` is false and `session-close` Phase 4.5 forces mode 3, so the closer is skipped for it; `sync-progress` Phase 4b now passes `--non-interactive` to `complete-task`, which breaks the `session-close → sync-progress → complete-task → session-close` recursion an unconditional close would have opened; and `scripts/closer-panel-rule-test.sh` pins both panels structurally (a deleted panel fails, as does a restored approval line), so a later edit cannot drift them with `make test` still green
 
 ## v0.181.0
 

@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: `goal-creator` no longer accepts a symptom-shaped description as the goal title — an explicit symptom-pattern list plus a self-check, added after a v0.182.0 dry run still returned "Recurring Operator Gates Are Fixed Once" verbatim
+
 ## v0.182.0
 
 - feat: creators and auditor apply a naming method — `goal-creator`, `task-creator` and `task-writer` derive the title through the five-step method in `docs/goal-writing.md` / `docs/task-writing.md` § Naming Method instead of echoing the description, and `goal-auditor` warns when a goal title names one symptom while its criteria cover a wider scope

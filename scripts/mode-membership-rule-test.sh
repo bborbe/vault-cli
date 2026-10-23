@@ -200,7 +200,7 @@ check "mode-2 closer carries no operator menu and no reply-waiting line" "" \
 check "self-exit gate admits modes 1 and 2" "found" \
 	"$(line "$TARGET" '**Modes 1 and 2.**' | grep -F 'Modes 1 and 2' >/dev/null && echo found)"
 check "self-exit gate does not admit mode 3" "" \
-	"$(line "$TARGET" '**Modes 1 and 2.**' | grep -E 'Modes 1, 2 and 3|Modes 1 and 2 and 3' >/dev/null && echo found)"
+	"$(between "$TARGET" '### Phase 9.5' '### Closer panel' | grep -E 'Modes 1, 2 and 3|Modes 1 and 2 and 3' >/dev/null && echo found)"
 
 # --- Phase 9.4 must invoke reflect NON-INTERACTIVELY. `commands/reflect.md` asks
 # two questions when run bare (which learnings, then `Proceed?`), so an
@@ -209,6 +209,20 @@ check "self-exit gate does not admit mode 3" "" \
 # `session-self-exit.py` refuse. The flag is the whole fix, so it is pinned.
 check "mode-2 default invokes reflect with --non-interactive" "found" \
 	"$(between "$TARGET" '### Phase 9.4' '### Phase 9.5' | grep -F 'vault-cli:reflect --non-interactive' >/dev/null && echo found)"
+
+# --- reflect's OWN NO-ASK contract must keep both halves: the prohibition on
+# asking, and the parseable terminal line Phase 9.4 records. Pinning only that
+# session-close passes the flag leaves the contract itself unguarded — a later
+# edit could reintroduce an `AskUserQuestion` in reflect.md with every other
+# check still green, which is the exact failure this PR removes.
+REFLECT=commands/reflect.md
+NOASK=$(between "$REFLECT" '## Non-interactive contract' '## Runtime context')
+check "reflect NO-ASK contract forbids asking" "found" \
+	"$(printf '%s' "$NOASK" | grep -F 'never call `AskUserQuestion`' >/dev/null && echo found)"
+check "reflect NO-ASK contract defines the wrote terminal line" "found" \
+	"$(printf '%s' "$NOASK" | grep -F 'reflect: wrote' >/dev/null && echo found)"
+check "reflect NO-ASK contract defines the skipped terminal line" "found" \
+	"$(printf '%s' "$NOASK" | grep -F 'reflect: skipped' >/dev/null && echo found)"
 
 # --- self-check: remove ONE signal from ONE surface and require exactly that
 # surface to report it. Deleting the mode-3 advisory tail's runbook line is the
@@ -249,7 +263,10 @@ check "self-check: the superseded mode-2 routing denial is detected when restore
 # edit to that line turns it into a no-op and this control fails loudly.
 MENU_RESTORED="$TMP/menu/commands/session-close.md"
 mkdir -p "$(dirname "$MENU_RESTORED")"
-sed 's/👤 You: nothing/👤 You: pick any — 1. \/vault-cli:reflect/' \
+# Scoped by the mode-2 panel's OWN unique line, not by `👤 You: nothing` — that
+# string also appears in the mode-1 and goal-anchored panels, so an unscoped
+# substitution rewrites all three and proves nothing about this one.
+sed 's/⏰ Next: this pane closes now (session-self-exit)/👤 You: pick any — 1. \/vault-cli:reflect/' \
 	"$ROOT/$TARGET" >"$MENU_RESTORED"
 check "self-check: the restored mode-2 menu is detected" "found" \
 	"$(fenced "$MENU_RESTORED" "$MODE2_PANEL" | grep -E '👤 You: pick' >/dev/null && echo found)"

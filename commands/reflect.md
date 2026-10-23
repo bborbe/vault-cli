@@ -22,7 +22,7 @@ If the arguments contain `--non-interactive`, strip that token and run under **N
 
 Under NO-ASK:
 
-- **Vault (Step 0):** never ask which vault. Use the vault matched from cwd. If none matches, **write nothing** and print `reflect: skipped — cwd matches no configured vault`. Never fall back to a guessed vault — a reflection written into the wrong vault is worse than none.
+- **Vault (the *Runtime context* section above):** never ask which vault. Use the vault matched from cwd. If none matches, **write nothing** and print `reflect: skipped — cwd matches no configured vault`. Never fall back to a guessed vault — a reflection written into the wrong vault is worse than none.
 - **Selection (Step 2):** no picker. Take **every** learning that passed the significance bar; if none did, write nothing and print `reflect: skipped — no significant learnings`.
 - **Action (Step 3):** no `Proceed?` prompt and no `REVIEW` menu. Take the recommended action — `ENHANCE` on a ≥ 0.6 match, `CREATE` below 0.4, and in the 0.4–0.6 band **prefer `ENHANCE` of the top match** over creating a near-duplicate. The caller has already decided to run reflect; the choices that remain are ones this command can make itself.
 - **Terminal line:** every NO-ASK run ends with exactly one line — `reflect: wrote <N> page(s): [[<a>]], [[<b>]]` or `reflect: skipped — <reason>` — so the calling session can record the outcome without re-reading the vault.
@@ -193,7 +193,7 @@ Wait for user confirmation.
 **CREATE (new page):**
 
 1. Pick a filename (PascalCase or natural language matching existing KB pages)
-2. **Pre-write duplicate check.** The file does not exist yet, so `check_duplicates(file_path=…)` cannot be called on it — it takes a path to an *existing* file. Instead run one final `mcp__semantic-search__search_related` on the **drafted summary sentence** (not the title), and treat any hit ≥ 0.6 under `<knowledge_dir>/` as a duplicate → open that page and ask the user whether to ENHANCE it instead. Only if `DUPLICATE_CHECK_AVAILABLE` and the file already exists on a re-run does `check_duplicates` apply.
+2. **Pre-write duplicate check.** The file does not exist yet, so `check_duplicates(file_path=…)` cannot be called on it — it takes a path to an *existing* file. Instead run one final `mcp__semantic-search__search_related` on the **drafted summary sentence** (not the title), and treat any hit ≥ 0.6 under `<knowledge_dir>/` as a duplicate → open that page and ask the user whether to ENHANCE it instead. **Under `--non-interactive` there is no one to ask: take the ENHANCE branch directly** — the Action bullet above already prescribes exactly that for the ≥ 0.6 band. Only if `DUPLICATE_CHECK_AVAILABLE` and the file already exists on a re-run does `check_duplicates` apply.
 3. Create the file at `<knowledge_dir>/<filename>.md`:
 
    ```markdown

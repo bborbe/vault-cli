@@ -69,7 +69,11 @@ Each entity (Task, Goal, Theme, Objective, Vision) cleanly separates three conce
   values with a trailing YAML comment, and block-scalar bodies are left byte-identical. All six
   entity types inherit this from the one shared chokepoint; a new read path that bypasses
   `parseToFrontmatterMap` reintroduces the bug.
-- `serializeMapAsFrontmatter` marshals the map back to YAML; unknown fields are preserved
+- `SerializeFrontmatter` is the exported entry point that marshals the map back to YAML and
+  preserves the markdown body; unknown fields are preserved. `serializeMapAsFrontmatter` is its
+  method form and delegates to it. A caller outside this package that writes the bytes through a
+  remote store must render through `SerializeFrontmatter` rather than marshalling YAML itself, so
+  the two write paths cannot drift
 - Entity-specific read helpers call `NewXxx(data, meta, content)` constructors
 - **Rendering caveat**: a bare YAML date (`review_date: 2026-08-15`) parses to `time.Time` and re-serializes as RFC3339 (`review_date: 2026-08-15T00:00:00Z`). The instant is preserved; only the rendering is normalized. This applies to every entity — `WriteGoal` behaves the same way today.
 

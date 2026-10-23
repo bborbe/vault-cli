@@ -55,6 +55,46 @@ var _ = Describe("baseStorage map methods", func() {
 		})
 	})
 
+	Describe("SerializeFrontmatter", func() {
+		Context("with a simple map", func() {
+			It("produces --- wrapped YAML block", func() {
+				data := map[string]any{"status": "todo"}
+				result, err := storage.SerializeFrontmatter(ctx, data, "")
+				Expect(err).To(BeNil())
+				Expect(result).To(HavePrefix("---\n"))
+				Expect(result).To(ContainSubstring("status: todo"))
+				Expect(result).To(ContainSubstring("\n---\n"))
+			})
+		})
+
+		Context("with originalContent containing a body", func() {
+			It("preserves the markdown body", func() {
+				orig := "---\nstatus: old\n---\n# My Body\n\nSome content.\n"
+				data := map[string]any{"status": "done"}
+				result, err := storage.SerializeFrontmatter(ctx, data, orig)
+				Expect(err).To(BeNil())
+				Expect(result).To(ContainSubstring("# My Body"))
+				Expect(result).To(ContainSubstring("Some content."))
+			})
+		})
+
+		Context("round-trip", func() {
+			It("re-parses to the same map via the exported parse function", func() {
+				original := "---\nstatus: todo\npage_type: task\n---\n# Body\n"
+				parsed, err := storage.ParseFrontmatterMap(ctx, []byte(original))
+				Expect(err).To(BeNil())
+
+				serialized, err := storage.SerializeFrontmatter(ctx, parsed, original)
+				Expect(err).To(BeNil())
+
+				reparsed, err := storage.ParseFrontmatterMap(ctx, []byte(serialized))
+				Expect(err).To(BeNil())
+
+				Expect(reparsed).To(Equal(parsed))
+			})
+		})
+	})
+
 	Describe("serializeMapAsFrontmatter", func() {
 		Context("with a simple map", func() {
 			It("produces --- wrapped YAML block", func() {

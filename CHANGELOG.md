@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat: export `storage.SerializeFrontmatter` so a caller writing the rendered bytes through a remote store renders through the same serializer as every vault-cli write path instead of marshalling YAML itself
+
 ## v0.179.1
 
 - chore: update github.com/bborbe/collection to v1.21.4

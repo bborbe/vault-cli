@@ -68,6 +68,7 @@ test:
 	@bash scripts/session-close-goals-test.sh
 	@bash scripts/struck-row-rule-test.sh
 	@bash scripts/mode-membership-rule-test.sh
+	@bash scripts/reflect-secret-scan-test.sh
 	@bash scripts/necessity-rule-test.sh
 	@bash scripts/resume-block-card-rule-test.sh
 	@bash scripts/checkpoint-state-rule-test.sh

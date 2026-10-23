@@ -714,7 +714,7 @@ The `Carried forward:` line is emitted only on a repeat run, for an anchor the o
 
 ✅ Nothing outstanding — but the session has follow-up-worthy moments. Append whichever fired, as a NUMBERED list:
 
-1. `/vault-cli:reflect` — <what fired it: new knowledge files, decisions captured> — <ran it | skipped: no finding that names no existing KB page | failed: <reason>>
+1. `/vault-cli:reflect` — <what fired it: new knowledge files, decisions captured> — <ran it | ran it: wrote <N>, skipped <M> (sensitivity) | skipped: no finding that names no existing KB page | failed: <reason>>
 2. `/coding:self-improve` — <what fired it: corrections, retries, missing command>
 3. Runbook improvements: <N HIGH, M MEDIUM> in [[<runbook>]] — review + edit
 ```
@@ -744,7 +744,7 @@ Phase 8.5's runbook-improvement item is an **advisory entry in this list, never 
 8. Runbook improvements: <N HIGH, M MEDIUM> in [[<runbook>]] — review + edit
 ```
 
-Append the reflect, self-improve, and runbook-improvement suggestions as the last numbered item(s) only if their signals fired. **Items 1–5 are blockers; 6–8 are the advisory tail** — all three are advisory ("suggest-only", never auto-run), which is why they sit together and why a runbook gap belongs here in a mode-3 session even though it cannot *cause* one. One line per item. No table, no tree, no asking. The user reads the list and decides what to do next.
+Append the reflect, self-improve, and runbook-improvement suggestions as the last numbered item(s) only if their signals fired. **Items 1–5 are blockers; 6–8 are the advisory tail** — **in a mode-3 session none of the three is auto-run** ("suggest-only"), which is why they sit together and why a runbook gap belongs here even though it cannot *cause* a mode 3. ⚠️ **That is a statement about mode 3 only.** In mode 2, Phase 9.4 runs reflect itself, so the blanket "never auto-run" does not describe reflect outside a mode-3 session — read that way it contradicts Phase 9.4 on the same page. One line per item. No table, no tree, no asking. The user reads the list and decides what to do next.
 
 ⚠️ **Item 3 covers the still-asks cases only.** A worktree this session created, whose branch is merged by the file's own test and whose working tree is clean, is **removed** under the no-ask rule in Phase 3.5 and reported in the close summary — it never reaches this list, so it never becomes a mode-3 blocker.
 
@@ -758,9 +758,9 @@ Never auto-close a session with outstanding items, never auto-commit, never auto
 
 **Otherwise take nothing.** When the call is genuinely close, take nothing — a missed reflection costs one deferred write the operator can trigger by hand; a spurious one costs a KB page they have to delete, and it delays every exit that follows.
 
-**Invoke it as `Skill: vault-cli:reflect --non-interactive`** — the same form Phase 2 uses for `sync-progress`, plus the flag. ⚠️ **The flag is load-bearing, not cosmetic.** `commands/reflect.md` asks two questions when run bare (which learnings, and `Proceed? (y / n / skip)`), so invoking it interactively would replace one operator gate with a worse one — it would block *before* the exit this phase exists to reach, and mint the attention card that makes `session-self-exit.py` refuse. `--non-interactive` is reflect's own NO-ASK contract: it takes every significant learning, prefers ENHANCE over a near-duplicate, writes nothing when no vault matches cwd, and ends on a single `reflect: wrote …` / `reflect: skipped — …` line.
+**Invoke it as `Skill: vault-cli:reflect --non-interactive`** — the same form Phase 2 uses for `sync-progress`, plus the flag. ⚠️ **The flag is load-bearing, not cosmetic.** `commands/reflect.md` asks two questions when run bare (which learnings, and `Proceed? (y / n / skip)`), so invoking it interactively would replace one operator gate with a worse one — it would block *before* the exit this phase exists to reach, and mint the attention card that makes `session-self-exit.py` refuse. `--non-interactive` is reflect's own NO-ASK contract: it takes every significant learning, prefers ENHANCE over a near-duplicate, writes nothing when no vault matches cwd, and ends on a single `reflect: wrote …` / `reflect: wrote … ; skipped … — sensitivity` / `reflect: skipped — …` line.
 
-Then record the outcome on the mode-2 list's reflect item: `ran it`, `skipped: no finding that names no existing KB page`, `skipped: <reflect's own reason>`, or `failed: <reason>`. **When the reflect signal did not fire** there is no reflect item to annotate and none is invented — clause (a) already means reflect was never in scope for that session. **A reflect that errors or writes only partly is recorded `failed: <reason>`, never `ran it`, and still continues to Phase 9.5** — the pane closes either way, and the failure is visible in the transcript rather than silently reported as success.
+Then record the outcome on the mode-2 list's reflect item, using reflect's own terminal-line vocabulary: `ran it` (it printed `reflect: wrote …` with nothing skipped), `ran it: wrote <N>, skipped <M> (sensitivity)` (it printed the mixed form), `skipped: no finding that names no existing KB page`, `skipped: <reflect's own reason>`, or `failed: <reason>`. **A mixed run is never recorded `ran it` alone** — that drops the skipped count the mixed line exists to carry. **When the reflect signal did not fire** there is no reflect item to annotate and none is invented — clause (a) already means reflect was never in scope for that session. **A reflect that errors or writes only partly is recorded `failed: <reason>`, never `ran it`, and still continues to Phase 9.5** — the pane closes either way, and the failure is visible in the transcript rather than silently reported as success.
 
 **Why a rule and not a question.** The menu this replaces was optional follow-ups on a finished task — exactly the shape that reads as a decision the session could have made itself. It was asked 43 times in one window, and every ask held a finished pane open. The rule above is the decision the operator was being asked for; taking it here is the fix.
 
@@ -811,6 +811,12 @@ Append below the verdict. This command is terminal; without a fixed closer the t
 
 ⚠️ **The `⏰ Next:` line claims an exit the script can still refuse.** `session-self-exit.py` returns `SELF-EXIT: stay — <reason>` for a non-terminal anchor task, an open attention card, an unreachable store, or a session that owns no pane. When it does, **replace the `⏰ Next:` line with `⏰ Next: the exit was refused — <reason>`** and leave the rest of the panel as it stands. The panel must not assert a close that did not happen — the carve-out above already applies this to the `⚪ DONE` line for a carried-forward `in_progress` anchor, and this is the same rule one line down.
 
+⚠️ **This carve-out wins over the goal-anchored block's `⏰ Next:` below.** On a goal-anchored clean verdict whose exit was refused, both rules claim that one line, so the precedence is stated here once rather than left to the reader: **the refusal wins**, because it is a fact about whether the close happened, while the goal's next task is a recommendation — and the panel must not assert a close that did not happen. Do not drop the task either: use the combined line, which carries both.
+
+```
+⏰ Next: /vault-cli:work-on-task "<next open task>" — the exit was refused (<reason>); the pane stays open
+```
+
 **A runbook-improvement item has no command of its own** — Phase 8.5 never auto-edits a runbook, so the item is a pointer, not an action. Name the runbook when exactly one gap fired (`Runbook improvements: 2 HIGH in [[<runbook>]]`); with two or more, keep the generic form and let the body's list name them.
 
 **Never print `nothing — session closed` here.** The mode-2 list is information about work that already happened, not a queue of pending asks — `nothing` is correct precisely because Phase 9.4 has resolved the only actionable item (`reflect`) and the rest are records.
@@ -821,6 +827,14 @@ Append below the verdict. This command is terminal; without a fixed closer the t
 ⚪ DONE
 👤 You: nothing — session closed
 ⏰ Next: /vault-cli:work-on-task "<next open task>" — <N> open task(s) remain under the goal
+```
+
+⚠️ **If the exit was refused, this block does not apply as written.** The refused-exit carve-out above wins on the `⏰ Next:` line, and the combined form keeps the goal's next task:
+
+```
+⚪ DONE
+👤 You: nothing — session closed
+⏰ Next: /vault-cli:work-on-task "<next open task>" — the exit was refused (<reason>); the pane stays open
 ```
 
 **Outstanding items (mode 3):** `🔵 READY`, with `👤 You: approve:` naming exactly ONE item from the numbered list. **When an `in_progress` touched task is on the list, that task IS the item to name** — the `approve:` line must offer its resolution (`/vault-cli:complete-task "<title>"`, `/vault-cli:defer-task "<title>" <date>`, set status hold/aborted, or **leave it open and say so plainly**), never a different item (a worktree cleanup, uncommitted files, a daemon). Naming any other item while the anchor task sits `in_progress` repeats the 2026-08-30 defect: the session closed `⚪ DONE` with the anchor unfinished. The task is the gate; no other item stands in for it. ⚠️ **On a repeat run within the same session, an item the operator already resolved is not on the list** — Phase 4.5's within-one-session clause carries it forward in the summary block instead, so the `approve:` line names the next remaining item, or the run takes the clean verdict when none remains.

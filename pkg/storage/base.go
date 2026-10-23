@@ -208,11 +208,16 @@ func quoteBareWikilinkLine(line string) (string, bool) {
 	return matches[1] + "'" + strings.ReplaceAll(value, "'", "''") + "'", true
 }
 
-// serializeMapAsFrontmatter serializes data as YAML frontmatter, replacing the
+// SerializeFrontmatter serializes data as YAML frontmatter, replacing the
 // frontmatter block in originalContent and preserving the markdown body.
 // Fields are written in YAML library key order (alphabetical); this may differ
 // from the original file's key order, which is acceptable per the spec.
-func (b *baseStorage) serializeMapAsFrontmatter(
+//
+// It is exported so a caller that writes the rendered bytes through a remote
+// store, rather than through this package's own writer, renders through the
+// same serializer. Marshalling YAML itself would duplicate this logic and let
+// the two paths drift, so such a caller must use this function instead.
+func SerializeFrontmatter(
 	ctx context.Context,
 	data map[string]any,
 	originalContent string,
@@ -234,6 +239,16 @@ func (b *baseStorage) serializeMapAsFrontmatter(
 	buf.WriteString("---\n")
 	buf.WriteString(body)
 	return buf.String(), nil
+}
+
+// serializeMapAsFrontmatter is the baseStorage method form of
+// SerializeFrontmatter.
+func (b *baseStorage) serializeMapAsFrontmatter(
+	ctx context.Context,
+	data map[string]any,
+	originalContent string,
+) (string, error) {
+	return SerializeFrontmatter(ctx, data, originalContent)
 }
 
 func (b *baseStorage) findFileByName(

@@ -7,10 +7,13 @@ priority: 2
 Tags: [[Goal]]
 
 ---
-<!-- FIXTURE — not a real goal. Constructed input for goal-auditor's name-vs-scope
-     check (docs/goal-writing.md § Naming Method, Goal Scope Fit smell #10). The title
-     names ONE symptom while the Impact and Success Criteria describe the wider
-     oversight scope. A correct audit emits the name-vs-scope WARN. -->
+<!-- FIXTURE — not a real goal. Clean control for goal-auditor's name-vs-scope check
+     (docs/goal-writing.md § Naming Method, Goal Scope Fit smell #10). Same body as
+     `Repeated Gate Approvals.md`; only the title differs, so it names the end state
+     the criteria describe.
+
+     EXPECTED AUDIT OUTPUT: NO name-vs-scope WARN. Any other finding this fixture
+     draws is incidental and out of scope for the check under test. -->
 
 The operator's attention stays on managers rather than on every running worker, and work continues without the operator re-showing the same gates.
 

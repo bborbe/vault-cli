@@ -151,7 +151,7 @@ On any hit, emit WARN with: "Soak-time DoD on a personal-laptop tool — the ope
 
 ### Smells that "this goal is over-scoped or scope-creep"
 
-Count how many apply. **3+ smells → recommend splitting or moving items to follow-up goals.**
+Count how many of smells **1–9** apply. **3+ smells → recommend splitting or moving items to follow-up goals.** Smell #10 is a naming defect, not a scope smell: it is excluded from this count, never contributes to a split recommendation, and is emitted independently — see its own entry.
 
 1. **Tasks outnumber success criteria by > 2.5×** — e.g. 10 tasks but only 3 success criteria. Either the criteria are missing, or many tasks contribute to nothing measurable.
 2. **A task contributes to no success criterion** — for each task, can you point to ≥ 1 success criterion it advances? If not, the task is scope creep (or the criterion list is incomplete).
@@ -163,7 +163,7 @@ Count how many apply. **3+ smells → recommend splitting or moving items to fol
 8. **Filename describes a generic capability rather than an outcome** — "Improve Agent Platform" is theme-shaped; "Eliminate Agent Task Rot" is goal-shaped.
 9. **Summary first sentence is mechanism-shaped** — leads with "Split X / Build Y / Refactor Z" instead of the new state of the world. On its own → Summary Quality recommendation. Combined with title that also fails the outcome-vs-mechanism sniff test → strong signal the goal itself is activity-shaped, not just badly written. (This is a stricter condition than smell #8, which only catches generic-capability titles like "Improve Agent Platform" — a specific-but-activity-shaped title like "Migrate Auth to OAuth2" passes smell #8 but still triggers smell #9's escalation.)
 
-10. **Title names one symptom while the body covers a wider scope** — the title is a specific recurring event or single failure, but `# Impact` and `# Success Criteria` describe a broader class or a different root. Test: read the title's subject noun phrase, then ask whether every success criterion could still be true if that one symptom never recurred. If yes, the title is narrower than the goal. Emit **WARN** — this is a naming defect, not a scope defect (the goal is correctly scoped; only its name lags): "Title `<title>` names one symptom, but the goal covers <wider scope the criteria describe>. Rename to the end state the criteria describe — see `docs/goal-writing.md` § Naming Method." Do **not** recommend splitting for this smell.
+10. **Title names one symptom while the body covers a wider scope** *(naming defect — excluded from the count above)* — the title is a specific recurring event or single failure, but `# Impact` and `# Success Criteria` describe a broader class or a different root. Test: read the title's subject noun phrase, then ask whether every success criterion could still be true if that one symptom never recurred. If yes, the title is narrower than the goal. Emit **WARN under `## Recommendations`** — not under `## Goal Scope Fit`, which renders only at 3+ smells — whenever it applies, regardless of how many other smells fire, and even when it is the goal's only defect: "Title `<title>` names one symptom, but the goal covers <wider scope the criteria describe>. Rename to the end state the criteria describe — see `docs/goal-writing.md` § Naming Method." Do **not** recommend splitting for this smell.
 
 ### Signals that the goal scope IS appropriate
 

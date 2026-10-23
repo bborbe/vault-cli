@@ -89,6 +89,8 @@ This is the task-level variant of the **outcome-vs-mechanism sniff test** in `go
 
 Apply this before proposing any title. The failure it prevents is a name that captures one symptom while the task covers the wider problem — the name then misleads scoping and linking for the whole life of the task.
 
+The five steps and the level table are shared with `docs/goal-writing.md` § Naming Method; only step 4's wording differs by level. Edit both in the same change, or they drift.
+
 1. **List the symptoms** — what keeps happening that prompted this task. One line each, in the language the complaint arrives in.
 2. **Five whys** — ask why until the answer is about the user (usually the operator), not the mechanism. That root is the level the name must speak to.
 3. **Name the end state** that root points at — what is true afterwards, phrased as the world after the work rather than the work itself.

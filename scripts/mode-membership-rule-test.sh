@@ -370,12 +370,17 @@ check "changelog unreleased names the failed terminal line" "found" \
 # never executes, zero checks run, and the script reports a clean run having
 # pinned nothing. A missing script must fail the pin, not retire it.
 CLASSES=$(bash "$ROOT/scripts/reflect-secret-scan.sh" --classes 2>/dev/null)
-check "the secret-scan script publishes its class list" "10" \
+check "the secret-scan script publishes its class list" "11" \
 	"$(printf '%s\n' "$CLASSES" | grep -c .)"
+# Scoped to the fallback paragraph, not the whole file: a class named anywhere
+# in reflect.md satisfies a whole-file grep, but the list the model actually
+# applies when the script is unreachable is only the one in that paragraph. A
+# class moved out of it must fail here rather than pass silently.
+FALLBACK=$(awk '/Fallback when the script is unreachable/{f=1} f && /Those eleven class names/{exit} f' "$REFLECT")
 while IFS= read -r class; do
 	[ -n "$class" ] || continue
-	check "reflect.md names the '$class' secret class" "found" \
-		"$(grep -F "\`$class\`" "$REFLECT" >/dev/null && echo found)"
+	check "reflect.md names the '$class' class in the fallback list" "found" \
+		"$(printf '%s' "$FALLBACK" | grep -F "\`$class\`" >/dev/null && echo found)"
 done <<<"$CLASSES"
 
 # --- the two session-close prose collisions. Both were live contradictions, not

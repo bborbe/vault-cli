@@ -57,12 +57,21 @@ check "sk- token at a boundary is rejected" "secret-scan: rejected (api-key)" \
 	"$(scan 'key sk-projabcdefghijklmnop1234 end')"
 check "Slack token is rejected" "secret-scan: rejected (slack-token)" \
 	"$(scan 'hook xoxb-1234567890-abcdefghij')"
+check "Stripe live key is rejected" "secret-scan: rejected (stripe-key)" \
+	"$(scan 'pay sk_live_abcdefghijklmnop1234 end')"
 check "Bearer token is rejected" "secret-scan: rejected (bearer-token)" \
 	"$(scan 'header Bearer abcdefghijklmnopqrstuvwxyz012345')"
+# HTTP auth schemes are case-insensitive, so the lowercase form is equally valid
+# and a case-sensitive literal would scan it clean.
+check "lowercase bearer token is rejected" "secret-scan: rejected (bearer-token)" \
+	"$(scan 'authorization: bearer abcdefghijklmnopqrstuvwxyz012345')"
 check "connection string with credentials is rejected" "secret-scan: rejected (connection-string)" \
 	"$(scan 'db postgres://appuser:s3cretpw@db.internal:5432/orders')"
 check "assignment-shaped password is rejected" "secret-scan: rejected (key-assignment)" \
 	"$(scan 'config password=hunter22 applied')"
+# A quoted value may contain spaces, which a bare `[^[:space:]]{8,}` cannot span.
+check "quoted password with spaces is rejected" "secret-scan: rejected (key-assignment)" \
+	"$(scan 'config password="my secret pass" applied')"
 check "JWT is rejected" "secret-scan: rejected (jwt)" \
 	"$(scan 'auth eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U')"
 check "base64 blob is rejected" "secret-scan: rejected (base64-blob)" \
@@ -90,12 +99,29 @@ check "prose about a token= field is kept" "secret-scan: clean" \
 	"$(scan 'the token= field is documented in the guide')"
 check "prose about Bearer tokens is kept" "secret-scan: clean" \
 	"$(scan 'we discussed Bearer tokens in general terms')"
+# Near-misses: each is one step away from a class above and must NOT fire, or
+# the class is over-broad in a way the positive fixtures alone cannot show.
+check "an empty input is kept" "secret-scan: clean" "$(scan '')"
+check "multiline input scans clean line by line" "secret-scan: clean" \
+	"$(scan 'first line
+second line
+third line')"
+check "a UUID is kept (36 chars, under the base64 floor)" "secret-scan: clean" \
+	"$(scan 'id 3f2504e0-4f89-11d3-9a0c-0305e82c3301')"
+
+# --- the verdict must NAME the class, never echo the matched value. This is
+# stated in the script header and in `commands/reflect.md`, and until now
+# nothing tested it: an edit that printed the match would keep every check
+# above green while putting the secret into the transcript the scan exists to
+# keep it out of.
+check "a rejected verdict never echoes the matched value" "absent" \
+	"$(scan 'config password=hunter22 applied' | grep -F 'hunter22' >/dev/null && echo present || echo absent)"
 
 # --- the class list the sync pin consumes
 # `--classes` is what `scripts/mode-membership-rule-test.sh` reads to require
 # that every implemented class is also named in `commands/reflect.md`'s
 # fallback prose. A class that vanishes from this list silently drops its pin.
-check "--classes prints all ten classes" "10" \
+check "--classes prints all eleven classes" "11" \
 	"$(bash "$SCAN" --classes | wc -l | tr -d ' ')"
 check "--classes names base64-blob" "found" \
 	"$(bash "$SCAN" --classes | grep -xF 'base64-blob' >/dev/null && echo found)"

@@ -42,17 +42,24 @@ set -uo pipefail
 #   risk handling — the false positive found on `commands/reflect.md:29`.
 #
 #   the key-assignment shapes require a key at a token boundary, `=`, and a
-#   value of at least 8 non-space characters. Prose about a `token=` field has
-#   nothing after the `=`, so it never fires — the other half of that finding.
+#   value — 8+ non-space characters bare, or 4+ inside quotes so a value
+#   containing spaces (`password="my secret pass"`) is not missed. Prose about a
+#   `token=` field has nothing after the `=`, so it never fires — the other half
+#   of that finding.
+#
+#   `bearer-token` matches the auth scheme in ANY casing, not just the canonical
+#   `Bearer`: HTTP auth schemes are case-insensitive, so `authorization: bearer
+#   <token>` is equally valid and a case-sensitive literal scans it clean.
 CLASSES=(
 	'private-key|-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----'
 	'aws-key-id|(^|[^A-Za-z0-9])(AKIA|ASIA)[0-9A-Z]{16}'
 	'github-token|(ghp_|gho_|ghu_|ghs_|ghr_|github_pat_)[A-Za-z0-9_]{20,}'
 	'api-key|(^|[^A-Za-z0-9])sk-[A-Za-z0-9_-]{16,}'
+	'stripe-key|(^|[^A-Za-z0-9])(sk|rk)_(live|test)_[A-Za-z0-9]{16,}'
 	'slack-token|xox[baprs]-[A-Za-z0-9-]{10,}'
-	'bearer-token|Bearer[[:space:]]+[A-Za-z0-9._~+/-]{20,}'
+	'bearer-token|[Bb][Ee][Aa][Rr][Ee][Rr][[:space:]]+[A-Za-z0-9._~+/-]{20,}'
 	'connection-string|[a-z][a-z0-9+.-]*://[^[:space:]/:@]+:[^[:space:]/@]+@'
-	'key-assignment|(^|[^A-Za-z0-9_])(password|passwd|token|secret|api[_-]?key)[[:space:]]*=[[:space:]]*[^[:space:]]{8,}'
+	"key-assignment|(^|[^A-Za-z0-9_])(password|passwd|token|secret|api[_-]?key)[[:space:]]*=[[:space:]]*(\"[^\"]{4,}\"|'[^']{4,}'|[^[:space:]]{8,})"
 	'jwt|eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}'
 )
 
@@ -74,7 +81,14 @@ if [ "${1:-}" = "--classes" ]; then
 	exit 0
 fi
 
-text=$(cat)
+# Fail CLOSED on a read error. `text=$(cat)` alone leaves `text` empty when
+# stdin cannot be read, and an empty string scans clean — the scan would report
+# the one verdict that lets an unreviewed write through, on the one path where
+# nothing was actually inspected.
+if ! text=$(cat); then
+	printf 'secret-scan: rejected (unreadable-input)\n'
+	exit 1
+fi
 
 for entry in "${CLASSES[@]}"; do
 	class=${entry%%|*}

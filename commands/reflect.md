@@ -1,5 +1,6 @@
 ---
 description: Extract high-significance learnings from this conversation and document them in the vault's Knowledge Base — works in any vault via vault-cli config
+argument-hint: "[--non-interactive]"
 allowed-tools:
   - Read
   - Write

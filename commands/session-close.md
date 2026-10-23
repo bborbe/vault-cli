@@ -28,7 +28,7 @@ allowed-tools:
 
 End-of-session safety check. Verifies progress is documented, working trees are clean, and nothing important is still in flight. **Output is terse:** either `✅ Nothing to do — safe to close Claude :)` or a short numbered list of open items. Never prints a checklist table. Never asks yes/no.
 
-**A clean verdict releases the worker's own slot.** After printing `✅ Nothing to do — safe to close Claude :)`, the command runs `scripts/session-self-exit.py` (Phase 9.5), which ends the process only when every condition is re-verified on disk: the task is terminal, no box is open, no attention card is open, and this session owns its own pane. A refusal prints one named line and the session stays alive. A session with outstanding items is never auto-closed.
+**A clean verdict releases the worker's own slot.** On a clean verdict — mode 1 or mode 2 — the command runs `scripts/session-self-exit.py` (Phase 9.5), which ends the process only when every condition is re-verified on disk: the task is terminal, no box is open, no attention card is open, and this session owns its own pane. A refusal prints one named line and the session stays alive. A session with outstanding items is never auto-closed.
 
 This command **must stay inline** — it analyzes the parent conversation (touched files, completion signals, reflect + self-improve signals); a sub-agent cannot see the conversation.
 
@@ -806,8 +806,6 @@ Append below the verdict. This command is terminal; without a fixed closer the t
 ```
 
 ⚠️ **There is no `pick any —` line, and no `⏰ Next: your reply`.** This block used to end on an operator menu — `pick any — 1. /vault-cli:reflect · 2. /coding:self-improve · 3. review the runbook gap · 4. nothing — close` — and that menu was the single largest recurring operator gate on the board (43 of 47 sessions carrying a `pick any` closer over one window, 2026-10-23 measurement). It also **blocked the worker's own exit**: `session-self-exit.py` refuses while the attention store holds an open card for the session, and the menu minted one, so a finished worker sat on a pane until a human answered. A finished session now decides for itself (Phase 9.4) and exits.
-
-**Renumber from `1` whenever fewer than all three fired** — same rule as the mode-2 body list above. The numbers are a stable handle for the operator reading the transcript afterwards; nothing is being asked, so no answer form depends on them.
 
 **A runbook-improvement item has no command of its own** — Phase 8.5 never auto-edits a runbook, so the item is a pointer, not an action. Name the runbook when exactly one gap fired (`Runbook improvements: 2 HIGH in [[<runbook>]]`); with two or more, keep the generic form and let the body's list name them.
 

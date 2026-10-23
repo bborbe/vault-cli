@@ -200,7 +200,7 @@ check "mode-2 closer carries no operator menu and no reply-waiting line" "" \
 check "self-exit gate admits modes 1 and 2" "found" \
 	"$(line "$TARGET" '**Modes 1 and 2.**' | grep -F 'Modes 1 and 2' >/dev/null && echo found)"
 check "self-exit gate does not admit mode 3" "" \
-	"$(between "$TARGET" '### Phase 9.5' '### Closer panel' | grep -E 'Modes 1, 2 and 3|Modes 1 and 2 and 3' >/dev/null && echo found)"
+	"$(between "$TARGET" '### Phase 9.5' '### Closer panel' | grep -E 'Modes 1, 2 and 3|Modes 1 and 2 and 3|all modes' >/dev/null && echo found)"
 
 # --- Phase 9.4 must invoke reflect NON-INTERACTIVELY. `commands/reflect.md` asks
 # two questions when run bare (which learnings, then `Proceed?`), so an
@@ -259,8 +259,9 @@ check "self-check: the superseded mode-2 routing denial is detected when restore
 # --- self-check (menu): restore the retired menu into the mode-2 panel and
 # require the inverse pin to fire. Same reason as the polarity controls above —
 # a pin that can never fire is indistinguishable from a file that never
-# regressed. The substitution targets the CURRENT `👤 You: nothing`, so a later
-# edit to that line turns it into a no-op and this control fails loudly.
+# regressed. The substitution targets the mode-2 panel's own unique `⏰ Next:`
+# line, so a later edit to that line turns it into a no-op and this control
+# fails loudly.
 MENU_RESTORED="$TMP/menu/commands/session-close.md"
 mkdir -p "$(dirname "$MENU_RESTORED")"
 # Scoped by the mode-2 panel's OWN unique line, not by `👤 You: nothing` — that

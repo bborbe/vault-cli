@@ -53,17 +53,19 @@ Mark task as complete using vault-cli. Handles normal and recurring tasks approp
       ```
       - If warnings in output, show them
 
-   e. **Emit closer panel** — append below the report, verbatim, no rewording, **normal tasks only**:
+   e. **Emit closer panel** — **normal tasks only.** Two cases skip both the panel and the self-close; check them first:
+
+      - **Recurring tasks** (step 4 — status stays `in_progress`). The signal is the `recurring:` frontmatter field already read in step 2a, or the post-complete `status: in_progress` in the result — `vault-cli task complete`'s JSON carries no recurring flag of its own. `⚪ DONE` is false for a still-open task, and `session-close` Phase 4.5 hard-flags an `in_progress` anchor into mode 3, which ends on an `approve:` line this panel promises does not exist. Report the completion and stop.
+      - **Nested callers.** `sync-progress` Phase 4b invokes this command from inside its own run, and `session-close` Phase 2 invokes `sync-progress` — so an unconditional close recurses (`session-close → sync-progress → complete-task → session-close`). Phase 4b therefore passes `--non-interactive`, whose JSON-only path never reaches this step.
+
+      Otherwise append below the report, verbatim, no rewording:
       ```
       ⚪ DONE
       👤 You: nothing
       ⏰ Next: /vault-cli:session-close — this session runs it now
       ```
 
-      Then run `/vault-cli:session-close` yourself — no approval line, no pick menu. Two cases skip both the panel and the self-close:
-
-      - **Recurring tasks** (step 4 — status stays `in_progress`). `⚪ DONE` is false for a still-open task, and `session-close` Phase 4.5 hard-flags an `in_progress` anchor into mode 3, which ends on an `approve:` line this panel promises does not exist. Report the completion and stop.
-      - **Nested callers.** `sync-progress` Phase 4b invokes this command from inside its own run, and `session-close` Phase 2 invokes `sync-progress` — so an unconditional close recurses (`session-close → sync-progress → complete-task → session-close`). Phase 4b therefore passes `--non-interactive`, whose JSON-only path never reaches this step.
+      Then run `/vault-cli:session-close` yourself — no approval line, no pick menu.
 
       Rationale for this closer (one-task-per-session contract, why never `/vault-cli:next-task` here, why the "no end-of-day suggestions" global rule does NOT override): see [`sync-progress.md` Phase 6](sync-progress.md) — same contract applies. Single source of truth lives there to prevent drift.
 

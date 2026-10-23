@@ -19,8 +19,10 @@
 #   3. The three skip conditions are present, because each one guards a recursion
 #      or a false `⚪ DONE` that the panel alone would introduce:
 #        - recurring completion (status stays in_progress → mode 3)
-#        - nested caller via complete-task (`sync-progress` Phase 4b)
-#        - nested caller via sync-progress (`session-close` Phase 2 → --nested)
+#        - nested caller via complete-task (`sync-progress` Phase 4b → --non-interactive)
+#        - nested caller via sync-progress (`session-close` Phase 2, `prepare-compact`,
+#          `task-status` → --nested). Every caller that continues after the sync must
+#          pass it, or a completion inside the sync self-closes the calling command.
 #
 # The pattern leads with `[[:space:]]*` because `complete-task.md`'s panel is
 # indented inside its step, while `sync-progress.md`'s is flush left. An anchored
@@ -104,9 +106,16 @@ check "sync-progress skips the closer when NESTED" "yes" \
 	"$(has commands/sync-progress.md '**Skip it entirely when `NESTED=true`.**')"
 check "session-close passes --nested to sync-progress" "yes" \
 	"$(has commands/session-close.md 'Skill: vault-cli:sync-progress --nested')"
+check "prepare-compact passes --nested to sync-progress" "yes" \
+	"$(has commands/prepare-compact.md 'Skill: vault-cli:sync-progress --nested')"
+check "task-status passes --nested to sync-progress" "yes" \
+	"$(has commands/task-status.md 'Skill: vault-cli:sync-progress --nested')"
+check "sync-progress Phase 4b passes --non-interactive to complete-task" "yes" \
+	"$(has commands/sync-progress.md 'Skill: vault-cli:complete-task --non-interactive')"
 
 # Self-checks: prove each predicate can fail.
 TMP=$(mktemp -d)
+[ -d "$TMP" ] || { echo "FAIL could not create a temp dir for the self-checks" >&2; exit 2; }
 trap 'rm -rf "$TMP"' EXIT
 
 mkdir -p "$TMP/stripped" "$TMP/restored" "$TMP/noclause"

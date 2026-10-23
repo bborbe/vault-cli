@@ -23,8 +23,10 @@ Quick "where was I?" recovery tool. Detects active task from the parent conversa
 Invoke the skill. Literally this call, not an inlined equivalent:
 
 ```
-Skill: vault-cli:sync-progress
+Skill: vault-cli:sync-progress --nested
 ```
+
+`--nested` is not optional: this command emits its own status report after the sync, so a completion established inside `sync-progress` must not make its Phase 6 panel self-close the session before that report exists.
 
 **"Run the sync-progress logic" is not a licence to reimplement it here.** Observed 2026-08-10: the agent hand-rolled the steps, checked the daily note directly, and skipped writing the session entry — the same misread that hit `/vault-cli:session-close` Phase 2 minutes earlier.
 

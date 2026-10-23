@@ -20,7 +20,7 @@ This command **must stay inline** — it analyzes the parent conversation for co
 
 ## Arguments
 
-- `--nested` — set `NESTED=true` and strip the token. Passed by `session-close` Phase 2, which invokes this command from inside its own run. It suppresses Phase 6's self-close: the enclosing `session-close` already owns the exit, and instructing another one from here restarts it.
+- `--nested` — set `NESTED=true` and strip the token. Passed by every caller that invokes this command from inside its own run and continues afterwards: `session-close` Phase 2, `prepare-compact`, and `task-status`. It suppresses Phase 6's self-close, because the calling command — not this one — owns what happens next; instructing a close from here restarts the enclosing close or ends a session that still has work to print.
 
 Absent the flag, `NESTED=false` and the closer behaves normally.
 
@@ -359,6 +359,6 @@ Why this closer is the only correct one here:
 
 **Skip it for a recurring completion too.** A recurring completion resets the checkboxes and keeps `status: in_progress` (see `pkg/ops/complete.go`), so `⚪ DONE` is false for a task that is still open — and the self-close this panel instructs would then hit `session-close` Phase 4.5, which hard-flags an `in_progress` anchor into mode 3 and ends on an `approve:` line the panel just promised does not exist. Report the completion and stop.
 
-**Skip it entirely when `NESTED=true`.** `session-close` Phase 2 invokes this command from inside its own run, so a completion established here — including a probe-established one, which Phase 3 routes straight to this section — would otherwise re-enter `session-close` (`session-close → sync-progress → session-close`). The enclosing close already owns the exit and will emit its own panel; a second `⚪ DONE` here duplicates it and restarts the close. Report the completion in the Phase 5 report and let the caller finish.
+**Skip it entirely when `NESTED=true`.** Every caller that invokes this command from inside its own run — `session-close` Phase 2, `prepare-compact`, `task-status` — passes the flag, and each one continues afterwards. A completion established here (including a probe-established one, which Phase 3 routes straight to this section) would otherwise self-close the session: for `session-close` that re-enters the close that invoked this command, and for the other two it ends a session that still has a status report or a compaction to finish. Report the completion in the Phase 5 report and let the caller finish.
 
 **`👤 You: nothing` is scoped to the close, not to the session.** `session-close` Phase 3 still asks whether to commit/push when a touched repo has uncommitted or unpushed work, and a mode-3 verdict emits its own `approve:` line. The panel promises no approval for *starting* the close; it does not promise the close comes back empty.

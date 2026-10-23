@@ -295,5 +295,96 @@ check "self-check: the pin rejects a restored reply-waiting line" "" \
 	"$(printf '%s\n' "$(fenced "$REPLY_RESTORED" "$MODE2_PANEL")" | grep -E '^⏰ Next:' \
 		| grep -F 'session-self-exit' >/dev/null && echo found)"
 
+# --- Phase 9.4's DECISION RULE: reflect runs in mode 2 ONLY, and ONLY when BOTH
+# (a) the Phase 8 reflect signal fired (score >= 3) and (b) the session recorded
+# a finding that names no existing KB page. Every check above pins a CONSEQUENCE
+# of that rule — the panel's shape, the flag, the NO-ASK contract — and none
+# pinned the rule itself, so a later edit could drop a clause, or widen the
+# scope to mode 1 or mode 3, with all of them still green. The rule IS the
+# change this file's sibling PR is built on, so it gets its own pin, and each of
+# its three conjuncts gets a mutation control below.
+PHASE94=$(between "$TARGET" '### Phase 9.4' '### Phase 9.5')
+CLAUSE_A='the Phase 8 reflect signal fired'
+CLAUSE_B='a finding that names no existing KB page'
+
+check "phase 9.4 is scoped to mode 2 only" "found" \
+	"$(printf '%s' "$PHASE94" | grep -F 'mode 2 only' >/dev/null && echo found)"
+check "phase 9.4 requires the Phase 8 reflect signal (clause a)" "found" \
+	"$(printf '%s' "$PHASE94" | grep -F "$CLAUSE_A" >/dev/null && echo found)"
+check "phase 9.4 requires a finding naming no existing KB page (clause b)" "found" \
+	"$(printf '%s' "$PHASE94" | grep -F "$CLAUSE_B" >/dev/null && echo found)"
+check "phase 9.4 states the rule as a conjunction, not a disjunction" "found" \
+	"$(printf '%s' "$PHASE94" | grep -F 'if and only if BOTH hold' >/dev/null && echo found)"
+
+# --- self-check (phase 9.4 rule): remove each conjunct in turn and require ITS
+# OWN pin to fail. A pin that survives the removal of its clause is not pinning
+# that clause — it is pinning something adjacent that happened to remain, which
+# is the false green this whole file exists to prevent.
+rule_mutant() { # rule_mutant <sed-expr> <name>
+	local dest="$TMP/rule-$2/commands/session-close.md"
+	mkdir -p "$(dirname "$dest")"
+	sed "$1" "$ROOT/$TARGET" >"$dest"
+	printf '%s' "$dest"
+}
+
+SCOPE_MUTANT=$(rule_mutant 's/(mode 2 only)/(modes 1 and 2)/' scope)
+check "self-check: widening phase 9.4 past mode 2 breaks the scope pin" "" \
+	"$(between "$SCOPE_MUTANT" '### Phase 9.4' '### Phase 9.5' | grep -F 'mode 2 only' >/dev/null && echo found)"
+
+CLAUSE_A_MUTANT=$(rule_mutant 's/the Phase 8 reflect signal fired/the Phase 8 signal is advisory/' a)
+check "self-check: dropping clause (a) breaks the clause-a pin" "" \
+	"$(between "$CLAUSE_A_MUTANT" '### Phase 9.4' '### Phase 9.5' | grep -F "$CLAUSE_A" >/dev/null && echo found)"
+
+CLAUSE_B_MUTANT=$(rule_mutant 's/a finding that names no existing KB page/a finding/' b)
+check "self-check: dropping clause (b) breaks the clause-b pin" "" \
+	"$(between "$CLAUSE_B_MUTANT" '### Phase 9.4' '### Phase 9.5' | grep -F "$CLAUSE_B" >/dev/null && echo found)"
+
+# --- the mixed written/skipped terminal line. The Sensitivity bullet promised a
+# skip would be "said in the terminal line", while the Terminal-line bullet
+# defined exactly one line per run — so a mixed run could only print `wrote N`
+# and the skip was silently lost. Pinned in BOTH files, each against its own
+# section range: a whole-file grep passes on the literal pasted into the wrong
+# section, which is the drift being guarded against.
+MIXED='reflect: wrote <N> page(s): [[<a>]]; skipped <M> — sensitivity'
+check "reflect.md defines the mixed written/skipped line" "found" \
+	"$(between "$REFLECT" '## Non-interactive contract' '## Runtime context' | grep -F "$MIXED" >/dev/null && echo found)"
+check "session-close phase 9.4 records the mixed form" "found" \
+	"$(between "$TARGET" '### Phase 9.4' '### Phase 9.5' | grep -F 'skipped <M> (sensitivity)' >/dev/null && echo found)"
+
+# --- and the changelog bullet must enumerate EVERY terminal-line form. The
+# released v0.181.0 bullet named only `wrote` and `skipped`, which is how
+# `failed` — mandatory in reflect.md — went missing from the changelog in the
+# first place. Scoped to `## Unreleased` so a later release rewrite cannot make
+# this pass by accident off an older section.
+check "changelog unreleased names the failed terminal line" "found" \
+	"$(between CHANGELOG.md '## Unreleased' '## v' | grep -F 'reflect: failed — <reason>' >/dev/null && echo found)"
+
+# --- the script and its prose fallback must not drift. reflect.md keeps a class
+# list for the case the plugin cache is unreachable; a class the script
+# implements but the prose never names is one the model will not apply when the
+# script cannot be found — and nothing else would notice. The list is DERIVED
+# from the script's own `--classes` output, never restated here, so adding a
+# class to the script immediately fails until the prose names it too.
+while IFS= read -r class; do
+	check "reflect.md names the '$class' secret class" "found" \
+		"$(grep -F "\`$class\`" "$REFLECT" >/dev/null && echo found)"
+done < <(bash "$ROOT/scripts/reflect-secret-scan.sh" --classes)
+
+# --- the two session-close prose collisions. Both were live contradictions, not
+# style nits: the goal-anchored clean verdict mandates one `⏰ Next:` line and
+# the refused-exit carve-out mandates a different one with no stated precedence,
+# and the mode-3 advisory tail called all three signals "never auto-run" while
+# Phase 9.4 auto-runs reflect in mode 2.
+check "refused-exit carve-out states it wins over the goal-anchored line" "found" \
+	"$(grep -F 'This carve-out wins over the goal-anchored' "$TARGET" >/dev/null && echo found)"
+check "the goal-anchored refused-exit combined line is given" "found" \
+	"$(between "$TARGET" '**Goal-anchored clean verdict**' '**Outstanding items (mode 3):**' | grep -F 'the exit was refused (<reason>); the pane stays open' >/dev/null && echo found)"
+check "mode-3 advisory tail is scoped to a mode-3 session" "found" \
+	"$(grep -F 'in a mode-3 session none of the three is auto-run' "$TARGET" >/dev/null && echo found)"
+
+ADVISORY_MUTANT=$(rule_mutant 's/in a mode-3 session none of the three is auto-run/all three are advisory/' advisory)
+check "self-check: the unscoped advisory claim is detected when restored" "" \
+	"$(grep -F 'in a mode-3 session none of the three is auto-run' "$ADVISORY_MUTANT" >/dev/null && echo found)"
+
 echo "mode-membership-rule: $pass passed, $fail failed"
 [ "$fail" -eq 0 ] || exit 1

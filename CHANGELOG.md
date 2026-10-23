@@ -8,6 +8,13 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: `reflect --non-interactive`'s sensitivity scan is now a probed script, not prose — `scripts/reflect-secret-scan.sh` is the single executable source and `scripts/reflect-secret-scan-test.sh` asserts BOTH directions against a fixture (each secret shape rejected, each innocent string kept), so neither an accept-all nor a reject-all scan can pass. `sk-` is anchored to a token boundary (`task-`, `risk-` and `disk-` no longer match), the `password=` / `token=` / `secret=` shapes require an assignment with a value of 8+ characters so prose about a `token=` field does not fire, and JWT / base64-blob shapes are covered — the base64 class excludes pure hex so a git SHA is not mistaken for a blob. `commands/reflect.md` keeps the class list as the fallback for an unreachable plugin cache, and a pin keeps the two in sync.
+- fix: `reflect`'s NO-ASK terminal line gains a mixed form — `reflect: wrote <N> page(s): [[<a>]]; skipped <M> — sensitivity` — so a run that wrote one page and skipped one for sensitivity records both in one line instead of losing the skip. The full set is `wrote`, `wrote … ; skipped … — sensitivity`, `skipped — <reason>`, and `reflect: failed — <reason>`; `session-close` Phase 9.4 records the same vocabulary.
+- fix: `session-close` resolves two prose contradictions — the refused-exit carve-out now states it wins over the goal-anchored block's `⏰ Next:` line, with the combined form given (the goal's next task is kept, the refusal is stated); and the mode-3 advisory tail's "never auto-run" is scoped to a mode-3 session, so it no longer contradicts Phase 9.4's mode-2 auto-run of reflect.
+- test: `scripts/mode-membership-rule-test.sh` now pins Phase 9.4's decision rule itself — mode-2-only, and reflect only when BOTH the Phase 8 signal fired and a finding names no existing KB page — with a mutation self-check that removes each of the three conjuncts in turn and requires that conjunct's pin to fail.
+
 ## v0.181.0
 
 - fix: `session-close` mode 2 no longer ends on an operator `pick any` wrap-up menu — the session takes the reflect default itself (Phase 9.4: `/vault-cli:reflect` only when the Phase 8 reflect signal fired *and* the session recorded a finding that names no existing KB page, else nothing) and exits via `session-self-exit`; the menu minted an attention card that made `session-self-exit.py` refuse, so a finished worker held its pane open until a human answered

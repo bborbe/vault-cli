@@ -50,16 +50,33 @@ set -uo pipefail
 #   `bearer-token` matches the auth scheme in ANY casing, not just the canonical
 #   `Bearer`: HTTP auth schemes are case-insensitive, so `authorization: bearer
 #   <token>` is equally valid and a case-sensitive literal scans it clean.
+#
+#   `key-assignment` matches the key name case-insensitively and allows a
+#   prefix, because the dominant config shapes are `PASSWORD=`, `API_KEY=`,
+#   `client_secret=` and `access_token=` — every one of which a lowercase,
+#   bare-key pattern scans clean. The cost is that prose like "the
+#   access_token= parameter" can fire; that is the safe direction here, since a
+#   false positive skips a learning while a false negative publishes a secret.
+#
+# KNOWN LIMITATION, stated rather than implied: `base64-blob` uses the standard
+# alphabet and a 40-character floor, so base64url blobs (which use `-` and `_`)
+# and shorter provider tokens outside the named prefixes — Google `AIza…`, for
+# one — match no class. Widening this class to `-`/`_` would make long
+# kebab-case prose a candidate, so the gap is left open and named instead. The
+# semantic obligation in `commands/reflect.md` still covers what the regexes
+# cannot.
 CLASSES=(
 	'private-key|-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----'
 	'aws-key-id|(^|[^A-Za-z0-9])(AKIA|ASIA)[0-9A-Z]{16}'
 	'github-token|(ghp_|gho_|ghu_|ghs_|ghr_|github_pat_)[A-Za-z0-9_]{20,}'
+	'gitlab-token|(^|[^A-Za-z0-9])glpat-[A-Za-z0-9_-]{20,}'
+	'npm-token|(^|[^A-Za-z0-9])npm_[A-Za-z0-9]{36}'
 	'api-key|(^|[^A-Za-z0-9])sk-[A-Za-z0-9_-]{16,}'
 	'stripe-key|(^|[^A-Za-z0-9])(sk|rk)_(live|test)_[A-Za-z0-9]{16,}'
 	'slack-token|xox[baprs]-[A-Za-z0-9-]{10,}'
 	'bearer-token|[Bb][Ee][Aa][Rr][Ee][Rr][[:space:]]+[A-Za-z0-9._~+/-]{20,}'
 	'connection-string|[a-z][a-z0-9+.-]*://[^[:space:]/:@]+:[^[:space:]/@]+@'
-	"key-assignment|(^|[^A-Za-z0-9_])(password|passwd|token|secret|api[_-]?key)[[:space:]]*=[[:space:]]*(\"[^\"]{4,}\"|'[^']{4,}'|[^[:space:]]{8,})"
+	"key-assignment|(^|[^A-Za-z0-9])[A-Za-z0-9_]*([Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd]|[Pp][Aa][Ss][Ss][Ww][Dd]|[Tt][Oo][Kk][Ee][Nn]|[Ss][Ee][Cc][Rr][Ee][Tt]|[Aa][Pp][Ii][_-]?[Kk][Ee][Yy])[[:space:]]*=[[:space:]]*(\"[^\"]{4,}\"|'[^']{4,}'|[^[:space:]]{8,})"
 	'jwt|eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}'
 )
 

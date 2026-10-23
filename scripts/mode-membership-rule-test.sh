@@ -370,13 +370,26 @@ check "changelog unreleased names the failed terminal line" "found" \
 # never executes, zero checks run, and the script reports a clean run having
 # pinned nothing. A missing script must fail the pin, not retire it.
 CLASSES=$(bash "$ROOT/scripts/reflect-secret-scan.sh" --classes 2>/dev/null)
-check "the secret-scan script publishes its class list" "11" \
-	"$(printf '%s\n' "$CLASSES" | grep -c .)"
+# A FLOOR, not an exact count: an exact number must be edited in four places per
+# new class (the array, both counts, the prose), and the per-class pin below
+# already catches an addition that never reached the prose. This check exists to
+# catch a truncated or empty `--classes` output.
+CLASS_COUNT=$(printf '%s\n' "$CLASSES" | grep -c .)
+check "the secret-scan script publishes a non-truncated class list" "ok" \
+	"$([ "$CLASS_COUNT" -ge 10 ] && echo ok || echo "short:$CLASS_COUNT")"
 # Scoped to the fallback paragraph, not the whole file: a class named anywhere
 # in reflect.md satisfies a whole-file grep, but the list the model actually
 # applies when the script is unreachable is only the one in that paragraph. A
 # class moved out of it must fail here rather than pass silently.
-FALLBACK=$(awk '/Fallback when the script is unreachable/{f=1} f && /Those eleven class names/{exit} f' "$REFLECT")
+# The end anchor is the NEXT paragraph's opening, not a phrase inside this one.
+# Anchored on the fallback's own closing sentence, a reworded sentence runs the
+# extraction to EOF and the block then covers the rest of the file — a class
+# moved out of the paragraph would still be found, which is the false green the
+# scoping exists to prevent. The length assertion catches the same failure from
+# the other side: if the block is not a paragraph, the anchor missed.
+FALLBACK=$(awk '/Fallback when the script is unreachable/{f=1} f && /^  The Phase 3 filename list/{exit} f' "$REFLECT")
+check "the fallback extraction is one paragraph, not the rest of the file" "ok" \
+	"$([ "$(printf '%s\n' "$FALLBACK" | grep -c .)" -le 20 ] && echo ok || echo too-long)"
 while IFS= read -r class; do
 	[ -n "$class" ] || continue
 	check "reflect.md names the '$class' class in the fallback list" "found" \

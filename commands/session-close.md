@@ -526,7 +526,7 @@ This is deliberately a flag, not an auto-fix: silently generating an entry here 
 
 ### Phase 8: Detect reflect-worthy signals
 
-Decide whether the session produced enough durable learning to warrant `/vault-cli:reflect`. Reflect is expensive (extracts → writes KB entries) and noisy if run on trivial sessions; auto-invoking it always erodes KB quality. Instead, **detect signals** and surface a suggestion only when they fire.
+Decide whether the session produced enough durable learning to warrant `/vault-cli:reflect`. Reflect is expensive (extracts → writes KB entries) and noisy if run on trivial sessions; running it on every session would erode KB quality. This phase therefore **only detects signals**. Whether to *run* reflect is decided in **Phase 9.4**, which applies the finding rule to what is detected here — do not read this phase's caution as a standing ban on auto-reflect.
 
 Resolve the knowledge dir(s) and runbooks dir(s) from `VAULT_CONFIG`:
 
@@ -545,7 +545,7 @@ Score the session silently:
 
 If **total score ≥ 3** → flag as reflect candidate. Otherwise skip silently.
 
-Do NOT run `/vault-cli:reflect` from here. Only surface the suggestion in Phase 9 output. The user decides whether to invoke it.
+Do NOT run `/vault-cli:reflect` from here — this phase detects only. Its signal is consumed by **Phase 9.4**, which is the single place that decides whether to run it. There is no operator question at session end any more.
 
 ### Phase 8.5: Detect runbook improvements
 
@@ -712,7 +712,7 @@ The `Carried forward:` line is emitted only on a repeat run, for an anchor the o
 
 ✅ Nothing outstanding — but the session has follow-up-worthy moments. Append whichever fired, as a NUMBERED list:
 
-1. `/vault-cli:reflect` — <what fired it: new knowledge files, decisions captured> — <ran it | skipped: no finding that names no existing KB page>
+1. `/vault-cli:reflect` — <what fired it: new knowledge files, decisions captured> — <ran it | skipped: no finding that names no existing KB page | failed: <reason>>
 2. `/coding:self-improve` — <what fired it: corrections, retries, missing command>
 3. Runbook improvements: <N HIGH, M MEDIUM> in [[<runbook>]] — review + edit
 ```
@@ -750,13 +750,15 @@ Never auto-close a session with outstanding items, never auto-commit, never auto
 
 ### Phase 9.4: Take the mode-2 default (mode 2 only)
 
-**Runs before Phase 9.5's self-exit, and before the closer is printed.** One rule, no judgement call beyond it:
+**Runs before the verdict block is emitted and before Phase 9.5's self-exit** — the mode-2 body list in Phase 9 carries the outcome, so the outcome must exist first. One rule, no judgement call beyond it:
 
 **Run `/vault-cli:reflect` if and only if this session recorded a finding that names no existing KB page.** A finding is a durable learning — a corrected cause, a measured mechanism, a decision with its evidence — written in the conversation or in the anchor task's `# Results` / `# Progress`. "Names no existing KB page" is checked against the vault: if `50 Knowledge Base/` already carries the lesson, the reflection would only duplicate it.
 
 **Otherwise take nothing.** When the call is genuinely close, take nothing — a missed reflection costs one deferred write the operator can trigger by hand; a spurious one costs a KB page they have to delete, and it delays every exit that follows.
 
-Then record which way it went in the mode-2 list's item 1 (`ran it` or `skipped: no finding that names no existing KB page`), and continue to Phase 9.5.
+**Invoke it as `Skill: vault-cli:reflect`** — the same form Phase 2 uses for `sync-progress` — never by describing the intent.
+
+Then record the outcome on the mode-2 list's reflect item: `ran it`, `skipped: no finding that names no existing KB page`, or `failed: <reason>`. **When the reflect signal did not fire**, there is no reflect item to annotate and none is invented — a self-improve-only or runbook-only mode 2 has nothing to say about reflect, and adding an item would report a decision that was never in scope. **A reflect that errors or writes only partly is recorded `failed: <reason>`, never `ran it`, and still continues to Phase 9.5** — the pane closes either way, and the failure is visible in the transcript rather than silently reported as success.
 
 **Why a rule and not a question.** The menu this replaces was optional follow-ups on a finished task — exactly the shape that reads as a decision the session could have made itself. It was asked 43 times in one window, and every ask held a finished pane open. The rule above is the decision the operator was being asked for; taking it here is the fix.
 

@@ -11,7 +11,7 @@
 #
 # A fifth surface, the mode-2 closer panel, used to carry them as a `pick any —`
 # operator menu. It no longer does: the session takes the reflect default
-# itself (Phase 9.6) and exits, so the panel carries no options at all. Its
+# itself (Phase 9.4) and exits, so the panel carries no options at all. Its
 # membership obligation is therefore INVERTED into a pin that the menu stays
 # gone — dropping it from the surface list alone would leave the removal
 # unguarded, and a future edit could reintroduce the gate with every remaining
@@ -191,8 +191,16 @@ check "mode-3 header does not read as an outright exclusion" "" \
 # whole change removes. Membership is the WRONG assertion for this surface: the
 # old menu named all three signals and was still the defect, so the pin is its
 # inverse.
-check "mode-2 closer carries no operator menu" "" \
-	"$(fenced "$TARGET" "$MODE2_PANEL" | grep -E '👤 You: pick' >/dev/null && echo found)"
+check "mode-2 closer carries no operator menu and no reply-waiting line" "" \
+	"$(fenced "$TARGET" "$MODE2_PANEL" | grep -E '👤 You: pick|⏰ Next: your reply' >/dev/null && echo found)"
+
+# --- and the self-exit gate must still admit modes 1 and 2 ONLY. Widening it to
+# mode 3 would end an unclean session, which is the opposite failure from the one
+# this PR fixes; the gate changed in this PR, so the invariant needs its own pin.
+check "self-exit gate admits modes 1 and 2" "found" \
+	"$(line "$TARGET" '**Modes 1 and 2.**' | grep -F 'Modes 1 and 2' >/dev/null && echo found)"
+check "self-exit gate does not admit mode 3" "" \
+	"$(line "$TARGET" '**Modes 1 and 2.**' | grep -E 'Modes 1, 2 and 3|Modes 1 and 2 and 3' >/dev/null && echo found)"
 
 # --- self-check: remove ONE signal from ONE surface and require exactly that
 # surface to report it. Deleting the mode-3 advisory tail's runbook line is the
@@ -237,6 +245,16 @@ sed 's/👤 You: nothing/👤 You: pick any — 1. \/vault-cli:reflect/' \
 	"$ROOT/$TARGET" >"$MENU_RESTORED"
 check "self-check: the restored mode-2 menu is detected" "found" \
 	"$(fenced "$MENU_RESTORED" "$MODE2_PANEL" | grep -E '👤 You: pick' >/dev/null && echo found)"
+
+# The pin's second alternative needs its own control: a two-branch regex with one
+# dead branch still passes the first control above, so restoring only the menu
+# would leave `⏰ Next: your reply` unpinned in fact.
+REPLY_RESTORED="$TMP/reply/commands/session-close.md"
+mkdir -p "$(dirname "$REPLY_RESTORED")"
+sed 's/⏰ Next: this pane closes now (session-self-exit)/⏰ Next: your reply/' \
+	"$ROOT/$TARGET" >"$REPLY_RESTORED"
+check "self-check: the restored reply-waiting line is detected" "found" \
+	"$(fenced "$REPLY_RESTORED" "$MODE2_PANEL" | grep -E '⏰ Next: your reply' >/dev/null && echo found)"
 
 echo "mode-membership-rule: $pass passed, $fail failed"
 [ "$fail" -eq 0 ] || exit 1

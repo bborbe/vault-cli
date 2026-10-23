@@ -10,7 +10,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 
 ## Unreleased
 
-- fix: `session-close` mode 2 no longer ends on an operator `pick any` wrap-up menu — the session takes the reflect default itself (Phase 9.6: `/vault-cli:reflect` only when the session recorded a finding that names no existing KB page, else nothing) and exits via `session-self-exit`; the menu minted an attention card that made `session-self-exit.py` refuse, so a finished worker held its pane open until a human answered
+- fix: `session-close` mode 2 no longer ends on an operator `pick any` wrap-up menu — the session takes the reflect default itself (Phase 9.4: `/vault-cli:reflect` only when the session recorded a finding that names no existing KB page, else nothing) and exits via `session-self-exit`; the menu minted an attention card that made `session-self-exit.py` refuse, so a finished worker held its pane open until a human answered
 
 ## v0.180.0
 

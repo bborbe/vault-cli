@@ -18,6 +18,12 @@ Synchronize progress documentation based on completed work in the conversation. 
 
 This command **must stay inline** — it analyzes the parent conversation for completion signals; a sub-agent cannot see the conversation.
 
+## Arguments
+
+- `--nested` — set `NESTED=true` and strip the token. Passed by `session-close` Phase 2, which invokes this command from inside its own run. It suppresses Phase 6's self-close: the enclosing `session-close` already owns the exit, and instructing another one from here restarts it.
+
+Absent the flag, `NESTED=false` and the closer behaves normally.
+
 ## Core principle
 
 From the Document-Driven Workflow: *update documents during work, not after*. This command automates that "update during work" step to prevent context loss across compactions.
@@ -352,5 +358,7 @@ Why this closer is the only correct one here:
 **Skip the closer entirely** when Phase 4 did NOT complete a task — i.e. PR-only sync, progress-only sync, or any path where the active task is still `in_progress`. In those cases the session continues on the same task; emitting `⚪ DONE` would be wrong.
 
 **Skip it for a recurring completion too.** A recurring completion resets the checkboxes and keeps `status: in_progress` (see `pkg/ops/complete.go`), so `⚪ DONE` is false for a task that is still open — and the self-close this panel instructs would then hit `session-close` Phase 4.5, which hard-flags an `in_progress` anchor into mode 3 and ends on an `approve:` line the panel just promised does not exist. Report the completion and stop.
+
+**Skip it entirely when `NESTED=true`.** `session-close` Phase 2 invokes this command from inside its own run, so a completion established here — including a probe-established one, which Phase 3 routes straight to this section — would otherwise re-enter `session-close` (`session-close → sync-progress → session-close`). The enclosing close already owns the exit and will emit its own panel; a second `⚪ DONE` here duplicates it and restarts the close. Report the completion in the Phase 5 report and let the caller finish.
 
 **`👤 You: nothing` is scoped to the close, not to the session.** `session-close` Phase 3 still asks whether to commit/push when a touched repo has uncommitted or unpushed work, and a mode-3 verdict emits its own `approve:` line. The panel promises no approval for *starting* the close; it does not promise the close comes back empty.

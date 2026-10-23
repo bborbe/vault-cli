@@ -92,7 +92,7 @@ Apply this before proposing any title. The failure it prevents is a name that ca
 1. **List the symptoms** — what keeps happening that prompted this task. One line each, in the language the complaint arrives in.
 2. **Five whys** — ask why until the answer is about the user (usually the operator), not the mechanism. That root is the level the name must speak to.
 3. **Name the end state** that root points at — what is true afterwards, phrased as the world after the work rather than the work itself.
-4. **Scope check** — does the name cover every symptom from step 1, or only one? One symptom is fine at task level; a name covering several is a goal, and a name covering one while the body covers several is scoped wrong.
+4. **Scope check** — does the name cover every symptom from step 1, or only one? One symptom is fine at task level; a name covering several is a goal, and a name covering one while the body covers several is scoped wrong. (This is the *name's* scope; the `## Scope Check` preflight further down audits the page's breadth.)
 5. **Sniff test** — title alone: can a reader picture the world after? If they picture work happening, rewrite.
 
 **Levels.** The same method applies at every level; what changes is how much of the name is *why*:

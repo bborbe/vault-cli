@@ -347,6 +347,8 @@ If a task was completed in Phase 4 (auto via 4a OR confirmed via 4b), append the
 ⏰ Next: /vault-cli:session-close — this session runs it now
 ```
 
+Then run `/vault-cli:session-close` yourself — no approval line, no pick menu.
+
 Why this closer is the only correct one here:
 
 - **The session closes itself.** `/vault-cli:session-close` is not an operator gate: at a task boundary the close belongs to the session, which runs it with no approval line and no pick menu. An approval line here minted an attention card for a step the session was already allowed to take — and `session-self-exit.py` refuses while a card is open for the session, so the card held a finished session's pane open until a human answered.
@@ -357,7 +359,7 @@ Why this closer is the only correct one here:
 
 **Skip the closer entirely** when Phase 4 did NOT complete a task — i.e. PR-only sync, progress-only sync, or any path where the active task is still `in_progress`. In those cases the session continues on the same task; emitting `⚪ DONE` would be wrong.
 
-**Skip it for a recurring completion too.** A recurring completion resets the checkboxes and keeps `status: in_progress` (see `pkg/ops/complete.go`), so `⚪ DONE` is false for a task that is still open — and the self-close this panel instructs would then hit `session-close` Phase 4.5, which hard-flags an `in_progress` anchor into mode 3 and ends on an `approve:` line the panel just promised does not exist. Report the completion and stop.
+**Skip it for a recurring completion too.** Probe with `vault-cli task get "<name>" recurring --output json` — a `value` other than `null` and non-empty means recurring. Neither completion path carries this otherwise: Phase 4a prints only `✅ Task completed: <name>`, and Phase 4b's `--non-interactive` JSON is `{"success": true, "path": …}` with no recurring or status field. A recurring completion resets the checkboxes and keeps `status: in_progress` (see `pkg/ops/complete.go`), so `⚪ DONE` is false for a task that is still open — and the self-close this panel instructs would then hit `session-close` Phase 4.5, which hard-flags an `in_progress` anchor into mode 3 and ends on an `approve:` line the panel just promised does not exist. Report the completion and stop.
 
 **Skip it entirely when `NESTED=true`.** Every caller that invokes this command from inside its own run — `session-close` Phase 2, `prepare-compact`, `task-status` — passes the flag, and each one continues afterwards. A completion established here (including a probe-established one, which Phase 3 routes straight to this section) would otherwise self-close the session: for `session-close` that re-enters the close that invoked this command, and for the other two it ends a session that still has a status report or a compaction to finish. Report the completion in the Phase 5 report and let the caller finish.
 

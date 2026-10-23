@@ -97,7 +97,9 @@ for d in commands agents docs; do
 done
 
 check "complete-task skips the closer for recurring completions" "yes" \
-	"$(has commands/complete-task.md '**Recurring tasks** (step 4')"
+	"$(has commands/complete-task.md '**Recurring tasks.**')"
+check "complete-task names a runnable recurring probe" "yes" \
+	"$(has commands/complete-task.md 'vault-cli task get "{task_name}" recurring --output json')"
 check "complete-task skips the closer for nested callers" "yes" \
 	"$(has commands/complete-task.md '**Nested callers.**')"
 check "sync-progress skips the closer for recurring completions" "yes" \

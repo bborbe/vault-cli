@@ -55,7 +55,7 @@ Mark task as complete using vault-cli. Handles normal and recurring tasks approp
 
    e. **Emit closer panel** — **normal tasks only.** Two cases skip both the panel and the self-close; check them first:
 
-      - **Recurring tasks** (step 4 — status stays `in_progress`). The signal is the `recurring:` frontmatter field already read in step 2a, or the post-complete `status: in_progress` in the result — `vault-cli task complete`'s JSON carries no recurring flag of its own. `⚪ DONE` is false for a still-open task, and `session-close` Phase 4.5 hard-flags an `in_progress` anchor into mode 3, which ends on an `approve:` line this panel promises does not exist. Report the completion and stop.
+      - **Recurring tasks.** Probe before emitting — `vault-cli task get "{task_name}" recurring --output json`; a `value` other than `null` and non-empty means recurring (the values are `daily` / `weekly` / `monthly` / `quarterly`). This probe is required because neither other source carries it: step 2a reads only `status`, and the interactive completion prints just `✅ Task completed: {task_name}` with no recurring field. `⚪ DONE` is false for a task that stays `in_progress`, and `session-close` Phase 4.5 hard-flags an `in_progress` anchor into mode 3, which ends on an `approve:` line this panel promises does not exist. Report the completion and stop.
       - **Nested callers.** `sync-progress` Phase 4b invokes this command from inside its own run, and `session-close` Phase 2 invokes `sync-progress` — so an unconditional close recurses (`session-close → sync-progress → complete-task → session-close`). Phase 4b therefore passes `--non-interactive`, whose JSON-only path never reaches this step.
 
       Otherwise append below the report, verbatim, no rewording:

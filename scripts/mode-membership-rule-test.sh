@@ -262,31 +262,38 @@ check "self-check: the superseded mode-3 exclusion is detected when restored" "f
 check "self-check: the superseded mode-2 routing denial is detected when restored" "found" \
 	"$(grep -E 'not what puts a session into mode 2' "$RESTORED" >/dev/null && echo found)"
 
-# --- self-check (menu): restore the retired menu into the mode-2 panel and
-# require the inverse pin to fire. Same reason as the polarity controls above —
-# a pin that can never fire is indistinguishable from a file that never
-# regressed. The substitution targets the mode-2 panel's own unique `⏰ Next:`
-# line, so a later edit to that line turns it into a no-op and this control
-# fails loudly.
+# --- self-check (menu): put the retired menu back into the mode-2 panel's ANSWER
+# SLOT and require the pin's OWN expression to reject it. The earlier version
+# injected a second `👤 You:` line and grepped for the injected text, which proved
+# only that the sed fired — a pin weakened to `grep -E '^👤 You: nothing$'` would
+# still have passed. This control runs the pin itself and asserts a mismatch.
+menu_into_panel() { # menu_into_panel <src> <dst>
+	awk '
+		prev ~ /^👤 You: nothing$/ && $0 ~ /session-self-exit/ {
+			print "👤 You: pick any — 1. /vault-cli:reflect"; print; prev = ""; next
+		}
+		prev != "" { print prev }
+		{ prev = $0 }
+		END { if (prev != "") print prev }
+	' "$1" >"$2"
+}
+
 MENU_RESTORED="$TMP/menu/commands/session-close.md"
 mkdir -p "$(dirname "$MENU_RESTORED")"
-# Scoped by the mode-2 panel's OWN unique line, not by `👤 You: nothing` — that
-# string also appears in the mode-1 and goal-anchored panels, so an unscoped
-# substitution rewrites all three and proves nothing about this one.
-sed 's/⏰ Next: this pane closes now (session-self-exit)/👤 You: pick any — 1. \/vault-cli:reflect/' \
-	"$ROOT/$TARGET" >"$MENU_RESTORED"
-check "self-check: the restored mode-2 menu is detected" "found" \
-	"$(fenced "$MENU_RESTORED" "$MODE2_PANEL" | grep -E '👤 You: pick' >/dev/null && echo found)"
+menu_into_panel "$ROOT/$TARGET" "$MENU_RESTORED"
+check "self-check: the pin rejects a restored menu in the answer slot" "not-nothing" \
+	"$(printf '%s\n' "$(fenced "$MENU_RESTORED" "$MODE2_PANEL")" | grep -E '^👤 You:' \
+		| grep -qxF '👤 You: nothing' && echo nothing || echo not-nothing)"
 
-# The pin's second alternative needs its own control: a two-branch regex with one
-# dead branch still passes the first control above, so restoring only the menu
-# would leave `⏰ Next: your reply` unpinned in fact.
+# The next-line pin needs its own control for the same reason: restore a reply-
+# waiting line and require the pin's expression to find no `session-self-exit`.
 REPLY_RESTORED="$TMP/reply/commands/session-close.md"
 mkdir -p "$(dirname "$REPLY_RESTORED")"
 sed 's/⏰ Next: this pane closes now (session-self-exit)/⏰ Next: your reply/' \
 	"$ROOT/$TARGET" >"$REPLY_RESTORED"
-check "self-check: the restored reply-waiting line is detected" "found" \
-	"$(fenced "$REPLY_RESTORED" "$MODE2_PANEL" | grep -E '⏰ Next: your reply' >/dev/null && echo found)"
+check "self-check: the pin rejects a restored reply-waiting line" "" \
+	"$(printf '%s\n' "$(fenced "$REPLY_RESTORED" "$MODE2_PANEL")" | grep -E '^⏰ Next:' \
+		| grep -F 'session-self-exit' >/dev/null && echo found)"
 
 echo "mode-membership-rule: $pass passed, $fail failed"
 [ "$fail" -eq 0 ] || exit 1

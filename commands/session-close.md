@@ -707,6 +707,8 @@ The `Carried forward:` line is emitted only on a repeat run, for an anchor the o
 
 **2. Clean + reflect, self-improve, and/or runbook-improvement signals fired** (all phases ✅, and reflect score ≥ 3, self-improve score ≥ 3, and/or a Phase 8.5 runbook gap):
 
+⚠️ **Run Phase 9.4 before emitting the block below.** This template carries the reflect outcome (`ran it` / `skipped:` / `failed:`), so emitting it first would leave that field guessed. Phase 9.4 sits later in this file only because the phases are grouped by kind, not by execution order — its own header states the ordering.
+
 ```
 <summary block>
 
@@ -746,7 +748,7 @@ Append the reflect, self-improve, and runbook-improvement suggestions as the las
 
 ⚠️ **Item 3 covers the still-asks cases only.** A worktree this session created, whose branch is merged by the file's own test and whose working tree is clean, is **removed** under the no-ask rule in Phase 3.5 and reported in the close summary — it never reaches this list, so it never becomes a mode-3 blocker.
 
-Never auto-close a session with outstanding items, never auto-commit, never auto-kill anything but this session's own pane (Phase 9.5), never auto-self-improve. **`reflect` is no longer an operator question** — a mode-2 session takes the default itself in Phase 9.4 (run `/vault-cli:reflect` only when the session recorded a finding that names no existing KB page, else take nothing) and then exits. The command's own write is the worker's self-exit on a clean verdict; everything else is the one-line verdict or the numbered open list.
+Never auto-close a session with outstanding items, never auto-commit, never auto-kill anything but this session's own pane (Phase 9.5), never auto-self-improve. **`reflect` is no longer an operator question** — a mode-2 session takes the default itself in Phase 9.4 (run `/vault-cli:reflect` only when **the Phase 8 reflect signal fired (score ≥ 3)** *and* the session recorded a finding that names no existing KB page, else take nothing) and then exits. The command's own write is the worker's self-exit on a clean verdict; everything else is the one-line verdict or the numbered open list.
 
 ### Phase 9.4: Take the mode-2 default (mode 2 only)
 

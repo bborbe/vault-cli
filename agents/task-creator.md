@@ -82,7 +82,7 @@ Skip this step entirely in MODE=non_interactive.
 
 ## 5. Compose the title
 
-- Take the description (with Jira key removed)
+- Before proposing a title, apply the naming method in `~/.claude/plugins/marketplaces/vault-cli/docs/task-writing.md` § Naming Method (read it by that absolute path — this agent writes into a vault, so a bare relative path would resolve against the vault) — list the symptoms, five whys to the root, name the end state, scope check, sniff test. The title names the problem or the observable outcome, not the first solution that comes to mind
 - Apply Title Case: capitalize each significant word; preserve hyphens within compound words (e.g. `dashboard-ui` stays lowercase as a compound)
 - Trim trailing punctuation
 - Sanitize the filename stem by piping the title to `vault-cli filename sanitize -` and using its stdout verbatim — do not apply the character rules by hand. The title is untrusted, so it goes on stdin rather than into an argument, and the heredoc delimiter is quoted so the shell cannot expand anything in it; pick a delimiter string that does not occur in the title:

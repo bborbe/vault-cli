@@ -14,6 +14,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 - fix: `reflect`'s NO-ASK terminal line gains a mixed form — `reflect: wrote <N> page(s): [[<a>]]; skipped <M> — sensitivity` — so a run that wrote one page and skipped one for sensitivity records both in one line instead of losing the skip. The full set is `wrote`, `wrote … ; skipped … — sensitivity`, `skipped — <reason>`, and `reflect: failed — <reason>`; `session-close` Phase 9.4 records the same vocabulary.
 - fix: `session-close` resolves two prose contradictions — the refused-exit carve-out now states it wins over the goal-anchored block's `⏰ Next:` line, with the combined form given (the goal's next task is kept, the refusal is stated); and the mode-3 advisory tail's "never auto-run" is scoped to a mode-3 session, so it no longer contradicts Phase 9.4's mode-2 auto-run of reflect.
 - test: `scripts/mode-membership-rule-test.sh` now pins Phase 9.4's decision rule itself — mode-2-only, and reflect only when BOTH the Phase 8 signal fired and a finding names no existing KB page — with a mutation self-check that removes each of the three conjuncts in turn and requires that conjunct's pin to fail.
+- feat: creators and auditor apply a naming method — `goal-creator`, `task-creator` and `task-writer` derive the title through the five-step method in `docs/goal-writing.md` / `docs/task-writing.md` § Naming Method instead of echoing the description, and `goal-auditor` warns when a goal title names one symptom while its criteria cover a wider scope
 
 ## v0.181.0
 

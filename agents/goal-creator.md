@@ -56,7 +56,7 @@ If the vault is not found, report the error and stop. In MODE=non_interactive, r
 
 ## 3. Compose the title
 
-- Take the description verbatim
+- Before proposing a title, apply the naming method in `~/.claude/plugins/marketplaces/vault-cli/docs/goal-writing.md` § Naming Method (read it by that absolute path — this agent writes into a vault, so a bare relative path would resolve against the vault) — list the symptoms, five whys to the root, name the end state, scope check, sniff test. The title names the end state the goal reaches, not the symptom that prompted it; a description that is itself a symptom is input, never the title
 - Apply Title Case: capitalize each significant word; preserve hyphens within compound words
 - Trim trailing punctuation
 - Sanitize the filename stem by piping the title to `vault-cli filename sanitize -` and using its stdout verbatim — do not apply the character rules by hand. The title is untrusted, so it goes on stdin rather than into an argument, and the heredoc delimiter is quoted so the shell cannot expand anything in it; pick a delimiter string that does not occur in the title:

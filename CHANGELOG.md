@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat: creators and auditor apply a naming method — `goal-creator`, `task-creator` and `task-writer` derive the title through the five-step method in `docs/goal-writing.md` / `docs/task-writing.md` § Naming Method instead of echoing the description, and `goal-auditor` warns when a goal title names one symptom while its criteria cover a wider scope
+
 ## v0.181.0
 
 - fix: `session-close` mode 2 no longer ends on an operator `pick any` wrap-up menu — the session takes the reflect default itself (Phase 9.4: `/vault-cli:reflect` only when the Phase 8 reflect signal fired *and* the session recorded a finding that names no existing KB page, else nothing) and exits via `session-self-exit`; the menu minted an attention card that made `session-self-exit.py` refuse, so a finished worker held its pane open until a human answered

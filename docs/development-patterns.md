@@ -73,7 +73,9 @@ Each entity (Task, Goal, Theme, Objective, Vision) cleanly separates three conce
   preserves the markdown body; unknown fields are preserved. `serializeMapAsFrontmatter` is its
   method form and delegates to it. A caller outside this package that writes the bytes through a
   remote store must render through `SerializeFrontmatter` rather than marshalling YAML itself, so
-  the two write paths cannot drift
+  the two write paths cannot drift. A caller that changes one or more keys must render through
+  `PatchFrontmatter`, which rewrites only those keys' lines; `SerializeFrontmatter` stays the
+  whole-block renderer and `serializeMapAsFrontmatter` its method form
 - Entity-specific read helpers call `NewXxx(data, meta, content)` constructors
 - **Rendering caveat**: a bare YAML date (`review_date: 2026-08-15`) parses to `time.Time` and re-serializes as RFC3339 (`review_date: 2026-08-15T00:00:00Z`). The instant is preserved; only the rendering is normalized. This applies to every entity — `WriteGoal` behaves the same way today.
 

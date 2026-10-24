@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.183.0
 
 - feat: add `storage.PatchFrontmatter`, which rewrites only the named top-level frontmatter keys and leaves every other byte of the block untouched, so a caller that changes one key no longer produces a diff across the whole block. `SerializeFrontmatter` is unchanged.
 

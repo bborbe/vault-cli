@@ -1288,6 +1288,7 @@ task_identifier: 34343434-3434-4343-a343-343434343434
 		})
 
 		It("returns error when unable to write file", func() {
+			skipIfRoot()
 			_, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", true)
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(ContainSubstring("fix issues"))

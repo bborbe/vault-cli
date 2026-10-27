@@ -281,6 +281,12 @@ var _ = Describe("GoalCompleteOperation", func() {
 			Expect(writtenGoal.GetString("aborted_reason")).To(Equal(""))
 			Expect(writtenGoal.GetString("gate_successor")).To(Equal(""))
 		})
+
+		It("persists phase done", func() {
+			_, writtenGoal := mockGoalStorage.WriteGoalArgsForCall(0)
+			Expect(writtenGoal.Phase()).NotTo(BeNil())
+			Expect(*writtenGoal.Phase()).To(Equal(domain.GoalPhaseDone))
+		})
 	})
 
 	Context("one-step close-out writes reason and successor with the status", func() {
@@ -309,6 +315,28 @@ var _ = Describe("GoalCompleteOperation", func() {
 			Expect(writtenGoal.GetString("aborted_reason")).To(Equal("achieved"))
 			Expect(writtenGoal.GetString("gate_successor")).To(Equal("none"))
 			Expect(writtenGoal.Status()).To(Equal(domain.GoalStatusCompleted))
+			Expect(writtenGoal.Phase()).NotTo(BeNil())
+			Expect(*writtenGoal.Phase()).To(Equal(domain.GoalPhaseDone))
+		})
+	})
+
+	Context("goal at phase execution completes to phase done", func() {
+		BeforeEach(func() {
+			goal = domain.NewGoal(
+				map[string]any{"status": "in_progress", "phase": "execution"},
+				domain.FileMetadata{Name: goalName},
+				domain.Content(""),
+			)
+			mockGoalStorage.FindGoalByNameReturns(goal, nil)
+		})
+
+		It("writes once with completed status and done phase", func() {
+			Expect(err).To(BeNil())
+			Expect(mockGoalStorage.WriteGoalCallCount()).To(Equal(1))
+			_, writtenGoal := mockGoalStorage.WriteGoalArgsForCall(0)
+			Expect(writtenGoal.Status()).To(Equal(domain.GoalStatusCompleted))
+			Expect(writtenGoal.Phase()).NotTo(BeNil())
+			Expect(*writtenGoal.Phase()).To(Equal(domain.GoalPhaseDone))
 		})
 	})
 
@@ -322,6 +350,13 @@ var _ = Describe("GoalCompleteOperation", func() {
 			_, writtenGoal := mockGoalStorage.WriteGoalArgsForCall(0)
 			Expect(writtenGoal.Status()).To(Equal(domain.GoalStatusCompleted))
 			Expect(writtenGoal.Completed()).NotTo(BeNil())
+		})
+
+		It("writes goal with done phase", func() {
+			Expect(mockGoalStorage.WriteGoalCallCount()).To(Equal(1))
+			_, writtenGoal := mockGoalStorage.WriteGoalArgsForCall(0)
+			Expect(writtenGoal.Phase()).NotTo(BeNil())
+			Expect(*writtenGoal.Phase()).To(Equal(domain.GoalPhaseDone))
 		})
 
 		It("returns result with success true", func() {

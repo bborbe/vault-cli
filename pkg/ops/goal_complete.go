@@ -89,6 +89,9 @@ func (g *goalCompleteOperation) Execute(
 		return result, err
 	}
 	goal.SetCompleted(libtime.ToDate(g.currentDateTime.Now().Time()).Ptr())
+	// The terminal transition ends the phase walk: land `phase: done` in the same
+	// in-memory mutation as the status so the single WriteGoal below persists both.
+	goal.SetPhase(domain.GoalPhaseDone.Ptr())
 
 	if err := g.goalStorage.WriteGoal(ctx, goal); err != nil {
 		return MutationResult{

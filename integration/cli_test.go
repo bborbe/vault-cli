@@ -2016,6 +2016,111 @@ This is my task.
 		})
 	})
 
+	Describe("vault-cli goal terminal phase", func() {
+		var vaultPath, configPath string
+		var cleanup func()
+
+		BeforeEach(func() {
+			vaultPath, configPath, cleanup = createTempVaultWithGoals(
+				map[string]string{},
+				map[string]string{
+					"my-goal": "---\nstatus: in_progress\nphase: execution\n---\n# My Goal\n",
+				},
+			)
+		})
+
+		AfterEach(func() {
+			cleanup()
+		})
+
+		runCommand := func(args ...string) *gexec.Session {
+			fullArgs := append(
+				[]string{"--config", configPath, "--vault", "test"},
+				args...,
+			)
+			session, err := gexec.Start(exec.Command(binPath, fullArgs...), GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			return session
+		}
+
+		readGoal := func() string {
+			content, err := os.ReadFile(filepath.Join(vaultPath, "Goals", "my-goal.md")) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			return string(content)
+		}
+
+		It("goal complete lands status completed and phase done", func() {
+			Eventually(runCommand("goal", "complete", "my-goal")).Should(gexec.Exit(0))
+
+			content := readGoal()
+			Expect(content).To(ContainSubstring("status: completed"))
+			Expect(content).To(ContainSubstring("phase: done"))
+
+			phaseSession := runCommand("goal", "get", "my-goal", "phase")
+			Eventually(phaseSession).Should(gexec.Exit(0))
+			Expect(strings.TrimSpace(string(phaseSession.Out.Contents()))).To(Equal("done"))
+		})
+
+		It("goal complete with close-out fields lands all four values", func() {
+			Eventually(runCommand(
+				"goal", "complete", "my-goal",
+				"--reason", "achieved",
+				"--gate-successor", "none",
+			)).Should(gexec.Exit(0))
+
+			content := readGoal()
+			Expect(content).To(ContainSubstring("status: completed"))
+			Expect(content).To(ContainSubstring("phase: done"))
+			Expect(content).To(ContainSubstring("aborted_reason: achieved"))
+			Expect(content).To(ContainSubstring("gate_successor: none"))
+		})
+
+		It("goal set status aborted lands phase done", func() {
+			Eventually(runCommand(
+				"goal", "set", "my-goal", "status", "aborted",
+				"--reason", "probe",
+				"--gate-successor", "none",
+			)).Should(gexec.Exit(0))
+
+			content := readGoal()
+			Expect(content).To(ContainSubstring("status: aborted"))
+			Expect(content).To(ContainSubstring("phase: done"))
+
+			phaseSession := runCommand("goal", "get", "my-goal", "phase")
+			Eventually(phaseSession).Should(gexec.Exit(0))
+			Expect(strings.TrimSpace(string(phaseSession.Out.Contents()))).To(Equal("done"))
+		})
+
+		It("goal set status completed lands phase done", func() {
+			Eventually(runCommand("goal", "set", "my-goal", "status", "completed")).
+				Should(gexec.Exit(0))
+
+			content := readGoal()
+			Expect(content).To(ContainSubstring("status: completed"))
+			Expect(content).To(ContainSubstring("phase: done"))
+
+			phaseSession := runCommand("goal", "get", "my-goal", "phase")
+			Eventually(phaseSession).Should(gexec.Exit(0))
+			Expect(strings.TrimSpace(string(phaseSession.Out.Contents()))).To(Equal("done"))
+		})
+
+		It("non-terminal status leaves the phase untouched", func() {
+			Eventually(runCommand("goal", "set", "my-goal", "status", "in_progress")).
+				Should(gexec.Exit(0))
+			Expect(readGoal()).To(ContainSubstring("phase: execution"))
+		})
+
+		It("goal defer leaves the phase untouched", func() {
+			Eventually(runCommand("goal", "defer", "my-goal", "+7d")).Should(gexec.Exit(0))
+			Expect(readGoal()).To(ContainSubstring("phase: execution"))
+		})
+
+		It("goal approve refusal leaves the phase untouched", func() {
+			Eventually(runCommand("goal", "approve", "my-goal")).ShouldNot(gexec.Exit(0))
+			Expect(readGoal()).To(ContainSubstring("phase: execution"))
+		})
+	})
+
 	Describe("vault-cli non-close-out transitions unaffected", func() {
 		var vaultPath, configPath string
 		var cleanup func()

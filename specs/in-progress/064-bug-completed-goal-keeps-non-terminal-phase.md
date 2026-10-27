@@ -1,11 +1,12 @@
 ---
-status: prompted
+status: verifying
 tags:
     - dark-factory
     - spec
 approved: "2026-10-27T22:44:53Z"
 generating: "2026-10-27T23:02:26Z"
 prompted: "2026-10-27T23:13:29Z"
+verifying: "2026-10-27T23:32:04Z"
 branch: dark-factory/bug-completed-goal-keeps-non-terminal-phase
 ---
 

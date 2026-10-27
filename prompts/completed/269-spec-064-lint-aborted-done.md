@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [064-bug-completed-goal-keeps-non-terminal-phase]
+summary: 'Widened lint Rule 2 so phase: done is accepted on completed or aborted pages, with goal-level unit and CLI integration coverage for AC 8-10.'
+execution_id: vault-cli-goal-phase-exec-269-spec-064-lint-aborted-done
+dark-factory-version: v0.198.7
 created: "2026-10-27T23:05:49Z"
 queued: "2026-10-27T23:19:44Z"
+started: "2026-10-27T23:23:23Z"
+completed: "2026-10-27T23:28:04Z"
 branch: dark-factory/bug-completed-goal-keeps-non-terminal-phase
 ---
 

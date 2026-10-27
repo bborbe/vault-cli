@@ -1547,6 +1547,112 @@ blocked_by:
 		})
 	})
 
+	Describe("vault-cli goal lint — status/phase on goals", func() {
+		var configPath string
+		var cleanup func()
+
+		AfterEach(func() {
+			cleanup()
+		})
+
+		runGoalLint := func() *gexec.Session {
+			session, err := gexec.Start(
+				exec.Command(
+					binPath,
+					"--config", configPath,
+					"--vault", "test",
+					"goal", "lint",
+				),
+				GinkgoWriter,
+				GinkgoWriter,
+			)
+			Expect(err).NotTo(HaveOccurred())
+			return session
+		}
+
+		goalFixture := func(status, phase string) string {
+			if phase == "" {
+				return "---\nstatus: " + status + "\npage_type: goal\npriority: 1\n---\n# Goal\n"
+			}
+			return "---\nstatus: " + status + "\nphase: " + phase +
+				"\npage_type: goal\npriority: 1\n---\n# Goal\n"
+		}
+
+		countLinesContaining := func(output, substr string) int {
+			count := 0
+			for _, line := range strings.Split(output, "\n") {
+				if strings.Contains(line, substr) {
+					count++
+				}
+			}
+			return count
+		}
+
+		It("AC8: accepts aborted + done", func() {
+			_, configPath, cleanup = createTempVaultWithGoals(
+				map[string]string{},
+				map[string]string{"Goal": goalFixture("aborted", "done")},
+			)
+
+			session := runGoalLint()
+			Eventually(session).Should(gexec.Exit(0))
+			Expect(string(session.Out.Contents())).NotTo(ContainSubstring("STATUS_PHASE_MISMATCH"))
+		})
+
+		It("AC8: still reports aborted + execution", func() {
+			_, configPath, cleanup = createTempVaultWithGoals(
+				map[string]string{},
+				map[string]string{"Goal": goalFixture("aborted", "execution")},
+			)
+
+			session := runGoalLint()
+			Eventually(session).Should(gexec.Exit(1))
+			Expect(countLinesContaining(
+				string(session.Out.Contents()),
+				"status is aborted but phase is execution",
+			)).To(Equal(1))
+		})
+
+		It("AC9: accepts completed with no phase", func() {
+			_, configPath, cleanup = createTempVaultWithGoals(
+				map[string]string{},
+				map[string]string{"Goal": goalFixture("completed", "")},
+			)
+
+			session := runGoalLint()
+			Eventually(session).Should(gexec.Exit(0))
+			Expect(string(session.Out.Contents())).NotTo(ContainSubstring("STATUS_PHASE_MISMATCH"))
+		})
+
+		It("AC9: still reports completed + execution", func() {
+			_, configPath, cleanup = createTempVaultWithGoals(
+				map[string]string{},
+				map[string]string{"Goal": goalFixture("completed", "execution")},
+			)
+
+			session := runGoalLint()
+			Eventually(session).Should(gexec.Exit(1))
+			Expect(countLinesContaining(
+				string(session.Out.Contents()),
+				"status is completed but phase is execution",
+			)).To(Equal(1))
+		})
+
+		It("AC10: still reports in_progress + done", func() {
+			_, configPath, cleanup = createTempVaultWithGoals(
+				map[string]string{},
+				map[string]string{"Goal": goalFixture("in_progress", "done")},
+			)
+
+			session := runGoalLint()
+			Eventually(session).Should(gexec.Exit(1))
+			Expect(countLinesContaining(
+				string(session.Out.Contents()),
+				"phase is done but status is in_progress",
+			)).To(Equal(1))
+		})
+	})
+
 	Describe("vault-cli complete", func() {
 		var vaultPath, configPath string
 		var cleanup func()

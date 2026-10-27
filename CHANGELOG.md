@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.183.1
 
 - fix: skip the permission-denied storage specs when the test process runs as root — root bypasses directory permission bits, so the read-only-directory error they assert can never occur, and the dark-factory container runs as root while the host and CI do not.
 - fix: replace the two interval expressions in the test scripts with portable equivalents — mawk (the container's awk) silently ignores `{n,m}`, so the `## Goals` heading regex matched nothing and three `update-topic-goal-entries` cases reported "no Goals section".

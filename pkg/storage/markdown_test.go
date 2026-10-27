@@ -165,6 +165,7 @@ This task has a string priority value that cannot be parsed as integer and retur
 			})
 
 			It("returns error when writing to read-only directory", func() {
+				skipIfRoot()
 				// Create read-only directory
 				readOnlyVault, err := os.MkdirTemp("", "vault-readonly-*")
 				Expect(err).To(BeNil())
@@ -476,6 +477,7 @@ page_type: goal
 			})
 
 			It("returns error when writing to read-only directory", func() {
+				skipIfRoot()
 				// Create read-only directory
 				readOnlyVault, err := os.MkdirTemp("", "vault-readonly-*")
 				Expect(err).To(BeNil())
@@ -571,6 +573,7 @@ page_type: theme
 			})
 
 			It("returns error when writing to read-only directory", func() {
+				skipIfRoot()
 				// Create read-only directory
 				readOnlyVault, err := os.MkdirTemp("", "vault-readonly-*")
 				Expect(err).To(BeNil())
@@ -716,6 +719,7 @@ page_type: task
 			})
 
 			It("returns error when writing to invalid path", func() {
+				skipIfRoot()
 				// Try to write to a path that cannot be created
 				invalidVault := "/nonexistent/vault/path"
 				content := "# 2024-01-01\n"

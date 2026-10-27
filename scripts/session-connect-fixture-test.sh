@@ -82,7 +82,7 @@ block() {
 		$0 == h { insec = 1; next }
 		insec && /^[[:space:]]*```bash$/ { inblock = 1; next }
 		inblock && /^[[:space:]]*```$/ { exit }
-		inblock { sub(/^[[:space:]]{1,3}/, ""); print }
+		inblock { sub(/^[[:space:]][[:space:]]?[[:space:]]?/, ""); print }
 	' "$1"
 }
 

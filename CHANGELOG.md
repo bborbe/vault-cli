@@ -8,6 +8,13 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: skip the permission-denied storage specs when the test process runs as root — root bypasses directory permission bits, so the read-only-directory error they assert can never occur, and the dark-factory container runs as root while the host and CI do not.
+- fix: replace the two interval expressions in the test scripts with portable equivalents — mawk (the container's awk) silently ignores `{n,m}`, so the `## Goals` heading regex matched nothing and three `update-topic-goal-entries` cases reported "no Goals section".
+- fix: stop the `step` extractor in `struck-row-rule-test.sh` exiting early, which SIGPIPE'd its producer under `set -o pipefail` and reported a present pattern as missing once the section exceeded the pipe buffer.
+- fix: bump `golang.org/x/net` to v0.62.0 for GO-2026-6860 and GO-2026-6866, which turned the `vulncheck` gate red on master.
+
 ## v0.183.0
 
 - feat: add `storage.PatchFrontmatter`, which rewrites only the named top-level frontmatter keys and leaves every other byte of the block untouched, so a caller that changes one key no longer produces a diff across the whole block. `SerializeFrontmatter` is unchanged.

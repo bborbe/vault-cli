@@ -104,6 +104,7 @@ This is a test vision.
 		})
 
 		It("returns error when writing to read-only directory", func() {
+			skipIfRoot()
 			readOnlyVault, err := os.MkdirTemp("", "vault-readonly-*")
 			Expect(err).To(BeNil())
 			defer func() { _ = os.RemoveAll(readOnlyVault) }()

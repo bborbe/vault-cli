@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [064-bug-completed-goal-keeps-non-terminal-phase]
+summary: 'Documented in docs/goal-writing.md § Phase and approval that both terminal goal statuses carry phase: done in the same write while non-terminal status changes leave the phase untouched, and recorded the fix in CHANGELOG.md under ## Unreleased.'
+execution_id: vault-cli-goal-phase-exec-270-spec-064-docs-changelog
+dark-factory-version: v0.198.7
 created: "2026-10-28T00:12:00Z"
 queued: "2026-10-27T23:19:44Z"
+started: "2026-10-27T23:28:05Z"
+completed: "2026-10-27T23:32:03Z"
 branch: dark-factory/bug-completed-goal-keeps-non-terminal-phase
 ---
 

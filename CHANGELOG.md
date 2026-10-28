@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- chore: update github.com/bborbe/cqrs to v0.6.15, github.com/bborbe/errors to v1.6.5, github.com/bborbe/kafka to v1.29.2, github.com/bborbe/notification to v0.7.6
+
 ## v0.183.1
 
 - fix: skip the permission-denied storage specs when the test process runs as root — root bypasses directory permission bits, so the read-only-directory error they assert can never occur, and the dark-factory container runs as root while the host and CI do not.

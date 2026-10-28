@@ -4,11 +4,11 @@ go 1.27.3
 
 require (
 	github.com/bborbe/collection v1.21.4
-	github.com/bborbe/cqrs v0.6.13
-	github.com/bborbe/errors v1.6.4
-	github.com/bborbe/kafka v1.28.6
+	github.com/bborbe/cqrs v0.6.15
+	github.com/bborbe/errors v1.6.5
+	github.com/bborbe/kafka v1.29.2
 	github.com/bborbe/log v1.7.5
-	github.com/bborbe/notification v0.7.4
+	github.com/bborbe/notification v0.7.6
 	github.com/bborbe/time v1.27.18
 	github.com/bborbe/validation v1.5.6
 	github.com/fsnotify/fsnotify v1.10.1
@@ -24,12 +24,12 @@ require (
 require (
 	github.com/IBM/sarama v1.61.1 // indirect
 	github.com/Masterminds/semver/v3 v3.5.0 // indirect
-	github.com/bborbe/http v1.26.31 // indirect
+	github.com/bborbe/http v1.26.32 // indirect
 	github.com/bborbe/k8s v1.14.24 // indirect
-	github.com/bborbe/kv v1.21.19 // indirect
+	github.com/bborbe/kv v1.21.20 // indirect
 	github.com/bborbe/math v1.4.16 // indirect
 	github.com/bborbe/parse v1.12.4 // indirect
-	github.com/bborbe/run v1.11.3 // indirect
+	github.com/bborbe/run v1.11.5 // indirect
 	github.com/bborbe/sentry v1.10.6 // indirect
 	github.com/bborbe/strimzi v1.8.22 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
@@ -49,7 +49,7 @@ require (
 	github.com/golang/glog v1.2.5 // indirect
 	github.com/google/gnostic-models v0.7.1 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
-	github.com/google/pprof v0.0.0-20261016150608-1facf8f91b50 // indirect
+	github.com/google/pprof v0.0.0-20261026192309-dbd0ed30aa88 // indirect
 	github.com/gorilla/mux v1.8.1 // indirect
 	github.com/hashicorp/go-uuid v1.0.4 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
@@ -66,7 +66,7 @@ require (
 	github.com/prometheus/client_golang v1.25.0 // indirect
 	github.com/prometheus/client_model v0.6.3 // indirect
 	github.com/prometheus/common v0.72.1 // indirect
-	github.com/prometheus/procfs v0.22.0 // indirect
+	github.com/prometheus/procfs v0.23.0 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20250401214520-65e299d6c5c9 // indirect
 	github.com/robfig/cron/v3 v3.0.1 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
@@ -90,9 +90,9 @@ require (
 	k8s.io/client-go v0.38.0-alpha.2 // indirect
 	k8s.io/klog/v2 v2.140.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20261014044854-ca3452a79603 // indirect
-	k8s.io/utils v0.0.0-20260707023825-cf1189d6abe3 // indirect
+	k8s.io/utils v0.0.0-20261023123148-ca04ba58ecab // indirect
 	sigs.k8s.io/json v0.0.0-20260909141634-11ed52e25bc5 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
-	sigs.k8s.io/structured-merge-diff/v7 v7.0.0 // indirect
+	sigs.k8s.io/structured-merge-diff/v7 v7.0.1 // indirect
 	sigs.k8s.io/yaml v1.6.0 // indirect
 )

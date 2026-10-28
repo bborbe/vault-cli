@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.183.2
 
 - fix: both goal terminal transitions now write `phase: done` in the same `WriteGoal` that writes the terminal status — `goal complete` and `goal set <name> status completed|aborted` no longer leave a completed goal at a non-terminal phase; non-terminal status writes and non-status keys leave the phase untouched.
 - fix: lint `STATUS_PHASE_MISMATCH` now accepts `phase: done` on an `aborted` page as well as a `completed` one, so repairing an aborted goal to `phase: done` no longer trades a Rule-1 error for a Rule-2 error; `in_progress` with `phase: done` is still reported.

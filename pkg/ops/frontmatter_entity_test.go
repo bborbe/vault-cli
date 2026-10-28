@@ -314,6 +314,10 @@ var _ = Describe("NewGoalSetOperation", func() {
 			mockGoalStorage.FindGoalByNameReturns(goal, nil)
 			key = "theme"
 			value = "completed"
+			// Non-empty, so the guard is genuinely exercised: without the
+			// key != "status" early return the close-out fields WOULD be written.
+			reason = "probe"
+			gateSuccessor = "none"
 		})
 
 		It("writes and keeps the phase at execution", func() {
@@ -322,6 +326,10 @@ var _ = Describe("NewGoalSetOperation", func() {
 			_, writtenGoal := mockGoalStorage.WriteGoalArgsForCall(0)
 			Expect(writtenGoal.Phase()).NotTo(BeNil())
 			Expect(*writtenGoal.Phase()).To(Equal(domain.GoalPhaseExecution))
+			// The close-out fields must not be written either — reason and
+			// gateSuccessor are non-empty here, so the guard is what stops them.
+			Expect(writtenGoal.GetString("aborted_reason")).To(BeEmpty())
+			Expect(writtenGoal.GetString("gate_successor")).To(BeEmpty())
 		})
 	})
 

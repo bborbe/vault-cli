@@ -134,7 +134,7 @@ func (o *goalSetOperation) Execute(
 
 	// One-step close-out: when this invocation sets a close-out goal status,
 	// persist reason and successor first so both land in a single WriteGoal.
-	if err := writeGoalCloseOutFieldsIfCloseOut(ctx, goal, value, reason, gateSuccessor); err != nil {
+	if err := writeGoalCloseOutFieldsIfCloseOut(ctx, goal, key, value, reason, gateSuccessor); err != nil {
 		return err
 	}
 
@@ -161,11 +161,20 @@ func NewGoalSetOperation(goalStorage storage.GoalStorage) EntitySetOperation {
 // the target goal status is a close-out (aborted or completed), returning the
 // first write error. Fields are written only when provided; non-close-out
 // targets never receive them.
+//
+// A close-out also writes the terminal phase (phase: done) in the same
+// in-memory mutation as the close-out fields, so the caller's single WriteGoal
+// persists status, phase and fields together. It does nothing for a non-status
+// key or a non-terminal status value: the function is called for every
+// `goal set`, and only a status write may move the phase.
 func writeGoalCloseOutFieldsIfCloseOut(
 	ctx context.Context,
 	goal *domain.Goal,
-	value, reason, gateSuccessor string,
+	key, value, reason, gateSuccessor string,
 ) error {
+	if key != "status" {
+		return nil
+	}
 	target := domain.GoalStatus(value)
 	if target != domain.GoalStatusAborted && target != domain.GoalStatusCompleted {
 		return nil
@@ -180,6 +189,7 @@ func writeGoalCloseOutFieldsIfCloseOut(
 			return errors.Wrap(ctx, err, "set gate_successor")
 		}
 	}
+	goal.SetPhase(domain.GoalPhaseDone.Ptr())
 	return nil
 }
 

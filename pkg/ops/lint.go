@@ -611,9 +611,13 @@ func (l *lintOperation) detectStatusPhaseMismatch(frontmatterYAML string) (bool,
 		)
 	}
 
-	// Rule 2: phase=done requires completed status
-	if phase == domain.TaskPhaseDone && status != domain.TaskStatusCompleted {
-		return true, fmt.Sprintf("phase is done but status is %s (expected completed)", status)
+	// Rule 2: phase=done requires a terminal status (completed or aborted)
+	if phase == domain.TaskPhaseDone &&
+		status != domain.TaskStatusCompleted && status != domain.TaskStatusAborted {
+		return true, fmt.Sprintf(
+			"phase is done but status is %s (expected completed or aborted)",
+			status,
+		)
 	}
 
 	// Rule 3: backlog/hold status incompatible with active phases

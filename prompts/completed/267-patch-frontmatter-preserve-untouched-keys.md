@@ -1,5 +1,5 @@
 ---
-status: failed
+status: completed
 execution_id: vault-cli-frontmatter-exec-267-patch-frontmatter-preserve-untouched-keys
 dark-factory-version: v0.198.7
 created: "2026-10-24T22:15:00Z"
@@ -8,6 +8,8 @@ started: "2026-10-24T20:17:54Z"
 completed: "2026-10-24T20:26:46Z"
 branch: fix/frontmatter-byte-preserving
 lastFailReason: 'validate completion report: completion report status: partial'
+reconciled: "2026-10-28"
+reconciledReason: 'Work shipped in 5cfdefb "feat: add storage.PatchFrontmatter for byte-preserving key updates" (2026-10-24); only the completion report failed validation. Verified on master: pkg/storage/frontmatter_patch.go and pkg/storage/frontmatter_patch_test.go are both present. Status reconciled to completed — the prompt was never re-run.'
 ---
 
 # Add PatchFrontmatter so a one-key write leaves every other frontmatter byte untouched

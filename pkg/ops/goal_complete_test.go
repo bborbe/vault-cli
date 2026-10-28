@@ -320,6 +320,26 @@ var _ = Describe("GoalCompleteOperation", func() {
 		})
 	})
 
+	Context("goal at phase planning completes to phase done", func() {
+		BeforeEach(func() {
+			goal = domain.NewGoal(
+				map[string]any{"status": "in_progress", "phase": "planning"},
+				domain.FileMetadata{Name: goalName},
+				domain.Content(""),
+			)
+			mockGoalStorage.FindGoalByNameReturns(goal, nil)
+		})
+
+		It("writes once with completed status and done phase", func() {
+			Expect(err).To(BeNil())
+			Expect(mockGoalStorage.WriteGoalCallCount()).To(Equal(1))
+			_, writtenGoal := mockGoalStorage.WriteGoalArgsForCall(0)
+			Expect(writtenGoal.Status()).To(Equal(domain.GoalStatusCompleted))
+			Expect(writtenGoal.Phase()).NotTo(BeNil())
+			Expect(*writtenGoal.Phase()).To(Equal(domain.GoalPhaseDone))
+		})
+	})
+
 	Context("goal at phase execution completes to phase done", func() {
 		BeforeEach(func() {
 			goal = domain.NewGoal(

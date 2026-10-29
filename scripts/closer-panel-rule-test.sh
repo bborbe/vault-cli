@@ -78,16 +78,26 @@ has() {
 	if grep -qF -- "$2" "$1" 2>/dev/null; then echo yes; else echo no; fi
 }
 
-# banned_hits <dir> -> count of operator-approval-form lines, or "no-dir" when
-# the target is not a directory. Without the guard a renamed or missing
-# directory would read as a clean 0 — the vacuous pass this file exists to
-# prevent, turned on itself.
+# lines_of <string> -> the string's line count, or "grep-error" when grep itself
+# failed. `grep -rn` exits 0 on matches, 1 on none, >1 on a real error; piping
+# through `2>/dev/null | wc -l` would turn every error into a clean 0 — the
+# vacuous pass this file exists to prevent, turned on itself.
+lines_of() {
+	printf '%s\n' "$1" | sed '/^$/d' | wc -l | tr -d ' '
+}
+
+# banned_hits <dir> -> count of operator-approval-form lines, "no-dir" when the
+# target is not a directory, or "grep-error". No `--exclude-dir`: BusyBox grep
+# rejects the flag, and the three scan targets carry no `.git` to exclude.
 banned_hits() {
 	if [ ! -d "$1" ]; then
 		echo no-dir
 		return
 	fi
-	grep -rn --exclude-dir=.git "$BANNED" "$1" 2>/dev/null | wc -l | tr -d ' '
+	out=$(grep -rn "$BANNED" "$1")
+	rc=$?
+	[ "$rc" -gt 1 ] && { echo grep-error; return; }
+	lines_of "$out"
 }
 
 for f in "${CARRIERS[@]}"; do
@@ -120,10 +130,19 @@ check "sync-progress Phase 4b passes --non-interactive to complete-task" "yes" \
 	"$(has commands/sync-progress.md 'Skill: vault-cli:complete-task --non-interactive')"
 
 # Absence half: presence checks only pin the callers that exist today. A caller
-# added later would pass silently, so require that NO bare invocation survives.
-bare_callers() { # bare_callers [root] — count of sync-progress invocations without --nested
-	grep -rn --exclude-dir=.git 'Skill: vault-cli:sync-progress' "${1:-.}/commands" 2>/dev/null \
-		| grep -vF -- '--nested' | wc -l | tr -d ' '
+# added later — in commands/, agents/ or docs/ — would pass silently, so require
+# that NO bare invocation survives in any of them.
+bare_callers() { # bare_callers [root] — sync-progress invocations without --nested
+	root="${1:-.}"
+	total=0
+	for d in commands agents docs; do
+		[ -d "$root/$d" ] || continue
+		out=$(grep -rn 'Skill: vault-cli:sync-progress' "$root/$d")
+		rc=$?
+		[ "$rc" -gt 1 ] && { echo grep-error; return; }
+		total=$((total + $(printf '%s\n' "$out" | grep -vF -- '--nested' | sed '/^$/d' | wc -l | tr -d ' ')))
+	done
+	echo "$total"
 }
 check "no sync-progress caller omits --nested" "0" "$(bare_callers .)"
 

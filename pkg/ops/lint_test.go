@@ -1288,6 +1288,7 @@ task_identifier: 34343434-3434-4343-a343-343434343434
 		})
 
 		It("returns error when unable to write file", func() {
+			skipIfRoot()
 			_, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", true)
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(ContainSubstring("fix issues"))
@@ -1936,10 +1937,12 @@ var _ = Describe("LintOperation - Status Phase Mismatch", func() {
 		DescribeTable("valid combinations",
 			func(status, phase string) {
 				writeTask(vaultPath, tasksDir, status, phase)
-				_, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+				issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
 				Expect(err).To(BeNil())
+				Expect(issues).To(BeEmpty())
 			},
 			Entry("completed + done", "completed", "done"),
+			Entry("aborted + done", "aborted", "done"),
 			Entry("completed + no phase", "completed", ""),
 			Entry("aborted + no phase", "aborted", ""),
 			Entry("todo + todo", "todo", "todo"),
@@ -1951,6 +1954,71 @@ var _ = Describe("LintOperation - Status Phase Mismatch", func() {
 			Entry("backlog + no phase", "backlog", ""),
 		)
 	})
+})
+
+var _ = Describe("LintOperation - STATUS_PHASE_MISMATCH on goal pages", func() {
+	var (
+		ctx       context.Context
+		lintOp    ops.LintOperation
+		vaultPath string
+		goalsDir  string
+	)
+
+	BeforeEach(func() {
+		ctx = context.Background()
+		lintOp = ops.NewLintOperation()
+
+		var err error
+		vaultPath, err = os.MkdirTemp("", "vault-goal-phase-test-*")
+		Expect(err).To(BeNil())
+
+		goalsDir = "Goals"
+		goalsDirPath := filepath.Join(vaultPath, goalsDir)
+		Expect(os.MkdirAll(goalsDirPath, 0755)).To(Succeed())
+	})
+
+	AfterEach(func() {
+		if vaultPath != "" {
+			_ = os.RemoveAll(vaultPath)
+		}
+	})
+
+	writeGoal := func(vaultPath, goalsDir, status, phase string) {
+		var content string
+		if phase == "" {
+			content = "---\nstatus: " + status + "\npage_type: goal\n---\n# Goal\n"
+		} else {
+			content = "---\nstatus: " + status + "\nphase: " + phase + "\npage_type: goal\n---\n# Goal\n"
+		}
+		goalPath := filepath.Join(vaultPath, goalsDir, "Goal.md")
+		Expect(os.WriteFile(goalPath, []byte(content), 0600)).To(Succeed())
+	}
+
+	DescribeTable("should NOT trigger",
+		func(status, phase string) {
+			writeGoal(vaultPath, goalsDir, status, phase)
+			issues, err := lintOp.Execute(ctx, "goal", vaultPath, goalsDir, goalsDir, false)
+			Expect(err).To(BeNil())
+			Expect(issues).To(BeEmpty())
+		},
+		Entry("aborted + done", "aborted", "done"),
+		Entry("completed + no phase", "completed", ""),
+	)
+
+	DescribeTable("should trigger",
+		func(status, phase, expected string) {
+			writeGoal(vaultPath, goalsDir, status, phase)
+			issues, err := lintOp.Execute(ctx, "goal", vaultPath, goalsDir, goalsDir, false)
+			Expect(err).To(BeNil())
+			Expect(issues).To(HaveLen(1))
+			Expect(issues[0].IssueType).To(Equal(ops.IssueTypeStatusPhaseMismatch))
+			Expect(issues[0].Fixable).To(BeFalse())
+			Expect(issues[0].Description).To(ContainSubstring(expected))
+		},
+		Entry("aborted + execution", "aborted", "execution", "status is aborted but phase is execution"),
+		Entry("completed + execution", "completed", "execution", "status is completed but phase is execution"),
+		Entry("in_progress + done", "in_progress", "done", "phase is done but status is in_progress"),
+	)
 })
 
 var _ = Describe("LintOperation - Missing Task Identifier", func() {

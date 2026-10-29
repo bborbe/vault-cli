@@ -85,6 +85,30 @@ This is the task-level variant of the **outcome-vs-mechanism sniff test** in `go
 
 **Sniff test:** if the task's design pivots during planning (different library, different algorithm), do you need to rename the file? If yes → title is too solution-shaped. Re-anchor on the problem or the observable outcome.
 
+## Naming Method
+
+Apply this before proposing any title. The failure it prevents is a name that captures one symptom while the task covers the wider problem — the name then misleads scoping and linking for the whole life of the task.
+
+The five steps and the level table are shared with `docs/goal-writing.md` § Naming Method; only step 4's wording differs by level. Edit both in the same change, or they drift.
+
+1. **List the symptoms** — what keeps happening that prompted this task. One line each, in the language the complaint arrives in.
+2. **Five whys** — ask why until the answer is about the user (usually the operator), not the mechanism. That root is the level the name must speak to.
+3. **Name the end state** that root points at — what is true afterwards, phrased as the world after the work rather than the work itself.
+4. **Scope check** — does the name cover every symptom from step 1, or only one? One symptom is fine at task level; a name covering several is a goal, and a name covering one while the body covers several is scoped wrong. (This is the *name's* scope; the `## Scope Check` preflight further down audits the page's breadth.)
+5. **Sniff test** — title alone: can a reader picture the world after? If they picture work happening, rewrite.
+
+**Levels.** The same method applies at every level; what changes is how much of the name is *why*:
+
+| Vault level | Jira analogue | What the name states |
+|---|---|---|
+| Topic | Epic | the domain and the outcome it serves |
+| Goal | User Story | the end state or capability a user gets |
+| Task | Task / Issue | the problem or the observable outcome |
+
+Higher levels name more *why*, lower levels may name *how*. A name that would fit any of the three rows is scoped wrong — check it against the row for the level you are writing.
+
+**Carve-out — when the action IS the deliverable:** recurring routines, mandated upgrades and deploys (`Upgrade Kafka to 3.9.1`, `Weekly Review - 2026W43`) may use a solution verb, because no design pivot is possible.
+
 ## Task Structure
 
 ### Frontmatter

@@ -1,5 +1,5 @@
 ---
-status: generating
+status: approved
 approved: "2026-08-28T08:35:16Z"
 generating: "2026-08-30T17:05:06Z"
 branch: dark-factory/bug-resume-races-live-headless-turn

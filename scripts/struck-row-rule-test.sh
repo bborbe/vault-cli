@@ -105,7 +105,7 @@ done
 # a Shared Operation's algorithm step long before the verify action's step 5.
 step() {
 	section "$1" "$2" |
-		awk -v n="$3" '$0 ~ ("^" n "[.] ") { f = 1; next } f && (/^[0-9]+[.] / || /^#/) { exit } f'
+		awk -v n="$3" '$0 ~ ("^" n "[.] ") { f = 1; next } f && (/^[0-9]+[.] / || /^#/) { f = 0; next } f'
 }
 
 # --- and in the goal agent, in EVERY site that enforces it. The file-level check

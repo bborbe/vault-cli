@@ -79,6 +79,28 @@ For goals under `category: tooling` whose deliverable IS the tool, an artifact-s
 
 When NOT to apply: goals where the tool is a means to a separate outcome (e.g. "Reduce backlog by 50%" via a tool — outcome is the backlog reduction; tool is the mechanism). Tooling category is for goals where shipping the artifact = the win.
 
+## Naming Method
+
+Apply this before proposing any title. The failure it prevents is a name that captures one symptom while the goal covers the wider problem — the name then misleads scoping and linking for the whole life of the goal.
+
+1. **List the symptoms** — what keeps happening that prompted this goal. One line each, in the language the complaint arrives in.
+2. **Five whys** — ask why until the answer is about the user (usually the operator), not the mechanism. That root is the level the name must speak to.
+3. **Name the end state** that root points at — what is true afterwards, phrased as the world after the work rather than the work itself.
+4. **Scope check** — does the name cover every symptom from step 1, or only one? A name that covers one symptom belongs to a task, not a goal. (This is the *name's* scope; the `## Scope Check` preflight further down audits the page's breadth.)
+5. **Sniff test** — title alone: can a reader picture the world after? If they picture work happening, rewrite.
+
+**Levels.** The same method applies at every level; what changes is how much of the name is *why*:
+
+| Vault level | Jira analogue | What the name states |
+|---|---|---|
+| Topic | Epic | the domain and the outcome it serves |
+| Goal | User Story | the end state or capability a user gets |
+| Task | Task / Issue | the problem or the observable outcome |
+
+Higher levels name more *why*, lower levels may name *how*. A name that would fit any of the three rows is scoped wrong — check it against the row for the level you are writing.
+
+**Carve-out — when the action IS the deliverable:** recurring routines, mandated upgrades and deploys (`Upgrade Kafka to 3.9.1`, `Weekly Review - 2026W43`) may use a solution verb, because no design pivot is possible.
+
 ## Summary (First Sentence)
 
 The first sentence of the goal body is the **outcome statement** — the same rule as Title & Filename, scoped to one sentence. Tells the reader what's true when the goal is done, in plain language. The *how* (mechanism, architecture, refactor steps) belongs in `# Impact` (as an "Approach" lead paragraph) or in linked design docs — never in the opening sentence.
@@ -131,6 +153,8 @@ manager_session_id: <session id>                 # optional — written by claud
 ### Phase and approval
 
 `phase` walks `todo → planning → execution → done`, and `todo` is the operator's approval inbox — the same phase lifecycle tasks carry. `vault-cli goal approve "<name>"` performs the `todo → planning` transition and records `approved_by` (default `operator`; `--by <name>` names another) and `approved_at` in the same write. `vault-cli goal set "<name>" phase planning` is refused on a `todo` goal, and the refusal points at `goal approve`: a phase set without an approval record is not an approval. This is the same contract as `task approve`, stated in full in `task-writing.md` § Phase transitions.
+
+The walk ends at `done`, and both terminal statuses end it the same way: a terminal status carries phase: done, written by the same mutation that writes the status. `vault-cli goal complete "<name>"` and `vault-cli goal set "<name>" status completed|aborted` therefore set the phase in the write that sets the status, so a goal cannot close out with a stale non-terminal phase. The converse holds too: a non-terminal status change leaves the phase untouched — `goal set <name> status in_progress` moves the status without moving the phase. (`goal approve` is the exception, not an example: it performs the `todo → planning` transition and does move the phase. `goal defer` sets only a defer date and touches neither.) Note that `goal set <name> status in_progress` on a `done` goal is not refused by the CLI, so reopening a terminal goal leaves it at `phase: done` until someone sets the phase explicitly.
 
 A goal with no `phase` key is exempt from the gate and cannot be approved; set `phase: todo` first. A goal that already carries `approved_by` or `approved_at` is refused rather than re-approved, and the refusal writes nothing.
 

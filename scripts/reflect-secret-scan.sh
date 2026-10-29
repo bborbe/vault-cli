@@ -58,13 +58,20 @@ set -uo pipefail
 #   access_token= parameter" can fire; that is the safe direction here, since a
 #   false positive skips a learning while a false negative publishes a secret.
 #
-# KNOWN LIMITATION, stated rather than implied: `base64-blob` uses the standard
-# alphabet and a 40-character floor, so base64url blobs (which use `-` and `_`)
-# and shorter provider tokens outside the named prefixes — Google `AIza…`, for
-# one — match no class. Widening this class to `-`/`_` would make long
-# kebab-case prose a candidate, so the gap is left open and named instead. The
-# semantic obligation in `commands/reflect.md` still covers what the regexes
-# cannot.
+# KNOWN LIMITATIONS, stated rather than implied. All three are deliberate, and
+# the semantic obligation in `commands/reflect.md` covers what they miss:
+#
+#   1. `base64-blob` uses the standard alphabet and a 40-character floor, so
+#      base64url blobs (which use `-` and `_`) and shorter provider tokens
+#      outside the named prefixes — Google `AIza…`, for one — match no class.
+#      Widening to `-`/`_` would make long kebab-case prose a candidate.
+#   2. The scan is LINE-ORIENTED — every class is a `grep -E` over one line at
+#      a time, so a secret split across lines (`key=` on one line, the value on
+#      the next) matches nothing. Wrapped base64 bodies are still caught,
+#      because each 64-character line clears the 40-character floor.
+#   3. `key-assignment` matches a key name that ENDS in password / passwd /
+#      token / secret / api_key / `_key`. A key whose secret word sits in the
+#      MIDDLE with a different tail — `secret_value=` — is not matched.
 CLASSES=(
 	'private-key|-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----'
 	'aws-key-id|(^|[^A-Za-z0-9])(AKIA|ASIA)[0-9A-Z]{16}'
@@ -75,8 +82,8 @@ CLASSES=(
 	'stripe-key|(^|[^A-Za-z0-9])(sk|rk)_(live|test)_[A-Za-z0-9]{16,}'
 	'slack-token|xox[baprs]-[A-Za-z0-9-]{10,}'
 	'bearer-token|[Bb][Ee][Aa][Rr][Ee][Rr][[:space:]]+[A-Za-z0-9._~+/-]{20,}'
-	'connection-string|[a-z][a-z0-9+.-]*://[^[:space:]/:@]+:[^[:space:]/@]+@'
-	"key-assignment|(^|[^A-Za-z0-9])[A-Za-z0-9_]*([Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd]|[Pp][Aa][Ss][Ss][Ww][Dd]|[Tt][Oo][Kk][Ee][Nn]|[Ss][Ee][Cc][Rr][Ee][Tt]|[Aa][Pp][Ii][_-]?[Kk][Ee][Yy])[[:space:]]*=[[:space:]]*(\"[^\"]{4,}\"|'[^']{4,}'|[^[:space:]]{8,})"
+	'connection-string|[a-z][a-z0-9+.-]*://[^[:space:]/@]*:[^[:space:]/@]+@'
+	"key-assignment|(^|[^A-Za-z0-9])[A-Za-z0-9_]*([Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd]|[Pp][Aa][Ss][Ss][Ww][Dd]|[Tt][Oo][Kk][Ee][Nn]|[Ss][Ee][Cc][Rr][Ee][Tt]|[Aa][Pp][Ii][_-]?[Kk][Ee][Yy]|[_-][Kk][Ee][Yy])[[:space:]]*=[[:space:]]*(\"[^\"]{4,}\"|'[^']{4,}'|[^[:space:]]{8,})"
 	'jwt|eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}'
 )
 

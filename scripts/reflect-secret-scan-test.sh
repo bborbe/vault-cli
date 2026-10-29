@@ -44,6 +44,15 @@ scan() {
 	printf '%s' "$1" | bash "$SCAN" 2>/dev/null
 }
 
+# scan_status <text> — the scan's EXIT CODE for <text>. Every check above
+# compares stdout only, so a script that printed `rejected` but exited 0 would
+# pass all of them while contradicting the contract `commands/reflect.md`
+# documents (exit 1 on a rejection). These two assertions are what probe it.
+scan_status() {
+	printf '%s' "$1" | bash "$SCAN" >/dev/null 2>&1
+	echo $?
+}
+
 # --- REJECTED: every documented class must actually fire.
 # A class named in the prose but never exercised here is a class nobody has
 # seen work. The fixture value is deliberately fake — this file is committed.
@@ -71,6 +80,10 @@ check "lowercase bearer token is rejected" "secret-scan: rejected (bearer-token)
 	"$(scan 'authorization: bearer abcdefghijklmnopqrstuvwxyz012345')"
 check "connection string with credentials is rejected" "secret-scan: rejected (connection-string)" \
 	"$(scan 'db postgres://appuser:s3cretpw@db.internal:5432/orders')"
+# The default-user form. The user segment must be optional, or the Redis
+# default-user URI — password present, user empty — scans clean.
+check "connection string with an empty user is rejected" "secret-scan: rejected (connection-string)" \
+	"$(scan 'cache redis://:hunter2hunter2@cache.internal:6379/0')"
 check "assignment-shaped password is rejected" "secret-scan: rejected (key-assignment)" \
 	"$(scan 'config password=hunter22 applied')"
 # A quoted value may contain spaces, which a bare `[^[:space:]]{8,}` cannot span.
@@ -86,6 +99,12 @@ check "client_secret assignment is rejected" "secret-scan: rejected (key-assignm
 	"$(scan 'cfg client_secret=abcdefghijklmnop')"
 check "access_token assignment is rejected" "secret-scan: rejected (key-assignment)" \
 	"$(scan 'cfg access_token=abcdefghijklmnop')"
+# `_key`-suffixed names: the alternation originally required the secret word to
+# END the key, so these two — both common real shapes — scanned clean.
+check "AWS_SECRET_ACCESS_KEY assignment is rejected" "secret-scan: rejected (key-assignment)" \
+	"$(scan 'env AWS_SECRET_ACCESS_KEY=abcdefghijklmnop set')"
+check "secret_key assignment is rejected" "secret-scan: rejected (key-assignment)" \
+	"$(scan 'cfg secret_key=abcdefghijklmnop')"
 check "JWT is rejected" "secret-scan: rejected (jwt)" \
 	"$(scan 'auth eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U')"
 check "base64 blob is rejected" "secret-scan: rejected (base64-blob)" \
@@ -135,6 +154,10 @@ check "a UUID is kept (36 chars, under the base64 floor)" "secret-scan: clean" \
 NOLEAK=$(scan 'config password=hunter22 applied')
 check "a rejected verdict never echoes the matched value" "absent" \
 	"$(printf '%s' "$NOLEAK" | grep -F 'hunter22' >/dev/null && echo present || echo absent)"
+
+# --- the documented EXIT CONTRACT, which every stdout check above is blind to.
+check "a rejected verdict exits 1" "1" "$(scan_status 'config password=hunter22 applied')"
+check "a clean verdict exits 0" "0" "$(scan_status 'nothing sensitive in this line')"
 
 # --- the fail-closed read path. A plain `text=$(cat)` leaves `text` empty when
 # stdin cannot be read, and an empty string scans CLEAN — the one verdict that

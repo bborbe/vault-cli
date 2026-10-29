@@ -229,6 +229,11 @@ check "reflect NO-ASK contract defines the wrote terminal line" "found" \
 	"$(printf '%s' "$NOASK" | grep -F 'reflect: wrote' >/dev/null && echo found)"
 check "reflect NO-ASK contract defines the skipped terminal line" "found" \
 	"$(printf '%s' "$NOASK" | grep -F 'reflect: skipped' >/dev/null && echo found)"
+# The durable home for the `failed` vocabulary. `reflect.md` IS the contract; the
+# changelog bullet is a one-time record of it, and the pin above is scoped to a
+# section that a release renames.
+check "reflect NO-ASK contract defines the failed terminal line" "found" \
+	"$(printf '%s' "$NOASK" | grep -F 'reflect: failed — <reason>' >/dev/null && echo found)"
 
 # --- self-check: remove ONE signal from ONE surface and require exactly that
 # surface to report it. Deleting the mode-3 advisory tail's runbook line is the
@@ -356,8 +361,18 @@ check "session-close phase 9.4 records the mixed form" "found" \
 # `failed` — mandatory in reflect.md — went missing from the changelog in the
 # first place. Scoped to `## Unreleased` so a later release rewrite cannot make
 # this pass by accident off an older section.
-check "changelog unreleased names the failed terminal line" "found" \
-	"$(between CHANGELOG.md '## Unreleased' '## v' | grep -F 'reflect: failed — <reason>' >/dev/null && echo found)"
+# ⚠️ Scoped to the NEWEST section, whichever it is — `## Unreleased` before a
+# release, the top `## vX.Y.Z` after the releaser renames it. Pinning
+# `## Unreleased` BY NAME is release-fragile: on an `autoRelease: true` repo the
+# releaser rewrites that heading, the section stops existing, the extraction is
+# empty, and this check fails `make test` on master for every subsequent commit.
+# Verified 2026-10-29 against origin/master, which carries zero `## Unreleased`
+# headings. The durable half of this pin is the `reflect: failed` check against
+# `commands/reflect.md` below — that file is the contract; the changelog is a
+# one-time record of it.
+NEWEST=$(awk '/^## /{n++} n==1' CHANGELOG.md)
+check "the changelog's newest section names the failed terminal line" "found" \
+	"$(printf '%s' "$NEWEST" | grep -F 'reflect: failed — <reason>' >/dev/null && echo found)"
 
 # --- the script and its prose fallback must not drift. reflect.md keeps a class
 # list for the case the plugin cache is unreachable; a class the script

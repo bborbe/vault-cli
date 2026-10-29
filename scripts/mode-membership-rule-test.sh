@@ -308,23 +308,34 @@ check "self-check: the pin rejects a restored reply-waiting line" "" \
 # scope to mode 1 or mode 3, with all of them still green. The rule IS the
 # change this file's sibling PR is built on, so it gets its own pin, and each of
 # its three conjuncts gets a mutation control below.
-PHASE94=$(between "$TARGET" '### Phase 9.4' '### Phase 9.5')
 CLAUSE_A='the Phase 8 reflect signal fired'
 CLAUSE_B='a finding that names no existing KB page'
 
-check "phase 9.4 is scoped to mode 2 only" "found" \
-	"$(printf '%s' "$PHASE94" | grep -F 'mode 2 only' >/dev/null && echo found)"
-check "phase 9.4 requires the Phase 8 reflect signal (clause a)" "found" \
-	"$(printf '%s' "$PHASE94" | grep -F "$CLAUSE_A" >/dev/null && echo found)"
-check "phase 9.4 requires a finding naming no existing KB page (clause b)" "found" \
-	"$(printf '%s' "$PHASE94" | grep -F "$CLAUSE_B" >/dev/null && echo found)"
-check "phase 9.4 states the rule as a conjunction, not a disjunction" "found" \
-	"$(printf '%s' "$PHASE94" | grep -F 'if and only if BOTH hold' >/dev/null && echo found)"
+# The pin's OWN expression lives in ONE place, and each mutation control below
+# calls it rather than restating the grep. A control that re-implements its pin
+# is not a control: a later edit that loosens the real pin leaves the control
+# green, which is the false green this file exists to prevent. This is the same
+# rule the menu self-check above states — run the pin's own expression and
+# assert a mismatch.
+phase94_pin() { # phase94_pin <file> <scope|a|b|conj>
+	local text
+	text=$(between "$1" '### Phase 9.4' '### Phase 9.5')
+	case "$2" in
+		scope) printf '%s' "$text" | grep -F 'mode 2 only' >/dev/null && echo found ;;
+		a) printf '%s' "$text" | grep -F "$CLAUSE_A" >/dev/null && echo found ;;
+		b) printf '%s' "$text" | grep -F "$CLAUSE_B" >/dev/null && echo found ;;
+		conj) printf '%s' "$text" | grep -F 'if and only if BOTH hold' >/dev/null && echo found ;;
+	esac
+}
+
+check "phase 9.4 is scoped to mode 2 only" "found" "$(phase94_pin "$TARGET" scope)"
+check "phase 9.4 requires the Phase 8 reflect signal (clause a)" "found" "$(phase94_pin "$TARGET" a)"
+check "phase 9.4 requires a finding naming no existing KB page (clause b)" "found" "$(phase94_pin "$TARGET" b)"
+check "phase 9.4 states the rule as a conjunction, not a disjunction" "found" "$(phase94_pin "$TARGET" conj)"
 
 # --- self-check (phase 9.4 rule): remove each conjunct in turn and require ITS
 # OWN pin to fail. A pin that survives the removal of its clause is not pinning
-# that clause — it is pinning something adjacent that happened to remain, which
-# is the false green this whole file exists to prevent.
+# that clause — it is pinning something adjacent that happened to remain.
 rule_mutant() { # rule_mutant <sed-expr> <name>
 	local dest="$TMP/rule-$2/commands/session-close.md"
 	mkdir -p "$(dirname "$dest")"
@@ -334,15 +345,15 @@ rule_mutant() { # rule_mutant <sed-expr> <name>
 
 SCOPE_MUTANT=$(rule_mutant 's/(mode 2 only)/(modes 1 and 2)/' scope)
 check "self-check: widening phase 9.4 past mode 2 breaks the scope pin" "" \
-	"$(between "$SCOPE_MUTANT" '### Phase 9.4' '### Phase 9.5' | grep -F 'mode 2 only' >/dev/null && echo found)"
+	"$(phase94_pin "$SCOPE_MUTANT" scope)"
 
 CLAUSE_A_MUTANT=$(rule_mutant 's/the Phase 8 reflect signal fired/the Phase 8 signal is advisory/' a)
 check "self-check: dropping clause (a) breaks the clause-a pin" "" \
-	"$(between "$CLAUSE_A_MUTANT" '### Phase 9.4' '### Phase 9.5' | grep -F "$CLAUSE_A" >/dev/null && echo found)"
+	"$(phase94_pin "$CLAUSE_A_MUTANT" a)"
 
 CLAUSE_B_MUTANT=$(rule_mutant 's/a finding that names no existing KB page/a finding/' b)
 check "self-check: dropping clause (b) breaks the clause-b pin" "" \
-	"$(between "$CLAUSE_B_MUTANT" '### Phase 9.4' '### Phase 9.5' | grep -F "$CLAUSE_B" >/dev/null && echo found)"
+	"$(phase94_pin "$CLAUSE_B_MUTANT" b)"
 
 # --- the mixed written/skipped terminal line. The Sensitivity bullet promised a
 # skip would be "said in the terminal line", while the Terminal-line bullet
@@ -356,23 +367,20 @@ check "reflect.md defines the mixed written/skipped line" "found" \
 check "session-close phase 9.4 records the mixed form" "found" \
 	"$(between "$TARGET" '### Phase 9.4' '### Phase 9.5' | grep -F 'skipped <M> (sensitivity)' >/dev/null && echo found)"
 
-# --- and the changelog bullet must enumerate EVERY terminal-line form. The
-# released v0.181.0 bullet named only `wrote` and `skipped`, which is how
-# `failed` — mandatory in reflect.md — went missing from the changelog in the
-# first place. Scoped to `## Unreleased` so a later release rewrite cannot make
-# this pass by accident off an older section.
-# ⚠️ Scoped to the NEWEST section, whichever it is — `## Unreleased` before a
-# release, the top `## vX.Y.Z` after the releaser renames it. Pinning
-# `## Unreleased` BY NAME is release-fragile: on an `autoRelease: true` repo the
-# releaser rewrites that heading, the section stops existing, the extraction is
-# empty, and this check fails `make test` on master for every subsequent commit.
-# Verified 2026-10-29 against origin/master, which carries zero `## Unreleased`
-# headings. The durable half of this pin is the `reflect: failed` check against
-# `commands/reflect.md` below — that file is the contract; the changelog is a
-# one-time record of it.
-NEWEST=$(awk '/^## /{n++} n==1' CHANGELOG.md)
-check "the changelog's newest section names the failed terminal line" "found" \
-	"$(printf '%s' "$NEWEST" | grep -F 'reflect: failed — <reason>' >/dev/null && echo found)"
+# --- NO CHANGELOG PIN HERE, deliberately, and the reason is a bug this file
+# shipped twice. A changelog bullet is a ONE-TIME record of a change, and every
+# way of pinning it is time-bound on an `autoRelease: true` repo:
+#
+#   - scoped to `## Unreleased`, it dies at the next release, which renames that
+#     heading in place — the section stops existing and the extraction is empty;
+#   - scoped to the newest section, it dies at the PR AFTER that release, which
+#     opens a fresh `## Unreleased` at the top carrying none of this bullet.
+#
+# Both versions were written here and both would have failed `make test` on
+# master for everyone else — a test added to guard a change, breaking the build
+# after the change shipped. The durable home is `commands/reflect.md`, which IS
+# the contract, and the `reflect: failed — <reason>` check against it lives with
+# the other NO-ASK pins above. The changelog is not a contract and gets no pin.
 
 # --- the script and its prose fallback must not drift. reflect.md keeps a class
 # list for the case the plugin cache is unreachable; a class the script

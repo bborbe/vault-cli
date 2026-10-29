@@ -23,8 +23,10 @@ This command **must stay inline** — it reads the parent conversation's state (
 Invoke the sibling command exactly once:
 
 ```
-Skill: vault-cli:sync-progress
+Skill: vault-cli:sync-progress --nested
 ```
+
+`--nested` is not optional: this session continues after the call, so a completion established inside `sync-progress` must not make its Phase 6 panel self-close the session the compaction is preparing.
 
 This flushes the session's completed work into the daily note and task/goal pages before anything is compacted. No fallback or graceful-degradation logic needed: `vault-cli:sync-progress` ships in the same plugin bundle and is guaranteed present — this is an ordinary same-plugin sibling reference. If it reports no vault-tracked work, note that and continue.
 

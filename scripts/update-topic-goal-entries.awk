@@ -65,7 +65,7 @@ function heading_level(line,   n) {
 
 {
   if (state == 0) {
-    if ($0 ~ /^#{1,6}[[:space:]]+Goals[[:space:]]*$/) {
+    if ($0 ~ /^#[#]?[#]?[#]?[#]?[#]?[[:space:]]+Goals[[:space:]]*$/) {
       level = heading_level($0)
       state = 1
     }

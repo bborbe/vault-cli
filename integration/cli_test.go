@@ -1547,6 +1547,112 @@ blocked_by:
 		})
 	})
 
+	Describe("vault-cli goal lint — status/phase on goals", func() {
+		var configPath string
+		var cleanup func()
+
+		AfterEach(func() {
+			cleanup()
+		})
+
+		runGoalLint := func() *gexec.Session {
+			session, err := gexec.Start(
+				exec.Command(
+					binPath,
+					"--config", configPath,
+					"--vault", "test",
+					"goal", "lint",
+				),
+				GinkgoWriter,
+				GinkgoWriter,
+			)
+			Expect(err).NotTo(HaveOccurred())
+			return session
+		}
+
+		goalFixture := func(status, phase string) string {
+			if phase == "" {
+				return "---\nstatus: " + status + "\npage_type: goal\npriority: 1\n---\n# Goal\n"
+			}
+			return "---\nstatus: " + status + "\nphase: " + phase +
+				"\npage_type: goal\npriority: 1\n---\n# Goal\n"
+		}
+
+		countLinesContaining := func(output, substr string) int {
+			count := 0
+			for _, line := range strings.Split(output, "\n") {
+				if strings.Contains(line, substr) {
+					count++
+				}
+			}
+			return count
+		}
+
+		It("AC8: accepts aborted + done", func() {
+			_, configPath, cleanup = createTempVaultWithGoals(
+				map[string]string{},
+				map[string]string{"Goal": goalFixture("aborted", "done")},
+			)
+
+			session := runGoalLint()
+			Eventually(session).Should(gexec.Exit(0))
+			Expect(string(session.Out.Contents())).NotTo(ContainSubstring("STATUS_PHASE_MISMATCH"))
+		})
+
+		It("AC8: still reports aborted + execution", func() {
+			_, configPath, cleanup = createTempVaultWithGoals(
+				map[string]string{},
+				map[string]string{"Goal": goalFixture("aborted", "execution")},
+			)
+
+			session := runGoalLint()
+			Eventually(session).Should(gexec.Exit(1))
+			Expect(countLinesContaining(
+				string(session.Out.Contents()),
+				"status is aborted but phase is execution",
+			)).To(Equal(1))
+		})
+
+		It("AC9: accepts completed with no phase", func() {
+			_, configPath, cleanup = createTempVaultWithGoals(
+				map[string]string{},
+				map[string]string{"Goal": goalFixture("completed", "")},
+			)
+
+			session := runGoalLint()
+			Eventually(session).Should(gexec.Exit(0))
+			Expect(string(session.Out.Contents())).NotTo(ContainSubstring("STATUS_PHASE_MISMATCH"))
+		})
+
+		It("AC9: still reports completed + execution", func() {
+			_, configPath, cleanup = createTempVaultWithGoals(
+				map[string]string{},
+				map[string]string{"Goal": goalFixture("completed", "execution")},
+			)
+
+			session := runGoalLint()
+			Eventually(session).Should(gexec.Exit(1))
+			Expect(countLinesContaining(
+				string(session.Out.Contents()),
+				"status is completed but phase is execution",
+			)).To(Equal(1))
+		})
+
+		It("AC10: still reports in_progress + done", func() {
+			_, configPath, cleanup = createTempVaultWithGoals(
+				map[string]string{},
+				map[string]string{"Goal": goalFixture("in_progress", "done")},
+			)
+
+			session := runGoalLint()
+			Eventually(session).Should(gexec.Exit(1))
+			Expect(countLinesContaining(
+				string(session.Out.Contents()),
+				"phase is done but status is in_progress",
+			)).To(Equal(1))
+		})
+	})
+
 	Describe("vault-cli complete", func() {
 		var vaultPath, configPath string
 		var cleanup func()
@@ -2013,6 +2119,111 @@ This is my task.
 			Expect(string(content)).To(ContainSubstring("status: completed"))
 			Expect(string(content)).NotTo(ContainSubstring("aborted_reason:"))
 			Expect(string(content)).NotTo(ContainSubstring("gate_successor:"))
+		})
+	})
+
+	Describe("vault-cli goal terminal phase", func() {
+		var vaultPath, configPath string
+		var cleanup func()
+
+		BeforeEach(func() {
+			vaultPath, configPath, cleanup = createTempVaultWithGoals(
+				map[string]string{},
+				map[string]string{
+					"my-goal": "---\nstatus: in_progress\nphase: execution\n---\n# My Goal\n",
+				},
+			)
+		})
+
+		AfterEach(func() {
+			cleanup()
+		})
+
+		runCommand := func(args ...string) *gexec.Session {
+			fullArgs := append(
+				[]string{"--config", configPath, "--vault", "test"},
+				args...,
+			)
+			session, err := gexec.Start(exec.Command(binPath, fullArgs...), GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			return session
+		}
+
+		readGoal := func() string {
+			content, err := os.ReadFile(filepath.Join(vaultPath, "Goals", "my-goal.md")) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			return string(content)
+		}
+
+		It("goal complete lands status completed and phase done", func() {
+			Eventually(runCommand("goal", "complete", "my-goal")).Should(gexec.Exit(0))
+
+			content := readGoal()
+			Expect(content).To(ContainSubstring("status: completed"))
+			Expect(content).To(ContainSubstring("phase: done"))
+
+			phaseSession := runCommand("goal", "get", "my-goal", "phase")
+			Eventually(phaseSession).Should(gexec.Exit(0))
+			Expect(strings.TrimSpace(string(phaseSession.Out.Contents()))).To(Equal("done"))
+		})
+
+		It("goal complete with close-out fields lands all four values", func() {
+			Eventually(runCommand(
+				"goal", "complete", "my-goal",
+				"--reason", "achieved",
+				"--gate-successor", "none",
+			)).Should(gexec.Exit(0))
+
+			content := readGoal()
+			Expect(content).To(ContainSubstring("status: completed"))
+			Expect(content).To(ContainSubstring("phase: done"))
+			Expect(content).To(ContainSubstring("aborted_reason: achieved"))
+			Expect(content).To(ContainSubstring("gate_successor: none"))
+		})
+
+		It("goal set status aborted lands phase done", func() {
+			Eventually(runCommand(
+				"goal", "set", "my-goal", "status", "aborted",
+				"--reason", "probe",
+				"--gate-successor", "none",
+			)).Should(gexec.Exit(0))
+
+			content := readGoal()
+			Expect(content).To(ContainSubstring("status: aborted"))
+			Expect(content).To(ContainSubstring("phase: done"))
+
+			phaseSession := runCommand("goal", "get", "my-goal", "phase")
+			Eventually(phaseSession).Should(gexec.Exit(0))
+			Expect(strings.TrimSpace(string(phaseSession.Out.Contents()))).To(Equal("done"))
+		})
+
+		It("goal set status completed lands phase done", func() {
+			Eventually(runCommand("goal", "set", "my-goal", "status", "completed")).
+				Should(gexec.Exit(0))
+
+			content := readGoal()
+			Expect(content).To(ContainSubstring("status: completed"))
+			Expect(content).To(ContainSubstring("phase: done"))
+
+			phaseSession := runCommand("goal", "get", "my-goal", "phase")
+			Eventually(phaseSession).Should(gexec.Exit(0))
+			Expect(strings.TrimSpace(string(phaseSession.Out.Contents()))).To(Equal("done"))
+		})
+
+		It("non-terminal status leaves the phase untouched", func() {
+			Eventually(runCommand("goal", "set", "my-goal", "status", "in_progress")).
+				Should(gexec.Exit(0))
+			Expect(readGoal()).To(ContainSubstring("phase: execution"))
+		})
+
+		It("goal defer leaves the phase untouched", func() {
+			Eventually(runCommand("goal", "defer", "my-goal", "+7d")).Should(gexec.Exit(0))
+			Expect(readGoal()).To(ContainSubstring("phase: execution"))
+		})
+
+		It("goal approve refusal leaves the phase untouched", func() {
+			Eventually(runCommand("goal", "approve", "my-goal")).ShouldNot(gexec.Exit(0))
+			Expect(readGoal()).To(ContainSubstring("phase: execution"))
 		})
 	})
 

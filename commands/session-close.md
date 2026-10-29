@@ -90,8 +90,10 @@ Either signal → `GOAL_ANCHORED=true`, anchor goal = that goal. Neither (or no 
 Invoke the skill. Literally this call, not an inlined equivalent:
 
 ```
-Skill: vault-cli:sync-progress
+Skill: vault-cli:sync-progress --nested
 ```
+
+`--nested` is not optional: this close is already running, and without the flag a completion established inside `sync-progress` makes its Phase 6 panel instruct a second `/vault-cli:session-close` — restarting the close that invoked it.
 
 If the skill aborts ("No vault context detected", "No completion or PR detected"), report that briefly and continue — not all sessions produce vault-tracked work.
 

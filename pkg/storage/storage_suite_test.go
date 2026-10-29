@@ -5,6 +5,7 @@
 package storage_test
 
 import (
+	"os"
 	"testing"
 	"time"
 
@@ -12,6 +13,16 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/format"
 )
+
+// skipIfRoot skips the calling spec when the process runs as root. Root bypasses
+// directory permission bits, so a directory chmod'ed read-only is still writable
+// and the permission error these specs assert can never occur. The dark-factory
+// container runs as root; the host and GitHub CI do not.
+func skipIfRoot() {
+	if os.Geteuid() == 0 {
+		Skip("running as root: permission bits are ignored, so no write error can occur")
+	}
+}
 
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6@v6.12.2 -generate
 func TestSuite(t *testing.T) {

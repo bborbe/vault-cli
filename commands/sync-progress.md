@@ -341,7 +341,7 @@ If the `Completed:` task is already listed under `Task:` above, omit the `Comple
 
 ## Phase 6: Closer panel (task-complete only)
 
-If a task was completed in Phase 4 (auto via 4a OR confirmed via 4b), append the state-closer panel below the Phase 5 report. **Three cases skip it — check them before emitting anything:**
+If a task was completed in Phase 4 (auto via 4a OR confirmed via 4b), **or a completion was probe-established by the Phase 2 disk probe** — which reaches this section without Phase 4 running — append the state-closer panel below the Phase 5 report. **Three cases skip it — check them before emitting anything:**
 
 **Skip the closer entirely** when no completion was established — Phase 4 did not complete a task **and** no completion was probe-established. Phase 3's compaction-lost route deliberately skips Phase 4 and still reaches this section, so "Phase 4 did not complete a task" alone would suppress the closer for exactly the completion that route exists to serve. Concretely: PR-only sync, progress-only sync, or any path where the active task is still `in_progress`.
 

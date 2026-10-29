@@ -116,6 +116,8 @@ check "sync-progress carries the canonical recurring probe" "yes" \
 	"$(has commands/sync-progress.md 'vault-cli task get "<name>" recurring --output json')"
 check "complete-task skips the closer for nested callers" "yes" \
 	"$(has commands/complete-task.md '**Nested callers.**')"
+check "sync-progress skips the closer when no completion was established" "yes" \
+	"$(has commands/sync-progress.md '**Skip the closer entirely** when no completion was established')"
 check "sync-progress skips the closer for recurring completions" "yes" \
 	"$(has commands/sync-progress.md '**Skip it for a recurring completion too.**')"
 check "sync-progress skips the closer when NESTED" "yes" \

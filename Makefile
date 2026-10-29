@@ -72,6 +72,7 @@ test:
 	@bash scripts/resume-block-card-rule-test.sh
 	@bash scripts/checkpoint-state-rule-test.sh
 	@bash scripts/closes-sc-rule-test.sh
+	@bash scripts/closer-panel-rule-test.sh
 	@bash scripts/metrics-append-call-site-test.sh
 	@bash scripts/session-claim-branch-test.sh
 	@bash scripts/session-connect-fixture-test.sh

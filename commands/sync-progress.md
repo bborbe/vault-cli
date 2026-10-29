@@ -1,5 +1,6 @@
 ---
 description: Synchronize task progress documentation from completed work in this conversation — daily note, task pages, PR + Jira links (gracefully)
+argument-hint: "[--nested]"
 allowed-tools:
   - Read
   - Edit
@@ -12,11 +13,18 @@ allowed-tools:
   - Bash(head:*)
   - Bash(git -c core.quotepath=off log:*)
   - Bash(git -c core.quotepath=off diff:*)
+  - Skill
 ---
 
 Synchronize progress documentation based on completed work in the conversation. Updates the daily note, task/goal pages, and (if integrations are available) records the matching PR and transitions Jira.
 
 This command **must stay inline** — it analyzes the parent conversation for completion signals; a sub-agent cannot see the conversation.
+
+## Arguments
+
+- `--nested` — set `NESTED=true` and strip the token. Passed by every caller that invokes this command from inside its own run and continues afterwards: `session-close` Phase 2, `prepare-compact`, and `task-status`. It suppresses Phase 6's self-close, because the calling command — not this one — owns what happens next; instructing a close from here restarts the enclosing close or ends a session that still has work to print.
+
+Absent the flag, `NESTED=false` and the closer behaves normally.
 
 ## Core principle
 
@@ -280,7 +288,7 @@ Question: "All N/N checkboxes ticked. Mark <task> as completed?"
 Options: "Yes — mark completed" | "Hold — keep as in_progress"
 ```
 
-If "Yes" → invoke `Skill: vault-cli:complete-task`.
+If "Yes" → invoke `Skill: vault-cli:complete-task --non-interactive`. The flag is not optional: this command is already inside the session's own run, and `session-close` Phase 2 is what invoked it — so the interactive path would emit `complete-task`'s closer and then re-enter `session-close`, recursing (`session-close → sync-progress → complete-task → session-close`). The JSON-only path returns the result with no panel.
 
 ### When NOT to mark complete
 
@@ -333,19 +341,30 @@ If the `Completed:` task is already listed under `Task:` above, omit the `Comple
 
 ## Phase 6: Closer panel (task-complete only)
 
-If a task was completed in Phase 4 (auto via 4a OR confirmed via 4b), append the state-closer panel below the Phase 5 report — exactly this shape, verbatim, no rewording:
+If a task was completed in Phase 4 (auto via 4a OR confirmed via 4b), **or a completion was probe-established by the Phase 2 disk probe** — which reaches this section without Phase 4 running — append the state-closer panel below the Phase 5 report. **Three cases skip it — check them before emitting anything:**
+
+**Skip the closer entirely** when no completion was established — Phase 4 did not complete a task **and** no completion was probe-established. Phase 3's compaction-lost route deliberately skips Phase 4 and still reaches this section, so "Phase 4 did not complete a task" alone would suppress the closer for exactly the completion that route exists to serve. Concretely: PR-only sync, progress-only sync, or any path where the active task is still `in_progress`.
+
+**Skip it for a recurring completion too.** Probe: `vault-cli task get "<name>" recurring --output json` — **any non-empty `value` other than `null` means recurring**; do not enumerate the intervals, because `yearly` and `weekdays` are valid alongside `daily` / `weekly` / `monthly` / `quarterly`. This probe is the canonical definition; `complete-task` step 2e points here rather than repeating it. The probe is required because neither completion path carries the flag: Phase 4a prints only `✅ Task completed: <name>`, and Phase 4b's `--non-interactive` JSON is `{"success": true, "path": …}` with no recurring or status field. A recurring completion resets the checkboxes and keeps `status: in_progress` (see `pkg/ops/complete.go`), so `⚪ DONE` is false for a task that is still open — and the self-close this panel instructs would then hit `session-close` Phase 4.5, which hard-flags an `in_progress` anchor into mode 3 and ends on an `approve:` line the panel just promised does not exist. Report the completion and stop.
+
+**Skip it entirely when `NESTED=true`.** Every caller that invokes this command from inside its own run — `session-close` Phase 2, `prepare-compact`, `task-status` — passes the flag, and each one continues afterwards. A completion established here (including a probe-established one, which Phase 3 routes straight to this section) would otherwise self-close the session: for `session-close` that re-enters the close that invoked this command, and for the other two it ends a session that still has a status report or a compaction to finish. Report the completion in the Phase 5 report and let the caller finish.
+
+Otherwise append exactly this shape, verbatim, no rewording:
 
 ```
 ⚪ DONE
-👤 You: approve: /vault-cli:session-close
-⏰ Next: your reply
+👤 You: nothing
+⏰ Next: /vault-cli:session-close — this session runs it now
 ```
+
+Then run `/vault-cli:session-close` yourself — no approval line, no pick menu.
 
 Why this closer is the only correct one here:
 
+- **The session closes itself.** `/vault-cli:session-close` is not an operator gate: at a task boundary the close belongs to the session, which runs it with no approval line and no pick menu. An approval line here minted an attention card for a step the session was already allowed to take — and `session-self-exit.py` refuses while a card is open for the session, so the card held a finished session's pane open until a human answered.
 - **One task per session.** Completing a task = THIS session is done. Queued items on today's daily note are NOT "queued in this session" — they are picked up by the orchestrator in fresh Claude sessions, never by appending more tasks to the current one.
 - **Never recommend `/vault-cli:next-task` here.** That command exists for the orchestrator (or the user opening a new session); it is not a follow-up to `/vault-cli:sync-progress`.
 - **Never recommend a specific next task by name.** Same reason — the next session's anchor selection belongs to the orchestrator, not to this command.
 - **The "no end-of-day suggestions" global rule does NOT override this.** Session-close ≠ day-close. The rule forbids unsolicited *stop for the day* nudges; closing one task's session is the routine step between two task sessions, not a wind-down.
 
-**Skip the closer entirely** when Phase 4 did NOT complete a task — i.e. PR-only sync, progress-only sync, or any path where the active task is still `in_progress`. In those cases the session continues on the same task; emitting `⚪ DONE` would be wrong.
+**`👤 You: nothing` is scoped to the close, not to the session.** `session-close` Phase 3 still asks whether to commit/push when a touched repo has uncommitted or unpushed work, and a mode-3 verdict emits its own `approve:` line. The panel promises no approval for *starting* the close; it does not promise the close comes back empty.

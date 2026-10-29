@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- chore: update github.com/bborbe/cqrs to v0.6.15, github.com/bborbe/errors to v1.6.5, github.com/bborbe/kafka to v1.29.2, github.com/bborbe/notification to v0.7.6, github.com/bborbe/time to v1.27.19
+
 ## v0.184.0
 
 - fix: `complete-task` and `sync-progress` Phase 6 no longer tell the session to ask the operator for approval before closing — both closer panels now read `👤 You: nothing` / `⏰ Next: /vault-cli:session-close — this session runs it now`, and the session runs the close itself; the approval line minted an attention card for a step the session was already allowed to take, and `session-self-exit.py` refuses while a card is open, so the card held a finished session's pane open

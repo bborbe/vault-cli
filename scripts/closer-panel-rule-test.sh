@@ -122,6 +122,13 @@ check "sync-progress skips the closer for recurring completions" "yes" \
 	"$(has commands/sync-progress.md '**Skip it for a recurring completion too.**')"
 check "sync-progress skips the closer when NESTED" "yes" \
 	"$(has commands/sync-progress.md '**Skip it entirely when `NESTED=true`.**')"
+# The join that makes the guard work: the flag is only a guard because the
+# Arguments section turns it into NESTED. Pin the parse and the default, or
+# deleting them leaves every caller and skip clause pinned while the guard is dead.
+check "sync-progress parses --nested into NESTED=true" "yes" \
+	"$(has commands/sync-progress.md 'set `NESTED=true` and strip the token')"
+check "sync-progress defaults NESTED=false without the flag" "yes" \
+	"$(has commands/sync-progress.md 'Absent the flag, `NESTED=false`')"
 check "session-close passes --nested to sync-progress" "yes" \
 	"$(has commands/session-close.md 'Skill: vault-cli:sync-progress --nested')"
 check "prepare-compact passes --nested to sync-progress" "yes" \

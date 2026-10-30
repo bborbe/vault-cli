@@ -31,12 +31,11 @@ Under NO-ASK:
   Run the mechanical half over each drafted learning's text before writing it:
 
   ```bash
-  LEARNING_TEXT='<the drafted learning text — the whole text, not a summary of it>'
   REFLECT_SCAN="$(ls -d ~/.claude/plugins/cache/vault-cli/vault-cli/*/scripts 2>/dev/null | sort -V | tail -1)/reflect-secret-scan.sh"
-  [ -n "$LEARNING_TEXT" ] && [ -x "$REFLECT_SCAN" ] && printf '%s' "$LEARNING_TEXT" | bash "$REFLECT_SCAN"
+  [ -s "$LEARNING_FILE" ] && [ -x "$REFLECT_SCAN" ] && bash "$REFLECT_SCAN" < "$LEARNING_FILE"
   ```
 
-  ⚠️ **`$LEARNING_TEXT` must be assigned, and the scan runs once per learning.** The snippet assigns it above because a snippet that only *reads* it runs on empty stdin when pasted verbatim, and the scanner answers `secret-scan: clean` on empty input — a pass for a text that was never scanned. The `[ -n … ]` guard turns that case into no output at all, which the paragraph below already defines as "the scan did not run", never as clean.
+  ⚠️ **Write each learning to its own file and scan the FILE — never pass the text through a quoted shell assignment.** `$LEARNING_FILE` holds this one learning's text. Assigning it inline (`LEARNING_TEXT='<the text>'`) is unsafe and fails open: an apostrophe in the text ends the quote early, so the assignment either runs the remainder as a command and leaves `$LEARNING_TEXT` holding the **previous** learning's value, or persists a truncated prefix — and the scanner then reports `secret-scan: clean` for text it never read, which under NO-ASK writes the learning. Reading a file has no quoting step, so no character in the text can change what is scanned. `[ -s … ]` makes an empty or missing file produce no output at all, which the paragraph below already defines as "the scan did not run", never as clean.
 
   ⚠️ **Silence is not a clean verdict.** When the plugin cache is unreachable the path collapses to `/reflect-secret-scan.sh`, `bash` exits 127 and prints **nothing** — and "no `rejected` line" must never be read as "clean", or the one run with no scan at all is the run that publishes a secret. So: a `secret-scan: rejected …` line means skip that learning; a `secret-scan: clean` line means it passed; **no output at all (or any exit other than 0 or 1) means the scan did not run — apply the fallback list below before writing.**
 

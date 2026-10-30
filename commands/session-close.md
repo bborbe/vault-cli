@@ -835,7 +835,7 @@ Append below the verdict. This command is terminal; without a fixed closer the t
 
 ```
 ⚪ DONE
-👤 You: nothing — session closed
+👤 You: nothing — exit refused
 ⏰ Next: /vault-cli:work-on-task "<next open task>" — the exit was refused (<reason>); the pane stays open
 ```
 

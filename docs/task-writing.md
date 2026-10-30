@@ -161,6 +161,8 @@ To deliberately take over a task owned by someone else, use `vault-cli task set 
 
 `flag: true` marks a task the operator wants picked up. It is an **approval for `/supervisor:open --flagged` only** — the one carve-out that may open a `phase: todo` row, because the operator's flag stands in for the approval they would otherwise type. The four sweeps (`manager-loop`, `manager-drive`, `fleet-loop`, `fleet-drive`) never read a flag as approval; they report `todo` rows instead of acting on them.
 
+⚠️ **`fleet-drive` does read the flag as a RANK, and the distinction is the field, not the verb.** Since 2026-10-30 the round's open leg (`commands/steps/open.md`) orders the approved queue with `flag: true` **plus `flag_set_by: operator`** first, then `priority`, then oldest `approved_at`. That is not an approval and does not become one: the approval is **`approved_at`**, which the leg requires on every row it opens, and the flag only decides *which already-approved row goes first*. A `phase: todo` row is refused by that leg exactly as before, so a flag on an unapproved row still opens nothing — which is what keeps this section's rule true while the sweep acts on the queue. An agent-set flag, or a bare `flag: true` with no `flag_set_by`, ranks nothing.
+
 **An agent-set `flag: true` is not an approval and opens nothing.** The flag carries its provenance so that distinction is a field rather than a convention:
 
 | Field | Meaning |

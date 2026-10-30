@@ -229,6 +229,11 @@ check "reflect NO-ASK contract defines the wrote terminal line" "found" \
 	"$(printf '%s' "$NOASK" | grep -F 'reflect: wrote' >/dev/null && echo found)"
 check "reflect NO-ASK contract defines the skipped terminal line" "found" \
 	"$(printf '%s' "$NOASK" | grep -F 'reflect: skipped' >/dev/null && echo found)"
+# The durable home for the `failed` vocabulary. `reflect.md` IS the contract; the
+# changelog bullet is a one-time record of it, and the pin above is scoped to a
+# section that a release renames.
+check "reflect NO-ASK contract defines the failed terminal line" "found" \
+	"$(printf '%s' "$NOASK" | grep -F 'reflect: failed — <reason>' >/dev/null && echo found)"
 
 # --- self-check: remove ONE signal from ONE surface and require exactly that
 # surface to report it. Deleting the mode-3 advisory tail's runbook line is the
@@ -294,6 +299,141 @@ sed 's/⏰ Next: this pane closes now (session-self-exit)/⏰ Next: your reply/'
 check "self-check: the pin rejects a restored reply-waiting line" "" \
 	"$(printf '%s\n' "$(fenced "$REPLY_RESTORED" "$MODE2_PANEL")" | grep -E '^⏰ Next:' \
 		| grep -F 'session-self-exit' >/dev/null && echo found)"
+
+# --- Phase 9.4's DECISION RULE: reflect runs in mode 2 ONLY, and ONLY when BOTH
+# (a) the Phase 8 reflect signal fired (score >= 3) and (b) the session recorded
+# a finding that names no existing KB page. Every check above pins a CONSEQUENCE
+# of that rule — the panel's shape, the flag, the NO-ASK contract — and none
+# pinned the rule itself, so a later edit could drop a clause, or widen the
+# scope to mode 1 or mode 3, with all of them still green. The rule IS the
+# change this file's sibling PR is built on, so it gets its own pin, and each of
+# its three conjuncts gets a mutation control below.
+CLAUSE_A='the Phase 8 reflect signal fired'
+CLAUSE_B='a finding that names no existing KB page'
+
+# The pin's OWN expression lives in ONE place, and each mutation control below
+# calls it rather than restating the grep. A control that re-implements its pin
+# is not a control: a later edit that loosens the real pin leaves the control
+# green, which is the false green this file exists to prevent. This is the same
+# rule the menu self-check above states — run the pin's own expression and
+# assert a mismatch.
+phase94_pin() { # phase94_pin <file> <scope|a|b|conj>
+	local text
+	text=$(between "$1" '### Phase 9.4' '### Phase 9.5')
+	case "$2" in
+		scope) printf '%s' "$text" | grep -F 'mode 2 only' >/dev/null && echo found ;;
+		a) printf '%s' "$text" | grep -F "$CLAUSE_A" >/dev/null && echo found ;;
+		b) printf '%s' "$text" | grep -F "$CLAUSE_B" >/dev/null && echo found ;;
+		conj) printf '%s' "$text" | grep -F 'if and only if BOTH hold' >/dev/null && echo found ;;
+	esac
+}
+
+check "phase 9.4 is scoped to mode 2 only" "found" "$(phase94_pin "$TARGET" scope)"
+check "phase 9.4 requires the Phase 8 reflect signal (clause a)" "found" "$(phase94_pin "$TARGET" a)"
+check "phase 9.4 requires a finding naming no existing KB page (clause b)" "found" "$(phase94_pin "$TARGET" b)"
+check "phase 9.4 states the rule as a conjunction, not a disjunction" "found" "$(phase94_pin "$TARGET" conj)"
+
+# --- self-check (phase 9.4 rule): remove each conjunct in turn and require ITS
+# OWN pin to fail. A pin that survives the removal of its clause is not pinning
+# that clause — it is pinning something adjacent that happened to remain.
+rule_mutant() { # rule_mutant <sed-expr> <name>
+	local dest="$TMP/rule-$2/commands/session-close.md"
+	mkdir -p "$(dirname "$dest")"
+	sed "$1" "$ROOT/$TARGET" >"$dest"
+	printf '%s' "$dest"
+}
+
+SCOPE_MUTANT=$(rule_mutant 's/(mode 2 only)/(modes 1 and 2)/' scope)
+check "self-check: widening phase 9.4 past mode 2 breaks the scope pin" "" \
+	"$(phase94_pin "$SCOPE_MUTANT" scope)"
+
+CLAUSE_A_MUTANT=$(rule_mutant 's/the Phase 8 reflect signal fired/the Phase 8 signal is advisory/' a)
+check "self-check: dropping clause (a) breaks the clause-a pin" "" \
+	"$(phase94_pin "$CLAUSE_A_MUTANT" a)"
+
+CLAUSE_B_MUTANT=$(rule_mutant 's/a finding that names no existing KB page/a finding/' b)
+check "self-check: dropping clause (b) breaks the clause-b pin" "" \
+	"$(phase94_pin "$CLAUSE_B_MUTANT" b)"
+
+# --- the mixed written/skipped terminal line. The Sensitivity bullet promised a
+# skip would be "said in the terminal line", while the Terminal-line bullet
+# defined exactly one line per run — so a mixed run could only print `wrote N`
+# and the skip was silently lost. Pinned in BOTH files, each against its own
+# section range: a whole-file grep passes on the literal pasted into the wrong
+# section, which is the drift being guarded against.
+MIXED='reflect: wrote <N> page(s): [[<a>]]; skipped <M> — sensitivity'
+check "reflect.md defines the mixed written/skipped line" "found" \
+	"$(between "$REFLECT" '## Non-interactive contract' '## Runtime context' | grep -F "$MIXED" >/dev/null && echo found)"
+check "session-close phase 9.4 records the mixed form" "found" \
+	"$(between "$TARGET" '### Phase 9.4' '### Phase 9.5' | grep -F 'skipped <M> (sensitivity)' >/dev/null && echo found)"
+
+# --- NO CHANGELOG PIN HERE, deliberately, and the reason is a bug this file
+# shipped twice. A changelog bullet is a ONE-TIME record of a change, and every
+# way of pinning it is time-bound on an `autoRelease: true` repo:
+#
+#   - scoped to `## Unreleased`, it dies at the next release, which renames that
+#     heading in place — the section stops existing and the extraction is empty;
+#   - scoped to the newest section, it dies at the PR AFTER that release, which
+#     opens a fresh `## Unreleased` at the top carrying none of this bullet.
+#
+# Both versions were written here and both would have failed `make test` on
+# master for everyone else — a test added to guard a change, breaking the build
+# after the change shipped. The durable home is `commands/reflect.md`, which IS
+# the contract, and the `reflect: failed — <reason>` check against it lives with
+# the other NO-ASK pins above. The changelog is not a contract and gets no pin.
+
+# --- the script and its prose fallback must not drift. reflect.md keeps a class
+# list for the case the plugin cache is unreachable; a class the script
+# implements but the prose never names is one the model will not apply when the
+# script cannot be found — and nothing else would notice. The list is DERIVED
+# from the script's own `--classes` output, never restated here, so adding a
+# class to the script immediately fails until the prose names it too.
+# The list is captured FIRST, and its length asserted, because the `while read`
+# form fails OPEN: if `--classes` errors or the script is gone, the loop body
+# never executes, zero checks run, and the script reports a clean run having
+# pinned nothing. A missing script must fail the pin, not retire it.
+CLASSES=$(bash "$ROOT/scripts/reflect-secret-scan.sh" --classes 2>/dev/null)
+# A FLOOR, not an exact count: an exact number must be edited in four places per
+# new class (the array, both counts, the prose), and the per-class pin below
+# already catches an addition that never reached the prose. This check exists to
+# catch a truncated or empty `--classes` output.
+CLASS_COUNT=$(printf '%s\n' "$CLASSES" | grep -c .)
+check "the secret-scan script publishes a non-truncated class list" "ok" \
+	"$([ "$CLASS_COUNT" -ge 10 ] && echo ok || echo "short:$CLASS_COUNT")"
+# Scoped to the fallback paragraph, not the whole file: a class named anywhere
+# in reflect.md satisfies a whole-file grep, but the list the model actually
+# applies when the script is unreachable is only the one in that paragraph. A
+# class moved out of it must fail here rather than pass silently.
+# The end anchor is the NEXT paragraph's opening, not a phrase inside this one.
+# Anchored on the fallback's own closing sentence, a reworded sentence runs the
+# extraction to EOF and the block then covers the rest of the file — a class
+# moved out of the paragraph would still be found, which is the false green the
+# scoping exists to prevent. The length assertion catches the same failure from
+# the other side: if the block is not a paragraph, the anchor missed.
+FALLBACK=$(awk '/Fallback when the script is unreachable/{f=1} f && /^  The Phase 3 filename list/{exit} f' "$REFLECT")
+check "the fallback extraction is one paragraph, not the rest of the file" "ok" \
+	"$([ "$(printf '%s\n' "$FALLBACK" | grep -c .)" -le 20 ] && echo ok || echo too-long)"
+while IFS= read -r class; do
+	[ -n "$class" ] || continue
+	check "reflect.md names the '$class' class in the fallback list" "found" \
+		"$(printf '%s' "$FALLBACK" | grep -F "\`$class\`" >/dev/null && echo found)"
+done <<<"$CLASSES"
+
+# --- the two session-close prose collisions. Both were live contradictions, not
+# style nits: the goal-anchored clean verdict mandates one `⏰ Next:` line and
+# the refused-exit carve-out mandates a different one with no stated precedence,
+# and the mode-3 advisory tail called all three signals "never auto-run" while
+# Phase 9.4 auto-runs reflect in mode 2.
+check "refused-exit carve-out states it wins over the goal-anchored line" "found" \
+	"$(grep -F 'This carve-out wins over the goal-anchored' "$TARGET" >/dev/null && echo found)"
+check "the goal-anchored refused-exit combined line is given" "found" \
+	"$(between "$TARGET" '**Goal-anchored clean verdict**' '**Outstanding items (mode 3):**' | grep -F 'the exit was refused (<reason>); the pane stays open' >/dev/null && echo found)"
+check "mode-3 advisory tail is scoped to a mode-3 session" "found" \
+	"$(grep -F 'in a mode-3 session none of the three is auto-run' "$TARGET" >/dev/null && echo found)"
+
+ADVISORY_MUTANT=$(rule_mutant 's/in a mode-3 session none of the three is auto-run/all three are advisory/' advisory)
+check "self-check: the unscoped advisory claim is detected when restored" "" \
+	"$(grep -F 'in a mode-3 session none of the three is auto-run' "$ADVISORY_MUTANT" >/dev/null && echo found)"
 
 echo "mode-membership-rule: $pass passed, $fail failed"
 [ "$fail" -eq 0 ] || exit 1

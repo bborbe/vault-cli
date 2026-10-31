@@ -45,6 +45,7 @@ MARKERS=(
 	'each **Task Scope Fit smell**, **per smell**, once 3+ apply: **−0.5**'
 	'**shipping-class or complex** task **missing** DoD: **−1.0**; **weak** DoD: **−0.5**; a **simple non-shipping** task without DoD: **0**'
 	'Clamp to **[1, 10]**'
+	'A report carrying any Critical Issue cannot land in `9-10`'
 	'One defect, one deduction.'
 	'Smell 8 is the exception'
 	'A smell 8 that this term does not count'

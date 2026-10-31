@@ -513,15 +513,15 @@ Adjust expectations based on task complexity:
 **Scoring — arithmetic over your own findings, never a band picked first.**
 
 Start at **10** and subtract, in this order:
-- each **Critical Issue** you reported: **−1.0**
-- each **hard-gate FAIL** the dispatch asked you to check: **−1.0**
-- each **Task Scope Fit smell**, once 3+ apply: **−0.5**
+- each **Critical Issue** you reported: **−1.0** — ⚠️ **a hard-gate failure is deducted here, once: it counts as a Critical Issue for scoring purposes.** There is deliberately no separate gate bucket, because no dispatch in this repository enumerates a gate set for you — a term keyed on one would name a referent that does not exist, and a finding that were both would be deducted twice. ⚠️ **This clause governs the arithmetic only, never what the report lists:** when the dispatch asks you to check gates and name their failures, do exactly that — the deduction rule is about how the score is computed, not about dropping the gate section.
+- each **adversarial-laziness FAIL**: **−2.0** — the amount §14 already states (*"verdict drives scoring at -2"*). It is listed here so the derivation is the file's **only** scoring rule; §14 keeps the verdict, this line keeps the arithmetic.
+- each **Task Scope Fit smell**, **per smell**, once 3+ apply: **−0.5** — ⚠️ **a lone smell 8 carries no deduction**, because smell 8 fires on its own and this term requires 3+. Report it in the scope-fit section and let the Critical Issues carry its cost.
 - complex task **missing** DoD: **−1.0**; **weak** DoD: **−0.5**; simple task without DoD: **0**
 
 Clamp to **[1, 10]**.
 
 ⚠️ **State the arithmetic on the report's own score line**, so two runs are comparable and a disagreement is attributable rather than mysterious:
-`**Score**: 7/10 (10 − 1 critical − 2 hard gates)`
+`**Score**: 7/10 (10 − 1 critical − 2 laziness)`
 
 ⚠️ **The bands below DESCRIBE the resulting number; they are never an input to it.** Do not choose a band and then write findings to fit it. That inversion is the measured defect this rule removes: two back-to-back audits of one byte-identical file returned **7/10** and **6/10** with *different* findings, because each run picked a band first — one placed the file at the top of `7-8`, the other in `5-6` — and the score carried no trace of why. An arithmetic score cannot move without a finding moving, so a disagreement now names the finding that differs instead of hiding behind a judgement.
 
@@ -533,6 +533,8 @@ Clamp to **[1, 10]**.
 - 5-6: Adequate, some quality issues
 - 3-4: Needs work, multiple issues
 - 1-2: Significant rework needed, structure problems
+
+⚠️ **A fractional total lands in the band containing its floor** — `6.5` reads `5-6 Adequate`, `8.5` reads `7-8 Good` — and the `**Status**` line takes that band's name. A fractional score therefore never leaves either line unstated, which is what keeps the bands usable now that the derivation can produce halves.
 </contextual_judgment>
 
 <finding_classification>
@@ -571,7 +573,7 @@ If the task carries no `# Source` footer it is not CR-materialized: audit it as 
 # Task Audit Report: [Task Title]
 
 **File**: `[path/to/task.md]`
-**Score**: X/10
+**Score**: X/10 (<derivation>)
 **Status**: [Excellent | Good | Needs Improvement | Significant Issues]
 **Template**: `[slug]` — CR-materialized
 > Emit the `**Template**` line only when the task carries a `# Source` footer, and prefix every `## Critical Issues` and `## Recommendations` item with its classification, e.g. `- [template-level] SC1 reads a folder removed in the 2026-09 renumbering.` Omit the line and the labels entirely on a task with no `# Source` footer.

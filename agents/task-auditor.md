@@ -360,7 +360,7 @@ Don't flag (descriptive):
 
 Scan `# Success Criteria`, `# Tasks` and `# Definition of Done`. Report each deferral as a **Recommendation** with the offending line quoted and a concrete replacement suggested.
 
-### 14. Adversarial Laziness Pass (verdict drives scoring at -2)
+### 14. Adversarial Laziness Pass (a FAIL is a scored finding)
 
 Read the task assuming the executor intends the **laziest possible work that still ticks every Success Criterion**. Ask what that would look like.
 
@@ -514,7 +514,7 @@ Adjust expectations based on task complexity:
 
 Start at **10** and subtract, in this order:
 - each **Critical Issue** you reported: **−1.0** — ⚠️ **a hard-gate failure is deducted here, once: it counts as a Critical Issue for scoring purposes.** There is deliberately no separate gate bucket, because no dispatch in this repository enumerates a gate set for you — a term keyed on one would name a referent that does not exist, and a finding that were both would be deducted twice. ⚠️ **This clause governs the arithmetic only, never what the report lists:** when the dispatch asks you to check gates and name their failures, do exactly that — the deduction rule is about how the score is computed, not about dropping the gate section.
-- each **adversarial-laziness FAIL**: **−2.0** — the amount §14 already states (*"verdict drives scoring at -2"*). It is listed here so the derivation is the file's **only** scoring rule; §14 keeps the verdict, this line keeps the arithmetic.
+- each **adversarial-laziness FAIL**: **−2.0** — §14 owns the verdict; **this line is the only statement of the amount**, so the derivation stays the file's single scoring rule.
 - each **Task Scope Fit smell**, **per smell**, once 3+ apply: **−0.5** — ⚠️ **a lone smell 8 carries no deduction**, because smell 8 fires on its own and this term requires 3+. Report it in the scope-fit section and let the Critical Issues carry its cost.
 - complex task **missing** DoD: **−1.0**; **weak** DoD: **−0.5**; simple task without DoD: **0**
 
@@ -534,7 +534,17 @@ Clamp to **[1, 10]**.
 - 3-4: Needs work, multiple issues
 - 1-2: Significant rework needed, structure problems
 
-⚠️ **A fractional total lands in the band containing its floor** — `6.5` reads `5-6 Adequate`, `8.5` reads `7-8 Good` — and the `**Status**` line takes that band's name. A fractional score therefore never leaves either line unstated, which is what keeps the bands usable now that the derivation can produce halves.
+⚠️ **A fractional total lands in the band containing its floor** — `6.5` reads `5-6`, `8.5` reads `7-8`. The `**Status**` line is then set from that band using the template's own four values, which are **not** the band names — mapping them by name would emit a value the template forbids:
+
+| Band | `**Status**` |
+|---|---|
+| 9-10 | Excellent |
+| 7-8 | Good |
+| 5-6 | Needs Improvement |
+| 3-4 | Needs Improvement |
+| 1-2 | Significant Issues |
+
+A fractional score therefore never leaves either line unstated, which is what keeps the bands usable now that the derivation can produce halves.
 </contextual_judgment>
 
 <finding_classification>

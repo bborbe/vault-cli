@@ -36,6 +36,23 @@ var (
 	)
 )
 
+// booleanFields is the set of frontmatter keys whose stored shape is expected
+// to be a bare YAML boolean. Membership is the only operation, so a map is the
+// right container. The set was measured across the private-personal vaults.
+var booleanFields = map[string]struct{}{
+	"flag":               {},
+	"manager_pin":        {},
+	"goal_loop":          {},
+	"auto_abort_prior":   {},
+	"spawn_notification": {},
+	"shipping":           {},
+	"reviewed":           {},
+	"fixture":            {},
+	"needs_review":       {},
+	"fresh":              {},
+	"awaiting_input":     {},
+}
+
 //counterfeiter:generate -o ../../mocks/lint-operation.go --fake-name LintOperation . LintOperation
 type LintOperation interface {
 	Execute(
@@ -77,6 +94,7 @@ const (
 	IssueTypeStatusDateMismatch     IssueType = "STATUS_DATE_MISMATCH"
 	IssueTypeInvalidTaskIdentifier  IssueType = "INVALID_TASK_IDENTIFIER"
 	IssueTypeBlockedByScalar        IssueType = "BLOCKED_BY_SCALAR"
+	IssueTypeQuotedBoolean          IssueType = "QUOTED_BOOLEAN"
 )
 
 // PageTypeTask is the lint page type that carries the task-identifier invariants.
@@ -315,6 +333,15 @@ func (l *lintOperation) collectLintIssues(
 	// either guess the intended list or silently drop the entry.
 	if blockedByIssue, blockedByDesc := l.detectBlockedByScalar(frontmatterYAML); blockedByIssue {
 		add(IssueTypeBlockedByScalar, blockedByDesc, false)
+	}
+
+	// Check for known boolean fields stored as quoted strings.
+	for _, field := range l.detectQuotedBooleans(frontmatterYAML) {
+		add(
+			IssueTypeQuotedBoolean,
+			fmt.Sprintf("field %q is a quoted string, expected a bare bool", field),
+			true,
+		)
 	}
 
 	// Identifier checks are task-only — see PageTypeTask.
@@ -584,6 +611,44 @@ func (l *lintOperation) detectBlockedByScalar(frontmatterYAML string) (bool, str
 	)
 }
 
+// quotedBooleanKey reports whether line is a top-level frontmatter line whose
+// key is a known boolean field and whose value is a quoted boolean literal.
+// It returns the key and the unquoted literal so the detector and the fixer
+// cannot drift apart.
+func quotedBooleanKey(line string) (key, literal string, ok bool) {
+	// Top-level keys only: an indented `flag: "true"` inside a nested mapping
+	// is another key's child and must not fire.
+	if strings.HasPrefix(line, " ") || strings.HasPrefix(line, "\t") {
+		return "", "", false
+	}
+	idx := strings.Index(line, ":")
+	if idx < 0 {
+		return "", "", false
+	}
+	key = strings.TrimSpace(line[:idx])
+	if _, exists := booleanFields[key]; !exists {
+		return "", "", false
+	}
+	value := strings.TrimSpace(line[idx+1:])
+	switch value {
+	case `"true"`, `"false"`, `'true'`, `'false'`:
+		return key, strings.Trim(value, "\"'"), true
+	}
+	return "", "", false
+}
+
+// detectQuotedBooleans returns the boolean fields stored as quoted strings, in
+// the order they appear in the frontmatter block.
+func (l *lintOperation) detectQuotedBooleans(frontmatterYAML string) []string {
+	var fields []string
+	for _, line := range strings.Split(frontmatterYAML, "\n") {
+		if key, _, ok := quotedBooleanKey(line); ok {
+			fields = append(fields, key)
+		}
+	}
+	return fields
+}
+
 // detectStatusPhaseMismatch detects mismatches between status and phase fields.
 // Returns: (issueFound, description)
 func (l *lintOperation) detectStatusPhaseMismatch(frontmatterYAML string) (bool, string) {
@@ -766,6 +831,20 @@ func (l *lintOperation) fixIssues(
 		modified = true
 	}
 
+	// QUOTED_BOOLEAN is a whole-file fix: one rewrite clears every quoted
+	// boolean in the file, so it runs once rather than once per issue.
+	if hasFixableQuotedBoolean(issues) {
+		if newContent, fixed := l.fixQuotedBooleans(updatedContent); fixed {
+			updatedContent = newContent
+			modified = true
+			for i := range issues {
+				if issues[i].IssueType == IssueTypeQuotedBoolean {
+					issues[i].Fixed = true
+				}
+			}
+		}
+	}
+
 	for i := range issues {
 		if !issues[i].Fixable {
 			continue
@@ -792,6 +871,50 @@ func (l *lintOperation) fixIssues(
 	}
 
 	return issues, nil
+}
+
+// hasFixableQuotedBoolean reports whether issues contains a fixable
+// QUOTED_BOOLEAN issue, i.e. whether the whole-file rewrite should run.
+func hasFixableQuotedBoolean(issues []LintIssue) bool {
+	for i := range issues {
+		if issues[i].Fixable && issues[i].IssueType == IssueTypeQuotedBoolean {
+			return true
+		}
+	}
+	return false
+}
+
+// fixQuotedBooleans unquotes known boolean frontmatter values in place. It
+// rewrites only the offending value lines and leaves every other byte — key
+// order, indentation, unrelated quoting, the body — untouched. It never
+// re-serialises the block: a yaml round-trip would churn unrelated lines.
+func (l *lintOperation) fixQuotedBooleans(content string) (string, bool) {
+	matches := fixDuplicateKeysRegex.FindStringSubmatch(content)
+	if len(matches) < 5 {
+		return content, false
+	}
+
+	frontmatterStart := matches[1]
+	frontmatterYAML := matches[2]
+	frontmatterEnd := matches[3]
+	body := matches[4]
+
+	lines := strings.Split(frontmatterYAML, "\n")
+	modified := false
+	for i, line := range lines {
+		key, literal, ok := quotedBooleanKey(line)
+		if !ok {
+			continue
+		}
+		lines[i] = key + ": " + literal
+		modified = true
+	}
+
+	if !modified {
+		return content, false
+	}
+
+	return frontmatterStart + strings.Join(lines, "\n") + frontmatterEnd + body, true
 }
 
 // fixInvalidPriority converts string priority values to integers.

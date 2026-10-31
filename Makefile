@@ -80,6 +80,7 @@ test:
 	@bash scripts/session-self-exit-test.sh
 	@bash scripts/update-topic-taggers-test.sh
 	@bash scripts/update-topic-goal-entries-test.sh
+	@bash scripts/task-auditor-scoring-rule-test.sh
 
 .PHONY: check
 check: lint vet vulncheck osv-scanner trivy check-changelog

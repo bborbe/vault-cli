@@ -360,7 +360,7 @@ Don't flag (descriptive):
 
 Scan `# Success Criteria`, `# Tasks` and `# Definition of Done`. Report each deferral as a **Recommendation** with the offending line quoted and a concrete replacement suggested.
 
-### 14. Adversarial Laziness Pass (verdict drives scoring at -2)
+### 14. Adversarial Laziness Pass (a FAIL is a scored finding)
 
 Read the task assuming the executor intends the **laziest possible work that still ticks every Success Criterion**. Ask what that would look like.
 
@@ -510,17 +510,51 @@ Adjust expectations based on task complexity:
 - Success Criteria: 3-4 items covering key outcomes
 - Subtasks: 4-6 items with clear phases
 
-**Scoring guidance**:
+**Scoring — arithmetic over your own findings, never a band picked first.**
+
+Start at **10** and subtract, in this order:
+- each **Critical Issue** you reported: **−1.0** — ⚠️ **a hard-gate failure is deducted here, once: it counts as a Critical Issue for scoring purposes.** There is deliberately no separate gate bucket, because no dispatch in this repository enumerates a gate set for you — a term keyed on one would name a referent that does not exist, and a finding that is both would be deducted twice. ⚠️ **This clause governs the arithmetic only, never what the report lists:** when the dispatch asks you to check gates and name their failures, do exactly that — the deduction rule is about how the score is computed, not about dropping the gate section.
+- each **MAJOR** finding you reported, **except a DoD gap — the DoD term below covers that one**: **−0.5** — ⚠️ **state its effect honestly, never more than it does: one MAJOR takes `10/10` to `9.5`, which still floors into the `9-10` band and still clears a `score ≥ 8` gate.** It takes **three** MAJORs to leave the Excellent band (8.5 → `7-8`) and **five** to fall below 8. The term exists so MAJOR findings move the number at all — an orphan goal link is a MAJOR and is not one of the hard checks, so without this term it reaches the score nowhere — **not** so that a single MAJOR demotes the row. Never describe it as making a MAJOR-only task non-Excellent.
+- each **adversarial-laziness FAIL**: **−2.0** — §14 owns the verdict; **this line is the only statement of the amount**, so the derivation stays the file's single scoring rule. ⚠️ **It absorbs the findings it names — Critical or MAJOR:** a criterion the FAIL calls lazy is not also deducted under the Critical or MAJOR term, because that would charge one defect twice.
+- each **Task Scope Fit smell**, **per smell**, once 3+ apply: **−0.5** — ⚠️ **this term owns every smell it counts**, and a smell that is also reported as a MAJOR is charged here **once**, never again by the MAJOR term. ⚠️ **Smell 8 never counts toward the 3+ threshold.** §Task Scope Fit states that it *fires on its own* and that counting it there *would bury it* — so it is **always** reported as a MAJOR finding and takes the MAJOR term, whatever the other smells do. The per-smell term therefore counts only the other seven. Two consequences, both stated so no group size is ambiguous: **two other smells plus smell 8** does not fire the per-smell term (2 < 3) and charges smell 8 as a MAJOR at −0.5; **three other smells plus smell 8** fires the per-smell term on those three (−1.5) *and* charges smell 8 as a MAJOR (−0.5). The two terms stay disjoint, and smell 8 is never free.
+- **shipping-class or complex** task **missing** DoD: **−1.0**; **weak** DoD: **−0.5**; a **simple non-shipping** task without DoD: **0** — ⚠️ **this replaces the MAJOR deduction for the same gap, never adds to it.** ⚠️ **`shipping-class` is §12's own category** — PR, release, plugin update, agent, deploy, library publish — and DoD is mandatory there **regardless of size**, so a *simple* shipping-class task with no DoD is a MAJOR that the old `complex task` wording would have charged nothing. ⚠️ **§12's grandfathering wins over this term:** a task whose `created` precedes `DOD_REQUIRED_AS_OF` (2026-06-26), or which carries no `created` at all, is a **WARN** there — charge it **0**, not −1.0. This term applies only where §12 itself reports the gap as MAJOR.
+
+Clamp to **[1, 10]**.
+
+⚠️ **A report carrying any Critical Issue cannot land in `9-10`.** Cap the total at **8.5**, which floors into `7-8`. `Exemplary` means the report found nothing Critical; a band that says otherwise contradicts its own findings, and a reader who sees `Excellent` beside an open Critical has been told two different things about the same task. ⚠️ **The cap is a band ceiling, not a second deduction** — the Critical is charged −1.0 exactly once, and `One defect, one deduction` is untouched; the ceiling only stops the total landing in `9-10`. **Show it in the derivation the same way the clamp is shown**, or the arithmetic will not sum to the reported number:
+`**Score**: 8.5/10 (10 − 1.0 critical = 9 → cap 8.5)`
+`**Score**: 6.5/10 (10 − 2.0 critical − 1.5 MAJOR = 6.5)`
+
+⚠️ **One defect, one deduction.** Every term above is mutually exclusive with the others for the same finding: when two could apply, the more specific term wins and the general one does not also charge. That rule — not a per-case reconciliation — is what keeps the total a function of the findings rather than of a placement judgement, and it is why the DoD, laziness and gate overlaps are each stated once rather than re-litigated per finding.
+
+⚠️ **State the arithmetic on the report's own score line**, so two runs are comparable and a disagreement is attributable rather than mysterious:
+`**Score**: 7/10 (10 − 1 critical − 2.0 laziness = 7)`
+
+⚠️ **State the units and show the clamp.** Every term is an amount, so the arithmetic must sum to the reported number; when the terms take the total below 1, show the clamp rather than arithmetic that does not reach it:
+`**Score**: 1/10 (10 − 12.0 = −2 → clamp 1)`
+
+⚠️ **The bands below DESCRIBE the resulting number; they are never an input to it.** Do not choose a band and then write findings to fit it. That inversion is the measured defect this rule removes: two back-to-back audits of one byte-identical file returned **7/10** and **6/10** with *different* findings, because each run picked a band first — one placed the file at the top of `7-8`, the other in `5-6` — and the score carried no trace of why. An arithmetic score cannot move without a finding moving, so a disagreement now names the finding that differs instead of hiding behind a judgement.
+
+⚠️ **Do not round and do not adjust the total by feel.** If the arithmetic lands on 6.5, report `6.5/10`; the ladder reads the number, and a hand-rounded total is a second derivation nothing can reproduce.
+
+**Band meanings (descriptive only — read after the arithmetic, never instead of it)**:
 - 9-10: Exemplary, could be used as template example
 - 7-8: Good, minor improvements possible
 - 5-6: Adequate, some quality issues
 - 3-4: Needs work, multiple issues
 - 1-2: Significant rework needed, structure problems
 
-**DoD scoring adjustments**:
-- Complex task missing DoD: -1 point
-- Complex task with weak DoD: -0.5 point
-- Simple task without DoD: no penalty
+⚠️ **A fractional total lands in the band containing its floor** — `6.5` reads `5-6`, `8.5` reads `7-8`. The `**Status**` line is then set from that band using the template's own four values, which are **not** the band names — mapping them by name would emit a value the template forbids:
+
+| Band | `**Status**` |
+|---|---|
+| 9-10 | Excellent |
+| 7-8 | Good |
+| 5-6 | Needs Improvement |
+| 3-4 | Needs Improvement |
+| 1-2 | Significant Issues |
+
+A fractional score therefore never leaves either line unstated, which is what keeps the bands usable now that the derivation can produce halves.
 </contextual_judgment>
 
 <finding_classification>
@@ -559,7 +593,7 @@ If the task carries no `# Source` footer it is not CR-materialized: audit it as 
 # Task Audit Report: [Task Title]
 
 **File**: `[path/to/task.md]`
-**Score**: X/10
+**Score**: X/10 (<derivation>)
 **Status**: [Excellent | Good | Needs Improvement | Significant Issues]
 **Template**: `[slug]` — CR-materialized
 > Emit the `**Template**` line only when the task carries a `# Source` footer, and prefix every `## Critical Issues` and `## Recommendations` item with its classification, e.g. `- [template-level] SC1 reads a folder removed in the 2026-09 renumbering.` Omit the line and the labels entirely on a task with no `# Source` footer.

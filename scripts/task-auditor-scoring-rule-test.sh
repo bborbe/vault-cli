@@ -36,7 +36,8 @@ cd "$ROOT" || exit 2
 
 AGENT=agents/task-auditor.md
 
-# Each marker is a fact band-first scoring cannot satisfy.
+# Each marker is a fact band-first scoring cannot satisfy, except the one marked
+# below as a context pin.
 MARKERS=(
 	'Scoring — arithmetic over your own findings, never a band picked first.'
 	'each **Critical Issue** you reported: **−1.0**'
@@ -47,13 +48,17 @@ MARKERS=(
 	'Clamp to **[1, 10]**'
 	'A report carrying any Critical Issue cannot land in `9-10`'
 	'One defect, one deduction.'
+	# Context pin, not a band-first discriminator: this sentence predates the change.
+	# It is pinned because the scoring rule's smell-8 clause depends on the numbering
+	# and the "fires on its own" reading it states, so renumbering must fail here.
 	'Smell 8 is the exception'
-	'A smell 8 that this term does not count'
+	'Smell 8 never counts toward the 3+ threshold.'
 	'| 9-10 | Excellent |'
 	'| 7-8 | Good |'
 	'| 5-6 | Needs Improvement |'
 	'| 3-4 | Needs Improvement |'
 	'| 1-2 | Significant Issues |'
+	'**Status**: [Excellent | Good | Needs Improvement | Significant Issues]'
 	'**Score**: X/10 (<derivation>)'
 )
 

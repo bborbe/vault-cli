@@ -40,7 +40,7 @@ AGENT=agents/task-auditor.md
 MARKERS=(
 	'Scoring — arithmetic over your own findings, never a band picked first.'
 	'each **Critical Issue** you reported: **−1.0**'
-	'each **MAJOR** finding you reported, **except a DoD gap'
+	'each **MAJOR** finding you reported, **except a DoD gap — the DoD term below covers that one**: **−0.5**'
 	'each **adversarial-laziness FAIL**: **−2.0**'
 	'each **Task Scope Fit smell**, **per smell**, once 3+ apply: **−0.5**'
 	'complex task **missing** DoD: **−1.0**; **weak** DoD: **−0.5**; simple task without DoD: **0**'

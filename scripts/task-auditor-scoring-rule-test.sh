@@ -46,6 +46,7 @@ MARKERS=(
 	'complex task **missing** DoD: **−1.0**; **weak** DoD: **−0.5**; simple task without DoD: **0**'
 	'Clamp to **[1, 10]**'
 	'One defect, one deduction.'
+	'Smell 8 is the exception'
 	'**Score**: X/10 (<derivation>)'
 )
 
@@ -86,13 +87,13 @@ check "real agent carries every scoring marker" 0 "$(missing_markers "$AGENT")"
 # Self-check: strip the −2.0 term from a throwaway copy. Exactly one marker must
 # go missing — a checker that reported 0 here measures nothing, and one that
 # reported everything is not reading the file it was handed.
-tmp=$(mktemp)
+tmp=$(mktemp) || { echo 'task-auditor-scoring-rule FAILED: mktemp failed' >&2; exit 2; }
 trap 'rm -f "$tmp"' EXIT
 grep -vF -- 'each **adversarial-laziness FAIL**: **−2.0**' "$AGENT" > "$tmp"
 check "self-check: a stripped marker is detected" 1 "$(missing_markers "$tmp")"
 
 # Self-check: the retired heading must be reported when reintroduced.
-tmp2=$(mktemp)
+tmp2=$(mktemp) || { echo 'task-auditor-scoring-rule FAILED: mktemp failed' >&2; exit 2; }
 trap 'rm -f "$tmp" "$tmp2"' EXIT
 { cat "$AGENT"; echo "$RETIRED"; } > "$tmp2"
 check "self-check: a reintroduced band heading is detected" 1 "$(missing_markers "$tmp2")"

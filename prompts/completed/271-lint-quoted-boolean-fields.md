@@ -1,5 +1,12 @@
 ---
-status: draft
+status: completed
+summary: Added the QUOTED_BOOLEAN lint issue plus a byte-preserving --fix for known boolean frontmatter fields stored as quoted strings, with specs covering detection, all four literals, negatives, and the Execute/ExecuteFile surfaces.
+execution_id: vault-cli-lint-quoted-boolean-exec-271-lint-quoted-boolean-fields
+dark-factory-version: v0.198.7
+created: "2026-10-31T10:59:33Z"
+queued: "2026-10-31T10:59:33Z"
+started: "2026-10-31T11:01:15Z"
+completed: "2026-10-31T11:09:16Z"
 ---
 
 # Lint flags a boolean frontmatter field written as a quoted string and `--fix` unquotes it

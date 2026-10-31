@@ -2676,3 +2676,234 @@ var _ = Describe("LintOperation - Page Type Scoping", func() {
 		Expect(duplicateKeySeen).To(BeTrue())
 	})
 })
+
+var _ = Describe("LintOperation - QUOTED_BOOLEAN detection and fix", func() {
+	const quotedBooleansFixture = `---
+status: todo
+page_type: task
+task_identifier: 11111111-1111-4111-a111-111111111111
+flag: "true"
+manager_pin: "true"
+goal_loop: "true"
+auto_abort_prior: "true"
+spawn_notification: "true"
+shipping: "true"
+reviewed: "true"
+fixture: "true"
+needs_review: "true"
+fresh: "true"
+awaiting_input: "true"
+---
+# Task With Quoted Booleans
+
+Body text.
+`
+
+	const quotedBooleansFixed = `---
+status: todo
+page_type: task
+task_identifier: 11111111-1111-4111-a111-111111111111
+flag: true
+manager_pin: true
+goal_loop: true
+auto_abort_prior: true
+spawn_notification: true
+shipping: true
+reviewed: true
+fixture: true
+needs_review: true
+fresh: true
+awaiting_input: true
+---
+# Task With Quoted Booleans
+
+Body text.
+`
+
+	var (
+		ctx       context.Context
+		lintOp    ops.LintOperation
+		vaultPath string
+		tasksDir  string
+		goalsDir  string
+	)
+
+	BeforeEach(func() {
+		ctx = context.Background()
+		lintOp = ops.NewLintOperation()
+
+		var err error
+		vaultPath, err = os.MkdirTemp("", "vault-quoted-bool-test-*")
+		Expect(err).To(BeNil())
+
+		tasksDir = "Tasks"
+		goalsDir = "Goals"
+		Expect(os.MkdirAll(filepath.Join(vaultPath, tasksDir), 0755)).To(Succeed())
+		Expect(os.MkdirAll(filepath.Join(vaultPath, goalsDir), 0755)).To(Succeed())
+	})
+
+	AfterEach(func() {
+		if vaultPath != "" {
+			_ = os.RemoveAll(vaultPath)
+		}
+	})
+
+	writeFile := func(dir, name, content string) string {
+		path := filepath.Join(vaultPath, dir, name)
+		Expect(os.WriteFile(path, []byte(content), 0600)).To(Succeed())
+		return path
+	}
+
+	quotedBooleanIssues := func(issues []ops.LintIssue) []ops.LintIssue {
+		var found []ops.LintIssue
+		for _, issue := range issues {
+			if issue.IssueType == ops.IssueTypeQuotedBoolean {
+				found = append(found, issue)
+			}
+		}
+		return found
+	}
+
+	It("QUOTED_BOOLEAN detects all eleven boolean fields on a task page", func() {
+		writeFile(tasksDir, "Task.md", quotedBooleansFixture)
+
+		issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+		Expect(err).To(BeNil())
+
+		found := quotedBooleanIssues(issues)
+		Expect(found).To(HaveLen(11))
+		descriptions := make([]string, 0, len(found))
+		for _, issue := range found {
+			Expect(issue.Fixable).To(BeTrue())
+			descriptions = append(descriptions, issue.Description)
+		}
+		for _, field := range []string{
+			"flag", "manager_pin", "goal_loop", "auto_abort_prior",
+			"spawn_notification", "shipping", "reviewed", "fixture",
+			"needs_review", "fresh", "awaiting_input",
+		} {
+			matched := false
+			for _, description := range descriptions {
+				if strings.Contains(description, `"`+field+`"`) {
+					matched = true
+				}
+			}
+			Expect(matched).To(BeTrue(), "expected a QUOTED_BOOLEAN issue naming %q", field)
+		}
+	})
+
+	It("QUOTED_BOOLEAN detection works through Execute for a goal page", func() {
+		writeFile(goalsDir, "Goal.md", quotedBooleansFixture)
+
+		issues, err := lintOp.Execute(ctx, "goal", vaultPath, goalsDir, goalsDir, false)
+		Expect(err).To(BeNil())
+		Expect(quotedBooleanIssues(issues)).To(HaveLen(11))
+	})
+
+	It("QUOTED_BOOLEAN is surfaced through ExecuteFile (the task validate path)", func() {
+		path := writeFile(tasksDir, "Task.md", quotedBooleansFixture)
+
+		issues, err := lintOp.ExecuteFile(ctx, ops.PageTypeTask, path, "Task", "personal")
+		Expect(err).To(BeNil())
+		Expect(quotedBooleanIssues(issues)).To(HaveLen(11))
+	})
+
+	It("QUOTED_BOOLEAN fix rewrites only the eleven value lines", func() {
+		path := writeFile(tasksDir, "Task.md", quotedBooleansFixture)
+
+		_, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", true)
+		Expect(err).To(BeNil())
+
+		content, err := os.ReadFile(path) //#nosec G304 -- test file
+		Expect(err).To(BeNil())
+		Expect(string(content)).To(Equal(quotedBooleansFixed))
+	})
+
+	It("QUOTED_BOOLEAN fix on a single field changes exactly one line", func() {
+		original := "---\nstatus: todo\npage_type: task\nflag: \"true\"\n---\n# Task\n\nBody.\n"
+		path := writeFile(tasksDir, "Single.md", original)
+
+		_, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", true)
+		Expect(err).To(BeNil())
+
+		content, err := os.ReadFile(path) //#nosec G304 -- test file
+		Expect(err).To(BeNil())
+
+		before := strings.Split(original, "\n")
+		after := strings.Split(string(content), "\n")
+		Expect(after).To(HaveLen(len(before)))
+		diffs := 0
+		for i := range before {
+			if before[i] != after[i] {
+				diffs++
+			}
+		}
+		Expect(diffs).To(Equal(1))
+		Expect(string(content)).To(ContainSubstring("flag: true"))
+	})
+
+	It("QUOTED_BOOLEAN ignores an unlisted field and a non-boolean literal", func() {
+		unlisted := "---\nstatus: todo\npage_type: task\ntitle: \"true\"\n---\n# Task\n"
+		nonBoolean := "---\nstatus: todo\npage_type: task\nflag: \"maybe\"\n---\n# Task\n"
+		unlistedPath := writeFile(tasksDir, "Unlisted.md", unlisted)
+		nonBooleanPath := writeFile(tasksDir, "NonBoolean.md", nonBoolean)
+
+		issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+		Expect(err).To(BeNil())
+		Expect(quotedBooleanIssues(issues)).To(BeEmpty())
+
+		_, err = lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", true)
+		Expect(err).To(BeNil())
+
+		unlistedContent, err := os.ReadFile(unlistedPath) //#nosec G304 -- test file
+		Expect(err).To(BeNil())
+		Expect(string(unlistedContent)).To(Equal(unlisted))
+
+		nonBooleanContent, err := os.ReadFile(nonBooleanPath) //#nosec G304 -- test file
+		Expect(err).To(BeNil())
+		Expect(string(nonBooleanContent)).To(Equal(nonBoolean))
+	})
+
+	DescribeTable("QUOTED_BOOLEAN fixes every accepted quoted literal",
+		func(input, expected string) {
+			content := "---\nstatus: todo\npage_type: task\n" + input + "\n---\n# Task\n"
+			path := writeFile(tasksDir, "Literal.md", content)
+
+			_, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", true)
+			Expect(err).To(BeNil())
+
+			fixed, err := os.ReadFile(path) //#nosec G304 -- test file
+			Expect(err).To(BeNil())
+			Expect(string(fixed)).To(ContainSubstring(expected))
+			Expect(string(fixed)).NotTo(ContainSubstring(input))
+		},
+		Entry("double-quoted true", `flag: "true"`, "flag: true"),
+		Entry("single-quoted true", "flag: 'true'", "flag: true"),
+		Entry("double-quoted false", `flag: "false"`, "flag: false"),
+		Entry("single-quoted false", "flag: 'false'", "flag: false"),
+	)
+
+	It("QUOTED_BOOLEAN stays silent for an unquoted bool", func() {
+		writeFile(tasksDir, "Unquoted.md", "---\nstatus: todo\npage_type: task\nflag: true\n---\n# Task\n")
+
+		issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+		Expect(err).To(BeNil())
+		Expect(quotedBooleanIssues(issues)).To(BeEmpty())
+	})
+
+	It("QUOTED_BOOLEAN ignores an indented nested key and leaves the file untouched", func() {
+		original := "---\nstatus: todo\npage_type: task\nmetadata:\n  flag: \"true\"\n---\n# Task\n"
+		path := writeFile(tasksDir, "Nested.md", original)
+
+		issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+		Expect(err).To(BeNil())
+		Expect(quotedBooleanIssues(issues)).To(BeEmpty())
+
+		_, err = lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", true)
+		Expect(err).To(BeNil())
+
+		content, err := os.ReadFile(path) //#nosec G304 -- test file
+		Expect(err).To(BeNil())
+		Expect(string(content)).To(Equal(original))
+	})
+})

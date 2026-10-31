@@ -43,10 +43,16 @@ MARKERS=(
 	'each **MAJOR** finding you reported, **except a DoD gap — the DoD term below covers that one**: **−0.5**'
 	'each **adversarial-laziness FAIL**: **−2.0**'
 	'each **Task Scope Fit smell**, **per smell**, once 3+ apply: **−0.5**'
-	'complex task **missing** DoD: **−1.0**; **weak** DoD: **−0.5**; simple task without DoD: **0**'
+	'**shipping-class or complex** task **missing** DoD: **−1.0**; **weak** DoD: **−0.5**; a **simple non-shipping** task without DoD: **0**'
 	'Clamp to **[1, 10]**'
 	'One defect, one deduction.'
 	'Smell 8 is the exception'
+	'A smell 8 that this term does not count'
+	'| 9-10 | Excellent |'
+	'| 7-8 | Good |'
+	'| 5-6 | Needs Improvement |'
+	'| 3-4 | Needs Improvement |'
+	'| 1-2 | Significant Issues |'
 	'**Score**: X/10 (<derivation>)'
 )
 

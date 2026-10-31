@@ -514,12 +514,14 @@ Adjust expectations based on task complexity:
 
 Start at **10** and subtract, in this order:
 - each **Critical Issue** you reported: **−1.0** — ⚠️ **a hard-gate failure is deducted here, once: it counts as a Critical Issue for scoring purposes.** There is deliberately no separate gate bucket, because no dispatch in this repository enumerates a gate set for you — a term keyed on one would name a referent that does not exist, and a finding that were both would be deducted twice. ⚠️ **This clause governs the arithmetic only, never what the report lists:** when the dispatch asks you to check gates and name their failures, do exactly that — the deduction rule is about how the score is computed, not about dropping the gate section.
-- each **MAJOR** finding you reported: **−0.5** — ⚠️ **without this term a task carrying only MAJOR defects scores `10/10` and reads `Excellent`** while the same report lists them, which contradicts the band it lands in and lets a gate keyed on `score ≥ 8` open a row the auditor marked MAJOR. An orphan goal link is a MAJOR and is not one of the hard checks, so it reaches the score only through this term.
-- each **adversarial-laziness FAIL**: **−2.0** — §14 owns the verdict; **this line is the only statement of the amount**, so the derivation stays the file's single scoring rule.
-- each **Task Scope Fit smell**, **per smell**, once 3+ apply: **−0.5** — ⚠️ **a lone smell 8 carries no deduction**, because smell 8 fires on its own and this term requires 3+. Report it in the scope-fit section and let the Critical Issues carry its cost.
-- complex task **missing** DoD: **−1.0**; **weak** DoD: **−0.5**; simple task without DoD: **0**
+- each **MAJOR** finding you reported, **except a DoD gap — the DoD term below covers that one**: **−0.5** — ⚠️ **without this term a task carrying only MAJOR defects scores `10/10` and reads `Excellent`** while the same report lists them, which contradicts the band it lands in and lets a gate keyed on `score ≥ 8` open a row the auditor marked MAJOR. An orphan goal link is a MAJOR and is not one of the hard checks, so it reaches the score only through this term.
+- each **adversarial-laziness FAIL**: **−2.0** — §14 owns the verdict; **this line is the only statement of the amount**, so the derivation stays the file's single scoring rule. ⚠️ **It absorbs the Critical Issues it names:** a criterion the FAIL calls lazy is not also deducted as a Critical, because that would charge one defect twice.
+- each **Task Scope Fit smell**, **per smell**, once 3+ apply: **−0.5** — ⚠️ **a lone smell 8 falls outside this term, but it is not free:** it is reported as a **MAJOR** finding and takes the MAJOR term, so a one-off criterion on a recurring task still costs something.
+- complex task **missing** DoD: **−1.0**; **weak** DoD: **−0.5**; simple task without DoD: **0** — ⚠️ **this replaces the MAJOR deduction for the same gap, never adds to it.**
 
 Clamp to **[1, 10]**.
+
+⚠️ **One defect, one deduction.** Every term above is mutually exclusive with the others for the same finding: when two could apply, the more specific term wins and the general one does not also charge. That rule — not a per-case reconciliation — is what keeps the total a function of the findings rather than of a placement judgement, and it is why the DoD, laziness and gate overlaps are each stated once rather than re-litigated per finding.
 
 ⚠️ **State the arithmetic on the report's own score line**, so two runs are comparable and a disagreement is attributable rather than mysterious:
 `**Score**: 7/10 (10 − 1 critical − 2 laziness)`

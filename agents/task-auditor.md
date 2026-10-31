@@ -510,17 +510,29 @@ Adjust expectations based on task complexity:
 - Success Criteria: 3-4 items covering key outcomes
 - Subtasks: 4-6 items with clear phases
 
-**Scoring guidance**:
+**Scoring — arithmetic over your own findings, never a band picked first.**
+
+Start at **10** and subtract, in this order:
+- each **Critical Issue** you reported: **−1.0**
+- each **hard-gate FAIL** the dispatch asked you to check: **−1.0**
+- each **Task Scope Fit smell**, once 3+ apply: **−0.5**
+- complex task **missing** DoD: **−1.0**; **weak** DoD: **−0.5**; simple task without DoD: **0**
+
+Clamp to **[1, 10]**.
+
+⚠️ **State the arithmetic on the report's own score line**, so two runs are comparable and a disagreement is attributable rather than mysterious:
+`**Score**: 7/10 (10 − 1 critical − 2 hard gates)`
+
+⚠️ **The bands below DESCRIBE the resulting number; they are never an input to it.** Do not choose a band and then write findings to fit it. That inversion is the measured defect this rule removes: two back-to-back audits of one byte-identical file returned **7/10** and **6/10** with *different* findings, because each run picked a band first — one placed the file at the top of `7-8`, the other in `5-6` — and the score carried no trace of why. An arithmetic score cannot move without a finding moving, so a disagreement now names the finding that differs instead of hiding behind a judgement.
+
+⚠️ **Do not round and do not adjust the total by feel.** If the arithmetic lands on 6.5, report `6.5/10`; the ladder reads the number, and a hand-rounded total is a second derivation nothing can reproduce.
+
+**Band meanings (descriptive only — read after the arithmetic, never instead of it)**:
 - 9-10: Exemplary, could be used as template example
 - 7-8: Good, minor improvements possible
 - 5-6: Adequate, some quality issues
 - 3-4: Needs work, multiple issues
 - 1-2: Significant rework needed, structure problems
-
-**DoD scoring adjustments**:
-- Complex task missing DoD: -1 point
-- Complex task with weak DoD: -0.5 point
-- Simple task without DoD: no penalty
 </contextual_judgment>
 
 <finding_classification>

@@ -658,10 +658,29 @@ func (l *lintOperation) detectCompletedGoalMissingCreated(
 	if len(statusMatches) < 2 || statusMatches[1] != string(domain.GoalStatusCompleted) {
 		return false, ""
 	}
-	if matches := createdRegex.FindStringSubmatch(frontmatterYAML); len(matches) >= 2 && matches[1] != "" {
+	if matches := createdRegex.FindStringSubmatch(frontmatterYAML); len(matches) >= 2 && hasStartDateValue(matches[1]) {
 		return false, ""
 	}
 	return true, "goal is completed but carries no created: key (cycle time is unmeasurable without a start date)"
+}
+
+// yamlNullLiterals are the spellings YAML reads as null. They are non-empty
+// strings, so a plain emptiness check would accept them as a start date — the
+// exact condition this rule exists to catch.
+var yamlNullLiterals = map[string]struct{}{
+	"~": {}, "null": {}, "Null": {}, "NULL": {},
+}
+
+// hasStartDateValue reports whether a captured created: value records a date.
+// Presence-only by design: a malformed date is a different rule's concern, but a
+// YAML null records nothing at all and is therefore indistinguishable from a
+// missing key.
+func hasStartDateValue(value string) bool {
+	if value == "" {
+		return false
+	}
+	_, isNull := yamlNullLiterals[value]
+	return !isNull
 }
 
 // quotedBooleanKey reports whether line is a top-level frontmatter line whose

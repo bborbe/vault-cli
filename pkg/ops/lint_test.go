@@ -2138,8 +2138,12 @@ var _ = Describe("LintOperation - COMPLETED_GOAL_MISSING_CREATED", func() {
 		// duplicate libtime.ParseDate semantics or invent a second definition of a
 		// valid date.
 		Entry("a non-date placeholder is accepted", `created: n/a`, false),
-		Entry("a YAML null is accepted", `created: ~`, false),
 		Entry("a full timestamp is accepted", `created: "2026-01-05T10:00:00Z"`, false),
+		// A YAML null is non-empty but records no date, so it is indistinguishable
+		// from a missing key — the condition this rule exists to catch.
+		Entry("a tilde null is reported", `created: ~`, true),
+		Entry("a null literal is reported", `created: null`, true),
+		Entry("a capitalised null literal is reported", `created: Null`, true),
 		// The comment-only shape carries no value, so it counts as missing.
 		Entry("a comment-only value is reported", `created: # backfilled`, true),
 	)

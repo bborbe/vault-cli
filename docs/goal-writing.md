@@ -130,6 +130,7 @@ When the summary still reads as activity after one rewrite, check whether the ti
 ---
 status: next
 page_type: goal
+created: "2026-01-05"                            # required — the date the goal was created; the start of its cycle time
 priority: 3                                      # optional, 1-3
 category: <domain>                               # optional
 timeline: 2026-MM-DD to 2026-MM-DD               # optional, ≤ 4 weeks for tactical goals
@@ -145,6 +146,8 @@ launcher: cc-private-claude                      # optional — default launcher
 manager_session_id: <session id>                 # optional — written by claude-supervisor; surfaced by list
 ---
 ```
+
+`created` records the date the goal was created — the start of its cycle time. A completed goal without it has a completion date and no duration, so its cycle time cannot be read at all; `vault-cli goal lint` reports such a goal as `COMPLETED_GOAL_MISSING_CREATED`. Existing goals without `created` stay grandfathered by the goal auditor — this is not an instruction to backdate history.
 
 `launcher` names the launcher script (basename, e.g. `cc-private-claude`) that this goal's tasks open with via `/supervisor:open` and the vault-ui Open button. Precedence: task `launcher` > goal `launcher` > the vault's configured `claude_script` — a task's own value overrides the goal's. Absent on both → the vault default, unchanged. The value is not checked against a launcher list, but it must match ^[A-Za-z0-9._/-]+$ with no `..` segment; anything else is refused.
 

@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat: `vault-cli goal lint` reports `COMPLETED_GOAL_MISSING_CREATED` on a `status: completed` goal with no `created:` key (the issue is never fixable), and `goal-creator` now writes `created` plus a required `# Definition of Done` section.
+
 ## v0.184.4
 
 - fix: every `lint` subcommand now reports a boolean frontmatter field stored as a quoted string (`flag: "true"`) as `QUOTED_BOOLEAN`, and `--fix` unquotes it in place without re-serialising the block. vault-cli already read both forms as true; a plain-text consumer grepping `^flag: true` did not.

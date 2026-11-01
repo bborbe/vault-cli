@@ -34,6 +34,7 @@ var (
 	dateRegex             = regexp.MustCompile(
 		`(?m)^(planned_date|defer_date|due_date):\s*['"]?([^\s'"]+)?['"]?\s*$`,
 	)
+	createdRegex = regexp.MustCompile(`(?m)^created:\s*['"]?([^\s'"]*)['"]?\s*$`)
 )
 
 // booleanFields is the set of frontmatter keys whose stored shape is expected
@@ -83,18 +84,19 @@ type lintOperation struct{}
 type IssueType string
 
 const (
-	IssueTypeMissingFrontmatter     IssueType = "MISSING_FRONTMATTER"
-	IssueTypeInvalidPriority        IssueType = "INVALID_PRIORITY"
-	IssueTypeDuplicateKey           IssueType = "DUPLICATE_KEY"
-	IssueTypeInvalidStatus          IssueType = "INVALID_STATUS"
-	IssueTypeOrphanGoal             IssueType = "ORPHAN_GOAL"
-	IssueTypeStatusCheckboxMismatch IssueType = "STATUS_CHECKBOX_MISMATCH"
-	IssueTypeStatusPhaseMismatch    IssueType = "STATUS_PHASE_MISMATCH"
-	IssueTypeMissingTaskIdentifier  IssueType = "MISSING_TASK_IDENTIFIER"
-	IssueTypeStatusDateMismatch     IssueType = "STATUS_DATE_MISMATCH"
-	IssueTypeInvalidTaskIdentifier  IssueType = "INVALID_TASK_IDENTIFIER"
-	IssueTypeBlockedByScalar        IssueType = "BLOCKED_BY_SCALAR"
-	IssueTypeQuotedBoolean          IssueType = "QUOTED_BOOLEAN"
+	IssueTypeMissingFrontmatter          IssueType = "MISSING_FRONTMATTER"
+	IssueTypeInvalidPriority             IssueType = "INVALID_PRIORITY"
+	IssueTypeDuplicateKey                IssueType = "DUPLICATE_KEY"
+	IssueTypeInvalidStatus               IssueType = "INVALID_STATUS"
+	IssueTypeOrphanGoal                  IssueType = "ORPHAN_GOAL"
+	IssueTypeStatusCheckboxMismatch      IssueType = "STATUS_CHECKBOX_MISMATCH"
+	IssueTypeStatusPhaseMismatch         IssueType = "STATUS_PHASE_MISMATCH"
+	IssueTypeMissingTaskIdentifier       IssueType = "MISSING_TASK_IDENTIFIER"
+	IssueTypeStatusDateMismatch          IssueType = "STATUS_DATE_MISMATCH"
+	IssueTypeInvalidTaskIdentifier       IssueType = "INVALID_TASK_IDENTIFIER"
+	IssueTypeBlockedByScalar             IssueType = "BLOCKED_BY_SCALAR"
+	IssueTypeQuotedBoolean               IssueType = "QUOTED_BOOLEAN"
+	IssueTypeCompletedGoalMissingCreated IssueType = "COMPLETED_GOAL_MISSING_CREATED"
 )
 
 // PageTypeTask is the lint page type that carries the task-identifier invariants.
@@ -333,6 +335,16 @@ func (l *lintOperation) collectLintIssues(
 	// either guess the intended list or silently drop the entry.
 	if blockedByIssue, blockedByDesc := l.detectBlockedByScalar(frontmatterYAML); blockedByIssue {
 		add(IssueTypeBlockedByScalar, blockedByDesc, false)
+	}
+
+	// Check for a completed goal with no start date. Non-fixable on purpose:
+	// there is no derivable value for a missing start date, and a bulk stamp
+	// across a set is worse than a visible gap.
+	if missingIssue, missingDesc := l.detectCompletedGoalMissingCreated(
+		pageType,
+		frontmatterYAML,
+	); missingIssue {
+		add(IssueTypeCompletedGoalMissingCreated, missingDesc, false)
 	}
 
 	// Check for known boolean fields stored as quoted strings.
@@ -609,6 +621,32 @@ func (l *lintOperation) detectBlockedByScalar(frontmatterYAML string) (bool, str
 		"blocked_by is %v, expected a YAML list — a scalar reads as an empty list, so the dependency is invisible",
 		value,
 	)
+}
+
+// detectCompletedGoalMissingCreated reports a completed goal whose frontmatter
+// carries no non-empty created: key. Without a start date a completed goal has
+// a completion date and no duration, so its cycle time cannot be read at all.
+//
+// The rule is goal-only: tasks carry created_date, and themes and objectives
+// are out of scope. The status is read raw, matching detectStatusPhaseMismatch;
+// completed is the canonical goal status and the legacy goal aliases (active,
+// on_hold) are not completed states. A bare created: with no value counts as
+// missing — the key alone records no date.
+func (l *lintOperation) detectCompletedGoalMissingCreated(
+	pageType string,
+	frontmatterYAML string,
+) (bool, string) {
+	if pageType != "goal" {
+		return false, ""
+	}
+	statusMatches := statusRegex.FindStringSubmatch(frontmatterYAML)
+	if len(statusMatches) < 2 || statusMatches[1] != string(domain.GoalStatusCompleted) {
+		return false, ""
+	}
+	if matches := createdRegex.FindStringSubmatch(frontmatterYAML); len(matches) >= 2 && matches[1] != "" {
+		return false, ""
+	}
+	return true, "goal is completed but carries no created: key (cycle time is unmeasurable without a start date)"
 }
 
 // quotedBooleanKey reports whether line is a top-level frontmatter line whose

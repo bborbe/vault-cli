@@ -123,13 +123,14 @@ Required fields:
 
 - `status: todo`
 - `page_type: goal`
+- `created: "YYYY-MM-DD"` — today's date, obtained with `date +%F`. Keep it quoted and date-only. A completed goal without `created` has no start date, so its cycle time cannot be measured.
 - `priority: <1|2|3>` (only if confidently set)
 - `category: <category>` (only if inferred)
 - `timeline: <TIMELINE>` (only if set in step 5)
 - `objective: <OBJECTIVE_LINK>` (only if resolved in step 4)
 - `themes:` — only if confidently inferred or explicitly provided
 
-Do NOT set `assignee`. Do NOT set fields the user did not ask for.
+Do NOT set `assignee`. Beyond the required fields above (`status`, `page_type`, `created`), do NOT set fields the user did not ask for.
 
 ## 9. Compose body
 
@@ -141,9 +142,10 @@ If a template body was loaded in step 7, use it. Otherwise, generate the standar
 4. `# Impact` — why this goal matters strategically. If a brief mechanism description is needed, lead with an "**Approach**:" paragraph before the strategic bullets.
 5. `# Status Summary` — Progress / Current / Next / Blockers placeholders
 6. `# Success Criteria` — measurable outcomes as checkboxes
-7. `# Non-goals` — explicit out-of-scope items (3–7 concrete deferrals; placeholder if author drafting). Forces scope articulation at write-time; mirrors dark-factory spec convention. See Goal Writing Guide section 7.
-8. `# Tasks` — placeholder for linked tasks (created later). When tasks ARE supplied at creation time, render each as `[[Wikilink Task Title]] — closes SC<n>` (one per line, numbered or bulleted; several criteria: `— closes SC2, SC3`; optional `: <clause>`), naming a criterion that exists in this goal's `# Success Criteria` — see `docs/goal-writing.md` § Format mandate. NOT bold text + description — Obsidian auto-creates the task file when the operator clicks the wikilink (primary task-creation path); bold-text disables this path. Tasks are **business-value milestones**, not WBS slices — see `docs/goal-writing.md` § Tasks as Business-Value Milestones. The 1-8 range is a soft cap, NOT a floor: small goals can have 1 task; don't pad. Title-Case names, no `/`, `.`, backticks, `:`, `*`, `?`, `"`, `<`, `>`, `|`.
-9. `# Related` — themes / related goals / docs
+7. `# Definition of Done` — **required**, placed after `# Success Criteria` and before `# Non-goals`. At least two binary closure checkboxes, e.g. `- [ ] PRs merged` and `- [ ] Goal page synced`. This section is required even when step 7 loaded a `goal_template` body: if the template has no `# Definition of Done`, append one — a template must not silently reintroduce the audit failure the section exists to prevent. `goal-auditor` treats a goal created on or after `DOD_REQUIRED_AS_OF` with no DoD section as an audit failure; see `docs/goal-writing.md` § Definition of Done.
+8. `# Non-goals` — explicit out-of-scope items (3–7 concrete deferrals; placeholder if author drafting). Forces scope articulation at write-time; mirrors dark-factory spec convention. See Goal Writing Guide section 7.
+9. `# Tasks` — placeholder for linked tasks (created later). When tasks ARE supplied at creation time, render each as `[[Wikilink Task Title]] — closes SC<n>` (one per line, numbered or bulleted; several criteria: `— closes SC2, SC3`; optional `: <clause>`), naming a criterion that exists in this goal's `# Success Criteria` — see `docs/goal-writing.md` § Format mandate. NOT bold text + description — Obsidian auto-creates the task file when the operator clicks the wikilink (primary task-creation path); bold-text disables this path. Tasks are **business-value milestones**, not WBS slices — see `docs/goal-writing.md` § Tasks as Business-Value Milestones. The 1-8 range is a soft cap, NOT a floor: small goals can have 1 task; don't pad. Title-Case names, no `/`, `.`, backticks, `:`, `*`, `?`, `"`, `<`, `>`, `|`.
+10. `# Related` — themes / related goals / docs
 
 ## 10. Check for filename collision
 
@@ -168,11 +170,11 @@ Compose the full file content (frontmatter + body) and write it via the `Write` 
 
 Run a light self-audit against the file:
 
-- Frontmatter has required fields (status, page_type)
+- Frontmatter has required fields (status, page_type, created)
 - Title file matches title-case rule
 - Title is outcome-shaped (no verb-first activity openings: "Build X" / "Refactor Y" / "Set up Z" / "Migrate Y")
 - Summary first sentence is outcome-shaped (no `via X` / `by doing Y` / `through Z`, AND no verb-first activity opening: "Build X" / "Refactor Y" / "Set up Z" / "Split X and build Y")
-- Body has Success Criteria + Tasks sections (or template body)
+- Body has Success Criteria + Definition of Done + Tasks sections (or template body)
 - Tasks (if supplied) each carry `— closes SC<n>` naming an existing criterion: `awk '/^# Tasks/{f=1;next} /^# /{f=0} f && /\[\[/ && !/~~\[\[/' <file> | grep -vc '— closes SC[0-9]'` must print `0` (every wikilinked entry in `# Tasks` carries the reference; struck rows `~~[[…]]~~` are exempt, as in `goal-auditor`), and they are `[[Wikilinks]]`, NOT bold text + description (`grep -E '^\s*[0-9]+\.\s+\*\*' <file> | head -1` should return empty in the `# Tasks` section — bold-text task entries break Obsidian auto-create-on-click)
 - DoD has no soak-time anti-pattern items (no "runs for N hours/days", "no regressions for a week"); for personal-laptop tools, prefer exercise-now verification — see `docs/goal-writing.md` § Anti-pattern: soak-time DoD
 - If `timeline` is set, validate it is ≤ 4 weeks

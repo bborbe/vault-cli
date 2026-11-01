@@ -2067,7 +2067,7 @@ var _ = Describe("LintOperation - COMPLETED_GOAL_MISSING_CREATED", func() {
 	It("reports a completed goal with no created key", func() {
 		writeFile(goalsDir, "Goal.md", "---\nstatus: completed\npage_type: goal\n---\n# Goal\n")
 
-		issues, err := lintOp.Execute(ctx, "goal", vaultPath, goalsDir, goalsDir, false)
+		issues, err := lintOp.Execute(ctx, ops.PageTypeGoal, vaultPath, goalsDir, goalsDir, false)
 		Expect(err).To(BeNil())
 		found := completedGoalIssues(issues)
 		Expect(found).To(HaveLen(1))
@@ -2082,7 +2082,7 @@ var _ = Describe("LintOperation - COMPLETED_GOAL_MISSING_CREATED", func() {
 			"---\nstatus: completed\npage_type: goal\ncreated: \"2026-01-05\"\n---\n# Goal\n",
 		)
 
-		issues, err := lintOp.Execute(ctx, "goal", vaultPath, goalsDir, goalsDir, false)
+		issues, err := lintOp.Execute(ctx, ops.PageTypeGoal, vaultPath, goalsDir, goalsDir, false)
 		Expect(err).To(BeNil())
 		Expect(completedGoalIssues(issues)).To(BeEmpty())
 	})
@@ -2095,7 +2095,7 @@ var _ = Describe("LintOperation - COMPLETED_GOAL_MISSING_CREATED", func() {
 				"---\nstatus: completed\npage_type: goal\n"+createdLine+"\n---\n# Goal\n",
 			)
 
-			issues, err := lintOp.Execute(ctx, "goal", vaultPath, goalsDir, goalsDir, false)
+			issues, err := lintOp.Execute(ctx, ops.PageTypeGoal, vaultPath, goalsDir, goalsDir, false)
 			Expect(err).To(BeNil())
 			Expect(completedGoalIssues(issues)).To(BeEmpty())
 		},
@@ -2105,14 +2105,14 @@ var _ = Describe("LintOperation - COMPLETED_GOAL_MISSING_CREATED", func() {
 		Entry("unquoted with a trailing comment", `created: 2026-01-05  # backfilled`),
 	)
 
-	It("accepts a completed goal whose status line carries a trailing comment", func() {
+	It("reports a completed goal whose status line carries a trailing comment", func() {
 		writeFile(
 			goalsDir,
 			"Goal.md",
 			"---\nstatus: completed  # closed after the review\npage_type: goal\n---\n# Goal\n",
 		)
 
-		issues, err := lintOp.Execute(ctx, "goal", vaultPath, goalsDir, goalsDir, false)
+		issues, err := lintOp.Execute(ctx, ops.PageTypeGoal, vaultPath, goalsDir, goalsDir, false)
 		Expect(err).To(BeNil())
 		Expect(completedGoalIssues(issues)).To(HaveLen(1))
 	})
@@ -2124,7 +2124,7 @@ var _ = Describe("LintOperation - COMPLETED_GOAL_MISSING_CREATED", func() {
 			"---\nstatus: completed\npage_type: goal\ncreated: \" \"\n---\n# Goal\n",
 		)
 
-		issues, err := lintOp.Execute(ctx, "goal", vaultPath, goalsDir, goalsDir, false)
+		issues, err := lintOp.Execute(ctx, ops.PageTypeGoal, vaultPath, goalsDir, goalsDir, false)
 		Expect(err).To(BeNil())
 		Expect(completedGoalIssues(issues)).To(HaveLen(1))
 	})
@@ -2132,7 +2132,7 @@ var _ = Describe("LintOperation - COMPLETED_GOAL_MISSING_CREATED", func() {
 	It("reports a completed goal whose created key is bare", func() {
 		writeFile(goalsDir, "Goal.md", "---\nstatus: completed\npage_type: goal\ncreated:\n---\n# Goal\n")
 
-		issues, err := lintOp.Execute(ctx, "goal", vaultPath, goalsDir, goalsDir, false)
+		issues, err := lintOp.Execute(ctx, ops.PageTypeGoal, vaultPath, goalsDir, goalsDir, false)
 		Expect(err).To(BeNil())
 		Expect(completedGoalIssues(issues)).To(HaveLen(1))
 	})
@@ -2140,7 +2140,7 @@ var _ = Describe("LintOperation - COMPLETED_GOAL_MISSING_CREATED", func() {
 	It("accepts an in_progress goal with no created key", func() {
 		writeFile(goalsDir, "Goal.md", "---\nstatus: in_progress\npage_type: goal\n---\n# Goal\n")
 
-		issues, err := lintOp.Execute(ctx, "goal", vaultPath, goalsDir, goalsDir, false)
+		issues, err := lintOp.Execute(ctx, ops.PageTypeGoal, vaultPath, goalsDir, goalsDir, false)
 		Expect(err).To(BeNil())
 		Expect(completedGoalIssues(issues)).To(BeEmpty())
 	})
@@ -2157,7 +2157,7 @@ var _ = Describe("LintOperation - COMPLETED_GOAL_MISSING_CREATED", func() {
 	It("marks the issue as not fixable", func() {
 		writeFile(goalsDir, "Goal.md", "---\nstatus: completed\npage_type: goal\n---\n# Goal\n")
 
-		issues, err := lintOp.Execute(ctx, "goal", vaultPath, goalsDir, goalsDir, false)
+		issues, err := lintOp.Execute(ctx, ops.PageTypeGoal, vaultPath, goalsDir, goalsDir, false)
 		Expect(err).To(BeNil())
 		found := completedGoalIssues(issues)
 		Expect(found).To(HaveLen(1))

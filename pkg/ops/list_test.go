@@ -481,6 +481,62 @@ var _ = Describe("ListOperation JSON output", func() {
 		})
 	})
 
+	Context("ClaudeSessionID field in TaskListItem", func() {
+		It("returns the claude_session_id value from frontmatter", func() {
+			taskWithSession := domain.NewPage(
+				map[string]any{
+					"status":            "todo",
+					"claude_session_id": "sess-abc123",
+				},
+				domain.FileMetadata{Name: "Stamped Task"},
+				domain.Content(""),
+			)
+			mockPageStorage.ListPagesReturns([]*domain.Page{taskWithSession}, nil)
+			items, execErr = listOp.Execute(ctx, "/vault", "my-vault", "Tasks", nil, true, "", "")
+			Expect(execErr).To(BeNil())
+			Expect(items).To(HaveLen(1))
+			Expect(items[0].ClaudeSessionID).To(Equal("sess-abc123"))
+		})
+
+		It("omits claude_session_id from JSON when empty", func() {
+			item := ops.TaskListItem{Name: "X", Status: "todo", Vault: "v"}
+			data, marshalErr := json.Marshal(item)
+			Expect(marshalErr).To(BeNil())
+			Expect(string(data)).NotTo(ContainSubstring(`"claude_session_id"`))
+		})
+
+		It("includes claude_session_id in JSON when set", func() {
+			item := ops.TaskListItem{
+				Name:            "X",
+				Status:          "todo",
+				Vault:           "v",
+				ClaudeSessionID: "sess-abc123",
+			}
+			data, marshalErr := json.Marshal(item)
+			Expect(marshalErr).To(BeNil())
+			Expect(string(data)).To(ContainSubstring(`"claude_session_id":"sess-abc123"`))
+		})
+
+		It("does not surface the retired manager_session_id", func() {
+			retiredTask := domain.NewPage(
+				map[string]any{
+					"status":             "todo",
+					"manager_session_id": "sess-abc123",
+				},
+				domain.FileMetadata{Name: "Retired Task"},
+				domain.Content(""),
+			)
+			mockPageStorage.ListPagesReturns([]*domain.Page{retiredTask}, nil)
+			items, execErr = listOp.Execute(ctx, "/vault", "my-vault", "Tasks", nil, true, "", "")
+			Expect(execErr).To(BeNil())
+			Expect(items).To(HaveLen(1))
+			Expect(items[0].ClaudeSessionID).To(BeEmpty())
+			data, marshalErr := json.Marshal(items[0])
+			Expect(marshalErr).To(BeNil())
+			Expect(string(data)).NotTo(ContainSubstring(`"manager_session_id"`))
+		})
+	})
+
 	Context("with --goal filter", func() {
 		BeforeEach(func() {
 			matchingTask := domain.NewPage(

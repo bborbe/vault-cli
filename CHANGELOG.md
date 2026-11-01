@@ -11,20 +11,20 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 ## Unreleased
 
 - feat: **remove `manager_session_id` from the list read model.** Goals and topics now record the session serving them in `claude_session_id`, the same field a task uses, so `TaskListItem.ManagerSessionID` and the `manager_session_id` key in every `* list --output json` payload are gone. **Breaking change, on two surfaces:** the exported `TaskListItem.ManagerSessionID` Go field is gone, so any external consumer of `pkg/ops` fails to compile rather than silently reading zero; and the `manager_session_id` key disappears from every `* list --output json` payload. The only consumer found in a sweep of the three repos and both vaults was vault-ui, which now reads `claude_session_id`. `scripts/session-close-goals.sh` reads `claude_session_id` first and falls back to the retired key, so it keeps working against pages that have not been migrated yet.
-
   Observed on this machine, `--vault private-personal`, the goal `GitHub Rate Limits Never Stall the Agent Fleet` whose page carries only the retired key — the session fields of its `goal list --output json` row, before and after this change:
-
   ```
   before (v0.184.4):  {"manager_session_id": "8885ecfa-3813-4b83-9269-6177b509fca3"}
   after:              {}
   ```
-
   and a task page that carries the surviving key still emits it:
-
   ```
   task list --output json, "Goals and Topics Record Their Session in claude_session_id Only":
   {"claude_session_id": "d4d3a390-7142-4618-bc03-aefd44ed868d"}
   ```
+
+## v0.185.0
+
+- feat: `vault-cli goal lint` reports `COMPLETED_GOAL_MISSING_CREATED` on a `status: completed` goal with no `created:` key (the issue is never fixable), and `goal-creator` now writes `created` plus a required `# Definition of Done` section.
 
 ## v0.184.4
 

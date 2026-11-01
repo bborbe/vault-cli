@@ -34,6 +34,18 @@ var (
 	dateRegex             = regexp.MustCompile(
 		`(?m)^(planned_date|defer_date|due_date):\s*['"]?([^\s'"]+)?['"]?\s*$`,
 	)
+	// createdRegex and completedStatusRegex tolerate a trailing YAML comment and
+	// restrict value-adjacent whitespace to [ \t]. The shared statusRegex above
+	// anchors on \s*$ and therefore misses `status: completed  # done`; these two
+	// are deliberately separate so that fixing this rule's false negative does not
+	// silently change what every other rule reports. \s would also match a newline,
+	// letting a bare `created:` capture the next line's first token as its value.
+	createdRegex = regexp.MustCompile(
+		`(?m)^created:[ \t]*(.*?)[ \t]*(?:#.*)?$`,
+	)
+	completedStatusRegex = regexp.MustCompile(
+		`(?m)^status:[ \t]*['"]?([a-z_]+)['"]?[ \t]*(?:#.*)?$`,
+	)
 )
 
 // booleanFields is the set of frontmatter keys whose stored shape is expected
@@ -83,19 +95,25 @@ type lintOperation struct{}
 type IssueType string
 
 const (
-	IssueTypeMissingFrontmatter     IssueType = "MISSING_FRONTMATTER"
-	IssueTypeInvalidPriority        IssueType = "INVALID_PRIORITY"
-	IssueTypeDuplicateKey           IssueType = "DUPLICATE_KEY"
-	IssueTypeInvalidStatus          IssueType = "INVALID_STATUS"
-	IssueTypeOrphanGoal             IssueType = "ORPHAN_GOAL"
-	IssueTypeStatusCheckboxMismatch IssueType = "STATUS_CHECKBOX_MISMATCH"
-	IssueTypeStatusPhaseMismatch    IssueType = "STATUS_PHASE_MISMATCH"
-	IssueTypeMissingTaskIdentifier  IssueType = "MISSING_TASK_IDENTIFIER"
-	IssueTypeStatusDateMismatch     IssueType = "STATUS_DATE_MISMATCH"
-	IssueTypeInvalidTaskIdentifier  IssueType = "INVALID_TASK_IDENTIFIER"
-	IssueTypeBlockedByScalar        IssueType = "BLOCKED_BY_SCALAR"
-	IssueTypeQuotedBoolean          IssueType = "QUOTED_BOOLEAN"
+	IssueTypeMissingFrontmatter          IssueType = "MISSING_FRONTMATTER"
+	IssueTypeInvalidPriority             IssueType = "INVALID_PRIORITY"
+	IssueTypeDuplicateKey                IssueType = "DUPLICATE_KEY"
+	IssueTypeInvalidStatus               IssueType = "INVALID_STATUS"
+	IssueTypeOrphanGoal                  IssueType = "ORPHAN_GOAL"
+	IssueTypeStatusCheckboxMismatch      IssueType = "STATUS_CHECKBOX_MISMATCH"
+	IssueTypeStatusPhaseMismatch         IssueType = "STATUS_PHASE_MISMATCH"
+	IssueTypeMissingTaskIdentifier       IssueType = "MISSING_TASK_IDENTIFIER"
+	IssueTypeStatusDateMismatch          IssueType = "STATUS_DATE_MISMATCH"
+	IssueTypeInvalidTaskIdentifier       IssueType = "INVALID_TASK_IDENTIFIER"
+	IssueTypeBlockedByScalar             IssueType = "BLOCKED_BY_SCALAR"
+	IssueTypeQuotedBoolean               IssueType = "QUOTED_BOOLEAN"
+	IssueTypeCompletedGoalMissingCreated IssueType = "COMPLETED_GOAL_MISSING_CREATED"
 )
+
+// PageTypeGoal is the lint page type `vault-cli goal lint` passes. The
+// completed-goal start-date rule runs only for it; every other page type skips
+// the rule rather than guessing that a `completed` status means a goal.
+const PageTypeGoal = "goal"
 
 // PageTypeTask is the lint page type that carries the task-identifier invariants.
 // The two identifier checks (MISSING_TASK_IDENTIFIER, INVALID_TASK_IDENTIFIER) run
@@ -333,6 +351,16 @@ func (l *lintOperation) collectLintIssues(
 	// either guess the intended list or silently drop the entry.
 	if blockedByIssue, blockedByDesc := l.detectBlockedByScalar(frontmatterYAML); blockedByIssue {
 		add(IssueTypeBlockedByScalar, blockedByDesc, false)
+	}
+
+	// Check for a completed goal with no start date. Non-fixable on purpose:
+	// there is no derivable value for a missing start date, and a bulk stamp
+	// across a set is worse than a visible gap.
+	if missingIssue, missingDesc := l.detectCompletedGoalMissingCreated(
+		pageType,
+		frontmatterYAML,
+	); missingIssue {
+		add(IssueTypeCompletedGoalMissingCreated, missingDesc, false)
 	}
 
 	// Check for known boolean fields stored as quoted strings.
@@ -609,6 +637,52 @@ func (l *lintOperation) detectBlockedByScalar(frontmatterYAML string) (bool, str
 		"blocked_by is %v, expected a YAML list — a scalar reads as an empty list, so the dependency is invisible",
 		value,
 	)
+}
+
+// detectCompletedGoalMissingCreated reports a completed goal whose frontmatter
+// carries no non-empty created: key. Without a start date a completed goal has
+// a completion date and no duration, so its cycle time cannot be read at all.
+//
+// The rule is goal-only: tasks carry created_date, and themes and objectives
+// are out of scope. completed is the canonical goal status and the legacy goal
+// aliases (active, on_hold) are not completed states. A bare created: with no
+// value counts as missing — the key alone records no date.
+func (l *lintOperation) detectCompletedGoalMissingCreated(
+	pageType string,
+	frontmatterYAML string,
+) (bool, string) {
+	if pageType != PageTypeGoal {
+		return false, ""
+	}
+	statusMatches := completedStatusRegex.FindStringSubmatch(frontmatterYAML)
+	if len(statusMatches) < 2 || statusMatches[1] != string(domain.GoalStatusCompleted) {
+		return false, ""
+	}
+	if matches := createdRegex.FindStringSubmatch(frontmatterYAML); len(matches) >= 2 &&
+		hasStartDateValue(matches[1]) {
+		return false, ""
+	}
+	return true, "goal is completed but carries no created: key (cycle time is unmeasurable without a start date)"
+}
+
+// yamlNullLiterals are the spellings YAML reads as null. They are non-empty
+// strings, so a plain emptiness check would accept them as a start date — the
+// exact condition this rule exists to catch.
+var yamlNullLiterals = map[string]struct{}{
+	"~": {}, "null": {}, "Null": {}, "NULL": {},
+}
+
+// hasStartDateValue reports whether a captured created: value records a date.
+// Presence-only by design: a malformed date is a different rule's concern, but a
+// YAML null records nothing at all and is therefore indistinguishable from a
+// missing key.
+func hasStartDateValue(raw string) bool {
+	value := strings.TrimSpace(strings.Trim(strings.TrimSpace(raw), `"'`))
+	if value == "" {
+		return false
+	}
+	_, isNull := yamlNullLiterals[value]
+	return !isNull
 }
 
 // quotedBooleanKey reports whether line is a top-level frontmatter line whose

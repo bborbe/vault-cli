@@ -1396,7 +1396,7 @@ func createGoalCommands(
 			ctx,
 			configLoader,
 			vaultName,
-			"goal",
+			ops.PageTypeGoal,
 			func(c *storage.Config) string { return c.GoalsDir },
 			func(c *storage.Config) string { return c.GoalsDir },
 			outputFormat,

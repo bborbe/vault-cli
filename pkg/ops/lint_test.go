@@ -1986,9 +1986,10 @@ var _ = Describe("LintOperation - STATUS_PHASE_MISMATCH on goal pages", func() {
 	writeGoal := func(vaultPath, goalsDir, status, phase string) {
 		var content string
 		if phase == "" {
-			content = "---\nstatus: " + status + "\npage_type: goal\n---\n# Goal\n"
+			content = "---\nstatus: " + status + "\npage_type: goal\ncreated: \"2026-01-05\"\n---\n# Goal\n"
 		} else {
-			content = "---\nstatus: " + status + "\nphase: " + phase + "\npage_type: goal\n---\n# Goal\n"
+			content = "---\nstatus: " + status + "\nphase: " + phase +
+				"\npage_type: goal\ncreated: \"2026-01-05\"\n---\n# Goal\n"
 		}
 		goalPath := filepath.Join(vaultPath, goalsDir, "Goal.md")
 		Expect(os.WriteFile(goalPath, []byte(content), 0600)).To(Succeed())
@@ -2019,6 +2020,199 @@ var _ = Describe("LintOperation - STATUS_PHASE_MISMATCH on goal pages", func() {
 		Entry("completed + execution", "completed", "execution", "status is completed but phase is execution"),
 		Entry("in_progress + done", "in_progress", "done", "phase is done but status is in_progress"),
 	)
+})
+
+var _ = Describe("LintOperation - COMPLETED_GOAL_MISSING_CREATED", func() {
+	var (
+		ctx       context.Context
+		lintOp    ops.LintOperation
+		vaultPath string
+		goalsDir  string
+	)
+
+	BeforeEach(func() {
+		ctx = context.Background()
+		lintOp = ops.NewLintOperation()
+
+		var err error
+		vaultPath, err = os.MkdirTemp("", "vault-goal-created-test-*")
+		Expect(err).To(BeNil())
+
+		goalsDir = "Goals"
+		Expect(os.MkdirAll(filepath.Join(vaultPath, goalsDir), 0755)).To(Succeed())
+	})
+
+	AfterEach(func() {
+		if vaultPath != "" {
+			_ = os.RemoveAll(vaultPath)
+		}
+	})
+
+	writeFile := func(dir, name, content string) string {
+		path := filepath.Join(vaultPath, dir, name)
+		Expect(os.WriteFile(path, []byte(content), 0600)).To(Succeed())
+		return path
+	}
+
+	completedGoalIssues := func(issues []ops.LintIssue) []ops.LintIssue {
+		var found []ops.LintIssue
+		for _, issue := range issues {
+			if issue.IssueType == ops.IssueTypeCompletedGoalMissingCreated {
+				found = append(found, issue)
+			}
+		}
+		return found
+	}
+
+	It("reports a completed goal with no created key", func() {
+		writeFile(goalsDir, "Goal.md", "---\nstatus: completed\npage_type: goal\n---\n# Goal\n")
+
+		issues, err := lintOp.Execute(ctx, ops.PageTypeGoal, vaultPath, goalsDir, goalsDir, false)
+		Expect(err).To(BeNil())
+		found := completedGoalIssues(issues)
+		Expect(found).To(HaveLen(1))
+		Expect(found[0].Description).To(ContainSubstring("cycle time is unmeasurable"))
+		Expect(found[0].Fixable).To(BeFalse())
+	})
+
+	It("accepts a completed goal with a created date", func() {
+		writeFile(
+			goalsDir,
+			"Goal.md",
+			"---\nstatus: completed\npage_type: goal\ncreated: \"2026-01-05\"\n---\n# Goal\n",
+		)
+
+		issues, err := lintOp.Execute(ctx, ops.PageTypeGoal, vaultPath, goalsDir, goalsDir, false)
+		Expect(err).To(BeNil())
+		Expect(completedGoalIssues(issues)).To(BeEmpty())
+	})
+
+	DescribeTable("accepts a completed goal whose created date is present in any YAML-legal shape",
+		func(createdLine string) {
+			writeFile(
+				goalsDir,
+				"Goal.md",
+				"---\nstatus: completed\npage_type: goal\n"+createdLine+"\n---\n# Goal\n",
+			)
+
+			issues, err := lintOp.Execute(ctx, ops.PageTypeGoal, vaultPath, goalsDir, goalsDir, false)
+			Expect(err).To(BeNil())
+			Expect(completedGoalIssues(issues)).To(BeEmpty())
+		},
+		Entry("quoted", `created: "2026-01-05"`),
+		Entry("unquoted", `created: 2026-01-05`),
+		Entry("quoted with a trailing comment", `created: "2026-01-05"  # backfilled`),
+		Entry("unquoted with a trailing comment", `created: 2026-01-05  # backfilled`),
+	)
+
+	It("reports a completed goal whose status line carries a trailing comment", func() {
+		writeFile(
+			goalsDir,
+			"Goal.md",
+			"---\nstatus: completed  # closed after the review\npage_type: goal\n---\n# Goal\n",
+		)
+
+		issues, err := lintOp.Execute(ctx, ops.PageTypeGoal, vaultPath, goalsDir, goalsDir, false)
+		Expect(err).To(BeNil())
+		Expect(completedGoalIssues(issues)).To(HaveLen(1))
+	})
+
+	DescribeTable("presence-only contract: any non-empty created value satisfies the rule",
+		func(createdLine string, wantIssue bool) {
+			writeFile(
+				goalsDir,
+				"Goal.md",
+				"---\nstatus: completed\npage_type: goal\n"+createdLine+"\n---\n# Goal\n",
+			)
+
+			issues, err := lintOp.Execute(ctx, ops.PageTypeGoal, vaultPath, goalsDir, goalsDir, false)
+			Expect(err).To(BeNil())
+			if wantIssue {
+				Expect(completedGoalIssues(issues)).To(HaveLen(1))
+				return
+			}
+			Expect(completedGoalIssues(issues)).To(BeEmpty())
+		},
+		// Deliberate: the rule is named for a missing key, not for a malformed
+		// date. A shape check belongs to its own rule — parsing here would either
+		// duplicate libtime.ParseDate semantics or invent a second definition of a
+		// valid date.
+		Entry("a non-date placeholder is accepted", `created: n/a`, false),
+		Entry("a full timestamp is accepted", `created: "2026-01-05T10:00:00Z"`, false),
+		// A YAML-legal value may contain a space; the capture must not stop at one.
+		Entry("an unquoted timestamp with a space is accepted", `created: 2026-01-05 10:00:00`, false),
+		Entry("a quoted value with an inner space is accepted", `created: "2026-01-05 10:00:00"`, false),
+		// A YAML null is non-empty but records no date, so it is indistinguishable
+		// from a missing key — the condition this rule exists to catch.
+		Entry("a tilde null is reported", `created: ~`, true),
+		Entry("a null literal is reported", `created: null`, true),
+		Entry("a capitalised null literal is reported", `created: Null`, true),
+		// The comment-only shape carries no value, so it counts as missing.
+		Entry("a comment-only value is reported", `created: # backfilled`, true),
+	)
+
+	It("leaves the file untouched under --fix, because the issue is not fixable", func() {
+		path := writeFile(goalsDir, "Goal.md", "---\nstatus: completed\npage_type: goal\n---\n# Goal\n")
+		before, readErr := os.ReadFile(path)
+		Expect(readErr).To(BeNil())
+
+		issues, err := lintOp.Execute(ctx, ops.PageTypeGoal, vaultPath, goalsDir, goalsDir, true)
+		Expect(err).To(BeNil())
+		found := completedGoalIssues(issues)
+		Expect(found).To(HaveLen(1))
+		Expect(found[0].Fixed).To(BeFalse())
+
+		after, readErr := os.ReadFile(path)
+		Expect(readErr).To(BeNil())
+		Expect(after).To(Equal(before))
+	})
+
+	It("reports a completed goal whose created value is only whitespace", func() {
+		writeFile(
+			goalsDir,
+			"Goal.md",
+			"---\nstatus: completed\npage_type: goal\ncreated: \" \"\n---\n# Goal\n",
+		)
+
+		issues, err := lintOp.Execute(ctx, ops.PageTypeGoal, vaultPath, goalsDir, goalsDir, false)
+		Expect(err).To(BeNil())
+		Expect(completedGoalIssues(issues)).To(HaveLen(1))
+	})
+
+	It("reports a completed goal whose created key is bare", func() {
+		writeFile(goalsDir, "Goal.md", "---\nstatus: completed\npage_type: goal\ncreated:\n---\n# Goal\n")
+
+		issues, err := lintOp.Execute(ctx, ops.PageTypeGoal, vaultPath, goalsDir, goalsDir, false)
+		Expect(err).To(BeNil())
+		Expect(completedGoalIssues(issues)).To(HaveLen(1))
+	})
+
+	It("accepts an in_progress goal with no created key", func() {
+		writeFile(goalsDir, "Goal.md", "---\nstatus: in_progress\npage_type: goal\n---\n# Goal\n")
+
+		issues, err := lintOp.Execute(ctx, ops.PageTypeGoal, vaultPath, goalsDir, goalsDir, false)
+		Expect(err).To(BeNil())
+		Expect(completedGoalIssues(issues)).To(BeEmpty())
+	})
+
+	It("does not fire on task pages", func() {
+		Expect(os.MkdirAll(filepath.Join(vaultPath, "Tasks"), 0755)).To(Succeed())
+		writeFile("Tasks", "Task.md", "---\nstatus: completed\npage_type: task\n---\n# Task\n")
+
+		issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, "Tasks", goalsDir, false)
+		Expect(err).To(BeNil())
+		Expect(completedGoalIssues(issues)).To(BeEmpty())
+	})
+
+	It("marks the issue as not fixable", func() {
+		writeFile(goalsDir, "Goal.md", "---\nstatus: completed\npage_type: goal\n---\n# Goal\n")
+
+		issues, err := lintOp.Execute(ctx, ops.PageTypeGoal, vaultPath, goalsDir, goalsDir, false)
+		Expect(err).To(BeNil())
+		found := completedGoalIssues(issues)
+		Expect(found).To(HaveLen(1))
+		Expect(found[0].Fixable).To(BeFalse())
+	})
 })
 
 var _ = Describe("LintOperation - Missing Task Identifier", func() {

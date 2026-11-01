@@ -2117,6 +2117,49 @@ var _ = Describe("LintOperation - COMPLETED_GOAL_MISSING_CREATED", func() {
 		Expect(completedGoalIssues(issues)).To(HaveLen(1))
 	})
 
+	DescribeTable("presence-only contract: any non-empty created value satisfies the rule",
+		func(createdLine string, wantIssue bool) {
+			writeFile(
+				goalsDir,
+				"Goal.md",
+				"---\nstatus: completed\npage_type: goal\n"+createdLine+"\n---\n# Goal\n",
+			)
+
+			issues, err := lintOp.Execute(ctx, ops.PageTypeGoal, vaultPath, goalsDir, goalsDir, false)
+			Expect(err).To(BeNil())
+			if wantIssue {
+				Expect(completedGoalIssues(issues)).To(HaveLen(1))
+				return
+			}
+			Expect(completedGoalIssues(issues)).To(BeEmpty())
+		},
+		// Deliberate: the rule is named for a missing key, not for a malformed
+		// date. A shape check belongs to its own rule — parsing here would either
+		// duplicate libtime.ParseDate semantics or invent a second definition of a
+		// valid date.
+		Entry("a non-date placeholder is accepted", `created: n/a`, false),
+		Entry("a YAML null is accepted", `created: ~`, false),
+		Entry("a full timestamp is accepted", `created: "2026-01-05T10:00:00Z"`, false),
+		// The comment-only shape carries no value, so it counts as missing.
+		Entry("a comment-only value is reported", `created: # backfilled`, true),
+	)
+
+	It("leaves the file untouched under --fix, because the issue is not fixable", func() {
+		path := writeFile(goalsDir, "Goal.md", "---\nstatus: completed\npage_type: goal\n---\n# Goal\n")
+		before, readErr := os.ReadFile(path)
+		Expect(readErr).To(BeNil())
+
+		issues, err := lintOp.Execute(ctx, ops.PageTypeGoal, vaultPath, goalsDir, goalsDir, true)
+		Expect(err).To(BeNil())
+		found := completedGoalIssues(issues)
+		Expect(found).To(HaveLen(1))
+		Expect(found[0].Fixed).To(BeFalse())
+
+		after, readErr := os.ReadFile(path)
+		Expect(readErr).To(BeNil())
+		Expect(after).To(Equal(before))
+	})
+
 	It("reports a completed goal whose created value is only whitespace", func() {
 		writeFile(
 			goalsDir,

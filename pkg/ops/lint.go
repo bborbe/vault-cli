@@ -41,7 +41,7 @@ var (
 	// silently change what every other rule reports. \s would also match a newline,
 	// letting a bare `created:` capture the next line's first token as its value.
 	createdRegex = regexp.MustCompile(
-		`(?m)^created:[ \t]*['"]?([^ \t'"]*)['"]?[ \t]*(?:#.*)?$`,
+		`(?m)^created:[ \t]*(.*?)[ \t]*(?:#.*)?$`,
 	)
 	completedStatusRegex = regexp.MustCompile(
 		`(?m)^status:[ \t]*['"]?([a-z_]+)['"]?[ \t]*(?:#.*)?$`,
@@ -658,7 +658,8 @@ func (l *lintOperation) detectCompletedGoalMissingCreated(
 	if len(statusMatches) < 2 || statusMatches[1] != string(domain.GoalStatusCompleted) {
 		return false, ""
 	}
-	if matches := createdRegex.FindStringSubmatch(frontmatterYAML); len(matches) >= 2 && hasStartDateValue(matches[1]) {
+	if matches := createdRegex.FindStringSubmatch(frontmatterYAML); len(matches) >= 2 &&
+		hasStartDateValue(matches[1]) {
 		return false, ""
 	}
 	return true, "goal is completed but carries no created: key (cycle time is unmeasurable without a start date)"
@@ -675,7 +676,8 @@ var yamlNullLiterals = map[string]struct{}{
 // Presence-only by design: a malformed date is a different rule's concern, but a
 // YAML null records nothing at all and is therefore indistinguishable from a
 // missing key.
-func hasStartDateValue(value string) bool {
+func hasStartDateValue(raw string) bool {
+	value := strings.TrimSpace(strings.Trim(strings.TrimSpace(raw), `"'`))
 	if value == "" {
 		return false
 	}

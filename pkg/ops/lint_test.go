@@ -2139,6 +2139,9 @@ var _ = Describe("LintOperation - COMPLETED_GOAL_MISSING_CREATED", func() {
 		// valid date.
 		Entry("a non-date placeholder is accepted", `created: n/a`, false),
 		Entry("a full timestamp is accepted", `created: "2026-01-05T10:00:00Z"`, false),
+		// A YAML-legal value may contain a space; the capture must not stop at one.
+		Entry("an unquoted timestamp with a space is accepted", `created: 2026-01-05 10:00:00`, false),
+		Entry("a quoted value with an inner space is accepted", `created: "2026-01-05 10:00:00"`, false),
 		// A YAML null is non-empty but records no date, so it is indistinguishable
 		// from a missing key — the condition this rule exists to catch.
 		Entry("a tilde null is reported", `created: ~`, true),

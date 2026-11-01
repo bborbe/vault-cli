@@ -142,7 +142,7 @@ binding: <free text>                             # optional — the hard deadlin
                                                  # gating the completion verdict; rendered on
                                                  # the status anchor line ("binding: <value>")
 launcher: cc-private-claude                      # optional — default launcher for this goal's tasks
-manager_session_id: <session id>                 # optional — written by claude-supervisor; surfaced by list
+claude_session_id: <session id>                  # optional — written by claude-supervisor; surfaced by list
 ---
 ```
 
@@ -172,11 +172,13 @@ Blocked state is derived and is never written. Nothing sets `status: hold` from 
 
 Where it surfaces: `vault-cli goal list --output json` emits `blocked_by` (the raw list) and a computed `blocked` boolean for any goal that declares a dependency list; a goal with no `blocked_by` emits neither key. `/vault-cli:next-task` does not recommend a goal or task whose `blocked` flag is true.
 
-### Manager session (`manager_session_id`)
+### Session (`claude_session_id`)
 
-`manager_session_id` records the manager session that armed this goal. It is written by the producer — claude-supervisor's manager-resolve step — through the existing generic `vault-cli goal set "<subject>" manager_session_id "$CLAUDE_CODE_SESSION_ID"` verb (and `topic set` on a topic page). This repo adds no setter and no CLI flag of its own; the field is set through those generic verbs, so it is not unsettable.
+`claude_session_id` records the session serving this goal — the manager session that armed it. It is written by the producer — claude-supervisor's manager-resolve step — through the existing generic `vault-cli goal set "<subject>" claude_session_id "$CLAUDE_CODE_SESSION_ID"` verb (and `topic set` on a topic page). This repo adds no setter and no CLI flag of its own; the field is set through those generic verbs, so it is not unsettable. A task page carries the same key meaning the session working that task.
 
-Where it surfaces: every list command's `--output json` carries `manager_session_id` verbatim when the page's frontmatter sets it, and omits the key when it does not. Because `goal list`, `topic list`, `task list`, `theme list`, `objective list`, and `vision list` share one list read model, the field appears on all six without a page-type condition. The value is read-only in the list model: it is never derived, normalized, or written back.
+⚠️ The retired `manager_session_id` is no longer surfaced. claude-supervisor's readers fall back to it for a page the new writer has not touched yet; the list read model does not, so a page carrying only the old key emits no session id at all.
+
+Where it surfaces: every list command's `--output json` carries `claude_session_id` verbatim when the page's frontmatter sets it, and omits the key when it does not. Because `goal list`, `topic list`, `task list`, `theme list`, `objective list`, and `vision list` share one list read model, the field appears on all six without a page-type condition. The value is read-only in the list model: it is never derived, normalized, or written back.
 
 **Recording a dependency.** One entry per invocation, appended to whatever list is already there:
 

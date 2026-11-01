@@ -1572,10 +1572,11 @@ blocked_by:
 
 		goalFixture := func(status, phase string) string {
 			if phase == "" {
-				return "---\nstatus: " + status + "\npage_type: goal\npriority: 1\n---\n# Goal\n"
+				return "---\nstatus: " + status + "\npage_type: goal\npriority: 1\n" +
+					"created: \"2026-01-05\"\n---\n# Goal\n"
 			}
 			return "---\nstatus: " + status + "\nphase: " + phase +
-				"\npage_type: goal\npriority: 1\n---\n# Goal\n"
+				"\npage_type: goal\npriority: 1\ncreated: \"2026-01-05\"\n---\n# Goal\n"
 		}
 
 		countLinesContaining := func(output, substr string) int {
@@ -1650,6 +1651,69 @@ blocked_by:
 				string(session.Out.Contents()),
 				"phase is done but status is in_progress",
 			)).To(Equal(1))
+		})
+	})
+
+	Describe("vault-cli goal lint — completed goal missing created", func() {
+		var configPath string
+		var cleanup func()
+
+		AfterEach(func() {
+			cleanup()
+		})
+
+		runGoalLint := func() *gexec.Session {
+			session, err := gexec.Start(
+				exec.Command(
+					binPath,
+					"--config", configPath,
+					"--vault", "test",
+					"goal", "lint",
+				),
+				GinkgoWriter,
+				GinkgoWriter,
+			)
+			Expect(err).NotTo(HaveOccurred())
+			return session
+		}
+
+		It("AC11: reports a completed goal with no created key", func() {
+			_, configPath, cleanup = createTempVaultWithGoals(
+				map[string]string{},
+				map[string]string{
+					"Gamma": `---
+status: completed
+page_type: goal
+priority: 1
+---
+# Gamma
+`,
+				},
+			)
+
+			session := runGoalLint()
+			Eventually(session).Should(gexec.Exit(1))
+			Expect(string(session.Out.Contents())).To(ContainSubstring("COMPLETED_GOAL_MISSING_CREATED"))
+		})
+
+		It("AC11: accepts a completed goal carrying a created date", func() {
+			_, configPath, cleanup = createTempVaultWithGoals(
+				map[string]string{},
+				map[string]string{
+					"Gamma": `---
+status: completed
+page_type: goal
+priority: 1
+created: "2026-01-05"
+---
+# Gamma
+`,
+				},
+			)
+
+			session := runGoalLint()
+			Eventually(session).Should(gexec.Exit(0))
+			Expect(string(session.Out.Contents())).NotTo(ContainSubstring("COMPLETED_GOAL_MISSING_CREATED"))
 		})
 	})
 

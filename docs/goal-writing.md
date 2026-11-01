@@ -147,7 +147,9 @@ manager_session_id: <session id>                 # optional — written by claud
 ---
 ```
 
-`created` records the date the goal was created — the start of its cycle time. A completed goal without it has a completion date and no duration, so its cycle time cannot be read at all; `vault-cli goal lint` reports such a goal as `COMPLETED_GOAL_MISSING_CREATED`. Existing goals without `created` stay grandfathered by the goal auditor — this is not an instruction to backdate history.
+`created` records the date the goal was created — the start of its cycle time. A completed goal without it has a completion date and no duration, so its cycle time cannot be read at all; `vault-cli goal lint` reports such a goal as `COMPLETED_GOAL_MISSING_CREATED`.
+
+**The auditor and the lint disagree on history, deliberately.** `goal-auditor` grandfathers a goal that carries no `created` — it treats the missing field as "not applicable" rather than a defect, because a pre-rule goal cannot be blamed for a field that did not exist. `goal lint` does not grandfather: it reads the vault as it stands, so the first run after upgrading reports every historical completed goal without a `created` key. That report is a to-do list, not an instruction to backdate history — record a real start date where one is known (`vault-cli goal set "<name>" created 2026-01-05`, or the commit that first added the file, see below), and accept that some goals have no recoverable start date at all.
 
 `launcher` names the launcher script (basename, e.g. `cc-private-claude`) that this goal's tasks open with via `/supervisor:open` and the vault-ui Open button. Precedence: task `launcher` > goal `launcher` > the vault's configured `claude_script` — a task's own value overrides the goal's. Absent on both → the vault default, unchanged. The value is not checked against a launcher list, but it must match ^[A-Za-z0-9._/-]+$ with no `..` segment; anything else is refused.
 

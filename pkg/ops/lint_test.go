@@ -2087,6 +2087,48 @@ var _ = Describe("LintOperation - COMPLETED_GOAL_MISSING_CREATED", func() {
 		Expect(completedGoalIssues(issues)).To(BeEmpty())
 	})
 
+	DescribeTable("accepts a completed goal whose created date is present in any YAML-legal shape",
+		func(createdLine string) {
+			writeFile(
+				goalsDir,
+				"Goal.md",
+				"---\nstatus: completed\npage_type: goal\n"+createdLine+"\n---\n# Goal\n",
+			)
+
+			issues, err := lintOp.Execute(ctx, "goal", vaultPath, goalsDir, goalsDir, false)
+			Expect(err).To(BeNil())
+			Expect(completedGoalIssues(issues)).To(BeEmpty())
+		},
+		Entry("quoted", `created: "2026-01-05"`),
+		Entry("unquoted", `created: 2026-01-05`),
+		Entry("quoted with a trailing comment", `created: "2026-01-05"  # backfilled`),
+		Entry("unquoted with a trailing comment", `created: 2026-01-05  # backfilled`),
+	)
+
+	It("accepts a completed goal whose status line carries a trailing comment", func() {
+		writeFile(
+			goalsDir,
+			"Goal.md",
+			"---\nstatus: completed  # closed after the review\npage_type: goal\n---\n# Goal\n",
+		)
+
+		issues, err := lintOp.Execute(ctx, "goal", vaultPath, goalsDir, goalsDir, false)
+		Expect(err).To(BeNil())
+		Expect(completedGoalIssues(issues)).To(HaveLen(1))
+	})
+
+	It("reports a completed goal whose created value is only whitespace", func() {
+		writeFile(
+			goalsDir,
+			"Goal.md",
+			"---\nstatus: completed\npage_type: goal\ncreated: \" \"\n---\n# Goal\n",
+		)
+
+		issues, err := lintOp.Execute(ctx, "goal", vaultPath, goalsDir, goalsDir, false)
+		Expect(err).To(BeNil())
+		Expect(completedGoalIssues(issues)).To(HaveLen(1))
+	})
+
 	It("reports a completed goal whose created key is bare", func() {
 		writeFile(goalsDir, "Goal.md", "---\nstatus: completed\npage_type: goal\ncreated:\n---\n# Goal\n")
 

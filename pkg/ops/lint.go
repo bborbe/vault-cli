@@ -34,7 +34,18 @@ var (
 	dateRegex             = regexp.MustCompile(
 		`(?m)^(planned_date|defer_date|due_date):\s*['"]?([^\s'"]+)?['"]?\s*$`,
 	)
-	createdRegex = regexp.MustCompile(`(?m)^created:\s*['"]?([^\s'"]*)['"]?\s*$`)
+	// createdRegex and completedStatusRegex tolerate a trailing YAML comment and
+	// restrict value-adjacent whitespace to [ \t]. The shared statusRegex above
+	// anchors on \s*$ and therefore misses `status: completed  # done`; these two
+	// are deliberately separate so that fixing this rule's false negative does not
+	// silently change what every other rule reports. \s would also match a newline,
+	// letting a bare `created:` capture the next line's first token as its value.
+	createdRegex = regexp.MustCompile(
+		`(?m)^created:[ \t]*['"]?([^ \t'"]*)['"]?[ \t]*(?:#.*)?$`,
+	)
+	completedStatusRegex = regexp.MustCompile(
+		`(?m)^status:[ \t]*['"]?([a-z_]+)['"]?[ \t]*(?:#.*)?$`,
+	)
 )
 
 // booleanFields is the set of frontmatter keys whose stored shape is expected
@@ -98,6 +109,11 @@ const (
 	IssueTypeQuotedBoolean               IssueType = "QUOTED_BOOLEAN"
 	IssueTypeCompletedGoalMissingCreated IssueType = "COMPLETED_GOAL_MISSING_CREATED"
 )
+
+// PageTypeGoal is the lint page type `vault-cli goal lint` passes. The
+// completed-goal start-date rule runs only for it; every other page type skips
+// the rule rather than guessing that a `completed` status means a goal.
+const PageTypeGoal = "goal"
 
 // PageTypeTask is the lint page type that carries the task-identifier invariants.
 // The two identifier checks (MISSING_TASK_IDENTIFIER, INVALID_TASK_IDENTIFIER) run
@@ -628,18 +644,17 @@ func (l *lintOperation) detectBlockedByScalar(frontmatterYAML string) (bool, str
 // a completion date and no duration, so its cycle time cannot be read at all.
 //
 // The rule is goal-only: tasks carry created_date, and themes and objectives
-// are out of scope. The status is read raw, matching detectStatusPhaseMismatch;
-// completed is the canonical goal status and the legacy goal aliases (active,
-// on_hold) are not completed states. A bare created: with no value counts as
-// missing — the key alone records no date.
+// are out of scope. completed is the canonical goal status and the legacy goal
+// aliases (active, on_hold) are not completed states. A bare created: with no
+// value counts as missing — the key alone records no date.
 func (l *lintOperation) detectCompletedGoalMissingCreated(
 	pageType string,
 	frontmatterYAML string,
 ) (bool, string) {
-	if pageType != "goal" {
+	if pageType != PageTypeGoal {
 		return false, ""
 	}
-	statusMatches := statusRegex.FindStringSubmatch(frontmatterYAML)
+	statusMatches := completedStatusRegex.FindStringSubmatch(frontmatterYAML)
 	if len(statusMatches) < 2 || statusMatches[1] != string(domain.GoalStatusCompleted) {
 		return false, ""
 	}

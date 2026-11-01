@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat: **remove `manager_session_id` from the list read model.** Goals and topics now record the session serving them in `claude_session_id`, the same field a task uses, so `TaskListItem.ManagerSessionID` and the `manager_session_id` key in every `* list --output json` payload are gone. This is a breaking change to that JSON surface: a consumer reading the retired key loses it, and the only one found was vault-ui, which now reads `claude_session_id`. `scripts/session-close-goals.sh` reads `claude_session_id` first and falls back to the retired key, so it keeps working against pages that have not been migrated yet.
+
 ## v0.184.4
 
 - fix: every `lint` subcommand now reports a boolean frontmatter field stored as a quoted string (`flag: "true"`) as `QUOTED_BOOLEAN`, and `--fix` unquotes it in place without re-serialising the block. vault-cli already read both forms as true; a plain-text consumer grepping `^flag: true` did not.

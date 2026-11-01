@@ -2631,14 +2631,14 @@ blocked_by: A
 		})
 	})
 
-	Describe("vault-cli list manager_session_id surface", func() {
-		It("goal list emits manager_session_id for a goal that carries it", func() {
+	Describe("vault-cli list claude_session_id surface", func() {
+		It("goal list emits claude_session_id for a goal that carries it", func() {
 			_, configPath, cleanup := createTempVaultWithGoals(
 				map[string]string{},
 				map[string]string{
 					"managed-goal": `---
 status: next
-manager_session_id: manager-sess-abc123
+claude_session_id: manager-sess-abc123
 ---
 `,
 				},
@@ -2659,10 +2659,10 @@ manager_session_id: manager-sess-abc123
 			Expect(json.Unmarshal(session.Out.Contents(), &items)).To(Succeed())
 			Expect(items).To(HaveLen(1))
 			Expect(items[0]).To(HaveKeyWithValue("name", "managed-goal"))
-			Expect(items[0]).To(HaveKeyWithValue("manager_session_id", "manager-sess-abc123"))
+			Expect(items[0]).To(HaveKeyWithValue("claude_session_id", "manager-sess-abc123"))
 		})
 
-		It("topic list emits manager_session_id for a topic that carries it", func() {
+		It("topic list emits claude_session_id for a topic that carries it", func() {
 			vaultPath, configPath, cleanup := createTempVaultWithTopics("Topics")
 			defer cleanup()
 
@@ -2670,7 +2670,7 @@ manager_session_id: manager-sess-abc123
 			Expect(os.MkdirAll(topicsDirPath, 0755)).To(Succeed())
 			Expect(os.WriteFile(
 				filepath.Join(topicsDirPath, "Managed Topic.md"),
-				[]byte("---\nstatus: in_progress\nmanager_session_id: manager-sess-abc123\n---\n"),
+				[]byte("---\nstatus: in_progress\nclaude_session_id: manager-sess-abc123\n---\n"),
 				0600,
 			)).To(Succeed())
 
@@ -2688,10 +2688,10 @@ manager_session_id: manager-sess-abc123
 			Expect(json.Unmarshal(session.Out.Contents(), &items)).To(Succeed())
 			Expect(items).To(HaveLen(1))
 			Expect(items[0]).To(HaveKeyWithValue("name", "Managed Topic"))
-			Expect(items[0]).To(HaveKeyWithValue("manager_session_id", "manager-sess-abc123"))
+			Expect(items[0]).To(HaveKeyWithValue("claude_session_id", "manager-sess-abc123"))
 		})
 
-		It("omits manager_session_id for a goal that does not carry it", func() {
+		It("omits claude_session_id for a goal that does not carry it", func() {
 			_, configPath, cleanup := createTempVaultWithGoals(
 				map[string]string{},
 				map[string]string{
@@ -2716,7 +2716,37 @@ status: next
 			var items []map[string]any
 			Expect(json.Unmarshal(session.Out.Contents(), &items)).To(Succeed())
 			Expect(items).To(HaveLen(1))
+			Expect(items[0]).NotTo(HaveKey("claude_session_id"))
+		})
+
+		It("does not surface the retired manager_session_id", func() {
+			_, configPath, cleanup := createTempVaultWithGoals(
+				map[string]string{},
+				map[string]string{
+					"retired-goal": `---
+status: next
+manager_session_id: manager-sess-abc123
+---
+`,
+				},
+			)
+			defer cleanup()
+
+			cmd := exec.Command(
+				binPath,
+				"--config", configPath,
+				"--vault", "test",
+				"goal", "list",
+				"--output", "json",
+			)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(0))
+			var items []map[string]any
+			Expect(json.Unmarshal(session.Out.Contents(), &items)).To(Succeed())
+			Expect(items).To(HaveLen(1))
 			Expect(items[0]).NotTo(HaveKey("manager_session_id"))
+			Expect(items[0]).NotTo(HaveKey("claude_session_id"))
 		})
 	})
 

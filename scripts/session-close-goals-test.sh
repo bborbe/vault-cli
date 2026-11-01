@@ -52,7 +52,7 @@ goal() { # file status manager tasks...
   {
     echo "---"
     echo "status: $status"
-    [ -n "$manager" ] && echo "manager_session_id: $manager"
+    [ -n "$manager" ] && echo "claude_session_id: $manager"
     echo "---"
     echo
     echo "# Success Criteria"
@@ -83,7 +83,7 @@ goal "Managed Goal"  in_progress "11111111-1111-1111-1111-111111111111" "Open A"
 # A topic page that lists Abort Goal and carries its own manager id.
 {
   echo "---"
-  echo "manager_session_id: 22222222-2222-2222-2222-222222222222"
+  echo "claude_session_id: 22222222-2222-2222-2222-222222222222"
   echo "---"
   echo
   echo "## Goals"

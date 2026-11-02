@@ -11,11 +11,14 @@ The decision, in order (first failure wins, and every failure prints a named
 line so the refusal is diagnosable):
 
   1. A session id is known (`$CLAUDE_CODE_SESSION_ID`, or `--session`).
-  2. The session owns a WezTerm pane. Proven by a session-registry entry
-     `$SESSIONS_DIR/<pid>.json` whose `sessionId` matches. A headless worker has
-     no entry — it is an in-process SDK query with no pid — and it INHERITS its
+  2. The session owns the WezTerm pane in `$WEZTERM_PANE`. A registry entry is
+     NOT proof: a headless worker is a real `claude --print` process (registry
+     `entrypoint: sdk-cli`) with a pid and an entry, and it INHERITS its
      spawner's `$WEZTERM_PANE`, so killing that pane would close the manager's
-     tab. This is the guard that makes the exit safe.
+     tab. Ownership is proven by the tty: the pane's `tty_name` from
+     `wezterm cli list --format json` must equal the controlling tty of the
+     registry entry's `pid`. A headless worker has no controlling tty, so it
+     never matches. This is the guard that makes the exit safe.
   3. The session's anchor task exists — resolved by `claude_session_id`, or, when
      that id has moved to another session, by the session appearing in the task's
      `metrics_sessions` (a recorded handover).
@@ -47,7 +50,8 @@ this process. `--dry-run` prints the same decision without killing.
 slot nobody is using, it does not open the limit.
 
 Testability: every input is an env var (`SESSION_ID`, `SESSIONS_DIR`,
-`TASKS_ROOTS`, `WEZTERM_PANE`, `ATTENTION_STORE_URL`, `ATTENTION_STATE_DIR`) so
+`TASKS_ROOTS`, `WEZTERM_PANE`, `WEZTERM_PANES_FILE`, `PID_TTY_FILE`,
+`ATTENTION_STORE_URL`, `ATTENTION_STATE_DIR`) so
 `scripts/session-self-exit-test.sh` can drive each branch against fixtures
 without a live fleet.
 """
@@ -88,28 +92,105 @@ def sessions_dir() -> str:
     return os.environ.get("SESSIONS_DIR") or os.path.expanduser("~/.claude/sessions")
 
 
-def owns_pane(sid: str) -> tuple[bool, str]:
-    """True when a registry entry names this session, i.e. it is a tab session."""
+def registry_record(sid: str) -> dict | None:
+    """The session-registry record whose `sessionId` is `sid`, or None."""
     for path in glob.glob(os.path.join(sessions_dir(), "*.json")):
         try:
             with open(path, encoding="utf-8") as fh:
                 record = json.load(fh)
         except (OSError, ValueError):
             continue
-        if record.get("sessionId") == sid:
-            return True, ""
-    return False, (
-        "no session-registry entry for this session — a headless worker has no pane of its own "
-        "and inherits its spawner's $WEZTERM_PANE; killing it would close the manager's tab"
-    )
+        if isinstance(record, dict) and record.get("sessionId") == sid:
+            return record
+    return None
+
+
+def _norm_tty(value: str) -> str:
+    """`ttys002` / `/dev/ttys002` → `/dev/ttys002`; no tty (`??`, `-`, empty) → ``."""
+    value = (value or "").strip()
+    if not value or value in ("??", "?", "-"):
+        return ""
+    return value if value.startswith("/dev/") else "/dev/" + value
+
+
+def pane_tty(pane: str) -> str:
+    """The tty WezTerm reports for `pane`, or `` when it cannot be read.
+
+    Source: `$WEZTERM_PANES_FILE` (a saved `wezterm cli list --format json`) when
+    set, else the live command. Any failure reads as no tty, which refuses.
+    """
+    try:
+        listing_file = os.environ.get("WEZTERM_PANES_FILE")
+        if listing_file:
+            with open(listing_file, encoding="utf-8") as fh:
+                panes = json.load(fh)
+        else:
+            out = subprocess.run(
+                ["wezterm", "cli", "list", "--format", "json"],
+                capture_output=True, text=True, check=True, timeout=10,
+            ).stdout
+            panes = json.loads(out)
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return ""
+    for row in panes if isinstance(panes, list) else []:
+        if isinstance(row, dict) and str(row.get("pane_id")) == pane:
+            return _norm_tty(str(row.get("tty_name") or ""))
+    return ""
+
+
+def pid_tty(pid: int) -> str:
+    """The controlling tty of `pid`, or `` when it has none or cannot be read.
+
+    Source: `$PID_TTY_FILE` (a JSON map of pid → tty) when set, else `ps`.
+    """
+    try:
+        map_file = os.environ.get("PID_TTY_FILE")
+        if map_file:
+            with open(map_file, encoding="utf-8") as fh:
+                return _norm_tty(str(json.load(fh).get(str(pid)) or ""))
+        out = subprocess.run(
+            ["ps", "-o", "tty=", "-p", str(pid)], capture_output=True, text=True, timeout=10
+        ).stdout
+    except (OSError, ValueError, AttributeError, subprocess.SubprocessError):
+        return ""
+    return _norm_tty(out)
+
+
+def owns_pane(sid: str, pane: str) -> tuple[bool, str]:
+    """True only when `pane`'s tty is the controlling tty of this session's process.
+
+    A registry entry alone proves nothing: a headless SDK-CLI worker has a pid and
+    an entry too, and it inherits its spawner's `$WEZTERM_PANE`. Ownership is the
+    tty match — the pane's `tty_name` from `wezterm cli list` against the tty of
+    the registry `pid`. A headless worker has no controlling tty, so it never
+    matches. Every unreadable input refuses.
+    """
+    record = registry_record(sid)
+    if record is None:
+        return False, "no session-registry entry for this session — nothing ties it to a process"
+    pid = record.get("pid")
+    if not isinstance(pid, int) or isinstance(pid, bool) or pid <= 0:
+        return False, f"the registry entry carries no usable pid ({pid!r})"
+    ptty = pane_tty(pane)
+    if not ptty:
+        return False, f"pane {pane} is not owned by this session — wezterm lists no tty for it"
+    own = pid_tty(pid)
+    if not own:
+        return False, (
+            f"pane {pane} is not owned by this session — pid {pid} has no controlling tty "
+            "(a headless worker inherits its spawner's $WEZTERM_PANE; killing it would close that tab)"
+        )
+    if own != ptty:
+        return False, f"pane {pane} is not owned by this session — pane tty {ptty}, pid {pid} tty {own}"
+    return True, f"pane {pane} on {ptty}"
 
 
 def entrypoint_of(sid: str) -> str:
     """The registry entry's `entrypoint`; `sdk-cli` marks a headless SDK query.
 
-    Read separately from `owns_pane` because the two answer different questions.
-    `owns_pane` asks whether a registry entry exists, and an SDK worker has one —
-    so it does not by itself prove a pane. The park branch consults this instead.
+    Read separately from `owns_pane`, which never consults it: pane ownership is
+    the tty match alone. The park branch keeps this as a second, independent
+    refusal for headless workers.
     """
     for path in glob.glob(os.path.join(sessions_dir(), "*.json")):
         try:
@@ -411,10 +492,6 @@ def main() -> int:
     if not sid:
         return refuse("no session id — pass --session or set $CLAUDE_CODE_SESSION_ID")
 
-    owned, why = owns_pane(sid)
-    if not owned:
-        return refuse(why)
-
     pane = (os.environ.get("WEZTERM_PANE") or "").strip()
     if not pane:
         return refuse("$WEZTERM_PANE is unset — this session is not inside a WezTerm pane")
@@ -422,6 +499,10 @@ def main() -> int:
         # The value reaches `wezterm cli kill-pane` as an argument; a non-numeric
         # one could be read as a flag rather than a pane id.
         return refuse(f"$WEZTERM_PANE is not a pane id ({pane!r})")
+
+    owned, why = owns_pane(sid, pane)
+    if not owned:
+        return refuse(why)
 
     found = anchor_task(sid)
     if found is None:

@@ -35,10 +35,15 @@ SESSIONS="$TMP/sessions"
 STATE="$TMP/attention"
 mkdir -p "$TASKS" "$SESSIONS" "$STATE" "$TMP/store/api/1.0"
 
-# A live tab session: the registry entry is what proves it owns a pane.
+# A live tab session: registry pid 4242 runs on ttys777, the tty WezTerm lists
+# for pane 777. The tty match, not the registry entry, proves the pane is owned.
 cat > "$SESSIONS/4242.json" <<EOF
 {"pid": 4242, "sessionId": "$SID", "kind": "interactive"}
 EOF
+PANES="$TMP/panes.json"
+PIDTTY="$TMP/pid-tty.json"
+echo '[{"pane_id": 777, "tty_name": "/dev/ttys777"}, {"pane_id": 300, "tty_name": "/dev/ttys300"}]' > "$PANES"
+echo '{"4242": "ttys777"}' > "$PIDTTY"
 
 task() { # task <status> <phase> <open-box-count>
 	local status=$1 phase=$2 boxes=${3:-0} i
@@ -166,7 +171,7 @@ run() { # run <want-exit> <label> [extra env...]
 	local got=0
 	env -i PATH="$PATH" \
 		SESSION_ID="$SID" SESSIONS_DIR="$SESSIONS" TASKS_ROOTS="$TASKS" \
-		WEZTERM_PANE=777 ATTENTION_STORE_URL="$STORE_URL" ATTENTION_STATE_DIR="$STATE" "$@" \
+		WEZTERM_PANE=777 WEZTERM_PANES_FILE="$PANES" PID_TTY_FILE="$PIDTTY" ATTENTION_STORE_URL="$STORE_URL" ATTENTION_STATE_DIR="$STATE" "$@" \
 		python3 "$SCRIPT" --dry-run > "$TMP/out" 2>&1 || got=$?
 	if [ "$got" -eq "$want" ]; then
 		pass=$((pass + 1))
@@ -182,7 +187,7 @@ run_msg() { # run_msg <want-exit> <label> <expected-substring> [extra env...]
 	local got=0
 	env -i PATH="$PATH" \
 		SESSION_ID="$SID" SESSIONS_DIR="$SESSIONS" TASKS_ROOTS="$TASKS" \
-		WEZTERM_PANE=777 ATTENTION_STORE_URL="$STORE_URL" ATTENTION_STATE_DIR="$STATE" "$@" \
+		WEZTERM_PANE=777 WEZTERM_PANES_FILE="$PANES" PID_TTY_FILE="$PIDTTY" ATTENTION_STORE_URL="$STORE_URL" ATTENTION_STATE_DIR="$STATE" "$@" \
 		python3 "$SCRIPT" --dry-run > "$TMP/out" 2>&1 || got=$?
 	if [ "$got" -eq "$want" ] && grep -qF "$want_msg" "$TMP/out"; then
 		pass=$((pass + 1))
@@ -198,7 +203,7 @@ run_live() { # run_live <want-exit> <label> [extra env...] — exercises the kil
 	local got=0
 	env -i PATH="$TMP/bin:$PATH" \
 		SESSION_ID="$SID" SESSIONS_DIR="$SESSIONS" TASKS_ROOTS="$TASKS" \
-		WEZTERM_PANE=777 ATTENTION_STORE_URL="$STORE_URL" ATTENTION_STATE_DIR="$STATE" "$@" \
+		WEZTERM_PANE=777 WEZTERM_PANES_FILE="$PANES" PID_TTY_FILE="$PIDTTY" ATTENTION_STORE_URL="$STORE_URL" ATTENTION_STATE_DIR="$STATE" "$@" \
 		python3 "$SCRIPT" > "$TMP/out" 2>&1 || got=$?
 	if [ "$got" -eq "$want" ]; then
 		pass=$((pass + 1))
@@ -489,6 +494,37 @@ task completed done 0
 mv "$SESSIONS/4242.json" "$TMP/4242.json.bak"
 run 10 "headless session (no registry entry) refuses"
 mv "$TMP/4242.json.bak" "$SESSIONS/4242.json"
+
+# --- negative path: an inherited pane. A headless worker HAS a registry entry and
+# a pid, but no controlling tty, and its $WEZTERM_PANE is its spawner's. The
+# record says `entrypoint: cli` on purpose: no entrypoint read can refuse it, so
+# only the tty match can.
+task completed done 0
+printf '{"pid": 4242, "sessionId": "%s", "kind": "interactive", "entrypoint": "cli"}\n' "$SID" > "$SESSIONS/4242.json"
+echo '{"4242": "??"}' > "$PIDTTY"
+run_msg 10 "an inherited pane (pid has no tty) refuses" "pane 777 is not owned by this session"
+echo '{"4242": "ttys300"}' > "$PIDTTY"
+run_msg 10 "a pane on another session's tty refuses" "pane 777 is not owned by this session"
+echo '{"4242": "ttys777"}' > "$PIDTTY"
+run_msg 10 "a pane wezterm does not list refuses" "pane 555 is not owned by this session" WEZTERM_PANE=555
+run_msg 10 "an unreadable pane listing refuses" "wezterm lists no tty" WEZTERM_PANES_FILE="$TMP/missing.json"
+run_msg 0 "the owning tab session (tty match) still exits" "pane 777"
+
+# owns_pane() itself, in-process: same fixture, entrypoint `cli`, no tty for the pid.
+echo '{"4242": "??"}' > "$TMP/inherited.json"
+got=$(env -i PATH="$PATH" SESSIONS_DIR="$SESSIONS" WEZTERM_PANES_FILE="$PANES" \
+	PID_TTY_FILE="$TMP/inherited.json" python3 -I -c '
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location("sse", sys.argv[1])
+m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+print(m.owns_pane(sys.argv[2], "777")[0])' "$ROOT/$SCRIPT" "$SID" 2>&1)
+if [ "$got" = "False" ]; then
+	pass=$((pass + 1))
+else
+	fail=$((fail + 1))
+	echo "❌ owns_pane() on an inherited pane with entrypoint cli: want False, got $got" >&2
+fi
+printf '{"pid": 4242, "sessionId": "%s", "kind": "interactive"}\n' "$SID" > "$SESSIONS/4242.json"
 
 # --- negative path: no anchor task
 rm -f "$TASKS/Anchor.md"

@@ -395,6 +395,22 @@ mint_raw 'null'
 cards "[{\"item_id\":\"store1\",\"dedup_key\":\"store1\",\"producer_id\":\"$SID\",\"state\":\"open\"}]"
 run 10 "a log with no usable record still refuses"
 
+# The store is the other unguarded input: an object or array `dedup_key` is
+# unhashable, and an uncaught TypeError would be a traceback, not a refusal.
+mint_reset
+real_closer realcloser SessionEnd
+cards "[{\"item_id\":\"store1\",\"dedup_key\":{\"a\":1},\"producer_id\":\"$SID\",\"state\":\"open\"}]"
+run 10 "an unhashable dedup_key refuses by name, not with a traceback"
+
+cards "[{\"item_id\":\"store1\",\"dedup_key\":[\"a\"],\"producer_id\":\"$SID\",\"state\":\"open\"}]"
+run 10 "an array dedup_key refuses by name, not with a traceback"
+
+# The production default path, never otherwise exercised: with ATTENTION_STATE_DIR
+# empty and a HOME carrying no attention state, the gate must still fail closed.
+cards "[{\"item_id\":\"store1\",\"dedup_key\":\"realcloser\",\"producer_id\":\"$SID\",\"state\":\"open\"}]"
+mkdir -p "$TMP/home"
+run 10 "the default state dir with no mint log refuses" ATTENTION_STATE_DIR= HOME="$TMP/home"
+
 mint_reset
 cards '[]'
 

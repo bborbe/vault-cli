@@ -353,7 +353,11 @@ def gate_state(sid: str) -> tuple[bool, str]:
     for item in mine:
         # An unreadable log leaves every item's provenance unproven, so the
         # closer branch simply never fires and the gate refuses as it always did.
-        rec = events.get(item.get("dedup_key") or "") if events is not None else None
+        # `str(...)`: the store is the other unguarded input of this same class.
+        # A `dedup_key` that parses as an object or array is unhashable, and a
+        # `.get` on it raises TypeError — a traceback where the contract promises
+        # a named refusal.
+        rec = events.get(str(item.get("dedup_key") or "")) if events is not None else None
         if is_closer_report(rec):
             closers += 1
             continue

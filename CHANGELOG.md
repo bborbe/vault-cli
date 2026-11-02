@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.186.0
 
 - feat: **remove `manager_session_id` from the list read model.** Goals and topics now record the session serving them in `claude_session_id`, the same field a task uses, so `TaskListItem.ManagerSessionID` and the `manager_session_id` key in every `* list --output json` payload are gone. **Breaking change, on two surfaces:** the exported `TaskListItem.ManagerSessionID` Go field is gone, so any external consumer of `pkg/ops` fails to compile rather than silently reading zero; and the `manager_session_id` key disappears from every `* list --output json` payload. The only consumer found in a sweep of the three repos and both vaults was vault-ui, which now reads `claude_session_id`. `scripts/session-close-goals.sh` reads `claude_session_id` first and falls back to the retired key, so it keeps working against pages that have not been migrated yet.
   Observed on this machine, `--vault private-personal`, the goal `GitHub Rate Limits Never Stall the Agent Fleet` whose page carries only the retired key — the session fields of its `goal list --output json` row, before and after this change:

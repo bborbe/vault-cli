@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: `session-self-exit.py` no longer refuses on the closer card a session mints at its own turn end. The `Stop` hook opens that card as a `question` whose `cleared_by` is `{"event": "SessionEnd"}`, so only the session's own end clears it — and the exit gate is what stood between the session and that end, making the refusal a deadlock by construction. Every finished worker that reached the gate with a `👤 You:` panel behind it parked until a human closed its tab. The store cannot separate the two (the watcher forwards neither `event` nor `cleared_by`, so a closer and a real `AskUserQuestion` both arrive as `pick` / `hook` / `message`); the gate now joins the store's `dedup_key` to the hook's own `<sid>.events.jsonl` and skips only a record minted by `Stop`. Every other open card still refuses, and an unreadable mint log still refuses — fail-closed, as before.
+
 ## v0.185.1
 
 - fix: `session-self-exit.py` accepts the park shape — an anchored task at `status: in_progress` with a `defer_date` that parses to a future instant now exits instead of being refused as non-terminal, and `session-close` lets that same anchor reach a clean verdict so the exit path is reached at all. A past, date-only, offset-less or unparseable `defer_date` still refuses: a stale row must not free its slot. A headless SDK query refuses the park branch as well — it has no pane of its own and inherits its spawner's `$WEZTERM_PANE`, so exiting would close the spawner's tab; its process ends with its turn and needs no exit step.

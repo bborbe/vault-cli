@@ -32,7 +32,8 @@ trap 'kill "${SERVER_PID:-}" 2>/dev/null; wait "${SERVER_PID:-}" 2>/dev/null; rm
 
 TASKS="$TMP/tasks"
 SESSIONS="$TMP/sessions"
-mkdir -p "$TASKS" "$SESSIONS" "$TMP/store/api/1.0"
+STATE="$TMP/attention"
+mkdir -p "$TASKS" "$SESSIONS" "$STATE" "$TMP/store/api/1.0"
 
 # A live tab session: the registry entry is what proves it owns a pane.
 cat > "$SESSIONS/4242.json" <<EOF
@@ -112,6 +113,17 @@ cards() { # cards <json>
 	printf '%s' "$1" > "$TMP/store/api/1.0/attention"
 }
 
+# The hook's per-session mint log, which carries the provenance the store drops.
+# `mint <item-id> <kind> <event>` writes one `open` line for it.
+mint() {
+	printf '{"type":"open","item_id":"%s","kind":"%s","event":"%s"}\n' "$1" "$2" "$3" \
+		>> "$STATE/$SID.events.jsonl"
+}
+
+mint_reset() {
+	rm -f "$STATE/$SID.events.jsonl"
+}
+
 # Park instants are computed, never hardcoded: a literal date is in the future
 # when it is written and in the past a month later, which turns the positive
 # case red on a calendar boundary with no code change.
@@ -134,7 +146,7 @@ run() { # run <want-exit> <label> [extra env...]
 	local got=0
 	env -i PATH="$PATH" \
 		SESSION_ID="$SID" SESSIONS_DIR="$SESSIONS" TASKS_ROOTS="$TASKS" \
-		WEZTERM_PANE=777 ATTENTION_STORE_URL="$STORE_URL" "$@" \
+		WEZTERM_PANE=777 ATTENTION_STORE_URL="$STORE_URL" ATTENTION_STATE_DIR="$STATE" "$@" \
 		python3 "$SCRIPT" --dry-run > "$TMP/out" 2>&1 || got=$?
 	if [ "$got" -eq "$want" ]; then
 		pass=$((pass + 1))
@@ -150,7 +162,7 @@ run_msg() { # run_msg <want-exit> <label> <expected-substring> [extra env...]
 	local got=0
 	env -i PATH="$PATH" \
 		SESSION_ID="$SID" SESSIONS_DIR="$SESSIONS" TASKS_ROOTS="$TASKS" \
-		WEZTERM_PANE=777 ATTENTION_STORE_URL="$STORE_URL" "$@" \
+		WEZTERM_PANE=777 ATTENTION_STORE_URL="$STORE_URL" ATTENTION_STATE_DIR="$STATE" "$@" \
 		python3 "$SCRIPT" --dry-run > "$TMP/out" 2>&1 || got=$?
 	if [ "$got" -eq "$want" ] && grep -qF "$want_msg" "$TMP/out"; then
 		pass=$((pass + 1))
@@ -166,7 +178,7 @@ run_live() { # run_live <want-exit> <label> [extra env...] — exercises the kil
 	local got=0
 	env -i PATH="$TMP/bin:$PATH" \
 		SESSION_ID="$SID" SESSIONS_DIR="$SESSIONS" TASKS_ROOTS="$TASKS" \
-		WEZTERM_PANE=777 ATTENTION_STORE_URL="$STORE_URL" "$@" \
+		WEZTERM_PANE=777 ATTENTION_STORE_URL="$STORE_URL" ATTENTION_STATE_DIR="$STATE" "$@" \
 		python3 "$SCRIPT" > "$TMP/out" 2>&1 || got=$?
 	if [ "$got" -eq "$want" ]; then
 		pass=$((pass + 1))
@@ -292,6 +304,36 @@ run 10 "open attention card for this session refuses"
 
 cards "[{\"item_id\":\"abc\",\"producer_id\":\"someone-else\",\"state\":\"open\"}]"
 run 0 "another session's card does not block"
+
+# --- the closer-report carve-out
+#
+# A `Stop` closer is minted as a `question` with `cleared_by: {"event": "SessionEnd"}`,
+# so only the session's own end clears it — refusing on it is a deadlock. The store
+# cannot tell it from an ask (the watcher forwards neither `event` nor `cleared_by`),
+# so the gate joins on `dedup_key` → the hook's own log.
+task completed done 0
+
+mint_reset
+mint hookcloser question Stop
+cards "[{\"item_id\":\"store1\",\"dedup_key\":\"hookcloser\",\"producer_id\":\"$SID\",\"state\":\"open\"}]"
+run_msg 0 "a Stop closer report does not block the exit" "1 closer report(s) ignored"
+
+mint hookask question PreToolUse
+cards "[{\"item_id\":\"store1\",\"dedup_key\":\"hookcloser\",\"producer_id\":\"$SID\",\"state\":\"open\"},
+       {\"item_id\":\"store2\",\"dedup_key\":\"hookask\",\"producer_id\":\"$SID\",\"state\":\"open\"}]"
+run 10 "a real AskUserQuestion card still refuses alongside a closer"
+
+mint_reset
+cards "[{\"item_id\":\"store1\",\"dedup_key\":\"hookcloser\",\"producer_id\":\"$SID\",\"state\":\"open\"}]"
+run 10 "an unreadable mint log refuses (fail-closed)"
+
+# A closer line must not excuse an item the log does not know about.
+mint hookcloser question Stop
+cards "[{\"item_id\":\"store1\",\"dedup_key\":\"unknown-id\",\"producer_id\":\"$SID\",\"state\":\"open\"}]"
+run 10 "an item with no mint record refuses"
+
+mint_reset
+cards '[]'
 
 # --- negative path: the pane id is not a number
 task completed done 0

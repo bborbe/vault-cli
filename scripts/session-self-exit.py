@@ -30,7 +30,11 @@ line so the refusal is diagnosable):
      a stale row must not free its slot, and the time-of-day reading of a
      date-only value belongs to its own task.
   5. The attention store holds no open card for this session. An unreachable
-     store refuses: a failed read is not evidence that no gate is open.
+     store refuses: a failed read is not evidence that no gate is open. A card
+     the session minted at its own `Stop` is not a card: it is the turn-end
+     closer report, and its `cleared_by` is `SessionEnd` — the very event this
+     gate is delaying. Refusing on it is a deadlock by construction, so it is
+     skipped. Every other open card still refuses.
 
 Only then does it run `wezterm cli kill-pane --pane-id <own pane>`, which ends
 this process. `--dry-run` prints the same decision without killing.
@@ -43,8 +47,9 @@ this process. `--dry-run` prints the same decision without killing.
 slot nobody is using, it does not open the limit.
 
 Testability: every input is an env var (`SESSION_ID`, `SESSIONS_DIR`,
-`TASKS_ROOTS`, `WEZTERM_PANE`, `ATTENTION_STORE_URL`) so `scripts/session-self-exit-test.sh`
-can drive each branch against fixtures without a live fleet.
+`TASKS_ROOTS`, `WEZTERM_PANE`, `ATTENTION_STORE_URL`, `ATTENTION_STATE_DIR`) so
+`scripts/session-self-exit-test.sh` can drive each branch against fixtures
+without a live fleet.
 """
 
 from __future__ import annotations
@@ -268,6 +273,54 @@ def store_url() -> str:
     return (os.environ.get("ATTENTION_STORE_URL") or "http://localhost:18080").rstrip("/")
 
 
+def state_dir() -> str:
+    return os.environ.get("ATTENTION_STATE_DIR") or os.path.expanduser("~/.claude/state/attention")
+
+
+def mint_events(sid: str) -> dict[str, dict] | None:
+    """`item_id` → the hook's own record for that item, or None when the log is unreadable.
+
+    The store cannot say which event minted an item: `attention-watcher.py` forwards
+    neither `event` nor `cleared_by`, so a `Stop` closer report and a blocking
+    `AskUserQuestion` reach it byte-identically (`interrupt_class: pick`,
+    `provenance_class: hook`, `answer_mechanism: message`). The hook's per-session
+    log is where that provenance still lives, joined on the store's `dedup_key` —
+    which the watcher sets to the hook's own `item_id` (`attention-watcher.py`
+    `"dedup_key": dedup_key or item["item_id"]`).
+
+    Returns None rather than `{}` when the log cannot be read, because the caller
+    must not read an absent log as "nothing was a closer".
+    """
+    path = os.path.join(state_dir(), f"{sid}.events.jsonl")
+    records: dict[str, dict] = {}
+    try:
+        with open(path, encoding="utf-8") as fh:
+            for line in fh:
+                try:
+                    rec = json.loads(line)
+                except ValueError:
+                    continue
+                if rec.get("type") == "open" and rec.get("item_id"):
+                    records[rec["item_id"]] = rec
+    except OSError:
+        return None
+    return records
+
+
+def is_closer_report(rec: dict | None) -> bool:
+    """True when this record is the session's own turn-end closer, not an ask.
+
+    Only the `Stop` hook mints a closer, and it mints it as a `question` carrying
+    `cleared_by: {"event": "SessionEnd"}`. That card is a report of what the
+    session would do next; nothing is waiting on it, and only the session's own
+    end clears it — so a gate that refuses on it can never be satisfied by the
+    session it gates.
+    """
+    if not rec:
+        return False
+    return rec.get("kind") == "question" and rec.get("event") == "Stop"
+
+
 def gate_state(sid: str) -> tuple[bool, str]:
     """True when the gate is provably clear. An unreadable store is NOT clear."""
     url = f"{store_url()}/api/1.0/attention"
@@ -278,10 +331,20 @@ def gate_state(sid: str) -> tuple[bool, str]:
         return False, f"attention store unreadable ({exc}) — a failed read is not a clear gate"
     if not isinstance(items, list):
         return False, "attention store returned an unexpected shape — not evidence of a clear gate"
-    for item in items:
-        if item.get("producer_id") == sid and item.get("state") == "open":
-            return False, f"open attention card {item.get('item_id')}"
-    return True, ""
+    mine = [i for i in items if i.get("producer_id") == sid and i.get("state") == "open"]
+    if not mine:
+        return True, "no open card"
+    events = mint_events(sid)
+    closers = 0
+    for item in mine:
+        # An unreadable log leaves every item's provenance unproven, so the
+        # closer branch simply never fires and the gate refuses as it always did.
+        rec = events.get(item.get("dedup_key") or "") if events is not None else None
+        if is_closer_report(rec):
+            closers += 1
+            continue
+        return False, f"open attention card {item.get('item_id')}"
+    return True, f"no open card ({closers} closer report(s) ignored)"
 
 
 def main() -> int:
@@ -321,11 +384,11 @@ def main() -> int:
             return refuse(f"{os.path.basename(path)}: {verdict}")
         reason = f"{os.path.basename(path)} is {verdict}"
 
-    clear, why = gate_state(sid)
+    clear, note = gate_state(sid)
     if not clear:
-        return refuse(why)
+        return refuse(note)
 
-    print(f"SELF-EXIT: exit — {reason}, no open card, pane {pane}")
+    print(f"SELF-EXIT: exit — {reason}, {note}, pane {pane}")
     if args.dry_run:
         return EXIT_TAKEN
 

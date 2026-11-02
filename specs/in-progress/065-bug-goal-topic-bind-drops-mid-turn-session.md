@@ -1,8 +1,9 @@
 ---
-status: prompted
+status: verifying
 approved: "2026-11-02T21:56:12Z"
 generating: "2026-11-02T22:08:40Z"
 prompted: "2026-11-02T22:08:40Z"
+verifying: "2026-11-02T22:21:50Z"
 branch: dark-factory/bug-goal-topic-bind-drops-mid-turn-session
 ---
 

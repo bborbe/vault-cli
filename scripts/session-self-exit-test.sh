@@ -92,9 +92,32 @@ other_owner_task() { # other_owner_task <owner-sid> — no handoff record for $S
 	} > "$TASKS/Anchor.md"
 }
 
+deferred_task() { # deferred_task <status> <phase> <defer-date> — the park shape
+	local status=$1 phase=$2 defer=$3
+	{
+		echo "---"
+		echo "status: $status"
+		echo "phase: $phase"
+		echo "claude_session_id: $SID"
+		echo "defer_date: \"$defer\""
+		echo "---"
+		echo ""
+		echo "# Tasks"
+		echo ""
+		echo "- [ ] open"
+	} > "$TASKS/Anchor.md"
+}
+
 cards() { # cards <json>
 	printf '%s' "$1" > "$TMP/store/api/1.0/attention"
 }
+
+# Park instants are computed, never hardcoded: a literal date is in the future
+# when it is written and in the past a month later, which turns the positive
+# case red on a calendar boundary with no code change.
+FUTURE=$(python3 -c 'from datetime import datetime, timedelta, timezone; print((datetime.now(timezone.utc) + timedelta(hours=1)).isoformat())')
+PAST=$(python3 -c 'from datetime import datetime, timedelta, timezone; print((datetime.now(timezone.utc) - timedelta(hours=1)).isoformat())')
+TOMORROW=$(python3 -c 'from datetime import date, timedelta; print(date.today() + timedelta(days=1))')
 
 pass=0
 fail=0
@@ -221,6 +244,29 @@ run 10 "hold is parked, not finished"
 
 task in_progress execution 1
 run 10 "in_progress refuses"
+
+# --- positive path: the park shape — in_progress with a future defer_date
+deferred_task in_progress execution "$FUTURE"
+run_msg 0 "in_progress with a future defer_date exits" "SELF-EXIT: exit — Anchor.md is parked until $FUTURE"
+
+# --- negative paths: a defer_date that is not a future instant
+deferred_task in_progress execution "$PAST"
+run_msg 10 "in_progress with an elapsed defer_date refuses" "has already elapsed"
+
+deferred_task in_progress execution "$TOMORROW"
+run_msg 10 "in_progress with a date-only defer_date refuses" "is not a future instant"
+
+deferred_task in_progress execution "not-a-date"
+run_msg 10 "in_progress with an unparseable defer_date refuses" "is not a future instant"
+
+deferred_task in_progress execution "2026-11-02T02:30:00"
+run_msg 10 "in_progress with an offset-less defer_date refuses" "is not a future instant"
+
+# --- a deferred task still cannot exit through an open gate
+deferred_task in_progress execution "$FUTURE"
+cards "[{\"item_id\":\"abc\",\"producer_id\":\"$SID\",\"state\":\"open\"}]"
+run 10 "a parked task with an open attention card refuses"
+cards '[]'
 
 # --- negative path: an open gate
 task completed done 0

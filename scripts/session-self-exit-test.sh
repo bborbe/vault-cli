@@ -405,6 +405,21 @@ run 10 "an unhashable dedup_key refuses by name, not with a traceback"
 cards "[{\"item_id\":\"store1\",\"dedup_key\":[\"a\"],\"producer_id\":\"$SID\",\"state\":\"open\"}]"
 run 10 "an array dedup_key refuses by name, not with a traceback"
 
+# The same class on the log side: a non-scalar `item_id` is unhashable as a dict key.
+mint_reset
+mint_raw '{"type":"open","item_id":["x"]}'
+mint_raw '{"type":"open","item_id":{"a":1}}'
+real_closer realcloser SessionEnd
+cards "[{\"item_id\":\"store1\",\"dedup_key\":\"realcloser\",\"producer_id\":\"$SID\",\"state\":\"open\"}]"
+run_msg 0 "an unhashable log item_id is skipped, not fatal" "1 closer report(s) ignored"
+
+# And on the store side: `null` is legal JSON with no `.get`.
+mint_reset
+real_closer realcloser SessionEnd
+cards "[null,
+       {\"item_id\":\"store1\",\"dedup_key\":\"realcloser\",\"producer_id\":\"$SID\",\"state\":\"open\"}]"
+run_msg 0 "a null store element is skipped, not fatal" "1 closer report(s) ignored"
+
 # The production default path, never otherwise exercised: with ATTENTION_STATE_DIR
 # empty and a HOME carrying no attention state, the gate must still fail closed.
 cards "[{\"item_id\":\"store1\",\"dedup_key\":\"realcloser\",\"producer_id\":\"$SID\",\"state\":\"open\"}]"

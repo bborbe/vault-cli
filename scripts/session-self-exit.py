@@ -305,12 +305,18 @@ def mint_events(sid: str) -> dict[str, dict] | None:
                     rec = json.loads(line)
                 except ValueError:
                     continue
-                # Valid JSON is not necessarily an object: `null`, `123` and
-                # `[1,2]` all parse, and `rec.get` on them is an AttributeError.
+                # Every value here is parsed JSON, so nothing about its shape is
+                # guaranteed. `null`, `123` and `[1,2]` parse and then raise
+                # AttributeError on `.get`; an `item_id` that parses as an object
+                # or array is unhashable and raises TypeError as a dict key. Both
+                # are tracebacks where the contract promises a named refusal.
                 if not isinstance(rec, dict):
                     continue
-                if rec.get("type") == "open" and rec.get("item_id"):
-                    records[rec["item_id"]] = rec
+                item_id = rec.get("item_id")
+                if not isinstance(item_id, str) or not item_id:
+                    continue
+                if rec.get("type") == "open":
+                    records[item_id] = rec
     except OSError:
         return None
     return records
@@ -345,7 +351,13 @@ def gate_state(sid: str) -> tuple[bool, str]:
         return False, f"attention store unreadable ({exc}) — a failed read is not a clear gate"
     if not isinstance(items, list):
         return False, "attention store returned an unexpected shape — not evidence of a clear gate"
-    mine = [i for i in items if i.get("producer_id") == sid and i.get("state") == "open"]
+    # `isinstance(i, dict)` for the same reason as in `mint_events`: the store
+    # returns parsed JSON, and a `null` element is a legal JSON value that has no
+    # `.get`.
+    mine = [
+        i for i in items
+        if isinstance(i, dict) and i.get("producer_id") == sid and i.get("state") == "open"
+    ]
     if not mine:
         return True, "no open card"
     events = mint_events(sid)

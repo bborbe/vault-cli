@@ -361,7 +361,7 @@ Then run `/vault-cli:session-close` yourself — no approval line, no pick menu.
 
 Why this closer is the only correct one here:
 
-- **The session closes itself.** `/vault-cli:session-close` is not an operator gate: at a task boundary the close belongs to the session, which runs it with no approval line and no pick menu. An approval line here minted an attention card for a step the session was already allowed to take — and `session-self-exit.py` refuses while a card is open for the session, so the card held a finished session's pane open until a human answered.
+- **The session closes itself.** `/vault-cli:session-close` is not an operator gate: at a task boundary the close belongs to the session, which runs it with no approval line and no pick menu. An approval line here minted an attention card for a step the session was already allowed to take — and `session-self-exit.py` refuses while an open **ask** is left for the session, so the card held a finished session's pane open until a human answered. (A card the session mints at its own `Stop` — a turn-end report, not an ask — is ignored as of 2026-11-02, so that class no longer blocks an exit.)
 - **One task per session.** Completing a task = THIS session is done. Queued items on today's daily note are NOT "queued in this session" — they are picked up by the orchestrator in fresh Claude sessions, never by appending more tasks to the current one.
 - **Never recommend `/vault-cli:next-task` here.** That command exists for the orchestrator (or the user opening a new session); it is not a follow-up to `/vault-cli:sync-progress`.
 - **Never recommend a specific next task by name.** Same reason — the next session's anchor selection belongs to the orchestrator, not to this command.

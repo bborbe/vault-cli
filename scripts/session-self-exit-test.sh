@@ -440,6 +440,13 @@ mint stopidle idle Stop
 cards "[{\"item_id\":\"store1\",\"dedup_key\":\"stopidle\",\"producer_id\":\"$SID\",\"state\":\"open\"}]"
 run 10 "a non-question Stop record refuses"
 
+# A numeric dedup_key must not be coerced into matching a string item_id: `123`
+# and `"123"` are different values, and only the latter can be a hook id.
+mint_reset
+mint 123 question Stop
+cards "[{\"item_id\":\"store1\",\"dedup_key\":123,\"producer_id\":\"$SID\",\"state\":\"open\"}]"
+run 10 "a numeric dedup_key does not coerce into a match"
+
 # An absent or empty dedup_key cannot join, so it must refuse.
 mint_reset
 real_closer realcloser SessionEnd

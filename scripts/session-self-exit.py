@@ -274,6 +274,16 @@ def store_url() -> str:
 
 
 def state_dir() -> str:
+    """The directory the attention hook writes its per-session logs to.
+
+    Deliberately byte-identical to `attention-log.py`'s own line — `ATTENTION_STATE_DIR`,
+    else `~/.claude/state/attention` — and deliberately NOT derived from
+    `CLAUDE_CONFIG_DIR`, which this repo's other path helpers do honour. Mirroring
+    the producer is the whole requirement: if the hook does not follow
+    `CLAUDE_CONFIG_DIR`, following it here would point the join at a directory the
+    hook never writes, and the carve-out would silently stop firing. If the hook
+    ever moves, both move together.
+    """
     return os.environ.get("ATTENTION_STATE_DIR") or os.path.expanduser("~/.claude/state/attention")
 
 
@@ -291,8 +301,13 @@ def mint_events(sid: str) -> dict[str, bool] | None:
     Returns None rather than `{}` when the log cannot be read, because the caller
     must not read an absent log as "nothing was a closer".
     """
+    # The sid reaches a filesystem path; a charset guard keeps a `../` or an
+    # absolute value from resolving outside the state directory. Not a trust
+    # boundary — the caller is the session being gated — but free.
+    if not re.fullmatch(r"[A-Za-z0-9-]+", sid):
+        return None
     path = os.path.join(state_dir(), f"{sid}.events.jsonl")
-    records: dict[str, dict] = {}
+    records: dict[str, bool] = {}
     # `errors="replace"` rather than a `UnicodeDecodeError` catch: a hook killed
     # mid-write leaves a truncated multi-byte sequence, and the decode happens
     # during iteration — outside the per-line guard. Replacing makes that line
@@ -372,11 +387,13 @@ def gate_state(sid: str) -> tuple[bool, str]:
     for item in mine:
         # An unreadable log leaves every item's provenance unproven, so the
         # closer branch simply never fires and the gate refuses as it always did.
-        # `str(...)`: the store is the other unguarded input of this same class.
-        # A `dedup_key` that parses as an object or array is unhashable, and a
-        # `.get` on it raises TypeError — a traceback where the contract promises
-        # a named refusal.
-        is_closer = events.get(str(item.get("dedup_key") or "")) if events is not None else None
+        # The store is the other unguarded input. `isinstance` rather than `str()`:
+        # a non-string key cannot be a hook `item_id` at all, so treating it as one
+        # is a coercion that could in principle be crafted to match. A non-string
+        # (or an unhashable object/array, which `str()` would have to survive) now
+        # simply fails to join, and the gate refuses by name.
+        key = item.get("dedup_key")
+        is_closer = events.get(key) if events is not None and isinstance(key, str) else None
         if is_closer is True:
             closers += 1
             continue

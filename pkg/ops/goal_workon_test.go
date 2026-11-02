@@ -48,6 +48,7 @@ var _ = Describe("GoalWorkOnOperation", func() {
 		mockResumer = &mocks.ClaudeResumer{}
 		goalWorkOnOp = ops.NewGoalWorkOnOperation(
 			mockGoalStorage,
+			libtime.NewCurrentDateTime(),
 			func() string { return pinnedSessionID },
 			mockStarter,
 			mockResumer,
@@ -226,6 +227,7 @@ var _ = Describe("GoalWorkOnOperation", func() {
 		BeforeEach(func() {
 			goalWorkOnOp = ops.NewGoalWorkOnOperation(
 				mockGoalStorage,
+				libtime.NewCurrentDateTime(),
 				func() string { return pinnedSessionID },
 				nil,
 				nil,
@@ -393,6 +395,7 @@ var _ = Describe("GoalWorkOnOperation", func() {
 			)
 			goalWorkOnOp = ops.NewGoalWorkOnOperation(
 				mockGoalStorage,
+				libtime.NewCurrentDateTime(),
 				func() string { return pinnedSessionID },
 				realStarter,
 				mockResumer,
@@ -445,6 +448,7 @@ var _ = Describe("GoalWorkOnOperation", func() {
 			)
 			goalWorkOnOp = ops.NewGoalWorkOnOperation(
 				mockGoalStorage,
+				libtime.NewCurrentDateTime(),
 				func() string { return pinnedSessionID },
 				realStarter,
 				mockResumer,
@@ -524,6 +528,7 @@ body
 
 			goalWorkOnOp = ops.NewGoalWorkOnOperation(
 				realGoalStore,
+				libtime.NewCurrentDateTime(),
 				func() string { return pinnedSessionID },
 				realStarter,
 				nil,
@@ -615,6 +620,7 @@ body
 
 			goalWorkOnOp = ops.NewGoalWorkOnOperation(
 				realGoalStore,
+				libtime.NewCurrentDateTime(),
 				func() string { return pinnedSessionID },
 				realStarter,
 				nil,
@@ -697,6 +703,7 @@ body
 
 			goalWorkOnOp = ops.NewGoalWorkOnOperation(
 				realGoalStore,
+				libtime.NewCurrentDateTime(),
 				func() string { return pinnedSessionID },
 				realStarter,
 				nil,
@@ -760,6 +767,7 @@ body
 			)
 			goalWorkOnOp = ops.NewGoalWorkOnOperation(
 				mockGoalStorage,
+				libtime.NewCurrentDateTime(),
 				func() string { return pinnedSessionID },
 				realStarter,
 				mockResumer,

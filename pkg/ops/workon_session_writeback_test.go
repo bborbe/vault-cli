@@ -244,7 +244,7 @@ body
 				Name:              "test-vault",
 				WorkOnGoalCommand: "/vault-cli:work-on-goal",
 			}
-			goalWorkOnOp := ops.NewGoalWorkOnOperation(goalStore, func() string { return pinnedSessionID }, starter, nil)
+			goalWorkOnOp := ops.NewGoalWorkOnOperation(goalStore, libtime.NewCurrentDateTime(), func() string { return pinnedSessionID }, starter, nil)
 
 			result, err := goalWorkOnOp.Execute(
 				ctx, vaultPath, "Repro Goal", "user@example.com", "test-vault",

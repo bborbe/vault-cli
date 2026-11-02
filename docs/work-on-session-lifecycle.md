@@ -40,8 +40,20 @@ and attaching whichever transcript was most recently modified. A spawn failure
 triggers a re-read-based compensating clear that removes the id and that run's
 metrics entry (see `## Failure path`).
 
-The **goal path** (`pkg/ops/goal_workon.go`) keeps its post-exit ordering unchanged:
-`persistGoalSessionID` runs only after `StartSession` returns cleanly.
+The **goal and topic paths** (`pkg/ops/goal_workon.go`, `pkg/ops/topic_workon.go`) keep
+their post-exit ordering unchanged: `persistGoalSessionID` / `persistTopicSessionID` run
+only after `StartSession` returns cleanly. Because the turn can last up to the turn
+timeout, another session can claim the page inside that window — a concurrent
+`work-on`, an interactive `/vault-cli:work-on-goal`, or the headless child's own
+session-connect. The persist therefore re-reads the page and stamps `claude_session_id`
+only when it is still empty. When it holds a different non-empty id, that claimant keeps
+the stamp and the goal or topic persist records the binding session in `metrics_sessions`
+(`session_id` plus `started_at`, the turn start captured before `StartSession`) in the
+same single write. When it already holds the binding id, nothing is appended. The append
+rule deliberately differs from the task path: an uncontended goal or topic bind adds no
+`metrics_sessions` entry. `work-on` still returns the binding session's id in every case,
+and on the TTY branch that is the id it resumes. Two binds racing on the persist are
+last-write-wins in the re-read→write gap, the same accepted race as on tasks.
 
 On the task path the pre-spawn re-read before writing is load-bearing: the task file
 is a shared, concurrently-written vault file (the headless turn mutates it too), so

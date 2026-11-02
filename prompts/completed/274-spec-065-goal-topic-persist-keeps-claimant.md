@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [065-bug-goal-topic-bind-drops-mid-turn-session]
+summary: Goal and topic work-on persists now stamp claude_session_id only when empty and record a displaced binder in metrics_sessions at turn start, with clock injection, regression tests, docs, and changelog
+execution_id: vault-cli-goal-topic-rebind-exec-274-spec-065-goal-topic-persist-keeps-claimant
+dark-factory-version: v0.198.7
 created: "2026-11-02T21:58:52Z"
 queued: "2026-11-02T22:08:40Z"
+started: "2026-11-02T22:15:40Z"
+completed: "2026-11-02T22:21:50Z"
 ---
 
 # Goal and topic work-on keep a mid-turn claimant and record the binding session

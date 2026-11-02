@@ -8,6 +8,7 @@ import (
 	"context"
 
 	"github.com/bborbe/errors"
+	libtime "github.com/bborbe/time"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -41,6 +42,7 @@ var _ = Describe("TopicWorkOnOperation", func() {
 		mockResumer = &mocks.ClaudeResumer{}
 		topicWorkOnOp = ops.NewTopicWorkOnOperation(
 			mockTopicStorage,
+			libtime.NewCurrentDateTime(),
 			func() string { return pinnedSessionID },
 			mockStarter,
 			mockResumer,
@@ -208,6 +210,7 @@ var _ = Describe("TopicWorkOnOperation", func() {
 		BeforeEach(func() {
 			topicWorkOnOp = ops.NewTopicWorkOnOperation(
 				mockTopicStorage,
+				libtime.NewCurrentDateTime(),
 				func() string { return pinnedSessionID },
 				nil,
 				nil,

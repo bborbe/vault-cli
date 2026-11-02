@@ -420,6 +420,42 @@ cards "[null,
        {\"item_id\":\"store1\",\"dedup_key\":\"realcloser\",\"producer_id\":\"$SID\",\"state\":\"open\"}]"
 run_msg 0 "a null store element is skipped, not fatal" "1 closer report(s) ignored"
 
+# Duplicate item_id: an id is a closer only if every record under it is one, so
+# a later Stop mint sharing an id with a real ask cannot skip a live card.
+mint_reset
+mint dupe question PreToolUse
+mint dupe question Stop
+cards "[{\"item_id\":\"store1\",\"dedup_key\":\"dupe\",\"producer_id\":\"$SID\",\"state\":\"open\"}]"
+run 10 "an ask then a closer on one item_id still refuses"
+
+mint_reset
+mint dupe question Stop
+mint dupe question PreToolUse
+cards "[{\"item_id\":\"store1\",\"dedup_key\":\"dupe\",\"producer_id\":\"$SID\",\"state\":\"open\"}]"
+run 10 "a closer then an ask on one item_id still refuses"
+
+# A Stop record that is not a question is not a closer.
+mint_reset
+mint stopidle idle Stop
+cards "[{\"item_id\":\"store1\",\"dedup_key\":\"stopidle\",\"producer_id\":\"$SID\",\"state\":\"open\"}]"
+run 10 "a non-question Stop record refuses"
+
+# An absent or empty dedup_key cannot join, so it must refuse.
+mint_reset
+real_closer realcloser SessionEnd
+cards "[{\"item_id\":\"store1\",\"producer_id\":\"$SID\",\"state\":\"open\"}]"
+run 10 "an absent dedup_key refuses"
+
+cards "[{\"item_id\":\"store1\",\"dedup_key\":\"\",\"producer_id\":\"$SID\",\"state\":\"open\"}]"
+run 10 "an empty dedup_key refuses"
+
+# The OSError branch, faithfully: a directory where the log should be.
+mint_reset
+mkdir -p "$STATE/$SID.events.jsonl"
+cards "[{\"item_id\":\"store1\",\"dedup_key\":\"realcloser\",\"producer_id\":\"$SID\",\"state\":\"open\"}]"
+run 10 "a directory in place of the mint log refuses"
+rmdir "$STATE/$SID.events.jsonl"
+
 # The production default path, never otherwise exercised: with ATTENTION_STATE_DIR
 # empty and a HOME carrying no attention state, the gate must still fail closed.
 cards "[{\"item_id\":\"store1\",\"dedup_key\":\"realcloser\",\"producer_id\":\"$SID\",\"state\":\"open\"}]"

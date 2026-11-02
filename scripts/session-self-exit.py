@@ -277,8 +277,8 @@ def state_dir() -> str:
     return os.environ.get("ATTENTION_STATE_DIR") or os.path.expanduser("~/.claude/state/attention")
 
 
-def mint_events(sid: str) -> dict[str, dict] | None:
-    """`item_id` → the hook's own record for that item, or None when the log is unreadable.
+def mint_events(sid: str) -> dict[str, bool] | None:
+    """`item_id` → True when every record under it is a closer; None when the log is unreadable.
 
     The store cannot say which event minted an item: `attention-watcher.py` forwards
     neither `event` nor `cleared_by`, so a `Stop` closer report and a blocking
@@ -315,8 +315,15 @@ def mint_events(sid: str) -> dict[str, dict] | None:
                 item_id = rec.get("item_id")
                 if not isinstance(item_id, str) or not item_id:
                     continue
-                if rec.get("type") == "open":
-                    records[item_id] = rec
+                if rec.get("type") != "open":
+                    continue
+                # Fail-closed on duplicates: an id counts as a closer only when
+                # EVERY record under it is one. Last-wins would let a later `Stop`
+                # mint that happens to share an id with a real ask resolve to the
+                # closer and skip a live card. This cannot, in either order —
+                # which matters because `item_id` hashes the ask's own text, so a
+                # closer whose line matches a question would collide.
+                records[item_id] = records.get(item_id, True) and is_closer_report(rec)
     except OSError:
         return None
     return records
@@ -369,8 +376,8 @@ def gate_state(sid: str) -> tuple[bool, str]:
         # A `dedup_key` that parses as an object or array is unhashable, and a
         # `.get` on it raises TypeError — a traceback where the contract promises
         # a named refusal.
-        rec = events.get(str(item.get("dedup_key") or "")) if events is not None else None
-        if is_closer_report(rec):
+        is_closer = events.get(str(item.get("dedup_key") or "")) if events is not None else None
+        if is_closer is True:
             closers += 1
             continue
         return False, f"open attention card {item.get('item_id')}"

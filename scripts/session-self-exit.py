@@ -293,12 +293,21 @@ def mint_events(sid: str) -> dict[str, dict] | None:
     """
     path = os.path.join(state_dir(), f"{sid}.events.jsonl")
     records: dict[str, dict] = {}
+    # `errors="replace"` rather than a `UnicodeDecodeError` catch: a hook killed
+    # mid-write leaves a truncated multi-byte sequence, and the decode happens
+    # during iteration — outside the per-line guard. Replacing makes that line
+    # fail `json.loads` like any other corruption, so it is skipped rather than
+    # turning a documented named refusal into a traceback.
     try:
-        with open(path, encoding="utf-8") as fh:
+        with open(path, encoding="utf-8", errors="replace") as fh:
             for line in fh:
                 try:
                     rec = json.loads(line)
                 except ValueError:
+                    continue
+                # Valid JSON is not necessarily an object: `null`, `123` and
+                # `[1,2]` all parse, and `rec.get` on them is an AttributeError.
+                if not isinstance(rec, dict):
                     continue
                 if rec.get("type") == "open" and rec.get("item_id"):
                     records[rec["item_id"]] = rec
@@ -310,11 +319,16 @@ def mint_events(sid: str) -> dict[str, dict] | None:
 def is_closer_report(rec: dict | None) -> bool:
     """True when this record is the session's own turn-end closer, not an ask.
 
-    Only the `Stop` hook mints a closer, and it mints it as a `question` carrying
-    `cleared_by: {"event": "SessionEnd"}`. That card is a report of what the
-    session would do next; nothing is waiting on it, and only the session's own
-    end clears it — so a gate that refuses on it can never be satisfied by the
-    session it gates.
+    Only the `Stop` hook mints a closer, and it mints it as a `question`. That
+    card is a report of what the session would do next; nothing is waiting on it,
+    and only the session's own end clears it — so a gate that refuses on it can
+    never be satisfied by the session it gates.
+
+    The predicate keys on `event`, never on `cleared_by`: current mints declare
+    `{"event": "SessionEnd"}`, but older ones in the same append-only log declare
+    `{"event": "UserPromptSubmit"}` (measured 2026-11-02 — both shapes sit in one
+    session's log). `event: Stop` is stable across every mint this hook has made;
+    `cleared_by` is not.
     """
     if not rec:
         return False

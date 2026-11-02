@@ -124,6 +124,26 @@ mint_reset() {
 	rm -f "$STATE/$SID.events.jsonl"
 }
 
+# `mint_raw` writes a literal line, so a fixture can carry a record captured from
+# a real `<sid>.events.jsonl` rather than one this test invented. `mint` above is
+# the three-key shorthand; this is the fidelity one.
+mint_raw() {
+	printf '%s\n' "$1" >> "$STATE/$SID.events.jsonl"
+}
+
+# The 18 keys the Stop hook actually writes, captured 2026-11-02 from a live log
+# with the values replaced. A record missing any of them would still satisfy
+# `mint`, which is exactly the drift this fixture exists to catch.
+real_closer() { # real_closer <item-id> <cleared-by-event>
+	{
+		printf '{"item_id":"%s","session_id":"%s","kind":"question","tool_name":"",' "$1" "$SID"
+		printf '"detail":"👤 You: pick — 1. one · 2. two","context":"","options":[{"label":"one"}],'
+		printf '"answer_cardinality":"single","questions":[],"pane":777,"cwd":"/tmp",'
+		printf '"transcript":"/tmp/t.jsonl","host":"host","agent_id":"","ts":1762000000.0,'
+		printf '"event":"Stop","cleared_by":{"event":"%s"},"type":"open"}\n' "$2"
+	} >> "$STATE/$SID.events.jsonl"
+}
+
 # Park instants are computed, never hardcoded: a literal date is in the future
 # when it is written and in the past a month later, which turns the positive
 # case red on a calendar boundary with no code change.
@@ -331,6 +351,49 @@ run 10 "an unreadable mint log refuses (fail-closed)"
 mint hookcloser question Stop
 cards "[{\"item_id\":\"store1\",\"dedup_key\":\"unknown-id\",\"producer_id\":\"$SID\",\"state\":\"open\"}]"
 run 10 "an item with no mint record refuses"
+
+# --- fixture fidelity: the full captured record shape, and the older mint form
+#
+# `mint` writes only the three keys the implementation reads, so it agrees with
+# the implementation by construction. These carry the whole captured key set.
+mint_reset
+real_closer realcloser SessionEnd
+cards "[{\"item_id\":\"store1\",\"dedup_key\":\"realcloser\",\"producer_id\":\"$SID\",\"state\":\"open\"}]"
+run_msg 0 "a full captured closer record does not block the exit" "1 closer report(s) ignored"
+
+# Older mints in the same append-only log declare `UserPromptSubmit`, not
+# `SessionEnd`. The predicate keys on `event`, so both must be skipped.
+mint_reset
+real_closer oldcloser UserPromptSubmit
+cards "[{\"item_id\":\"store1\",\"dedup_key\":\"oldcloser\",\"producer_id\":\"$SID\",\"state\":\"open\"}]"
+run_msg 0 "an older UserPromptSubmit closer record does not block either" "1 closer report(s) ignored"
+
+# --- corruption: the gate must refuse by name, never die with a traceback
+mint_reset
+mint_raw 'not json at all'
+real_closer realcloser SessionEnd
+cards "[{\"item_id\":\"store1\",\"dedup_key\":\"realcloser\",\"producer_id\":\"$SID\",\"state\":\"open\"}]"
+run_msg 0 "a malformed line is skipped, not fatal" "1 closer report(s) ignored"
+
+mint_reset
+mint_raw 'null'
+mint_raw '123'
+mint_raw '[1,2]'
+real_closer realcloser SessionEnd
+cards "[{\"item_id\":\"store1\",\"dedup_key\":\"realcloser\",\"producer_id\":\"$SID\",\"state\":\"open\"}]"
+run_msg 0 "valid-JSON non-object lines are skipped, not fatal" "1 closer report(s) ignored"
+
+# A hook killed mid-write leaves a truncated multi-byte sequence.
+mint_reset
+printf '\xe2\x82\n' >> "$STATE/$SID.events.jsonl"
+real_closer realcloser SessionEnd
+cards "[{\"item_id\":\"store1\",\"dedup_key\":\"realcloser\",\"producer_id\":\"$SID\",\"state\":\"open\"}]"
+run_msg 0 "a truncated UTF-8 line is skipped, not fatal" "1 closer report(s) ignored"
+
+mint_reset
+mint_raw 'null'
+cards "[{\"item_id\":\"store1\",\"dedup_key\":\"store1\",\"producer_id\":\"$SID\",\"state\":\"open\"}]"
+run 10 "a log with no usable record still refuses"
 
 mint_reset
 cards '[]'

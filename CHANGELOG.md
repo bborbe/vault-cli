@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.186.2
 
 - fix: `goal work-on` / `topic work-on` no longer overwrite a session that claimed the page during the headless turn. The persist stamps `claude_session_id` only when it is still empty; when another session holds it, that session keeps the stamp and the binding session is recorded in the page's `metrics_sessions` with its turn-start time. An uncontended bind is stamped as before and adds no entry.
 

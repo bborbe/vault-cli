@@ -99,6 +99,24 @@ def owns_pane(sid: str) -> tuple[bool, str]:
     )
 
 
+def entrypoint_of(sid: str) -> str:
+    """The registry entry's `entrypoint`; `sdk-cli` marks a headless SDK query.
+
+    Read separately from `owns_pane` because the two answer different questions.
+    `owns_pane` asks whether a registry entry exists, and an SDK worker has one —
+    so it does not by itself prove a pane. The park branch consults this instead.
+    """
+    for path in glob.glob(os.path.join(sessions_dir(), "*.json")):
+        try:
+            with open(path, encoding="utf-8") as fh:
+                record = json.load(fh)
+        except (OSError, ValueError):
+            continue
+        if record.get("sessionId") == sid:
+            return str(record.get("entrypoint") or "").strip()
+    return ""
+
+
 def tasks_roots() -> list[str]:
     override = os.environ.get("TASKS_ROOTS", "").strip()
     if override:
@@ -197,8 +215,12 @@ def defer_instant(value: str) -> datetime | None:
     text = (value or "").strip()
     if not text or DATE_ONLY.match(text):
         return None
+    # Only the trailing designator is rewritten; a bare `.replace` would rewrite
+    # any `Z` anywhere in the string.
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
     try:
-        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(text)
     except ValueError:
         return None
     if parsed.tzinfo is None:
@@ -206,12 +228,23 @@ def defer_instant(value: str) -> datetime | None:
     return parsed
 
 
-def terminal_verdict(meta: dict[str, str], body: str, now: datetime) -> tuple[bool, str]:
+def terminal_verdict(
+    meta: dict[str, str], body: str, now: datetime, headless: bool = False
+) -> tuple[bool, str]:
     status = meta.get("status", "")
     if status == "aborted":
         return True, "aborted"
     defer = meta.get("defer_date", "").strip()
     if status == "in_progress" and defer:
+        if headless:
+            # A headless SDK query has no pane of its own and inherits its
+            # spawner's $WEZTERM_PANE, so "exiting" here would close the
+            # spawner's tab. It does not need this script at all: its process
+            # ends when its turn ends.
+            return False, (
+                "task is parked, but this session is a headless SDK query with no pane of its own "
+                "— it inherits its spawner's $WEZTERM_PANE, so exiting would close that tab"
+            )
         instant = defer_instant(defer)
         if instant is None:
             return False, (
@@ -281,7 +314,9 @@ def main() -> int:
     if handed_off:
         reason = f"handed off to {meta.get('claude_session_id') or '(none)'}"
     else:
-        terminal, verdict = terminal_verdict(meta, body, datetime.now(timezone.utc))
+        terminal, verdict = terminal_verdict(
+            meta, body, datetime.now(timezone.utc), entrypoint_of(sid) == "sdk-cli"
+        )
         if not terminal:
             return refuse(f"{os.path.basename(path)}: {verdict}")
         reason = f"{os.path.basename(path)} is {verdict}"

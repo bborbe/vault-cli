@@ -10,7 +10,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 
 ## Unreleased
 
-- fix: `session-self-exit.py` accepts the park shape — an anchored task at `status: in_progress` with a `defer_date` that parses to a future instant now exits instead of being refused as non-terminal, and `session-close` lets that same anchor reach a clean verdict so the exit path is reached at all. A past, date-only, offset-less or unparseable `defer_date` still refuses: a stale row must not free its slot.
+- fix: `session-self-exit.py` accepts the park shape — an anchored task at `status: in_progress` with a `defer_date` that parses to a future instant now exits instead of being refused as non-terminal, and `session-close` lets that same anchor reach a clean verdict so the exit path is reached at all. A past, date-only, offset-less or unparseable `defer_date` still refuses: a stale row must not free its slot. A headless SDK query refuses the park branch as well — it has no pane of its own and inherits its spawner's `$WEZTERM_PANE`, so exiting would close the spawner's tab; its process ends with its turn and needs no exit step.
 
 ## v0.185.0
 

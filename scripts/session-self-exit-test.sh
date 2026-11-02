@@ -118,6 +118,12 @@ cards() { # cards <json>
 FUTURE=$(python3 -c 'from datetime import datetime, timedelta, timezone; print((datetime.now(timezone.utc) + timedelta(hours=1)).isoformat())')
 PAST=$(python3 -c 'from datetime import datetime, timedelta, timezone; print((datetime.now(timezone.utc) - timedelta(hours=1)).isoformat())')
 TOMORROW=$(python3 -c 'from datetime import date, timedelta; print(date.today() + timedelta(days=1))')
+# The same instant without an offset: ambiguous by construction, so it must refuse
+# whatever the calendar says. Computed for the same reason as FUTURE/PAST.
+NAIVE=$(python3 -c 'from datetime import datetime, timedelta, timezone; print((datetime.now(timezone.utc) + timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%S"))')
+# The `Z` form is what a vault-cli-rewritten date scalar carries; pin it so a
+# regression in the designator handling cannot pass unnoticed.
+FUTURE_Z=$(python3 -c 'from datetime import datetime, timedelta, timezone; print((datetime.now(timezone.utc) + timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ"))')
 
 pass=0
 fail=0
@@ -243,11 +249,19 @@ task hold done 0
 run 10 "hold is parked, not finished"
 
 task in_progress execution 1
-run 10 "in_progress refuses"
+run_msg 10 "in_progress refuses" "task status is in_progress, not completed or aborted"
 
 # --- positive path: the park shape — in_progress with a future defer_date
 deferred_task in_progress execution "$FUTURE"
 run_msg 0 "in_progress with a future defer_date exits" "SELF-EXIT: exit — Anchor.md is parked until $FUTURE"
+
+# --- negative path: a headless SDK query has no pane of its own
+# It inherits its spawner's $WEZTERM_PANE, so the park branch must not accept it
+# even though a registry entry exists — exiting would close the spawner's tab.
+printf '{"pid": 4242, "sessionId": "%s", "kind": "interactive", "entrypoint": "sdk-cli"}\n' "$SID" > "$SESSIONS/4242.json"
+deferred_task in_progress execution "$FUTURE"
+run_msg 10 "a headless SDK query with a parked task refuses" "no pane of its own"
+printf '{"pid": 4242, "sessionId": "%s", "kind": "interactive"}\n' "$SID" > "$SESSIONS/4242.json"
 
 # --- negative paths: a defer_date that is not a future instant
 deferred_task in_progress execution "$PAST"
@@ -259,8 +273,11 @@ run_msg 10 "in_progress with a date-only defer_date refuses" "is not a future in
 deferred_task in_progress execution "not-a-date"
 run_msg 10 "in_progress with an unparseable defer_date refuses" "is not a future instant"
 
-deferred_task in_progress execution "2026-11-02T02:30:00"
+deferred_task in_progress execution "$NAIVE"
 run_msg 10 "in_progress with an offset-less defer_date refuses" "is not a future instant"
+
+deferred_task in_progress execution "$FUTURE_Z"
+run_msg 0 "a Z-suffixed future defer_date exits" "is parked until $FUTURE_Z"
 
 # --- a deferred task still cannot exit through an open gate
 deferred_task in_progress execution "$FUTURE"

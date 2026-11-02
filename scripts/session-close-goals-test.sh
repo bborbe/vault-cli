@@ -52,7 +52,28 @@ goal() { # file status manager tasks...
   {
     echo "---"
     echo "status: $status"
-    [ -n "$manager" ] && echo "manager_session_id: $manager"
+    [ -n "$manager" ] && echo "claude_session_id: $manager"
+    echo "---"
+    echo
+    echo "# Success Criteria"
+    echo
+    echo "- [x] one"
+    echo "- [ ] two"
+    echo
+    echo "# Tasks"
+    echo
+    for t in "$@"; do echo "- [[$t]]"; done
+  } > "$V/24 Goals/$file.md"
+}
+
+# legacy_goal — a goal page that records its manager in claude_session_id, the only key
+# any writer emits.
+legacy_goal() { # file status manager tasks...
+  local file="$1" status="$2" manager="$3"; shift 3
+  {
+    echo "---"
+    echo "status: $status"
+    [ -n "$manager" ] && echo "claude_session_id: $manager"
     echo "---"
     echo
     echo "# Success Criteria"
@@ -79,8 +100,36 @@ goal "Abort Goal"    in_progress ""                     "Closed A" "Abort A"
 goal "Closed Goal"   in_progress ""                     "Closed A" "Closed B"
 goal "Done Goal"     completed    ""                     "Open A"
 goal "Managed Goal"  in_progress "11111111-1111-1111-1111-111111111111" "Open A" "Open B"
+legacy_goal "Legacy Goal" in_progress "22222222-2222-2222-2222-222222222222" "Open A" "Open B"
 
 # A topic page that lists Abort Goal and carries its own manager id.
+{
+  echo "---"
+  echo "claude_session_id: 22222222-2222-2222-2222-222222222222"
+  echo "---"
+  echo
+  echo "## Goals"
+  echo
+  echo "- [[Abort Goal]]"
+} > "$V/23 Topics/Topic One.md"
+
+# A topic page carrying only the retired key, listing Legacy Topic Goal.
+legacy_goal "Legacy Topic Goal" in_progress "" "Open A" "Open B"
+{
+  echo "---"
+  echo "claude_session_id: 22222222-2222-2222-2222-222222222222"
+  echo "---"
+  echo
+  echo "## Goals"
+  echo
+  echo "- [[Legacy Topic Goal]]"
+} > "$V/23 Topics/Legacy Topic.md"
+
+# A goal and a topic carrying ONLY the retired key: nothing writes it any more, so a page
+# like this resolves no manager. The two cases below pin that it is never read.
+goal "Retired Goal" in_progress "" "Open A" "Open B"
+sed -i '' 's/^---$/manager_session_id: 22222222-2222-2222-2222-222222222222\n---/' "$V/24 Goals/Retired Goal.md"
+goal "Retired Topic Goal" in_progress "" "Open A" "Open B"
 {
   echo "---"
   echo "manager_session_id: 22222222-2222-2222-2222-222222222222"
@@ -88,8 +137,8 @@ goal "Managed Goal"  in_progress "11111111-1111-1111-1111-111111111111" "Open A"
   echo
   echo "## Goals"
   echo
-  echo "- [[Abort Goal]]"
-} > "$V/23 Topics/Topic One.md"
+  echo "- [[Retired Topic Goal]]"
+} > "$V/23 Topics/Retired Topic.md"
 
 # Stub probe: exit 0 for the topic id, 3 (AMBIGUOUS) for anything else.
 STUB="$WORK/liveness.py"
@@ -124,6 +173,22 @@ expect_line "non-in_progress goal is silent" "" "$out"
 out=$(run --goal "Managed Goal")
 expect_line "id present but probe non-zero -> no live manager" \
   "goal Managed Goal: in_progress, 1/2 SC — no live manager" "$out"
+
+out=$(run --goal "Legacy Goal")
+expect_line "a goal page carrying claude_session_id resolves its manager" \
+  "goal Legacy Goal: in_progress, 1/2 SC — managed by Topic One Manager" "$out"
+
+out=$(run --goal "Legacy Topic Goal")
+expect_line "a topic page carrying claude_session_id supplies the manager" \
+  "goal Legacy Topic Goal: in_progress, 1/2 SC — managed by Topic One Manager" "$out"
+
+out=$(run --goal "Retired Goal")
+expect_line "a goal page carrying only the retired key resolves no manager" \
+  "goal Retired Goal: in_progress, 1/2 SC — no live manager" "$out"
+
+out=$(run --goal "Retired Topic Goal")
+expect_line "a topic page carrying only the retired key supplies no manager" \
+  "goal Retired Topic Goal: in_progress, 1/2 SC — no live manager" "$out"
 
 out=$(run --goal "Open Goal" --goal "Done Goal" --goal "Closed Goal")
 expect_line "input order preserved, silent goal skipped" \

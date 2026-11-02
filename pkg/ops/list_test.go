@@ -481,53 +481,59 @@ var _ = Describe("ListOperation JSON output", func() {
 		})
 	})
 
-	Context("ManagerSessionID field in TaskListItem", func() {
-		It("returns the manager_session_id value from frontmatter", func() {
-			taskWithManager := domain.NewPage(
+	Context("ClaudeSessionID field in TaskListItem", func() {
+		It("returns the claude_session_id value from frontmatter", func() {
+			taskWithSession := domain.NewPage(
 				map[string]any{
-					"status":             "todo",
-					"manager_session_id": "manager-sess-abc123",
+					"status":            "todo",
+					"claude_session_id": "sess-abc123",
 				},
-				domain.FileMetadata{Name: "Managed Task"},
+				domain.FileMetadata{Name: "Stamped Task"},
 				domain.Content(""),
 			)
-			mockPageStorage.ListPagesReturns([]*domain.Page{taskWithManager}, nil)
+			mockPageStorage.ListPagesReturns([]*domain.Page{taskWithSession}, nil)
 			items, execErr = listOp.Execute(ctx, "/vault", "my-vault", "Tasks", nil, true, "", "")
 			Expect(execErr).To(BeNil())
 			Expect(items).To(HaveLen(1))
-			Expect(items[0].ManagerSessionID).To(Equal("manager-sess-abc123"))
+			Expect(items[0].ClaudeSessionID).To(Equal("sess-abc123"))
 		})
 
-		It("returns an empty manager_session_id when the key is absent", func() {
-			taskWithoutManager := domain.NewPage(
-				map[string]any{"status": "todo"},
-				domain.FileMetadata{Name: "Unmanaged Task"},
-				domain.Content(""),
-			)
-			mockPageStorage.ListPagesReturns([]*domain.Page{taskWithoutManager}, nil)
-			items, execErr = listOp.Execute(ctx, "/vault", "my-vault", "Tasks", nil, true, "", "")
-			Expect(execErr).To(BeNil())
-			Expect(items).To(HaveLen(1))
-			Expect(items[0].ManagerSessionID).To(BeEmpty())
-		})
-
-		It("omits manager_session_id from JSON when empty", func() {
+		It("omits claude_session_id from JSON when empty", func() {
 			item := ops.TaskListItem{Name: "X", Status: "todo", Vault: "v"}
 			data, marshalErr := json.Marshal(item)
 			Expect(marshalErr).To(BeNil())
-			Expect(string(data)).NotTo(ContainSubstring(`"manager_session_id"`))
+			Expect(string(data)).NotTo(ContainSubstring(`"claude_session_id"`))
 		})
 
-		It("includes manager_session_id in JSON when set", func() {
+		It("includes claude_session_id in JSON when set", func() {
 			item := ops.TaskListItem{
-				Name:             "X",
-				Status:           "todo",
-				Vault:            "v",
-				ManagerSessionID: "manager-sess-abc123",
+				Name:            "X",
+				Status:          "todo",
+				Vault:           "v",
+				ClaudeSessionID: "sess-abc123",
 			}
 			data, marshalErr := json.Marshal(item)
 			Expect(marshalErr).To(BeNil())
-			Expect(string(data)).To(ContainSubstring(`"manager_session_id":"manager-sess-abc123"`))
+			Expect(string(data)).To(ContainSubstring(`"claude_session_id":"sess-abc123"`))
+		})
+
+		It("does not surface the retired manager_session_id", func() {
+			retiredTask := domain.NewPage(
+				map[string]any{
+					"status":             "todo",
+					"manager_session_id": "sess-abc123",
+				},
+				domain.FileMetadata{Name: "Retired Task"},
+				domain.Content(""),
+			)
+			mockPageStorage.ListPagesReturns([]*domain.Page{retiredTask}, nil)
+			items, execErr = listOp.Execute(ctx, "/vault", "my-vault", "Tasks", nil, true, "", "")
+			Expect(execErr).To(BeNil())
+			Expect(items).To(HaveLen(1))
+			Expect(items[0].ClaudeSessionID).To(BeEmpty())
+			data, marshalErr := json.Marshal(items[0])
+			Expect(marshalErr).To(BeNil())
+			Expect(string(data)).NotTo(ContainSubstring(`"manager_session_id"`))
 		})
 	})
 

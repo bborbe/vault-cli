@@ -12,6 +12,22 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 
 - fix: `session-self-exit.py` no longer refuses on the closer card a session mints at its own turn end. The `Stop` hook opens that card as a `question` whose `cleared_by` is `{"event": "SessionEnd"}`, so only the session's own end clears it — and the exit gate is what stood between the session and that end, making the refusal a deadlock by construction. Every finished worker that reached the gate with a `👤 You:` panel behind it parked until a human closed its tab. The store cannot separate the two (the watcher forwards neither `event` nor `cleared_by`, so a closer and a real `AskUserQuestion` both arrive as `pick` / `hook` / `message`); the gate now joins the store's `dedup_key` to the hook's own `<sid>.events.jsonl` and skips only a record minted by `Stop`. Every other open card still refuses, and an unreadable mint log still refuses — fail-closed, as before. Neither input's shape is assumed: a truncated UTF-8 sequence from a hook killed mid-write, a valid-JSON non-object such as `null`, an unhashable `item_id` or `dedup_key`, and a non-object store element are all skipped rather than raising, so the gate keeps its named refusal instead of dying with a traceback.
 
+## v0.186.0
+
+- feat: **remove `manager_session_id` from the list read model.** Goals and topics now record the session serving them in `claude_session_id`, the same field a task uses, so `TaskListItem.ManagerSessionID` and the `manager_session_id` key in every `* list --output json` payload are gone. **Breaking change, on two surfaces:** the exported `TaskListItem.ManagerSessionID` Go field is gone, so any external consumer of `pkg/ops` fails to compile rather than silently reading zero; and the `manager_session_id` key disappears from every `* list --output json` payload. The only consumer found in a sweep of the three repos and both vaults was vault-ui, which now reads `claude_session_id`. `scripts/session-close-goals.sh` reads `claude_session_id` first and falls back to the retired key, so it keeps working against pages that have not been migrated yet.
+  Observed on this machine, `--vault private-personal`, the goal `GitHub Rate Limits Never Stall the Agent Fleet` whose page carries only the retired key — the session fields of its `goal list --output json` row, before and after this change:
+  ```
+  before (v0.184.4):  {"manager_session_id": "8885ecfa-3813-4b83-9269-6177b509fca3"}
+  after:              {}
+  ```
+  and a task page that carries the surviving key still emits it:
+  ```
+  task list --output json, "Goals and Topics Record Their Session in claude_session_id Only":
+  {"claude_session_id": "d4d3a390-7142-4618-bc03-aefd44ed868d"}
+  ```
+
+- feat: **the retired-key fallback is gone from `scripts/session-close-goals.sh` too**, now that both vaults are migrated — the goal and topic branches read `claude_session_id` alone instead of falling through to the retired key. The shell suite covers the inverted behaviour on both paths: a page carrying `claude_session_id` resolves its manager, and a page carrying **only** the retired key resolves none. Removing it while any page still carried the old key would have been silent, since a page that resolves no manager reads as "free to start one".
+
 ## v0.185.1
 
 - fix: `session-self-exit.py` accepts the park shape — an anchored task at `status: in_progress` with a `defer_date` that parses to a future instant now exits instead of being refused as non-terminal, and `session-close` lets that same anchor reach a clean verdict so the exit path is reached at all. A past, date-only, offset-less or unparseable `defer_date` still refuses: a stale row must not free its slot. A headless SDK query refuses the park branch as well — it has no pane of its own and inherits its spawner's `$WEZTERM_PANE`, so exiting would close the spawner's tab; its process ends with its turn and needs no exit step.

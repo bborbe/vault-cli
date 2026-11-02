@@ -118,7 +118,7 @@ manager_id_for() {
   local title="$1" f id
   f="$VAULT/$GOALS_DIR/$title.md"
   if [ -f "$f" ]; then
-    id="$(field manager_session_id "$f")"
+    id="$(field claude_session_id "$f")"
     if [ -n "$id" ]; then printf '%s' "$id"; return; fi
   fi
   while IFS= read -r tf; do
@@ -128,7 +128,7 @@ manager_id_for() {
       sec=="Goals" && index($0, want)>0 {found=1; exit}
       END{exit found?0:1}
     ' "$tf" || continue
-    id="$(field manager_session_id "$tf")"
+    id="$(field claude_session_id "$tf")"
     if [ -n "$id" ]; then printf '%s' "$id"; return; fi
   done < <(find "$VAULT/$TOPICS_DIR" -name '*.md' 2>/dev/null)
 }

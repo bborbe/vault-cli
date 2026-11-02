@@ -204,6 +204,19 @@ func (f *GoalFrontmatter) SetClaudeSessionID(v string) { f.Set("claude_session_i
 // ClearClaudeSessionID removes the claude_session_id key from the map.
 func (f *GoalFrontmatter) ClearClaudeSessionID() { f.Delete("claude_session_id") }
 
+// MetricsSessions reads the "metrics_sessions" field as a slice of MetricsSession,
+// with the same shape and normalisation as TaskFrontmatter.MetricsSessions.
+// Returns nil when the key is absent, the value is not a list, or every element is malformed.
+func (f GoalFrontmatter) MetricsSessions() []MetricsSession {
+	return metricsSessionsOf(f.FrontmatterMap)
+}
+
+// AppendMetricsSession appends one entry to "metrics_sessions", preserving every
+// prior well-formed entry. An empty SessionID is ignored.
+func (f *GoalFrontmatter) AppendMetricsSession(entry MetricsSession) {
+	appendMetricsSessionTo(&f.FrontmatterMap, entry)
+}
+
 // SetStartDate stores the start_date in the map. Deletes key if d is nil.
 func (f *GoalFrontmatter) SetStartDate(d *libtime.DateOrDateTime) {
 	if d == nil {

@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: `goal work-on` / `topic work-on` no longer overwrite a session that claimed the page during the headless turn. The persist stamps `claude_session_id` only when it is still empty; when another session holds it, that session keeps the stamp and the binding session is recorded in the page's `metrics_sessions` with its turn-start time. An uncontended bind is stamped as before and adds no entry.
+
 ## v0.186.1
 
 - fix: `session-self-exit.py` no longer refuses on the closer card a session mints at its own turn end. The `Stop` hook opens that card as a `question` whose `cleared_by` is `{"event": "SessionEnd"}`, so only the session's own end clears it — and the exit gate is what stood between the session and that end, making the refusal a deadlock by construction. Every finished worker that reached the gate with a `👤 You:` panel behind it parked until a human closed its tab. The store cannot separate the two (the watcher forwards neither `event` nor `cleared_by`, so a closer and a real `AskUserQuestion` both arrive as `pick` / `hook` / `message`); the gate now joins the store's `dedup_key` to the hook's own `<sid>.events.jsonl` and skips only a record minted by `Stop`. Every other open card still refuses, and an unreadable mint log still refuses — fail-closed, as before. Neither input's shape is assumed: a truncated UTF-8 sequence from a hook killed mid-write, a valid-JSON non-object such as `null`, an unhashable `item_id` or `dedup_key`, and a non-object store element are all skipped rather than raising, so the gate keeps its named refusal instead of dying with a traceback.

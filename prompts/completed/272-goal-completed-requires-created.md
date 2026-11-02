@@ -1,5 +1,5 @@
 ---
-status: failed
+status: completed
 execution_id: vault-cli-topic-complete-exec-272-goal-completed-requires-created
 dark-factory-version: v0.198.7
 created: "2026-11-01T16:45:00Z"
@@ -7,6 +7,8 @@ queued: "2026-11-01T18:09:18Z"
 started: "2026-11-01T18:12:52Z"
 completed: "2026-11-01T18:22:05Z"
 lastFailReason: 'validate completion report: completion report status: partial'
+reconciled: "2026-11-03"
+reconciledReason: 'Work shipped in 9641ef7 "Lint reports a completed goal with no created key, and goal-creator writes it" (2026-11-01), an ancestor of origin/master; only the completion report failed validation (status partial). Verified on master: pkg/ops/lint.go and pkg/ops/lint_test.go both carry COMPLETED_GOAL_MISSING_CREATED. Status reconciled to completed — the prompt was never re-run. Surfaced by spec 065 completing prompts 273/274, which opened a missing-completed-prompt gap at 272.'
 ---
 
 # Require a Start Date on Every Completed Goal

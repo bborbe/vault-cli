@@ -22,6 +22,8 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
   {"claude_session_id": "d4d3a390-7142-4618-bc03-aefd44ed868d"}
   ```
 
+- feat: **the retired-key fallback is gone from `scripts/session-close-goals.sh` too**, now that both vaults are migrated — the goal and topic branches read `claude_session_id` alone instead of falling through to the retired key. The shell suite covers the inverted behaviour on both paths: a page carrying `claude_session_id` resolves its manager, and a page carrying **only** the retired key resolves none. Removing it while any page still carried the old key would have been silent, since a page that resolves no manager reads as "free to start one".
+
 ## v0.185.1
 
 - fix: `session-self-exit.py` accepts the park shape — an anchored task at `status: in_progress` with a `defer_date` that parses to a future instant now exits instead of being refused as non-terminal, and `session-close` lets that same anchor reach a clean verdict so the exit path is reached at all. A past, date-only, offset-less or unparseable `defer_date` still refuses: a stale row must not free its slot. A headless SDK query refuses the park branch as well — it has no pane of its own and inherits its spawner's `$WEZTERM_PANE`, so exiting would close the spawner's tab; its process ends with its turn and needs no exit step.

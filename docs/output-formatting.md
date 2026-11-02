@@ -103,7 +103,7 @@ Two or three lines, not a paragraph:
 
 Every `list --output json` command (`task`, `goal`, `topic`, `theme`, `objective`, `vision`) shares one read model, so a field added there surfaces on all six.
 
-- `claude_session_id` — emitted verbatim when the page's frontmatter carries the key, omitted when it does not. On a goal or topic page it records the manager session that armed the page; on a task page, the session working it. It is written by the producer (claude-supervisor) through the generic `goal set` / `topic set` verbs. The list model only reads it: nothing derives, normalizes, or writes it back, and no CLI flag sets it. The retired `manager_session_id` is no longer surfaced. See [`goal-writing.md`](goal-writing.md) § Session (`claude_session_id`).
+- `claude_session_id` — emitted verbatim when the page's frontmatter carries the key, omitted when it does not. On a goal or topic page it records the manager session that armed the page; on a task page, the session working it. It is written by the producer (claude-supervisor) through the generic `goal set` / `topic set` verbs. The list model only reads it: nothing derives, normalizes, or writes it back, and no CLI flag sets it. The retired second session field is no longer surfaced, and nothing reads it any more — both vaults are migrated and no writer emits it. See [`goal-writing.md`](goal-writing.md) § Session (`claude_session_id`).
 
 ## Anti-patterns
 

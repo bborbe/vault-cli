@@ -30,7 +30,11 @@ line so the refusal is diagnosable):
      a stale row must not free its slot, and the time-of-day reading of a
      date-only value belongs to its own task.
   5. The attention store holds no open card for this session. An unreachable
-     store refuses: a failed read is not evidence that no gate is open.
+     store refuses: a failed read is not evidence that no gate is open. A card
+     the session minted at its own `Stop` is not a card: it is the turn-end
+     closer report, and its `cleared_by` is `SessionEnd` — the very event this
+     gate is delaying. Refusing on it is a deadlock by construction, so it is
+     skipped. Every other open card still refuses.
 
 Only then does it run `wezterm cli kill-pane --pane-id <own pane>`, which ends
 this process. `--dry-run` prints the same decision without killing.
@@ -43,8 +47,9 @@ this process. `--dry-run` prints the same decision without killing.
 slot nobody is using, it does not open the limit.
 
 Testability: every input is an env var (`SESSION_ID`, `SESSIONS_DIR`,
-`TASKS_ROOTS`, `WEZTERM_PANE`, `ATTENTION_STORE_URL`) so `scripts/session-self-exit-test.sh`
-can drive each branch against fixtures without a live fleet.
+`TASKS_ROOTS`, `WEZTERM_PANE`, `ATTENTION_STORE_URL`, `ATTENTION_STATE_DIR`) so
+`scripts/session-self-exit-test.sh` can drive each branch against fixtures
+without a live fleet.
 """
 
 from __future__ import annotations
@@ -268,6 +273,96 @@ def store_url() -> str:
     return (os.environ.get("ATTENTION_STORE_URL") or "http://localhost:18080").rstrip("/")
 
 
+def state_dir() -> str:
+    """The directory the attention hook writes its per-session logs to.
+
+    Deliberately byte-identical to `attention-log.py`'s own line — `ATTENTION_STATE_DIR`,
+    else `~/.claude/state/attention` — and deliberately NOT derived from
+    `CLAUDE_CONFIG_DIR`, which this repo's other path helpers do honour. Mirroring
+    the producer is the whole requirement: if the hook does not follow
+    `CLAUDE_CONFIG_DIR`, following it here would point the join at a directory the
+    hook never writes, and the carve-out would silently stop firing. If the hook
+    ever moves, both move together.
+    """
+    return os.environ.get("ATTENTION_STATE_DIR") or os.path.expanduser("~/.claude/state/attention")
+
+
+def mint_events(sid: str) -> dict[str, bool] | None:
+    """`item_id` → True when every record under it is a closer; None when the log is unreadable.
+
+    The store cannot say which event minted an item: `attention-watcher.py` forwards
+    neither `event` nor `cleared_by`, so a `Stop` closer report and a blocking
+    `AskUserQuestion` reach it byte-identically (`interrupt_class: pick`,
+    `provenance_class: hook`, `answer_mechanism: message`). The hook's per-session
+    log is where that provenance still lives, joined on the store's `dedup_key` —
+    which the watcher sets to the hook's own `item_id` (`attention-watcher.py`
+    `"dedup_key": dedup_key or item["item_id"]`).
+
+    Returns None rather than `{}` when the log cannot be read, because the caller
+    must not read an absent log as "nothing was a closer".
+    """
+    # The sid reaches a filesystem path; a charset guard keeps a `../` or an
+    # absolute value from resolving outside the state directory. Not a trust
+    # boundary — the caller is the session being gated — but free.
+    if not re.fullmatch(r"[A-Za-z0-9-]+", sid):
+        return None
+    path = os.path.join(state_dir(), f"{sid}.events.jsonl")
+    records: dict[str, bool] = {}
+    # `errors="replace"` rather than a `UnicodeDecodeError` catch: a hook killed
+    # mid-write leaves a truncated multi-byte sequence, and the decode happens
+    # during iteration — outside the per-line guard. Replacing makes that line
+    # fail `json.loads` like any other corruption, so it is skipped rather than
+    # turning a documented named refusal into a traceback.
+    try:
+        with open(path, encoding="utf-8", errors="replace") as fh:
+            for line in fh:
+                try:
+                    rec = json.loads(line)
+                except ValueError:
+                    continue
+                # Every value here is parsed JSON, so nothing about its shape is
+                # guaranteed. `null`, `123` and `[1,2]` parse and then raise
+                # AttributeError on `.get`; an `item_id` that parses as an object
+                # or array is unhashable and raises TypeError as a dict key. Both
+                # are tracebacks where the contract promises a named refusal.
+                if not isinstance(rec, dict):
+                    continue
+                item_id = rec.get("item_id")
+                if not isinstance(item_id, str) or not item_id:
+                    continue
+                if rec.get("type") != "open":
+                    continue
+                # Fail-closed on duplicates: an id counts as a closer only when
+                # EVERY record under it is one. Last-wins would let a later `Stop`
+                # mint that happens to share an id with a real ask resolve to the
+                # closer and skip a live card. This cannot, in either order —
+                # which matters because `item_id` hashes the ask's own text, so a
+                # closer whose line matches a question would collide.
+                records[item_id] = records.get(item_id, True) and is_closer_report(rec)
+    except OSError:
+        return None
+    return records
+
+
+def is_closer_report(rec: dict | None) -> bool:
+    """True when this record is the session's own turn-end closer, not an ask.
+
+    Only the `Stop` hook mints a closer, and it mints it as a `question`. That
+    card is a report of what the session would do next; nothing is waiting on it,
+    and only the session's own end clears it — so a gate that refuses on it can
+    never be satisfied by the session it gates.
+
+    The predicate keys on `event`, never on `cleared_by`: current mints declare
+    `{"event": "SessionEnd"}`, but older ones in the same append-only log declare
+    `{"event": "UserPromptSubmit"}` (measured 2026-11-02 — both shapes sit in one
+    session's log). `event: Stop` is stable across every mint this hook has made;
+    `cleared_by` is not.
+    """
+    if not rec:
+        return False
+    return rec.get("kind") == "question" and rec.get("event") == "Stop"
+
+
 def gate_state(sid: str) -> tuple[bool, str]:
     """True when the gate is provably clear. An unreadable store is NOT clear."""
     url = f"{store_url()}/api/1.0/attention"
@@ -278,10 +373,32 @@ def gate_state(sid: str) -> tuple[bool, str]:
         return False, f"attention store unreadable ({exc}) — a failed read is not a clear gate"
     if not isinstance(items, list):
         return False, "attention store returned an unexpected shape — not evidence of a clear gate"
-    for item in items:
-        if item.get("producer_id") == sid and item.get("state") == "open":
-            return False, f"open attention card {item.get('item_id')}"
-    return True, ""
+    # `isinstance(i, dict)` for the same reason as in `mint_events`: the store
+    # returns parsed JSON, and a `null` element is a legal JSON value that has no
+    # `.get`.
+    mine = [
+        i for i in items
+        if isinstance(i, dict) and i.get("producer_id") == sid and i.get("state") == "open"
+    ]
+    if not mine:
+        return True, "no open card"
+    events = mint_events(sid)
+    closers = 0
+    for item in mine:
+        # An unreadable log leaves every item's provenance unproven, so the
+        # closer branch simply never fires and the gate refuses as it always did.
+        # The store is the other unguarded input. `isinstance` rather than `str()`:
+        # a non-string key cannot be a hook `item_id` at all, so treating it as one
+        # is a coercion that could in principle be crafted to match. A non-string
+        # (or an unhashable object/array, which `str()` would have to survive) now
+        # simply fails to join, and the gate refuses by name.
+        key = item.get("dedup_key")
+        is_closer = events.get(key) if events is not None and isinstance(key, str) else None
+        if is_closer is True:
+            closers += 1
+            continue
+        return False, f"open attention card {item.get('item_id')}"
+    return True, f"no open card ({closers} closer report(s) ignored)"
 
 
 def main() -> int:
@@ -321,11 +438,11 @@ def main() -> int:
             return refuse(f"{os.path.basename(path)}: {verdict}")
         reason = f"{os.path.basename(path)} is {verdict}"
 
-    clear, why = gate_state(sid)
+    clear, note = gate_state(sid)
     if not clear:
-        return refuse(why)
+        return refuse(note)
 
-    print(f"SELF-EXIT: exit — {reason}, no open card, pane {pane}")
+    print(f"SELF-EXIT: exit — {reason}, {note}, pane {pane}")
     if args.dry_run:
         return EXIT_TAKEN
 

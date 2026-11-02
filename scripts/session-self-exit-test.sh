@@ -32,7 +32,8 @@ trap 'kill "${SERVER_PID:-}" 2>/dev/null; wait "${SERVER_PID:-}" 2>/dev/null; rm
 
 TASKS="$TMP/tasks"
 SESSIONS="$TMP/sessions"
-mkdir -p "$TASKS" "$SESSIONS" "$TMP/store/api/1.0"
+STATE="$TMP/attention"
+mkdir -p "$TASKS" "$SESSIONS" "$STATE" "$TMP/store/api/1.0"
 
 # A live tab session: the registry entry is what proves it owns a pane.
 cat > "$SESSIONS/4242.json" <<EOF
@@ -112,6 +113,37 @@ cards() { # cards <json>
 	printf '%s' "$1" > "$TMP/store/api/1.0/attention"
 }
 
+# The hook's per-session mint log, which carries the provenance the store drops.
+# `mint <item-id> <kind> <event>` writes one `open` line for it.
+mint() {
+	printf '{"type":"open","item_id":"%s","kind":"%s","event":"%s"}\n' "$1" "$2" "$3" \
+		>> "$STATE/$SID.events.jsonl"
+}
+
+mint_reset() {
+	rm -f "$STATE/$SID.events.jsonl"
+}
+
+# `mint_raw` writes a literal line, so a fixture can carry a record captured from
+# a real `<sid>.events.jsonl` rather than one this test invented. `mint` above is
+# the three-key shorthand; this is the fidelity one.
+mint_raw() {
+	printf '%s\n' "$1" >> "$STATE/$SID.events.jsonl"
+}
+
+# The 18 keys the Stop hook actually writes, captured 2026-11-02 from a live log
+# with the values replaced. A record missing any of them would still satisfy
+# `mint`, which is exactly the drift this fixture exists to catch.
+real_closer() { # real_closer <item-id> <cleared-by-event>
+	{
+		printf '{"item_id":"%s","session_id":"%s","kind":"question","tool_name":"",' "$1" "$SID"
+		printf '"detail":"👤 You: pick — 1. one · 2. two","context":"","options":[{"label":"one"}],'
+		printf '"answer_cardinality":"single","questions":[],"pane":777,"cwd":"/tmp",'
+		printf '"transcript":"/tmp/t.jsonl","host":"host","agent_id":"","ts":1762000000.0,'
+		printf '"event":"Stop","cleared_by":{"event":"%s"},"type":"open"}\n' "$2"
+	} >> "$STATE/$SID.events.jsonl"
+}
+
 # Park instants are computed, never hardcoded: a literal date is in the future
 # when it is written and in the past a month later, which turns the positive
 # case red on a calendar boundary with no code change.
@@ -134,7 +166,7 @@ run() { # run <want-exit> <label> [extra env...]
 	local got=0
 	env -i PATH="$PATH" \
 		SESSION_ID="$SID" SESSIONS_DIR="$SESSIONS" TASKS_ROOTS="$TASKS" \
-		WEZTERM_PANE=777 ATTENTION_STORE_URL="$STORE_URL" "$@" \
+		WEZTERM_PANE=777 ATTENTION_STORE_URL="$STORE_URL" ATTENTION_STATE_DIR="$STATE" "$@" \
 		python3 "$SCRIPT" --dry-run > "$TMP/out" 2>&1 || got=$?
 	if [ "$got" -eq "$want" ]; then
 		pass=$((pass + 1))
@@ -150,7 +182,7 @@ run_msg() { # run_msg <want-exit> <label> <expected-substring> [extra env...]
 	local got=0
 	env -i PATH="$PATH" \
 		SESSION_ID="$SID" SESSIONS_DIR="$SESSIONS" TASKS_ROOTS="$TASKS" \
-		WEZTERM_PANE=777 ATTENTION_STORE_URL="$STORE_URL" "$@" \
+		WEZTERM_PANE=777 ATTENTION_STORE_URL="$STORE_URL" ATTENTION_STATE_DIR="$STATE" "$@" \
 		python3 "$SCRIPT" --dry-run > "$TMP/out" 2>&1 || got=$?
 	if [ "$got" -eq "$want" ] && grep -qF "$want_msg" "$TMP/out"; then
 		pass=$((pass + 1))
@@ -166,7 +198,7 @@ run_live() { # run_live <want-exit> <label> [extra env...] — exercises the kil
 	local got=0
 	env -i PATH="$TMP/bin:$PATH" \
 		SESSION_ID="$SID" SESSIONS_DIR="$SESSIONS" TASKS_ROOTS="$TASKS" \
-		WEZTERM_PANE=777 ATTENTION_STORE_URL="$STORE_URL" "$@" \
+		WEZTERM_PANE=777 ATTENTION_STORE_URL="$STORE_URL" ATTENTION_STATE_DIR="$STATE" "$@" \
 		python3 "$SCRIPT" > "$TMP/out" 2>&1 || got=$?
 	if [ "$got" -eq "$want" ]; then
 		pass=$((pass + 1))
@@ -292,6 +324,153 @@ run 10 "open attention card for this session refuses"
 
 cards "[{\"item_id\":\"abc\",\"producer_id\":\"someone-else\",\"state\":\"open\"}]"
 run 0 "another session's card does not block"
+
+# --- the closer-report carve-out
+#
+# A `Stop` closer is minted as a `question` with `cleared_by: {"event": "SessionEnd"}`,
+# so only the session's own end clears it — refusing on it is a deadlock. The store
+# cannot tell it from an ask (the watcher forwards neither `event` nor `cleared_by`),
+# so the gate joins on `dedup_key` → the hook's own log.
+task completed done 0
+
+mint_reset
+mint hookcloser question Stop
+cards "[{\"item_id\":\"store1\",\"dedup_key\":\"hookcloser\",\"producer_id\":\"$SID\",\"state\":\"open\"}]"
+run_msg 0 "a Stop closer report does not block the exit" "1 closer report(s) ignored"
+
+mint hookask question PreToolUse
+cards "[{\"item_id\":\"store1\",\"dedup_key\":\"hookcloser\",\"producer_id\":\"$SID\",\"state\":\"open\"},
+       {\"item_id\":\"store2\",\"dedup_key\":\"hookask\",\"producer_id\":\"$SID\",\"state\":\"open\"}]"
+run 10 "a real AskUserQuestion card still refuses alongside a closer"
+
+mint_reset
+cards "[{\"item_id\":\"store1\",\"dedup_key\":\"hookcloser\",\"producer_id\":\"$SID\",\"state\":\"open\"}]"
+run 10 "an unreadable mint log refuses (fail-closed)"
+
+# A closer line must not excuse an item the log does not know about.
+mint hookcloser question Stop
+cards "[{\"item_id\":\"store1\",\"dedup_key\":\"unknown-id\",\"producer_id\":\"$SID\",\"state\":\"open\"}]"
+run 10 "an item with no mint record refuses"
+
+# --- fixture fidelity: the full captured record shape, and the older mint form
+#
+# `mint` writes only the three keys the implementation reads, so it agrees with
+# the implementation by construction. These carry the whole captured key set.
+mint_reset
+real_closer realcloser SessionEnd
+cards "[{\"item_id\":\"store1\",\"dedup_key\":\"realcloser\",\"producer_id\":\"$SID\",\"state\":\"open\"}]"
+run_msg 0 "a full captured closer record does not block the exit" "1 closer report(s) ignored"
+
+# Older mints in the same append-only log declare `UserPromptSubmit`, not
+# `SessionEnd`. The predicate keys on `event`, so both must be skipped.
+mint_reset
+real_closer oldcloser UserPromptSubmit
+cards "[{\"item_id\":\"store1\",\"dedup_key\":\"oldcloser\",\"producer_id\":\"$SID\",\"state\":\"open\"}]"
+run_msg 0 "an older UserPromptSubmit closer record does not block either" "1 closer report(s) ignored"
+
+# --- corruption: the gate must refuse by name, never die with a traceback
+mint_reset
+mint_raw 'not json at all'
+real_closer realcloser SessionEnd
+cards "[{\"item_id\":\"store1\",\"dedup_key\":\"realcloser\",\"producer_id\":\"$SID\",\"state\":\"open\"}]"
+run_msg 0 "a malformed line is skipped, not fatal" "1 closer report(s) ignored"
+
+mint_reset
+mint_raw 'null'
+mint_raw '123'
+mint_raw '[1,2]'
+real_closer realcloser SessionEnd
+cards "[{\"item_id\":\"store1\",\"dedup_key\":\"realcloser\",\"producer_id\":\"$SID\",\"state\":\"open\"}]"
+run_msg 0 "valid-JSON non-object lines are skipped, not fatal" "1 closer report(s) ignored"
+
+# A hook killed mid-write leaves a truncated multi-byte sequence.
+mint_reset
+printf '\xe2\x82\n' >> "$STATE/$SID.events.jsonl"
+real_closer realcloser SessionEnd
+cards "[{\"item_id\":\"store1\",\"dedup_key\":\"realcloser\",\"producer_id\":\"$SID\",\"state\":\"open\"}]"
+run_msg 0 "a truncated UTF-8 line is skipped, not fatal" "1 closer report(s) ignored"
+
+mint_reset
+mint_raw 'null'
+cards "[{\"item_id\":\"store1\",\"dedup_key\":\"store1\",\"producer_id\":\"$SID\",\"state\":\"open\"}]"
+run 10 "a log with no usable record still refuses"
+
+# The store is the other unguarded input: an object or array `dedup_key` is
+# unhashable, and an uncaught TypeError would be a traceback, not a refusal.
+mint_reset
+real_closer realcloser SessionEnd
+cards "[{\"item_id\":\"store1\",\"dedup_key\":{\"a\":1},\"producer_id\":\"$SID\",\"state\":\"open\"}]"
+run 10 "an unhashable dedup_key refuses by name, not with a traceback"
+
+cards "[{\"item_id\":\"store1\",\"dedup_key\":[\"a\"],\"producer_id\":\"$SID\",\"state\":\"open\"}]"
+run 10 "an array dedup_key refuses by name, not with a traceback"
+
+# The same class on the log side: a non-scalar `item_id` is unhashable as a dict key.
+mint_reset
+mint_raw '{"type":"open","item_id":["x"]}'
+mint_raw '{"type":"open","item_id":{"a":1}}'
+real_closer realcloser SessionEnd
+cards "[{\"item_id\":\"store1\",\"dedup_key\":\"realcloser\",\"producer_id\":\"$SID\",\"state\":\"open\"}]"
+run_msg 0 "an unhashable log item_id is skipped, not fatal" "1 closer report(s) ignored"
+
+# And on the store side: `null` is legal JSON with no `.get`.
+mint_reset
+real_closer realcloser SessionEnd
+cards "[null,
+       {\"item_id\":\"store1\",\"dedup_key\":\"realcloser\",\"producer_id\":\"$SID\",\"state\":\"open\"}]"
+run_msg 0 "a null store element is skipped, not fatal" "1 closer report(s) ignored"
+
+# Duplicate item_id: an id is a closer only if every record under it is one, so
+# a later Stop mint sharing an id with a real ask cannot skip a live card.
+mint_reset
+mint dupe question PreToolUse
+mint dupe question Stop
+cards "[{\"item_id\":\"store1\",\"dedup_key\":\"dupe\",\"producer_id\":\"$SID\",\"state\":\"open\"}]"
+run 10 "an ask then a closer on one item_id still refuses"
+
+mint_reset
+mint dupe question Stop
+mint dupe question PreToolUse
+cards "[{\"item_id\":\"store1\",\"dedup_key\":\"dupe\",\"producer_id\":\"$SID\",\"state\":\"open\"}]"
+run 10 "a closer then an ask on one item_id still refuses"
+
+# A Stop record that is not a question is not a closer.
+mint_reset
+mint stopidle idle Stop
+cards "[{\"item_id\":\"store1\",\"dedup_key\":\"stopidle\",\"producer_id\":\"$SID\",\"state\":\"open\"}]"
+run 10 "a non-question Stop record refuses"
+
+# A numeric dedup_key must not be coerced into matching a string item_id: `123`
+# and `"123"` are different values, and only the latter can be a hook id.
+mint_reset
+mint 123 question Stop
+cards "[{\"item_id\":\"store1\",\"dedup_key\":123,\"producer_id\":\"$SID\",\"state\":\"open\"}]"
+run 10 "a numeric dedup_key does not coerce into a match"
+
+# An absent or empty dedup_key cannot join, so it must refuse.
+mint_reset
+real_closer realcloser SessionEnd
+cards "[{\"item_id\":\"store1\",\"producer_id\":\"$SID\",\"state\":\"open\"}]"
+run 10 "an absent dedup_key refuses"
+
+cards "[{\"item_id\":\"store1\",\"dedup_key\":\"\",\"producer_id\":\"$SID\",\"state\":\"open\"}]"
+run 10 "an empty dedup_key refuses"
+
+# The OSError branch, faithfully: a directory where the log should be.
+mint_reset
+mkdir -p "$STATE/$SID.events.jsonl"
+cards "[{\"item_id\":\"store1\",\"dedup_key\":\"realcloser\",\"producer_id\":\"$SID\",\"state\":\"open\"}]"
+run 10 "a directory in place of the mint log refuses"
+rmdir "$STATE/$SID.events.jsonl"
+
+# The production default path, never otherwise exercised: with ATTENTION_STATE_DIR
+# empty and a HOME carrying no attention state, the gate must still fail closed.
+cards "[{\"item_id\":\"store1\",\"dedup_key\":\"realcloser\",\"producer_id\":\"$SID\",\"state\":\"open\"}]"
+mkdir -p "$TMP/home"
+run 10 "the default state dir with no mint log refuses" ATTENTION_STATE_DIR= HOME="$TMP/home"
+
+mint_reset
+cards '[]'
 
 # --- negative path: the pane id is not a number
 task completed done 0

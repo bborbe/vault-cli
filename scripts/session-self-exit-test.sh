@@ -548,6 +548,37 @@ task in_progress execution 1
 run_msg 10 "a live task anchor wins over a completed goal" "task status is in_progress"
 rm -f "$GOALS/Anchor Page.md" "$TASKS/Anchor.md"
 
+# Review finding 1: a task matched only by handover must not outrank a page the
+# session still holds.
+handed_off_task in_progress execution "$OTHER"
+page "$GOALS" in_progress "$SID"
+run_msg 10 "a handed-off task does not free a session that still holds a live goal" "this session still holds the goal"
+rm -f "$GOALS/Anchor Page.md" "$TASKS/Anchor.md"
+
+# Review finding 2: every held page must pass, not the first one found.
+page "$GOALS" completed "$SID"
+page "$TOPICS" in_progress "$SID"
+run_msg 10 "a completed goal does not free a session that still holds a live topic" "this session still holds the topic"
+page "$TOPICS" completed "$SID"
+run_msg 0 "two held pages that are both completed exit" "goal $GOALS/Anchor Page.md is completed; topic $TOPICS/Anchor Page.md is completed"
+rm -f "$GOALS/Anchor Page.md" "$TOPICS/Anchor Page.md"
+
+# Review finding 3: an unreadable file refuses — it could be the live claim.
+page "$GOALS" completed "$SID"
+touch "$TASKS/Unreadable.md" && chmod 000 "$TASKS/Unreadable.md"
+run_msg 10 "an unreadable task file refuses before the goal fallback" "unreadable task file"
+rm -f "$TASKS/Unreadable.md"
+touch "$TOPICS/Unreadable.md" && chmod 000 "$TOPICS/Unreadable.md"
+run_msg 10 "an unreadable topic page refuses" "unreadable goal/topic page"
+rm -f "$TOPICS/Unreadable.md" "$GOALS/Anchor Page.md"
+
+# A headless SDK query must not exit on a parked goal — it would close its spawner's tab.
+printf '{"pid": 4242, "sessionId": "%s", "kind": "interactive", "entrypoint": "sdk-cli"}\n' "$SID" > "$SESSIONS/4242.json"
+page "$GOALS" in_progress "$SID" "$FUTURE"
+run_msg 10 "a headless SDK query with a parked goal refuses" "no pane of its own"
+printf '{"pid": 4242, "sessionId": "%s", "kind": "interactive"}\n' "$SID" > "$SESSIONS/4242.json"
+rm -f "$GOALS/Anchor Page.md"
+
 # The id only in a goal's body is not a claim.
 {
 	echo "---"

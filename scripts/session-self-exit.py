@@ -29,11 +29,14 @@ line so the refusal is diagnosable):
      recorded. A past or date-only `defer_date` is not an instant and refuses:
      a stale row must not free its slot, and the time-of-day reading of a
      date-only value belongs to its own task.
-  3b. No task resolves → the goal or topic anchor. A goal manager or topic
+  3b. No held task → the goal or topic anchor. A goal manager or topic
      manager holds a goal / topic page, not a task, and `vault-cli goal work-on`
      / `topic work-on` record it there the same way: `claude_session_id`, plus a
-     `metrics_sessions` entry. The page is resolved by the same join, across the
-     configured `goals_dir` and `topics_dir`; a task anchor always wins.
+     `metrics_sessions` entry. Pages are resolved by the same join, across the
+     configured `goals_dir` and `topics_dir`. A task the session holds as
+     `claude_session_id` always wins; a task matched only by handover does not
+     outrank a page the session still holds. Every page the session holds must
+     pass 4b, and any unreadable task or page file refuses.
   4b. Goal/topic terminal-state rule. A goal- or topic-anchored session may exit
      when (1) it has handed the page over — its id is in `metrics_sessions`
      while `claude_session_id` names another session; or (2) the page's
@@ -235,7 +238,11 @@ def anchor_task(sid: str) -> tuple[str, dict[str, str], str, bool] | None:
         for path in glob.glob(os.path.join(root, "*.md")):
             try:
                 meta, body, block = read_frontmatter(path)
-            except OSError:
+            except (OSError, ValueError):
+                # Recorded, not ignored: once the goal/topic fallback exists, a
+                # skipped task file is no longer harmless — it could be the live
+                # claim, and the fallback would then free the session on a page.
+                TASK_READ_ERRORS.append(path)
                 continue
             if meta.get("claude_session_id") == sid:
                 return path, meta, body, False
@@ -244,28 +251,42 @@ def anchor_task(sid: str) -> tuple[str, dict[str, str], str, bool] | None:
     return handed_off
 
 
-def anchor_page(sid: str) -> tuple[str, str, dict[str, str], bool] | None:
-    """Resolve the goal or topic page a session with no task anchor may exit against.
+TASK_READ_ERRORS: list[str] = []
 
-    Consulted only when `anchor_task` finds nothing, so a task anchor always wins.
-    The join is the same one the task branch uses — `claude_session_id`, else the
-    session's own `metrics_sessions` entry — because `vault-cli goal work-on` /
-    `topic work-on` write both on a goal or topic page exactly as they do on a task.
-    Returns `(kind, path, meta, handed_off)` with `kind` `goal` or `topic`.
+Page = tuple[str, str, dict[str, str]]
+
+
+def anchor_pages(sid: str) -> tuple[list[Page], list[Page], list[str]]:
+    """Every goal or topic page that records this session, split by how.
+
+    Returns `(held, handed, errors)`: pages whose `claude_session_id` is this
+    session, pages that list it only under `metrics_sessions` (a recorded
+    handover), and paths that could not be read. Each page is `(kind, path,
+    meta)` with `kind` `goal` or `topic`. All of them are collected rather than
+    the first, because pages stay stamped after they end: one session can hold
+    a completed goal and a live topic at once, and the live one must decide.
+
+    The join is the task branch's — `vault-cli goal work-on` / `topic work-on`
+    write `claude_session_id` and a `metrics_sessions` entry on the page
+    (`pkg/ops/goal_workon.go` `persistGoalSessionID`, `pkg/ops/topic_workon.go`
+    `persistTopicSessionID`).
     """
-    handed_off: tuple[str, str, dict[str, str], bool] | None = None
+    held: list[Page] = []
+    handed: list[Page] = []
+    errors: list[str] = []
     for kind, roots in (("goal", goals_roots()), ("topic", topics_roots())):
         for root in roots:
             for path in sorted(glob.glob(os.path.join(root, "*.md"))):
                 try:
                     meta, _body, block = read_frontmatter(path)
-                except OSError:
+                except (OSError, ValueError):
+                    errors.append(path)
                     continue
                 if meta.get("claude_session_id") == sid:
-                    return kind, path, meta, False
-                if handed_off is None and sid in metrics_session_ids(block):
-                    handed_off = (kind, path, meta, True)
-    return handed_off
+                    held.append((kind, path, meta))
+                elif sid in metrics_session_ids(block):
+                    handed.append((kind, path, meta))
+    return held, handed, errors
 
 
 # A bare `YYYY-MM-DD` is a date, not an instant. `datetime.fromisoformat` accepts
@@ -527,33 +548,46 @@ def main() -> int:
         return refuse(f"$WEZTERM_PANE is not a pane id ({pane!r})")
 
     found = anchor_task(sid)
-    if found is not None:
-        path, meta, body, handed_off = found
-        if handed_off:
-            reason = f"handed off to {meta.get('claude_session_id') or '(none)'}"
-        else:
-            terminal, verdict = terminal_verdict(
-                meta, body, datetime.now(timezone.utc), entrypoint_of(sid) == "sdk-cli"
-            )
-            if not terminal:
-                return refuse(f"{os.path.basename(path)}: {verdict}")
-            reason = f"{os.path.basename(path)} is {verdict}"
+    if found is not None and not found[3]:
+        # The session holds this task as `claude_session_id`: the task decides alone.
+        path, meta, body, _ = found
+        terminal, verdict = terminal_verdict(
+            meta, body, datetime.now(timezone.utc), entrypoint_of(sid) == "sdk-cli"
+        )
+        if not terminal:
+            return refuse(f"{os.path.basename(path)}: {verdict}")
+        reason = f"{os.path.basename(path)} is {verdict}"
     else:
-        page = anchor_page(sid)
-        if page is None:
+        # No held task. A task matched only through `metrics_sessions` (handed
+        # off) is weaker evidence than a page this session still holds, so the
+        # goal/topic pages are read in both cases — and every unreadable file
+        # refuses, because the one that failed could be the live claim.
+        if TASK_READ_ERRORS:
+            return refuse(
+                f"unreadable task file {TASK_READ_ERRORS[0]} — it could be this session's live claim"
+            )
+        held, handed, errors = anchor_pages(sid)
+        if errors:
+            return refuse(f"unreadable goal/topic page {errors[0]} — it could be this session's live claim")
+        now = datetime.now(timezone.utc)
+        headless = entrypoint_of(sid) == "sdk-cli"
+        verdicts = []
+        for kind, path, meta in held:
+            closable, verdict = page_verdict(kind, meta, now, headless)
+            if not closable:
+                return refuse(f"{kind} {path}: {verdict}")
+            verdicts.append(f"{kind} {path} is {verdict}")
+        if verdicts:
+            reason = "; ".join(verdicts) + f" (session {sid})"
+        elif found is not None:
+            reason = f"handed off to {found[1].get('claude_session_id') or '(none)'}"
+        elif handed:
+            kind, path, meta = handed[0]
+            reason = f"{kind} {path} handed off to {meta.get('claude_session_id') or '(none)'} (session {sid})"
+        else:
             return refuse(
                 f"no task, goal or topic carries claude_session_id {sid} — nothing proves the work is finished"
             )
-        kind, path, meta, handed_off = page
-        if handed_off:
-            reason = f"{kind} {path} handed off to {meta.get('claude_session_id') or '(none)'} (session {sid})"
-        else:
-            closable, verdict = page_verdict(
-                kind, meta, datetime.now(timezone.utc), entrypoint_of(sid) == "sdk-cli"
-            )
-            if not closable:
-                return refuse(f"{kind} {path}: {verdict}")
-            reason = f"{kind} {path} is {verdict} (session {sid})"
 
     clear, note = gate_state(sid)
     if not clear:

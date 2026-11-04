@@ -564,20 +564,51 @@ run_msg 0 "two held pages that are both completed exit" "goal $GOALS/Anchor Page
 rm -f "$GOALS/Anchor Page.md" "$TOPICS/Anchor Page.md"
 
 # Review finding 3: an unreadable file refuses — it could be the live claim.
+# A directory named `*.md`, not `chmod 000`: root reads a mode-000 file, so that
+# shape would pass on a uid-0 runner for the wrong reason. `open()` on a directory
+# raises IsADirectoryError for every uid.
 page "$GOALS" completed "$SID"
-touch "$TASKS/Unreadable.md" && chmod 000 "$TASKS/Unreadable.md"
+mkdir "$TASKS/Unreadable.md"
 run_msg 10 "an unreadable task file refuses before the goal fallback" "unreadable task file"
-rm -f "$TASKS/Unreadable.md"
-touch "$TOPICS/Unreadable.md" && chmod 000 "$TOPICS/Unreadable.md"
+rmdir "$TASKS/Unreadable.md"
+mkdir "$TOPICS/Unreadable.md"
 run_msg 10 "an unreadable topic page refuses" "unreadable goal/topic page"
-rm -f "$TOPICS/Unreadable.md" "$GOALS/Anchor Page.md"
+rmdir "$TOPICS/Unreadable.md"
+rm -f "$GOALS/Anchor Page.md"
 
-# A headless SDK query must not exit on a parked goal — it would close its spawner's tab.
+# A headless SDK query must not exit on ANY goal/topic anchor — completed, parked
+# or handed over — because it would close its spawner's tab.
 printf '{"pid": 4242, "sessionId": "%s", "kind": "interactive", "entrypoint": "sdk-cli"}\n' "$SID" > "$SESSIONS/4242.json"
 page "$GOALS" in_progress "$SID" "$FUTURE"
 run_msg 10 "a headless SDK query with a parked goal refuses" "no pane of its own"
+page "$GOALS" completed "$SID"
+run_msg 10 "a headless SDK query with a completed goal refuses" "no pane of its own"
+page "$TOPICS" aborted "$SID"
+rm -f "$GOALS/Anchor Page.md"
+run_msg 10 "a headless SDK query with an aborted topic refuses" "no pane of its own"
+rm -f "$TOPICS/Anchor Page.md"
+page "$GOALS" in_progress "$OTHER"
+run_msg 10 "a headless SDK query handed off a goal refuses" "no pane of its own"
 printf '{"pid": 4242, "sessionId": "%s", "kind": "interactive"}\n' "$SID" > "$SESSIONS/4242.json"
 rm -f "$GOALS/Anchor Page.md"
+
+# The default-dir path: `config list --output json` omits an unset goals_dir /
+# topics_dir, so the script must apply vault-cli's own defaults (`Goals`,
+# `23 Topics`). Driven through a stub `vault-cli` with the roots overrides empty,
+# so `vault_configs()` is the code under test.
+mkdir -p "$TMP/stubbin" "$TMP/vault/Goals" "$TMP/vault/23 Topics"
+printf '#!/bin/sh\nprintf %s\n' "'[{\"name\": \"v\", \"path\": \"$TMP/vault\", \"tasks_dir\": \"25 Tasks\"}]'" > "$TMP/stubbin/vault-cli"
+chmod +x "$TMP/stubbin/vault-cli"
+page "$TMP/vault/Goals" completed "$SID"
+run_msg 0 "a vault with no goals_dir key resolves the default Goals dir" \
+	"goal $TMP/vault/Goals/Anchor Page.md is completed" \
+	PATH="$TMP/stubbin:$PATH" GOALS_ROOTS= TOPICS_ROOTS=
+rm -f "$TMP/vault/Goals/Anchor Page.md"
+page "$TMP/vault/23 Topics" in_progress "$SID"
+run_msg 10 "a vault with no topics_dir key resolves the default 23 Topics dir" \
+	"topic $TMP/vault/23 Topics/Anchor Page.md: this session still holds the topic" \
+	PATH="$TMP/stubbin:$PATH" GOALS_ROOTS= TOPICS_ROOTS=
+rm -f "$TMP/vault/23 Topics/Anchor Page.md"
 
 # The id only in a goal's body is not a claim.
 {

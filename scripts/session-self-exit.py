@@ -36,7 +36,9 @@ line so the refusal is diagnosable):
      configured `goals_dir` and `topics_dir`. A task the session holds as
      `claude_session_id` always wins; a task matched only by handover does not
      outrank a page the session still holds. Every page the session holds must
-     pass 4b, and any unreadable task or page file refuses.
+     pass 4b, and — when no held task decides — any unreadable task or page file
+     refuses. A headless SDK query (`entrypoint: sdk-cli`) never exits on a goal
+     or topic anchor: it inherits its spawner's pane.
   4b. Goal/topic terminal-state rule. A goal- or topic-anchored session may exit
      when (1) it has handed the page over — its id is in `metrics_sessions`
      while `claude_session_id` names another session; or (2) the page's
@@ -160,14 +162,22 @@ def vault_configs() -> list[dict]:
     return _VAULT_CONFIGS
 
 
-def config_roots(env_var: str, dir_key: str) -> list[str]:
-    """`<vault path>/<dir_key>` for every vault that sets `dir_key`; `env_var` overrides."""
+def config_roots(env_var: str, dir_key: str, default: str = "") -> list[str]:
+    """`<vault path>/<dir_key>` for every vault; `env_var` overrides.
+
+    `config list --output json` marshals the stored config with `omitempty`, so a
+    vault relying on the Go-side default (`Vault.GetGoalsDir` → `Goals`,
+    `GetTopicsDir` → `23 Topics`, `pkg/config/config.go`) carries no key at all.
+    `default` applies that same fallback here; without it such a vault's goal or
+    topic manager would never resolve. A root that does not exist globs to
+    nothing, so the fallback cannot match a page the vault does not have.
+    """
     override = os.environ.get(env_var, "").strip()
     if override:
         return [p for p in override.split(os.pathsep) if p]
     roots = []
     for entry in vault_configs():
-        path, sub = entry.get("path"), entry.get(dir_key)
+        path, sub = entry.get("path"), entry.get(dir_key) or default
         if path and sub:
             roots.append(os.path.join(path, sub))
     return roots
@@ -177,12 +187,17 @@ def tasks_roots() -> list[str]:
     return config_roots("TASKS_ROOTS", "tasks_dir")
 
 
+# Mirrors `pkg/config/config.go` `GetGoalsDir` / `GetTopicsDir`; change both together.
+DEFAULT_GOALS_DIR = "Goals"
+DEFAULT_TOPICS_DIR = "23 Topics"
+
+
 def goals_roots() -> list[str]:
-    return config_roots("GOALS_ROOTS", "goals_dir")
+    return config_roots("GOALS_ROOTS", "goals_dir", DEFAULT_GOALS_DIR)
 
 
 def topics_roots() -> list[str]:
-    return config_roots("TOPICS_ROOTS", "topics_dir")
+    return config_roots("TOPICS_ROOTS", "topics_dir", DEFAULT_TOPICS_DIR)
 
 
 def read_frontmatter(path: str) -> tuple[dict[str, str], str, str]:
@@ -270,6 +285,10 @@ def anchor_pages(sid: str) -> tuple[list[Page], list[Page], list[str]]:
     write `claude_session_id` and a `metrics_sessions` entry on the page
     (`pkg/ops/goal_workon.go` `persistGoalSessionID`, `pkg/ops/topic_workon.go`
     `persistTopicSessionID`).
+
+    Cost: one frontmatter read per goal/topic page, once per session end — and
+    only when no held task decides. Accepted: the scan cannot stop at the first
+    held page, because every held page must pass.
     """
     held: list[Page] = []
     handed: list[Page] = []
@@ -354,9 +373,7 @@ def terminal_verdict(
     return True, "completed"
 
 
-def page_verdict(
-    kind: str, meta: dict[str, str], now: datetime, headless: bool = False
-) -> tuple[bool, str]:
+def page_verdict(kind: str, meta: dict[str, str], now: datetime) -> tuple[bool, str]:
     """Whether a session that still holds a goal or topic page may exit against it.
 
     The task rule does not transfer. A task's `completed` + `phase: done` + zero
@@ -372,11 +389,7 @@ def page_verdict(
         return True, status
     defer = meta.get("defer_date", "").strip()
     if defer:
-        if headless:
-            return False, (
-                f"{kind} is parked, but this session is a headless SDK query with no pane of its own "
-                "— it inherits its spawner's $WEZTERM_PANE, so exiting would close that tab"
-            )
+        # A headless session never reaches here — `main` refuses it first.
         instant = defer_instant(defer)
         if instant is None:
             return False, (
@@ -569,11 +582,21 @@ def main() -> int:
         held, handed, errors = anchor_pages(sid)
         if errors:
             return refuse(f"unreadable goal/topic page {errors[0]} — it could be this session's live claim")
+        # A headless SDK query has no pane of its own and inherits its spawner's
+        # $WEZTERM_PANE, so exiting on a goal/topic anchor — completed, aborted,
+        # parked or handed over alike — would close the spawner's tab. A goal or
+        # topic manager is a tab session; a headless one needs no self-exit, since
+        # its process ends with its turn. Refuse before any page verdict.
+        if (held or (found is None and handed)) and entrypoint_of(sid) == "sdk-cli":
+            kind, path, _meta = (held or handed)[0]
+            return refuse(
+                f"{kind} {path}: this session is a headless SDK query with no pane of its own "
+                "— it inherits its spawner's $WEZTERM_PANE, so exiting would close that tab"
+            )
         now = datetime.now(timezone.utc)
-        headless = entrypoint_of(sid) == "sdk-cli"
         verdicts = []
         for kind, path, meta in held:
-            closable, verdict = page_verdict(kind, meta, now, headless)
+            closable, verdict = page_verdict(kind, meta, now)
             if not closable:
                 return refuse(f"{kind} {path}: {verdict}")
             verdicts.append(f"{kind} {path} is {verdict}")

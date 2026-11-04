@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.187.0
 
 - feat: `task lint` / `task validate` report a new non-fixable `HOLD_WITH_DEFER_DATE` finding for a task parked at `status: hold` that still carries a `defer_date`; the finding names both resolutions (promote to `in_progress`, or clear the date). Tasks created by the recurring task creator (`created_by: recurring-task-creator`) and tasks with a non-empty `recurring:` key are exempt because their `defer_date` is a schedule date. `task defer` now promotes a `hold` task to `in_progress` in the same write.
 

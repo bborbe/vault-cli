@@ -65,6 +65,12 @@ vaults:
 		}
 	}
 
+	BeforeEach(func() {
+		// Reset per spec: a declaration-time value would be evaluated once for
+		// the whole suite and leave the previous spec's closure in place.
+		cleanup = func() {}
+	})
+
 	AfterEach(func() {
 		cleanup()
 	})

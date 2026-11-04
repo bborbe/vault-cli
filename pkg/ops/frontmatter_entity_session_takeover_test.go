@@ -87,6 +87,22 @@ var _ = Describe("goal/topic set session take-over", func() {
 			Expect(mockGoalStorage.WriteGoalCallCount()).To(Equal(1))
 		})
 
+		It("records the displaced owner when the new owner is a non-uuid display name", func() {
+			seedGoal(map[string]any{
+				"status":            "active",
+				"claude_session_id": sessionA,
+			})
+
+			Expect(bind("incoming display name owner")).To(BeNil())
+
+			Expect(goal.ClaudeSessionID()).To(Equal("incoming display name owner"))
+
+			sessions := goal.MetricsSessions()
+			Expect(sessions).To(HaveLen(1))
+			Expect(sessions[0].SessionID).To(Equal(sessionA))
+			Expect(sessions[0].StartedAt).To(Equal(expectedStartedAt()))
+		})
+
 		It("preserves existing entries in order and appends the displaced owner last", func() {
 			older := libtimetest.ParseDateTime("2026-01-01T08:00:00Z")
 			seedGoal(map[string]any{
@@ -203,6 +219,22 @@ var _ = Describe("goal/topic set session take-over", func() {
 			Expect(sessions[0].StartedAt).To(Equal(expectedStartedAt()))
 
 			Expect(mockTopicStorage.WriteTopicCallCount()).To(Equal(1))
+		})
+
+		It("records the displaced owner when the new owner is a non-uuid display name", func() {
+			seedTopic(map[string]any{
+				"status":            "active",
+				"claude_session_id": sessionA,
+			})
+
+			Expect(bind("incoming display name owner")).To(BeNil())
+
+			Expect(topic.GetField("claude_session_id")).To(Equal("incoming display name owner"))
+
+			sessions := topic.MetricsSessions()
+			Expect(sessions).To(HaveLen(1))
+			Expect(sessions[0].SessionID).To(Equal(sessionA))
+			Expect(sessions[0].StartedAt).To(Equal(expectedStartedAt()))
 		})
 
 		It("preserves existing entries in order and appends the displaced owner last", func() {

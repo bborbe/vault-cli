@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: `scripts/session-self-exit.py` resolves a session anchored only on a goal or topic page — a goal manager or topic manager — instead of refusing it with `no task carries claude_session_id`. When no task resolves the session, the script reads the configured `goals_dir` / `topics_dir` (overridable with `GOALS_ROOTS` / `TOPICS_ROOTS`) and joins on `claude_session_id`, else the session's `metrics_sessions` entry. A task anchor always wins. Goal/topic terminal-state rule: the session may exit when it has handed the page over, when the page is `completed` or `aborted`, or when the page is parked on a future `defer_date`. It may not exit while it still holds a non-terminal page. The task rule does not transfer, because a goal stays `in_progress` across many sessions. The refusal now reads `no task, goal or topic carries claude_session_id <sid>`.
+
 ## v0.187.0
 
 - feat: `task lint` / `task validate` report a new non-fixable `HOLD_WITH_DEFER_DATE` finding for a task parked at `status: hold` that still carries a `defer_date`; the finding names both resolutions (promote to `in_progress`, or clear the date). Tasks created by the recurring task creator (`created_by: recurring-task-creator`) and tasks with a non-empty `recurring:` key are exempt because their `defer_date` is a schedule date. `task defer` now promotes a `hold` task to `in_progress` in the same write.

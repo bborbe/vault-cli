@@ -29,6 +29,22 @@ line so the refusal is diagnosable):
      recorded. A past or date-only `defer_date` is not an instant and refuses:
      a stale row must not free its slot, and the time-of-day reading of a
      date-only value belongs to its own task.
+  3b. No task resolves → the goal or topic anchor. A goal manager or topic
+     manager holds a goal / topic page, not a task, and `vault-cli goal work-on`
+     / `topic work-on` record it there the same way: `claude_session_id`, plus a
+     `metrics_sessions` entry. The page is resolved by the same join, across the
+     configured `goals_dir` and `topics_dir`; a task anchor always wins.
+  4b. Goal/topic terminal-state rule. A goal- or topic-anchored session may exit
+     when (1) it has handed the page over — its id is in `metrics_sessions`
+     while `claude_session_id` names another session; or (2) the page's
+     `status` is `completed` or `aborted`; or (3) the page carries a
+     `defer_date` that is a future instant (same parser as guard 4). It may NOT
+     exit while it is still the page's `claude_session_id` on a non-terminal page
+     (`in_progress`, `next`, `backlog`, `hold`, …) with no future `defer_date`.
+     The task rule does not transfer: `completed` + `phase: done` + zero boxes
+     proves one session's work is done, but a goal or topic stays `in_progress`
+     across many sessions and its boxes describe the page's whole lifetime —
+     gating on "goal complete" would make every goal manager refuse to exit.
   5. The attention store holds no open card for this session. An unreachable
      store refuses: a failed read is not evidence that no gate is open. A card
      the session minted at its own `Stop` is not a card: it is the turn-end
@@ -47,7 +63,7 @@ this process. `--dry-run` prints the same decision without killing.
 slot nobody is using, it does not open the limit.
 
 Testability: every input is an env var (`SESSION_ID`, `SESSIONS_DIR`,
-`TASKS_ROOTS`, `WEZTERM_PANE`, `ATTENTION_STORE_URL`, `ATTENTION_STATE_DIR`) so
+`TASKS_ROOTS`, `GOALS_ROOTS`, `TOPICS_ROOTS`, `WEZTERM_PANE`, `ATTENTION_STORE_URL`, `ATTENTION_STATE_DIR`) so
 `scripts/session-self-exit-test.sh` can drive each branch against fixtures
 without a live fleet.
 """
@@ -122,24 +138,48 @@ def entrypoint_of(sid: str) -> str:
     return ""
 
 
-def tasks_roots() -> list[str]:
-    override = os.environ.get("TASKS_ROOTS", "").strip()
+_VAULT_CONFIGS: list[dict] | None = None
+
+
+def vault_configs() -> list[dict]:
+    """Every configured vault, read once per run — the roots below share one read."""
+    global _VAULT_CONFIGS
+    if _VAULT_CONFIGS is None:
+        try:
+            out = subprocess.run(
+                ["vault-cli", "config", "list", "--output", "json"],
+                capture_output=True, text=True, timeout=20, check=True,
+            ).stdout
+            configs = json.loads(out)
+        except (OSError, subprocess.SubprocessError, ValueError):
+            configs = []
+        _VAULT_CONFIGS = [c for c in configs if isinstance(c, dict)] if isinstance(configs, list) else []
+    return _VAULT_CONFIGS
+
+
+def config_roots(env_var: str, dir_key: str) -> list[str]:
+    """`<vault path>/<dir_key>` for every vault that sets `dir_key`; `env_var` overrides."""
+    override = os.environ.get(env_var, "").strip()
     if override:
         return [p for p in override.split(os.pathsep) if p]
-    try:
-        out = subprocess.run(
-            ["vault-cli", "config", "list", "--output", "json"],
-            capture_output=True, text=True, timeout=20, check=True,
-        ).stdout
-        configs = json.loads(out)
-    except (OSError, subprocess.SubprocessError, ValueError):
-        return []
     roots = []
-    for entry in configs:
-        path, tasks_dir = entry.get("path"), entry.get("tasks_dir")
-        if path and tasks_dir:
-            roots.append(os.path.join(path, tasks_dir))
+    for entry in vault_configs():
+        path, sub = entry.get("path"), entry.get(dir_key)
+        if path and sub:
+            roots.append(os.path.join(path, sub))
     return roots
+
+
+def tasks_roots() -> list[str]:
+    return config_roots("TASKS_ROOTS", "tasks_dir")
+
+
+def goals_roots() -> list[str]:
+    return config_roots("GOALS_ROOTS", "goals_dir")
+
+
+def topics_roots() -> list[str]:
+    return config_roots("TOPICS_ROOTS", "topics_dir")
 
 
 def read_frontmatter(path: str) -> tuple[dict[str, str], str, str]:
@@ -201,6 +241,30 @@ def anchor_task(sid: str) -> tuple[str, dict[str, str], str, bool] | None:
                 return path, meta, body, False
             if handed_off is None and sid in metrics_session_ids(block):
                 handed_off = (path, meta, body, True)
+    return handed_off
+
+
+def anchor_page(sid: str) -> tuple[str, str, dict[str, str], bool] | None:
+    """Resolve the goal or topic page a session with no task anchor may exit against.
+
+    Consulted only when `anchor_task` finds nothing, so a task anchor always wins.
+    The join is the same one the task branch uses — `claude_session_id`, else the
+    session's own `metrics_sessions` entry — because `vault-cli goal work-on` /
+    `topic work-on` write both on a goal or topic page exactly as they do on a task.
+    Returns `(kind, path, meta, handed_off)` with `kind` `goal` or `topic`.
+    """
+    handed_off: tuple[str, str, dict[str, str], bool] | None = None
+    for kind, roots in (("goal", goals_roots()), ("topic", topics_roots())):
+        for root in roots:
+            for path in sorted(glob.glob(os.path.join(root, "*.md"))):
+                try:
+                    meta, _body, block = read_frontmatter(path)
+                except OSError:
+                    continue
+                if meta.get("claude_session_id") == sid:
+                    return kind, path, meta, False
+                if handed_off is None and sid in metrics_session_ids(block):
+                    handed_off = (kind, path, meta, True)
     return handed_off
 
 
@@ -267,6 +331,45 @@ def terminal_verdict(
     if open_boxes:
         return False, f"task is completed but carries {open_boxes} open box(es)"
     return True, "completed"
+
+
+def page_verdict(
+    kind: str, meta: dict[str, str], now: datetime, headless: bool = False
+) -> tuple[bool, str]:
+    """Whether a session that still holds a goal or topic page may exit against it.
+
+    The task rule does not transfer. A task's `completed` + `phase: done` + zero
+    open boxes proves one session's work is finished; a goal or topic stays
+    `in_progress` across many sessions, and its boxes and phase describe the
+    page's whole lifetime. Gating on "goal complete" would make every goal
+    manager refuse to exit. So a holder may exit only when the page itself has
+    ended (`completed` / `aborted`) or is parked on a future `defer_date`; a
+    handed-over session never reaches this check (see `main`).
+    """
+    status = meta.get("status", "")
+    if status in ("completed", "aborted"):
+        return True, status
+    defer = meta.get("defer_date", "").strip()
+    if defer:
+        if headless:
+            return False, (
+                f"{kind} is parked, but this session is a headless SDK query with no pane of its own "
+                "— it inherits its spawner's $WEZTERM_PANE, so exiting would close that tab"
+            )
+        instant = defer_instant(defer)
+        if instant is None:
+            return False, (
+                f"{kind} is {status or '(none)'} and defer_date {defer!r} is not a future instant "
+                "— a date-only, offset-less or unparseable value is not a park"
+            )
+        if instant <= now:
+            return False, f"{kind} is {status or '(none)'} and defer_date {defer!r} has already elapsed"
+        return True, f"parked until {defer}"
+    return False, (
+        f"this session still holds the {kind} (claude_session_id) and its status is "
+        f"{status or '(none)'} with no future defer_date — a {kind} outlives its sessions, "
+        "so only a handover, a completed/aborted page or a park frees it"
+    )
 
 
 def store_url() -> str:
@@ -424,19 +527,33 @@ def main() -> int:
         return refuse(f"$WEZTERM_PANE is not a pane id ({pane!r})")
 
     found = anchor_task(sid)
-    if found is None:
-        return refuse(f"no task carries claude_session_id {sid} — nothing proves the work is finished")
-    path, meta, body, handed_off = found
-
-    if handed_off:
-        reason = f"handed off to {meta.get('claude_session_id') or '(none)'}"
+    if found is not None:
+        path, meta, body, handed_off = found
+        if handed_off:
+            reason = f"handed off to {meta.get('claude_session_id') or '(none)'}"
+        else:
+            terminal, verdict = terminal_verdict(
+                meta, body, datetime.now(timezone.utc), entrypoint_of(sid) == "sdk-cli"
+            )
+            if not terminal:
+                return refuse(f"{os.path.basename(path)}: {verdict}")
+            reason = f"{os.path.basename(path)} is {verdict}"
     else:
-        terminal, verdict = terminal_verdict(
-            meta, body, datetime.now(timezone.utc), entrypoint_of(sid) == "sdk-cli"
-        )
-        if not terminal:
-            return refuse(f"{os.path.basename(path)}: {verdict}")
-        reason = f"{os.path.basename(path)} is {verdict}"
+        page = anchor_page(sid)
+        if page is None:
+            return refuse(
+                f"no task, goal or topic carries claude_session_id {sid} — nothing proves the work is finished"
+            )
+        kind, path, meta, handed_off = page
+        if handed_off:
+            reason = f"{kind} {path} handed off to {meta.get('claude_session_id') or '(none)'} (session {sid})"
+        else:
+            closable, verdict = page_verdict(
+                kind, meta, datetime.now(timezone.utc), entrypoint_of(sid) == "sdk-cli"
+            )
+            if not closable:
+                return refuse(f"{kind} {path}: {verdict}")
+            reason = f"{kind} {path} is {verdict} (session {sid})"
 
     clear, note = gate_state(sid)
     if not clear:

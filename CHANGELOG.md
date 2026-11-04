@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat: `task lint` / `task validate` report a new non-fixable `HOLD_WITH_DEFER_DATE` finding for a task parked at `status: hold` that still carries a `defer_date`; the finding names both resolutions (promote to `in_progress`, or clear the date). Tasks created by the recurring task creator (`created_by: recurring-task-creator`) and tasks with a non-empty `recurring:` key are exempt because their `defer_date` is a schedule date. `task defer` now promotes a `hold` task to `in_progress` in the same write.
+
 ## v0.186.2
 
 - fix: `goal work-on` / `topic work-on` no longer overwrite a session that claimed the page during the headless turn. The persist stamps `claude_session_id` only when it is still empty; when another session holds it, that session keeps the stamp and the binding session is recorded in the page's `metrics_sessions` with its turn-start time. An uncontended bind is stamped as before and adds no entry.

@@ -2408,7 +2408,7 @@ var _ = Describe("LintOperation - Missing Task Identifier", func() {
 	})
 })
 
-var _ = Describe("LintOperation - Status Date Mismatch", func() {
+var _ = Describe("LintOperation - Status and Date Rules", func() {
 	var (
 		ctx       context.Context
 		lintOp    ops.LintOperation
@@ -2448,6 +2448,16 @@ var _ = Describe("LintOperation - Status Date Mismatch", func() {
 		n := 0
 		for _, i := range issues {
 			if i.IssueType == ops.IssueTypeStatusDateMismatch {
+				n++
+			}
+		}
+		return n
+	}
+
+	countHoldIssues := func(issues []ops.LintIssue) int {
+		n := 0
+		for _, i := range issues {
+			if i.IssueType == ops.IssueTypeHoldWithDeferDate {
 				n++
 			}
 		}
@@ -2739,6 +2749,224 @@ var _ = Describe("LintOperation - Status Date Mismatch", func() {
 			Expect(foundValidate).To(BeTrue(), "validate path should surface STATUS_DATE_MISMATCH")
 			Expect(validateDesc).To(Equal(lintDesc),
 				"lint and validate must produce the same description string")
+		})
+	})
+
+	Context("HOLD_WITH_DEFER_DATE", func() {
+		It("fires on status: hold + defer_date", func() {
+			writeSDM(
+				vaultPath,
+				tasksDir,
+				"status: hold\npage_type: task\ntask_identifier: hold-fire\ndefer_date: 2026-12-01\n",
+				"hold-fire.md",
+			)
+			issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+			Expect(err).To(BeNil())
+			Expect(countHoldIssues(issues)).To(Equal(1))
+			for _, i := range issues {
+				if i.IssueType == ops.IssueTypeHoldWithDeferDate {
+					Expect(i.Fixable).To(BeFalse())
+					Expect(i.Description).To(ContainSubstring("hold"))
+					Expect(i.Description).To(ContainSubstring("defer_date"))
+					Expect(i.Description).To(ContainSubstring("in_progress"))
+					Expect(i.Description).To(ContainSubstring("clear defer_date"))
+				}
+			}
+		})
+
+		It("fires on an unquoted timestamp defer_date", func() {
+			writeSDM(
+				vaultPath,
+				tasksDir,
+				"status: hold\npage_type: task\ntask_identifier: hold-timestamp\ndefer_date: 2026-05-24T00:00:00Z\n",
+				"hold-timestamp.md",
+			)
+			issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+			Expect(err).To(BeNil())
+			Expect(countHoldIssues(issues)).To(Equal(1))
+			for _, i := range issues {
+				if i.IssueType == ops.IssueTypeHoldWithDeferDate {
+					Expect(i.Description).To(ContainSubstring("2026-05-24T00:00:00Z"))
+				}
+			}
+		})
+
+		It("does not fire with created_by: recurring-task-creator", func() {
+			writeSDM(
+				vaultPath,
+				tasksDir,
+				"status: hold\npage_type: task\ntask_identifier: hold-recurring-creator\ndefer_date: 2026-12-01\ncreated_by: recurring-task-creator\n",
+				"hold-recurring-creator.md",
+			)
+			issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+			Expect(err).To(BeNil())
+			Expect(countHoldIssues(issues)).To(Equal(0))
+		})
+
+		It("proves created_by is what silences the finding", func() {
+			writeSDM(
+				vaultPath,
+				tasksDir,
+				"status: hold\npage_type: task\ntask_identifier: hold-recurring-creator-pair\ndefer_date: 2026-12-01\n",
+				"hold-recurring-creator-pair.md",
+			)
+			issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+			Expect(err).To(BeNil())
+			Expect(countHoldIssues(issues)).To(Equal(1))
+		})
+
+		It("does not fire with a non-empty recurring key", func() {
+			writeSDM(
+				vaultPath,
+				tasksDir,
+				"status: hold\npage_type: task\ntask_identifier: hold-recurring-key\ndefer_date: 2026-12-01\nrecurring: weekly\n",
+				"hold-recurring-key.md",
+			)
+			issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+			Expect(err).To(BeNil())
+			Expect(countHoldIssues(issues)).To(Equal(0))
+		})
+
+		It("proves the recurring key is what silences the finding", func() {
+			writeSDM(
+				vaultPath,
+				tasksDir,
+				"status: hold\npage_type: task\ntask_identifier: hold-recurring-key-pair\ndefer_date: 2026-12-01\n",
+				"hold-recurring-key-pair.md",
+			)
+			issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+			Expect(err).To(BeNil())
+			Expect(countHoldIssues(issues)).To(Equal(1))
+		})
+
+		It("does not fire on status: hold with no defer_date", func() {
+			writeSDM(
+				vaultPath,
+				tasksDir,
+				"status: hold\npage_type: task\ntask_identifier: hold-no-defer\n",
+				"hold-no-defer.md",
+			)
+			issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+			Expect(err).To(BeNil())
+			Expect(countHoldIssues(issues)).To(Equal(0))
+		})
+
+		It("does not fire on status: hold with a valueless defer_date", func() {
+			writeSDM(
+				vaultPath,
+				tasksDir,
+				"status: hold\npage_type: task\ntask_identifier: hold-empty-defer\ndefer_date:\n",
+				"hold-empty-defer.md",
+			)
+			issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+			Expect(err).To(BeNil())
+			Expect(countHoldIssues(issues)).To(Equal(0))
+		})
+
+		It("does not fire on status: hold + planned_date only", func() {
+			writeSDM(
+				vaultPath,
+				tasksDir,
+				"status: hold\npage_type: task\ntask_identifier: hold-planned-only\nplanned_date: 2026-12-01\n",
+				"hold-planned-only.md",
+			)
+			issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+			Expect(err).To(BeNil())
+			Expect(countHoldIssues(issues)).To(Equal(0))
+		})
+
+		It("does not fire on status: in_progress + defer_date", func() {
+			writeSDM(
+				vaultPath,
+				tasksDir,
+				"status: in_progress\npage_type: task\ntask_identifier: hold-in-progress\ndefer_date: 2026-12-01\n",
+				"hold-in-progress.md",
+			)
+			issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+			Expect(err).To(BeNil())
+			Expect(countHoldIssues(issues)).To(Equal(0))
+		})
+
+		It("leaves status: next + defer_date on STATUS_DATE_MISMATCH alone", func() {
+			writeSDM(
+				vaultPath,
+				tasksDir,
+				"status: next\npage_type: task\ntask_identifier: hold-next-regression\ndefer_date: 2026-12-01\n",
+				"hold-next-regression.md",
+			)
+			issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+			Expect(err).To(BeNil())
+			Expect(countSDMIssues(issues)).To(Equal(1))
+			Expect(countHoldIssues(issues)).To(Equal(0))
+		})
+
+		It("stays non-fixable and leaves the file byte-identical", func() {
+			original := "---\nstatus: hold\npage_type: task\ntask_identifier: 11111111-1111-1111-1111-111111111111\ndefer_date: 2026-12-01\n---\n# Test\n"
+			taskPath := filepath.Join(vaultPath, tasksDir, "hold-no-fix.md")
+			Expect(os.WriteFile(taskPath, []byte(original), 0600)).To(Succeed())
+
+			issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", true)
+			Expect(err).To(BeNil())
+			Expect(countHoldIssues(issues)).To(Equal(1))
+
+			content, err := os.ReadFile(taskPath) //#nosec G304 -- test file
+			Expect(err).To(BeNil())
+			Expect(string(content)).To(Equal(original))
+		})
+
+		It("ExecuteFile surfaces HOLD_WITH_DEFER_DATE with the same description", func() {
+			fixture := "---\nstatus: hold\npage_type: task\ntask_identifier: hold-both-paths\ndefer_date: 2026-12-01\n---\n# Test\n"
+			taskPath := filepath.Join(vaultPath, tasksDir, "hold-both-paths.md")
+			Expect(os.WriteFile(taskPath, []byte(fixture), 0600)).To(Succeed())
+
+			lintIssues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+			Expect(err).To(BeNil())
+			var lintDesc string
+			foundLint := false
+			for _, i := range lintIssues {
+				if i.IssueType == ops.IssueTypeHoldWithDeferDate {
+					lintDesc = i.Description
+					foundLint = true
+				}
+			}
+			Expect(foundLint).To(BeTrue(), "lint path should surface HOLD_WITH_DEFER_DATE")
+
+			validateIssues, err := lintOp.ExecuteFile(
+				ctx,
+				ops.PageTypeTask,
+				taskPath,
+				"hold-both-paths",
+				"personal",
+			)
+			Expect(err).To(BeNil())
+			var validateDesc string
+			foundValidate := false
+			for _, i := range validateIssues {
+				if i.IssueType == ops.IssueTypeHoldWithDeferDate {
+					validateDesc = i.Description
+					foundValidate = true
+				}
+			}
+			Expect(foundValidate).To(BeTrue(), "validate path should surface HOLD_WITH_DEFER_DATE")
+			Expect(validateDesc).To(Equal(lintDesc),
+				"lint and validate must produce the same description string")
+		})
+
+		It("is task-scoped: PageTypeGoal reports nothing", func() {
+			writeSDM(
+				vaultPath,
+				tasksDir,
+				"status: hold\npage_type: task\ntask_identifier: hold-scoped\ndefer_date: 2026-12-01\n",
+				"hold-scoped.md",
+			)
+
+			goalIssues, err := lintOp.Execute(ctx, ops.PageTypeGoal, vaultPath, tasksDir, "", false)
+			Expect(err).To(BeNil())
+			Expect(countHoldIssues(goalIssues)).To(Equal(0))
+
+			taskIssues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+			Expect(err).To(BeNil())
+			Expect(countHoldIssues(taskIssues)).To(Equal(1))
 		})
 	})
 })

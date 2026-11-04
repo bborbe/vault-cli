@@ -143,9 +143,12 @@ func (d *deferOperation) findAndDeferTask(
 	// Per spec 017: deferring to a future date is a commitment to work the task;
 	// next/backlog tasks are invisible to the Kanban board and miss cadence.
 	// Promote to in_progress so the board surfaces the task on its target day.
-	// Idempotent on in_progress; no-op on completed/aborted/hold (out of scope).
+	// Idempotent on in_progress; no-op on completed/aborted (terminal, out of scope).
+	// A hold task is promoted too: a deferred task belongs at in_progress + defer_date,
+	// while hold is for a block with no resume date (see HOLD_WITH_DEFER_DATE lint).
 	if status := task.Status(); status == domain.TaskStatusNext ||
-		status == domain.TaskStatusBacklog {
+		status == domain.TaskStatusBacklog ||
+		status == domain.TaskStatusHold {
 		if err := task.SetStatus(domain.TaskStatusInProgress); err != nil {
 			return nil, errors.Wrap(ctx, err, "set status to in_progress")
 		}

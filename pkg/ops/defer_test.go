@@ -362,13 +362,13 @@ var _ = Describe("DeferOperation", func() {
 					mockTaskStorage.FindTaskByNameReturns(task, nil)
 				})
 
-				It("leaves status as hold", func() {
+				It("promotes status to in_progress", func() {
 					Expect(err).To(BeNil())
 					Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
 					_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
-					Expect(writtenTask.Status()).To(Equal(domain.TaskStatusHold))
-					// Byte-level check: raw frontmatter key is exactly "hold"
-					Expect(writtenTask.GetString("status")).To(Equal("hold"))
+					Expect(writtenTask.Status()).To(Equal(domain.TaskStatusInProgress))
+					// Byte-level check: raw frontmatter key is exactly "in_progress"
+					Expect(writtenTask.GetString("status")).To(Equal("in_progress"))
 				})
 			})
 		})

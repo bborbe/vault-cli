@@ -33,7 +33,9 @@ trap 'kill "${SERVER_PID:-}" 2>/dev/null; wait "${SERVER_PID:-}" 2>/dev/null; rm
 TASKS="$TMP/tasks"
 SESSIONS="$TMP/sessions"
 STATE="$TMP/attention"
-mkdir -p "$TASKS" "$SESSIONS" "$STATE" "$TMP/store/api/1.0"
+GOALS="$TMP/goals"
+TOPICS="$TMP/topics"
+mkdir -p "$TASKS" "$SESSIONS" "$STATE" "$GOALS" "$TOPICS" "$TMP/store/api/1.0"
 
 # A live tab session: the registry entry is what proves it owns a pane.
 cat > "$SESSIONS/4242.json" <<EOF
@@ -109,6 +111,25 @@ deferred_task() { # deferred_task <status> <phase> <defer-date> — the park sha
 	} > "$TASKS/Anchor.md"
 }
 
+page() { # page <dir> <status> <claude_session_id> [defer-date] — a goal or topic page
+	local dir=$1 status=$2 owner=$3 defer=${4:-}
+	{
+		echo "---"
+		echo "status: $status"
+		echo "phase: execution"
+		echo "claude_session_id: $owner"
+		echo "metrics_sessions:"
+		echo "    - session_id: $SID"
+		echo "      started_at: \"2026-11-04T10:00:00.000000+01:00\""
+		[ -n "$defer" ] && echo "defer_date: \"$defer\""
+		echo "---"
+		echo ""
+		echo "# Success Criteria"
+		echo ""
+		echo "- [ ] open"
+	} > "$dir/Anchor Page.md"
+}
+
 cards() { # cards <json>
 	printf '%s' "$1" > "$TMP/store/api/1.0/attention"
 }
@@ -165,7 +186,7 @@ run() { # run <want-exit> <label> [extra env...]
 	shift 2
 	local got=0
 	env -i PATH="$PATH" \
-		SESSION_ID="$SID" SESSIONS_DIR="$SESSIONS" TASKS_ROOTS="$TASKS" \
+		SESSION_ID="$SID" SESSIONS_DIR="$SESSIONS" TASKS_ROOTS="$TASKS" GOALS_ROOTS="$GOALS" TOPICS_ROOTS="$TOPICS" \
 		WEZTERM_PANE=777 ATTENTION_STORE_URL="$STORE_URL" ATTENTION_STATE_DIR="$STATE" "$@" \
 		python3 "$SCRIPT" --dry-run > "$TMP/out" 2>&1 || got=$?
 	if [ "$got" -eq "$want" ]; then
@@ -181,7 +202,7 @@ run_msg() { # run_msg <want-exit> <label> <expected-substring> [extra env...]
 	shift 3
 	local got=0
 	env -i PATH="$PATH" \
-		SESSION_ID="$SID" SESSIONS_DIR="$SESSIONS" TASKS_ROOTS="$TASKS" \
+		SESSION_ID="$SID" SESSIONS_DIR="$SESSIONS" TASKS_ROOTS="$TASKS" GOALS_ROOTS="$GOALS" TOPICS_ROOTS="$TOPICS" \
 		WEZTERM_PANE=777 ATTENTION_STORE_URL="$STORE_URL" ATTENTION_STATE_DIR="$STATE" "$@" \
 		python3 "$SCRIPT" --dry-run > "$TMP/out" 2>&1 || got=$?
 	if [ "$got" -eq "$want" ] && grep -qF "$want_msg" "$TMP/out"; then
@@ -197,7 +218,7 @@ run_live() { # run_live <want-exit> <label> [extra env...] — exercises the kil
 	shift 2
 	local got=0
 	env -i PATH="$TMP/bin:$PATH" \
-		SESSION_ID="$SID" SESSIONS_DIR="$SESSIONS" TASKS_ROOTS="$TASKS" \
+		SESSION_ID="$SID" SESSIONS_DIR="$SESSIONS" TASKS_ROOTS="$TASKS" GOALS_ROOTS="$GOALS" TOPICS_ROOTS="$TOPICS" \
 		WEZTERM_PANE=777 ATTENTION_STORE_URL="$STORE_URL" ATTENTION_STATE_DIR="$STATE" "$@" \
 		python3 "$SCRIPT" > "$TMP/out" 2>&1 || got=$?
 	if [ "$got" -eq "$want" ]; then
@@ -492,7 +513,114 @@ mv "$TMP/4242.json.bak" "$SESSIONS/4242.json"
 
 # --- negative path: no anchor task
 rm -f "$TASKS/Anchor.md"
-run 10 "no task carrying the session id refuses"
+run_msg 10 "no task, goal or topic carrying the session id refuses" "no task, goal or topic carries claude_session_id $SID"
+
+# --- goal / topic anchor: consulted only when no task resolves the session
+for kind in goal topic; do
+	if [ "$kind" = goal ]; then dir=$GOALS; else dir=$TOPICS; fi
+	page "$dir" in_progress "$SID"
+	run_msg 10 "$kind: still the holder of an in_progress $kind refuses" "this session still holds the $kind"
+	page "$dir" hold "$SID"
+	run_msg 10 "$kind: hold is parked, not finished" "its status is hold"
+	page "$dir" completed "$SID"
+	run_msg 0 "$kind: a completed $kind exits, open boxes notwithstanding" "SELF-EXIT: exit — $kind $dir/Anchor Page.md is completed (session $SID)"
+	page "$dir" aborted "$SID"
+	run_msg 0 "$kind: an aborted $kind exits" "is aborted"
+	page "$dir" in_progress "$OTHER"
+	run_msg 0 "$kind: a handed-over $kind exits while still in_progress" "SELF-EXIT: exit — $kind $dir/Anchor Page.md handed off to $OTHER (session $SID)"
+	page "$dir" in_progress "$SID" "$FUTURE"
+	run_msg 0 "$kind: a $kind parked on a future defer_date exits" "parked until $FUTURE"
+	page "$dir" in_progress "$SID" "$PAST"
+	run_msg 10 "$kind: an elapsed defer_date refuses" "has already elapsed"
+	page "$dir" in_progress "$SID" "$TOMORROW"
+	run_msg 10 "$kind: a date-only defer_date refuses" "is not a future instant"
+	page "$dir" completed "$SID"
+	cards "[{\"item_id\":\"abc\",\"producer_id\":\"$SID\",\"state\":\"open\"}]"
+	run 10 "$kind: a completed $kind with an open attention card refuses"
+	cards '[]'
+	rm -f "$dir/Anchor Page.md"
+done
+
+# A task anchor wins over a goal anchor: a finished goal must not free a session
+# whose own task is still open.
+page "$GOALS" completed "$SID"
+task in_progress execution 1
+run_msg 10 "a live task anchor wins over a completed goal" "task status is in_progress"
+rm -f "$GOALS/Anchor Page.md" "$TASKS/Anchor.md"
+
+# Review finding 1: a task matched only by handover must not outrank a page the
+# session still holds.
+handed_off_task in_progress execution "$OTHER"
+page "$GOALS" in_progress "$SID"
+run_msg 10 "a handed-off task does not free a session that still holds a live goal" "this session still holds the goal"
+rm -f "$GOALS/Anchor Page.md" "$TASKS/Anchor.md"
+
+# Review finding 2: every held page must pass, not the first one found.
+page "$GOALS" completed "$SID"
+page "$TOPICS" in_progress "$SID"
+run_msg 10 "a completed goal does not free a session that still holds a live topic" "this session still holds the topic"
+page "$TOPICS" completed "$SID"
+run_msg 0 "two held pages that are both completed exit" "goal $GOALS/Anchor Page.md is completed; topic $TOPICS/Anchor Page.md is completed"
+rm -f "$GOALS/Anchor Page.md" "$TOPICS/Anchor Page.md"
+
+# Review finding 3: an unreadable file refuses — it could be the live claim.
+# A directory named `*.md`, not `chmod 000`: root reads a mode-000 file, so that
+# shape would pass on a uid-0 runner for the wrong reason. `open()` on a directory
+# raises IsADirectoryError for every uid.
+page "$GOALS" completed "$SID"
+mkdir "$TASKS/Unreadable.md"
+run_msg 10 "an unreadable task file refuses before the goal fallback" "unreadable task file"
+rmdir "$TASKS/Unreadable.md"
+mkdir "$TOPICS/Unreadable.md"
+run_msg 10 "an unreadable topic page refuses" "unreadable goal/topic page"
+rmdir "$TOPICS/Unreadable.md"
+rm -f "$GOALS/Anchor Page.md"
+
+# A headless SDK query must not exit on ANY goal/topic anchor — completed, parked
+# or handed over — because it would close its spawner's tab.
+printf '{"pid": 4242, "sessionId": "%s", "kind": "interactive", "entrypoint": "sdk-cli"}\n' "$SID" > "$SESSIONS/4242.json"
+page "$GOALS" in_progress "$SID" "$FUTURE"
+run_msg 10 "a headless SDK query with a parked goal refuses" "no pane of its own"
+page "$GOALS" completed "$SID"
+run_msg 10 "a headless SDK query with a completed goal refuses" "no pane of its own"
+page "$TOPICS" aborted "$SID"
+rm -f "$GOALS/Anchor Page.md"
+run_msg 10 "a headless SDK query with an aborted topic refuses" "no pane of its own"
+rm -f "$TOPICS/Anchor Page.md"
+page "$GOALS" in_progress "$OTHER"
+run_msg 10 "a headless SDK query handed off a goal refuses" "no pane of its own"
+printf '{"pid": 4242, "sessionId": "%s", "kind": "interactive"}\n' "$SID" > "$SESSIONS/4242.json"
+rm -f "$GOALS/Anchor Page.md"
+
+# The default-dir path: `config list --output json` omits an unset goals_dir /
+# topics_dir, so the script must apply vault-cli's own defaults (`Goals`,
+# `23 Topics`). Driven through a stub `vault-cli` with the roots overrides empty,
+# so `vault_configs()` is the code under test.
+mkdir -p "$TMP/stubbin" "$TMP/vault/Goals" "$TMP/vault/23 Topics"
+printf '#!/bin/sh\nprintf %s\n' "'[{\"name\": \"v\", \"path\": \"$TMP/vault\", \"tasks_dir\": \"25 Tasks\"}]'" > "$TMP/stubbin/vault-cli"
+chmod +x "$TMP/stubbin/vault-cli"
+page "$TMP/vault/Goals" completed "$SID"
+run_msg 0 "a vault with no goals_dir key resolves the default Goals dir" \
+	"goal $TMP/vault/Goals/Anchor Page.md is completed" \
+	PATH="$TMP/stubbin:$PATH" GOALS_ROOTS= TOPICS_ROOTS=
+rm -f "$TMP/vault/Goals/Anchor Page.md"
+page "$TMP/vault/23 Topics" in_progress "$SID"
+run_msg 10 "a vault with no topics_dir key resolves the default 23 Topics dir" \
+	"topic $TMP/vault/23 Topics/Anchor Page.md: this session still holds the topic" \
+	PATH="$TMP/stubbin:$PATH" GOALS_ROOTS= TOPICS_ROOTS=
+rm -f "$TMP/vault/23 Topics/Anchor Page.md"
+
+# The id only in a goal's body is not a claim.
+{
+	echo "---"
+	echo "status: completed"
+	echo "claude_session_id: $OTHER"
+	echo "---"
+	echo ""
+	echo "Session $SID once looked at this."
+} > "$GOALS/Anchor Page.md"
+run 10 "an id present only in a goal body refuses"
+rm -f "$GOALS/Anchor Page.md"
 
 if [ "$fail" -ne 0 ]; then
 	echo "session-self-exit: $pass passed, $fail failed" >&2

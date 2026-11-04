@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.187.1
 
 - fix: `goal set` / `topic set <name> claude_session_id <id>` now record the displaced owner in the page's `metrics_sessions` (`session_id` + `started_at`, the shape `goal work-on` / `topic work-on` already write) before overwriting the stamp, in the same write. A first bind, a re-set of the same id, a blank value, and a display-name → uuid rewrite (vault-ui's session resolve) record nothing.
 

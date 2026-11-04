@@ -124,8 +124,10 @@ body
 		Entry("goal", "23 Goals", func(
 			ctx context.Context, cfg *storage.Config, vaultPath, name, key, value string,
 		) error {
-			return ops.NewGoalSetOperation(storage.NewGoalStorage(cfg)).
-				Execute(ctx, vaultPath, name, key, value, "", "")
+			return ops.NewGoalSetOperation(
+				storage.NewGoalStorage(cfg),
+				libtime.NewCurrentDateTime(),
+			).Execute(ctx, vaultPath, name, key, value, "", "")
 		}),
 		Entry("theme", "21 Themes", func(
 			ctx context.Context, cfg *storage.Config, vaultPath, name, key, value string,

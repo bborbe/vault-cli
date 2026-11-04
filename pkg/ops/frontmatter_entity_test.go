@@ -160,7 +160,7 @@ var _ = Describe("NewGoalSetOperation", func() {
 	BeforeEach(func() {
 		ctx = context.Background()
 		mockGoalStorage = &mocks.GoalStorage{}
-		setOp = ops.NewGoalSetOperation(mockGoalStorage)
+		setOp = ops.NewGoalSetOperation(mockGoalStorage, libtime.NewCurrentDateTime())
 		vaultPath = "/path/to/vault"
 		goalName = "my-goal"
 
@@ -1313,7 +1313,7 @@ var _ = Describe("NewTopicSetOperation", func() {
 	BeforeEach(func() {
 		ctx = context.Background()
 		mockTopicStorage = &mocks.TopicStorage{}
-		setOp = ops.NewTopicSetOperation(mockTopicStorage)
+		setOp = ops.NewTopicSetOperation(mockTopicStorage, libtime.NewCurrentDateTime())
 		vaultPath = "/path/to/vault"
 		topicName = "my-topic"
 		key = "status"

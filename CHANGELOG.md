@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: `goal set` / `topic set <name> claude_session_id <id>` now record the displaced owner in the page's `metrics_sessions` (`session_id` + `started_at`, the shape `goal work-on` / `topic work-on` already write) before overwriting the stamp, in the same write. A first bind, a re-set of the same id, a blank value, and a display-name → uuid rewrite (vault-ui's session resolve) record nothing.
+
 ## v0.187.0
 
 - feat: `task lint` / `task validate` report a new non-fixable `HOLD_WITH_DEFER_DATE` finding for a task parked at `status: hold` that still carries a `defer_date`; the finding names both resolutions (promote to `in_progress`, or clear the date). Tasks created by the recurring task creator (`created_by: recurring-task-creator`) and tasks with a non-empty `recurring:` key are exempt because their `defer_date` is a schedule date. `task defer` now promotes a `hold` task to `in_progress` in the same write.

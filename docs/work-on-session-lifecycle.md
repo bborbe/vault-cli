@@ -90,11 +90,14 @@ definition's `<critical_writes>` list.
 before any mutation, with no `--force` bypass, because `set` stores a scalar and `add` /
 `remove` comma-split into a list of scalars — both shapes the dedicated list reader
 discards. That refusal lives in `pkg/ops/metrics_session_write.go`. The one internal
-exception is the `claude_session_id` write: `task set <task> claude_session_id <new>`
-that displaces a different non-empty owner appends that outgoing id to
+exception is the `claude_session_id` write: `task set <task> claude_session_id <new>`,
+`goal set <goal> claude_session_id <new>` and `topic set <topic> claude_session_id <new>`
+that displace a different non-empty owner append that outgoing id to
 `metrics_sessions` before storing the new id, so a taken-over session stays resolvable
-by the exit and close paths. The append is internal to the session-id write, not a
-caller-facing way to write the field.
+by the exit and close paths. On goals and topics the append is skipped when the stored
+value is not a uuid — a display name being rewritten to its id by vault-ui's session
+resolve — or when the new value is empty. The append is internal to the session-id
+write, not a caller-facing way to write the field.
 
 **The removal is its own verb.** `vault-cli task remove-metrics-session <task-name>
 <session-id>` removes **every** entry carrying that id while preserving every other

@@ -1419,7 +1419,10 @@ func createGoalCommands(
 	))
 	cmd.AddCommand(createEntitySetCommand(ctx, configLoader, vaultName, outputFormat, "goal",
 		func(cfg *storage.Config) ops.EntitySetOperation {
-			return ops.NewGoalSetOperation(storage.NewGoalStorage(cfg))
+			return ops.NewGoalSetOperation(
+				storage.NewGoalStorage(cfg),
+				libtime.NewCurrentDateTime(),
+			)
 		},
 	))
 	cmd.AddCommand(createEntityClearCommand(ctx, configLoader, vaultName, outputFormat, "goal",
@@ -1737,7 +1740,10 @@ func createTopicCommands(
 	))
 	cmd.AddCommand(createEntitySetCommand(ctx, configLoader, vaultName, outputFormat, "topic",
 		func(cfg *storage.Config) ops.EntitySetOperation {
-			return ops.NewTopicSetOperation(storage.NewTopicStorage(cfg))
+			return ops.NewTopicSetOperation(
+				storage.NewTopicStorage(cfg),
+				libtime.NewCurrentDateTime(),
+			)
 		},
 	))
 	cmd.AddCommand(createEntityClearCommand(ctx, configLoader, vaultName, outputFormat, "topic",

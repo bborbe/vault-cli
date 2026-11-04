@@ -179,7 +179,7 @@ Where it surfaces: `vault-cli goal list --output json` emits `blocked_by` (the r
 
 ### Session (`claude_session_id`)
 
-`claude_session_id` records the session serving this goal — the manager session that armed it. It is written by the producer — claude-supervisor's manager-resolve step — through the existing generic `vault-cli goal set "<subject>" claude_session_id "$CLAUDE_CODE_SESSION_ID"` verb (and `topic set` on a topic page). This repo adds no setter and no CLI flag of its own; the field is set through those generic verbs, so it is not unsettable. A task page carries the same key meaning the session working that task.
+`claude_session_id` records the session serving this goal — the manager session that armed it. It is written by the producer — claude-supervisor's manager-resolve step — through the existing generic `vault-cli goal set "<subject>" claude_session_id "$CLAUDE_CODE_SESSION_ID"` verb (and `topic set` on a topic page). This repo adds no setter and no CLI flag of its own; the field is set through those generic verbs, so it is not unsettable. A task page carries the same key meaning the session working that task. When `goal set` / `topic set` replaces a different uuid owner with a non-empty id, the outgoing id is appended to `metrics_sessions` (`session_id` + `started_at`) in the same write; a first bind, the same id, a blank value, or a display-name → uuid rewrite records nothing.
 
 ⚠️ The retired second session field is gone: both vaults are migrated, no writer emits it, and no reader resolves it — not claude-supervisor's scripts and not this repo's list read model. A page carrying only the old key therefore emits no session id at all, which is the correct answer rather than a gap.
 

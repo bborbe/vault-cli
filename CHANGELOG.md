@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.187.3
 
 - docs: state that `hold` is never for a task waiting on an operator decision or answer — such a task stays `in_progress` (open card) or `in_progress` + `defer_date`
 

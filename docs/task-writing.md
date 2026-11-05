@@ -484,7 +484,7 @@ Observed 2026-09-26 — two independent rows in one manager session cycled **14*
 |--------|---------|------------------|
 | `next` | Defined, not started | Task file created with required sections filled |
 | `in_progress` | Actively working | `/vault-cli:work-on-task` or `assignee` set + first subtask started |
-| `hold` | Blocked long-term (weeks+, external dependency, unresolved upstream) | Operator sets manually when the block outlives the current week |
+| `hold` | Blocked long-term — a wait of unknown length (weeks+, external dependency, unresolved upstream). Never for a task waiting on an operator decision or answer | Operator sets manually when the block outlives the current week |
 | `completed` | All success criteria met | `/vault-cli:complete-task` — checks every `# Success Criteria` checkbox is `[x]`; no close-out fields required |
 | `aborted` | Abandoned without completion | Operator closes out with `aborted_reason` + `gate_successor` (enforced, see below) |
 | `backlog` | Not committed yet | Initial state before commitment |
@@ -496,7 +496,7 @@ Observed 2026-09-26 — two independent rows in one manager session cycled **14*
 
 The CLI rejects `aborted` (via `task set`, `task complete`, `goal set`, `goal complete`, or the `task update` checkbox sync) unless both fields are present; the error names the missing fields, asks what the task owns (trigger / gate / threshold / recurring check) and where it moves. Values are user-supplied strings persisted through the YAML serializer. Pre-existing reason-less close-outs are not backfilled. `task set`, `task complete`, `goal set`, and `goal complete` accept --reason <text> and --gate-successor <successor|none> to record both fields in the same invocation; on a `completed` transition they are optional, on `aborted` a close-out attempted without them is rejected with an error that names the missing fields and the succeeding command form.
 
-**Hold vs in_progress + `[/]` subtask:** `hold` is for waits measured in weeks (vendor reply that may never come, partner-team backlog, dependency not yet built). Short waits (hours/days for a doc, callback, code review) stay `in_progress` with the in-flight subtask marked `[/]`. Default is `in_progress`; only escalate to `hold` when the block outlives the current week. Premature `hold` hides the task from active rotations and turns "waiting on Jana for invoices" into "forgot for three months."
+**Hold vs in_progress + `[/]` subtask:** `hold` is for waits measured in weeks (vendor reply that may never come, partner-team backlog, dependency not yet built). A task waiting on an operator decision or answer is **never** `hold` — it stays `in_progress` while the question is open, or `in_progress` + `defer_date` once a date exists to pick it back up. The open attention card already tracks the wait, so `hold` would hide it rather than park it. Short waits (hours/days for a doc, callback, code review) stay `in_progress` with the in-flight subtask marked `[/]`. Default is `in_progress`; only escalate to `hold` when the block outlives the current week. Premature `hold` hides the task from active rotations and turns "waiting on Jana for invoices" into "forgot for three months."
 
 ### Phase transitions
 

@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- docs: state that `hold` is never for a task waiting on an operator decision or answer — such a task stays `in_progress` (open card) or `in_progress` + `defer_date`
+
 ## v0.187.2
 
 - fix: `scripts/session-self-exit.py` resolves a session anchored only on a goal or topic page — a goal manager or topic manager — instead of refusing it with `no task carries claude_session_id`. When no task resolves the session, the script reads each vault's `goals_dir` / `topics_dir`, falling back to the same defaults `vault-cli` applies (`Goals` / `23 Topics`), with `GOALS_ROOTS` / `TOPICS_ROOTS` as overrides. It joins on `claude_session_id`, else the session's `metrics_sessions` entry. A task the session holds as `claude_session_id` always wins. A task matched only by handover does not outrank a page the session still holds, and every held page must pass. When no held task decides, an unreadable task or page file refuses. A headless SDK query never exits on a goal/topic anchor, because it inherits its spawner's pane. Goal/topic terminal-state rule: the session may exit when it has handed the page over, when the page is `completed` or `aborted`, or when the page is parked on a future `defer_date`. It may not exit while it still holds a non-terminal page. The task rule does not transfer, because a goal stays `in_progress` across many sessions. The refusal now reads `no task, goal or topic carries claude_session_id <sid>`.

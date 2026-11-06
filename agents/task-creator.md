@@ -22,7 +22,7 @@ You create one task file in the configured vault. You read the vault config via 
 - NEVER add auto-assignment logic; leave `assignee` empty unless the user supplies one
 - NEVER number filenames or add timestamps unless the vault convention requires it
 - ALWAYS write `phase: todo`; NEVER write `phase: planning` or later, and NEVER run `/vault-cli:plan-task` — the `todo → planning` move is the operator's approval
-- ALWAYS write `role:` and `mode:` from the role × mode matrix (step 8); NEVER derive `role: manager`
+- ALWAYS write `role:` and `mode:` from the role × mode matrix (step 8) — except when the matrix file is unreadable, then omit both; NEVER derive `role: manager`
 - ALWAYS use Title Case with spaces for the filename (e.g. `Standardize Build Definitions.md`), not kebab-case slugs
 - ALWAYS prefix the filename with a Jira/issue key when one is detected (e.g. `BRO-18665 Kafka Update.md`)
 - ALWAYS use `notesmd-cli` for any later renames — but creation goes through `Write` directly

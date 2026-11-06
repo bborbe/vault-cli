@@ -126,8 +126,9 @@ Required fields:
 - `severity: SEV-X` — only if step 4 set one
 - `planned_date: <today>` — only in interactive mode if the user asked to start now
 - `task_identifier: <uuid>` — generate a UUID v4 (mirrors existing convention; preserves stable reference if filename is later renamed)
+- `role: <agent|human>` and `mode: <headless|interactive>` — ALWAYS, decided from the body you just composed by the **role × mode decision matrix**, whose single home is `claude-supervisor`'s `docs/role-mode-matrix.md` (installed at `~/.claude/plugins/marketplaces/claude-supervisor/docs/role-mode-matrix.md`). Read it there; do not restate its rules here. No signal in the body → the matrix defaults (`role: agent`; `mode` per its Rule 2). Never write `role: manager` unless the user declared it. Report each value with the matrix rule that produced it (`role: agent — matrix Rule 1 (default)`). If the matrix file is unreadable, write the defaults `role: agent` / `mode: headless` and say so. Writing both at creation is what lets `/supervisor:open` read the decision instead of re-deriving it.
 
-Do NOT set `assignee`. Do NOT set fields the user did not ask for.
+Do NOT set `assignee`. Do NOT set fields the user did not ask for — `role:` and `mode:` above are the deliberate exception.
 
 ### Goal and topic linkage — the necessity test
 

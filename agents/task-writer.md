@@ -72,6 +72,7 @@ Required fields:
 - `page_type: task`
 - `category:` — infer from the description if it is unambiguous; otherwise omit rather than guess
 - `task_identifier: <uuid v4>` — generate one now, in this write
+- `role: <agent|human>` and `mode: <headless|interactive>` — ALWAYS, from the role × mode decision matrix at `~/.claude/plugins/marketplaces/claude-supervisor/docs/role-mode-matrix.md` (its single home — read it there, never restate it). No signal → its defaults (`role: agent`; `mode` per Rule 2). Never write `role: manager` unless the operator declared it. Name the matrix rule for each value in your report; if the file is unreadable, write `role: agent` / `mode: headless` and say so.
 - `themes:` / `goals:` — **only** when the operator supplied them or the description names them explicitly. Do not run a necessity search: this path exists to be light, and a wrong link is worse than none. Write them as YAML lists, never scalars:
 
   ```yaml
@@ -79,7 +80,7 @@ Required fields:
       - '[[Advance AI Autonomy]]'
   ```
 
-Do NOT set `assignee`. Do NOT set fields the operator did not ask for.
+Do NOT set `assignee`. Do NOT set fields the operator did not ask for — `role:` and `mode:` above are the deliberate exception.
 
 ## 5. Compose the body
 

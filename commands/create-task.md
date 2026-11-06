@@ -56,4 +56,6 @@ A failure prints its human line, and in `MODE=non_interactive` **also** writes t
 
 Pass the parsed arguments — the description, `--vault`, `--non-interactive` — to the chosen agent. Strip `--docs-only` / `--code`; they are routing flags and mean nothing to the agents.
 
+**Both agents write `role:` and `mode:` at creation**, from the role × mode decision matrix — single home `claude-supervisor` `docs/role-mode-matrix.md` (installed at `~/.claude/plugins/marketplaces/claude-supervisor/docs/role-mode-matrix.md`); cited, never restated. A body with no signal takes the matrix defaults rather than leaving the fields empty, so `/supervisor:open` reads the decision instead of re-deriving it.
+
 Do NOT chain `/vault-cli:plan-task` — leave the task at `phase: todo` for the operator to approve.

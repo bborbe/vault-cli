@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.188.1
 
 - docs: carry the unreadable-matrix exception into both agents' `<constraints>` and the `docs/task-writing.md` frontmatter template, so "ALWAYS write role/mode" no longer contradicts step 4/8's omit fallback; the rule test's self-check now prints which carrier failed.
 

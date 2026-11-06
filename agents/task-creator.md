@@ -22,6 +22,7 @@ You create one task file in the configured vault. You read the vault config via 
 - NEVER add auto-assignment logic; leave `assignee` empty unless the user supplies one
 - NEVER number filenames or add timestamps unless the vault convention requires it
 - ALWAYS write `phase: todo`; NEVER write `phase: planning` or later, and NEVER run `/vault-cli:plan-task` — the `todo → planning` move is the operator's approval
+- ALWAYS write `role:` and `mode:` from the role × mode matrix (step 8); NEVER derive `role: manager`
 - ALWAYS use Title Case with spaces for the filename (e.g. `Standardize Build Definitions.md`), not kebab-case slugs
 - ALWAYS prefix the filename with a Jira/issue key when one is detected (e.g. `BRO-18665 Kafka Update.md`)
 - ALWAYS use `notesmd-cli` for any later renames — but creation goes through `Write` directly
@@ -126,8 +127,9 @@ Required fields:
 - `severity: SEV-X` — only if step 4 set one
 - `planned_date: <today>` — only in interactive mode if the user asked to start now
 - `task_identifier: <uuid>` — generate a UUID v4 (mirrors existing convention; preserves stable reference if filename is later renamed)
+- `role: <agent|human>` and `mode: <headless|interactive>` — ALWAYS, decided from the body you just composed by the **role × mode decision matrix**, at `~/.claude/plugins/marketplaces/claude-supervisor/docs/role-mode-matrix.md` (its single home). Read it there; do not restate its rules here. No signal in the body → the matrix defaults (`role: agent`; `mode` per its Rule 2). Never write `role: manager` unless the user declared it. Report each value with the matrix rule that produced it (`role: agent — matrix Rule 1 (default)`) — on **stderr** when `MODE=non_interactive`. If the matrix file is unreadable, **omit both fields** and say so (on stderr headlessly): `/supervisor:open` then applies the matrix at open time, which is safer than guessing `headless`. Writing both at creation is what lets `/supervisor:open` read the decision instead of re-deriving it.
 
-Do NOT set `assignee`. Do NOT set fields the user did not ask for.
+Do NOT set `assignee`. Do NOT set fields the user did not ask for — `role:` and `mode:` above are the deliberate exception.
 
 ### Goal and topic linkage — the necessity test
 
@@ -258,7 +260,7 @@ a file-rewriting script on a ~1-minute cycle where a bug churns the whole vault)
 
 Run a light self-audit against the file:
 
-- Frontmatter has required fields (status, phase, priority)
+- Frontmatter has required fields (status, phase, priority, role, mode — the last two absent only on the unreadable-matrix fallback)
 - `phase` is exactly `todo` — never `planning` or later
 - Title file matches title-case rule
 - Body has Success Criteria + Tasks sections (or template body)

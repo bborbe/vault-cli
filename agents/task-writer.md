@@ -26,7 +26,7 @@ You exist because some vaults forbid `task-creator` for docs-only changes while 
 - ALWAYS use Title Case with spaces for the filename, not kebab-case slugs
 - ALWAYS take the canonical section set from `~/.claude/plugins/marketplaces/vault-cli/docs/task-writing.md` § Required sections — read it by that absolute path, never the bare `docs/task-writing.md`, which resolves against the vault you are writing into rather than the plugin; never from memory, and never by copying `task-creator`
 - ALWAYS generate a `task_identifier` UUID v4 in the same write, never as a follow-up backfill
-- ALWAYS write `role:` and `mode:` from the role × mode matrix (step 4); NEVER derive `role: manager`
+- ALWAYS write `role:` and `mode:` from the role × mode matrix (step 4) — except when the matrix file is unreadable, then omit both; NEVER derive `role: manager`
 </constraints>
 
 <workflow>

@@ -42,7 +42,7 @@ TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 mkdir -p "$TMP/agents" "$TMP/commands"
 for f in "${CARRIERS[@]}"; do cp "$f" "$TMP/$f" || exit 2; done
-scan "$TMP" >/dev/null || { echo "role-mode-matrix: self-check failed — the unmodified copy did not scan clean"; exit 1; }
+clean=$(scan "$TMP") || { echo "role-mode-matrix: self-check failed — the unmodified copy did not scan clean:"; echo "$clean"; exit 1; }
 sed -i.bak "s#$CITE#REMOVED#g" "$TMP/agents/task-writer.md"
 out=$(scan "$TMP")
 if [ "$out" != "role-mode-matrix: agents/task-writer.md does not cite $CITE" ]; then

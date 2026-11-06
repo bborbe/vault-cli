@@ -26,6 +26,7 @@ You exist because some vaults forbid `task-creator` for docs-only changes while 
 - ALWAYS use Title Case with spaces for the filename, not kebab-case slugs
 - ALWAYS take the canonical section set from `~/.claude/plugins/marketplaces/vault-cli/docs/task-writing.md` § Required sections — read it by that absolute path, never the bare `docs/task-writing.md`, which resolves against the vault you are writing into rather than the plugin; never from memory, and never by copying `task-creator`
 - ALWAYS generate a `task_identifier` UUID v4 in the same write, never as a follow-up backfill
+- ALWAYS write `role:` and `mode:` from the role × mode matrix (step 4); NEVER derive `role: manager`
 </constraints>
 
 <workflow>
@@ -72,7 +73,7 @@ Required fields:
 - `page_type: task`
 - `category:` — infer from the description if it is unambiguous; otherwise omit rather than guess
 - `task_identifier: <uuid v4>` — generate one now, in this write
-- `role: <agent|human>` and `mode: <headless|interactive>` — ALWAYS, from the role × mode decision matrix at `~/.claude/plugins/marketplaces/claude-supervisor/docs/role-mode-matrix.md` (its single home — read it there, never restate it). No signal → its defaults (`role: agent`; `mode` per Rule 2). Never write `role: manager` unless the operator declared it. Name the matrix rule for each value in your report; if the file is unreadable, write `role: agent` / `mode: headless` and say so.
+- `role: <agent|human>` and `mode: <headless|interactive>` — ALWAYS, from the role × mode decision matrix at `~/.claude/plugins/marketplaces/claude-supervisor/docs/role-mode-matrix.md` (its single home — read it there, never restate it). No signal → its defaults (`role: agent`; `mode` per Rule 2). Never write `role: manager` unless the operator declared it. Name the matrix rule for each value in your report (stderr when `MODE=non_interactive`); if the file is unreadable, omit both fields and say so — `/supervisor:open` applies the matrix at open time.
 - `themes:` / `goals:` — **only** when the operator supplied them or the description names them explicitly. Do not run a necessity search: this path exists to be light, and a wrong link is worse than none. Write them as YAML lists, never scalars:
 
   ```yaml

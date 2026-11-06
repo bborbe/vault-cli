@@ -24,7 +24,9 @@ AGENTS=(agents/task-creator.md agents/task-writer.md)
 
 scan() {
 	local dir=$1 rc=0 f
+	[ "${#CARRIERS[@]}" -eq 3 ] || { echo "role-mode-matrix: expected 3 carriers, got ${#CARRIERS[@]}"; return 1; }
 	for f in "${CARRIERS[@]}"; do
+		[ -r "$dir/$f" ] || { echo "role-mode-matrix: $dir/$f is missing or unreadable"; rc=1; continue; }
 		grep -qF "$CITE" "$dir/$f" || { echo "role-mode-matrix: $f does not cite $CITE"; rc=1; }
 	done
 	for f in "${AGENTS[@]}"; do
@@ -39,10 +41,11 @@ scan "$ROOT" || exit 1
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 mkdir -p "$TMP/agents" "$TMP/commands"
-for f in "${CARRIERS[@]}"; do cp "$f" "$TMP/$f"; done
+for f in "${CARRIERS[@]}"; do cp "$f" "$TMP/$f" || exit 2; done
+scan "$TMP" >/dev/null || { echo "role-mode-matrix: self-check failed — the unmodified copy did not scan clean"; exit 1; }
 sed -i.bak "s#$CITE#REMOVED#g" "$TMP/agents/task-writer.md"
 out=$(scan "$TMP")
-if ! grep -qF 'agents/task-writer.md does not cite' <<<"$out"; then
+if [ "$out" != "role-mode-matrix: agents/task-writer.md does not cite $CITE" ]; then
 	echo "role-mode-matrix: self-check failed — a stripped citation was not reported"
 	exit 1
 fi

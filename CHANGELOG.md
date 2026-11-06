@@ -10,7 +10,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 
 ## Unreleased
 
-- feat: **`create-task` writes `role:` and `mode:` at creation.** Both `task-creator` and `task-writer` decide them from the role × mode decision matrix (`claude-supervisor` `docs/role-mode-matrix.md`, cited by path, never restated), taking its defaults (`role: agent`, `mode` per Rule 2) when the body carries no signal, so `/supervisor:open` reads the decision instead of refusing an undecided row. Pinned by `scripts/role-mode-matrix-rule-test.sh`.
+- feat: **`create-task` writes `role:` and `mode:` at creation.** Both `task-creator` and `task-writer` decide them from the role × mode decision matrix (`claude-supervisor` `docs/role-mode-matrix.md`, cited by path, never restated), taking its defaults (`role: agent`, `mode` per Rule 2) when the body carries no signal, so `/supervisor:open` reads the decision instead of refusing an undecided row. Pinned by `scripts/role-mode-matrix-rule-test.sh`. Depends on the matrix landing in claude-supervisor (bborbe/claude-supervisor#644) and the local marketplace clone being refreshed; until then the agents omit both fields and `/supervisor:open` decides at open time.
 
 ## v0.187.3
 

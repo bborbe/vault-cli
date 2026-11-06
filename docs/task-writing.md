@@ -131,6 +131,8 @@ blocked_by:                                      # optional — dependencies; un
 flag: true                                       # optional — operator approval for `/supervisor:open --flagged`
 flag_set_by: operator                            # optional — who last set `flag`; written with it, never after
 flag_set_at: 2026-09-30T08:00:00Z                # optional — RFC3339, same write as `flag`
+role: agent                                      # written at creation — agent | human | manager (declared only); rules: claude-supervisor docs/role-mode-matrix.md
+mode: headless                                   # written at creation — headless | interactive; same matrix
 launcher: cc-private-claude                      # optional — launcher script a worker opens with
 ---
 ```

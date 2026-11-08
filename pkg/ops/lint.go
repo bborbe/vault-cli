@@ -881,10 +881,17 @@ func (l *lintOperation) approvedRecordInTodoInboxIssues(
 	// completedStatusRegex is used instead of statusRegex because it tolerates a
 	// trailing YAML comment. A terminal row must never be classified as fixable,
 	// so the tolerant matcher is the safe one here.
+	//
+	// The captured value is normalized before the terminal test, never compared
+	// raw. Legacy aliases are accepted on disk — `done` is an alias for
+	// `completed` — and `task approve` reads the status through the normalizing
+	// accessor. A raw comparison here would call a `status: done` row
+	// non-terminal, mark it fixable, and have `--fix` produce exactly the
+	// terminal+planning pair `task approve` refuses on the same row.
 	statusMatches := completedStatusRegex.FindStringSubmatch(frontmatterYAML)
 	if len(statusMatches) >= 2 {
-		status := domain.TaskStatus(statusMatches[1])
-		if status == domain.TaskStatusCompleted || status == domain.TaskStatusAborted {
+		status, statusOK := domain.NormalizeTaskStatus(statusMatches[1])
+		if statusOK && (status == domain.TaskStatusCompleted || status == domain.TaskStatusAborted) {
 			return []LintIssue{{
 				FilePath:  filePath,
 				IssueType: IssueTypeApprovedRecordInTodoInbox,

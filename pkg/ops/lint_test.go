@@ -3459,6 +3459,23 @@ var _ = Describe("LintOperation APPROVED_RECORD_IN_TODO_INBOX", func() {
 		}
 	})
 
+	It("treats the legacy status alias `done` as terminal, like `completed`", func() {
+		// `done` is an accepted alias for `completed` (NormalizeTaskStatus's
+		// migration map). A raw comparison would call this row non-terminal,
+		// mark it fixable, and let --fix produce the terminal+planning pair
+		// that task approve refuses on the same row.
+		writeTask("done-alias.md", "status: done\nphase: todo\napproved_by: someone\n")
+		issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+		Expect(err).To(BeNil())
+		Expect(countIssues(issues)).To(Equal(1))
+		for _, i := range issues {
+			if i.IssueType == ops.IssueTypeApprovedRecordInTodoInbox {
+				Expect(i.Fixable).To(BeFalse())
+				Expect(i.Description).To(ContainSubstring("completed"))
+			}
+		}
+	})
+
 	It("fix advances phase to planning and preserves the record", func() {
 		path := writeTask(
 			"fixable.md",

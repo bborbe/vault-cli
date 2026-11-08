@@ -8,6 +8,11 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: `task approve` advances a `phase: todo` task that already carries `approved_by` and/or `approved_at` to `planning`, preserving the existing record untouched and resolving no owner, instead of refusing it and deadlocking the approved-but-unopenable row; presence is read from the key set so a null-valued `approved_by:` counts as a record, matching the lint rule. Rows past the inbox, a blank `--by`, an unowned row with no approval record, and a terminal `completed`/`aborted` row still refuse.
+- feat: `task lint` reports the new fixable `APPROVED_RECORD_IN_TODO_INBOX` finding for a task carrying an approval record at `phase: todo`, and `--fix` advances the phase to `planning` while leaving the record verbatim; a terminal `completed`/`aborted` row is reported non-fixable with its status named, and `task approve` refuses it too, so neither verb produces the `completed` + `planning` pair `checkPhaseRegression` rejects.
+
 ## v0.188.3
 
 - docs: **plan-task's fix loop now enumerates a defect CLASS on the second sighting instead of fixing the instance.** A seven-round planning run on 2026-10-22 fixed the same class five times — evidence naming an artifact or a probe that does not hold up — because each round repaired only the criterion the auditor named. The rule already existed inside the gate (§ 5 *E2E verify subtask* sub-check 4: *"Repetition is the diagnostic"*), but nothing applied it while *repairing*; the loop now says so, and names the auditor sentence that announces it.

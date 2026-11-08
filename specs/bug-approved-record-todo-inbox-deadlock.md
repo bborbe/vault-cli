@@ -16,7 +16,7 @@ created: 2026-11-08
 
 `vault-cli` has two guards that each assume the other owns the row. `refuseExistingApprovalRecord` refuses `approve` when an approval record is present; `todoPlanningSetRefusal` refuses `set phase planning` when the phase is `todo`. Nothing in the `set` path clears the approval record, and `checkPhaseRegression` returns early on `--force`, so a forced phase reset to `todo` leaves the record behind. The result is a state each guard reads as the other's responsibility, and no documented verb moves it. It is silent and durable: the task looks normal in every listing and simply never advances.
 
-A partial record — only one of the two keys — produces the same deadlock. It can only arise from a manual frontmatter edit, since `task approve` writes both keys atomically, but it is the same state and the same repair covers it.
+A partial record — only one of the two keys — produces the same deadlock. It arises from a manual frontmatter edit, or from `vault-cli task clear <name> approved_at` (or `approved_by`) on an approved row, including a half-completed run of this spec's own Workaround. It is the same state and the same repair covers it.
 
 ## Goal
 
@@ -33,23 +33,27 @@ A task that is approved but sitting in the approval inbox is advanced to `phase:
 
 ## Assumptions
 
-- The deadlock is reached through a forced phase reset (`task set phase todo --force`) or a phase write that did not land. A partial record can otherwise arise only from a manual frontmatter edit, because `task approve` writes both keys atomically.
+- The deadlock is reached through a forced phase reset (`task set phase todo --force`) or a phase write that did not land. A partial record arises from a manual frontmatter edit or from `task clear` on one of the two keys — `task approve` itself writes both keys atomically.
 - `task approve` is the documented sole verb that advances a `todo` row (`docs/task-writing.md:519`).
 - Goal and topic rows exhibit the same deadlock but are out of scope (see Non-goals).
 - The lint fix may rewrite `phase` in the same way the `approve` verb does; no other lint rule in the codebase mutates `phase`, so this is the first such rule and needs no precedence logic against a competing fixer.
 
 ## Acceptance Criteria
 
-- [ ] `vault-cli task approve <name>` on a task at `phase: todo` carrying both `approved_by` and `approved_at` exits 0 and leaves the file at `phase: planning`. Evidence: `vault-cli task show <name>` prints `Phase: planning` and the exit code is `0`.
-- [ ] The same run leaves `approved_by` and `approved_at` byte-identical to their pre-run values. Evidence: `grep -E '^approved_(by|at):' <file>` before and after the run produces identical output.
-- [ ] `vault-cli task approve <name>` on a task at `phase: todo` carrying only one of the two keys exits 0, moves `phase` to `planning`, and does **not** add the missing key. Evidence: `grep -c '^approved_at:' <file>` returns `0` when the row carried only `approved_by`, and `grep -c '^approved_by:' <file>` returns `1` after the run.
-- [ ] The negative arm holds: `vault-cli task approve <name>` on a task at `phase: todo` carrying **no** approval record still records an approval and advances the phase. Evidence: `grep -E '^approved_(by|at):' <file>` returns two lines and `vault-cli task show <name>` prints `Phase: planning`.
+- [ ] `vault-cli task approve <name>` on a task at `phase: todo` carrying both `approved_by` and `approved_at` exits 0, leaves the file at `phase: planning`, and leaves both keys byte-identical. Evidence: `vault-cli task show <name>` prints `Phase: planning`; the exit code is `0`; and `grep -E '^approved_(by|at):' <file>` before and after the run produces identical output.
+- [ ] `vault-cli task approve <name>` on a task at `phase: todo` carrying only one of the two keys exits 0, moves `phase` to `planning`, and does **not** add the missing key. Evidence: `vault-cli task show <name>` prints `Phase: planning`; `grep -E '^approved_by:' <file>` is unchanged before and after; `grep -c '^approved_at:' <file>` returns `0` when the row carried only `approved_by`; and on a second row carrying only `approved_at`, `grep -c '^approved_by:' <file>` returns `0` after the run.
+- [ ] The negative arm holds: `vault-cli task approve <name>` on a task that names an owner (`assignee`, `--assignee`, or a configured `current_user`), at `phase: todo` carrying **no** approval record, still records an approval and advances the phase. Evidence: `grep -E '^approved_(by|at):' <file>` returns two lines and `vault-cli task show <name>` prints `Phase: planning`.
+- [ ] The existing refusals are unchanged. Evidence: three non-zero exits with stderr containing, respectively, `not "todo"` (a row past the inbox), `approved_by must not be empty` (an empty `--by`, refused before the task is read), and `refusing to approve an unowned task` (no `assignee`, no `--assignee`, no `current_user` — on a row carrying **no** approval record, i.e. a real approval act; the repair path on an already-approved row is not an approval and does not resolve an owner).
+- [ ] The `work-on` loop closes: after the repair, `task work-on` no longer reports the approval inbox for a row the repair advanced. Evidence: `timeout 20 vault-cli task work-on <name> 2>&1 | grep -c 'not yet approved'` returns `0` — negative evidence, not an exit-0 assertion, because `work-on` spawns a session and blocks on a non-refusing row.
 - [ ] The guard's own purpose survives: `vault-cli task set <name> phase planning` on a task at `phase: todo` carrying no approval record still exits non-zero with the approval-inbox refusal. Evidence: non-zero exit and stderr containing `the task is at phase "todo"`.
 - [ ] `vault-cli task lint` reports `APPROVED_RECORD_IN_TODO_INBOX` for a task carrying `approved_by` at `phase: todo`. Evidence: `vault-cli task lint | grep -c 'APPROVED_RECORD_IN_TODO_INBOX'` returns `1`, and the matching line begins with `WARN` (fixable, not yet fixed).
 - [ ] `vault-cli task lint --fix` repairs that row and preserves its record. Evidence: after the run `vault-cli task show <name>` prints `Phase: planning`, `grep -E '^approved_(by|at):' <file>` is unchanged, and a second `vault-cli task lint | grep -c 'APPROVED_RECORD_IN_TODO_INBOX'` returns `0`.
+- [ ] A terminal row is reported but not rewritten. Evidence: for a `status: completed` row carrying `approved_by` at `phase: todo`, `vault-cli task lint` emits an `APPROVED_RECORD_IN_TODO_INBOX` line prefixed `ERROR` (non-fixable) whose description names `completed`, and `vault-cli task lint --fix` leaves `phase: todo` in place.
 - [ ] `make precommit` exits 0. Evidence: exit code.
 
 ## Verification
+
+In every Acceptance Criterion above, `vault-cli` means the freshly built binary — `go build -mod=mod -o /tmp/new-vault-cli main.go` — never the installed one (`docs/releasing-vault-cli.md:37-40`). The installed binary on this host is v0.187.1, i.e. pre-fix, so every AC fails against it.
 
 ### Container-executable (runs inside the YOLO container at prompt time)
 
@@ -68,14 +72,14 @@ A task that is approved but sitting in the approval inbox is advanced to `phase:
 1. `task approve` on a `phase: todo` task carrying neither key behaves exactly as today: one write setting `phase: planning`, `approved_by`, `approved_at`, and the owner when it differs from the task's current assignee.
 2. `task approve` on a `phase: todo` task carrying **both** keys advances `phase` to `planning`, leaves `approved_by` and `approved_at` byte-identical, and exits 0.
 3. `task approve` on a `phase: todo` task carrying **one** key advances `phase` to `planning` and leaves that key byte-identical. It does not fabricate the missing key, and it does not refuse.
-4. Every existing refusal is unchanged: a task not at `phase: todo` is refused with the phase-naming message, an empty approver is refused before the task is read, and an unowned task with no `--assignee` and no configured `current_user` is refused.
-5. `vault-cli task lint` reports one `APPROVED_RECORD_IN_TODO_INBOX` issue, marked fixable, for a task carrying `approved_by` or `approved_at` at `phase: todo`.
-6. `vault-cli task lint --fix` advances that task's `phase` to `planning`, preserves the approval record verbatim, and a second lint run reports zero such issues.
-7. `task work-on` is unchanged. Its refusal — *"task is at phase `todo`, not yet approved; run `vault-cli task approve …` first"* — becomes an actionable instruction rather than a dead end, because the verb it names now succeeds. The loop closes without a second code path.
+4. `vault-cli task lint` reports one `APPROVED_RECORD_IN_TODO_INBOX` issue for a task carrying `approved_by` or `approved_at` at `phase: todo` — marked fixable, except on a terminal row, which is reported non-fixable per behaviour 5.
+5. `vault-cli task lint --fix` advances that task's `phase` to `planning`, preserves the approval record verbatim, and a second lint run reports zero such issues. Two scopes bound it: neither the `approve` repair nor the lint fix resolves or requires an owner — the owner rule governs the approval act, which already happened, so an already-approved row advances whether or not it names an `assignee`, and nothing is written to `assignee`; and the rule applies only to a non-terminal row, so a `status: completed` or `aborted` row is reported **non-fixable** with its status named, because advancing its phase would produce the `status: completed` + `phase: planning` pair that `checkPhaseRegression` exists to refuse.
 
 ## Constraints
 
 - `todoPlanningSetRefusal` and `checkPhaseRegression` are unchanged. `--force` still does not bypass the approval-inbox refusal for a row carrying no approval record.
+- `task approve`'s existing refusals are unchanged: a row not at `phase: todo`, an empty `--by`, and an unowned row with no `assignee` / `--assignee` / configured `current_user`.
+- `task work-on` is unchanged. Its refusal — *"task is at phase `todo`, not yet approved; run `vault-cli task approve …` first"* — becomes an actionable instruction rather than a dead end, because the verb it names now succeeds. The loop closes without a second code path.
 - The repair path writes no `approved_by` / `approved_at` value — not even to complete a partial record. An approval nobody gave must never be recorded.
 - `MutationResult`'s shape and the CLI's printed success line are unchanged.
 - `task set` semantics are unchanged.
@@ -93,13 +97,26 @@ A task that is approved but sitting in the approval inbox is advanced to `phase:
 | Two sessions run `task approve` on the same row concurrently | Both read the same pre-state; the last write wins; the phase is `planning` and the record is unchanged in either order | none — the operation is idempotent |
 | `task lint --fix` runs over a vault with many such rows | Each row advances to `planning`, each record preserved | `task set <name> phase todo --force` re-inboxes a row whose advance was wrong (note: it does not clear the record, so the row returns to the same repairable state) |
 | A row carries `approved_by` with an empty value | Treated as present, so the repair advances the phase and preserves the empty value | `task clear <name> approved_by` |
+| A deadlocked row carries no `assignee` and no `current_user` is configured | Both `task approve` and `task lint --fix` advance the phase; no owner is written or required — the owner rule governs the approval act, which already happened | none — the repair is not an approval |
+| A `status: completed` or `aborted` row carries an approval record at `phase: todo` | `task lint` reports the issue as **non-fixable**, naming the terminal status; `task approve` advances the phase as normal, since `approve` only inspects `phase` | the operator decides whether to re-open the row; a re-open is a deliberate `task set <name> phase planning` after clearing the record |
+| `WriteTask` fails during the repair (disk full, permission, lock) | No phase change on disk, non-zero exit, error surfaced | retry; `vault-cli task show <name>` still prints `Phase: todo` with the record intact |
 
 ## Reproduction
 
 Fixture: a throwaway vault created for the reproduction, configured through `--config` so no real vault is touched.
 
-0. Record the buggy binary: `vault-cli --version` → `v0.187.1`.
-1. Create `/tmp/vc-fixture/config.yaml` with one vault pointing at `/tmp/vc-fixture/vault`, `tasks_dir: tasks`, `goals_dir: goals`.
+0. Record the buggy binary: `vault-cli --version` → `v0.187.1`. The same four refusals also reproduce from a build of `origin/master`, so the finding is not an artefact of a stale installed tag.
+1. Create `/tmp/vc-fixture/config.yaml` — `current_user` is required, or step 3 refuses with the unowned-task error before the deadlock is ever reached:
+   ```yaml
+   current_user: fixture
+   default_vault: fixture
+   vaults:
+     fixture:
+       path: /tmp/vc-fixture/vault
+       name: fixture
+       tasks_dir: tasks
+       goals_dir: goals
+   ```
 2. Create `/tmp/vc-fixture/vault/tasks/Fixture Task.md` with frontmatter `status: next`, `phase: todo`, `priority: 2`.
 3. Approve it:
    ```
@@ -113,7 +130,7 @@ Fixture: a throwaway vault created for the reproduction, configured through `--c
    vault-cli --config /tmp/vc-fixture/config.yaml --vault fixture task set "Fixture Task" phase todo --force
    ```
    Observed: `✅ Set phase=todo on: Fixture Task`. The file now reads `approved_by: operator`, `approved_at: <ts>`, `phase: todo`, `status: in_progress` — the deadlocked state.
-5. Run all four verbs against it (verbatim output, exit code in brackets).
+5. Run all four verbs against it (output quoted once, exit code in brackets). Each refusal is printed twice on stderr — cobra's error path plus `cli.Execute`'s `fmt.Fprintf` — so a real capture shows every line below duplicated; the duplication is stripped here and carries no meaning.
 
 `vault-cli --config /tmp/vc-fixture/config.yaml --vault fixture task approve "Fixture Task"` → `[1]`
 ```
@@ -162,8 +179,8 @@ The contract documents a refusal that creates a state no verb can leave: `docs/t
 
 | # | Prompt focus | Covers DBs | Covers ACs | Depends on |
 |---|---|---|---|---|
-| 1 | `task approve` advances an already-approved `todo` row, preserving the record; unit specs for the full-record, partial-record and no-record arms plus the unchanged refusals | 1, 2, 3, 4 | 1, 2, 3, 4, 5 | — |
-| 2 | `APPROVED_RECORD_IN_TODO_INBOX` lint rule with its fix, reusing the phase-advance behaviour established in prompt 1 | 5, 6 | 6, 7 | prompt 1 |
-| 3 | Add a new `## Unreleased` heading above `## v0.188.3` in `CHANGELOG.md` with one bullet; amend the `docs/task-writing.md` § Phase transitions sentence that reads *"The command refuses any row that is not at `phase: todo`, and any row that already carries `approved_by` or `approved_at`, writing nothing in either case"* so it states that a row already carrying the record is **advanced**, not re-approved | — | 8 | prompts 1, 2 |
+| 1 | `task approve` advances an already-approved `todo` row, preserving the record; unit specs for the full-record, partial-record and no-record arms, the unchanged refusals, and the preserved `todo → planning` guard | 1, 2, 3 | 1, 2, 3, 4, 5, 6 | — |
+| 2 | `APPROVED_RECORD_IN_TODO_INBOX` lint rule with its fix, reusing the phase-advance behaviour established in prompt 1, plus the non-fixable terminal-status arm | 4, 5 | 7, 8, 9 | prompt 1 |
+| 3 | Add a new `## Unreleased` heading above `## v0.188.3` in `CHANGELOG.md` with one bullet; amend the `docs/task-writing.md` § Phase transitions sentence that reads *"The command refuses any row that is not at `phase: todo`, and any row that already carries `approved_by` or `approved_at`, writing nothing in either case"* so it states that a row already carrying the record is **advanced**, not re-approved | — | 10 | prompts 1, 2 |
 
 Rationale: prompt 1 establishes the behaviour; prompt 2 builds the lint fix on it; prompt 3 records the contract change and the changelog entry once the code is settled.

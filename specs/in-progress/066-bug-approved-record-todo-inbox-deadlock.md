@@ -1,8 +1,9 @@
 ---
-status: prompted
+status: verifying
 approved: "2026-11-08T17:51:54Z"
 generating: "2026-11-08T18:02:55Z"
 prompted: "2026-11-08T18:13:38Z"
+verifying: "2026-11-08T18:37:16Z"
 branch: dark-factory/bug-approved-record-todo-inbox-deadlock
 ---
 

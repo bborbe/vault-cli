@@ -16,6 +16,19 @@ import (
 // MetricsSessions reads the "metrics_sessions" field as a slice of MetricsSession.
 // Returns nil when the key is absent, the value is not a list, or every element is malformed.
 func (f TaskFrontmatter) MetricsSessions() []MetricsSession {
+	return metricsSessionsOf(f.FrontmatterMap)
+}
+
+// AppendMetricsSession appends one entry to "metrics_sessions", preserving every prior entry.
+// A nil or empty SessionID is ignored (not appended).
+func (f *TaskFrontmatter) AppendMetricsSession(entry MetricsSession) {
+	appendMetricsSessionTo(&f.FrontmatterMap, entry)
+}
+
+// metricsSessionsOf reads "metrics_sessions" from any frontmatter map. It is the
+// single reader shared by tasks, goals and topics so all three normalise the
+// on-disk list identically.
+func metricsSessionsOf(f FrontmatterMap) []MetricsSession {
 	v := f.Get("metrics_sessions")
 	switch s := v.(type) {
 	case []MetricsSession:
@@ -42,13 +55,13 @@ func (f TaskFrontmatter) MetricsSessions() []MetricsSession {
 	}
 }
 
-// AppendMetricsSession appends one entry to "metrics_sessions", preserving every prior entry.
-// A nil or empty SessionID is ignored (not appended).
-func (f *TaskFrontmatter) AppendMetricsSession(entry MetricsSession) {
+// appendMetricsSessionTo appends one entry to "metrics_sessions", preserving every
+// prior well-formed entry. An empty SessionID is ignored.
+func appendMetricsSessionTo(f *FrontmatterMap, entry MetricsSession) {
 	if entry.SessionID == "" {
 		return
 	}
-	f.Set("metrics_sessions", append(f.MetricsSessions(), entry))
+	f.Set("metrics_sessions", append(metricsSessionsOf(*f), entry))
 }
 
 // RemoveMetricsSession removes every "metrics_sessions" entry whose SessionID

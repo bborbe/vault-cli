@@ -6,7 +6,7 @@ package ops
 
 import (
 	"context"
-	"strings"
+	"slices"
 
 	"github.com/bborbe/errors"
 	libtime "github.com/bborbe/time"
@@ -20,17 +20,24 @@ type TaskApproveOperation interface {
 	// Execute approves the named task: it moves a task waiting in the approval
 	// inbox (phase todo) to phase planning and records, in the same write, who
 	// approved it, the instant of the transition, and the task's owner. Any task
-	// that is not waiting in the inbox, and any task that already carries an
-	// approval record, is refused with nothing written.
+	// that is not waiting in the inbox is refused with nothing written. Any task
+	// that already carries `approved_by` and/or `approved_at` is advanced to
+	// planning with the record preserved and is not re-approved; no owner is
+	// resolved or written on that path.
 	//
 	// The owner is resolved once, at approval time, by precedence: assignee when
 	// non-empty, else the task's existing assignee, else currentUser. An empty
 	// assignee means the --assignee flag was not given (a blank flag value is
 	// never a request for an unowned task); an empty currentUser means no current
 	// user could be resolved. When none of the three names an owner the approval
-	// is refused and nothing is written, so a task can never enter planning
+	// is refused and nothing is written, so an approval never enters planning
 	// ownerless. An existing assignee that neither the flag nor currentUser
 	// matches is preserved untouched and silently.
+	//
+	// This rule governs the approval act only. A row that already carries an
+	// approval record is advanced to planning without resolving or writing an
+	// owner, so such a row may reach planning unassigned — the approval that
+	// would have fixed an owner already happened.
 	Execute(
 		ctx context.Context,
 		vaultPath string,
@@ -115,10 +122,27 @@ func (o *taskApproveOperation) Execute(
 		return MutationResult{Success: false, Error: err.Error()}, err
 	}
 
-	// The existing-record guard: a todo row carrying an approval record is not
-	// awaiting approval, and re-approving must not overwrite who approved it first.
-	if err := refuseExistingApprovalRecord(ctx, taskName, task); err != nil {
-		return MutationResult{Success: false, Error: err.Error()}, err
+	// A todo row that already carries an approval record has already been
+	// approved; only the phase half of the transition is missing. Advance it and
+	// preserve the record exactly as it is: no approval is written, no missing
+	// key is invented, and no owner is resolved or required, because the owner
+	// rule governs the approval act, which already happened.
+	if hasApprovalRecord(task) {
+		// A terminal row is refused rather than advanced: moving it to planning
+		// would produce the status/phase pair checkPhaseRegression refuses and
+		// detectStatusPhaseMismatch reports — the same pair the lint rule marks
+		// non-fixable. Refusing keeps approve and lint in agreement about a
+		// finished row instead of having each repair what the other refuses.
+		if status := task.Status(); status == domain.TaskStatusCompleted || status == domain.TaskStatusAborted {
+			terminalErr := errors.Errorf(
+				ctx,
+				"refusing to advance %q: it carries an approval record at phase %q but its status is %q; advancing the phase would produce the status/phase pair checkPhaseRegression refuses. A finished row is not re-opened by an approval — decide deliberately whether it is mis-phased",
+				taskName, string(domain.TaskPhaseTodo), status,
+			)
+			return MutationResult{Success: false, Error: terminalErr.Error()}, terminalErr
+		}
+		task.SetPhase(domain.TaskPhasePlanning.Ptr())
+		return o.write(ctx, task, vaultName)
 	}
 
 	// Resolve the owner after every guard and before any mutation. Refusing here
@@ -142,36 +166,40 @@ func (o *taskApproveOperation) Execute(
 		task.SetAssignee(owner)
 	}
 
+	return o.write(ctx, task, vaultName)
+}
+
+// write persists the task and returns the success result, so the approval
+// write and the already-approved repair share exactly one write path.
+func (o *taskApproveOperation) write(
+	ctx context.Context,
+	task *domain.Task,
+	vaultName string,
+) (MutationResult, error) {
 	if err := o.taskStorage.WriteTask(ctx, task); err != nil {
 		return MutationResult{
 			Success: false,
 			Error:   err.Error(),
 		}, errors.Wrap(ctx, err, "write task")
 	}
-
 	return MutationResult{Success: true, Name: task.Name, Vault: vaultName}, nil
 }
 
-// refuseExistingApprovalRecord returns the refusal error for a todo row that
-// already carries an approved_by or an approved_at key, and nil otherwise. Both
-// keys are checked independently so a row carrying either one is refused, and
-// the message names every key that is present.
-func refuseExistingApprovalRecord(ctx context.Context, taskName string, task *domain.Task) error {
-	var present []string
-	if task.Get("approved_by") != nil {
-		present = append(present, "approved_by")
-	}
-	if task.Get("approved_at") != nil {
-		present = append(present, "approved_at")
-	}
-	if len(present) == 0 {
-		return nil
-	}
-	return errors.Errorf(
-		ctx,
-		"refusing to approve %q: task already carries an approval record (%s); re-approving is refused",
-		taskName, strings.Join(present, ", "),
-	)
+// hasApprovalRecord reports whether the task already carries an approved_by
+// or an approved_at key. Presence, not value, is the test: a key carrying an
+// empty value still means an approval was recorded, and the repair advances
+// the phase without rewriting or completing that record.
+//
+// Presence is read from the key set, never from Get. Get is a raw map lookup
+// that returns nil for a key present with a null value — `approved_by:` with
+// nothing after the colon — which the lint rule's line-anchored matcher counts
+// as a record. Testing Get would let approve and lint disagree on exactly that
+// shape: lint would advance the row while approve treated it as unrecorded,
+// resolved an owner, and either wrote a fabricated approval or refused for want
+// of one, which is the deadlock this repair exists to close.
+func hasApprovalRecord(task *domain.Task) bool {
+	keys := task.Keys()
+	return slices.Contains(keys, "approved_by") || slices.Contains(keys, "approved_at")
 }
 
 // resolveOwner fixes the task's owner by the precedence the approval contract

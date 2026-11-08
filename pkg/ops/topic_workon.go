@@ -10,6 +10,7 @@ import (
 	"log/slog"
 
 	"github.com/bborbe/errors"
+	libtime "github.com/bborbe/time"
 
 	"github.com/bborbe/vault-cli/pkg/config"
 	"github.com/bborbe/vault-cli/pkg/domain"
@@ -33,23 +34,26 @@ type TopicWorkOnOperation interface {
 // NewTopicWorkOnOperation creates a new topic work-on operation.
 func NewTopicWorkOnOperation(
 	topicStorage storage.TopicStorage,
+	currentDateTime libtime.CurrentDateTime,
 	uuidGenerator func() string,
 	starter ClaudeSessionStarter,
 	resumer ClaudeResumer,
 ) TopicWorkOnOperation {
 	return &topicWorkOnOperation{
-		topicStorage:  topicStorage,
-		uuidGenerator: uuidGenerator,
-		starter:       starter,
-		resumer:       resumer,
+		topicStorage:    topicStorage,
+		currentDateTime: currentDateTime,
+		uuidGenerator:   uuidGenerator,
+		starter:         starter,
+		resumer:         resumer,
 	}
 }
 
 type topicWorkOnOperation struct {
-	topicStorage  storage.TopicStorage
-	uuidGenerator func() string
-	starter       ClaudeSessionStarter
-	resumer       ClaudeResumer
+	topicStorage    storage.TopicStorage
+	currentDateTime libtime.CurrentDateTime
+	uuidGenerator   func() string
+	starter         ClaudeSessionStarter
+	resumer         ClaudeResumer
 }
 
 // Execute marks a topic as in_progress, assigns it, and starts or resumes a Claude session.
@@ -165,27 +169,49 @@ func applyTopicAssigneeMatrix(
 	}
 }
 
-// persistTopicSessionID re-reads the topic from disk and writes back only the session id.
-// The re-read is load-bearing on every branch: the headless turn mutates the same file
-// and always finishes before this runs, so writing the stale in-memory copy would
-// revert the session's own frontmatter changes.
+// persistTopicSessionID re-reads the topic from disk and writes back the session id
+// according to the ownership rule: it stamps claude_session_id only when the field is
+// still empty. The re-read is load-bearing on every branch: the headless turn mutates
+// the same file and always finishes before this runs, so writing the stale in-memory
+// copy would revert the session's own frontmatter changes.
+//
+// The turn can last up to the turn timeout, so another session may claim the page in
+// that window. When the re-read finds a different non-empty owner, that claimant keeps
+// the stamp and the binding session is recorded in metrics_sessions at the turn start
+// captured before StartSession, in the same single write. When the field already holds
+// the binding id (the child's own mid-turn session-connect) nothing is appended. The
+// append rule deliberately differs from the task path: an uncontended topic bind adds no
+// metrics_sessions entry.
 //
 // On failure it returns an empty id, never the one it was handed. The id is the Vault
 // UI's signal that Resume will work; reporting an id whose write did not land would
-// advertise a session that is not on disk.
+// advertise a session that is not on disk. On success it returns the binding session id
+// in every case — never the stored owner — because a caller that lost the race resumes
+// its own session by design.
 func persistTopicSessionID(
 	ctx context.Context,
 	vaultPath string,
 	topicName string,
 	sessionID string,
+	startedAt libtime.DateOrDateTime,
 	topicStorage storage.TopicStorage,
 ) (string, error) {
 	refreshed, err := topicStorage.FindTopicByName(ctx, vaultPath, topicName)
 	if err != nil {
 		return "", errors.Wrap(ctx, err, "re-read topic after claude session")
 	}
-	if err := refreshed.SetField(ctx, "claude_session_id", sessionID); err != nil {
-		return "", errors.Wrap(ctx, err, "save session id to topic")
+	switch stored := refreshed.GetField("claude_session_id"); stored {
+	case "":
+		if err := refreshed.SetField(ctx, "claude_session_id", sessionID); err != nil {
+			return "", errors.Wrap(ctx, err, "save session id to topic")
+		}
+	case sessionID:
+		// The binding session already owns the page; nothing to record.
+	default:
+		refreshed.AppendMetricsSession(domain.MetricsSession{
+			SessionID: sessionID,
+			StartedAt: startedAt,
+		})
 	}
 	if err := topicStorage.WriteTopic(ctx, refreshed); err != nil {
 		return "", errors.Wrap(ctx, err, "save session id to topic")
@@ -221,6 +247,7 @@ func (o *topicWorkOnOperation) handleClaudeSession(
 	// slash-command ladder out of scope, so the goal work-on command is reused.
 	prompt := fmt.Sprintf(`%s "%s" --non-interactive`, vault.GetWorkOnGoalCommand(), topic.FilePath)
 	sessionID := o.uuidGenerator()
+	startedAt := libtime.DateOrDateTime(o.currentDateTime.Now().Time())
 	slog.Info("starting claude session", "topic", topic.Name)
 	if isInteractive {
 		// TTY branch, unchanged: block through the headless turn, then re-read and
@@ -228,7 +255,7 @@ func (o *topicWorkOnOperation) handleClaudeSession(
 		if err := o.starter.StartSession(ctx, sessionID, prompt, sessionDir, topic.Name, isInteractive); err != nil {
 			return "", errors.Wrap(ctx, err, "start claude session")
 		}
-		sessionID, err := persistTopicSessionID(ctx, vaultPath, topic.Name, sessionID, o.topicStorage)
+		sessionID, err := persistTopicSessionID(ctx, vaultPath, topic.Name, sessionID, startedAt, o.topicStorage)
 		return sessionID, err
 	}
 	// Non-interactive branch: persist the id only AFTER the turn has finished. An id on
@@ -240,6 +267,6 @@ func (o *topicWorkOnOperation) handleClaudeSession(
 		// nothing to undo. Frontmatter the child wrote before failing stays untouched.
 		return "", errors.Wrap(ctx, err, "start claude session")
 	}
-	sessionID, err := persistTopicSessionID(ctx, vaultPath, topic.Name, sessionID, o.topicStorage)
+	sessionID, err := persistTopicSessionID(ctx, vaultPath, topic.Name, sessionID, startedAt, o.topicStorage)
 	return sessionID, err
 }

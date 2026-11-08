@@ -24,3 +24,9 @@ var RollupFamilyName = rollupFamilyName
 
 // RollupMedian exposes rollupMedian for the external ops_test package.
 var RollupMedian = rollupMedian
+
+// PersistGoalSessionID exposes persistGoalSessionID for the external ops_test package.
+var PersistGoalSessionID = persistGoalSessionID
+
+// PersistTopicSessionID exposes persistTopicSessionID for the external ops_test package.
+var PersistTopicSessionID = persistTopicSessionID

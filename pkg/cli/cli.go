@@ -1419,7 +1419,10 @@ func createGoalCommands(
 	))
 	cmd.AddCommand(createEntitySetCommand(ctx, configLoader, vaultName, outputFormat, "goal",
 		func(cfg *storage.Config) ops.EntitySetOperation {
-			return ops.NewGoalSetOperation(storage.NewGoalStorage(cfg))
+			return ops.NewGoalSetOperation(
+				storage.NewGoalStorage(cfg),
+				libtime.NewCurrentDateTime(),
+			)
 		},
 	))
 	cmd.AddCommand(createEntityClearCommand(ctx, configLoader, vaultName, outputFormat, "goal",
@@ -1673,7 +1676,7 @@ func createWorkOnGoalCommand(
 				resumer := ops.NewClaudeResumer(vault.GetClaudeScript(), locker)
 				storageConfig := storage.NewConfigFromVault(vault)
 				goalStore := storage.NewGoalStorage(storageConfig)
-				workOnOp := ops.NewGoalWorkOnOperation(goalStore, uuid.NewString, starter, resumer)
+				workOnOp := ops.NewGoalWorkOnOperation(goalStore, libtime.NewCurrentDateTime(), uuid.NewString, starter, resumer)
 				sessionDir := vault.Path
 				if dir := vault.GetSessionProjectDir(); dir != "" {
 					sessionDir = dir
@@ -1737,7 +1740,10 @@ func createTopicCommands(
 	))
 	cmd.AddCommand(createEntitySetCommand(ctx, configLoader, vaultName, outputFormat, "topic",
 		func(cfg *storage.Config) ops.EntitySetOperation {
-			return ops.NewTopicSetOperation(storage.NewTopicStorage(cfg))
+			return ops.NewTopicSetOperation(
+				storage.NewTopicStorage(cfg),
+				libtime.NewCurrentDateTime(),
+			)
 		},
 	))
 	cmd.AddCommand(createEntityClearCommand(ctx, configLoader, vaultName, outputFormat, "topic",
@@ -1978,7 +1984,7 @@ func createWorkOnTopicCommand(
 				resumer := ops.NewClaudeResumer(vault.GetClaudeScript(), locker)
 				storageConfig := storage.NewConfigFromVault(vault)
 				topicStore := storage.NewTopicStorage(storageConfig)
-				workOnOp := ops.NewTopicWorkOnOperation(topicStore, uuid.NewString, starter, resumer)
+				workOnOp := ops.NewTopicWorkOnOperation(topicStore, libtime.NewCurrentDateTime(), uuid.NewString, starter, resumer)
 				sessionDir := vault.Path
 				if dir := vault.GetSessionProjectDir(); dir != "" {
 					sessionDir = dir

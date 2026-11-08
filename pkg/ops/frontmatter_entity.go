@@ -10,6 +10,8 @@ import (
 	"strings"
 
 	"github.com/bborbe/errors"
+	libtime "github.com/bborbe/time"
+	"github.com/google/uuid"
 
 	"github.com/bborbe/vault-cli/pkg/domain"
 	"github.com/bborbe/vault-cli/pkg/storage"
@@ -105,7 +107,8 @@ type EntitySetOperation interface {
 }
 
 type goalSetOperation struct {
-	goalStorage storage.GoalStorage
+	goalStorage     storage.GoalStorage
+	currentDateTime libtime.CurrentDateTime
 }
 
 // Execute sets the value of a frontmatter field on the named goal.
@@ -117,6 +120,10 @@ func (o *goalSetOperation) Execute(
 	if err != nil {
 		return errors.Wrap(ctx, err, "find goal")
 	}
+
+	// Read the owner before any mutation: the append below must record the id
+	// that SetField is about to overwrite.
+	previous := goal.ClaudeSessionID()
 
 	// Refuse a non-empty blocked_by before anything is mutated — see
 	// blockedBySetRefusal. Nothing below runs on this path, so the goal file
@@ -138,6 +145,16 @@ func (o *goalSetOperation) Execute(
 		return err
 	}
 
+	// The displaced owner must be appended before SetField overwrites it, so the
+	// single WriteGoal below persists the new id and the recorded outgoing id
+	// together.
+	if displacesSessionOwner(key, previous, value) {
+		goal.AppendMetricsSession(domain.MetricsSession{
+			SessionID: previous,
+			StartedAt: libtime.DateOrDateTime(o.currentDateTime.Now().Time()),
+		})
+	}
+
 	if err := goal.SetField(ctx, key, value); err != nil {
 		if key == "status" && strings.Contains(err.Error(), "missing close-out field(s)") {
 			err = errors.Errorf(ctx,
@@ -152,9 +169,46 @@ func (o *goalSetOperation) Execute(
 	return nil
 }
 
+// displacesSessionOwner reports whether a claude_session_id write replaces a
+// real owner and therefore must append the outgoing id to metrics_sessions.
+//
+// The exit and close paths resolve a session by matching claude_session_id or
+// any metrics_sessions entry, so a displaced owner has to stay on the page or it
+// can never be resolved again. It returns true only when all hold:
+//
+//   - the key is claude_session_id;
+//   - the stored value is non-empty;
+//   - the new value is non-empty — blanking the stamp dismisses a dead pointer
+//     rather than recording a take-over (this deliberately differs from the task
+//     path, where set "" records the id being cleared);
+//   - the stored value parses as a uuid;
+//   - the stored value differs from the new one.
+//
+// The uuid clause exists because a non-uuid stored value is a session display
+// name, and the only writer that replaces one is vault-ui's name -> uuid resolve,
+// which rewrites the same session under its real id; recording that would be a
+// bogus take-over. The accepted cost: a take-over from a page stamped with
+// another session's display name records nothing, because that stamp names no
+// resolvable session.
+func displacesSessionOwner(key, previous, value string) bool {
+	if key != "claude_session_id" || previous == "" || value == "" || previous == value {
+		return false
+	}
+	if _, err := uuid.Parse(previous); err != nil {
+		return false
+	}
+	return true
+}
+
 // NewGoalSetOperation creates an EntitySetOperation for goals.
-func NewGoalSetOperation(goalStorage storage.GoalStorage) EntitySetOperation {
-	return &goalSetOperation{goalStorage: goalStorage}
+func NewGoalSetOperation(
+	goalStorage storage.GoalStorage,
+	currentDateTime libtime.CurrentDateTime,
+) EntitySetOperation {
+	return &goalSetOperation{
+		goalStorage:     goalStorage,
+		currentDateTime: currentDateTime,
+	}
 }
 
 // writeGoalCloseOutFieldsIfCloseOut writes the one-step close-out fields when
@@ -275,7 +329,8 @@ func NewVisionSetOperation(visionStorage storage.VisionStorage) EntitySetOperati
 }
 
 type topicSetOperation struct {
-	topicStorage storage.TopicStorage
+	topicStorage    storage.TopicStorage
+	currentDateTime libtime.CurrentDateTime
 }
 
 // Execute sets the value of a frontmatter field on the named topic.
@@ -292,11 +347,26 @@ func (o *topicSetOperation) Execute(
 		return errors.Wrap(ctx, err, "find topic")
 	}
 
+	// Read the owner before any mutation: the append below must record the id
+	// that SetField is about to overwrite. TopicFrontmatter has no dedicated
+	// accessor, so this is the same raw read persistTopicSessionID uses.
+	previous := topic.GetField("claude_session_id")
+
 	// Refuse a direct todo -> planning move before anything is mutated — see
 	// topicTodoPlanningSetRefusal. Nothing below runs on this path, so the topic
 	// file stays byte-identical.
 	if err := topicTodoPlanningSetRefusal(ctx, topic, entityName, key, value); err != nil {
 		return err
+	}
+
+	// The displaced owner must be appended before SetField overwrites it, so the
+	// single WriteTopic below persists the new id and the recorded outgoing id
+	// together.
+	if displacesSessionOwner(key, previous, value) {
+		topic.AppendMetricsSession(domain.MetricsSession{
+			SessionID: previous,
+			StartedAt: libtime.DateOrDateTime(o.currentDateTime.Now().Time()),
+		})
 	}
 
 	if err := topic.SetField(ctx, key, value); err != nil {
@@ -309,8 +379,14 @@ func (o *topicSetOperation) Execute(
 }
 
 // NewTopicSetOperation creates an EntitySetOperation for topics.
-func NewTopicSetOperation(topicStorage storage.TopicStorage) EntitySetOperation {
-	return &topicSetOperation{topicStorage: topicStorage}
+func NewTopicSetOperation(
+	topicStorage storage.TopicStorage,
+	currentDateTime libtime.CurrentDateTime,
+) EntitySetOperation {
+	return &topicSetOperation{
+		topicStorage:    topicStorage,
+		currentDateTime: currentDateTime,
+	}
 }
 
 // goalTodoPlanningSetRefusal returns an error when a `goal set` invocation would

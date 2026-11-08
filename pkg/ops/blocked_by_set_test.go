@@ -120,7 +120,7 @@ var _ = Describe("goal set refusal for blocked_by", func() {
 	BeforeEach(func() {
 		ctx = context.Background()
 		mockGoalStorage = &mocks.GoalStorage{}
-		setOp = ops.NewGoalSetOperation(mockGoalStorage)
+		setOp = ops.NewGoalSetOperation(mockGoalStorage, libtime.NewCurrentDateTime())
 		mockGoalStorage.FindGoalByNameReturns(
 			domain.NewGoal(
 				map[string]any{"status": "next", "blocked_by": []any{"[[Blocker E]]"}},

@@ -10,6 +10,7 @@ import (
 	"log/slog"
 
 	"github.com/bborbe/errors"
+	libtime "github.com/bborbe/time"
 
 	"github.com/bborbe/vault-cli/pkg/config"
 	"github.com/bborbe/vault-cli/pkg/domain"
@@ -33,23 +34,26 @@ type GoalWorkOnOperation interface {
 // NewGoalWorkOnOperation creates a new goal work-on operation.
 func NewGoalWorkOnOperation(
 	goalStorage storage.GoalStorage,
+	currentDateTime libtime.CurrentDateTime,
 	uuidGenerator func() string,
 	starter ClaudeSessionStarter,
 	resumer ClaudeResumer,
 ) GoalWorkOnOperation {
 	return &goalWorkOnOperation{
-		goalStorage:   goalStorage,
-		uuidGenerator: uuidGenerator,
-		starter:       starter,
-		resumer:       resumer,
+		goalStorage:     goalStorage,
+		currentDateTime: currentDateTime,
+		uuidGenerator:   uuidGenerator,
+		starter:         starter,
+		resumer:         resumer,
 	}
 }
 
 type goalWorkOnOperation struct {
-	goalStorage   storage.GoalStorage
-	uuidGenerator func() string
-	starter       ClaudeSessionStarter
-	resumer       ClaudeResumer
+	goalStorage     storage.GoalStorage
+	currentDateTime libtime.CurrentDateTime
+	uuidGenerator   func() string
+	starter         ClaudeSessionStarter
+	resumer         ClaudeResumer
 }
 
 // Execute marks a goal as in_progress, assigns it, and starts or resumes a Claude session.
@@ -165,26 +169,48 @@ func applyGoalAssigneeMatrix(goal *domain.Goal, assignee string) string {
 	}
 }
 
-// persistGoalSessionID re-reads the goal from disk and writes back only the session id.
-// The re-read is load-bearing on every branch: the headless turn mutates the same file
-// and always finishes before this runs, so writing the stale in-memory copy would
-// revert the session's own frontmatter changes.
+// persistGoalSessionID re-reads the goal from disk and writes back the session id
+// according to the ownership rule: it stamps claude_session_id only when the field is
+// still empty. The re-read is load-bearing on every branch: the headless turn mutates
+// the same file and always finishes before this runs, so writing the stale in-memory
+// copy would revert the session's own frontmatter changes.
+//
+// The turn can last up to the turn timeout, so another session may claim the page in
+// that window. When the re-read finds a different non-empty owner, that claimant keeps
+// the stamp and the binding session is recorded in metrics_sessions at the turn start
+// captured before StartSession, in the same single write. When the field already holds
+// the binding id (the child's own mid-turn session-connect) nothing is appended. The
+// append rule deliberately differs from the task path: an uncontended goal bind adds no
+// metrics_sessions entry.
 //
 // On failure it returns an empty id, never the one it was handed. The id is the Vault
 // UI's signal that Resume will work; reporting an id whose write did not land would
-// advertise a session that is not on disk.
+// advertise a session that is not on disk. On success it returns the binding session id
+// in every case — never the stored owner — because a caller that lost the race resumes
+// its own session by design.
 func persistGoalSessionID(
 	ctx context.Context,
 	vaultPath string,
 	goalName string,
 	sessionID string,
+	startedAt libtime.DateOrDateTime,
 	goalStorage storage.GoalStorage,
 ) (string, error) {
 	refreshed, err := goalStorage.FindGoalByName(ctx, vaultPath, goalName)
 	if err != nil {
 		return "", errors.Wrap(ctx, err, "re-read goal after claude session")
 	}
-	refreshed.SetClaudeSessionID(sessionID)
+	switch stored := refreshed.ClaudeSessionID(); stored {
+	case "":
+		refreshed.SetClaudeSessionID(sessionID)
+	case sessionID:
+		// The binding session already owns the page; nothing to record.
+	default:
+		refreshed.AppendMetricsSession(domain.MetricsSession{
+			SessionID: sessionID,
+			StartedAt: startedAt,
+		})
+	}
 	if err := goalStorage.WriteGoal(ctx, refreshed); err != nil {
 		return "", errors.Wrap(ctx, err, "save session id to goal")
 	}
@@ -216,6 +242,7 @@ func (g *goalWorkOnOperation) handleClaudeSession(
 	// defaults instead of prompting (prevents the 5m headless hang).
 	prompt := fmt.Sprintf(`%s "%s" --non-interactive`, vault.GetWorkOnGoalCommand(), goal.FilePath)
 	sessionID := g.uuidGenerator()
+	startedAt := libtime.DateOrDateTime(g.currentDateTime.Now().Time())
 	slog.Info("starting claude session", "goal", goal.Name)
 	if isInteractive {
 		// TTY branch, unchanged: block through the headless turn, then re-read and
@@ -223,7 +250,7 @@ func (g *goalWorkOnOperation) handleClaudeSession(
 		if err := g.starter.StartSession(ctx, sessionID, prompt, sessionDir, goal.Name, isInteractive); err != nil {
 			return "", errors.Wrap(ctx, err, "start claude session")
 		}
-		sessionID, err := persistGoalSessionID(ctx, vaultPath, goal.Name, sessionID, g.goalStorage)
+		sessionID, err := persistGoalSessionID(ctx, vaultPath, goal.Name, sessionID, startedAt, g.goalStorage)
 		return sessionID, err
 	}
 	// Non-interactive branch: persist the id only AFTER the turn has finished. An id on
@@ -235,6 +262,6 @@ func (g *goalWorkOnOperation) handleClaudeSession(
 		// nothing to undo. Frontmatter the child wrote before failing stays untouched.
 		return "", errors.Wrap(ctx, err, "start claude session")
 	}
-	sessionID, err := persistGoalSessionID(ctx, vaultPath, goal.Name, sessionID, g.goalStorage)
+	sessionID, err := persistGoalSessionID(ctx, vaultPath, goal.Name, sessionID, startedAt, g.goalStorage)
 	return sessionID, err
 }

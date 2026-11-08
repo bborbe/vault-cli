@@ -2408,7 +2408,7 @@ var _ = Describe("LintOperation - Missing Task Identifier", func() {
 	})
 })
 
-var _ = Describe("LintOperation - Status Date Mismatch", func() {
+var _ = Describe("LintOperation - Status and Date Rules", func() {
 	var (
 		ctx       context.Context
 		lintOp    ops.LintOperation
@@ -2448,6 +2448,16 @@ var _ = Describe("LintOperation - Status Date Mismatch", func() {
 		n := 0
 		for _, i := range issues {
 			if i.IssueType == ops.IssueTypeStatusDateMismatch {
+				n++
+			}
+		}
+		return n
+	}
+
+	countHoldIssues := func(issues []ops.LintIssue) int {
+		n := 0
+		for _, i := range issues {
+			if i.IssueType == ops.IssueTypeHoldWithDeferDate {
 				n++
 			}
 		}
@@ -2739,6 +2749,224 @@ var _ = Describe("LintOperation - Status Date Mismatch", func() {
 			Expect(foundValidate).To(BeTrue(), "validate path should surface STATUS_DATE_MISMATCH")
 			Expect(validateDesc).To(Equal(lintDesc),
 				"lint and validate must produce the same description string")
+		})
+	})
+
+	Context("HOLD_WITH_DEFER_DATE", func() {
+		It("fires on status: hold + defer_date", func() {
+			writeSDM(
+				vaultPath,
+				tasksDir,
+				"status: hold\npage_type: task\ntask_identifier: hold-fire\ndefer_date: 2026-12-01\n",
+				"hold-fire.md",
+			)
+			issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+			Expect(err).To(BeNil())
+			Expect(countHoldIssues(issues)).To(Equal(1))
+			for _, i := range issues {
+				if i.IssueType == ops.IssueTypeHoldWithDeferDate {
+					Expect(i.Fixable).To(BeFalse())
+					Expect(i.Description).To(ContainSubstring("hold"))
+					Expect(i.Description).To(ContainSubstring("defer_date"))
+					Expect(i.Description).To(ContainSubstring("in_progress"))
+					Expect(i.Description).To(ContainSubstring("clear defer_date"))
+				}
+			}
+		})
+
+		It("fires on an unquoted timestamp defer_date", func() {
+			writeSDM(
+				vaultPath,
+				tasksDir,
+				"status: hold\npage_type: task\ntask_identifier: hold-timestamp\ndefer_date: 2026-05-24T00:00:00Z\n",
+				"hold-timestamp.md",
+			)
+			issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+			Expect(err).To(BeNil())
+			Expect(countHoldIssues(issues)).To(Equal(1))
+			for _, i := range issues {
+				if i.IssueType == ops.IssueTypeHoldWithDeferDate {
+					Expect(i.Description).To(ContainSubstring("2026-05-24T00:00:00Z"))
+				}
+			}
+		})
+
+		It("does not fire with created_by: recurring-task-creator", func() {
+			writeSDM(
+				vaultPath,
+				tasksDir,
+				"status: hold\npage_type: task\ntask_identifier: hold-recurring-creator\ndefer_date: 2026-12-01\ncreated_by: recurring-task-creator\n",
+				"hold-recurring-creator.md",
+			)
+			issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+			Expect(err).To(BeNil())
+			Expect(countHoldIssues(issues)).To(Equal(0))
+		})
+
+		It("proves created_by is what silences the finding", func() {
+			writeSDM(
+				vaultPath,
+				tasksDir,
+				"status: hold\npage_type: task\ntask_identifier: hold-recurring-creator-pair\ndefer_date: 2026-12-01\n",
+				"hold-recurring-creator-pair.md",
+			)
+			issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+			Expect(err).To(BeNil())
+			Expect(countHoldIssues(issues)).To(Equal(1))
+		})
+
+		It("does not fire with a non-empty recurring key", func() {
+			writeSDM(
+				vaultPath,
+				tasksDir,
+				"status: hold\npage_type: task\ntask_identifier: hold-recurring-key\ndefer_date: 2026-12-01\nrecurring: weekly\n",
+				"hold-recurring-key.md",
+			)
+			issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+			Expect(err).To(BeNil())
+			Expect(countHoldIssues(issues)).To(Equal(0))
+		})
+
+		It("proves the recurring key is what silences the finding", func() {
+			writeSDM(
+				vaultPath,
+				tasksDir,
+				"status: hold\npage_type: task\ntask_identifier: hold-recurring-key-pair\ndefer_date: 2026-12-01\n",
+				"hold-recurring-key-pair.md",
+			)
+			issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+			Expect(err).To(BeNil())
+			Expect(countHoldIssues(issues)).To(Equal(1))
+		})
+
+		It("does not fire on status: hold with no defer_date", func() {
+			writeSDM(
+				vaultPath,
+				tasksDir,
+				"status: hold\npage_type: task\ntask_identifier: hold-no-defer\n",
+				"hold-no-defer.md",
+			)
+			issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+			Expect(err).To(BeNil())
+			Expect(countHoldIssues(issues)).To(Equal(0))
+		})
+
+		It("does not fire on status: hold with a valueless defer_date", func() {
+			writeSDM(
+				vaultPath,
+				tasksDir,
+				"status: hold\npage_type: task\ntask_identifier: hold-empty-defer\ndefer_date:\n",
+				"hold-empty-defer.md",
+			)
+			issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+			Expect(err).To(BeNil())
+			Expect(countHoldIssues(issues)).To(Equal(0))
+		})
+
+		It("does not fire on status: hold + planned_date only", func() {
+			writeSDM(
+				vaultPath,
+				tasksDir,
+				"status: hold\npage_type: task\ntask_identifier: hold-planned-only\nplanned_date: 2026-12-01\n",
+				"hold-planned-only.md",
+			)
+			issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+			Expect(err).To(BeNil())
+			Expect(countHoldIssues(issues)).To(Equal(0))
+		})
+
+		It("does not fire on status: in_progress + defer_date", func() {
+			writeSDM(
+				vaultPath,
+				tasksDir,
+				"status: in_progress\npage_type: task\ntask_identifier: hold-in-progress\ndefer_date: 2026-12-01\n",
+				"hold-in-progress.md",
+			)
+			issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+			Expect(err).To(BeNil())
+			Expect(countHoldIssues(issues)).To(Equal(0))
+		})
+
+		It("leaves status: next + defer_date on STATUS_DATE_MISMATCH alone", func() {
+			writeSDM(
+				vaultPath,
+				tasksDir,
+				"status: next\npage_type: task\ntask_identifier: hold-next-regression\ndefer_date: 2026-12-01\n",
+				"hold-next-regression.md",
+			)
+			issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+			Expect(err).To(BeNil())
+			Expect(countSDMIssues(issues)).To(Equal(1))
+			Expect(countHoldIssues(issues)).To(Equal(0))
+		})
+
+		It("stays non-fixable and leaves the file byte-identical", func() {
+			original := "---\nstatus: hold\npage_type: task\ntask_identifier: 11111111-1111-1111-1111-111111111111\ndefer_date: 2026-12-01\n---\n# Test\n"
+			taskPath := filepath.Join(vaultPath, tasksDir, "hold-no-fix.md")
+			Expect(os.WriteFile(taskPath, []byte(original), 0600)).To(Succeed())
+
+			issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", true)
+			Expect(err).To(BeNil())
+			Expect(countHoldIssues(issues)).To(Equal(1))
+
+			content, err := os.ReadFile(taskPath) //#nosec G304 -- test file
+			Expect(err).To(BeNil())
+			Expect(string(content)).To(Equal(original))
+		})
+
+		It("ExecuteFile surfaces HOLD_WITH_DEFER_DATE with the same description", func() {
+			fixture := "---\nstatus: hold\npage_type: task\ntask_identifier: hold-both-paths\ndefer_date: 2026-12-01\n---\n# Test\n"
+			taskPath := filepath.Join(vaultPath, tasksDir, "hold-both-paths.md")
+			Expect(os.WriteFile(taskPath, []byte(fixture), 0600)).To(Succeed())
+
+			lintIssues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+			Expect(err).To(BeNil())
+			var lintDesc string
+			foundLint := false
+			for _, i := range lintIssues {
+				if i.IssueType == ops.IssueTypeHoldWithDeferDate {
+					lintDesc = i.Description
+					foundLint = true
+				}
+			}
+			Expect(foundLint).To(BeTrue(), "lint path should surface HOLD_WITH_DEFER_DATE")
+
+			validateIssues, err := lintOp.ExecuteFile(
+				ctx,
+				ops.PageTypeTask,
+				taskPath,
+				"hold-both-paths",
+				"personal",
+			)
+			Expect(err).To(BeNil())
+			var validateDesc string
+			foundValidate := false
+			for _, i := range validateIssues {
+				if i.IssueType == ops.IssueTypeHoldWithDeferDate {
+					validateDesc = i.Description
+					foundValidate = true
+				}
+			}
+			Expect(foundValidate).To(BeTrue(), "validate path should surface HOLD_WITH_DEFER_DATE")
+			Expect(validateDesc).To(Equal(lintDesc),
+				"lint and validate must produce the same description string")
+		})
+
+		It("is task-scoped: PageTypeGoal reports nothing", func() {
+			writeSDM(
+				vaultPath,
+				tasksDir,
+				"status: hold\npage_type: task\ntask_identifier: hold-scoped\ndefer_date: 2026-12-01\n",
+				"hold-scoped.md",
+			)
+
+			goalIssues, err := lintOp.Execute(ctx, ops.PageTypeGoal, vaultPath, tasksDir, "", false)
+			Expect(err).To(BeNil())
+			Expect(countHoldIssues(goalIssues)).To(Equal(0))
+
+			taskIssues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+			Expect(err).To(BeNil())
+			Expect(countHoldIssues(taskIssues)).To(Equal(1))
 		})
 	})
 })
@@ -3099,5 +3327,206 @@ Body text.
 		content, err := os.ReadFile(path) //#nosec G304 -- test file
 		Expect(err).To(BeNil())
 		Expect(string(content)).To(Equal(original))
+	})
+})
+
+var _ = Describe("LintOperation APPROVED_RECORD_IN_TODO_INBOX", func() {
+	var (
+		ctx       context.Context
+		lintOp    ops.LintOperation
+		vaultPath string
+		tasksDir  string
+	)
+
+	BeforeEach(func() {
+		ctx = context.Background()
+		lintOp = ops.NewLintOperation()
+		var err error
+		vaultPath, err = os.MkdirTemp("", "vault-approved-record-*")
+		Expect(err).To(BeNil())
+		tasksDir = "Tasks"
+		Expect(os.MkdirAll(filepath.Join(vaultPath, tasksDir), 0755)).To(Succeed())
+	})
+
+	AfterEach(func() {
+		if vaultPath != "" {
+			_ = os.RemoveAll(vaultPath)
+		}
+	})
+
+	writeTask := func(name, frontmatter string) string {
+		path := filepath.Join(vaultPath, tasksDir, name)
+		Expect(os.WriteFile(path, []byte("---\n"+frontmatter+"---\n# Test\n"), 0600)).To(Succeed())
+		return path
+	}
+
+	countIssues := func(issues []ops.LintIssue) int {
+		n := 0
+		for _, i := range issues {
+			if i.IssueType == ops.IssueTypeApprovedRecordInTodoInbox {
+				n++
+			}
+		}
+		return n
+	}
+
+	It("reports a fixable issue for approved_by at phase todo", func() {
+		writeTask("approved-by.md", "status: next\nphase: todo\napproved_by: someone\n")
+		issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+		Expect(err).To(BeNil())
+		Expect(countIssues(issues)).To(Equal(1))
+		for _, i := range issues {
+			if i.IssueType == ops.IssueTypeApprovedRecordInTodoInbox {
+				Expect(i.Fixable).To(BeTrue())
+				Expect(i.Fixed).To(BeFalse())
+				Expect(i.Description).To(ContainSubstring("approval record"))
+				Expect(i.Description).To(ContainSubstring("planning"))
+			}
+		}
+	})
+
+	It("reports a fixable issue for approved_at at phase todo", func() {
+		writeTask("approved-at.md", "status: next\nphase: todo\napproved_at: 2026-01-01T00:00:00Z\n")
+		issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+		Expect(err).To(BeNil())
+		Expect(countIssues(issues)).To(Equal(1))
+		for _, i := range issues {
+			if i.IssueType == ops.IssueTypeApprovedRecordInTodoInbox {
+				Expect(i.Fixable).To(BeTrue())
+			}
+		}
+	})
+
+	It("treats an empty approved_by value as present", func() {
+		writeTask("approved-empty.md", "status: next\nphase: todo\napproved_by:\n")
+		issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+		Expect(err).To(BeNil())
+		Expect(countIssues(issues)).To(Equal(1))
+		for _, i := range issues {
+			if i.IssueType == ops.IssueTypeApprovedRecordInTodoInbox {
+				Expect(i.Fixable).To(BeTrue())
+			}
+		}
+	})
+
+	It("does not fire at phase planning", func() {
+		writeTask(
+			"planning.md",
+			"status: next\nphase: planning\napproved_by: someone\napproved_at: 2026-01-01T00:00:00Z\n",
+		)
+		issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+		Expect(err).To(BeNil())
+		Expect(countIssues(issues)).To(Equal(0))
+	})
+
+	It("does not fire with no approval record", func() {
+		writeTask("no-record.md", "status: next\nphase: todo\n")
+		issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+		Expect(err).To(BeNil())
+		Expect(countIssues(issues)).To(Equal(0))
+	})
+
+	It("does not fire on a goal page", func() {
+		writeTask("goal-page.md", "status: next\nphase: todo\napproved_by: someone\n")
+		issues, err := lintOp.Execute(ctx, ops.PageTypeGoal, vaultPath, tasksDir, tasksDir, false)
+		Expect(err).To(BeNil())
+		Expect(countIssues(issues)).To(Equal(0))
+	})
+
+	It("reports a completed row as non-fixable and names the status", func() {
+		writeTask("completed.md", "status: completed\nphase: todo\napproved_by: someone\n")
+		issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+		Expect(err).To(BeNil())
+		Expect(countIssues(issues)).To(Equal(1))
+		for _, i := range issues {
+			if i.IssueType == ops.IssueTypeApprovedRecordInTodoInbox {
+				Expect(i.Fixable).To(BeFalse())
+				Expect(i.Description).To(ContainSubstring("completed"))
+			}
+		}
+	})
+
+	It("reports an aborted row as non-fixable and names the status", func() {
+		writeTask("aborted.md", "status: aborted\nphase: todo\napproved_by: someone\n")
+		issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+		Expect(err).To(BeNil())
+		Expect(countIssues(issues)).To(Equal(1))
+		for _, i := range issues {
+			if i.IssueType == ops.IssueTypeApprovedRecordInTodoInbox {
+				Expect(i.Fixable).To(BeFalse())
+				Expect(i.Description).To(ContainSubstring("aborted"))
+			}
+		}
+	})
+
+	It("treats the legacy status alias `done` as terminal, like `completed`", func() {
+		// `done` is an accepted alias for `completed` (NormalizeTaskStatus's
+		// migration map). A raw comparison would call this row non-terminal,
+		// mark it fixable, and let --fix produce the terminal+planning pair
+		// that task approve refuses on the same row.
+		writeTask("done-alias.md", "status: done\nphase: todo\napproved_by: someone\n")
+		issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+		Expect(err).To(BeNil())
+		Expect(countIssues(issues)).To(Equal(1))
+		for _, i := range issues {
+			if i.IssueType == ops.IssueTypeApprovedRecordInTodoInbox {
+				Expect(i.Fixable).To(BeFalse())
+				Expect(i.Description).To(ContainSubstring("completed"))
+			}
+		}
+	})
+
+	It("fix advances phase to planning and preserves the record", func() {
+		path := writeTask(
+			"fixable.md",
+			"status: next\nphase: todo\napproved_by: someone\napproved_at: 2026-01-01T00:00:00Z\n",
+		)
+		issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", true)
+		Expect(err).To(BeNil())
+		Expect(countIssues(issues)).To(Equal(1))
+		for _, i := range issues {
+			if i.IssueType == ops.IssueTypeApprovedRecordInTodoInbox {
+				Expect(i.Fixed).To(BeTrue())
+			}
+		}
+
+		content, err := os.ReadFile(path) //#nosec G304 -- test file
+		Expect(err).To(BeNil())
+		Expect(string(content)).To(ContainSubstring("phase: planning"))
+		Expect(string(content)).To(ContainSubstring("approved_by: someone"))
+		Expect(string(content)).To(ContainSubstring("approved_at: 2026-01-01T00:00:00Z"))
+		Expect(string(content)).ToNot(ContainSubstring("phase: todo"))
+	})
+
+	It("a second lint run reports nothing after the fix", func() {
+		writeTask(
+			"second-run.md",
+			"status: next\nphase: todo\napproved_by: someone\napproved_at: 2026-01-01T00:00:00Z\n",
+		)
+		_, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", true)
+		Expect(err).To(BeNil())
+
+		issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+		Expect(err).To(BeNil())
+		Expect(countIssues(issues)).To(Equal(0))
+	})
+
+	It("fix leaves a terminal row untouched", func() {
+		path := writeTask("terminal.md", "status: completed\nphase: todo\napproved_by: someone\n")
+		before, err := os.ReadFile(path) //#nosec G304 -- test file
+		Expect(err).To(BeNil())
+
+		issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", true)
+		Expect(err).To(BeNil())
+		Expect(countIssues(issues)).To(Equal(1))
+		for _, i := range issues {
+			if i.IssueType == ops.IssueTypeApprovedRecordInTodoInbox {
+				Expect(i.Fixed).To(BeFalse())
+			}
+		}
+
+		after, err := os.ReadFile(path) //#nosec G304 -- test file
+		Expect(err).To(BeNil())
+		Expect(after).To(Equal(before))
 	})
 })

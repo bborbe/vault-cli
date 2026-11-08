@@ -54,6 +54,19 @@ func (f *TopicFrontmatter) SetDeferDate(d *libtime.DateOrDateTime) {
 	f.Set("defer_date", *d)
 }
 
+// MetricsSessions reads the "metrics_sessions" field as a slice of MetricsSession,
+// with the same shape and normalisation as TaskFrontmatter.MetricsSessions.
+// Returns nil when the key is absent, the value is not a list, or every element is malformed.
+func (f TopicFrontmatter) MetricsSessions() []MetricsSession {
+	return metricsSessionsOf(f.FrontmatterMap)
+}
+
+// AppendMetricsSession appends one entry to "metrics_sessions", preserving every
+// prior well-formed entry. An empty SessionID is ignored.
+func (f *TopicFrontmatter) AppendMetricsSession(entry MetricsSession) {
+	appendMetricsSessionTo(&f.FrontmatterMap, entry)
+}
+
 // Phase reads "phase" key as string, returns *TopicPhase.
 // Returns nil when the key is absent. The raw value is returned as-is
 // (no validation, no default substitution) so legacy/hand-typed values survive display.

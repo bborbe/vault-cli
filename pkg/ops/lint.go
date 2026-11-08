@@ -46,6 +46,9 @@ var (
 	completedStatusRegex = regexp.MustCompile(
 		`(?m)^status:[ \t]*['"]?([a-z_]+)['"]?[ \t]*(?:#.*)?$`,
 	)
+	// approvedRecordRegex matches the key line, not its value: an empty
+	// `approved_by:` still records an approval, so presence is what matters.
+	approvedRecordRegex = regexp.MustCompile(`(?m)^approved_(by|at):`)
 )
 
 // booleanFields is the set of frontmatter keys whose stored shape is expected
@@ -104,10 +107,12 @@ const (
 	IssueTypeStatusPhaseMismatch         IssueType = "STATUS_PHASE_MISMATCH"
 	IssueTypeMissingTaskIdentifier       IssueType = "MISSING_TASK_IDENTIFIER"
 	IssueTypeStatusDateMismatch          IssueType = "STATUS_DATE_MISMATCH"
+	IssueTypeHoldWithDeferDate           IssueType = "HOLD_WITH_DEFER_DATE"
 	IssueTypeInvalidTaskIdentifier       IssueType = "INVALID_TASK_IDENTIFIER"
 	IssueTypeBlockedByScalar             IssueType = "BLOCKED_BY_SCALAR"
 	IssueTypeQuotedBoolean               IssueType = "QUOTED_BOOLEAN"
 	IssueTypeCompletedGoalMissingCreated IssueType = "COMPLETED_GOAL_MISSING_CREATED"
+	IssueTypeApprovedRecordInTodoInbox   IssueType = "APPROVED_RECORD_IN_TODO_INBOX"
 )
 
 // PageTypeGoal is the lint page type `vault-cli goal lint` passes. The
@@ -296,7 +301,6 @@ func (l *lintOperation) collectLintIssues(
 			IssueType:   issueType,
 			Description: desc,
 			Fixable:     fixable,
-			Fixed:       false,
 		})
 	}
 
@@ -331,6 +335,10 @@ func (l *lintOperation) collectLintIssues(
 	if mismatchIssue, mismatchDesc := l.detectStatusDateMismatch(frontmatterYAML); mismatchIssue {
 		add(IssueTypeStatusDateMismatch, mismatchDesc, true)
 	}
+
+	// Hold + defer_date is task-scoped: hold is also a first-class goal status.
+	issues = append(issues, l.holdWithDeferDateIssues(pageType, filePath, frontmatterYAML)...)
+	issues = append(issues, l.approvedRecordInTodoInboxIssues(pageType, filePath, frontmatterYAML)...)
 
 	// Check for orphan goals
 	for _, goalName := range l.detectOrphanGoals(vaultPath, goalsDir, frontmatterYAML) {
@@ -813,6 +821,150 @@ func (l *lintOperation) detectStatusDateMismatch(frontmatterYAML string) (bool, 
 	return false, ""
 }
 
+// holdWithDeferDateIssues returns the HOLD_WITH_DEFER_DATE issue for a task page
+// parked at hold with a snooze defer_date. The page-type gate lives here, at the
+// call site of the detector, because collectLintIssues is shared by six lint
+// commands and hold is also a first-class goal status (`goal defer` writes a
+// defer_date without promoting): an ungated arm would report task wording on a
+// legitimate goal state.
+func (l *lintOperation) holdWithDeferDateIssues(
+	pageType string,
+	filePath string,
+	frontmatterYAML string,
+) []LintIssue {
+	if pageType == PageTypeTask {
+		if holdIssue, holdDesc := l.detectHoldWithDeferDate(frontmatterYAML); holdIssue {
+			return []LintIssue{{
+				FilePath:    filePath,
+				IssueType:   IssueTypeHoldWithDeferDate,
+				Description: holdDesc,
+				Fixable:     false,
+				Fixed:       false,
+			}}
+		}
+	}
+	return nil
+}
+
+// approvedRecordInTodoInboxIssues returns the APPROVED_RECORD_IN_TODO_INBOX
+// issue for a task carrying an approval record while its phase is still todo —
+// the state in which `task approve` used to refuse and every other verb refused
+// the phase. The rule is task-scoped: goal and topic approval carry the same
+// guard pair, but they are out of scope for this spec.
+//
+// A terminal row (status completed or aborted) is reported non-fixable: advancing
+// its phase would produce the `status: completed` + `phase: planning` pair that
+// checkPhaseRegression exists to refuse. The description names the status so the
+// operator can decide whether to re-open the row deliberately.
+func (l *lintOperation) approvedRecordInTodoInboxIssues(
+	pageType string,
+	filePath string,
+	frontmatterYAML string,
+) []LintIssue {
+	if pageType != PageTypeTask {
+		return nil
+	}
+
+	phaseMatches := phaseRegex.FindStringSubmatch(frontmatterYAML)
+	if len(phaseMatches) < 2 {
+		return nil
+	}
+	phase, ok := domain.NormalizeTaskPhase(phaseMatches[1])
+	if !ok || phase != domain.TaskPhaseTodo {
+		return nil
+	}
+
+	if !approvedRecordRegex.MatchString(frontmatterYAML) {
+		return nil
+	}
+
+	// completedStatusRegex is used instead of statusRegex because it tolerates a
+	// trailing YAML comment. A terminal row must never be classified as fixable,
+	// so the tolerant matcher is the safe one here.
+	//
+	// The captured value is normalized before the terminal test, never compared
+	// raw. Legacy aliases are accepted on disk — `done` is an alias for
+	// `completed` — and `task approve` reads the status through the normalizing
+	// accessor. A raw comparison here would call a `status: done` row
+	// non-terminal, mark it fixable, and have `--fix` produce exactly the
+	// terminal+planning pair `task approve` refuses on the same row.
+	statusMatches := completedStatusRegex.FindStringSubmatch(frontmatterYAML)
+	if len(statusMatches) >= 2 {
+		status, statusOK := domain.NormalizeTaskStatus(statusMatches[1])
+		if statusOK && (status == domain.TaskStatusCompleted || status == domain.TaskStatusAborted) {
+			return []LintIssue{{
+				FilePath:  filePath,
+				IssueType: IssueTypeApprovedRecordInTodoInbox,
+				Description: fmt.Sprintf(
+					"task carries an approval record at phase %q but status is %q; advancing the phase would re-open terminal work, so neither `task approve` nor `--fix` will do it — decide deliberately whether the finished row is mis-phased",
+					string(domain.TaskPhaseTodo), status,
+				),
+				Fixable: false,
+				Fixed:   false,
+			}}
+		}
+	}
+
+	return []LintIssue{{
+		FilePath:  filePath,
+		IssueType: IssueTypeApprovedRecordInTodoInbox,
+		Description: fmt.Sprintf(
+			"task carries an approval record at phase %q (the approval inbox); `vault-cli task approve` advances it to %q",
+			string(domain.TaskPhaseTodo), string(domain.TaskPhasePlanning),
+		),
+		Fixable: true,
+		Fixed:   false,
+	}}
+}
+
+// detectHoldWithDeferDate detects a task parked at status hold that still carries
+// a defer_date. A deferred task belongs at in_progress + defer_date; hold is for a
+// block with no resume date. The finding is deliberately not auto-fixable: both
+// resolutions are legitimate (promote to in_progress when the date is a resume
+// date, or clear the date when the block is real and open-ended), so an automatic
+// rewrite would guess at operator intent.
+//
+// Two exemptions are scheduling dates rather than snoozes:
+//   - created_by: recurring-task-creator — written by the recurring-task-creator
+//     pipeline, which is external to this repo (the field has no producer here).
+//     Instances it materializes are written with defer_date equal to their
+//     schedule date at creation, so the field is the materialization date, not a
+//     snooze. The key is present on 1747 task files in the personal vault this
+//     repo serves.
+//   - a non-empty recurring: key — vault-cli's own recurring roll rewrites
+//     defer_date to the next period's date on complete.
+//
+// Returns: (issueFound, description). Unparseable frontmatter returns (false, ""):
+// other checks surface the parse error.
+func (l *lintOperation) detectHoldWithDeferDate(frontmatterYAML string) (bool, string) {
+	var fm struct {
+		Status    string `yaml:"status"`
+		DeferDate string `yaml:"defer_date"`
+		CreatedBy string `yaml:"created_by"`
+		Recurring string `yaml:"recurring"`
+	}
+	if err := yaml.Unmarshal([]byte(frontmatterYAML), &fm); err != nil {
+		return false, ""
+	}
+	if domain.TaskStatus(fm.Status) != domain.TaskStatusHold {
+		return false, ""
+	}
+	deferDate := strings.TrimSpace(fm.DeferDate)
+	if deferDate == "" {
+		return false, ""
+	}
+	if fm.CreatedBy == "recurring-task-creator" {
+		return false, ""
+	}
+	if strings.TrimSpace(fm.Recurring) != "" {
+		return false, ""
+	}
+	return true, fmt.Sprintf(
+		"status is hold but defer_date is %s (a deferred task belongs at in_progress + defer_date; hold is for a block with no resume date — promote to in_progress, or clear defer_date)",
+		deferDate,
+	)
+}
+
 // taskIdentifierIssues returns the identifier issues for a file, but only when the
 // lint entry point declared the task page type. Goals, themes, objectives and vision
 // items have no identifier concept, so a missing or non-UUID task_identifier on them
@@ -934,6 +1086,8 @@ func (l *lintOperation) fixIssues(
 			apply(i, l.fixStatusCheckboxMismatch)
 		case IssueTypeStatusDateMismatch:
 			apply(i, l.fixStatusDateMismatch)
+		case IssueTypeApprovedRecordInTodoInbox:
+			apply(i, l.fixApprovedRecordInTodoInbox)
 		}
 	}
 
@@ -1105,6 +1259,26 @@ func (l *lintOperation) fixStatusDateMismatch(content string) (string, bool) {
 	}
 	newContent := statusRegex.ReplaceAllString(content, "status: in_progress")
 	return newContent, true
+}
+
+// fixApprovedRecordInTodoInbox advances phase todo -> planning in place,
+// leaving every other byte — including the approval record — untouched. It
+// rewrites every line matching the phase key and never re-serialises the
+// block; like fixInvalidStatus it is not frontmatter-scoped, so a body line
+// reading `phase: todo` is rewritten too.
+func (l *lintOperation) fixApprovedRecordInTodoInbox(content string) (string, bool) {
+	matches := phaseRegex.FindStringSubmatch(content)
+	if len(matches) < 2 {
+		return content, false
+	}
+	phase, ok := domain.NormalizeTaskPhase(matches[1])
+	if !ok || phase != domain.TaskPhaseTodo {
+		return content, false
+	}
+	return phaseRegex.ReplaceAllString(
+		content,
+		"phase: "+string(domain.TaskPhasePlanning),
+	), true
 }
 
 // fixMissingFrontmatter prepends minimal frontmatter to files without frontmatter.

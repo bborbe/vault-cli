@@ -12,6 +12,46 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 
 - fix: `session-self-exit.py` guard 2 no longer treats a registry entry as proof that the session owns `$WEZTERM_PANE`. A headless worker is a real `claude --print` process with a pid and a registry entry (`entrypoint: sdk-cli`), and it inherits its spawner's `$WEZTERM_PANE`. `owns_pane()` returned `(True, '')` for it, so a parked or finished worker could reach `wezterm cli kill-pane` against its manager's tab. Ownership is now a tty match: the pane's `tty_name` from `wezterm cli list --format json` must equal the controlling tty of the registry `pid`. A headless worker has no tty (`??`), so it refuses with `pane <N> is not owned by this session`. Any unreadable listing or pid also refuses. `owns_pane()` never reads `entrypoint`. The `sdk-cli` park refusal stays as a second, independent guard. New seams `WEZTERM_PANES_FILE` and `PID_TTY_FILE` drive the tests.
 
+## v0.189.0
+
+- fix: `task approve` advances a `phase: todo` task that already carries `approved_by` and/or `approved_at` to `planning`, preserving the existing record untouched and resolving no owner, instead of refusing it and deadlocking the approved-but-unopenable row; presence is read from the key set so a null-valued `approved_by:` counts as a record, matching the lint rule. Rows past the inbox, a blank `--by`, an unowned row with no approval record, and a terminal `completed`/`aborted` row still refuse.
+- feat: `task lint` reports the new fixable `APPROVED_RECORD_IN_TODO_INBOX` finding for a task carrying an approval record at `phase: todo`, and `--fix` advances the phase to `planning` while leaving the record verbatim; a terminal `completed`/`aborted` row is reported non-fixable with its status named, and `task approve` refuses it too, so neither verb produces the `completed` + `planning` pair `checkPhaseRegression` rejects.
+
+## v0.188.3
+
+- docs: **plan-task's fix loop now enumerates a defect CLASS on the second sighting instead of fixing the instance.** A seven-round planning run on 2026-10-22 fixed the same class five times — evidence naming an artifact or a probe that does not hold up — because each round repaired only the criterion the auditor named. The rule already existed inside the gate (§ 5 *E2E verify subtask* sub-check 4: *"Repetition is the diagnostic"*), but nothing applied it while *repairing*; the loop now says so, and names the auditor sentence that announces it.
+## v0.188.2
+
+- chore: restate the `do-not-merge` gate message to name its bypass actors — the Admin repository role and Integration `3907226`, both `bypass_mode: always` in the `master-protection` ruleset — instead of asserting an unqualified block
+
+## v0.188.1
+
+- docs: carry the unreadable-matrix exception into both agents' `<constraints>` and the `docs/task-writing.md` frontmatter template, so "ALWAYS write role/mode" no longer contradicts step 4/8's omit fallback; the rule test's self-check now prints which carrier failed.
+
+## v0.188.0
+
+- feat: **`create-task` writes `role:` and `mode:` at creation.** Both `task-creator` and `task-writer` decide them from the role × mode decision matrix (`claude-supervisor` `docs/role-mode-matrix.md`, cited by path, never restated), taking its defaults (`role: agent`, `mode` per Rule 2) when the body carries no signal, so `/supervisor:open` reads the decision instead of refusing an undecided row. Pinned by `scripts/role-mode-matrix-rule-test.sh`. Depends on the matrix landing in claude-supervisor (bborbe/claude-supervisor#644) and the local marketplace clone being refreshed; until then the agents omit both fields and `/supervisor:open` decides at open time.
+
+## v0.187.3
+
+- docs: state that `hold` is never for a task waiting on an operator decision or answer — such a task stays `in_progress` (open card) or `in_progress` + `defer_date`
+
+## v0.187.2
+
+- fix: `scripts/session-self-exit.py` resolves a session anchored only on a goal or topic page — a goal manager or topic manager — instead of refusing it with `no task carries claude_session_id`. When no task resolves the session, the script reads each vault's `goals_dir` / `topics_dir`, falling back to the same defaults `vault-cli` applies (`Goals` / `23 Topics`), with `GOALS_ROOTS` / `TOPICS_ROOTS` as overrides. It joins on `claude_session_id`, else the session's `metrics_sessions` entry. A task the session holds as `claude_session_id` always wins. A task matched only by handover does not outrank a page the session still holds, and every held page must pass. When no held task decides, an unreadable task or page file refuses. A headless SDK query never exits on a goal/topic anchor, because it inherits its spawner's pane. Goal/topic terminal-state rule: the session may exit when it has handed the page over, when the page is `completed` or `aborted`, or when the page is parked on a future `defer_date`. It may not exit while it still holds a non-terminal page. The task rule does not transfer, because a goal stays `in_progress` across many sessions. The refusal now reads `no task, goal or topic carries claude_session_id <sid>`.
+
+## v0.187.1
+
+- fix: `goal set` / `topic set <name> claude_session_id <id>` now record the displaced owner in the page's `metrics_sessions` (`session_id` + `started_at`, the shape `goal work-on` / `topic work-on` already write) before overwriting the stamp, in the same write. A first bind, a re-set of the same id, a blank value, and a display-name → uuid rewrite (vault-ui's session resolve) record nothing.
+
+## v0.187.0
+
+- feat: `task lint` / `task validate` report a new non-fixable `HOLD_WITH_DEFER_DATE` finding for a task parked at `status: hold` that still carries a `defer_date`; the finding names both resolutions (promote to `in_progress`, or clear the date). Tasks created by the recurring task creator (`created_by: recurring-task-creator`) and tasks with a non-empty `recurring:` key are exempt because their `defer_date` is a schedule date. `task defer` now promotes a `hold` task to `in_progress` in the same write.
+
+## v0.186.2
+
+- fix: `goal work-on` / `topic work-on` no longer overwrite a session that claimed the page during the headless turn. The persist stamps `claude_session_id` only when it is still empty; when another session holds it, that session keeps the stamp and the binding session is recorded in the page's `metrics_sessions` with its turn-start time. An uncontended bind is stamped as before and adds no entry.
+
 ## v0.186.1
 
 - fix: `session-self-exit.py` no longer refuses on the closer card a session mints at its own turn end. The `Stop` hook opens that card as a `question` whose `cleared_by` is `{"event": "SessionEnd"}`, so only the session's own end clears it — and the exit gate is what stood between the session and that end, making the refusal a deadlock by construction. Every finished worker that reached the gate with a `👤 You:` panel behind it parked until a human closed its tab. The store cannot separate the two (the watcher forwards neither `event` nor `cleared_by`, so a closer and a real `AskUserQuestion` both arrive as `pick` / `hook` / `message`); the gate now joins the store's `dedup_key` to the hook's own `<sid>.events.jsonl` and skips only a record minted by `Stop`. Every other open card still refuses, and an unreadable mint log still refuses — fail-closed, as before. Neither input's shape is assumed: a truncated UTF-8 sequence from a hook killed mid-write, a valid-JSON non-object such as `null`, an unhashable `item_id` or `dedup_key`, and a non-object store element are all skipped rather than raising, so the gate keeps its named refusal instead of dying with a traceback.

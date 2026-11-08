@@ -1,7 +1,7 @@
 ---
-status: draft
-kind: bug
-created: 2026-11-08
+status: approved
+approved: "2026-11-08T17:51:54Z"
+branch: dark-factory/bug-approved-record-todo-inbox-deadlock
 ---
 
 ## Summary

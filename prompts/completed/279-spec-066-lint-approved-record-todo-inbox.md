@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [066-bug-approved-record-todo-inbox-deadlock]
+summary: Added the fixable APPROVED_RECORD_IN_TODO_INBOX lint rule, its phase todo→planning fixer, terminal-row non-fixable handling, tests, and a changelog entry.
+execution_id: vault-cli-approved-todo-exec-279-spec-066-lint-approved-record-todo-inbox
+dark-factory-version: v0.198.17
 created: "2026-11-08T18:04:30Z"
 queued: "2026-11-08T18:15:49Z"
+started: "2026-11-08T18:24:29Z"
+completed: "2026-11-08T18:33:09Z"
 branch: dark-factory/bug-approved-record-todo-inbox-deadlock
 ---
 

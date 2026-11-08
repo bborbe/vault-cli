@@ -11,6 +11,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 ## Unreleased
 
 - fix: `task approve` advances a `phase: todo` task that already carries `approved_by` and/or `approved_at` to `planning`, preserving the existing record untouched and resolving no owner, instead of refusing it and deadlocking the approved-but-unopenable row; rows past the inbox, a blank `--by`, and an unowned row with no approval record still refuse.
+- feat: `task lint` reports the new fixable `APPROVED_RECORD_IN_TODO_INBOX` finding for a task carrying an approval record at `phase: todo`, and `--fix` advances the phase to `planning` while leaving the record verbatim; a terminal `completed`/`aborted` row is reported non-fixable with its status named so a bulk fix never re-opens finished work.
 
 ## v0.188.3
 

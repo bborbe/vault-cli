@@ -3329,3 +3329,187 @@ Body text.
 		Expect(string(content)).To(Equal(original))
 	})
 })
+
+var _ = Describe("LintOperation APPROVED_RECORD_IN_TODO_INBOX", func() {
+	var (
+		ctx       context.Context
+		lintOp    ops.LintOperation
+		vaultPath string
+		tasksDir  string
+	)
+
+	BeforeEach(func() {
+		ctx = context.Background()
+		lintOp = ops.NewLintOperation()
+		var err error
+		vaultPath, err = os.MkdirTemp("", "vault-approved-record-*")
+		Expect(err).To(BeNil())
+		tasksDir = "Tasks"
+		Expect(os.MkdirAll(filepath.Join(vaultPath, tasksDir), 0755)).To(Succeed())
+	})
+
+	AfterEach(func() {
+		if vaultPath != "" {
+			_ = os.RemoveAll(vaultPath)
+		}
+	})
+
+	writeTask := func(name, frontmatter string) string {
+		path := filepath.Join(vaultPath, tasksDir, name)
+		Expect(os.WriteFile(path, []byte("---\n"+frontmatter+"---\n# Test\n"), 0600)).To(Succeed())
+		return path
+	}
+
+	countIssues := func(issues []ops.LintIssue) int {
+		n := 0
+		for _, i := range issues {
+			if i.IssueType == ops.IssueTypeApprovedRecordInTodoInbox {
+				n++
+			}
+		}
+		return n
+	}
+
+	It("reports a fixable issue for approved_by at phase todo", func() {
+		writeTask("approved-by.md", "status: next\nphase: todo\napproved_by: someone\n")
+		issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+		Expect(err).To(BeNil())
+		Expect(countIssues(issues)).To(Equal(1))
+		for _, i := range issues {
+			if i.IssueType == ops.IssueTypeApprovedRecordInTodoInbox {
+				Expect(i.Fixable).To(BeTrue())
+				Expect(i.Fixed).To(BeFalse())
+				Expect(i.Description).To(ContainSubstring("approval record"))
+				Expect(i.Description).To(ContainSubstring("planning"))
+			}
+		}
+	})
+
+	It("reports a fixable issue for approved_at at phase todo", func() {
+		writeTask("approved-at.md", "status: next\nphase: todo\napproved_at: 2026-01-01T00:00:00Z\n")
+		issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+		Expect(err).To(BeNil())
+		Expect(countIssues(issues)).To(Equal(1))
+		for _, i := range issues {
+			if i.IssueType == ops.IssueTypeApprovedRecordInTodoInbox {
+				Expect(i.Fixable).To(BeTrue())
+			}
+		}
+	})
+
+	It("treats an empty approved_by value as present", func() {
+		writeTask("approved-empty.md", "status: next\nphase: todo\napproved_by:\n")
+		issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+		Expect(err).To(BeNil())
+		Expect(countIssues(issues)).To(Equal(1))
+		for _, i := range issues {
+			if i.IssueType == ops.IssueTypeApprovedRecordInTodoInbox {
+				Expect(i.Fixable).To(BeTrue())
+			}
+		}
+	})
+
+	It("does not fire at phase planning", func() {
+		writeTask(
+			"planning.md",
+			"status: next\nphase: planning\napproved_by: someone\napproved_at: 2026-01-01T00:00:00Z\n",
+		)
+		issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+		Expect(err).To(BeNil())
+		Expect(countIssues(issues)).To(Equal(0))
+	})
+
+	It("does not fire with no approval record", func() {
+		writeTask("no-record.md", "status: next\nphase: todo\n")
+		issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+		Expect(err).To(BeNil())
+		Expect(countIssues(issues)).To(Equal(0))
+	})
+
+	It("does not fire on a goal page", func() {
+		writeTask("goal-page.md", "status: next\nphase: todo\napproved_by: someone\n")
+		issues, err := lintOp.Execute(ctx, ops.PageTypeGoal, vaultPath, tasksDir, tasksDir, false)
+		Expect(err).To(BeNil())
+		Expect(countIssues(issues)).To(Equal(0))
+	})
+
+	It("reports a completed row as non-fixable and names the status", func() {
+		writeTask("completed.md", "status: completed\nphase: todo\napproved_by: someone\n")
+		issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+		Expect(err).To(BeNil())
+		Expect(countIssues(issues)).To(Equal(1))
+		for _, i := range issues {
+			if i.IssueType == ops.IssueTypeApprovedRecordInTodoInbox {
+				Expect(i.Fixable).To(BeFalse())
+				Expect(i.Description).To(ContainSubstring("completed"))
+			}
+		}
+	})
+
+	It("reports an aborted row as non-fixable and names the status", func() {
+		writeTask("aborted.md", "status: aborted\nphase: todo\napproved_by: someone\n")
+		issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+		Expect(err).To(BeNil())
+		Expect(countIssues(issues)).To(Equal(1))
+		for _, i := range issues {
+			if i.IssueType == ops.IssueTypeApprovedRecordInTodoInbox {
+				Expect(i.Fixable).To(BeFalse())
+				Expect(i.Description).To(ContainSubstring("aborted"))
+			}
+		}
+	})
+
+	It("fix advances phase to planning and preserves the record", func() {
+		path := writeTask(
+			"fixable.md",
+			"status: next\nphase: todo\napproved_by: someone\napproved_at: 2026-01-01T00:00:00Z\n",
+		)
+		issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", true)
+		Expect(err).To(BeNil())
+		Expect(countIssues(issues)).To(Equal(1))
+		for _, i := range issues {
+			if i.IssueType == ops.IssueTypeApprovedRecordInTodoInbox {
+				Expect(i.Fixed).To(BeTrue())
+			}
+		}
+
+		content, err := os.ReadFile(path) //#nosec G304 -- test file
+		Expect(err).To(BeNil())
+		Expect(string(content)).To(ContainSubstring("phase: planning"))
+		Expect(string(content)).To(ContainSubstring("approved_by: someone"))
+		Expect(string(content)).To(ContainSubstring("approved_at: 2026-01-01T00:00:00Z"))
+		Expect(string(content)).ToNot(ContainSubstring("phase: todo"))
+	})
+
+	It("a second lint run reports nothing after the fix", func() {
+		writeTask(
+			"second-run.md",
+			"status: next\nphase: todo\napproved_by: someone\napproved_at: 2026-01-01T00:00:00Z\n",
+		)
+		_, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", true)
+		Expect(err).To(BeNil())
+
+		issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+		Expect(err).To(BeNil())
+		Expect(countIssues(issues)).To(Equal(0))
+	})
+
+	It("fix leaves a terminal row untouched", func() {
+		path := writeTask("terminal.md", "status: completed\nphase: todo\napproved_by: someone\n")
+		before, err := os.ReadFile(path) //#nosec G304 -- test file
+		Expect(err).To(BeNil())
+
+		issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", true)
+		Expect(err).To(BeNil())
+		Expect(countIssues(issues)).To(Equal(1))
+		for _, i := range issues {
+			if i.IssueType == ops.IssueTypeApprovedRecordInTodoInbox {
+				Expect(i.Fixed).To(BeFalse())
+			}
+		}
+
+		after, err := os.ReadFile(path) //#nosec G304 -- test file
+		Expect(err).To(BeNil())
+		Expect(after).To(Equal(before))
+	})
+})

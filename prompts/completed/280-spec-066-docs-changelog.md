@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [066-bug-approved-record-todo-inbox-deadlock]
+summary: 'Amended the task-writing.md approval sentence to describe the idempotent approve repair and confirmed the CHANGELOG ## Unreleased section carries the approve and APPROVED_RECORD_IN_TODO_INBOX bullets, with no version bump.'
+execution_id: vault-cli-approved-todo-exec-280-spec-066-docs-changelog
+dark-factory-version: v0.198.17
 created: "2026-11-08T18:04:30Z"
 queued: "2026-11-08T18:15:49Z"
+started: "2026-11-08T18:33:11Z"
+completed: "2026-11-08T18:37:16Z"
 branch: dark-factory/bug-approved-record-todo-inbox-deadlock
 ---
 

@@ -3476,6 +3476,34 @@ var _ = Describe("LintOperation APPROVED_RECORD_IN_TODO_INBOX", func() {
 		}
 	})
 
+	It("reports a phase carrying a trailing YAML comment, like status already does", func() {
+		// phaseRegex anchors on \s*$, so `phase: todo  # inbox` never matches it —
+		// but it is a legal row that task approve still repairs, so a rule silent
+		// on it would leave the deadlock unreported.
+		writeTask("commented.md", "status: next\nphase: todo  # inbox\napproved_by: someone\n")
+		issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+		Expect(err).To(BeNil())
+		Expect(countIssues(issues)).To(Equal(1))
+	})
+
+	It("fix rewrites only the frontmatter phase, never a body line", func() {
+		path := writeTask(
+			"bodyphase.md",
+			"status: next\nphase: todo\napproved_by: someone\n",
+		)
+		// Append a body line that looks like the key; the fix must leave it alone.
+		body := "---\nstatus: next\nphase: todo\napproved_by: someone\n---\n\nExample: phase: todo\n"
+		Expect(os.WriteFile(path, []byte(body), 0600)).To(Succeed())
+
+		_, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", true)
+		Expect(err).To(BeNil())
+
+		content, err := os.ReadFile(path) //#nosec G304 -- test file
+		Expect(err).To(BeNil())
+		Expect(string(content)).To(ContainSubstring("phase: planning"))
+		Expect(string(content)).To(ContainSubstring("Example: phase: todo"))
+	})
+
 	It("fix advances phase to planning and preserves the record", func() {
 		path := writeTask(
 			"fixable.md",

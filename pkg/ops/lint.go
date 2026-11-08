@@ -46,6 +46,14 @@ var (
 	completedStatusRegex = regexp.MustCompile(
 		`(?m)^status:[ \t]*['"]?([a-z_]+)['"]?[ \t]*(?:#.*)?$`,
 	)
+	// phaseWithCommentRegex is completedStatusRegex's phase counterpart, for the
+	// same reason: the shared phaseRegex anchors on \s*$ and therefore misses
+	// `phase: todo  # inbox`. Such a row is a legal deadlock — task approve reads
+	// the phase through the normalizing accessor and repairs it — so a rule that
+	// stayed silent on it would leave the state unreported.
+	phaseWithCommentRegex = regexp.MustCompile(
+		`(?m)^phase:[ \t]*['"]?([a-z_]+)['"]?[ \t]*(?:#.*)?$`,
+	)
 	// approvedRecordRegex matches the key line, not its value: an empty
 	// `approved_by:` still records an approval, so presence is what matters.
 	approvedRecordRegex = regexp.MustCompile(`(?m)^approved_(by|at):`)
@@ -865,7 +873,7 @@ func (l *lintOperation) approvedRecordInTodoInboxIssues(
 		return nil
 	}
 
-	phaseMatches := phaseRegex.FindStringSubmatch(frontmatterYAML)
+	phaseMatches := phaseWithCommentRegex.FindStringSubmatch(frontmatterYAML)
 	if len(phaseMatches) < 2 {
 		return nil
 	}
@@ -1263,11 +1271,20 @@ func (l *lintOperation) fixStatusDateMismatch(content string) (string, bool) {
 
 // fixApprovedRecordInTodoInbox advances phase todo -> planning in place,
 // leaving every other byte — including the approval record — untouched. It
-// rewrites every line matching the phase key and never re-serialises the
-// block; like fixInvalidStatus it is not frontmatter-scoped, so a body line
-// reading `phase: todo` is rewritten too.
+// rewrites the phase line inside the frontmatter block only and never
+// re-serialises the block, so a body line reading `phase: todo` is left alone.
 func (l *lintOperation) fixApprovedRecordInTodoInbox(content string) (string, bool) {
-	matches := phaseRegex.FindStringSubmatch(content)
+	// Scoped to the frontmatter block, unlike fixInvalidStatus: this rule's fix is
+	// reachable from a state the older whole-file fixers never touched, and a task
+	// body legitimately contains lines like `phase: todo` inside fenced examples.
+	// Rewriting those would corrupt the body for no reason the rule asks for.
+	bounds := frontmatterRegex.FindStringSubmatchIndex(content)
+	if len(bounds) < 4 {
+		return content, false
+	}
+	block := content[bounds[2]:bounds[3]]
+
+	matches := phaseWithCommentRegex.FindStringSubmatch(block)
 	if len(matches) < 2 {
 		return content, false
 	}
@@ -1275,10 +1292,11 @@ func (l *lintOperation) fixApprovedRecordInTodoInbox(content string) (string, bo
 	if !ok || phase != domain.TaskPhaseTodo {
 		return content, false
 	}
-	return phaseRegex.ReplaceAllString(
-		content,
+	fixedBlock := phaseWithCommentRegex.ReplaceAllString(
+		block,
 		"phase: "+string(domain.TaskPhasePlanning),
-	), true
+	)
+	return content[:bounds[2]] + fixedBlock + content[bounds[3]:], true
 }
 
 // fixMissingFrontmatter prepends minimal frontmatter to files without frontmatter.

@@ -232,38 +232,100 @@ var _ = Describe("TaskApproveOperation", func() {
 		Entry("no phase key at all", map[string]any{"status": "next"}, "(none)"),
 	)
 
-	DescribeTable("refuses a todo task that already carries an approval record",
-		func(fields map[string]any, expectedKeys string) {
+	DescribeTable("advances a todo task that already carries an approval record",
+		func(fields map[string]any) {
 			seedTask(fields)
+			// Snapshot the seeded record BEFORE Execute. domain.NewTask stores the
+			// caller's map by reference, so reading fields[...] after the call would
+			// compare the written map against itself and the assertion could never
+			// fail — a tautology, not a preservation check.
+			seededBy := fields["approved_by"]
+			seededAt := fields["approved_at"]
 
-			_, execErr := approveOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator", "", "")
-			Expect(execErr).To(HaveOccurred())
-			Expect(execErr.Error()).To(ContainSubstring(expectedKeys))
-			Expect(execErr.Error()).To(ContainSubstring("re-approving"))
-			Expect(mockStorage.WriteTaskCallCount()).To(Equal(0))
+			result, execErr := approveOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator", "someone", "current")
+			Expect(execErr).To(BeNil())
+			Expect(result.Success).To(BeTrue())
+			Expect(result.Name).To(Equal("Alpha"))
+			Expect(result.Vault).To(Equal("vault-a"))
+
+			Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
+			_, written := mockStorage.WriteTaskArgsForCall(0)
+			Expect(written.Phase()).To(Equal(domain.TaskPhasePlanning.Ptr()))
+			// Byte-identical preservation: the written value is the seeded value,
+			// including nil for a key that was never there.
+			// Gomega's Equal refuses a nil-to-nil comparison, so the absent-key
+			// case is asserted explicitly with BeNil.
+			expectSameValue := func(actual, expected any) {
+				if expected == nil {
+					Expect(actual).To(BeNil())
+					return
+				}
+				Expect(actual).To(Equal(expected))
+			}
+			expectSameValue(written.Get("approved_by"), seededBy)
+			expectSameValue(written.Get("approved_at"), seededAt)
+			// The repair is not an approval: no owner is resolved or written even
+			// though --assignee and current_user are both non-empty here.
+			Expect(written.Get("assignee")).To(BeNil())
 		},
-		Entry("only approved_by",
-			map[string]any{"status": "next", "phase": "todo", "approved_by": "someone"},
-			"approved_by",
-		),
-		Entry("only approved_at",
-			map[string]any{
-				"status":      "next",
-				"phase":       "todo",
-				"approved_at": "2026-01-01T00:00:00Z",
-			},
-			"approved_at",
-		),
-		Entry("both keys",
-			map[string]any{
-				"status":      "next",
-				"phase":       "todo",
-				"approved_by": "someone",
-				"approved_at": "2026-01-01T00:00:00Z",
-			},
-			"approved_by, approved_at",
-		),
+		Entry("both keys", map[string]any{
+			"status": "next", "phase": "todo",
+			"approved_by": "someone", "approved_at": "2026-01-01T00:00:00Z",
+		}),
+		Entry("only approved_by", map[string]any{
+			"status": "next", "phase": "todo", "approved_by": "someone",
+		}),
+		Entry("only approved_at", map[string]any{
+			"status": "next", "phase": "todo", "approved_at": "2026-01-01T00:00:00Z",
+		}),
+		Entry("an empty approved_by value counts as present", map[string]any{
+			"status": "next", "phase": "todo", "approved_by": "",
+		}),
 	)
+
+	It("still refuses an approved row that is past the inbox", func() {
+		seedTask(map[string]any{
+			"status": "in_progress", "phase": "execution",
+			"approved_by": "someone", "approved_at": "2026-01-01T00:00:00Z",
+		})
+
+		_, execErr := approveOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator", "", "")
+		Expect(execErr).To(HaveOccurred())
+		Expect(execErr.Error()).To(ContainSubstring(`not "todo"`))
+		Expect(mockStorage.WriteTaskCallCount()).To(Equal(0))
+	})
+
+	It("refuses an empty approver even on an already-approved row", func() {
+		seedTask(map[string]any{"status": "next", "phase": "todo", "approved_by": "someone"})
+
+		_, execErr := approveOp.Execute(ctx, "/vault", "Alpha", "vault-a", "", "", "")
+		Expect(execErr).To(HaveOccurred())
+		Expect(execErr.Error()).To(ContainSubstring("approved_by"))
+		Expect(mockStorage.FindTaskByNameCallCount()).To(Equal(0))
+		Expect(mockStorage.WriteTaskCallCount()).To(Equal(0))
+	})
+
+	It("wraps a write failure on the repair path", func() {
+		seedTask(map[string]any{"status": "next", "phase": "todo", "approved_by": "someone"})
+		mockStorage.WriteTaskReturns(liberrors.New(ctx, "boom"))
+
+		_, execErr := approveOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator", "", "")
+		Expect(execErr).To(HaveOccurred())
+		Expect(execErr.Error()).To(ContainSubstring("write task"))
+	})
+
+	It("advances a terminal row that is still at phase todo", func() {
+		seedTask(map[string]any{"status": "completed", "phase": "todo", "approved_by": "someone"})
+
+		result, execErr := approveOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator", "", "")
+		Expect(execErr).To(BeNil())
+		Expect(result.Success).To(BeTrue())
+
+		Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
+		_, written := mockStorage.WriteTaskArgsForCall(0)
+		Expect(written.Phase()).To(Equal(domain.TaskPhasePlanning.Ptr()))
+		Expect(written.GetString("approved_by")).To(Equal("someone"))
+	})
 
 	It("wraps a find failure", func() {
 		mockStorage.FindTaskByNameReturns(nil, liberrors.New(ctx, "boom"))

@@ -1,7 +1,13 @@
 ---
-status: draft
+status: completed
 spec: [066-bug-approved-record-todo-inbox-deadlock]
+summary: Made task approve advance an already-approved phase:todo row to planning while preserving its approval record, and rewrote the inverted unit and integration tests
+execution_id: vault-cli-approved-todo-exec-278-spec-066-approve-advances-approved-row
+dark-factory-version: v0.198.17
 created: "2026-11-08T18:04:30Z"
+queued: "2026-11-08T18:15:49Z"
+started: "2026-11-08T18:15:52Z"
+completed: "2026-11-08T18:24:26Z"
 branch: dark-factory/bug-approved-record-todo-inbox-deadlock
 ---
 

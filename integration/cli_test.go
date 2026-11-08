@@ -4345,7 +4345,7 @@ body line
 			Expect(sha256OfFile(taskFile)).To(Equal(before))
 		})
 
-		It("AC6: a task carrying any approval record is refused, per fixture", func() {
+		It("AC6: a task carrying any approval record is advanced, per fixture", func() {
 			vaultPath, configPath, cleanup = createTempVault(map[string]string{
 				"Alpha": approvedByOnlyFrontmatter,
 				"Beta":  approvedAtOnlyFrontmatter,
@@ -4354,11 +4354,25 @@ body line
 
 			for _, name := range []string{"Alpha", "Beta", "Gamma"} {
 				taskFile := filepath.Join(vaultPath, "Tasks", name+".md")
-				before := sha256OfFile(taskFile)
+				before := frontmatterOf(taskFile)
 
 				session := runEntityCommand("task", "approve", name)
-				Eventually(session).Should(gexec.Exit(1))
-				Expect(sha256OfFile(taskFile)).To(Equal(before), "fixture %s changed", name)
+				Eventually(session).Should(gexec.Exit(0))
+
+				after := frontmatterOf(taskFile)
+				Expect(after["phase"]).To(Equal("planning"), "fixture %s phase", name)
+				// Gomega's Equal refuses a nil-to-nil comparison, so an absent
+				// key (a fixture carrying only the other approval key) is
+				// asserted with BeNil instead.
+				expectUnchanged := func(key string) {
+					if before[key] == nil {
+						Expect(after[key]).To(BeNil(), "fixture %s %s", name, key)
+						return
+					}
+					Expect(after[key]).To(Equal(before[key]), "fixture %s %s", name, key)
+				}
+				expectUnchanged("approved_by")
+				expectUnchanged("approved_at")
 			}
 		})
 

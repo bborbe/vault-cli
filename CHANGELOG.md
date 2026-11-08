@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: `task approve` advances a `phase: todo` task that already carries `approved_by` and/or `approved_at` to `planning`, preserving the existing record untouched and resolving no owner, instead of refusing it and deadlocking the approved-but-unopenable row; rows past the inbox, a blank `--by`, and an unowned row with no approval record still refuse.
+
 ## v0.188.3
 
 - docs: **plan-task's fix loop now enumerates a defect CLASS on the second sighting instead of fixing the instance.** A seven-round planning run on 2026-10-22 fixed the same class five times — evidence naming an artifact or a probe that does not hold up — because each round repaired only the criterion the auditor named. The rule already existed inside the gate (§ 5 *E2E verify subtask* sub-check 4: *"Repetition is the diagnostic"*), but nothing applied it while *repairing*; the loop now says so, and names the auditor sentence that announces it.

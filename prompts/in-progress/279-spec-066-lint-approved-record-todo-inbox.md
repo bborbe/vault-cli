@@ -1,7 +1,8 @@
 ---
-status: draft
+status: approved
 spec: [066-bug-approved-record-todo-inbox-deadlock]
 created: "2026-11-08T18:04:30Z"
+queued: "2026-11-08T18:15:49Z"
 branch: dark-factory/bug-approved-record-todo-inbox-deadlock
 ---
 

@@ -1,7 +1,8 @@
 ---
-status: draft
+status: approved
 spec: [066-bug-approved-record-todo-inbox-deadlock]
 created: "2026-11-08T18:04:30Z"
+queued: "2026-11-08T18:15:49Z"
 branch: dark-factory/bug-approved-record-todo-inbox-deadlock
 ---
 
@@ -62,7 +63,10 @@ Coding-plugin docs (in-container paths):
 
    Replace only that sentence. Leave the rest of the paragraph — the `--by` default sentence, the delegation paragraph, the table row for `todo`, and every other section — byte-identical. Do not add a lint-rule section: the spec's decomposition scopes this prompt to the one sentence.
 
-3. **Add one bullet under a new `## Unreleased` section in `CHANGELOG.md`.** Insert immediately after the preamble's SemVer bullet block and immediately before `## v0.188.3`:
+3. **Ensure exactly one `## Unreleased` section carries this bullet in `CHANGELOG.md`.** Prompt 1 may already have created the section and written its own bullet for the `task approve` change — check first with `grep -n '^## Unreleased' CHANGELOG.md`.
+
+   - **If `## Unreleased` already exists**, add your lint bullet to that section (under its existing bullets) and leave the existing bullet untouched. Do not create a second `## Unreleased` heading.
+   - **If it does not exist**, insert it immediately after the preamble's SemVer bullet block and immediately before `## v0.188.3`, in this shape:
 
    ```
    ## Unreleased
@@ -71,14 +75,14 @@ Coding-plugin docs (in-container paths):
 
    ```
 
-   Exactly one bullet, as the spec's decomposition states. Use the `fix:` prefix — the change repairs a defect, not a new capability.
+   Exactly one bullet **from this prompt**, as the spec's decomposition states. Use the `fix:` prefix — the change repairs a defect, not a new capability. Prompt 1's own bullet may sit in the same section; leave it alone.
 
 4. **Do not bump any version string and do not create a tag.** This repository is `autoRelease: true` for the releaser path described in `CLAUDE.md`; the release automation converts `## Unreleased` into a versioned section, bumps `.claude-plugin/plugin.json` and both `.claude-plugin/marketplace.json` versions, and tags after merge. The four version strings stay at `0.188.3` in this branch. No code file changes in this prompt.
 </requirements>
 
 <constraints>
 - Copied from the spec: no new CLI verb, subcommand or flag; no `go.mod` / `go.sum` change.
-- Copied from the spec: the changelog gets a new `## Unreleased` heading above `## v0.188.3` with one bullet.
+- Copied from the spec: the changelog carries a `## Unreleased` heading above `## v0.188.3` with one bullet. Exactly one such heading may exist — if prompt 1 already created it, add to it rather than duplicating it.
 - Do NOT bump `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json` (`metadata.version` and `plugins[0].version`), or add a versioned changelog section. All four stay at `0.188.3`.
 - Do NOT create or move a git tag.
 - Do NOT modify any Go file, test file, or scenario file.

@@ -889,8 +889,8 @@ func (l *lintOperation) approvedRecordInTodoInboxIssues(
 				FilePath:  filePath,
 				IssueType: IssueTypeApprovedRecordInTodoInbox,
 				Description: fmt.Sprintf(
-					"task carries an approval record at phase %q but status is %q; advancing the phase would re-open terminal work — re-open it deliberately with `vault-cli task set <name> phase %s`",
-					string(domain.TaskPhaseTodo), status, string(domain.TaskPhasePlanning),
+					"task carries an approval record at phase %q but status is %q; advancing the phase would re-open terminal work, so neither `task approve` nor `--fix` will do it — decide deliberately whether the finished row is mis-phased",
+					string(domain.TaskPhaseTodo), status,
 				),
 				Fixable: false,
 				Fixed:   false,

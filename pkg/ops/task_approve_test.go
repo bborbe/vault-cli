@@ -314,8 +314,29 @@ var _ = Describe("TaskApproveOperation", func() {
 		Expect(execErr.Error()).To(ContainSubstring("write task"))
 	})
 
-	It("advances a terminal row that is still at phase todo", func() {
-		seedTask(map[string]any{"status": "completed", "phase": "todo", "approved_by": "someone"})
+	DescribeTable("refuses a terminal row that is still at phase todo, with zero writes",
+		func(status string) {
+			seedTask(map[string]any{"status": status, "phase": "todo", "approved_by": "someone"})
+
+			_, execErr := approveOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator", "", "")
+			Expect(execErr).To(HaveOccurred())
+			// The refusal names the terminal status and says the row is not
+			// re-opened by an approval, so the operator knows this is a deliberate
+			// decision rather than a missing verb.
+			Expect(execErr.Error()).To(ContainSubstring(status))
+			Expect(execErr.Error()).To(ContainSubstring("not re-opened by an approval"))
+			Expect(mockStorage.WriteTaskCallCount()).To(Equal(0))
+		},
+		Entry("completed", "completed"),
+		Entry("aborted", "aborted"),
+	)
+
+	It("treats a present-but-null approval key as a record", func() {
+		// YAML `approved_by:` with nothing after the colon parses to nil, so
+		// task.Get returns nil exactly as for an absent key. The lint rule's
+		// line-anchored matcher counts that shape as a record, so approve must
+		// too or the two verbs disagree and the deadlock survives for it.
+		seedTask(map[string]any{"status": "in_progress", "phase": "todo", "approved_by": nil})
 
 		result, execErr := approveOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator", "", "")
 		Expect(execErr).To(BeNil())
@@ -324,7 +345,9 @@ var _ = Describe("TaskApproveOperation", func() {
 		Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
 		_, written := mockStorage.WriteTaskArgsForCall(0)
 		Expect(written.Phase()).To(Equal(domain.TaskPhasePlanning.Ptr()))
-		Expect(written.GetString("approved_by")).To(Equal("someone"))
+		// No approval is fabricated onto the null key.
+		Expect(written.Get("approved_by")).To(BeNil())
+		Expect(written.Get("approved_at")).To(BeNil())
 	})
 
 	It("wraps a find failure", func() {

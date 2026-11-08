@@ -6,6 +6,7 @@ package ops
 
 import (
 	"context"
+	"slices"
 
 	"github.com/bborbe/errors"
 	libtime "github.com/bborbe/time"
@@ -29,9 +30,14 @@ type TaskApproveOperation interface {
 	// assignee means the --assignee flag was not given (a blank flag value is
 	// never a request for an unowned task); an empty currentUser means no current
 	// user could be resolved. When none of the three names an owner the approval
-	// is refused and nothing is written, so a task can never enter planning
+	// is refused and nothing is written, so an approval never enters planning
 	// ownerless. An existing assignee that neither the flag nor currentUser
 	// matches is preserved untouched and silently.
+	//
+	// This rule governs the approval act only. A row that already carries an
+	// approval record is advanced to planning without resolving or writing an
+	// owner, so such a row may reach planning unassigned — the approval that
+	// would have fixed an owner already happened.
 	Execute(
 		ctx context.Context,
 		vaultPath string,
@@ -122,6 +128,19 @@ func (o *taskApproveOperation) Execute(
 	// key is invented, and no owner is resolved or required, because the owner
 	// rule governs the approval act, which already happened.
 	if hasApprovalRecord(task) {
+		// A terminal row is refused rather than advanced: moving it to planning
+		// would produce the status/phase pair checkPhaseRegression refuses and
+		// detectStatusPhaseMismatch reports — the same pair the lint rule marks
+		// non-fixable. Refusing keeps approve and lint in agreement about a
+		// finished row instead of having each repair what the other refuses.
+		if status := task.Status(); status == domain.TaskStatusCompleted || status == domain.TaskStatusAborted {
+			terminalErr := errors.Errorf(
+				ctx,
+				"refusing to advance %q: it carries an approval record at phase %q but its status is %q; advancing the phase would produce the status/phase pair checkPhaseRegression refuses. A finished row is not re-opened by an approval — decide deliberately whether it is mis-phased",
+				taskName, string(domain.TaskPhaseTodo), status,
+			)
+			return MutationResult{Success: false, Error: terminalErr.Error()}, terminalErr
+		}
 		task.SetPhase(domain.TaskPhasePlanning.Ptr())
 		return o.write(ctx, task, vaultName)
 	}
@@ -170,8 +189,17 @@ func (o *taskApproveOperation) write(
 // or an approved_at key. Presence, not value, is the test: a key carrying an
 // empty value still means an approval was recorded, and the repair advances
 // the phase without rewriting or completing that record.
+//
+// Presence is read from the key set, never from Get. Get is a raw map lookup
+// that returns nil for a key present with a null value — `approved_by:` with
+// nothing after the colon — which the lint rule's line-anchored matcher counts
+// as a record. Testing Get would let approve and lint disagree on exactly that
+// shape: lint would advance the row while approve treated it as unrecorded,
+// resolved an owner, and either wrote a fabricated approval or refused for want
+// of one, which is the deadlock this repair exists to close.
 func hasApprovalRecord(task *domain.Task) bool {
-	return task.Get("approved_by") != nil || task.Get("approved_at") != nil
+	keys := task.Keys()
+	return slices.Contains(keys, "approved_by") || slices.Contains(keys, "approved_at")
 }
 
 // resolveOwner fixes the task's owner by the precedence the approval contract

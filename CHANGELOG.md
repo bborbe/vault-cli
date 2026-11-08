@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: `session-self-exit.py` guard 2 no longer treats a registry entry as proof that the session owns `$WEZTERM_PANE`. A headless worker is a real `claude --print` process with a pid and a registry entry (`entrypoint: sdk-cli`), and it inherits its spawner's `$WEZTERM_PANE`. `owns_pane()` returned `(True, '')` for it, so a parked or finished worker could reach `wezterm cli kill-pane` against its manager's tab. Ownership is now a tty match: the pane's `tty_name` from `wezterm cli list --format json` must equal the controlling tty of the registry `pid`. A headless worker has no tty (`??`), so it refuses with `pane <N> is not owned by this session`. Any unreadable listing or pid also refuses. `owns_pane()` never reads `entrypoint`. The `sdk-cli` park refusal stays as a second, independent guard. New seams `WEZTERM_PANES_FILE` and `PID_TTY_FILE` drive the tests.
+
 ## v0.189.0
 
 - fix: `task approve` advances a `phase: todo` task that already carries `approved_by` and/or `approved_at` to `planning`, preserving the existing record untouched and resolving no owner, instead of refusing it and deadlocking the approved-but-unopenable row; presence is read from the key set so a null-valued `approved_by:` counts as a record, matching the lint rule. Rows past the inbox, a blank `--by`, an unowned row with no approval record, and a terminal `completed`/`aborted` row still refuse.

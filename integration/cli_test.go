@@ -4109,6 +4109,15 @@ task_identifier: 11111111-1111-4111-8111-111111111111
 body line
 `
 
+		// terminalRowFrontmatter builds a row that carries an approval record at
+		// phase todo while its status is already terminal. status is a parameter
+		// because the legacy alias `done` normalizes to `completed` and must be
+		// refused identically.
+		terminalRowFrontmatter := func(status, identifier string) string {
+			return "---\napproved_by: someone\npage_type: task\nphase: todo\npriority: 1\nstatus: " +
+				status + "\ntask_identifier: " + identifier + "\n---\nbody line\n"
+		}
+
 		It("AC1: task approve writes phase/approved_by/approved_at in one write", func() {
 			vaultPath, configPath, cleanup = createTempVaultWithCurrentUser(map[string]string{
 				"Alpha": todoFrontmatter,
@@ -4373,6 +4382,29 @@ body line
 				}
 				expectUnchanged("approved_by")
 				expectUnchanged("approved_at")
+			}
+		})
+
+		It("AC6b: a terminal row at phase todo is refused, including the `done` alias", func() {
+			// Both the canonical terminal status and its legacy alias must refuse
+			// end-to-end: `done` normalizes to `completed`, so a raw comparison
+			// would let this row through and produce the pair checkPhaseRegression
+			// rejects.
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": terminalRowFrontmatter("completed", "11111111-1111-4111-8111-111111111111"),
+				"Beta":  terminalRowFrontmatter("done", "22222222-2222-2222-2222-222222222222"),
+			})
+
+			for _, name := range []string{"Alpha", "Beta"} {
+				taskFile := filepath.Join(vaultPath, "Tasks", name+".md")
+				before := frontmatterOf(taskFile)
+
+				session := runEntityCommand("task", "approve", name)
+				Eventually(session).Should(gexec.Exit(1))
+				Expect(string(session.Err.Contents())).To(ContainSubstring("not re-opened by an approval"),
+					"fixture %s should be refused as terminal", name)
+				Expect(frontmatterOf(taskFile)["phase"]).To(Equal(before["phase"]),
+					"fixture %s phase must be untouched", name)
 			}
 		})
 

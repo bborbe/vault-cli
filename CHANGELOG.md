@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.190.0
 
 - feat: `task approve` refuses, writing nothing, when the vault's count of approved rows still on the board (non-terminal rows carrying `approved_at`) is at or above the admission cap of 110, the same operator-attention WIP limit used elsewhere; the count is a conservative superset of the strictly-unstarted set because it includes rows already holding a live session. The already-approved advance path is not gated, an unreadable task list fails closed, and `goal approve` / `topic approve` are unaffected.
 

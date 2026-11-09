@@ -259,6 +259,12 @@ func (o *taskApproveOperation) refuseAdmissionOverCap(
 
 	count := 0
 	for _, task := range tasks {
+		// A large vault lists every task file, so this loop must honour
+		// cancellation rather than walking the whole set for a caller that has
+		// already given up.
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return errors.Wrap(ctx, ctxErr, "count approved rows")
+		}
 		if task == nil {
 			continue
 		}

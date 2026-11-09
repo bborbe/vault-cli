@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat: `task approve` refuses, writing nothing, when the vault's count of approved rows still on the board (non-terminal rows carrying `approved_at`) is at or above the admission cap of 110, the same operator-attention WIP limit used elsewhere; the count is a conservative superset of the strictly-unstarted set because it includes rows already holding a live session. The already-approved advance path is not gated, an unreadable task list fails closed, and `goal approve` / `topic approve` are unaffected.
+
 ## v0.189.1
 
 - fix: `session-self-exit.py` guard 2 no longer treats a registry entry as proof that the session owns `$WEZTERM_PANE`. A headless worker is a real `claude --print` process with a pid and a registry entry (`entrypoint: sdk-cli`), and it inherits its spawner's `$WEZTERM_PANE`. `owns_pane()` returned `(True, '')` for it, so a parked or finished worker could reach `wezterm cli kill-pane` against its manager's tab. Ownership is now a tty match: the pane's `tty_name` from `wezterm cli list --format json` must equal the controlling tty of the registry `pid`. A headless worker has no tty (`??`), so it refuses with `pane <N> is not owned by this session`. Any unreadable listing or pid also refuses. `owns_pane()` never reads `entrypoint`. The `sdk-cli` park refusal stays as a second, independent guard. New seams `WEZTERM_PANES_FILE` and `PID_TTY_FILE` drive the tests.

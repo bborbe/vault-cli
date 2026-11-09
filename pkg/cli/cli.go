@@ -2784,7 +2784,7 @@ func createTaskApproveCommand(
 			err = dispatcher.FirstSuccess(ctx, vaults, func(vault *config.Vault) error {
 				storageConfig := storage.NewConfigFromVault(vault)
 				taskStore := storage.NewTaskStorage(storageConfig)
-				approveOp := ops.NewTaskApproveOperation(taskStore, currentDateTime)
+				approveOp := ops.NewTaskApproveOperation(taskStore, currentDateTime, 0)
 				result, err := approveOp.Execute(
 					ctx,
 					vault.Path,

@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.191.0
 
 - feat: `task approve` exempts a row the operator flagged (`flag: true` with `flag_set_by: operator`) from the approved-row admission cap, so the operator can always approve a row they deliberately picked; the cap itself is unchanged, an unflagged row and a row whose flag an agent set are still refused at 110, and an approved flagged row still counts toward the cap.
 

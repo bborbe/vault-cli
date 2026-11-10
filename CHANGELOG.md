@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.192.0
 
 - feat: **the approved-row admission cap is REMOVED from `task approve`** — approval is unbounded and never refuses on a count of approved rows. The cap guarded an auto-open path that no longer exists: what opens a task is governed by flag provenance, not by a count — `/supervisor:open --flagged` opens only rows whose `flag_set_by` is `operator` or `legacy`, so an agent cannot cause an open by approving a row, however many rows are approved. This supersedes and deletes the operator-flagged exemption added in v0.191.0 (it had nothing left to exempt). The spawn caps (`spawn.maxConcurrent`, `maxConcurrentHard`) and the manager caps are untouched.
 

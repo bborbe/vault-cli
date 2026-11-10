@@ -413,6 +413,105 @@ var _ = Describe("TaskApproveOperation", func() {
 			Expect(written.Get("approved_at")).NotTo(BeNil())
 		})
 
+		It("approves an operator-flagged row at the cap", func() {
+			capOp := newCapOp(5)
+			seedTask(map[string]any{
+				"status": "next", "phase": "todo", "assignee": "someone",
+				"flag": true, "flag_set_by": "operator",
+			})
+			mockStorage.ListTasksStrictReturns(approvedRows(5), nil)
+
+			result, execErr := capOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator", "", "")
+			Expect(execErr).To(BeNil())
+			Expect(result.Success).To(BeTrue())
+			Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
+			_, written := mockStorage.WriteTaskArgsForCall(0)
+			Expect(written.Get("approved_at")).NotTo(BeNil())
+		})
+
+		It("approves an operator-flagged row above the cap", func() {
+			capOp := newCapOp(5)
+			seedTask(map[string]any{
+				"status": "next", "phase": "todo", "assignee": "someone",
+				"flag": "true", "flag_set_by": "operator",
+			})
+			mockStorage.ListTasksStrictReturns(approvedRows(12), nil)
+
+			result, execErr := capOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator", "", "")
+			Expect(execErr).To(BeNil())
+			Expect(result.Success).To(BeTrue())
+			Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
+		})
+
+		It("approves an operator-flagged row whose flag is the hand-quoted string \"yes\"", func() {
+			capOp := newCapOp(5)
+			seedTask(map[string]any{
+				"status": "next", "phase": "todo", "assignee": "someone",
+				"flag": "yes", "flag_set_by": "operator",
+			})
+			mockStorage.ListTasksStrictReturns(approvedRows(5), nil)
+
+			result, execErr := capOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator", "", "")
+			Expect(execErr).To(BeNil())
+			Expect(result.Success).To(BeTrue())
+			Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
+		})
+
+		It("still refuses an unflagged row at the cap", func() {
+			capOp := newCapOp(5)
+			seedTask(map[string]any{
+				"status": "next", "phase": "todo", "assignee": "someone", "flag": false,
+			})
+			mockStorage.ListTasksStrictReturns(approvedRows(5), nil)
+
+			_, execErr := capOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator", "", "")
+			Expect(execErr).To(HaveOccurred())
+			Expect(execErr.Error()).To(ContainSubstring("admission cap of 5"))
+			Expect(mockStorage.WriteTaskCallCount()).To(Equal(0))
+		})
+
+		DescribeTable("a flag without operator provenance is not an exemption",
+			func(fields map[string]any) {
+				capOp := newCapOp(5)
+				seedTask(fields)
+				mockStorage.ListTasksStrictReturns(approvedRows(5), nil)
+
+				_, execErr := capOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator", "", "")
+				Expect(execErr).To(HaveOccurred())
+				Expect(execErr.Error()).To(ContainSubstring("admission cap of 5"))
+				Expect(mockStorage.WriteTaskCallCount()).To(Equal(0))
+			},
+			Entry("agent actor", map[string]any{
+				"status": "next", "phase": "todo", "assignee": "someone",
+				"flag": true, "flag_set_by": "agent-x",
+			}),
+			Entry("unattributed (task set without --by)", map[string]any{
+				"status": "next", "phase": "todo", "assignee": "someone",
+				"flag": true, "flag_set_by": "unknown",
+			}),
+			Entry("pre-field, no provenance", map[string]any{
+				"status": "next", "phase": "todo", "assignee": "someone",
+				"flag": true,
+			}),
+		)
+
+		It("counts an approved operator-flagged row toward the cap", func() {
+			capOp := newCapOp(5)
+			rows := append(approvedRows(4), domain.NewTask(
+				map[string]any{
+					"status": "in_progress", "phase": "planning",
+					"approved_at": "2026-01-01T00:00:00Z",
+					"flag":        true, "flag_set_by": "operator",
+				},
+				domain.FileMetadata{Name: "Flagged Approved"}, domain.Content(""),
+			))
+			mockStorage.ListTasksStrictReturns(rows, nil)
+
+			_, execErr := capOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator", "", "")
+			Expect(execErr).To(HaveOccurred())
+			Expect(execErr.Error()).To(ContainSubstring("admission cap of 5"))
+		})
+
 		It("refuses at the cap, naming the count, the cap and the vault, with no write", func() {
 			capOp := newCapOp(5)
 			mockStorage.ListTasksStrictReturns(approvedRows(5), nil)

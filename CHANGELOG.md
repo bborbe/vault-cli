@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- chore: update github.com/bborbe/collection to v1.21.6, github.com/bborbe/errors to v1.6.6, github.com/bborbe/kafka to v1.29.13, github.com/bborbe/log to v1.7.8, github.com/bborbe/notification to v0.7.12, github.com/bborbe/time to v1.27.27, github.com/bborbe/validation to v1.5.9, github.com/onsi/ginkgo/v2 to v2.34.0, golang.org/x/sys to v0.50.0, golang.org/x/term to v0.48.0
+
 ## v0.192.0
 
 - feat: **the approved-row admission cap is REMOVED from `task approve`** — approval is unbounded and never refuses on a count of approved rows. The cap guarded an auto-open path that no longer exists: what opens a task is governed by flag provenance, not by a count — `/supervisor:open --flagged` opens only rows whose `flag_set_by` is `operator` or `legacy`, so an agent cannot cause an open by approving a row, however many rows are approved. This supersedes and deletes the operator-flagged exemption added in v0.191.0 (it had nothing left to exempt). The spawn caps (`spawn.maxConcurrent`, `maxConcurrentHard`) and the manager caps are untouched.

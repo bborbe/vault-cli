@@ -27,6 +27,9 @@ import (
 // instrument as claude-supervisor/scripts/approved-not-started.py, which also
 // excludes rows with a live session; this cap is intentionally the wider of the
 // two so the intake cannot refill a queue that is already over its limit.
+// Rows the operator flagged (`flag: true` with `flag_set_by: operator`) are
+// exempt from the refusal: the flag is the operator's deliberate pick, not
+// unattended backlog. An agent-set or unattributed flag is not an exemption.
 const DefaultMaxApprovedNotStarted = 110
 
 //counterfeiter:generate -o ../../mocks/task-approve-operation.go --fake-name TaskApproveOperation . TaskApproveOperation
@@ -59,6 +62,10 @@ type TaskApproveOperation interface {
 	// conservative superset of the strictly-unstarted set, because it includes
 	// rows already holding a live session. The cap does not gate the
 	// already-approved advance path above, which writes no approval.
+	// A row the operator flagged (`flag: true` with `flag_set_by: operator`) is
+	// exempt from that refusal: the cap bounds the approved queue nobody has
+	// looked at, and a row the operator deliberately picked is the opposite of
+	// that. An agent-set or unattributed flag is not an exemption.
 	Execute(
 		ctx context.Context,
 		vaultPath string,
@@ -189,8 +196,19 @@ func (o *taskApproveOperation) Execute(
 	// or above the cap of approved rows still on the board. This sits after
 	// every guard that writes nothing and after the already-approved advance
 	// path has returned, so an already-approved row is never gated.
-	if err := o.refuseAdmissionOverCap(ctx, vaultPath, vaultName, taskName); err != nil {
-		return MutationResult{Success: false, Error: err.Error()}, err
+	//
+	// A row the operator flagged is exempt. The cap bounds the approved queue
+	// nobody has looked at; a row the operator deliberately picked is the
+	// opposite of that. The test is `flag_set_by: operator`, not `flag` alone:
+	// docs/task-writing.md § The approval flag makes an agent-set flag, an
+	// unattributed one and a pre-field one explicitly not operator-set, and
+	// exempting those would hand any agent session a cap bypass. The row still
+	// counts toward the cap once approved — the exemption is from the refusal,
+	// not from the count.
+	if !operatorFlagged(task) {
+		if err := o.refuseAdmissionOverCap(ctx, vaultPath, vaultName, taskName); err != nil {
+			return MutationResult{Success: false, Error: err.Error()}, err
+		}
 	}
 
 	// All three keys are composed onto the existing map, then handed to storage
@@ -307,6 +325,19 @@ func (o *taskApproveOperation) refuseAdmissionOverCap(
 func hasApprovalRecord(task *domain.Task) bool {
 	keys := task.Keys()
 	return slices.Contains(keys, "approved_by") || slices.Contains(keys, "approved_at")
+}
+
+// operatorFlagged reports whether the operator deliberately flagged this row.
+//
+// The flag alone is not the test. docs/task-writing.md § The approval flag
+// makes an agent-set `flag: true`, an unattributed one (`flag_set_by:
+// unknown`, the `task set` default) and a pre-field one (no `flag_set_by`
+// at all) explicitly not operator-set, so gating on `Flag()` alone would let
+// any agent session flag a row and approve it past the admission cap — the
+// bypass `flag_set_by` exists to close. The fleet's own open leg reads the
+// same pair (docs/task-writing.md line 166).
+func operatorFlagged(task *domain.Task) bool {
+	return task.Flag() && task.GetString("flag_set_by") == "operator"
 }
 
 // resolveOwner fixes the task's owner by the precedence the approval contract

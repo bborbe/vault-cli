@@ -15,23 +15,6 @@ import (
 	"github.com/bborbe/vault-cli/pkg/storage"
 )
 
-// DefaultMaxApprovedNotStarted is the admission cap for task approval: the
-// number of approved rows still on the board at or above which `task approve`
-// refuses to create another approved-but-unstarted row. It is 110, the same
-// operator-attention WIP limit used elsewhere — deliberately not a second,
-// independently chosen number.
-//
-// The count it bounds is a deliberate conservative superset of the strictly
-// unstarted set: it counts every non-terminal row carrying `approved_at`,
-// including rows already holding a live session. It is therefore not the same
-// instrument as claude-supervisor/scripts/approved-not-started.py, which also
-// excludes rows with a live session; this cap is intentionally the wider of the
-// two so the intake cannot refill a queue that is already over its limit.
-// Rows the operator flagged (`flag: true` with `flag_set_by: operator`) are
-// exempt from the refusal: the flag is the operator's deliberate pick, not
-// unattended backlog. An agent-set or unattributed flag is not an exemption.
-const DefaultMaxApprovedNotStarted = 110
-
 //counterfeiter:generate -o ../../mocks/task-approve-operation.go --fake-name TaskApproveOperation . TaskApproveOperation
 type TaskApproveOperation interface {
 	// Execute approves the named task: it moves a task waiting in the approval
@@ -56,16 +39,12 @@ type TaskApproveOperation interface {
 	// owner, so such a row may reach planning unassigned — the approval that
 	// would have fixed an owner already happened.
 	//
-	// A new approval is also refused, with nothing written, when the vault's
-	// count of approved rows still on the board (non-terminal rows carrying
-	// `approved_at`) is at or above the admission cap. The count is a
-	// conservative superset of the strictly-unstarted set, because it includes
-	// rows already holding a live session. The cap does not gate the
-	// already-approved advance path above, which writes no approval.
-	// A row the operator flagged (`flag: true` with `flag_set_by: operator`) is
-	// exempt from that refusal: the cap bounds the approved queue nobody has
-	// looked at, and a row the operator deliberately picked is the opposite of
-	// that. An agent-set or unattributed flag is not an exemption.
+	// Approval is unbounded: `task approve` never refuses on a count of approved
+	// rows. What opens a task is governed by flag provenance, not by a count — the
+	// `/supervisor:open --flagged` selector opens only rows whose `flag_set_by` is
+	// `operator` or `legacy`, and that selector is the control the approval path
+	// relies on. An agent cannot cause an open by approving a row, however many
+	// rows are approved.
 	Execute(
 		ctx context.Context,
 		vaultPath string,
@@ -78,30 +57,19 @@ type TaskApproveOperation interface {
 }
 
 // NewTaskApproveOperation creates a new task approve operation.
-//
-// maxApprovedNotStarted is the admission cap; a value of 0 means
-// DefaultMaxApprovedNotStarted. The sentinel exists so a zero-valued
-// construction can never admit everything: the struct always holds a positive
-// cap.
 func NewTaskApproveOperation(
 	taskStorage storage.TaskStorage,
 	currentDateTime libtime.CurrentDateTime,
-	maxApprovedNotStarted int,
 ) TaskApproveOperation {
-	if maxApprovedNotStarted == 0 {
-		maxApprovedNotStarted = DefaultMaxApprovedNotStarted
-	}
 	return &taskApproveOperation{
-		taskStorage:           taskStorage,
-		currentDateTime:       currentDateTime,
-		maxApprovedNotStarted: maxApprovedNotStarted,
+		taskStorage:     taskStorage,
+		currentDateTime: currentDateTime,
 	}
 }
 
 type taskApproveOperation struct {
-	taskStorage           storage.TaskStorage
-	currentDateTime       libtime.CurrentDateTime
-	maxApprovedNotStarted int
+	taskStorage     storage.TaskStorage
+	currentDateTime libtime.CurrentDateTime
 }
 
 // Execute approves a task waiting in the approval inbox.
@@ -192,25 +160,6 @@ func (o *taskApproveOperation) Execute(
 		return MutationResult{Success: false, Error: err.Error()}, err
 	}
 
-	// The admission cap: refuse a new approval when the vault already holds at
-	// or above the cap of approved rows still on the board. This sits after
-	// every guard that writes nothing and after the already-approved advance
-	// path has returned, so an already-approved row is never gated.
-	//
-	// A row the operator flagged is exempt. The cap bounds the approved queue
-	// nobody has looked at; a row the operator deliberately picked is the
-	// opposite of that. The test is `flag_set_by: operator`, not `flag` alone:
-	// docs/task-writing.md § The approval flag makes an agent-set flag, an
-	// unattributed one and a pre-field one explicitly not operator-set, and
-	// exempting those would hand any agent session a cap bypass. The row still
-	// counts toward the cap once approved — the exemption is from the refusal,
-	// not from the count.
-	if !operatorFlagged(task) {
-		if err := o.refuseAdmissionOverCap(ctx, vaultPath, vaultName, taskName); err != nil {
-			return MutationResult{Success: false, Error: err.Error()}, err
-		}
-	}
-
 	// All three keys are composed onto the existing map, then handed to storage
 	// in exactly one write — so a row can never end up planned without an
 	// approval record beside it. Every other key, known or unknown, survives
@@ -243,73 +192,6 @@ func (o *taskApproveOperation) write(
 	return MutationResult{Success: true, Name: task.Name, Vault: vaultName}, nil
 }
 
-// refuseAdmissionOverCap refuses a new approval when the vault's count of
-// approved rows still on the board is at or above the admission cap.
-//
-// The count is every task whose `approved_at` is present and non-empty and
-// whose status is neither completed nor aborted. The date is read with GetTime
-// — the project's date-shaped accessor — rather than a Get type assertion, so
-// the quoted-string and libtime.DateOrDateTime shapes a real task file decodes
-// to are counted rather than silently dropped.
-//
-// The count is a deliberate conservative superset of
-// claude-supervisor/scripts/approved-not-started.py, which additionally
-// excludes rows holding a live session; the two are not one instrument.
-//
-// It fails closed: an unreadable task list refuses, because a silent undercount
-// would admit exactly the rows the cap exists to refuse.
-func (o *taskApproveOperation) refuseAdmissionOverCap(
-	ctx context.Context,
-	vaultPath string,
-	vaultName string,
-	taskName string,
-) error {
-	tasks, err := o.taskStorage.ListTasksStrict(ctx, vaultPath)
-	if err != nil {
-		return errors.Wrapf(
-			ctx,
-			err,
-			"count approved rows: the approved-row count could not be read; refusing to approve %q in vault %q",
-			taskName,
-			vaultName,
-		)
-	}
-
-	count := 0
-	for _, task := range tasks {
-		// A large vault lists every task file, so this loop must honour
-		// cancellation rather than walking the whole set for a caller that has
-		// already given up.
-		if ctxErr := ctx.Err(); ctxErr != nil {
-			return errors.Wrap(ctx, ctxErr, "count approved rows")
-		}
-		if task == nil {
-			continue
-		}
-		if task.GetTime("approved_at") == nil {
-			continue
-		}
-		status := task.Status()
-		if status == domain.TaskStatusCompleted || status == domain.TaskStatusAborted {
-			continue
-		}
-		count++
-	}
-
-	if count >= o.maxApprovedNotStarted {
-		//nolint:revive // the refusal message shape is part of the admission-cap contract
-		return errors.Errorf(
-			ctx,
-			"refusing to approve %q in vault %q: the vault's count of approved rows still on the board is %d (a conservative superset of the unstarted set — it includes rows already holding a live session), at or above the admission cap of %d; no approval was written. Drain the queue, or raise the cap in code deliberately.",
-			taskName,
-			vaultName,
-			count,
-			o.maxApprovedNotStarted,
-		)
-	}
-	return nil
-}
-
 // hasApprovalRecord reports whether the task already carries an approved_by
 // or an approved_at key. Presence, not value, is the test: a key carrying an
 // empty value still means an approval was recorded, and the repair advances
@@ -325,19 +207,6 @@ func (o *taskApproveOperation) refuseAdmissionOverCap(
 func hasApprovalRecord(task *domain.Task) bool {
 	keys := task.Keys()
 	return slices.Contains(keys, "approved_by") || slices.Contains(keys, "approved_at")
-}
-
-// operatorFlagged reports whether the operator deliberately flagged this row.
-//
-// The flag alone is not the test. docs/task-writing.md § The approval flag
-// makes an agent-set `flag: true`, an unattributed one (`flag_set_by:
-// unknown`, the `task set` default) and a pre-field one (no `flag_set_by`
-// at all) explicitly not operator-set, so gating on `Flag()` alone would let
-// any agent session flag a row and approve it past the admission cap — the
-// bypass `flag_set_by` exists to close. The fleet's own open leg reads the
-// same pair (docs/task-writing.md line 166).
-func operatorFlagged(task *domain.Task) bool {
-	return task.Flag() && task.GetString("flag_set_by") == "operator"
 }
 
 // resolveOwner fixes the task's owner by the precedence the approval contract

@@ -47,7 +47,7 @@ var _ = Describe("TaskApproveOperation", func() {
 
 		pinned = libtime.NewCurrentDateTime()
 		pinned.SetNow(libtimetest.ParseDateTime("2026-03-03T12:00:00Z"))
-		approveOp = ops.NewTaskApproveOperation(mockStorage, pinned, 0)
+		approveOp = ops.NewTaskApproveOperation(mockStorage, pinned)
 
 		seedTask(map[string]any{"status": "next", "phase": "todo", "assignee": "someone"})
 	})
@@ -207,7 +207,7 @@ var _ = Describe("TaskApproveOperation", func() {
 	It("refuses a zero clock with zero writes", func() {
 		zero := libtime.NewCurrentDateTime()
 		zero.SetNow(libtime.DateTime(time.Time{}))
-		zeroOp := ops.NewTaskApproveOperation(mockStorage, zero, 0)
+		zeroOp := ops.NewTaskApproveOperation(mockStorage, zero)
 
 		_, execErr := zeroOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator", "", "")
 		Expect(execErr).To(HaveOccurred())
@@ -374,12 +374,11 @@ var _ = Describe("TaskApproveOperation", func() {
 		Expect(mockStorage.WriteTaskCallCount()).To(Equal(0))
 	})
 
-	Describe("admission cap", func() {
-		// A small injected cap keeps the boundary under test at 4/5 rather than
-		// needing 109/110-row fixtures wherever the cap value is the subject.
-		newCapOp := func(limit int) ops.TaskApproveOperation {
-			return ops.NewTaskApproveOperation(mockStorage, pinned, limit)
-		}
+	Describe("unbounded approval", func() {
+		// The approved-row count gate was removed: approval is unbounded, and
+		// what opens a task is governed by flag provenance in the supervisor's
+		// --flagged selector, not by a count. These tests pin the removal so a
+		// future change cannot reintroduce a count gate unnoticed.
 
 		approvedRow := func(name string) *domain.Task {
 			return domain.NewTask(
@@ -401,226 +400,37 @@ var _ = Describe("TaskApproveOperation", func() {
 			return rows
 		}
 
-		It("approves when the count is one below the cap", func() {
-			capOp := newCapOp(5)
-			mockStorage.ListTasksStrictReturns(approvedRows(4), nil)
+		It("approves an unflagged row while the approved-row count is above the old limit of 110", func() {
+			// The vault holds far more approved rows than the old cap of 110. The
+			// approval must succeed, and the operation must not consult the count
+			// at all: the list scan went with the cap.
+			seedTask(map[string]any{"status": "next", "phase": "todo", "assignee": "someone"})
+			mockStorage.ListTasksStrictReturns(approvedRows(200), nil)
 
-			result, execErr := capOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator", "", "")
+			result, execErr := approveOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator", "", "")
 			Expect(execErr).To(BeNil())
 			Expect(result.Success).To(BeTrue())
 			Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
 			_, written := mockStorage.WriteTaskArgsForCall(0)
 			Expect(written.Get("approved_at")).NotTo(BeNil())
+			// The count is never read: the list scan went with the cap.
+			Expect(mockStorage.ListTasksStrictCallCount()).To(Equal(0))
 		})
 
-		It("approves an operator-flagged row at the cap", func() {
-			capOp := newCapOp(5)
+		It("approves a row carrying an agent-set flag just as any other row", func() {
+			// The flag no longer gates approval at all. It still governs what
+			// auto-open selects, in the supervisor's --flagged provenance gate —
+			// which is unchanged and tested there.
 			seedTask(map[string]any{
-				"status": "next", "phase": "todo", "assignee": "someone",
-				"flag": true, "flag_set_by": "operator",
-			})
-			mockStorage.ListTasksStrictReturns(approvedRows(5), nil)
-
-			result, execErr := capOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator", "", "")
-			Expect(execErr).To(BeNil())
-			Expect(result.Success).To(BeTrue())
-			Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
-			_, written := mockStorage.WriteTaskArgsForCall(0)
-			Expect(written.Get("approved_at")).NotTo(BeNil())
-		})
-
-		It("approves an operator-flagged row above the cap", func() {
-			capOp := newCapOp(5)
-			seedTask(map[string]any{
-				"status": "next", "phase": "todo", "assignee": "someone",
-				"flag": "true", "flag_set_by": "operator",
-			})
-			mockStorage.ListTasksStrictReturns(approvedRows(12), nil)
-
-			result, execErr := capOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator", "", "")
-			Expect(execErr).To(BeNil())
-			Expect(result.Success).To(BeTrue())
-			Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
-		})
-
-		It("approves an operator-flagged row whose flag is the hand-quoted string \"yes\"", func() {
-			capOp := newCapOp(5)
-			seedTask(map[string]any{
-				"status": "next", "phase": "todo", "assignee": "someone",
-				"flag": "yes", "flag_set_by": "operator",
-			})
-			mockStorage.ListTasksStrictReturns(approvedRows(5), nil)
-
-			result, execErr := capOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator", "", "")
-			Expect(execErr).To(BeNil())
-			Expect(result.Success).To(BeTrue())
-			Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
-		})
-
-		It("still refuses an unflagged row at the cap", func() {
-			capOp := newCapOp(5)
-			seedTask(map[string]any{
-				"status": "next", "phase": "todo", "assignee": "someone", "flag": false,
-			})
-			mockStorage.ListTasksStrictReturns(approvedRows(5), nil)
-
-			_, execErr := capOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator", "", "")
-			Expect(execErr).To(HaveOccurred())
-			Expect(execErr.Error()).To(ContainSubstring("admission cap of 5"))
-			Expect(mockStorage.WriteTaskCallCount()).To(Equal(0))
-		})
-
-		DescribeTable("a flag without operator provenance is not an exemption",
-			func(fields map[string]any) {
-				capOp := newCapOp(5)
-				seedTask(fields)
-				mockStorage.ListTasksStrictReturns(approvedRows(5), nil)
-
-				_, execErr := capOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator", "", "")
-				Expect(execErr).To(HaveOccurred())
-				Expect(execErr.Error()).To(ContainSubstring("admission cap of 5"))
-				Expect(mockStorage.WriteTaskCallCount()).To(Equal(0))
-			},
-			Entry("agent actor", map[string]any{
 				"status": "next", "phase": "todo", "assignee": "someone",
 				"flag": true, "flag_set_by": "agent-x",
-			}),
-			Entry("unattributed (task set without --by)", map[string]any{
-				"status": "next", "phase": "todo", "assignee": "someone",
-				"flag": true, "flag_set_by": "unknown",
-			}),
-			Entry("pre-field, no provenance", map[string]any{
-				"status": "next", "phase": "todo", "assignee": "someone",
-				"flag": true,
-			}),
-		)
+			})
+			mockStorage.ListTasksStrictReturns(approvedRows(200), nil)
 
-		It("counts an approved operator-flagged row toward the cap", func() {
-			capOp := newCapOp(5)
-			rows := append(approvedRows(4), domain.NewTask(
-				map[string]any{
-					"status": "in_progress", "phase": "planning",
-					"approved_at": "2026-01-01T00:00:00Z",
-					"flag":        true, "flag_set_by": "operator",
-				},
-				domain.FileMetadata{Name: "Flagged Approved"}, domain.Content(""),
-			))
-			mockStorage.ListTasksStrictReturns(rows, nil)
-
-			_, execErr := capOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator", "", "")
-			Expect(execErr).To(HaveOccurred())
-			Expect(execErr.Error()).To(ContainSubstring("admission cap of 5"))
-		})
-
-		It("refuses at the cap, naming the count, the cap and the vault, with no write", func() {
-			capOp := newCapOp(5)
-			mockStorage.ListTasksStrictReturns(approvedRows(5), nil)
-
-			result, execErr := capOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator", "", "")
-			Expect(execErr).To(HaveOccurred())
-			Expect(result.Success).To(BeFalse())
-			Expect(execErr.Error()).To(ContainSubstring("is 5"))
-			Expect(execErr.Error()).To(ContainSubstring("admission cap of 5"))
-			Expect(execErr.Error()).To(ContainSubstring("vault-a"))
-			Expect(mockStorage.WriteTaskCallCount()).To(Equal(0))
-		})
-
-		It("excludes completed and aborted rows from the count", func() {
-			capOp := newCapOp(5)
-			rows := approvedRows(4)
-			rows = append(
-				rows,
-				domain.NewTask(
-					map[string]any{"status": "completed", "approved_at": "2026-01-01T00:00:00Z"},
-					domain.FileMetadata{Name: "Done"},
-					domain.Content(""),
-				),
-				domain.NewTask(
-					map[string]any{"status": "aborted", "approved_at": "2026-01-01T00:00:00Z"},
-					domain.FileMetadata{Name: "Gone"},
-					domain.Content(""),
-				),
-			)
-			mockStorage.ListTasksStrictReturns(rows, nil)
-
-			result, execErr := capOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator", "", "")
+			result, execErr := approveOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator", "", "")
 			Expect(execErr).To(BeNil())
 			Expect(result.Success).To(BeTrue())
-			Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
+			Expect(mockStorage.ListTasksStrictCallCount()).To(Equal(0))
 		})
-
-		It("fails closed when the count cannot be read", func() {
-			capOp := newCapOp(5)
-			mockStorage.ListTasksStrictReturns(nil, liberrors.New(ctx, "boom"))
-
-			_, execErr := capOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator", "", "")
-			Expect(execErr).To(HaveOccurred())
-			Expect(execErr.Error()).To(ContainSubstring("could not be read"))
-			Expect(execErr.Error()).To(ContainSubstring("boom"))
-			Expect(mockStorage.WriteTaskCallCount()).To(Equal(0))
-		})
-
-		It("uses the default cap when constructed with 0", func() {
-			// The field is unexported and this suite is in ops_test, so the
-			// substitution is asserted behaviourally: seeding exactly the default
-			// number of counted rows must refuse.
-			capOp := newCapOp(0)
-			mockStorage.ListTasksStrictReturns(
-				approvedRows(ops.DefaultMaxApprovedNotStarted),
-				nil,
-			)
-
-			_, execErr := capOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator", "", "")
-			Expect(execErr).To(HaveOccurred())
-			Expect(execErr.Error()).To(ContainSubstring(
-				fmt.Sprintf("admission cap of %d", ops.DefaultMaxApprovedNotStarted),
-			))
-			Expect(mockStorage.WriteTaskCallCount()).To(Equal(0))
-		})
-
-		It("advances an already-approved row even at the cap", func() {
-			capOp := newCapOp(1)
-			seedTask(map[string]any{"status": "next", "phase": "todo", "approved_by": "someone"})
-			mockStorage.ListTasksStrictReturns(approvedRows(1), nil)
-
-			result, execErr := capOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator", "", "")
-			Expect(execErr).To(BeNil())
-			Expect(result.Success).To(BeTrue())
-			Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
-			_, written := mockStorage.WriteTaskArgsForCall(0)
-			Expect(written.Phase()).To(Equal(domain.TaskPhasePlanning.Ptr()))
-		})
-
-		DescribeTable("counts approved_at only when it is present and non-empty",
-			func(fields map[string]any, expectRefusal bool) {
-				capOp := newCapOp(1)
-				mockStorage.ListTasksStrictReturns(
-					[]*domain.Task{
-						domain.NewTask(fields, domain.FileMetadata{Name: "Row"}, domain.Content("")),
-					},
-					nil,
-				)
-
-				_, execErr := capOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator", "", "")
-				if expectRefusal {
-					Expect(execErr).To(HaveOccurred())
-					Expect(execErr.Error()).To(ContainSubstring("admission cap of 1"))
-					Expect(mockStorage.WriteTaskCallCount()).To(Equal(0))
-					return
-				}
-				Expect(execErr).To(BeNil())
-				Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
-			},
-			Entry("absent", map[string]any{"status": "in_progress"}, false),
-			Entry("nil value", map[string]any{"status": "in_progress", "approved_at": nil}, false),
-			Entry("empty string", map[string]any{"status": "in_progress", "approved_at": ""}, false),
-			// The quoted-string shape a hand-authored task file decodes to; a
-			// Get(...) type assertion would silently miss it.
-			Entry(
-				"quoted string",
-				map[string]any{"status": "in_progress", "approved_at": "2026-01-01T00:00:00Z"},
-				true,
-			),
-		)
 	})
 })

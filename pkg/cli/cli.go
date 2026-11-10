@@ -2760,7 +2760,13 @@ func createTaskApproveCommand(
 	cmd := &cobra.Command{
 		Use:   "approve <task-name>",
 		Short: "Approve a task in the operator's inbox (todo -> planning)",
-		Args:  cobra.ExactArgs(1),
+		Long: "Approve a task in the operator's inbox: it moves a todo task to planning and " +
+			"records approved_by and approved_at in one write.\n\n" +
+			"Approval is unbounded: it never refuses on a count of approved rows. What opens " +
+			"a task is governed by flag provenance, not by a count — /supervisor:open --flagged " +
+			"opens only rows whose flag_set_by is operator or legacy, and an agent cannot cause " +
+			"an open by approving a row.",
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			taskName := args[0]
 
@@ -2784,7 +2790,7 @@ func createTaskApproveCommand(
 			err = dispatcher.FirstSuccess(ctx, vaults, func(vault *config.Vault) error {
 				storageConfig := storage.NewConfigFromVault(vault)
 				taskStore := storage.NewTaskStorage(storageConfig)
-				approveOp := ops.NewTaskApproveOperation(taskStore, currentDateTime, 0)
+				approveOp := ops.NewTaskApproveOperation(taskStore, currentDateTime)
 				result, err := approveOp.Execute(
 					ctx,
 					vault.Path,

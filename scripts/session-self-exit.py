@@ -134,11 +134,11 @@ def _norm_tty(value: str) -> str:
     return value if value.startswith("/dev/") else "/dev/" + value
 
 
-def pane_tty(pane: str) -> str:
-    """The tty WezTerm reports for `pane`, or `` when it cannot be read.
+def _panes() -> list:
+    """The WezTerm pane listing, or `` when it cannot be read.
 
     Source: `$WEZTERM_PANES_FILE` (a saved `wezterm cli list --format json`) when
-    set, else the live command. Any failure reads as no tty, which refuses.
+    set, else the live command. Any failure reads as an empty list, which refuses.
     """
     try:
         listing_file = os.environ.get("WEZTERM_PANES_FILE")
@@ -152,10 +152,30 @@ def pane_tty(pane: str) -> str:
             ).stdout
             panes = json.loads(out)
     except (OSError, ValueError, subprocess.SubprocessError):
-        return ""
-    for row in panes if isinstance(panes, list) else []:
+        return []
+    return panes if isinstance(panes, list) else []
+
+
+def pane_tty(pane: str) -> str:
+    """The tty WezTerm reports for `pane`, or `` when it cannot be read."""
+    for row in _panes():
         if isinstance(row, dict) and str(row.get("pane_id")) == pane:
             return _norm_tty(str(row.get("tty_name") or ""))
+    return ""
+
+
+def pane_for_tty(tty: str) -> str:
+    """The pane whose tty is `tty`, or `` when none matches.
+
+    Used when `$WEZTERM_PANE` is unset: that variable is inherited from the
+    spawner and can be missing in a real tab, so ownership is resolved from the
+    registry pid's own controlling tty instead of from the environment.
+    """
+    if not tty:
+        return ""
+    for row in _panes():
+        if isinstance(row, dict) and _norm_tty(str(row.get("tty_name") or "")) == tty:
+            return str(row.get("pane_id") or "")
     return ""
 
 
@@ -631,7 +651,19 @@ def main() -> int:
 
     pane = (os.environ.get("WEZTERM_PANE") or "").strip()
     if not pane:
-        return refuse("$WEZTERM_PANE is unset — this session is not inside a WezTerm pane")
+        # `$WEZTERM_PANE` is inherited from the spawner and can be missing in a
+        # real tab, so it is not the ownership test — resolve the pane from this
+        # session's own controlling tty instead. `owns_pane` still re-checks the
+        # match below, so a derived pane is never trusted on its own.
+        record = registry_record(sid)
+        pid = record.get("pid") if isinstance(record, dict) else None
+        if isinstance(pid, int) and not isinstance(pid, bool) and pid > 0:
+            pane = pane_for_tty(pid_tty(pid))
+        if not pane:
+            return refuse(
+                "$WEZTERM_PANE is unset and no pane carries this session's controlling tty"
+                " — this session owns no WezTerm pane"
+            )
     if not pane.isdigit():
         # The value reaches `wezterm cli kill-pane` as an argument; a non-numeric
         # one could be read as a flag rather than a pane id.

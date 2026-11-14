@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: install a pinned, checksum-verified Trivy release instead of piping the upstream install script from `main` into a shell. The previous change fixed the retired apt keyring helper but replaced a GPG-verified install with an unpinned root-level dependency.
+
 ## v0.193.0
 
 - feat: add a `check-task-link` gate that fails a PR whose body carries no `Task: <task_identifier>` line, and install Trivy from the upstream script so `test` stops failing on the retired keyring helper

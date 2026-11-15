@@ -1,7 +1,7 @@
 ---
-status: draft
-kind: bug
-created: "2026-11-15T00:00:00Z"
+status: approved
+approved: "2026-11-15T11:42:54Z"
+branch: dark-factory/bug-task-approve-help-claims-fresh-approved-at
 ---
 
 ## Summary

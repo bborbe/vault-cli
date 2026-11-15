@@ -900,6 +900,7 @@ var _ = Describe("WorkOnOperation", func() {
 			})
 
 			It("writes no approval fields", func() {
+				Expect(mockTaskStorage.WriteTaskCallCount()).To(BeNumerically(">=", 1))
 				_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
 				Expect(writtenTask.GetString("approved_by")).To(BeEmpty())
 				Expect(writtenTask.GetString("approved_at")).To(BeEmpty())
@@ -915,6 +916,67 @@ var _ = Describe("WorkOnOperation", func() {
 						"flag":        true,
 						"flag_set_by": "claude-session-1",
 					},
+					domain.FileMetadata{
+						Name:     taskName,
+						FilePath: "/path/to/vault/tasks/my-task.md",
+					},
+					domain.Content(""),
+				)
+				mockTaskStorage.FindTaskByNameReturns(task, nil)
+			})
+
+			It("refuses and writes nothing", func() {
+				Expect(err).To(HaveOccurred())
+				Expect(*task.Phase()).To(Equal(domain.TaskPhaseTodo))
+				Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(0))
+			})
+		})
+
+		Context("when phase is todo and the flag is legacy (an approval)", func() {
+			BeforeEach(func() {
+				task = domain.NewTask(
+					map[string]any{"status": "in_progress", "phase": "todo", "flag": true, "flag_set_by": "legacy"},
+					domain.FileMetadata{
+						Name:     taskName,
+						FilePath: "/path/to/vault/tasks/my-task.md",
+					},
+					domain.Content(""),
+				)
+				mockTaskStorage.FindTaskByNameReturns(task, nil)
+			})
+
+			It("advances the phase to planning", func() {
+				Expect(err).To(BeNil())
+				Expect(mockTaskStorage.WriteTaskCallCount()).To(BeNumerically(">=", 1))
+				_, writtenTask := mockTaskStorage.WriteTaskArgsForCall(0)
+				Expect(*writtenTask.Phase()).To(Equal(domain.TaskPhasePlanning))
+			})
+		})
+
+		Context("when phase is todo and the flag is a quoted string (not an approval)", func() {
+			BeforeEach(func() {
+				task = domain.NewTask(
+					map[string]any{"status": "in_progress", "phase": "todo", "flag": "true", "flag_set_by": "operator"},
+					domain.FileMetadata{
+						Name:     taskName,
+						FilePath: "/path/to/vault/tasks/my-task.md",
+					},
+					domain.Content(""),
+				)
+				mockTaskStorage.FindTaskByNameReturns(task, nil)
+			})
+
+			It("refuses and writes nothing", func() {
+				Expect(err).To(HaveOccurred())
+				Expect(*task.Phase()).To(Equal(domain.TaskPhaseTodo))
+				Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(0))
+			})
+		})
+
+		Context("when phase is todo, operator-flagged, but the task is completed", func() {
+			BeforeEach(func() {
+				task = domain.NewTask(
+					map[string]any{"status": "completed", "phase": "todo", "flag": true, "flag_set_by": "operator"},
 					domain.FileMetadata{
 						Name:     taskName,
 						FilePath: "/path/to/vault/tasks/my-task.md",

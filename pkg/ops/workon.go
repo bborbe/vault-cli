@@ -314,14 +314,25 @@ func advancePhaseIfEntering(ctx context.Context, task *domain.Task, taskName str
 	currentPhase := task.Phase()
 	if currentPhase != nil && *currentPhase == domain.TaskPhaseTodo {
 		if isOperatorFlagged(task) {
+			// Same refusal `task approve` applies: a finished row is not re-opened
+			// by an approval, and the caller would flip its status to in_progress.
+			if status := task.Status(); status == domain.TaskStatusCompleted ||
+				status == domain.TaskStatusAborted {
+				return errors.Errorf(
+					ctx,
+					"refusing to work on %q: it is operator-flagged at phase %q but its status is %q; a finished task is not re-opened by its flag",
+					taskName, string(domain.TaskPhaseTodo), status,
+				)
+			}
 			task.SetPhase(domain.TaskPhasePlanning.Ptr())
 			return nil
 		}
 		return errors.Errorf(
 			ctx,
-			"refusing to work on %q: task is at phase %q, not yet approved; run `vault-cli task approve %q` first",
+			"refusing to work on %q: task is at phase %q, not yet approved; run `vault-cli task approve %q`, or have the operator flag it (`vault-cli task set %q flag true --by operator`), first",
 			taskName,
 			string(domain.TaskPhaseTodo),
+			taskName,
 			taskName,
 		)
 	}
@@ -550,14 +561,26 @@ func appendTaskToDaily(lines []string, taskName string) []string {
 	return append(lines, newLine)
 }
 
-// flagOpeningActors are the flag_set_by values that make a flag the operator's
-// approval. It mirrors the supervisor plugin's OPENING_ACTORS
-// (scripts/flag_provenance.py); "legacy" marks the pre-field rows dispositioned on
-// 2026-09-30.
-var flagOpeningActors = map[string]bool{"operator": true, "legacy": true}
-
-// isOperatorFlagged reports whether the task carries flag: true set by an opening
-// actor — the flag that counts as approval.
+// isOperatorFlagged reports whether the task carries the flag that counts as the
+// operator's approval: `flag` is a YAML boolean true AND `flag_set_by` is an
+// opening actor (operator, legacy — the supervisor plugin's OPENING_ACTORS in
+// scripts/flag_provenance.py; legacy marks the pre-field rows dispositioned on
+// 2026-09-30).
+//
+// ⚠️ Strict on purpose, unlike Page.Flag(): a quoted `flag: "true"` is a string,
+// and the supervisor's predicate refuses it, so admitting it here would advance a
+// row no supervisor reader treats as approved. An unquoted `on` / `y` decodes to a
+// string under yaml.v3 and is refused here while the supervisor admits it — that
+// residual fails safe (work-on refuses, nothing is written).
 func isOperatorFlagged(task *domain.Task) bool {
-	return task.Flag() && flagOpeningActors[task.GetString("flag_set_by")]
+	flag, ok := task.Get("flag").(bool)
+	if !ok || !flag {
+		return false
+	}
+	switch task.GetString("flag_set_by") {
+	case "operator", "legacy":
+		return true
+	default:
+		return false
+	}
 }

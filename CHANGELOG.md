@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat: `task work-on` treats an operator-set flag (`flag: true`, `flag_set_by` operator/legacy) as the approval — a flagged `phase: todo` task advances to `planning` with no `approved_*` write; an agent-set or unattributed flag is still refused
+
 ## v0.193.1
 
 - fix: install a pinned, checksum-verified Trivy release instead of piping the upstream install script from `main` into a shell. The previous change fixed the retired apt keyring helper but replaced a GPG-verified install with an unpinned root-level dependency.

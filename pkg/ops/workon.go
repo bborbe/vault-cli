@@ -302,11 +302,21 @@ func sessionFailureResult(
 // with no approval record — the state the approval gate exists to prevent — so this
 // refuses and the caller writes nothing.
 //
+// The one exception is an operator-set flag: `flag: true` whose flag_set_by is an
+// opening actor (operator, legacy). Operator ruling 2026-11-15, verbatim: "we should
+// not set the approved fields. We should handle flag tasks as they are approved." The
+// flag IS the approval, so such a row advances to planning here and nothing writes
+// approved_by / approved_at. An agent-set or unattributed flag approves nothing.
+//
 // Resuming a mid-flight task (planning, execution, in_progress, ai_review,
 // human_review, done, ...) must not reset progress backward.
 func advancePhaseIfEntering(ctx context.Context, task *domain.Task, taskName string) error {
 	currentPhase := task.Phase()
 	if currentPhase != nil && *currentPhase == domain.TaskPhaseTodo {
+		if isOperatorFlagged(task) {
+			task.SetPhase(domain.TaskPhasePlanning.Ptr())
+			return nil
+		}
 		return errors.Errorf(
 			ctx,
 			"refusing to work on %q: task is at phase %q, not yet approved; run `vault-cli task approve %q` first",
@@ -538,4 +548,16 @@ func appendTaskToDaily(lines []string, taskName string) []string {
 	}
 	// Append to end
 	return append(lines, newLine)
+}
+
+// flagOpeningActors are the flag_set_by values that make a flag the operator's
+// approval. It mirrors the supervisor plugin's OPENING_ACTORS
+// (scripts/flag_provenance.py); "legacy" marks the pre-field rows dispositioned on
+// 2026-09-30.
+var flagOpeningActors = map[string]bool{"operator": true, "legacy": true}
+
+// isOperatorFlagged reports whether the task carries flag: true set by an opening
+// actor — the flag that counts as approval.
+func isOperatorFlagged(task *domain.Task) bool {
+	return task.Flag() && flagOpeningActors[task.GetString("flag_set_by")]
 }

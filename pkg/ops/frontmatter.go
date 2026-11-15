@@ -396,7 +396,8 @@ func checkPhaseRegression(ctx context.Context, task *domain.Task, key, value str
 //
 // "todo" is the operator's approval inbox. Leaving it is the operator's approval and
 // is performed by `vault-cli task approve`, which records approved_by and approved_at
-// in the same write. `task set <name> phase planning` writes the field and nothing
+// in the same write — or by an operator-set flag, which `task work-on` honours
+// (advancePhaseIfEntering). `task set <name> phase planning` writes the field and nothing
 // else, and checkPhaseRegression guards only backward moves, so this forward move
 // passes it — leaving the row at planning with no evidence that anyone approved it.
 // The refusal closes that route.
@@ -424,7 +425,7 @@ func todoPlanningSetRefusal(ctx context.Context, task *domain.Task, taskName, ke
 		return nil
 	}
 	return errors.Errorf(ctx,
-		"refusing to set phase %q on %q: the task is at phase %q, the operator's approval inbox. Leaving it is the operator's approval and is performed by `vault-cli task approve %q`, which records approved_by and approved_at in the same write",
+		"refusing to set phase %q on %q: the task is at phase %q, the operator's approval inbox. Leaving it is the operator's approval and is performed by `vault-cli task approve %q` (which records approved_by and approved_at in the same write) or by an operator flag honoured at `task work-on`",
 		canonical, taskName, string(domain.TaskPhaseTodo), taskName,
 	)
 }

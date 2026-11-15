@@ -2765,7 +2765,10 @@ func createTaskApproveCommand(
 			"Approval is unbounded: it never refuses on a count of approved rows. What opens " +
 			"a task is governed by flag provenance, not by a count — /supervisor:open --flagged " +
 			"opens only rows whose flag_set_by is operator or legacy, and an agent cannot cause " +
-			"an open by approving a row.",
+			"an open by approving a row.\n\n" +
+			"An operator-set flag (flag: true, flag_set_by operator or legacy) is also an " +
+			"approval: `task work-on` moves such a todo task to planning without writing " +
+			"approved_by / approved_at.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			taskName := args[0]

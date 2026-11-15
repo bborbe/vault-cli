@@ -8,7 +8,7 @@ kind: bug
 - A session can exit "parked" carrying only a `defer_date`, with no park watch registered to wake it.
 - The park-due step reads registered watches only, so such a session is invisible to it rather than refused by it.
 - The exit path accepts a park at two independent points, and neither consults the watch store.
-- The result is a session that sits idle indefinitely past its own `defer_date`, with nothing reporting it.
+- The result is a session that nothing **wakes** — it sits idle indefinitely past its own `defer_date`. (A fleet sweep does see the row as deferred, but deferral alone never brings it back.)
 
 ## Problem
 
@@ -18,36 +18,38 @@ Parking is the contract that lets a session free its slot and be woken later: `s
 
 ## Reproduction
 
-> **Correction (2026-11-15).** An earlier revision of this spec carried `Observed: parked until <defer_date>, exit=0` for a bare two-line setup (a task file plus `PARK_EVENT_STATE_DIR`). **That observation was never produced — it is retracted.** `main()` refuses on pane ownership at `:662-666` long before any park accept point, so the bare setup returns `SELF-EXIT: stay — $WEZTERM_PANE is unset and no pane carries this session's controlling tty`, `exit=10`. Verified by running it. The reproduction below uses the repo's own harness, which supplies the preconditions `main()` requires.
+> **Correction (2026-11-15).** An earlier revision of this spec asserted `Observed: parked until <defer_date>, exit=0` for a two-line setup that was never run. **That claim is retracted.** Two later revisions also carried unrun reproductions: the `task` helper has no `defer_date` parameter, so the fixture shape exited 10 on `task status is in_progress, not completed or aborted`. Everything asserted below as observed was executed, and the exact environment is given.
 
 **Reported incident — 2026-11-13, operator-observed, no transcript retained.** Worker `b652848f` held `defer_date: 2026-11-13T05:56:00+01:00` (04:56Z). A fleet round ran at 05:45Z and the worker was still idle at 06:15Z. `park-event.py list` and `park-event.py due` both returned nothing for it. The earlier watch had been consumed by a 00:57Z hand-resume, and the replacement `defer_date` was written without `park-event.py register`.
 
-**Deterministic reproduction — a fixture in `scripts/session-self-exit-test.sh`.** The harness's `run` / `run_msg` / `run_live` helpers (`:190-235`) supply everything `main()` needs before it reaches a park accept point: `SESSION_ID`, `SESSIONS_DIR`, `TASKS_ROOTS`, `GOALS_ROOTS`, `TOPICS_ROOTS`, `WEZTERM_PANE=777`, `WEZTERM_PANES_FILE`, `PID_TTY_FILE`, and a stub attention store on `ATTENTION_STORE_URL`. A bare invocation without those refuses on pane ownership, as recorded above.
+### Produced observation
 
-Add one fixture and run it:
+`main()` refuses on pane ownership at `:662-666` before any park accept point, so a bare task file is not enough — the harness env is required. Running the script with a parked task, a live pane, and an **empty** `PARK_EVENT_STATE_DIR`:
 
-```bash
-# a task held by this session, in_progress, defer_date one hour ahead
-task in_progress planning 0 "<future-instant>"      # existing helper shape
-export PARK_EVENT_STATE_DIR="$(mktemp -d)"          # empty store: no watch can exist
-run_msg 0 "unwatched park is accepted today (the bug)" "parked until"
+```
+SELF-EXIT: exit — Anchor.md is parked until 2026-11-15T13:28:04.424486+00:00, no open card, pane 777
+exit=0
 ```
 
-**Current behaviour, derived from source** (not observed — stated as such deliberately):
+That is the defect: the exit is **taken** with no watch lookup. The environment that produced it: `SESSION_ID`, `SESSIONS_DIR` (registry pid 4242 → tty `ttys777`), `TASKS_ROOTS` holding a task with `status: in_progress`, `phase: execution`, `claude_session_id: <SID>` and a future `defer_date`; `WEZTERM_PANE=777` with `WEZTERM_PANES_FILE` / `PID_TTY_FILE` agreeing; `ATTENTION_STORE_URL` on a stub returning `[]`; `ATTENTION_STATE_DIR`; and `PARK_EVENT_STATE_DIR` pointing at an empty directory.
 
-1. `main()` acquires a pane, then calls `anchor_task(sid)` (`:676`).
-2. For a task holder it calls `terminal_verdict(...)` (`:680-682`).
-3. `terminal_verdict` returns `(True, f"parked until {defer}")` at `:466` — no watch lookup anywhere in the function.
-4. `main()` prints `SELF-EXIT: exit — …` and returns `EXIT_TAKEN` (0) at `:732-734`.
-5. The only component that could wake the session, `park-event.py cmd_due`, iterates `all_watches()` and cannot see a bare `defer_date`.
+**Harness form.** The fixture must use the existing helpers, and must pass the store *per invocation* — `export` does not reach the child, because `run`/`run_msg`/`run_live` run under `env -i` (verified: an exported variable reads as `None` inside `env -i`):
 
-Resolve `park-event.py` to exactly one path — the glob over versions expands to **188** files on the authoring host and python3 then treats 187 of them as argv, failing with `invalid choice`:
+```bash
+deferred_task in_progress execution "<future-instant>"     # :103 — the park shape; `task` has no defer_date
+run_msg 0 "unwatched park is accepted today (the bug)" "parked until" \
+    PARK_EVENT_STATE_DIR="$EMPTY_STORE"
+```
+
+The wake half cannot see it. Resolve `park-event.py` to exactly one path — the glob over versions expands to **188+** files on the authoring host and python3 then treats the rest as argv, failing with `invalid choice`:
 
 ```bash
 PARK_EVENT=$(ls -d "${CLAUDE_CONFIG_DIR:-$HOME/.claude}"/plugins/cache/claude-supervisor/supervisor/*/ | sort -V | tail -1)scripts/park-event.py
-python3 "$PARK_EVENT" list      # → no park watches
-python3 "$PARK_EVENT" due       # → no park watches due at <now>
+PARK_EVENT_STATE_DIR="$EMPTY_STORE" python3 "$PARK_EVENT" list    # → no park watches
+PARK_EVENT_STATE_DIR="$EMPTY_STORE" python3 "$PARK_EVENT" due     # → no park watches due at <now>
 ```
+
+Against the **live** store (no `PARK_EVENT_STATE_DIR`), `list` prints 31 records and `due` prints several — the empty-store prefix is what makes the above meaningful.
 
 ## Expected vs Actual
 
@@ -61,9 +63,9 @@ The two halves of the park contract are owned by separate components, and only o
 
 ## Assumptions
 
-- Each park record carries a `sessions` list of session ids. Verified against `claude-supervisor` 0.315.0, where the key is written at `scripts/park-event.py:508` and read at `:533`, `:562`, `:598`, `:626`, `:643`, `:653` — cite the symbol, not a line number, since this file moves between versions.
-- **"The supervisor plugin is absent" is observable as "no `park-event.py` under the plugin cache" — NOT as "the store directory is unreadable".** This assumption is load-bearing and the obvious inverse is false: `~/.claude/state/park-events/` survives an uninstall, and on the authoring host it holds 31 records and 398 lock files with the plugin present, so it would remain readable and non-empty after removal. Keying fail-open on store readability would therefore refuse every park on a de-plugin'd host.
-- **The producer resolution root must be explicit**, because the test harness runs `env -i` with no `HOME`: the guard and the tests must both resolve the cache as `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins/cache/claude-supervisor`. Left implicit, `Path.home()` returns `/Users/bborbe` even under `env -i`, so the guard would see a present producer in every test and the producer-absent case would be unreachable.
+- Each park record carries a `sessions` list of session ids. Verified against `claude-supervisor` 0.315.0: `sessions` is **written** at `scripts/park-event.py:533` and **read** at `:508`, with further reads at `:562`, `:598`, `:626`, `:643`, `:653`. Cite the symbol, not a line — this file moves between versions.
+- **"The supervisor plugin is absent" is observable as "no `park-event.py` under the plugin cache" — NOT as "the store directory is unreadable".** The obvious inverse is false: `~/.claude/state/park-events/` survives an uninstall, and on the authoring host it holds 31 records and 398 lock files with the plugin present, so it would remain readable and non-empty after removal.
+- **The producer root must be resolved explicitly, and it differs by environment.** Use `os.environ.get("CLAUDE_CONFIG_DIR") or os.path.expanduser("~/.claude")` — **not** the shell idiom `${CLAUDE_CONFIG_DIR:-$HOME/.claude}`, which under `env -i` yields `/.claude` because `HOME` is empty, failing open in every test. On the authoring host the producer is present under `/Users/bborbe/.claude`. **In the YOLO container it is absent**: `~/.claude-yolo/plugins/cache/` contains only `coding` and is mounted as `/home/node/.claude`, and `env -i` clears `CLAUDE_CONFIG_DIR`, so `Path.home()` resolves to `/home/node`. This is why the harness must materialise a stub producer (see Constraints) — otherwise every refusal fixture fails open in the container, where `make test` actually runs.
 - The refusal exit code is a frozen external contract at `EXIT_REFUSED = 10` (`scripts/session-self-exit.py:94`), asserted by **53** call sites in `scripts/session-self-exit-test.sh` (27 `run 10` + 25 `run_msg 10` + 1 `run_live 10`). It must not be renumbered.
 
 ## Goal
@@ -72,21 +74,21 @@ No session exits "parked" unless a registered watch names it — on any host whe
 
 ## Acceptance Criteria
 
-- [ ] **Task holder refused.** A session whose task is `in_progress` with a future `defer_date` and no watch naming it is refused. Evidence: a `run_msg 10` fixture prints `SELF-EXIT: stay — ` plus a reason naming `<S>` and the missing park watch.
-- [ ] **Goal/topic holder refused.** The same refusal reproduces for a page whose `claude_session_id` is `<S>` with `status: in_progress` and a future `defer_date`. Evidence: a `run_msg 10` fixture on the goal/topic roots.
-- [ ] **Positive control — a watched park still exits.** Evidence: with `park-event.py register --event <key> --recheck <ISO> --session <S>` run against `PARK_EVENT_STATE_DIR`, a `run_msg 0` fixture prints `parked until <defer_date>`, and `park-event.py due` returns the record once `<recheck>` passes.
-- [ ] **Negative control — an unrelated watch does not count.** Evidence: with the store holding a valid watch for a different session `<T>` only, the `<S>` fixture still exits 10.
-- [ ] **Malformed records and lock files are tolerated.** Evidence: with one malformed `.json`, three `*.lock` files, and a valid watch for `<S>`, the fixture exits 0 with `parked until …`, and stderr carries exactly one warning naming the malformed file.
-- [ ] **The real exit path shares the guard.** Evidence: a `run_live 10` fixture (the harness's `run_live` at `:221-235`, no `--dry-run`) for an unwatched park prints `SELF-EXIT: stay — …` — a guard placed only in the `--dry-run` branch fails this.
-- [ ] **Fail-open is keyed on producer presence.** Evidence: with the store directory present and readable but `CLAUDE_CONFIG_DIR` pointing at a temp root whose plugin cache contains no `park-event.py`, the fixture exits 0 plus exactly one warning naming the absent producer — never a refusal.
+- [ ] **Task holder refused.** A session whose task is `in_progress` with a future `defer_date` and no watch naming it is refused. Evidence: a `run_msg 10` fixture on `deferred_task in_progress execution "<future>"` prints `SELF-EXIT: stay — ` plus a reason naming `<SID>` and the missing park watch.
+- [ ] **Goal/topic holder refused.** The same refusal reproduces for a page whose `claude_session_id` is `<SID>` with `status: in_progress` and a future `defer_date`. Evidence: a `run_msg 10` fixture on the goal/topic roots.
+- [ ] **Positive control — a watched park still exits.** Evidence: with a record for `<SID>` registered under `PARK_EVENT_STATE_DIR`, a `run_msg 0` fixture prints `parked until <defer_date>`; and `park-event.py due` returns that record once its recheck instant passes.
+- [ ] **Negative control — an unrelated watch does not count.** Evidence: with the store holding a valid record for a different session only, the `<SID>` fixture still exits 10.
+- [ ] **Malformed records and lock files are tolerated.** Evidence: with one malformed `.json`, three `*.lock` files, and a valid record for `<SID>`, the fixture exits 0 with `parked until …`, and the captured stderr carries exactly one warning naming the malformed file.
+- [ ] **The real exit path shares the guard.** Evidence: a `run_live 10` fixture (`:221-235`, no `--dry-run`) for an unwatched park prints `SELF-EXIT: stay — …` — a guard placed only in the `--dry-run` branch fails this.
+- [ ] **Fail-open is keyed on producer presence.** Evidence: with `CLAUDE_CONFIG_DIR` pointing at a temp root whose plugin cache contains no `park-event.py`, the fixture exits 0 plus exactly one warning naming the absent producer — never a refusal, even when the store directory exists and is readable.
 - [ ] **Doctrine names registration.** Evidence: `grep -n 'park-event.py register' commands/session-close.md` returns ≥ 1 line inside Phase 4.5.
-- [ ] **No regression, no deleted assertions.** Evidence: `make precommit` exits 0; `git diff scripts/session-self-exit-test.sh` contains **no deleted line** (`git diff --numstat` shows 0 deletions), and the four existing positive parked fixtures (`:314`, `:338`, `:568` ×2) each gain a registered watch rather than being relaxed to pass via fail-open.
+- [ ] **No regression, no deleted assertions, producer stubbed for every refusal fixture.** Evidence: `make precommit` exits 0; `git diff --numstat scripts/session-self-exit-test.sh` shows **0 deletions**; and `grep -c 'CLAUDE_CONFIG_DIR=' scripts/session-self-exit-test.sh` returns ≥ 4 (the stub is wired into each fixture that must see the producer present, so the four existing positive parked fixtures at `:314`, `:338`, `:568` ×2 pass via a real store read rather than via fail-open).
 
 ## Verification
 
 ### Container-executable (runs inside the YOLO container at prompt time)
 
-- `make precommit` — exits 0. Target is `ensure format generate test check addlicense`; there is no shellcheck in it, and `check-versions` runs only under `release-check`.
+- `make precommit` — exits 0. Target is `ensure format generate test check addlicense`; there is no shellcheck in it, and `check-versions` runs only under `release-check`. `test` invokes `bash scripts/session-self-exit-test.sh` (`Makefile:80`), which is why the stub producer is mandatory here.
 - `make test` — exits 0
 - `bash scripts/session-self-exit-test.sh` — exits 0
 - `grep -n 'PARK_EVENT_STATE_DIR\|park-event' scripts/session-self-exit.py` — returns ≥ 1 line per guarded accept point
@@ -95,7 +97,7 @@ No session exits "parked" unless a registered watch names it — on any host whe
 ### Operator-executable (runs on the host after PR merge and plugin reload)
 
 - `claude plugin update vault-cli@vault-cli`, then the operator runs `/reload-plugins`
-- Re-run the reproduction fixture against the **loaded** plugin copy under `~/.claude/plugins/cache/vault-cli/vault-cli/<version>/scripts/`. The discriminating signal is the *message*, not the exit code: the unwatched fixture must print `SELF-EXIT: stay — … no registered park watch`, where it previously printed `SELF-EXIT: exit — … parked until …`. An exit-code-only comparison is a false pass, because the pane-ownership refusal also exits 10.
+- Re-run the produced observation against the **loaded** plugin copy under `~/.claude/plugins/cache/vault-cli/vault-cli/<version>/scripts/`. The discriminating signal is the **message**: the unwatched fixture must print `SELF-EXIT: stay — … no registered park watch`, where it previously printed `SELF-EXIT: exit — … parked until …`. An exit-code-only comparison is a false pass, because the pane-ownership refusal also exits 10.
 
 ## Desired Behavior
 
@@ -113,8 +115,9 @@ No session exits "parked" unless a registered watch names it — on any host whe
 
 ## Constraints
 
-- **The watch store location is fixed by its producer**, `claude-supervisor`'s `park-event.py`: `$PARK_EVENT_STATE_DIR`, defaulting to `~/.claude/state/park-events/`, holding one JSON file per watch plus `*.lock` files that must be ignored. Each record carries a `sessions` list of session ids. This schema is `claude-supervisor`'s contract, not vault-cli's — document it in `docs/park-watches.md` (a new page; `docs/session-liveness.md` is scoped to liveness classification and currently carries no park content) and reference it from the code.
-- **Resolve the producer root explicitly** as `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins/cache/claude-supervisor`, in the guard and in the harness, so the producer-absent case is reachable under `env -i`.
+- **The watch store location is fixed by its producer**, `claude-supervisor`'s `park-event.py`: `$PARK_EVENT_STATE_DIR`, defaulting to `~/.claude/state/park-events/`, holding one JSON file per watch plus `*.lock` files that must be ignored. Each record carries a `sessions` list. This schema is `claude-supervisor`'s contract, not vault-cli's — document it in `docs/park-watches.md` (a new page; `docs/session-liveness.md` is scoped to liveness classification and carries no park content) and reference it from the code.
+- **Resolve the producer root explicitly** as `os.environ.get("CLAUDE_CONFIG_DIR") or os.path.expanduser("~/.claude")`, in the guard and in the harness.
+- **The harness must materialise a stub producer** at `$TMP/plugroot/plugins/cache/claude-supervisor/supervisor/0.0.0/scripts/park-event.py` and pass `CLAUDE_CONFIG_DIR="$TMP/plugroot"` to every fixture that requires the producer present — the YOLO container has none, so without this the refusal fixtures fail open there. AC7 uses a second root that omits the stub.
 - **Read the store as files; do not shell out to `park-event.py` and do not import it.** vault-cli and claude-supervisor are separately installed plugins, and vault-cli must keep working when the other is absent.
 - **The guard is read-only.** It must never write to, create, or delete anything under the store.
 - **`EXIT_REFUSED = 10` is frozen.** Do not renumber it; 53 assertions in `scripts/session-self-exit-test.sh` depend on it.
@@ -126,14 +129,15 @@ No session exits "parked" unless a registered watch names it — on any host whe
 
 | Trigger | Expected behavior | Recovery |
 |---|---|---|
-| No `park-event.py` under the resolved plugin-cache root | Exit 0, one warning line naming the absent producer | None needed — the park mechanism does not exist on that machine |
-| Store directory present and readable but producer absent | Exit 0, one warning (same as above — readability is not the test) | None; the stale directory is inert |
-| A record is valid JSON but has no `sessions` key (schema drift) | Treated as **not a watch** for any session, and one warning names the file — never silently absorbed, since a schema change would otherwise refuse every park for ever with no signal | Operator checks the warning; the guard's schema assumption is documented in `docs/park-watches.md` |
-| A single record is malformed JSON | That record is skipped, the remaining records are still consulted, one warning names the bad file | `grep -n '<bad-file>' <stderr capture>` locates it; operator deletes or repairs the named file |
-| A `*.lock` file is present | Ignored entirely, no warning (locks are normal during concurrent `register`) | None |
-| Concurrent `register` writes while the guard reads | Read-only and tolerant: a partially written record is skipped, never raises | None — the next exit re-reads |
+| No `park-event.py` under the resolved plugin-cache root | Exit 0, one warning naming the absent producer | `ls "$(python3 -c 'import os;print(os.environ.get("CLAUDE_CONFIG_DIR") or os.path.expanduser("~/.claude"))')/plugins/cache/claude-supervisor"` confirms absence |
+| **Store directory absent but producer present** (fresh install, no parks yet) | Treated as **no watch** → refuse. Must never be conflated with producer-absent → fail open, or any host whose store dir was never created would bypass the guard entirely | `ls -d "$PARK_EVENT_STATE_DIR"`; a missing dir is created by the first `register` |
+| Store present and readable but producer absent | Exit 0, one warning (readability is not the test) | None; the stale directory is inert |
+| A record is valid JSON but has no `sessions` key (schema drift) | Treated as **not a watch** for any session, and one warning names the file — never silently absorbed, since a schema change would otherwise refuse every park for ever with no signal | `grep -n '<file>' <stderr capture>` returns the warning line; the schema assumption is documented in `docs/park-watches.md` |
+| A single record is malformed JSON | That record is skipped, the remaining records are still consulted, one warning names the bad file | `grep -c '<bad-file>' <stderr capture>` returns 1; operator deletes or repairs the named file, then `park-event.py list` no longer names it |
+| A `*.lock` file is present | Ignored entirely, no warning (locks are normal during concurrent `register`) | None — `park-event.py list` is unaffected |
+| Concurrent `register` writes while the guard reads | Read-only and tolerant: a partially written record is skipped, never raises | None — the next exit re-reads; `park-event.py due` still returns the intact records |
 | Session id absent from the environment | Unchanged: `main()` refuses at `:650` with `no session id`, exit 10 | Caller passes `--session` |
-| Clock skew between the `defer_date` offset and the guard's `now` | The existing aware-instant parser decides; a park that reads as elapsed keeps its current refusal | None new — behaviour unchanged |
+| Clock skew between the `defer_date` offset and the guard's `now` | The existing aware-instant parser decides; a park that reads as elapsed keeps its current refusal | None new — `session-self-exit.py --dry-run` prints the elapsed refusal |
 
 ## Security / Abuse Cases
 
@@ -143,9 +147,11 @@ No session exits "parked" unless a registered watch names it — on any host whe
 
 | # | Prompt focus | Covers DBs | Covers ACs | Depends on |
 |---|---|---|---|---|
-| 1 | Guard the decision path (both accept points + real exit) in `scripts/session-self-exit.py`, harness fixtures for ACs 1-7 and 9 | 1-8, 10-11 | 1-7, 9 | — |
-| 2 | Doctrine + docs: `commands/session-close.md` Phase 4.5 registration precondition, new `docs/park-watches.md` store schema, `## Unreleased` bullet | 9 | 8 | prompt 1 |
+| 1 | Store reader + producer-presence check + fail-open, as its own function with unit-level shell coverage | 6, 8 | 5, 7 | — |
+| 2 | Guard both accept points and the live path in `scripts/session-self-exit.py` | 1-5, 7, 10-11 | 1-4, 6 | prompt 1 |
+| 3 | Harness: stub producer under a temp `CLAUDE_CONFIG_DIR`, fixtures for ACs 1-7 and 9, four parked fixtures gain a watch | — | 5, 9 | prompt 2 |
+| 4 | Doctrine + docs: `commands/session-close.md` Phase 4.5 registration precondition, new `docs/park-watches.md`, `## Unreleased` bullet | 9 | 8 | prompt 2 |
 
-Rationale: prompt 1 carries the behavioural change and its regression lock. Prompt 2 is doc-only and depends on prompt 1's final refusal wording.
+Rationale: prompt 1 establishes the store contract and its failure semantics in isolation; prompt 2 consumes it at both accept points; prompt 3 locks the behaviour down in the harness; prompt 4 is doc-only and needs prompt 2's final refusal wording.
 
-*Scope note: DBs × ACs = 11 × 9 = 99, over the 50 split-threshold. Not split deliberately — this is one behavioural rule tested from nine angles plus its doctrine half, not several features, and splitting it would produce two specs that cannot be verified independently.*
+*Scope note: DBs × ACs = 11 × 9 = 99, over the 50 split-threshold, and the work spans four layers. Kept as one spec because the four prompts are strictly ordered and share one behavioural rule; the decomposition above is what bounds the surface, not a second spec.*

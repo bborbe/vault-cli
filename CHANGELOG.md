@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.194.0
 
 - feat: `task work-on` treats an operator-set flag (`flag: true`, `flag_set_by` operator/legacy) as the approval — a flagged `phase: todo` task advances to `planning` with no `approved_*` write; an agent-set or unattributed flag is still refused
 

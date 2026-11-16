@@ -1,8 +1,6 @@
 ---
 status: draft
-spec: [041-bug-resume-races-live-headless-turn]
 created: "2026-11-15T22:20:00Z"
-branch: dark-factory/bug-resume-races-live-headless-turn
 ---
 
 # Report an expired defer_date on an in_progress task as EXPIRED_DEFER_DATE

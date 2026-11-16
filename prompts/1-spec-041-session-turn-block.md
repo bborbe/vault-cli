@@ -1,13 +1,13 @@
 ---
 spec: ["041-bug-resume-races-live-headless-turn"]
 status: draft
-created: "2026-09-30T07:13:46Z"
+created: "2026-11-17T00:20:00Z"
 ---
 
 # Confirm the non-interactive session start blocks until the headless turn exits (spec 041, prompt 1 of 3)
 
 <summary>
-- Confirms the non-interactive session start already blocks until the detached headless turn exits, instead of returning after a short window while the child keeps writing — so the Vault UI never offers Resume against a transcript another process is still writing. This half of the spec shipped and was never reverted.
+- Confirms the non-interactive session start already blocks until the detached headless turn exits instead of returning after a short window while the child keeps writing, so the Vault UI never offers Resume against a transcript another process is still writing. This half of the spec shipped and was never reverted.
 - Confirms the turn's JSON result is validated on both the interactive and non-interactive branches through one shared helper, so a zero-turn, errored, or unparseable turn is an error and persists nothing.
 - Confirms a child exit error, the 30-minute bound expiring, and context cancellation all return an error, and that the detached child survives the parent giving up — the bound is a wait, never a kill.
 - Confirms the interactive terminal branch, its 5-minute cap, and the resume scenario are unchanged.
@@ -26,14 +26,14 @@ Prove — and backfill the two gaps in — the already-shipped half of spec 041:
 <context>
 Read `CLAUDE.md` for project conventions.
 
-**Read this first — the spec's Design section is stale on two points.** `specs/in-progress/041-bug-resume-races-live-headless-turn.md` was written against v0.116.4. The `claude_session.go` half of it shipped and was then refined by spec 042 (per-session flock locker) and spec 045 (a validated turn result outranks a non-zero child exit). The spec's Design still quotes the pre-045 shapes — in particular its `validateSessionTurn` error strings and its bare `case exitErr := <-done:` handler. Those are superseded; see requirements 4 and 5. Do NOT "restore" them.
+**Read this first — the spec's Design section is stale on two points.** `specs/in-progress/041-bug-resume-races-live-headless-turn.md` was written against v0.116.4. The `claude_session.go` half of it shipped and was then refined by spec 042 (per-session flock locker) and spec 045 (a validated turn result outranks a non-zero child exit). The spec's Design still quotes the pre-045 shapes — in particular its `validateSessionTurn` error strings and its bare `case exitErr := <-done:` handler. Those are superseded; see requirements 4 and 6. Do NOT "restore" them.
 
 Read fully (in this order):
-- `pkg/ops/claude_session.go` — the whole file (364 lines). This is the file under test.
-- `pkg/ops/export_test.go` — the whole file (26 lines); it exposes the unexported constant.
-- `pkg/ops/claude_session_test.go` — the whole file (764 lines); the `Context("non-interactive branch", ...)` starts at line 256.
+- `pkg/ops/claude_session.go` — the whole file (364 lines). This is the file under test. `sessionTurnTimeout` is at line 50, `defaultDetachedRunner` at line 123, `runDetachedTurn` at line 233, `errClaudeOutputUnparseable` at line 317, `validateSessionTurn` at line 323.
+- `pkg/ops/export_test.go` — the whole file (32 lines); it exposes the unexported constant.
+- `pkg/ops/claude_session_test.go` — the whole file (764 lines); `Context("non-interactive branch", ...)` starts at line 256 and `Context("session lock lifecycle", ...)` at line 625. The "blocks until the detached child exits" spec is at line 327 and "wraps a spawn failure" at line 605.
 - `pkg/ops/claude_session_detach_test.go` — the whole file (60 lines); the detachment integration test.
-- `docs/work-on-session-lifecycle.md` — the durable design record this implementation realizes. Its task-path sections currently describe a pre-spawn write; fixing that is prompt 3's job — do NOT edit the doc here.
+- `docs/work-on-session-lifecycle.md` — the durable design record this implementation realizes. Its task-path sections still describe a pre-turn write; fixing that is prompt 3's job — do NOT edit the doc here.
 - `pkg/ops/workon_session_writeback_test.go` — read the task and goal `BeforeEach` blocks only, to see how a fake `detachRun` writes a valid turn JSON line to the caller-owned `stdout *os.File` before feeding `done`. That is the established fake shape.
 
 Coding-plugin docs (in-container paths):
@@ -42,6 +42,8 @@ Coding-plugin docs (in-container paths):
 - `/home/node/.claude/plugins/marketplaces/coding/docs/go-testing-guide.md` — Ginkgo v2 / Gomega conventions used by this repo.
 
 **`git` is MASKED in this container.** `.git` is a character device (`crw-rw-rw-`, pointing at `/dev/null`), so EVERY `git` invocation fails with `fatal: not a git repository`. There is no HEAD to diff against. The spec's AC10 guard `git diff --exit-code HEAD -- scenarios/005-work-on-resume-auto-invokes-subtask.md` therefore CANNOT run here and MUST NOT appear as a verification step — the daemon's executor does not check verification exit codes, so a failed git command would be silently recorded as a pass. Verify "scenario 005 is unchanged" with the content checksum in `<verification>` instead. The spec's `git` form stays a HOST/operator-side check (see the spec's Verification ladder); do not attempt it here.
+
+**The container's HTTP proxy breaks the suite's localhost probes.** `make test` run bare fails with `❌ stub attention store never answered on http://127.0.0.1:<port>` — the probe is routed through the session proxy and never reaches the loopback stub. That is an environment artifact, NOT a code failure: the identical tree passes when loopback is excluded. Every `make test` / `make precommit` invocation in this prompt's `<verification>` is therefore prefixed with `env NO_PROXY=127.0.0.1,localhost no_proxy=127.0.0.1,localhost`. Use that prefix; do not "fix" the probe script or the Makefile, and do not report the bare form's failure as a code problem.
 </context>
 
 <requirements>
@@ -66,14 +68,14 @@ The target state for this prompt ALREADY EXISTS in the tree. Your job is to read
    - A `defer` that both unlinks and closes the file (`_ = os.Remove(outFile.Name())` then `_ = outFile.Close()`), so no temp file survives ANY return path — including the cancel and timeout paths, where the still-running child holds the fd.
    - `done, err := c.detachRun(args, cwd, outFile)`; on error wrap with `"start detached claude session"`.
    - A waiter goroutine whose only send is `waitCh <- c.waiter.Wait(ctx, c.sessionTurnTimeout)`, on a `waitCh` buffered with capacity 1.
-   - A `select` over `done` and `waitCh`. The read of the output file MUST live inside the `done` branch and must NOT be hoisted above the `select` — on the timeout and cancellation paths the child is still running, so any bytes present are partial by definition and must never be validated as success. There is a unit test locking this ("fails on timeout even when a valid blob is already on disk"); keep it.
+   - A `select` over `done` and `waitCh`. The read of the output file MUST live inside the `done` branch and must NOT be hoisted above the `select` — on the timeout and cancellation paths the child is still running, so any bytes present are partial by definition and must never be validated as success. There is a unit test locking this ("fails on timeout even when a valid blob is already on disk", line 552); keep it.
 
 4. **Confirm the `done` branch's current (post-spec-045) shape — do NOT replace it with the spec's simpler form.** The spec's Design says a non-nil `exitErr` should immediately return `errors.Errorf(ctx, "claude session exited with error: %v", exitErr)`. That is NOT the shipped contract; spec 045 refined it so a validated turn result outranks a non-zero child exit. The shipped order is:
    - Read the file (`errors.Wrap(ctx, readErr, "read claude output")` on failure), then call `validateSessionTurn(ctx, output)`.
    - If validation returns nil → return nil. If `exitErr` is non-nil, log it (`slog.Warn("validated turn result overrides non-zero child exit", ...)`) rather than swallowing it silently.
    - If validation failed AND `exitErr != nil` AND `errors.Is(validateErr, errClaudeOutputUnparseable)` → return `errors.Errorf(ctx, "claude session exited with error: %v", exitErr)`. There is no usable result, so the child's exit status is the only reason that can be named.
    - Otherwise → if `exitErr != nil`, log it at `slog.Debug` (NOT `Warn` — spec 045 SC5: at Warn it became the first line of the Vault UI banner, ahead of the error itself), then return `validateErr` unwrapped so the child's own result text leads the message.
-   The sentinel `errClaudeOutputUnparseable` (`stderrors.New("claude output is not valid turn JSON")`) must exist and must remain the wrapped cause in the unparseable case, so `errors.Is` matches. Do not "simplify" this back to the spec's form.
+   The sentinel `errClaudeOutputUnparseable` (`stderrors.New("claude output is not valid turn JSON")`, imported as `stderrors "errors"`) must exist and must remain the wrapped cause in the unparseable case, so `errors.Is` matches. Do not "simplify" this back to the spec's form.
 
 5. **Confirm the `waitCh` branch — both outcomes are errors.** `err != nil` (context cancelled) → `errors.Wrap(ctx, err, "claude session wait cancelled")`. `err == nil` (the bound expired) → `errors.Errorf(ctx, "claude session turn did not complete within %v", c.sessionTurnTimeout)`. Returning nil on cancellation is WRONG: it would let the caller persist an id for a still-running child. The child survives detached either way — never SIGKILL it. The strings `"claude session start timed out"` and `"exited during startup"` must not exist anywhere in the repo.
 
@@ -95,72 +97,72 @@ The target state for this prompt ALREADY EXISTS in the tree. Your job is to read
    ```go
    const SessionTurnTimeout = sessionTurnTimeout
    ```
-   with a comment noting it is a test-only alias: asserting against it locks the WIRING (StartSession hands the constant, not a stray literal) but NOT the value, because a retune moves both sides — so tests must also assert the literal `30 * libtime.Minute`. The file must also carry `var DefaultSessionLockDir = defaultSessionLockDir` (spec 042's export) — that is expected; leave it untouched.
+   with a comment noting it is a test-only alias: asserting against it locks the WIRING (StartSession hands the constant, not a stray literal) but NOT the value, because a retune moves both sides — so tests must also assert the literal `30 * libtime.Minute`. The file also carries other unrelated exports (`DefaultSessionLockDir` from spec 042, `RollupFamilyName`, `RollupMedian`, `PersistGoalSessionID`, `PersistTopicSessionID`) — those are expected; leave them untouched.
 
 9. **Confirm the existing test matrix in `pkg/ops/claude_session_test.go`.** In `Context("non-interactive branch", ...)` confirm these specs exist and match:
-   - "blocks until the detached child exits" — a blocking waiter, `Consistently(returned, "100ms").ShouldNot(Receive())` before `doneCh <- nil`, then `Eventually(returned).Should(Receive(BeNil()))`; the waiter receives the bound through `windowCh` and it is asserted equal to BOTH `ops.SessionTurnTimeout` and `30 * libtime.Minute`.
+   - "blocks until the detached child exits" (line 327) — a blocking waiter, `Consistently(returned, "100ms").ShouldNot(Receive())` before `doneCh <- nil`, then `Eventually(returned).Should(Receive(BeNil()))`; the waiter receives the bound through `windowCh` and it is asserted equal to BOTH `ops.SessionTurnTimeout` and `30 * libtime.Minute`.
    - "passes the session id and name to the detached runner" — clean exit with valid JSON returns nil, and argv carries `--session-id`, `--print`, `-n`, the name, and the cwd.
    - "validates the turn and rejects a zero-turn result", "validates the turn and rejects an is_error result", "rejects an unparseable turn result".
    - "treats a child exit error as an error" — the error contains `"exit status 1"` AND `"exited with error"`. No assertion anywhere may still use `"exited during startup"`.
    - "returns nil when the child writes a valid blob and exits non-zero", "leads with the child's reason when a parsed blob reports is_error" / "... has zero turns" / "... has an empty session_id", "names the exit status when the output is non-empty but unparseable" — these are spec 045's precedence locks; leave them alone.
-   - "fails on timeout even when a valid blob is already on disk", "treats the turn timeout as an error so no id is persisted", "treats context cancellation as an error so no id is persisted" (asserting `"wait cancelled"`), "wraps a spawn failure" (asserting `"start detached claude session"`).
+   - "fails on timeout even when a valid blob is already on disk" (line 552), "treats the turn timeout as an error so no id is persisted", "treats context cancellation as an error so no id is persisted" (asserting `"wait cancelled"`), "wraps a spawn failure" (line 605, asserting `"start detached claude session"`).
    The interactive-branch tests above that context and the `Context("session lock lifecycle", ...)` below it (spec 042) must be left UNTOUCHED — they lock byte-identical strings and the lock contract.
 
-10. **BACKFILL — rename the test-local variable so AC1's pinned evidence grep matches.** In the "blocks until the detached child exits" spec, the local variable holding the received bound is named `window`. Rename ONLY that variable to `capturedWindow`, so the assertion line becomes exactly `Expect(capturedWindow).To(Equal(ops.SessionTurnTimeout))`:
-   ```go
-   // OLD
-   var window libtime.Duration
-   Expect(windowCh).To(Receive(&window))
-   // Locks the wiring: StartSession hands the constant, not a stray literal.
-   Expect(window).To(Equal(ops.SessionTurnTimeout))
-   // Locks the value: SessionTurnTimeout is an alias, so the line above moves
-   // with the constant and would survive any retune. This line is the one that
-   // fails when the bound is changed.
-   Expect(window).To(Equal(30 * libtime.Minute))
-   ```
-   ```go
-   // NEW
-   var capturedWindow libtime.Duration
-   Expect(windowCh).To(Receive(&capturedWindow))
-   // Locks the wiring: StartSession hands the constant, not a stray literal.
-   Expect(capturedWindow).To(Equal(ops.SessionTurnTimeout))
-   // Locks the value: SessionTurnTimeout is an alias, so the line above moves
-   // with the constant and would survive any retune. This line is the one that
-   // fails when the bound is changed.
-   Expect(capturedWindow).To(Equal(30 * libtime.Minute))
-   ```
-   Do NOT rename the `windowCh` CHANNEL, and do not touch any other identifier. Pure rename, zero behaviour change. This backfill exists only so the spec's AC1 evidence grep (`Expect(capturedWindow).To(Equal(ops.SessionTurnTimeout))`) resolves against the real file.
+10. **BACKFILL — rename the test-local variable so AC1's pinned evidence grep matches.** In the "blocks until the detached child exits" spec (line 327), the local variable holding the received bound is named `window` (declared at line 340). Rename ONLY that variable to `capturedWindow`, so the lines become exactly:
+    ```go
+    // OLD
+    var window libtime.Duration
+    Expect(windowCh).To(Receive(&window))
+    // Locks the wiring: StartSession hands the constant, not a stray literal.
+    Expect(window).To(Equal(ops.SessionTurnTimeout))
+    // Locks the value: SessionTurnTimeout is an alias, so the line above moves
+    // with the constant and would survive any retune. This line is the one that
+    // fails when the bound is changed.
+    Expect(window).To(Equal(30 * libtime.Minute))
+    ```
+    ```go
+    // NEW
+    var capturedWindow libtime.Duration
+    Expect(windowCh).To(Receive(&capturedWindow))
+    // Locks the wiring: StartSession hands the constant, not a stray literal.
+    Expect(capturedWindow).To(Equal(ops.SessionTurnTimeout))
+    // Locks the value: SessionTurnTimeout is an alias, so the line above moves
+    // with the constant and would survive any retune. This line is the one that
+    // fails when the bound is changed.
+    Expect(capturedWindow).To(Equal(30 * libtime.Minute))
+    ```
+    Do NOT rename the `windowCh` CHANNEL, and do not touch any other identifier. Pure rename, zero behaviour change. This backfill exists only so the spec's AC1 evidence grep (`Expect(capturedWindow).To(Equal(ops.SessionTurnTimeout))`) resolves against the real file.
 
-11. **BACKFILL — assert the temp output file is removed after a clean exit.** No existing test covers AC2's "the temp file is removed" half. Add ONE spec at the end of `Context("non-interactive branch", ...)` (after "wraps a spawn failure"). Capture the file's path from the `stdout *os.File` the fake receives — do NOT glob `os.TempDir()`, which is shared state and makes the assertion racy against any concurrent or leaked file. `validTurnJSON`, `blockWaiter`, `starter`, `ctx` and `locker` are all in scope there. Add exactly:
-   ```go
-   It("removes the temp output file after a clean exit", func() {
-       var outPath string
-       bw := blockWaiter
-       starter = ops.NewClaudeSessionStarterWithRunner(
-           "/usr/local/bin/claude",
-           nil,
-           func(_ []string, _ string, stdout *os.File) (<-chan error, error) {
-               outPath = stdout.Name()
-               if _, err := stdout.WriteString(validTurnJSON); err != nil {
-                   return nil, err
-               }
-               done := make(chan error, 1)
-               done <- nil
-               return done, nil
-           },
-           libtime.WaiterDurationFunc(func(_ context.Context, _ libtime.Duration) error {
-               <-bw
-               return nil
-           }),
-           locker,
-       )
-       Expect(starter.StartSession(ctx, "session-abc", "prompt", "/my/vault", "", false)).To(BeNil())
-       Expect(outPath).NotTo(BeEmpty())
-       _, statErr := os.Stat(outPath)
-       Expect(statErr).To(HaveOccurred())
-   })
-   ```
-   Notes: capture `bw := blockWaiter` spec-locally BEFORE the waiter closure reads it — `StartSession` can return via the child-exit branch while the waiter goroutine is still parked, so that goroutine outlives the spec and must not read a variable the next spec reassigns. The fake writes valid JSON and then feeds `done`, so the child-exit branch wins and the waiter goroutine stays parked until `DeferCleanup` closes `blockWaiter`. The eager unlink in `runDetachedTurn` runs before `StartSession` returns, so the `os.Stat` after the call must fail. No new import is needed — `os` is already imported.
+11. **BACKFILL — assert the temp output file is removed after a clean exit.** No existing test covers AC2's "the temp file is removed" half. Add ONE spec at the end of `Context("non-interactive branch", ...)` — after "wraps a spawn failure" (spans lines 605-622) and immediately before the context's closing `})` at line 623. Capture the file's path from the `stdout *os.File` the fake receives — do NOT glob `os.TempDir()`, which is shared state and makes the assertion racy against any concurrent or leaked file. `validTurnJSON`, `blockWaiter`, `starter`, `ctx` and `locker` are all in scope there. Add exactly:
+    ```go
+    It("removes the temp output file after a clean exit", func() {
+        var outPath string
+        bw := blockWaiter
+        starter = ops.NewClaudeSessionStarterWithRunner(
+            "/usr/local/bin/claude",
+            nil,
+            func(_ []string, _ string, stdout *os.File) (<-chan error, error) {
+                outPath = stdout.Name()
+                if _, err := stdout.WriteString(validTurnJSON); err != nil {
+                    return nil, err
+                }
+                done := make(chan error, 1)
+                done <- nil
+                return done, nil
+            },
+            libtime.WaiterDurationFunc(func(_ context.Context, _ libtime.Duration) error {
+                <-bw
+                return nil
+            }),
+            locker,
+        )
+        Expect(starter.StartSession(ctx, "session-abc", "prompt", "/my/vault", "", false)).To(BeNil())
+        Expect(outPath).NotTo(BeEmpty())
+        _, statErr := os.Stat(outPath)
+        Expect(statErr).To(HaveOccurred())
+    })
+    ```
+    Notes: capture `bw := blockWaiter` spec-locally BEFORE the waiter closure reads it — `StartSession` can return via the child-exit branch while the waiter goroutine is still parked, so that goroutine outlives the spec and must not read a variable the next spec reassigns. The fake writes valid JSON and then feeds `done`, so the child-exit branch wins and the waiter goroutine stays parked until `DeferCleanup` closes `blockWaiter`. The eager unlink in `runDetachedTurn`'s `defer` runs before `StartSession` returns, so the `os.Stat` after the call must fail. No new import is needed — `context`, `os` and `libtime` are already imported by this file, and `libtime.WaiterDurationFunc` is the real type in `github.com/bborbe/time` (`time_waiter-duration.go`), already used throughout this suite.
 
 12. **Confirm the detachment integration test.** `pkg/ops/claude_session_detach_test.go` must contain a spec ("child outlives a cancelled parent wait") that writes a real shell script (`#!/bin/sh\nsleep 6\ntouch <sentinel>`), cancels the context after ~500ms, asserts `StartSession` returns an error, asserts the sentinel does NOT exist yet, and then `Eventually(..., "20s", "200ms")` asserts the sentinel appears — proving the detached child survived the parent's cancelled wait. It constructs the starter with the two-argument form `ops.NewClaudeSessionStarter(script, ops.NewSessionLockerWithDir(lockDir))` (the locker is spec 042's; keep it). If the file or spec is missing, report `"status":"failed"` — do not re-implement from the spec, whose snippet uses a 12s script and a 1s cancel, neither of which matters to the invariant.
 
@@ -181,8 +183,9 @@ Failure-mode coverage carried by this prompt (spec's Failure Modes table): row 1
 - Error idiom: `errors.Wrapf(ctx, err, ...)` / `errors.Wrap(ctx, err, ...)` / `errors.Errorf(ctx, ...)` from `github.com/bborbe/errors`; no `fmt.Errorf`; no bare `return err`; no `context.Background()` in `pkg/`.
 - `sessionTurnTimeout` stays a tunable constant — do NOT add a config field (spec Non-goals and Open Question 1 both forbid it).
 - Do NOT alter error strings to satisfy a grep pattern. Three of the spec's evidence greps carry a literal double quote the source does not contain (see `<verification>`); the source strings are correct as written.
-- Do NOT touch `pkg/ops/workon.go`, `pkg/ops/goal_workon.go`, `pkg/ops/workon_test.go`, `pkg/ops/goal_workon_test.go`, `pkg/ops/workon_session_writeback_test.go`, or `docs/work-on-session-lifecycle.md` in this prompt — the caller-side reorder is prompt 2 and the doc reword is prompt 3.
+- Do NOT touch `pkg/ops/workon.go`, `pkg/ops/goal_workon.go`, `pkg/ops/topic_workon.go`, `pkg/ops/workon_test.go`, `pkg/ops/goal_workon_test.go`, `pkg/ops/workon_session_writeback_test.go`, or `docs/work-on-session-lifecycle.md` in this prompt — the caller-side reorder is prompt 2 and the doc reword is prompt 3.
 - Do NOT add a double-Start guard and do NOT add any config knob — both are spec Non-goals.
+- Do NOT edit `Makefile`, `scripts/*.sh`, or any test harness to work around the container proxy. Use the `env NO_PROXY=127.0.0.1,localhost no_proxy=127.0.0.1,localhost` prefix on `make` commands instead.
 - Existing tests must still pass.
 </constraints>
 
@@ -200,6 +203,7 @@ grep -c 'did not complete within' pkg/ops/claude_session.go                     
 grep -c 'num_turns: 0' pkg/ops/claude_session.go                                # >= 1 (AC3, real check)
 grep -c 'defaultCommandRunner' pkg/ops/claude_session.go                        # == 3 (AC10)
 grep -c 'context.WithTimeout' pkg/ops/claude_session.go                         # == 1 (AC10, interactive branch)
+grep -c 'errClaudeOutputUnparseable' pkg/ops/claude_session.go                  # >= 3 (declaration, wrapf cause, errors.Is check)
 ! grep -q 'exited during startup' pkg/ops/claude_session.go                     # AC4: absent
 ! grep -q 'claude session start timed out' pkg/ops/claude_session.go            # AC4: absent
 ! grep -rq 'livenessWindow' pkg/                                              # AC1: absent everywhere
@@ -217,8 +221,18 @@ must print `scenarios/005-work-on-resume-auto-invokes-subtask.md: OK`. Any edit 
 SYNTAX + TESTS:
 ```
 gofmt -e -l pkg/ops/claude_session.go pkg/ops/claude_session_test.go pkg/ops/export_test.go   # must list NO files
-make test                                                                                    # must exit 0
+env NO_PROXY=127.0.0.1,localhost no_proxy=127.0.0.1,localhost make test                        # must exit 0
 ```
 
-FULL GATE — `make precommit` at the repo root must exit 0. If it fails on something this prompt introduced, fix it and re-run only the failing target (`make lint`, `make gosec`, `make errcheck`, ...), then `make precommit` once more. This is the batch's authoritative full-gate check (AC13), which prompt 3 runs last; running it here as well keeps the tree green for prompt 2, which builds on it.
+FULL GATE — `env NO_PROXY=127.0.0.1,localhost no_proxy=127.0.0.1,localhost make precommit` at the repo root must exit 0. If it fails on something this prompt introduced, fix it and re-run only the failing target (`make lint`, `make gosec`, `make errcheck`, ...), then `make precommit` once more. This is the batch's authoritative full-gate check (AC13), which prompt 3 runs last; running it here as well keeps the tree green for prompt 2, which builds on it.
+
+A bare `make test` (without the `NO_PROXY` prefix) fails on `stub attention store never answered on http://127.0.0.1:<port>` because the container proxy intercepts loopback. That failure is an environment artifact and must not be reported as a code failure; always use the prefixed form above.
 </verification>
+
+<success-criteria>
+- Both backfill greps flip from 0 to at least 1, and no production behaviour changed.
+- Every other evidence grep in `<verification>` holds at its stated count.
+- `env NO_PROXY=127.0.0.1,localhost no_proxy=127.0.0.1,localhost make test` exits 0 and `make precommit` (same prefix) exits 0.
+- `scenarios/005-work-on-resume-auto-invokes-subtask.md` still matches its pinned sha256.
+- The completion report records the actual `make precommit` exit code and names which artifact satisfies each of spec 041 ACs 1-6 and 10.
+</success-criteria>

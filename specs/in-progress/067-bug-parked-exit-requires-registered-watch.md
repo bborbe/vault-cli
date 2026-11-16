@@ -1,6 +1,8 @@
 ---
-status: approved
+status: prompted
 approved: "2026-11-15T13:23:19Z"
+generating: "2026-11-16T23:17:31Z"
+prompted: "2026-11-16T23:24:24Z"
 branch: dark-factory/bug-parked-exit-requires-registered-watch
 ---
 

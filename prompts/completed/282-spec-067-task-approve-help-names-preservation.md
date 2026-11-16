@@ -1,10 +1,13 @@
 ---
-status: failed
+status: completed
 spec: [067-bug-task-approve-help-claims-fresh-approved-at]
+summary: Corrected `task approve --help` to state that an existing `approved_at` is preserved on re-approval, pinned the wording with a new `pkg/cli` help-text spec, and added the Unreleased changelog bullet
+execution_id: vault-cli-approve-help-exec-282-spec-067-task-approve-help-names-preservation
+dark-factory-version: v0.199.1
 created: "2026-11-16T17:58:02Z"
 queued: "2026-11-16T18:57:49Z"
-completed: "2026-11-16T19:29:10Z"
-lastFailReason: 'setup workflow: git fetch origin: fetch from origin: : context deadline exceeded'
+started: "2026-11-16T23:20:56Z"
+completed: "2026-11-16T23:25:51Z"
 ---
 
 # `task approve --help` states that an existing `approved_at` is preserved (spec 067)

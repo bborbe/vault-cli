@@ -8,6 +8,12 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat: report `EXPIRED_DEFER_DATE` when a task sits at `in_progress` with a past `defer_date`
+
+- feat: `ops.NewLintOperation` now takes a `libtime.CurrentDateTime` so the new rule's "today" is injectable
+
 ## v0.194.1
 
 - docs: `session-close` Phase 4.5 now teaches park registration — a session parking on a clock-bound wait must run `park-event.py register` (with `--task`, `--event` and `--recheck` set to the same `defer_date`) before parking, because the park-due step reads registered watches only and never looks at `defer_date`, so a park with no watch is a session nothing wakes

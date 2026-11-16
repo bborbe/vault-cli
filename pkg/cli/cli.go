@@ -674,7 +674,8 @@ func createValidateCommand(
 			}
 
 			// Validate the task file
-			lintOp := ops.NewLintOperation()
+			currentDateTime := libtime.NewCurrentDateTime()
+			lintOp := ops.NewLintOperation(currentDateTime)
 			issues, err := lintOp.ExecuteFile(
 				ctx,
 				ops.PageTypeTask,
@@ -718,7 +719,8 @@ func createGenericLintCommand(
 				}
 
 				storageConfig := storage.NewConfigFromVault(vault)
-				lintOp := ops.NewLintOperation()
+				currentDateTime := libtime.NewCurrentDateTime()
+				lintOp := ops.NewLintOperation(currentDateTime)
 				issues, err := lintOp.Execute(
 					ctx,
 					pageType,

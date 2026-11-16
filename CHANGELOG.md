@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.194.1
 
 - docs: `session-close` Phase 4.5 now teaches park registration — a session parking on a clock-bound wait must run `park-event.py register` (with `--task`, `--event` and `--recheck` set to the same `defer_date`) before parking, because the park-due step reads registered watches only and never looks at `defer_date`, so a park with no watch is a session nothing wakes
 

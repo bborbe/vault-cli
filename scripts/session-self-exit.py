@@ -507,6 +507,114 @@ def page_verdict(kind: str, meta: dict[str, str], now: datetime) -> tuple[bool, 
     )
 
 
+def claude_root() -> str:
+    """The resolved `~/.claude` root — the same rule this repo's path helpers use.
+
+    The park *producer* lives under it; the park *store* does not (see
+    `park_store_dir`). Resolving the producer through `CLAUDE_CONFIG_DIR` is what
+    makes a verify or fleet session read the plugin cache it actually loads.
+    """
+    return os.environ.get("CLAUDE_CONFIG_DIR") or os.path.expanduser("~/.claude")
+
+
+def park_producer() -> str | None:
+    """`claude-supervisor`'s `park-event.py` under the resolved plugin cache, or None.
+
+    Its presence is the fail-open key: on a host where the producer is not
+    installed no park watch can be registered, so refusing there would block
+    every park on a mechanism the host does not have. Readability of the store is
+    deliberately NOT the test — a stale store directory outlives its plugin, and
+    keying on it would silently disable the guard.
+    """
+    cache = os.path.join(claude_root(), "plugins", "cache", "claude-supervisor")
+    hits = sorted(glob.glob(os.path.join(cache, "*", "*", "scripts", "park-event.py")))
+    return hits[0] if hits else None
+
+
+def park_store_dir() -> str:
+    """The park-watch store, fixed by its producer.
+
+    Deliberately NOT derived from `CLAUDE_CONFIG_DIR`, unlike `claude_root`:
+    `park-event.py` honours only `$PARK_EVENT_STATE_DIR` and `Path.home()`, so a
+    store derived from the config dir would read an empty directory under every
+    verify session and refuse parks that are in fact registered.
+    """
+    raw = (os.environ.get("PARK_EVENT_STATE_DIR") or "").strip()
+    if raw:
+        return raw
+    return os.path.join(os.path.expanduser("~"), ".claude", "state", "park-events")
+
+
+def watched_session(sid: str) -> tuple[bool, str]:
+    """Whether a registered park watch names this session — and the note to print.
+
+    Read-only: the store is read as files, never written, and `park-event.py` is
+    never imported or shelled out to. vault-cli and claude-supervisor are
+    separately installed plugins, and this script must keep working when the
+    other is absent. Record schema and its failure modes: `docs/park-watches.md`.
+    """
+    if park_producer() is None:
+        return True, (
+            f"claude-supervisor's park-event.py is not installed under {claude_root()}"
+            "/plugins/cache/claude-supervisor — no park watch can be registered on this host,"
+            " so the park guard fails open"
+        )
+    store = park_store_dir()
+    try:
+        names = sorted(os.listdir(store))
+    except OSError:
+        # An absent store is "no watch", never "fail open": a fresh install
+        # creates the directory on the first `register`, and conflating the two
+        # would let every host whose store was never created bypass the guard.
+        names = []
+    watched = False
+    warnings: list[str] = []
+    for name in names:
+        if not name.endswith(".json"):
+            # `*.lock` files are normal during a concurrent `register`; ignoring
+            # them silently is the documented behaviour, not an oversight.
+            continue
+        path = os.path.join(store, name)
+        try:
+            with open(path, encoding="utf-8") as handle:
+                record = json.load(handle)
+        except (OSError, ValueError):
+            warnings.append(f"park watch {path} is unreadable or malformed — skipped")
+            continue
+        if not isinstance(record, dict) or "sessions" not in record:
+            warnings.append(f"park watch {path} carries no `sessions` key — not a watch")
+            continue
+        members = record.get("sessions")
+        if not isinstance(members, list):
+            warnings.append(f"park watch {path} has a non-list `sessions` value — not a watch")
+            continue
+        if sid in members:
+            watched = True
+    for warning in warnings:
+        print(f"WARN: {warning}", file=sys.stderr)
+    if watched:
+        return True, ""
+    return False, (
+        f"no registered park watch names session {sid} — a park with no watch never wakes;"
+        " register one with `park-event.py register` (see docs/park-watches.md)"
+    )
+
+
+def park_guard(sid: str, label: str, verdict: str) -> str | None:
+    """None when the park may proceed, else the refusal reason.
+
+    Placed on the decision path in `main`, so the real exit is guarded exactly as
+    the `--dry-run` is — a guard in the dry-run branch alone would let the live
+    path park silently.
+    """
+    allowed, note = watched_session(sid)
+    if not allowed:
+        return f"{label}: {verdict}, but {note}"
+    if note:
+        print(f"WARN: {note}", file=sys.stderr)
+    return None
+
+
 def store_url() -> str:
     return (os.environ.get("ATTENTION_STORE_URL") or "http://localhost:18080").rstrip("/")
 
@@ -682,6 +790,10 @@ def main() -> int:
         )
         if not terminal:
             return refuse(f"{os.path.basename(path)}: {verdict}")
+        if verdict.startswith("parked until"):
+            refused = park_guard(sid, os.path.basename(path), verdict)
+            if refused:
+                return refuse(refused)
         reason = f"{os.path.basename(path)} is {verdict}"
     else:
         # No held task. A task matched only through `metrics_sessions` (handed
@@ -712,6 +824,10 @@ def main() -> int:
             closable, verdict = page_verdict(kind, meta, now)
             if not closable:
                 return refuse(f"{kind} {path}: {verdict}")
+            if verdict.startswith("parked until"):
+                refused = park_guard(sid, f"{kind} {path}", verdict)
+                if refused:
+                    return refuse(refused)
             verdicts.append(f"{kind} {path} is {verdict}")
         if verdicts:
             reason = "; ".join(verdicts) + f" (session {sid})"

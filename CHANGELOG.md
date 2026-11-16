@@ -8,6 +8,14 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## v0.194.2
+
+- fix: `session-self-exit.py` refuses to exit a parked session unless a registered park watch names it — a park with no watch never wakes, so the exit is refused with a message naming the session and the missing watch. Fail-open is keyed on the park producer's presence, never on the store's readability; see `docs/park-watches.md`
+
+## v0.194.1
+
+- docs: `session-close` Phase 4.5 now teaches park registration — a session parking on a clock-bound wait must run `park-event.py register` (with `--task`, `--event` and `--recheck` set to the same `defer_date`) before parking, because the park-due step reads registered watches only and never looks at `defer_date`, so a park with no watch is a session nothing wakes
+
 ## v0.194.0
 
 - feat: `task work-on` treats an operator-set flag (`flag: true`, `flag_set_by` operator/legacy) as the approval — a flagged `phase: todo` task advances to `planning` with no `approved_*` write; an agent-set or unattributed flag is still refused

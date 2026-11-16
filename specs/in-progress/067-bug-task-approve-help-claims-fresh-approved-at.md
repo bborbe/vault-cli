@@ -1,6 +1,8 @@
 ---
-status: approved
+status: prompted
 approved: "2026-11-15T11:42:54Z"
+generating: "2026-11-16T18:56:17Z"
+prompted: "2026-11-16T18:56:17Z"
 branch: dark-factory/bug-task-approve-help-claims-fresh-approved-at
 ---
 

@@ -149,13 +149,12 @@ No session exits "parked" unless a registered watch names it — on any host whe
 
 ## Suggested Decomposition
 
+**One prompt, deliberately.** dark-factory assigns prompt numbers at normalisation time by sorting *unprefixed* filenames alphabetically (`pkg/prompt/normalize.go:61-63`, `findNextAvailableNumber` at `:181`) and executes them in ascending number order, gating each on every lower-numbered prompt of the same spec (`AllPreviousInSpecCompleted`, `pkg/prompt/prompt.go:1098`); `docs/claude-md-guide.md:104` forbids numbering the filenames yourself. The slug is chosen by the generator, so a multi-prompt split **cannot** be made to sort in dependency order. Observed 2026-11-16: the generator emitted `spec-067-docs-changelog`, `spec-067-park-watch-fixtures`, `spec-067-park-watch-guard`, which normalised to 282/283/284 and ran **docs → fixtures → guard**. The docs prompt failed on a verification that needs the guard's output, and the other two blocked behind it (`previous-prompt-not-completed missing=282`). Splitting this spec is therefore unsafe, not merely unnecessary.
+
 | # | Prompt focus | Covers DBs | Covers ACs | Depends on |
 |---|---|---|---|---|
-| 1 | Store reader + producer-presence check + fail-open, as its own function with unit-level shell coverage | 6, 8 | 5, 7 | — |
-| 2 | Guard both accept points and the live path in `scripts/session-self-exit.py` | 1-5, 7, 10-11 | 1-4, 6 | prompt 1 |
-| 3 | Harness: stub producer under a temp `CLAUDE_CONFIG_DIR`, fixtures for ACs 1-7 and 9, four parked fixtures gain a watch | — | 5, 9 | prompt 2 |
-| 4 | Doctrine + docs: `commands/session-close.md` Phase 4.5 registration precondition, new `docs/park-watches.md`, `## Unreleased` bullet | 9 | 8 | prompt 2 |
+| 1 | The whole change in one prompt: the store reader + producer-presence check + fail-open as its own function; wire both accept points and the live path in `scripts/session-self-exit.py`; the harness stub producer and its fixtures; the `commands/session-close.md` Phase 4.5 registration precondition; the new `docs/park-watches.md` and the code reference to it; the `## Unreleased` bullet | 1-11 | 1-9 | — |
 
-Rationale: prompt 1 establishes the store contract and its failure semantics in isolation; prompt 2 consumes it at both accept points; prompt 3 locks the behaviour down in the harness; prompt 4 is doc-only and needs prompt 2's final refusal wording.
+Rationale: the ordering constraint above makes a single prompt the only shape this pipeline can execute correctly. Everything it carries is one behavioural rule — a park is refused unless a watch names the session — and the fixtures, the doctrine line and the docs page all describe that same rule.
 
-*Scope note: DBs × ACs = 11 × 9 = 99, over the 50 split-threshold, and the work spans four layers. Kept as one spec because the four prompts are strictly ordered and share one behavioural rule; the decomposition above is what bounds the surface, not a second spec.*
+*Scope note: DBs × ACs = 11 × 9 = 99, over the 50 split-threshold. **Not split:** the pipeline orders prompts alphabetically by generated slug, so a split deadlocks exactly as the first attempt did. The bounded surface is one file plus its harness and its docs page, not a second spec.*

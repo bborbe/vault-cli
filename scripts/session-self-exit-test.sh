@@ -37,6 +37,35 @@ GOALS="$TMP/goals"
 TOPICS="$TMP/topics"
 mkdir -p "$TASKS" "$SESSIONS" "$STATE" "$GOALS" "$TOPICS" "$TMP/store/api/1.0"
 
+# The park-watch producer and its store. The guard fails OPEN when
+# `park-event.py` is absent, so every fixture that must be refused needs a stub
+# producer under `CLAUDE_CONFIG_DIR` — the YOLO container has none, and a fixture
+# that relied on the host's copy would pass there by fail-open while refusing here.
+PLUGROOT="$TMP/plugroot"
+PARKSTORE="$TMP/park-events"
+NOWATCH="$TMP/park-events-other"
+EMPTYSTORE="$TMP/park-events-empty"
+BADSTORE="$TMP/park-events-bad"
+NOPRODUCER="$TMP/noproducer"
+mkdir -p "$PLUGROOT/plugins/cache/claude-supervisor/supervisor/0.0.0/scripts" \
+	"$PARKSTORE" "$NOWATCH" "$EMPTYSTORE" "$BADSTORE" "$NOPRODUCER" "$TMP/home"
+: > "$PLUGROOT/plugins/cache/claude-supervisor/supervisor/0.0.0/scripts/park-event.py"
+
+park_watch() { # park_watch <file> <session...> — one store record naming these sessions
+	local file=$1
+	shift
+	python3 - "$file" "$@" <<'PY'
+import json, sys
+path, sessions = sys.argv[1], sys.argv[2:]
+with open(path, "w", encoding="utf-8") as handle:
+    json.dump({"event": "test-event", "sessions": sessions}, handle)
+PY
+}
+
+# A watch naming this session (the positive control) and one naming only another
+# session (the negative control: an unrelated watch must not satisfy the guard).
+# Populated next to $OTHER below, which the second record needs.
+
 # A live tab session: registry pid 4242 runs on ttys777, the tty WezTerm lists
 # for pane 777. The tty match, not the registry entry, proves the pane is owned.
 cat > "$SESSIONS/4242.json" <<EOF
@@ -191,6 +220,7 @@ run() { # run <want-exit> <label> [extra env...]
 	shift 2
 	local got=0
 	env -i PATH="$PATH" \
+		HOME="$TMP/home" CLAUDE_CONFIG_DIR="$PLUGROOT" PARK_EVENT_STATE_DIR="$PARKSTORE" \
 		SESSION_ID="$SID" SESSIONS_DIR="$SESSIONS" TASKS_ROOTS="$TASKS" GOALS_ROOTS="$GOALS" TOPICS_ROOTS="$TOPICS" \
 		WEZTERM_PANE=777 WEZTERM_PANES_FILE="$PANES" PID_TTY_FILE="$PIDTTY" ATTENTION_STORE_URL="$STORE_URL" ATTENTION_STATE_DIR="$STATE" "$@" \
 		python3 "$SCRIPT" --dry-run > "$TMP/out" 2>&1 || got=$?
@@ -207,6 +237,7 @@ run_msg() { # run_msg <want-exit> <label> <expected-substring> [extra env...]
 	shift 3
 	local got=0
 	env -i PATH="$PATH" \
+		HOME="$TMP/home" CLAUDE_CONFIG_DIR="$PLUGROOT" PARK_EVENT_STATE_DIR="$PARKSTORE" \
 		SESSION_ID="$SID" SESSIONS_DIR="$SESSIONS" TASKS_ROOTS="$TASKS" GOALS_ROOTS="$GOALS" TOPICS_ROOTS="$TOPICS" \
 		WEZTERM_PANE=777 WEZTERM_PANES_FILE="$PANES" PID_TTY_FILE="$PIDTTY" ATTENTION_STORE_URL="$STORE_URL" ATTENTION_STATE_DIR="$STATE" "$@" \
 		python3 "$SCRIPT" --dry-run > "$TMP/out" 2>&1 || got=$?
@@ -223,6 +254,7 @@ run_live() { # run_live <want-exit> <label> [extra env...] — exercises the kil
 	shift 2
 	local got=0
 	env -i PATH="$TMP/bin:$PATH" \
+		HOME="$TMP/home" CLAUDE_CONFIG_DIR="$PLUGROOT" PARK_EVENT_STATE_DIR="$PARKSTORE" \
 		SESSION_ID="$SID" SESSIONS_DIR="$SESSIONS" TASKS_ROOTS="$TASKS" GOALS_ROOTS="$GOALS" TOPICS_ROOTS="$TOPICS" \
 		WEZTERM_PANE=777 WEZTERM_PANES_FILE="$PANES" PID_TTY_FILE="$PIDTTY" ATTENTION_STORE_URL="$STORE_URL" ATTENTION_STATE_DIR="$STATE" "$@" \
 		python3 "$SCRIPT" > "$TMP/out" 2>&1 || got=$?
@@ -264,6 +296,20 @@ run 0 "aborted exits even with open boxes"
 
 # --- positive path: handed off to another session
 OTHER=99999999-8888-7777-6666-555555555555
+
+# The park-watch store records. A watch naming this session (the positive
+# control) and one naming only another session (the negative control: an
+# unrelated watch must not satisfy the guard). Plus a malformed record, a
+# schema-drift record and three lock files beside a valid one — the valid record
+# must still be found, and each bad file warned about exactly once.
+park_watch "$PARKSTORE/watched.json" "$SID"
+park_watch "$NOWATCH/other.json" "$OTHER"
+printf '{"sessions": [\n' > "$BADSTORE/broken.json"
+printf '{"event": "drifted"}\n' > "$BADSTORE/drifted.json"
+: > "$BADSTORE/watched.json.lock"
+: > "$BADSTORE/broken.json.lock"
+: > "$BADSTORE/other.json.lock"
+park_watch "$BADSTORE/watched.json" "$SID"
 handed_off_task in_progress execution "$OTHER"
 run_msg 0 "handed-off session exits while the task is still in progress" "SELF-EXIT: exit — handed off to $OTHER"
 
@@ -312,6 +358,68 @@ run_msg 10 "in_progress refuses" "task status is in_progress, not completed or a
 # --- positive path: the park shape — in_progress with a future defer_date
 deferred_task in_progress execution "$FUTURE"
 run_msg 0 "in_progress with a future defer_date exits" "SELF-EXIT: exit — Anchor.md is parked until $FUTURE"
+
+# --- the guard: a park with no registered watch is refused, at both accept points
+# SC3. Without this the session exits into silence and nothing ever wakes it.
+deferred_task in_progress execution "$FUTURE"
+run_msg 10 "an unwatched task park refuses" "no registered park watch names session $SID" \
+	CLAUDE_CONFIG_DIR="$PLUGROOT" PARK_EVENT_STATE_DIR="$EMPTYSTORE"
+
+# An absent store is "no watch", never "fail open" — a fresh install creates the
+# directory on the first register, so conflating the two would bypass the guard.
+deferred_task in_progress execution "$FUTURE"
+run_msg 10 "a missing store directory refuses, never fails open" "no registered park watch names session $SID" \
+	CLAUDE_CONFIG_DIR="$PLUGROOT" PARK_EVENT_STATE_DIR="$TMP/no-such-store"
+
+# SC3's negative control: a valid watch naming a DIFFERENT session does not count.
+deferred_task in_progress execution "$FUTURE"
+run_msg 10 "a watch for another session does not count" "no registered park watch names session $SID" \
+	CLAUDE_CONFIG_DIR="$PLUGROOT" PARK_EVENT_STATE_DIR="$NOWATCH"
+
+# SC2's positive control, and the tolerance rule: one malformed record, one
+# schema-drift record and three lock files beside the valid one must neither
+# break the guard nor hide the watch that names this session.
+deferred_task in_progress execution "$FUTURE"
+run_msg 0 "a watch naming the session survives malformed records and lock files" "parked until $FUTURE" \
+	CLAUDE_CONFIG_DIR="$PLUGROOT" PARK_EVENT_STATE_DIR="$BADSTORE"
+for bad in broken.json drifted.json; do
+	if [ "$(grep -c "$bad" "$TMP/out")" -eq 1 ]; then
+		pass=$((pass + 1))
+	else
+		fail=$((fail + 1))
+		echo "❌ a malformed store file is warned about exactly once: $bad — $(cat "$TMP/out")" >&2
+	fi
+done
+if grep -q 'lock' "$TMP/out"; then
+	fail=$((fail + 1))
+	echo "❌ lock files are ignored silently — $(cat "$TMP/out")" >&2
+else
+	pass=$((pass + 1))
+fi
+
+# The guard is on the decision path, not the --dry-run branch: the real exit
+# (no --dry-run, kill-pane reachable) must refuse identically. run_live asserts
+# only the exit code, so the message check has to be that explicit grep.
+deferred_task in_progress execution "$FUTURE"
+run_live 10 "the live exit path is guarded too" \
+	CLAUDE_CONFIG_DIR="$PLUGROOT" PARK_EVENT_STATE_DIR="$EMPTYSTORE"
+if grep -qF 'SELF-EXIT: stay' "$TMP/out"; then
+	pass=$((pass + 1))
+else
+	fail=$((fail + 1))
+	echo "❌ the live exit path prints the refusal — $(cat "$TMP/out")" >&2
+fi
+
+# --- fail-open is keyed on the PRODUCER's presence, never the store's readability
+# (a) CLAUDE_CONFIG_DIR resolves to a root whose plugin cache has no park-event.py
+deferred_task in_progress execution "$FUTURE"
+run_msg 0 "no producer under CLAUDE_CONFIG_DIR fails open" "park guard fails open" \
+	CLAUDE_CONFIG_DIR="$NOPRODUCER" PARK_EVENT_STATE_DIR="$PARKSTORE"
+# (b) the container's shape: CLAUDE_CONFIG_DIR unset, the root derived from HOME
+mkdir -p "$TMP/emptyhome"
+deferred_task in_progress execution "$FUTURE"
+run_msg 0 "no producer under a HOME-only root fails open" "park guard fails open" \
+	HOME="$TMP/emptyhome" CLAUDE_CONFIG_DIR=
 
 # --- negative path: a headless SDK query has no pane of its own
 # It inherits its spawner's $WEZTERM_PANE, so the park branch must not accept it
@@ -566,6 +674,9 @@ for kind in goal topic; do
 	run_msg 0 "$kind: a handed-over $kind exits while still in_progress" "SELF-EXIT: exit — $kind $dir/Anchor Page.md handed off to $OTHER (session $SID)"
 	page "$dir" in_progress "$SID" "$FUTURE"
 	run_msg 0 "$kind: a $kind parked on a future defer_date exits" "parked until $FUTURE"
+	page "$dir" in_progress "$SID" "$FUTURE"
+	run_msg 10 "$kind: an unwatched park refuses" "no registered park watch names session $SID" \
+		CLAUDE_CONFIG_DIR="$PLUGROOT" PARK_EVENT_STATE_DIR="$EMPTYSTORE"
 	page "$dir" in_progress "$SID" "$PAST"
 	run_msg 10 "$kind: an elapsed defer_date refuses" "has already elapsed"
 	page "$dir" in_progress "$SID" "$TOMORROW"

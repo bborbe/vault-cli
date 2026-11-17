@@ -574,11 +574,11 @@ func (l *lintOperation) parseMultilineGoalsList(
 
 // extractGoalName strips wikilink brackets and whitespace from a goal name.
 //
-// It also unescapes YAML single-quote doubling: a single-quoted YAML scalar
-// escapes `'` as `''`, so `- '[[attention-controller Is the Fleet''s Single
-// Source of Session State]]'` must resolve to the goal file `attention-controller
-// Is the Fleet's Single Source of Session State.md`. Without the unescape the
-// lookup misses and ORPHAN_GOAL fires falsely.
+// It also unescapes YAML single-quote doubling. A single-quoted YAML scalar
+// represents one apostrophe as two consecutive apostrophes, so a goal name that
+// contains an apostrophe (for example "attention-controller Is the Fleet's
+// Single Source of Session State") is written doubled in the frontmatter.
+// Without the unescape the file lookup misses and ORPHAN_GOAL fires falsely.
 func (l *lintOperation) extractGoalName(raw string) string {
 	goalName := strings.TrimPrefix(raw, "[[")
 	goalName = strings.TrimSuffix(goalName, "]]")

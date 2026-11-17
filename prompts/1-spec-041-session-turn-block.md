@@ -1,7 +1,7 @@
 ---
 spec: ["041-bug-resume-races-live-headless-turn"]
 status: draft
-created: "2026-11-16T01:05:49Z"
+created: "2026-09-30T07:13:46Z"
 ---
 
 # Confirm the non-interactive session start blocks until the headless turn exits (spec 041, prompt 1 of 3)
@@ -30,7 +30,7 @@ Read `CLAUDE.md` for project conventions.
 
 Read fully (in this order):
 - `pkg/ops/claude_session.go` — the whole file (364 lines). This is the file under test.
-- `pkg/ops/export_test.go` — the whole file (32 lines); it exposes the unexported constant plus the spec 042 / goal-topic test aliases.
+- `pkg/ops/export_test.go` — the whole file (26 lines); it exposes the unexported constant.
 - `pkg/ops/claude_session_test.go` — the whole file (764 lines); the `Context("non-interactive branch", ...)` starts at line 256.
 - `pkg/ops/claude_session_detach_test.go` — the whole file (60 lines); the detachment integration test.
 - `docs/work-on-session-lifecycle.md` — the durable design record this implementation realizes. Its task-path sections currently describe a pre-spawn write; fixing that is prompt 3's job — do NOT edit the doc here.
@@ -59,7 +59,7 @@ The target state for this prompt ALREADY EXISTS in the tree. Your job is to read
    ```go
    func defaultDetachedRunner(args []string, dir string, stdout *os.File) (<-chan error, error)
    ```
-   It must use `exec.Command` (NOT `exec.CommandContext`), set `cmd.Stdout = stdout` and never close that caller-owned file, set `cmd.Stderr` to a handle opened with `os.OpenFile(os.DevNull, os.O_WRONLY, 0)` (closed inside the reaper goroutine only after the child exits), set `cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}`, emit the spawn audit log line (`slog.Info("claude detached spawn started", ...)` with the pid), and return a `done` channel buffered with capacity 1 that receives `cmd.Wait()`'s error from a reaper goroutine. `exec.CommandContext` must not appear in this function. (`exec.CommandContext` DOES appear exactly once in the file — inside `defaultCommandRunner`, the interactive runner. That is correct and must stay.)
+   It must use `exec.Command` (NOT `exec.CommandContext`), set `cmd.Stdout = stdout` and never close that caller-owned file, set `cmd.Stderr` to a handle opened with `os.OpenFile(os.DevNull, os.O_WRONLY, 0)` (closed inside the reaper goroutine only after the child exits), set `cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}`, emit the spawn audit log line (`slog.Info("claude detached spawn started", ...)` with the pid), and return a `done` channel buffered with capacity 1 that receives `cmd.Wait()`'s error from a reaper goroutine. `exec.CommandContext` must not appear in this function.
 
 3. **Confirm the non-interactive branch delegates to `runDetachedTurn`.** `StartSession`'s `if !isInteractive` path must return `c.runDetachedTurn(ctx, args, cwd)`, and `runDetachedTurn` must do, in order:
    - `outFile, err := os.CreateTemp("", "vault-claude-session-*.json")`; on error wrap with `"create claude output file"`.
@@ -95,7 +95,7 @@ The target state for this prompt ALREADY EXISTS in the tree. Your job is to read
    ```go
    const SessionTurnTimeout = sessionTurnTimeout
    ```
-   with a comment noting it is a test-only alias: asserting against it locks the WIRING (StartSession hands the constant, not a stray literal) but NOT the value, because a retune moves both sides — so tests must also assert the literal `30 * libtime.Minute`. The file also carries `DefaultSessionLockDir` (spec 042), `RollupFamilyName`, `RollupMedian`, `PersistGoalSessionID` and `PersistTopicSessionID` (later specs' test aliases). Those are expected; leave them untouched.
+   with a comment noting it is a test-only alias: asserting against it locks the WIRING (StartSession hands the constant, not a stray literal) but NOT the value, because a retune moves both sides — so tests must also assert the literal `30 * libtime.Minute`. The file must also carry `var DefaultSessionLockDir = defaultSessionLockDir` (spec 042's export) — that is expected; leave it untouched.
 
 9. **Confirm the existing test matrix in `pkg/ops/claude_session_test.go`.** In `Context("non-interactive branch", ...)` confirm these specs exist and match:
    - "blocks until the detached child exits" — a blocking waiter, `Consistently(returned, "100ms").ShouldNot(Receive())` before `doneCh <- nil`, then `Eventually(returned).Should(Receive(BeNil()))`; the waiter receives the bound through `windowCh` and it is asserted equal to BOTH `ops.SessionTurnTimeout` and `30 * libtime.Minute`.
@@ -131,7 +131,7 @@ The target state for this prompt ALREADY EXISTS in the tree. Your job is to read
    ```
    Do NOT rename the `windowCh` CHANNEL, and do not touch any other identifier. Pure rename, zero behaviour change. This backfill exists only so the spec's AC1 evidence grep (`Expect(capturedWindow).To(Equal(ops.SessionTurnTimeout))`) resolves against the real file.
 
-11. **BACKFILL — assert the temp output file is removed after a clean exit.** No existing test covers AC2's "the temp file is removed" half. Add ONE spec at the end of `Context("non-interactive branch", ...)` (after "wraps a spawn failure", which is the last spec before that context's closing brace). Capture the file's path from the `stdout *os.File` the fake receives — do NOT glob `os.TempDir()`, which is shared state and makes the assertion racy against any concurrent or leaked file. `validTurnJSON`, `blockWaiter`, `starter`, `ctx` and `locker` are all in scope there. Add exactly:
+11. **BACKFILL — assert the temp output file is removed after a clean exit.** No existing test covers AC2's "the temp file is removed" half. Add ONE spec at the end of `Context("non-interactive branch", ...)` (after "wraps a spawn failure"). Capture the file's path from the `stdout *os.File` the fake receives — do NOT glob `os.TempDir()`, which is shared state and makes the assertion racy against any concurrent or leaked file. `validTurnJSON`, `blockWaiter`, `starter`, `ctx` and `locker` are all in scope there. Add exactly:
    ```go
    It("removes the temp output file after a clean exit", func() {
        var outPath string
@@ -160,7 +160,7 @@ The target state for this prompt ALREADY EXISTS in the tree. Your job is to read
        Expect(statErr).To(HaveOccurred())
    })
    ```
-   Notes: capture `bw := blockWaiter` spec-locally BEFORE the waiter closure reads it — `StartSession` can return via the child-exit branch while the waiter goroutine is still parked, so that goroutine outlives the spec and must not read a variable the next spec reassigns. The fake writes valid JSON and then feeds `done`, so the child-exit branch wins and the waiter goroutine stays parked until `DeferCleanup` closes `blockWaiter`. The eager unlink in `runDetachedTurn` runs before `StartSession` returns, so the `os.Stat` after the call must fail. No new import is needed — `os` and `libtime` are already imported.
+   Notes: capture `bw := blockWaiter` spec-locally BEFORE the waiter closure reads it — `StartSession` can return via the child-exit branch while the waiter goroutine is still parked, so that goroutine outlives the spec and must not read a variable the next spec reassigns. The fake writes valid JSON and then feeds `done`, so the child-exit branch wins and the waiter goroutine stays parked until `DeferCleanup` closes `blockWaiter`. The eager unlink in `runDetachedTurn` runs before `StartSession` returns, so the `os.Stat` after the call must fail. No new import is needed — `os` is already imported.
 
 12. **Confirm the detachment integration test.** `pkg/ops/claude_session_detach_test.go` must contain a spec ("child outlives a cancelled parent wait") that writes a real shell script (`#!/bin/sh\nsleep 6\ntouch <sentinel>`), cancels the context after ~500ms, asserts `StartSession` returns an error, asserts the sentinel does NOT exist yet, and then `Eventually(..., "20s", "200ms")` asserts the sentinel appears — proving the detached child survived the parent's cancelled wait. It constructs the starter with the two-argument form `ops.NewClaudeSessionStarter(script, ops.NewSessionLockerWithDir(lockDir))` (the locker is spec 042's; keep it). If the file or spec is missing, report `"status":"failed"` — do not re-implement from the spec, whose snippet uses a 12s script and a 1s cancel, neither of which matters to the invariant.
 
@@ -181,7 +181,7 @@ Failure-mode coverage carried by this prompt (spec's Failure Modes table): row 1
 - Error idiom: `errors.Wrapf(ctx, err, ...)` / `errors.Wrap(ctx, err, ...)` / `errors.Errorf(ctx, ...)` from `github.com/bborbe/errors`; no `fmt.Errorf`; no bare `return err`; no `context.Background()` in `pkg/`.
 - `sessionTurnTimeout` stays a tunable constant — do NOT add a config field (spec Non-goals and Open Question 1 both forbid it).
 - Do NOT alter error strings to satisfy a grep pattern. Three of the spec's evidence greps carry a literal double quote the source does not contain (see `<verification>`); the source strings are correct as written.
-- Do NOT touch `pkg/ops/workon.go`, `pkg/ops/goal_workon.go`, `pkg/ops/topic_workon.go`, `pkg/ops/workon_test.go`, `pkg/ops/goal_workon_test.go`, `pkg/ops/workon_session_writeback_test.go`, or `docs/work-on-session-lifecycle.md` in this prompt — the caller-side reorder is prompt 2 and the doc reword is prompt 3.
+- Do NOT touch `pkg/ops/workon.go`, `pkg/ops/goal_workon.go`, `pkg/ops/workon_test.go`, `pkg/ops/goal_workon_test.go`, `pkg/ops/workon_session_writeback_test.go`, or `docs/work-on-session-lifecycle.md` in this prompt — the caller-side reorder is prompt 2 and the doc reword is prompt 3.
 - Do NOT add a double-Start guard and do NOT add any config knob — both are spec Non-goals.
 - Existing tests must still pass.
 </constraints>
@@ -200,7 +200,6 @@ grep -c 'did not complete within' pkg/ops/claude_session.go                     
 grep -c 'num_turns: 0' pkg/ops/claude_session.go                                # >= 1 (AC3, real check)
 grep -c 'defaultCommandRunner' pkg/ops/claude_session.go                        # == 3 (AC10)
 grep -c 'context.WithTimeout' pkg/ops/claude_session.go                         # == 1 (AC10, interactive branch)
-grep -c 'exec.CommandContext' pkg/ops/claude_session.go                         # == 1 (interactive runner only; never in defaultDetachedRunner)
 ! grep -q 'exited during startup' pkg/ops/claude_session.go                     # AC4: absent
 ! grep -q 'claude session start timed out' pkg/ops/claude_session.go            # AC4: absent
 ! grep -rq 'livenessWindow' pkg/                                              # AC1: absent everywhere

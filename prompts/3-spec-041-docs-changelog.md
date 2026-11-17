@@ -1,20 +1,19 @@
 ---
 spec: ["041-bug-resume-races-live-headless-turn"]
 status: draft
-created: "2026-11-16T01:05:49Z"
+created: "2026-10-27T22:47:13Z"
 ---
 
 # Reword the work-on lifecycle doc, confirm the scenario, and record the change (spec 041, prompt 3 of 3)
 
 <summary>
-- Rewords the stale task-path paragraphs of the work-on session lifecycle document so they describe every path persisting the session id only after the headless turn exits, with no compensating clear — while preserving the goal/topic ownership rule the document already explains.
+- Rewords the stale task-path sections of the work-on session lifecycle document so they describe both paths persisting the session id only after the headless turn exits, with no compensating clear — removing the pre-spawn wording a later reversion left behind under already-correct headings.
 - Confirms the task-lifecycle scenario already states that the headless turn blocks until completion and no longer claims a fast return, so no edit is needed there.
-- Creates the changelog's unreleased section above the newest released version and adds one conventional bullet describing the inversion. The section is absent today: the most recent release consumed it.
+- Appends a conventional bullet to the changelog's EXISTING unreleased section. The section is not missing: this repository already carries one with four bullets, so the work is an append, never a second section and never a version bump.
 - Does not touch the plugin version strings or any tag — this repository's release agent owns version bumps and tagging after merge, so a feature branch only adds an unreleased bullet.
 - Runs the repository's full gate as the batch's final validation, and reports the exact exit code.
-- Coupled to the task-persistence prompt: the document reword and the changelog bullet both describe the ordering that prompt re-applies. If that prompt is rejected at audit, this one must be rejected too, because it would then document behaviour the code does not have.
+- Coupled to the task-persistence prompt: the document reword and the changelog bullet both describe the ordering that prompt re-applies. If that prompt is rejected at audit, this one must be rejected too, because it would then document behaviour the code does not have. A reviewer comment inside requirement 4 records the tension with the release note that documented the earlier reversion.
 - Flags a broken guard inherited from the earlier generation of this prompt: its "no compensating clear anywhere" grep was unsatisfiable, because a legitimate "no compensating clears" sentence in the per-session-lock section must survive the reword. The corrected gate pins the exact surviving count instead.
-- Flags that the earlier generation of this prompt assumed an existing unreleased section and a v0.183.0 head; both are stale, so the section is created and the head is pinned to the current release.
 - Confirms the two open questions from the spec are already resolved and need no work: the turn bound stays a constant rather than a config field, and the Vault UI modal copy lives in a different repository and is out of scope.
 - Carries no git commands: `git` is masked in this container, so the batch's "scenario 005 unchanged" invariant is checked with a content checksum instead of the spec's `git diff`.
 </summary>
@@ -27,21 +26,21 @@ Bring the durable documentation and the changelog in line with the re-applied po
 Read `CLAUDE.md` for project conventions.
 
 Read fully (in this order):
-- `docs/work-on-session-lifecycle.md` — the whole file (281 lines). This is the file under test. The stale text sits in `## Post-exit write ordering` (the task-path paragraph and the final pre-spawn re-read paragraph), one sentence in `## What the turn timeout does and does not cover`, the body of `## Failure path`, and the `**The detached-child safety property.**` paragraph in `## The per-session lock`.
+- `docs/work-on-session-lifecycle.md` — the whole file (266 lines). This is the file under test. The stale bodies are at the `## Post-exit write ordering`, `## What the turn timeout does and does not cover`, `## Failure path`, and `## The per-session lock` sections.
 - `scenarios/002-task-lifecycle.md` — the whole file (67 lines). Already correct; you are confirming, not editing.
-- `CHANGELOG.md` — read the top ~25 lines only. The frozen preamble ends at the SemVer bullet block; the FIRST `## ` section is `## v0.194.1` and there is NO `## Unreleased` section today. That is the whole edit surface — the rest of the file is not needed and must not be touched.
-- `pkg/ops/workon.go`, `pkg/ops/goal_workon.go` and `pkg/ops/topic_workon.go` — read only to confirm the ordering the documentation must describe. Do not modify any of them.
+- `CHANGELOG.md` — read the top ~20 lines only. The frozen preamble ends at the SemVer bullet block; `## Unreleased` is at line 11 and carries four bullets today; the newest versioned section below it is `## v0.183.0`. That is the whole edit surface — the rest of the file is not needed and must not be touched.
+- `pkg/ops/workon.go` and `pkg/ops/goal_workon.go` — read only to confirm the ordering the documentation must describe. Do not modify either.
 - `prompts/2-spec-041-post-exit-persist.md` — read the reviewer comment at the top of its `<requirements>` block; it records the conflict this prompt is coupled to.
 
 Coding-plugin docs (in-container paths):
-- `/home/node/.claude/plugins/marketplaces/coding/docs/changelog-guide.md` — the unreleased-section placement rule (directly above the highest `## vX.Y.Z`), the frozen-preamble rule, the required conventional prefixes, and the rule that in an auto-release repository a feature branch adds bullets under the unreleased section and does NOT bump version strings.
+- `/home/node/.claude/plugins/marketplaces/coding/docs/changelog-guide.md` — the unreleased-section placement rule, the frozen-preamble rule, the required conventional prefixes, and the rule that in an auto-release repository a feature branch adds bullets under the unreleased section and does NOT bump version strings.
 - `/home/node/.claude/plugins/marketplaces/coding/docs/git-workflow.md` — commit/branch conventions (this prompt does not commit).
 
 **`git` is MASKED in this container.** `.git` is a character device (`crw-rw-rw-`), so every `git` invocation fails with `fatal: not a git repository`. This prompt issues no git commands and must not add any. The spec's AC10 `git diff --exit-code HEAD -- scenarios/005-...` guard cannot run here; the batch checks it with the content pin in `<verification>` instead (prompt 1 owns that check; it is repeated here as the final guard).
 </context>
 
 <requirements>
-The documentation is in a DRIFTED state. A later change rewrote the BODIES of the `## Post-exit write ordering` and `## Failure path` sections, one sentence in `## What the turn timeout does and does not cover`, and the detached-child paragraph in `## The per-session lock`, to describe a pre-spawn write plus a compensating clear on the task path — while the section HEADINGS and the introduction still carry the post-exit framing. The scenario is already correct. The changelog needs a new unreleased section with one bullet.
+The documentation is in a DRIFTED state. A later change rewrote the BODIES of the `## Post-exit write ordering` and `## Failure path` sections, one sentence in `## What the turn timeout does and does not cover`, and the detached-child paragraph in `## The per-session lock`, to describe a pre-spawn write plus a compensating clear on the task path — while the section HEADINGS and the introduction still carry the post-exit framing. The scenario is already correct. The changelog needs one appended bullet.
 
 1. **Fail-loud gate — prompts 1 and 2 must have shipped.** Confirm prompt 2's deliverables exist:
    ```
@@ -51,47 +50,35 @@ The documentation is in a DRIFTED state. A later change rewrote the BODIES of th
    ```
    If ANY check fails, STOP and report `"status":"failed"` with message `"spec-041 prompt 3 precondition missing: prompt 2 not yet deployed"`. Do NOT proceed, and do NOT reword the documentation to describe an ordering the code does not implement — if prompt 2 was rejected at audit, this prompt is wrong and should be rejected too.
 
-2. **Reword the stale task-path text in `docs/work-on-session-lifecycle.md`.** The introduction (the paragraph mentioning "spec 040, revised by spec 041", "An id on disk now means the session is resumable") is already correct — keep it. Make exactly these edits, and nothing else:
+2. **Reword the stale bodies in `docs/work-on-session-lifecycle.md` to the post-exit, no-clear ordering.** The introduction (the paragraph mentioning "spec 040, revised by spec 041", "An id on disk now means the session is resumable") is already correct — keep it. Fix these four spots, and nothing else:
 
-   - **`## Post-exit write ordering`, first paragraph** — replace the ENTIRE paragraph that begins `On the **task path** the fresh id and its \`metrics_sessions\` entry are now persisted` and ends `metrics entry (see \`## Failure path\`).` with:
+   - **`## Post-exit write ordering`** — the heading is correct; the body is stale. Replace the ENTIRE body between that heading and the next `## ` heading. In the current file that body is three pieces in this order: the paragraph starting `On the **task path** the fresh id and its `metrics_sessions` entry are now persisted **before the child is spawned**`, the sentence `The **goal path** (pkg/ops/goal_workon.go) keeps its post-exit ordering unchanged: persistGoalSessionID runs only after StartSession returns cleanly.`, and the paragraph starting `On the task path the pre-spawn re-read before writing is load-bearing:`. Replace all three with:
      ```
-     On every path the fresh id and its `metrics_sessions` entry are persisted **only
-     after the detached headless turn has finished cleanly**: `StartSession` runs first
-     and blocks through the turn, then `persistSessionAndMetrics` (task path,
-     `pkg/ops/workon.go`) or `persistGoalSessionID` / `persistTopicSessionID` (goal and
-     topic paths) re-reads and writes. Returning an id earlier would advertise Resume
-     against a transcript another process is still writing.
-     ```
+     On both paths — task (`pkg/ops/workon.go`) and goal (`pkg/ops/goal_workon.go`) — the
+     fresh id and its `metrics_sessions` entry are persisted **only after the detached
+     headless turn has finished cleanly**: `StartSession` runs first and blocks through
+     the turn, then `persistSessionAndMetrics` / `persistGoalSessionID` re-reads and
+     writes.
 
-   - **`## Post-exit write ordering`, the goal/topic paragraph** — replace ONLY its opening sentence, `The **goal and topic paths** (\`pkg/ops/goal_workon.go\`, \`pkg/ops/topic_workon.go\`) keep their post-exit ordering unchanged: \`persistGoalSessionID\` / \`persistTopicSessionID\` run only after \`StartSession\` returns cleanly.`, with:
-     ```
-     The **goal and topic paths** (`pkg/ops/goal_workon.go`, `pkg/ops/topic_workon.go`)
-     persist the id the same way — after the turn, never before — and additionally carry
-     an ownership rule: `persistGoalSessionID` / `persistTopicSessionID` stamp
-     `claude_session_id` only when the field is still empty.
-     ```
-     Keep the REST of that paragraph verbatim — every sentence from `Because the turn can last up to the turn timeout, another session can claim the page inside that window` through `... the same accepted race as on tasks.` is still correct and documents the ownership/metrics-append rule. Do NOT delete it.
-
-   - **`## Post-exit write ordering`, final paragraph** — replace the paragraph `On the task path the pre-spawn re-read before writing is load-bearing: the task file is a shared, concurrently-written vault file (the headless turn mutates it too), so writing the stale in-memory copy would revert those changes.` with:
-     ```
-     The re-read is load-bearing on every branch: the task, goal or topic file is a
-     shared, concurrently-written vault file (the headless turn mutates it too), so
-     writing the stale in-memory copy would revert those changes.
+     The re-read is load-bearing on every branch: the task/goal file is a shared,
+     concurrently-written vault file (the headless turn mutates it too), so writing the
+     stale in-memory copy would revert the session's own frontmatter changes.
 
      Nothing is persisted on any failure path — child exit error, invalid turn result,
      bound expiry, or cancellation — so there is no clear to run, and frontmatter the
      child wrote before failing stays untouched.
      ```
+     The goal-path sentence is subsumed by the replacement — delete it rather than leaving it as a dangling contrast.
 
    - **`## What the turn timeout does and does not cover`** — one sentence in the last-but-one paragraph is stale: `The compensating clear is unchanged: it still fires on every error the detached turn returns. Only the definition of "failed" moved.` Replace it with `No compensating clear runs on any error the detached turn returns — nothing was written before the turn, so there is nothing to undo. Only the definition of "failed" moved.` Leave the rest of that section, including the "read is never hoisted above the select" paragraph, exactly as it is.
 
-   - **`## Failure path`** — replace the body paragraph starting `On the **task path** the id is pre-persisted, so a failed spawn runs a compensating clear: ...` (it ends `... The **goal path** persists nothing on failure and needs no clear.`) with:
+   - **`## Failure path`** — replace the body paragraph starting `On the **task path** the id is pre-persisted, so a failed spawn runs a compensating clear: ...` with:
      ```
-     On every path the id is never written before the turn finishes, so there is no clear
+     On both paths the id is never written before the turn finishes, so there is no clear
      to run. A failed turn — child exit error, invalid turn result, bound expiry, or
-     cancellation — leaves the task, goal or topic exactly as the child left it: any
-     frontmatter the child wrote before failing (for example `phase: planning`) survives,
-     and no `claude_session_id` lands. The UI correctly keeps offering **Start**.
+     cancellation — leaves the task/goal exactly as the child left it: any frontmatter the
+     child wrote before failing (for example `phase: planning`) survives, and no
+     `claude_session_id` lands. The UI correctly keeps offering **Start**.
      ```
      Keep the following paragraph about the empty-id rule verbatim — it is already correct.
 
@@ -100,7 +87,7 @@ The documentation is in a DRIFTED state. A later change rewrote the BODIES of th
      **The detached-child safety property.** On the spawn path, when the parent stops
      waiting — a failed turn, ctx cancel, or the 30m bound — the detached child keeps
      running *without* the parent's lock. The id is never on disk while the child runs:
-     every path persists only after exit, so during the running window Resume is not
+     both paths persist only after exit, so during the running window Resume is not
      offered for a live turn (the Vault UI resolver fix, shipped separately) and the
      per-session lock (spec 042) refuses a second writer on the same id — the child
      running unlocked is not targetable. On any failure nothing was persisted, so the id
@@ -114,25 +101,20 @@ The documentation is in a DRIFTED state. A later change rewrote the BODIES of th
 
 3. **Confirm `scenarios/002-task-lifecycle.md` — no edit expected (AC11).** Its work-on action note must already state that the headless turn blocks until completion (it does: `**Both branches block until the turn completes**`, `bounded by a 30m turn timeout`, and `A fast return is a FAIL, not a pass`). Confirm `grep -c '~10s' scenarios/002-task-lifecycle.md` is 0. If it is non-zero, replace the fast-return wording with the blocking wording. Make no other change to this file.
 
-4. **Create `## Unreleased` in `CHANGELOG.md` and add the change bullet (AC12).** There is NO `## Unreleased` section today — the first `## ` section is `## v0.194.1`. Insert a new section immediately after the frozen preamble (after the `* PATCH version when you make backwards-compatible bug fixes.` line and its blank line) and directly above `## v0.194.1`, shaped exactly:
+4. **Append the change to the EXISTING unreleased section in `CHANGELOG.md` (AC12).** `## Unreleased` already exists at line 11 with four bullets and the newest versioned section below it is `## v0.183.0`. Do NOT create a new section, do NOT insert a section above it, and do NOT write `## vX.Y.Z`. Append this bullet as the LAST bullet inside the existing `## Unreleased` section:
    ```
-   ## Unreleased
-
-   - fix: non-interactive `task work-on` persists `claude_session_id` only after the detached headless turn exits, matching `goal work-on` and `topic work-on`, so the Vault UI offers Resume only against a complete, single-writer transcript; a failed, zero-turn, or timed-out turn persists no id and the button reverts to Start. Replaces the task path's pre-spawn persist and its compensating clear; the turn wait stays bounded by the 30m turn timeout and the interactive TTY branch is unchanged.
-
-   ## v0.194.1
+   - fix: non-interactive `task work-on` persists `claude_session_id` only after the detached headless turn exits, matching `goal work-on`, so the Vault UI offers Resume only against a complete, single-writer transcript; a failed, zero-turn, or timed-out turn persists no id and the button reverts to Start. Replaces the task path's pre-spawn persist and its compensating clear; the turn wait stays bounded by the 30m turn timeout and the interactive TTY branch is unchanged.
    ```
    Rules for this edit:
-   - Create the section ONCE. Do NOT insert a second `## Unreleased` anywhere, and do NOT move, delete, or edit the frozen preamble (`# Changelog`, the "All notable changes…" line, the SemVer link, the MAJOR/MINOR/PATCH bullets).
-   - Do NOT delete, reorder, or reword an existing bullet or any `## vX.Y.Z` section. `scripts/check-changelog.sh` fails the build if any `## ` section precedes the preamble line; it does not police bullet text, so the bullet wording above is the only guard against a vague entry.
-   - The bullet must start with a conventional prefix (`fix:`) and must contain the substring "Resume" (case-insensitive), because AC12's evidence grep reads the lines following the heading.
-   - Do NOT bump the plugin version strings in `.claude-plugin/plugin.json` or `.claude-plugin/marketplace.json`, and do NOT create a tag. This repository's release agent owns version bumps and tagging after merge (see `CLAUDE.md` § Plugin Release Checklist and the changelog guide's "Version Alignment Is Release-Time"). All four version strings are aligned at `0.194.1` today and must stay that way — adding `## Unreleased` does not disturb `scripts/check-versions.sh`, which reads the first `^## v` line.
+   - The bullet must stay within the first 15 lines after the `## Unreleased` heading and must contain the substring "Resume" (case-insensitive), because AC12's evidence grep reads exactly those 15 lines. With four existing bullets, an append lands on the sixth line after the heading — inside the window.
+   - Never move, delete, or edit the frozen preamble (`# Changelog`, the "All notable changes…" line, the SemVer link, the MAJOR/MINOR/PATCH bullets), and never delete, reorder, or reword an existing bullet or any `## vX.Y.Z` section. `scripts/check-changelog.sh` fails the build if any `## ` section precedes the preamble line; it does not police bullet text, so the bullet wording above is the only guard against a vague entry.
+   - Do NOT bump the plugin version strings in `.claude-plugin/plugin.json` or `.claude-plugin/marketplace.json`, and do NOT create a tag. This repository's release agent owns version bumps and tagging after merge (see `CLAUDE.md` § Plugin Release Checklist and the changelog guide's "Version Alignment Is Release-Time").
 
    <!-- OPEN QUESTION FOR THE HUMAN REVIEWER: this bullet re-describes the post-exit ordering that an earlier release shipped, while a later release note documented the task-side REVERSION back to persist-before-spawn ("fix(workon): persist the fresh session id before the headless turn"), whose rationale was a live-reproduced session-connect mis-binding. The bullet and the documentation reword in requirement 2 are correct only if prompt 2 is approved. If prompt 2 is rejected at audit, reject this prompt as well and re-scope spec 041 instead. Separately, spec Open Question 2 — the Vault UI "Creating session… up to 2 minutes" modal copy — lives in the vault-ui repository and is out of scope here; no Vault UI change is made by this prompt. -->
 
 5. **Confirm the spec's two open questions need no code change.** Open Question 1: the turn bound stays an unexported tunable constant with no config field — do not add one (spec Non-goals). Open Question 2: the Vault UI modal copy is a different repository — no change here.
 
-6. **Full gate (AC13).** Run `make precommit` at the repo root. It must exit 0. If it fails on something this prompt introduced (most likely `check-changelog`, which `precommit` reaches through its `check` dependency), fix it and re-run only the failing target (`make check-changelog`, `make lint`, ...), then `make precommit` once more. `make precommit` does not run `check-versions` (that is a separate target); the four version strings are already aligned at `0.194.1` and must stay that way.
+6. **Full gate (AC13).** Run `make precommit` at the repo root. It must exit 0. If it fails on something this prompt introduced (most likely `check-changelog`, which `precommit` reaches through its `check` dependency), fix it and re-run only the failing target (`make check-changelog`, `make lint`, ...), then `make precommit` once more. Note that `make precommit` does not run `check-versions` (that is a separate target, and `release-check` is what chains it); the four version strings are already aligned at the last released version and must stay that way.
 
 7. **Self-check before finishing.** Re-read the changed doc and changelog hunks and walk spec 041 ACs 11, 12 and 13 against them. Run every command in `<verification>` and confirm each holds — including the content-level drift guard, which is what actually catches the stale body wording. The spec's own AC11 greps (`livenessWindow`, "liveness window", `~10s`) already pass in the current tree and are therefore NOT evidence that the reword was done; the drift guard is.
 </requirements>
@@ -141,10 +123,9 @@ The documentation is in a DRIFTED state. A later change rewrote the BODIES of th
 - Do NOT commit — dark-factory handles git (and `.git` is masked in this container, so no git command can run anyway). Do not write a `git` command anywhere in this prompt's execution: every invocation fails with `fatal: not a git repository`, and the daemon records a failed verification command as a pass.
 - `scenarios/005-work-on-resume-auto-invokes-subtask.md` is untouched — do not edit it (verify with the content pin in `<verification>`).
 - The interactive TTY branch is unchanged; do not reword any documentation text into claiming otherwise.
-- Do NOT bump the plugin manifests and do NOT create a tag — only the unreleased section is in scope. Create it once, directly above `## v0.194.1`; never write `## vX.Y.Z`.
-- Do NOT delete or reword existing changelog bullets or any `## vX.Y.Z` section, and do not touch the frozen preamble.
+- Do NOT bump the plugin manifests and do NOT create a tag — only the unreleased bullet is in scope. Append to the existing `## Unreleased`; never write `## vX.Y.Z`.
+- Do NOT delete or reword existing changelog bullets or any `## vX.Y.Z` section.
 - The "liveness gating" phrase in the per-session lock section is spec 042's Vault UI follow-on concept — leave it; it is not the removed liveness-window concept. The "no compensating clears" sentence in the `**No stale lock.**` paragraph must survive verbatim.
-- Preserve the goal/topic ownership-rule paragraph in `## Post-exit write ordering` — only its opening sentence changes. Deleting it would lose the documentation of the metrics-append rule and the concurrent-claim behaviour.
 - Do NOT touch `pkg/ops/*.go` or any `_test.go` file in this prompt — code changes belong to prompts 1 and 2.
 - Do NOT add a config field for the turn bound (spec Non-goals / Open Question 1).
 - Existing tests must still pass.
@@ -154,22 +135,20 @@ The documentation is in a DRIFTED state. A later change rewrote the BODIES of th
 Evidence greps — run each, record the count, and confirm it against the expectation. Rows expecting 0 are written as `! grep -q` because `grep -c` exits 1 when it prints 0:
 
 ```
-grep -c '^## Unreleased' CHANGELOG.md                                          # == 1 (AC12) — was 0; created, never duplicated
+grep -c '^## Unreleased' CHANGELOG.md                                          # == 1 (AC12) — already 1; a SECOND section is the failure mode here
 grep -A15 '^## Unreleased' CHANGELOG.md | grep -ci 'resume'                    # >= 1 (AC12) — must flip 0 -> >= 1
-awk '/^## /{sec=$0} sec=="## Unreleased" && /^- fix:/{n++} END{print n+0}' CHANGELOG.md   # == 1 (exactly one bullet in the section)
-grep -m1 '^## v' CHANGELOG.md                                                  # == "## v0.194.1" (no version bump; the section above it is Unreleased)
+grep -c 'only after the detached headless turn exits' CHANGELOG.md             # >= 1 if you used the suggested wording
+grep -c '^## v' CHANGELOG.md                                                   # >= 1, and the first one must still be v0.183.0 (no version bump)
 ! grep -q 'livenessWindow' docs/work-on-session-lifecycle.md                   # AC11: absent (already true)
 ! grep -ci 'liveness window' docs/work-on-session-lifecycle.md                 # AC11: absent (already true)
 ! grep -q '~10s' scenarios/002-task-lifecycle.md                               # AC11: absent (already true)
 ! grep -qE 'pre-spawn|pre-persisted|pre-persist|before the child is spawned' docs/work-on-session-lifecycle.md   # drift guard — the real check for req 2
 [ "$(grep -c 'compensating clear' docs/work-on-session-lifecycle.md)" -eq 1 ]  # exactly the surviving "no compensating clears" sentence in the lock section
-grep -c 'persistTopicSessionID' docs/work-on-session-lifecycle.md              # >= 1 (the topic path must not be dropped from the doc)
-grep -c 'Because the turn can last up to the turn timeout' docs/work-on-session-lifecycle.md  # >= 1 (ownership-rule paragraph preserved)
 grep -n -m1 '^All notable changes to this project' CHANGELOG.md                # preamble present
 grep -n -m1 '^## ' CHANGELOG.md                                                # must be the Unreleased heading, AFTER the preamble line above
 ```
 
-Why the compensating-clear gate is a count and not a zero: the earlier generation of this prompt demanded zero `compensating clear` matches, which is unsatisfiable — the `**No stale lock.**` paragraph legitimately says "There are no cleanup sweeps, no compensating clears, and no lock TTL", and requirement 2 forbids touching it. Before your reword exactly four lines match: the `## Post-exit write ordering` task-path paragraph, the `## What the turn timeout…` sentence, the `**The detached-child safety property.**` paragraph, and that surviving `**No stale lock.**` sentence. (The `## Failure path` body also contains the phrase, but split across a line break, so `grep -c` does not count that line — do not be surprised by it.) After a correct reword exactly one line remains. A count of 2+ means a stale body survived; a count of 0 means you edited the lock section, which is forbidden.
+Why the compensating-clear gate is a count and not a zero: the earlier generation of this prompt demanded zero `compensating clear` matches, which is unsatisfiable — the `**No stale lock.**` paragraph legitimately says "There are no cleanup sweeps, no compensating clears, and no lock TTL", and requirement 2 forbids touching it. Before your reword the file has five occurrences; after a correct reword exactly one (that sentence) remains. A count of 2+ means a stale body survived; a count of 0 means you edited the lock section, which is forbidden.
 
 SCENARIO-005 GUARD — content pin (replaces the spec's `git diff --exit-code HEAD`, which cannot run: `git` is masked in this container):
 

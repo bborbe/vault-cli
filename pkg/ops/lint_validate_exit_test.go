@@ -11,13 +11,15 @@ import (
 
 	. "github.com/onsi/gomega"
 
+	libtime "github.com/bborbe/time"
+
 	"github.com/bborbe/vault-cli/pkg/ops"
 )
 
 func TestValidateExecuteFileWithInvalidStatus(t *testing.T) {
 	g := NewWithT(t)
 	ctx := context.Background()
-	lintOp := ops.NewLintOperation()
+	lintOp := ops.NewLintOperation(libtime.NewCurrentDateTime())
 
 	f, err := os.CreateTemp("", "task-*.md")
 	g.Expect(err).NotTo(HaveOccurred())
@@ -37,7 +39,7 @@ func TestValidateExecuteFileWithInvalidStatus(t *testing.T) {
 func TestValidateExecuteFileWithNoIssues(t *testing.T) {
 	g := NewWithT(t)
 	ctx := context.Background()
-	lintOp := ops.NewLintOperation()
+	lintOp := ops.NewLintOperation(libtime.NewCurrentDateTime())
 
 	f, err := os.CreateTemp("", "task-*.md")
 	g.Expect(err).NotTo(HaveOccurred())
@@ -56,7 +58,7 @@ func TestValidateExecuteFileWithNoIssues(t *testing.T) {
 func TestValidateExecuteFileWithMissingFrontmatter(t *testing.T) {
 	g := NewWithT(t)
 	ctx := context.Background()
-	lintOp := ops.NewLintOperation()
+	lintOp := ops.NewLintOperation(libtime.NewCurrentDateTime())
 
 	f, err := os.CreateTemp("", "task-*.md")
 	g.Expect(err).NotTo(HaveOccurred())
@@ -82,7 +84,7 @@ func TestValidateExecuteFileWithMissingFrontmatter(t *testing.T) {
 func TestValidateExecuteFileWithFixableIssues(t *testing.T) {
 	g := NewWithT(t)
 	ctx := context.Background()
-	lintOp := ops.NewLintOperation()
+	lintOp := ops.NewLintOperation(libtime.NewCurrentDateTime())
 
 	f, err := os.CreateTemp("", "task-*.md")
 	g.Expect(err).NotTo(HaveOccurred())
@@ -101,7 +103,7 @@ func TestValidateExecuteFileWithFixableIssues(t *testing.T) {
 func TestValidateExecuteFileTaskMissingIdentifier(t *testing.T) {
 	g := NewWithT(t)
 	ctx := context.Background()
-	lintOp := ops.NewLintOperation()
+	lintOp := ops.NewLintOperation(libtime.NewCurrentDateTime())
 
 	f, err := os.CreateTemp("", "task-*.md")
 	g.Expect(err).NotTo(HaveOccurred())
@@ -126,7 +128,7 @@ func TestValidateExecuteFileTaskMissingIdentifier(t *testing.T) {
 func TestValidateExecuteFileNonTaskPageTypeSkipsIdentifier(t *testing.T) {
 	g := NewWithT(t)
 	ctx := context.Background()
-	lintOp := ops.NewLintOperation()
+	lintOp := ops.NewLintOperation(libtime.NewCurrentDateTime())
 
 	f, err := os.CreateTemp("", "task-*.md")
 	g.Expect(err).NotTo(HaveOccurred())

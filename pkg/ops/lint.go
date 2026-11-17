@@ -11,8 +11,10 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/bborbe/errors"
+	libtime "github.com/bborbe/time"
 	"github.com/google/uuid"
 	"gopkg.in/yaml.v3"
 
@@ -95,12 +97,15 @@ type LintOperation interface {
 	) ([]LintIssue, error)
 }
 
-// NewLintOperation creates a new lint operation.
-func NewLintOperation() LintOperation {
-	return &lintOperation{}
+// NewLintOperation creates a new lint operation whose "today" comes from the supplied
+// clock, so a date-sensitive rule is deterministic under test.
+func NewLintOperation(currentDateTime libtime.CurrentDateTime) LintOperation {
+	return &lintOperation{currentDateTime: currentDateTime}
 }
 
-type lintOperation struct{}
+type lintOperation struct {
+	currentDateTime libtime.CurrentDateTime
+}
 
 // IssueType represents the type of lint issue found.
 type IssueType string
@@ -121,12 +126,16 @@ const (
 	IssueTypeQuotedBoolean               IssueType = "QUOTED_BOOLEAN"
 	IssueTypeCompletedGoalMissingCreated IssueType = "COMPLETED_GOAL_MISSING_CREATED"
 	IssueTypeApprovedRecordInTodoInbox   IssueType = "APPROVED_RECORD_IN_TODO_INBOX"
+	IssueTypeExpiredDeferDate            IssueType = "EXPIRED_DEFER_DATE"
 )
 
 // PageTypeGoal is the lint page type `vault-cli goal lint` passes. The
 // completed-goal start-date rule runs only for it; every other page type skips
 // the rule rather than guessing that a `completed` status means a goal.
 const PageTypeGoal = "goal"
+
+// invalidStatusMessage is the INVALID_STATUS description format.
+const invalidStatusMessage = "status is %q, expected one of: next, in_progress, backlog, completed, hold, aborted"
 
 // PageTypeTask is the lint page type that carries the task-identifier invariants.
 // The two identifier checks (MISSING_TASK_IDENTIFIER, INVALID_TASK_IDENTIFIER) run
@@ -328,10 +337,7 @@ func (l *lintOperation) collectLintIssues(
 
 	// Check for invalid status
 	if statusIssue, invalidStatusValue := l.detectInvalidStatus(frontmatterYAML); statusIssue {
-		add(IssueTypeInvalidStatus, fmt.Sprintf(
-			"status is %q, expected one of: next, in_progress, backlog, completed, hold, aborted",
-			invalidStatusValue,
-		), false)
+		add(IssueTypeInvalidStatus, fmt.Sprintf(invalidStatusMessage, invalidStatusValue), false)
 	}
 
 	// Check for status/phase mismatch
@@ -346,6 +352,7 @@ func (l *lintOperation) collectLintIssues(
 
 	// Hold + defer_date is task-scoped: hold is also a first-class goal status.
 	issues = append(issues, l.holdWithDeferDateIssues(pageType, filePath, frontmatterYAML)...)
+	issues = append(issues, l.expiredDeferDateIssues(pageType, filePath, frontmatterYAML)...)
 	issues = append(issues, l.approvedRecordInTodoInboxIssues(pageType, filePath, frontmatterYAML)...)
 
 	// Check for orphan goals
@@ -854,6 +861,29 @@ func (l *lintOperation) holdWithDeferDateIssues(
 	return nil
 }
 
+// expiredDeferDateIssues returns the EXPIRED_DEFER_DATE issue for a task page left at
+// in_progress with a defer_date whose day has already passed. The page-type gate lives
+// here for the same reason as the hold rule's: collectLintIssues is shared by six lint
+// commands, and the wording is task-specific.
+func (l *lintOperation) expiredDeferDateIssues(
+	pageType string,
+	filePath string,
+	frontmatterYAML string,
+) []LintIssue {
+	if pageType == PageTypeTask {
+		if expired, desc := l.detectExpiredDeferDate(frontmatterYAML); expired {
+			return []LintIssue{{
+				FilePath:    filePath,
+				IssueType:   IssueTypeExpiredDeferDate,
+				Description: desc,
+				Fixable:     false,
+				Fixed:       false,
+			}}
+		}
+	}
+	return nil
+}
+
 // approvedRecordInTodoInboxIssues returns the APPROVED_RECORD_IN_TODO_INBOX
 // issue for a task carrying an approval record while its phase is still todo —
 // the state in which `task approve` used to refuse and every other verb refused
@@ -961,14 +991,68 @@ func (l *lintOperation) detectHoldWithDeferDate(frontmatterYAML string) (bool, s
 	if deferDate == "" {
 		return false, ""
 	}
-	if fm.CreatedBy == "recurring-task-creator" {
-		return false, ""
-	}
-	if strings.TrimSpace(fm.Recurring) != "" {
+	if deferDateExempt(fm.CreatedBy, fm.Recurring) {
 		return false, ""
 	}
 	return true, fmt.Sprintf(
 		"status is hold but defer_date is %s (a deferred task belongs at in_progress + defer_date; hold is for a block with no resume date — promote to in_progress, or clear defer_date)",
+		deferDate,
+	)
+}
+
+// deferDateExempt reports whether a task's defer_date is a schedule date rather than a
+// snooze. Both defer-date rules share it: a recurring task's date is when the next
+// instance is due, so a past one is not a lapsed park.
+func deferDateExempt(createdBy, recurring string) bool {
+	return createdBy == "recurring-task-creator" || strings.TrimSpace(recurring) != ""
+}
+
+// detectExpiredDeferDate detects a task left at status in_progress with a defer_date
+// that has already passed. The state is a dead park: the date has gone, nothing moves
+// the task, and the session closer refuses to close it — so it reads as live work
+// while no rotation can reach it.
+//
+// The date test is date-only in local time, matching the vault-side regression probe
+// (`defer_date < today`), so a defer later TODAY is not expired. An unparseable value is
+// not reported: the rule cannot vouch for the date it cannot read, and guessing would
+// make the finding wrong rather than absent. No other rule covers that shape either —
+// STATUS_DATE_MISMATCH only flags a date field being *set* on a next/backlog task, it
+// never parses one — so a malformed defer_date on an in_progress task is deliberately
+// left unreported rather than claimed.
+func (l *lintOperation) detectExpiredDeferDate(frontmatterYAML string) (bool, string) {
+	var fm struct {
+		Status    string `yaml:"status"`
+		DeferDate string `yaml:"defer_date"`
+		CreatedBy string `yaml:"created_by"`
+		Recurring string `yaml:"recurring"`
+	}
+	if err := yaml.Unmarshal([]byte(frontmatterYAML), &fm); err != nil {
+		return false, ""
+	}
+	if domain.TaskStatus(fm.Status) != domain.TaskStatusInProgress {
+		return false, ""
+	}
+	if deferDateExempt(fm.CreatedBy, fm.Recurring) {
+		return false, ""
+	}
+	deferDate := strings.TrimSpace(fm.DeferDate)
+	if len(deferDate) < 10 {
+		return false, ""
+	}
+	// A full RFC3339 instant is compared on its day, which is the probe's own rule.
+	parsed, err := time.Parse("2006-01-02", deferDate[:10])
+	if err != nil {
+		return false, ""
+	}
+	today, err := time.Parse("2006-01-02", l.currentDateTime.Now().Format("2006-01-02"))
+	if err != nil {
+		return false, ""
+	}
+	if !parsed.Before(today) {
+		return false, ""
+	}
+	return true, fmt.Sprintf(
+		"status is in_progress but defer_date %s has already passed — the task is neither deferred nor running; finish it, re-defer to a future date, or hold it with a reason",
 		deferDate,
 	)
 }

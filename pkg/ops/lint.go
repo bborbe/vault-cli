@@ -1013,9 +1013,12 @@ func deferDateExempt(createdBy, recurring string) bool {
 // while no rotation can reach it.
 //
 // The date test is date-only in local time, matching the vault-side regression probe
-// (`defer_date < today`), so a defer later TODAY is not expired. An unparseable value
-// is not reported: the rule cannot vouch for it, and STATUS_DATE_MISMATCH already
-// covers the malformed-date class.
+// (`defer_date < today`), so a defer later TODAY is not expired. An unparseable value is
+// not reported: the rule cannot vouch for the date it cannot read, and guessing would
+// make the finding wrong rather than absent. No other rule covers that shape either —
+// STATUS_DATE_MISMATCH only flags a date field being *set* on a next/backlog task, it
+// never parses one — so a malformed defer_date on an in_progress task is deliberately
+// left unreported rather than claimed.
 func (l *lintOperation) detectExpiredDeferDate(frontmatterYAML string) (bool, string) {
 	var fm struct {
 		Status    string `yaml:"status"`

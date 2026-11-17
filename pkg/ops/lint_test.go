@@ -3007,6 +3007,21 @@ var _ = Describe("LintOperation - Status and Date Rules", func() {
 			}
 		})
 
+		It("fires on defer_date exactly one day before today", func() {
+			// The only boundary the rule can get wrong is an off-by-one day: every other
+			// case (three days back, today, later today, future) still passes under
+			// `parsed.Before(today.AddDate(0, 0, -1))`. Pinned clock is 2026-11-15.
+			writeSDM(
+				vaultPath,
+				tasksDir,
+				"status: in_progress\npage_type: task\ntask_identifier: 11111111-1111-4111-a111-111111111111\ndefer_date: 2026-11-14\n",
+				"expired-yesterday.md",
+			)
+			issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+			Expect(err).To(BeNil())
+			Expect(countExpiredIssues(issues)).To(Equal(1))
+		})
+
 		It("fires on a quoted full timestamp defer_date", func() {
 			writeSDM(
 				vaultPath,

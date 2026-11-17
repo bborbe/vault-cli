@@ -2764,6 +2764,11 @@ func createTaskApproveCommand(
 		Short: "Approve a task in the operator's inbox (todo -> planning)",
 		Long: "Approve a task in the operator's inbox: it moves a todo task to planning and " +
 			"records approved_by and approved_at in one write.\n\n" +
+			"An existing approved_at is preserved on re-approval: a row that already carries " +
+			"approved_by or approved_at is already approved, so the command does not " +
+			"re-approve it. It completes the transition by moving the phase to planning and " +
+			"leaves the record exactly as it is — it never overwrites either key, never " +
+			"fabricates a missing one, and never refreshes approved_at.\n\n" +
 			"Approval is unbounded: it never refuses on a count of approved rows. What opens " +
 			"a task is governed by flag provenance, not by a count — /supervisor:open --flagged " +
 			"opens only rows whose flag_set_by is operator or legacy, and an agent cannot cause " +

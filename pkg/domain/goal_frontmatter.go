@@ -344,6 +344,8 @@ func (f *GoalFrontmatter) SetField(ctx context.Context, key, value string) error
 		return f.setDeferDateFromString(ctx, value)
 	case "claude_session_id":
 		f.SetClaudeSessionID(value)
+	case "flag":
+		return f.setFlagField(ctx, value)
 	default:
 		f.Set(key, value)
 	}
@@ -412,7 +414,50 @@ func (f *GoalFrontmatter) setDeferDateFromString(ctx context.Context, value stri
 	return nil
 }
 
+// setFlagField parses a boolean string and stores the flag, or clears on empty.
+// Accepted values match GetBool's coercion: "true"/"yes" and "false"/"no",
+// case-insensitive with surrounding whitespace trimmed. The canonical form
+// stored is a real YAML bool (true or false).
+func (f *GoalFrontmatter) setFlagField(ctx context.Context, value string) error {
+	if value == "" {
+		f.ClearFlag()
+		return nil
+	}
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "true", "yes":
+		return f.SetFlag(ctx, true)
+	case "false", "no":
+		return f.SetFlag(ctx, false)
+	default:
+		return errors.Wrapf(ctx, validation.Error, "invalid flag value '%s' (accepted values: true/yes/false/no)", value)
+	}
+}
+
+// SetFlag stores the flag in the map as a real bool. A bool has no invalid
+// state, so this setter mirrors TaskFrontmatter.SetFlag: it always returns nil
+// and validation happens at the string boundary in setFlagField. The parameter
+// is named `_` because the unparam linter rejects an unused named parameter.
+func (f *GoalFrontmatter) SetFlag(_ context.Context, v bool) error {
+	f.Set("flag", v)
+	return nil
+}
+
+// ClearFlag removes the flag key entirely, so the goal reads back as un-flagged
+// and the key is never emitted on the next write. The two provenance keys are
+// removed with it: a cleared flag has no writer to attribute, and leaving
+// flag_set_by behind would make the next reader attribute a stale actor to a
+// flag that is no longer set.
+func (f *GoalFrontmatter) ClearFlag() {
+	f.Delete("flag")
+	f.Delete("flag_set_by")
+	f.Delete("flag_set_at")
+}
+
 // ClearField removes a frontmatter field by key.
 func (f *GoalFrontmatter) ClearField(key string) {
 	f.Delete(key)
+	if key == "flag" {
+		f.Delete("flag_set_by")
+		f.Delete("flag_set_at")
+	}
 }

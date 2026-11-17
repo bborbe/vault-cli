@@ -133,7 +133,7 @@ var _ = Describe("goal set refusal for blocked_by", func() {
 	})
 
 	setValue := func(k, v string) {
-		err = setOp.Execute(ctx, "/vault", "Beta", k, v, "", "")
+		err = setOp.Execute(ctx, "/vault", "Beta", k, v, "", "", "")
 	}
 
 	It("refuses a non-empty blocked_by and writes nothing", func() {

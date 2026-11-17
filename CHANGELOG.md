@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: `goal set` now writes the flag as an unquoted YAML boolean and records `flag_set_by` / `flag_set_at` in the same write via `--by`, matching `task set`
+
 ## v0.195.0
 
 - feat: report `EXPIRED_DEFER_DATE` when a task sits at `in_progress` with a past `defer_date`

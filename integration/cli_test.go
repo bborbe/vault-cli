@@ -6542,6 +6542,33 @@ page_type: goal
 			Expect(showPhaseField(configPath, "goal", "Phase Target")).To(Equal("ai_review"))
 		})
 
+		It("goal set writes the flag as a boolean and records --by in the same write", func() {
+			vaultPath, configPath, cleanup := createTempVaultWithTopicPages(
+				"Topics",
+				nil,
+				map[string]string{
+					"Flag Target": "---\nstatus: in_progress\n---\n# Flag Target\n",
+				},
+			)
+			defer cleanup()
+
+			cmd := exec.Command(
+				binPath, "--config", configPath, "--vault", "test",
+				"goal", "set", "Flag Target", "flag", "true", "--by", "operator",
+			)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(0))
+
+			content, err := os.ReadFile(filepath.Join(vaultPath, "Goals", "Flag Target.md"))
+			Expect(err).NotTo(HaveOccurred())
+			out := string(content)
+			Expect(out).To(ContainSubstring("flag: true"))
+			Expect(out).NotTo(ContainSubstring(`flag: "true"`))
+			Expect(out).To(ContainSubstring("flag_set_by: operator"))
+			Expect(out).To(ContainSubstring("flag_set_at:"))
+		})
+
 		It("goal set accepts human_review and writes it to the page on disk", func() {
 			vaultPath, configPath, cleanup := createTempVaultWithTopicPages(
 				"Topics",

@@ -103,7 +103,7 @@ func NewTopicGetOperation(topicStorage storage.TopicStorage) EntityGetOperation 
 //
 //counterfeiter:generate -o ../../mocks/entity-set-operation.go --fake-name EntitySetOperation . EntitySetOperation
 type EntitySetOperation interface {
-	Execute(ctx context.Context, vaultPath, entityName, key, value, reason, gateSuccessor string) error
+	Execute(ctx context.Context, vaultPath, entityName, key, value, reason, gateSuccessor, actor string) error
 }
 
 type goalSetOperation struct {
@@ -114,7 +114,7 @@ type goalSetOperation struct {
 // Execute sets the value of a frontmatter field on the named goal.
 func (o *goalSetOperation) Execute(
 	ctx context.Context,
-	vaultPath, entityName, key, value, reason, gateSuccessor string,
+	vaultPath, entityName, key, value, reason, gateSuccessor, actor string,
 ) error {
 	goal, err := o.goalStorage.FindGoalByName(ctx, vaultPath, entityName)
 	if err != nil {
@@ -129,6 +129,13 @@ func (o *goalSetOperation) Execute(
 	// blockedBySetRefusal. Nothing below runs on this path, so the goal file
 	// stays byte-identical.
 	if err := blockedBySetRefusal(ctx, "goal", entityName, key, value); err != nil {
+		return err
+	}
+
+	// Refuse a direct provenance write before anything is mutated — see
+	// flagProvenanceSetRefusal. Nothing below runs on this path, so the goal file
+	// stays byte-identical.
+	if err := flagProvenanceSetRefusal(ctx, "goal", entityName, key); err != nil {
 		return err
 	}
 
@@ -153,6 +160,19 @@ func (o *goalSetOperation) Execute(
 			SessionID: previous,
 			StartedAt: libtime.DateOrDateTime(o.currentDateTime.Now().Time()),
 		})
+	}
+
+	// Flag provenance is composed onto the same map as the flag itself, so the
+	// single WriteGoal below persists all three keys together and no reader can
+	// observe a flag without its writer. The refusal for a blank actor leaves the
+	// file byte-identical because it runs before any mutation.
+	if key == "flag" {
+		if err := writeFlagProvenance(
+			ctx, &goal.FrontmatterMap,
+			value, actor, "goal", entityName, o.currentDateTime,
+		); err != nil {
+			return err
+		}
 	}
 
 	if err := goal.SetField(ctx, key, value); err != nil {
@@ -254,7 +274,7 @@ type themeSetOperation struct {
 // Execute sets the value of a frontmatter field on the named theme.
 func (o *themeSetOperation) Execute(
 	ctx context.Context,
-	vaultPath, entityName, key, value, reason, gateSuccessor string,
+	vaultPath, entityName, key, value, reason, gateSuccessor, _ string,
 ) error {
 	theme, err := o.themeStorage.FindThemeByName(ctx, vaultPath, entityName)
 	if err != nil {
@@ -281,7 +301,7 @@ type objectiveSetOperation struct {
 // Execute sets the value of a frontmatter field on the named objective.
 func (o *objectiveSetOperation) Execute(
 	ctx context.Context,
-	vaultPath, entityName, key, value, reason, gateSuccessor string,
+	vaultPath, entityName, key, value, reason, gateSuccessor, _ string,
 ) error {
 	objective, err := o.objectiveStorage.FindObjectiveByName(ctx, vaultPath, entityName)
 	if err != nil {
@@ -308,7 +328,7 @@ type visionSetOperation struct {
 // Execute sets the value of a frontmatter field on the named vision.
 func (o *visionSetOperation) Execute(
 	ctx context.Context,
-	vaultPath, entityName, key, value, reason, gateSuccessor string,
+	vaultPath, entityName, key, value, reason, gateSuccessor, _ string,
 ) error {
 	vision, err := o.visionStorage.FindVisionByName(ctx, vaultPath, entityName)
 	if err != nil {
@@ -340,7 +360,7 @@ type topicSetOperation struct {
 // status, so neither is consulted here.
 func (o *topicSetOperation) Execute(
 	ctx context.Context,
-	vaultPath, entityName, key, value, reason, gateSuccessor string,
+	vaultPath, entityName, key, value, reason, gateSuccessor, _ string,
 ) error {
 	topic, err := o.topicStorage.FindTopicByName(ctx, vaultPath, entityName)
 	if err != nil {

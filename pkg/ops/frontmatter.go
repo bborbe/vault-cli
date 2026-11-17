@@ -119,7 +119,7 @@ func (o *frontmatterSetOperation) Execute(
 	// Refuse a direct provenance write before anything is mutated — see
 	// flagProvenanceSetRefusal. Nothing below runs on this path, so the task file
 	// stays byte-identical.
-	if err := flagProvenanceSetRefusal(ctx, taskName, key); err != nil {
+	if err := flagProvenanceSetRefusal(ctx, "task", taskName, key); err != nil {
 		return err
 	}
 
@@ -128,7 +128,10 @@ func (o *frontmatterSetOperation) Execute(
 	// observe a flag without its writer. The refusal for a blank actor leaves the
 	// file byte-identical because it runs before any mutation.
 	if key == "flag" {
-		if err := o.writeFlagProvenance(ctx, task, taskName, value, actor); err != nil {
+		if err := writeFlagProvenance(
+			ctx, &task.FrontmatterMap,
+			value, actor, "task", taskName, o.currentDateTime,
+		); err != nil {
 			return err
 		}
 	}
@@ -221,11 +224,12 @@ func writeTaskCloseOutFieldsIfCloseOut(
 }
 
 // writeFlagProvenance records who set the flag and when, on the same map the
-// flag itself is written to — so the caller's single WriteTask persists the
-// flag and its provenance together and no read can observe an unattributed
-// flag. The value is normalised exactly as setFlagField normalises it
-// (case-insensitive, surrounding whitespace trimmed), so `set flag TRUE` and
-// `set flag yes` write provenance just as `set flag true` does.
+// flag itself is written to — so the caller's single WriteTask / WriteGoal
+// persists the flag and its provenance together and no read can observe an
+// unattributed flag. The value is normalised exactly as setFlagField normalises
+// it (case-insensitive, surrounding whitespace trimmed), so `set flag TRUE` and
+// `set flag yes` write provenance just as `set flag true` does. entityType names
+// the verb in the refusal message ("task" or "goal").
 //
 // Three outcomes, mirroring the field contract:
 //   - truthy: flag_set_by is the actor and flag_set_at is the injected instant,
@@ -240,25 +244,26 @@ func writeTaskCloseOutFieldsIfCloseOut(
 //
 // A value outside those three sets is left alone; SetField reports it as an
 // invalid flag value and nothing is written.
-func (o *frontmatterSetOperation) writeFlagProvenance(
+func writeFlagProvenance(
 	ctx context.Context,
-	task *domain.Task,
-	taskName, value, actor string,
+	frontmatter *domain.FrontmatterMap,
+	value, actor, entityType, entityName string,
+	currentDateTime libtime.CurrentDateTime,
 ) error {
 	switch strings.ToLower(strings.TrimSpace(value)) {
 	case "true", "yes":
 		if actor == "" {
 			return errors.Errorf(
 				ctx,
-				"flag_set_by must not be empty: refusing to record a blank actor on task %q",
-				taskName,
+				"flag_set_by must not be empty: refusing to record a blank actor on %s %q",
+				entityType, entityName,
 			)
 		}
-		task.Set("flag_set_by", actor)
-		task.Set("flag_set_at", o.currentDateTime.Now().Time())
+		frontmatter.Set("flag_set_by", actor)
+		frontmatter.Set("flag_set_at", currentDateTime.Now().Time())
 	case "false", "no":
-		task.Delete("flag_set_by")
-		task.Delete("flag_set_at")
+		frontmatter.Delete("flag_set_by")
+		frontmatter.Delete("flag_set_at")
 	}
 	return nil
 }
@@ -267,20 +272,20 @@ func (o *frontmatterSetOperation) writeFlagProvenance(
 // flag_set_by or flag_set_at directly, and nil for every other key.
 //
 // The two keys exist only as evidence of the write that set the flag: they are
-// composed onto the same map, in the same WriteTask, as `flag` itself. A direct
-// `task set <name> flag_set_by <actor>` would attach provenance to a flag that
-// is already on disk, and the window between the two writes is exactly the
+// composed onto the same map, in the same write, as `flag` itself. A direct
+// `<entity> set <name> flag_set_by <actor>` would attach provenance to a flag
+// that is already on disk, and the window between the two writes is exactly the
 // unattributed-flag bypass the field exists to close. The refusal is absolute:
 // --force is scoped to the phase guard and does not bypass it, and nothing is
 // written on this path because the check runs before any mutation.
-func flagProvenanceSetRefusal(ctx context.Context, taskName, key string) error {
+func flagProvenanceSetRefusal(ctx context.Context, entityType, entityName, key string) error {
 	if key != "flag_set_by" && key != "flag_set_at" {
 		return nil
 	}
 	return errors.Errorf(
 		ctx,
-		"refusing to set %q on %q: %s is written only by the same invocation that sets the flag; use `vault-cli task set %q flag true --by <actor>`",
-		key, taskName, key, taskName,
+		"refusing to set %q on %q: %s is written only by the same invocation that sets the flag; use `vault-cli %s set %q flag true --by <actor>`",
+		key, entityName, key, entityType, entityName,
 	)
 }
 

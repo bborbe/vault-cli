@@ -1,7 +1,12 @@
 ---
-status: approved
+status: completed
+summary: Goal flag writes now store an unquoted YAML boolean and record flag_set_by/flag_set_at in the same write via goal set --by, matching task set
+execution_id: vault-cli-goal-flag-exec-282-goal-set-flag-boolean-provenance
+dark-factory-version: v0.199.1
 created: "2026-11-16T22:40:00Z"
 queued: "2026-11-16T23:52:09Z"
+started: "2026-11-17T02:32:59Z"
+completed: "2026-11-17T02:38:55Z"
 ---
 
 # Write goal flags as booleans and record their provenance

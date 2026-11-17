@@ -1008,7 +1008,7 @@ func createEntitySetCommand(
 	entityType string,
 	newSetOp func(cfg *storage.Config) ops.EntitySetOperation,
 ) *cobra.Command {
-	var reason, gateSuccessor string
+	var reason, gateSuccessor, by string
 	cmd := &cobra.Command{
 		Use:   "set <name> <key> <value>",
 		Short: fmt.Sprintf("Set a frontmatter field value on a %s", entityType),
@@ -1017,6 +1017,19 @@ func createEntitySetCommand(
 			entityName := args[0]
 			key := args[1]
 			value := args[2]
+
+			// --by names the actor that set the flag, and is meaningful only for
+			// the flag key; it is not a general-purpose actor field. The check
+			// runs here, before the dispatcher, because the JSON branch below
+			// swallows an error raised inside the callback. It is keyed on
+			// Changed("by"), not on the value, so the "unknown" default does not
+			// break every existing non-flag `goal set`.
+			if cmd.Flags().Changed("by") && key != "flag" {
+				return errors.Wrapf(ctx, validation.Error,
+					"--by is accepted only for the flag key; got --by with key %q. Use `vault-cli %s set %q flag true --by <actor>`",
+					key, entityType, entityName,
+				)
+			}
 
 			vaults, err := getVaults(ctx, configLoader, vaultName)
 			if err != nil {
@@ -1027,7 +1040,7 @@ func createEntitySetCommand(
 			err = dispatcher.FirstSuccess(ctx, vaults, func(vault *config.Vault) error {
 				storageConfig := storage.NewConfigFromVault(vault)
 				setOp := newSetOp(storageConfig)
-				if err := setOp.Execute(ctx, vault.Path, entityName, key, value, reason, gateSuccessor); err != nil {
+				if err := setOp.Execute(ctx, vault.Path, entityName, key, value, reason, gateSuccessor, by); err != nil {
 					return err
 				}
 				if OutputFormat(*outputFormat).IsJSON() {
@@ -1056,6 +1069,7 @@ func createEntitySetCommand(
 	if entityType == "goal" {
 		cmd.Flags().StringVar(&reason, "reason", "", "Close-out reason (aborted_reason); required for aborted, optional for completed")
 		cmd.Flags().StringVar(&gateSuccessor, "gate-successor", "", "Where any risk gate moves, or 'none' (gate_successor); required for aborted, optional for completed")
+		cmd.Flags().StringVar(&by, "by", "unknown", "Who is setting the flag; recorded as flag_set_by. Accepted only for the flag key")
 	}
 	return cmd
 }

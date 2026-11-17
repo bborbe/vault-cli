@@ -106,7 +106,7 @@ var _ = Describe("DirectoryLister", func() {
 
 		entries, err := index.NewDirectoryLister().ListFiles(ctx, vaultDir, readerFolder)
 		Expect(err).NotTo(HaveOccurred())
-		names := []string{}
+		names := make([]string, 0, len(entries))
 		for _, entry := range entries {
 			names = append(names, entry.Name)
 			Expect(entry.Fingerprint.Size).To(Equal(int64(1)))

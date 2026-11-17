@@ -9,6 +9,7 @@ require (
 	github.com/bborbe/kafka v1.29.14
 	github.com/bborbe/log v1.7.9
 	github.com/bborbe/notification v0.7.13
+	github.com/bborbe/run v1.11.12
 	github.com/bborbe/time v1.27.28
 	github.com/bborbe/validation v1.5.10
 	github.com/fsnotify/fsnotify v1.10.1
@@ -29,7 +30,6 @@ require (
 	github.com/bborbe/kv v1.21.30 // indirect
 	github.com/bborbe/math v1.4.20 // indirect
 	github.com/bborbe/parse v1.12.7 // indirect
-	github.com/bborbe/run v1.11.12 // indirect
 	github.com/bborbe/sentry v1.10.8 // indirect
 	github.com/bborbe/strimzi v1.8.25 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect

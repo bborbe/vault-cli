@@ -12,6 +12,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	libtime "github.com/bborbe/time"
+
 	"github.com/bborbe/vault-cli/pkg/ops"
 )
 
@@ -24,7 +26,7 @@ var _ = Describe("LintOperation blocked_by scalar detector", func() {
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		lintOp = ops.NewLintOperation()
+		lintOp = ops.NewLintOperation(libtime.NewCurrentDateTime())
 
 		var err error
 		vaultPath, err = os.MkdirTemp("", "vault-blocked-by-lint-test-*")

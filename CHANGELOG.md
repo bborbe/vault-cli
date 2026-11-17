@@ -8,6 +8,12 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat: report `EXPIRED_DEFER_DATE` when a task sits at `in_progress` with a past `defer_date`
+
+- feat: `ops.NewLintOperation` now takes a `libtime.CurrentDateTime` so the new rule's "today" is injectable
+
 ## v0.194.3
 
 - fix: `task approve --help` now states that an existing `approved_at` is preserved on re-approval, so a reader cannot infer a fresh timestamp from the help text; the approval behaviour is unchanged

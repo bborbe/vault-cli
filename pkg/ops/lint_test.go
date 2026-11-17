@@ -14,6 +14,9 @@ import (
 	. "github.com/onsi/gomega"
 	"gopkg.in/yaml.v3"
 
+	libtime "github.com/bborbe/time"
+	libtimetest "github.com/bborbe/time/test"
+
 	"github.com/bborbe/vault-cli/pkg/ops"
 )
 
@@ -27,7 +30,7 @@ var _ = Describe("LintOperation", func() {
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		lintOp = ops.NewLintOperation()
+		lintOp = ops.NewLintOperation(libtime.NewCurrentDateTime())
 
 		// Create temp vault directory
 		var err error
@@ -727,7 +730,7 @@ var _ = Describe("ExecuteFile", func() {
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		lintOp = ops.NewLintOperation()
+		lintOp = ops.NewLintOperation(libtime.NewCurrentDateTime())
 		taskName = "My Task"
 		vaultName = "personal"
 		createFile = true
@@ -902,7 +905,7 @@ var _ = Describe("Execute with JSON output (outputIssuesJSON)", func() {
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		lintOp = ops.NewLintOperation()
+		lintOp = ops.NewLintOperation(libtime.NewCurrentDateTime())
 
 		// Create temp vault directory
 		var createErr error
@@ -1486,7 +1489,7 @@ var _ = Describe("ExecuteFile error handling", func() {
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		lintOp = ops.NewLintOperation()
+		lintOp = ops.NewLintOperation(libtime.NewCurrentDateTime())
 	})
 
 	AfterEach(func() {
@@ -1556,7 +1559,7 @@ var _ = Describe("LintOperation - Orphan Goal Detection", func() {
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		lintOp = ops.NewLintOperation()
+		lintOp = ops.NewLintOperation(libtime.NewCurrentDateTime())
 
 		// Create temp vault directory
 		var err error
@@ -1700,7 +1703,7 @@ var _ = Describe("LintOperation - Status Checkbox Mismatch", func() {
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		lintOp = ops.NewLintOperation()
+		lintOp = ops.NewLintOperation(libtime.NewCurrentDateTime())
 
 		// Create temp vault directory
 		var err error
@@ -1858,7 +1861,7 @@ var _ = Describe("LintOperation - Status Phase Mismatch", func() {
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		lintOp = ops.NewLintOperation()
+		lintOp = ops.NewLintOperation(libtime.NewCurrentDateTime())
 
 		var err error
 		vaultPath, err = os.MkdirTemp("", "vault-phase-test-*")
@@ -1966,7 +1969,7 @@ var _ = Describe("LintOperation - STATUS_PHASE_MISMATCH on goal pages", func() {
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		lintOp = ops.NewLintOperation()
+		lintOp = ops.NewLintOperation(libtime.NewCurrentDateTime())
 
 		var err error
 		vaultPath, err = os.MkdirTemp("", "vault-goal-phase-test-*")
@@ -2032,7 +2035,7 @@ var _ = Describe("LintOperation - COMPLETED_GOAL_MISSING_CREATED", func() {
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		lintOp = ops.NewLintOperation()
+		lintOp = ops.NewLintOperation(libtime.NewCurrentDateTime())
 
 		var err error
 		vaultPath, err = os.MkdirTemp("", "vault-goal-created-test-*")
@@ -2225,7 +2228,7 @@ var _ = Describe("LintOperation - Missing Task Identifier", func() {
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		lintOp = ops.NewLintOperation()
+		lintOp = ops.NewLintOperation(libtime.NewCurrentDateTime())
 
 		var err error
 		vaultPath, err = os.MkdirTemp("", "vault-taskid-test-*")
@@ -2418,7 +2421,9 @@ var _ = Describe("LintOperation - Status and Date Rules", func() {
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		lintOp = ops.NewLintOperation()
+		currentDateTime := libtime.NewCurrentDateTime()
+		currentDateTime.SetNow(libtimetest.ParseDateTime("2026-11-15T12:00:00Z"))
+		lintOp = ops.NewLintOperation(currentDateTime)
 
 		var err error
 		vaultPath, err = os.MkdirTemp("", "vault-sdm-test-*")
@@ -2969,6 +2974,250 @@ var _ = Describe("LintOperation - Status and Date Rules", func() {
 			Expect(countHoldIssues(taskIssues)).To(Equal(1))
 		})
 	})
+
+	Context("EXPIRED_DEFER_DATE", func() {
+		countExpiredIssues := func(issues []ops.LintIssue) int {
+			n := 0
+			for _, i := range issues {
+				if i.IssueType == ops.IssueTypeExpiredDeferDate {
+					n++
+				}
+			}
+			return n
+		}
+
+		It("fires on status: in_progress + a past defer_date", func() {
+			writeSDM(
+				vaultPath,
+				tasksDir,
+				"status: in_progress\npage_type: task\ntask_identifier: 11111111-1111-4111-a111-111111111111\ndefer_date: 2026-11-13\n",
+				"expired-fire.md",
+			)
+			issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+			Expect(err).To(BeNil())
+			Expect(countExpiredIssues(issues)).To(Equal(1))
+			for _, i := range issues {
+				if i.IssueType == ops.IssueTypeExpiredDeferDate {
+					Expect(i.Fixable).To(BeFalse())
+					Expect(i.Description).To(ContainSubstring("in_progress"))
+					Expect(i.Description).To(ContainSubstring("defer_date"))
+					Expect(i.Description).To(ContainSubstring("2026-11-13"))
+					Expect(i.Description).To(ContainSubstring("re-defer"))
+				}
+			}
+		})
+
+		It("fires on defer_date exactly one day before today", func() {
+			// The only boundary the rule can get wrong is an off-by-one day: every other
+			// case (three days back, today, later today, future) still passes under
+			// `parsed.Before(today.AddDate(0, 0, -1))`. Pinned clock is 2026-11-15.
+			writeSDM(
+				vaultPath,
+				tasksDir,
+				"status: in_progress\npage_type: task\ntask_identifier: 11111111-1111-4111-a111-111111111111\ndefer_date: 2026-11-14\n",
+				"expired-yesterday.md",
+			)
+			issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+			Expect(err).To(BeNil())
+			Expect(countExpiredIssues(issues)).To(Equal(1))
+		})
+
+		It("fires on a quoted full timestamp defer_date", func() {
+			writeSDM(
+				vaultPath,
+				tasksDir,
+				"status: in_progress\npage_type: task\ntask_identifier: 11111111-1111-4111-a111-111111111111\ndefer_date: \"2026-11-13T18:10:00+01:00\"\n",
+				"expired-timestamp.md",
+			)
+			issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+			Expect(err).To(BeNil())
+			Expect(countExpiredIssues(issues)).To(Equal(1))
+		})
+
+		It("does not fire on defer_date equal to today", func() {
+			writeSDM(
+				vaultPath,
+				tasksDir,
+				"status: in_progress\npage_type: task\ntask_identifier: 11111111-1111-4111-a111-111111111111\ndefer_date: 2026-11-15\n",
+				"expired-today.md",
+			)
+			issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+			Expect(err).To(BeNil())
+			Expect(countExpiredIssues(issues)).To(Equal(0))
+		})
+
+		It("does not fire on a defer later today", func() {
+			writeSDM(
+				vaultPath,
+				tasksDir,
+				"status: in_progress\npage_type: task\ntask_identifier: 11111111-1111-4111-a111-111111111111\ndefer_date: \"2026-11-15T23:00:00+01:00\"\n",
+				"expired-later-today.md",
+			)
+			issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+			Expect(err).To(BeNil())
+			Expect(countExpiredIssues(issues)).To(Equal(0))
+		})
+
+		It("does not fire on a future defer_date", func() {
+			writeSDM(
+				vaultPath,
+				tasksDir,
+				"status: in_progress\npage_type: task\ntask_identifier: 11111111-1111-4111-a111-111111111111\ndefer_date: 2026-12-01\n",
+				"expired-future.md",
+			)
+			issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+			Expect(err).To(BeNil())
+			Expect(countExpiredIssues(issues)).To(Equal(0))
+		})
+
+		It("does not fire on a value shorter than ten characters", func() {
+			writeSDM(
+				vaultPath,
+				tasksDir,
+				"status: in_progress\npage_type: task\ntask_identifier: 11111111-1111-4111-a111-111111111111\ndefer_date: 2026\n",
+				"expired-short.md",
+			)
+			issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+			Expect(err).To(BeNil())
+			Expect(countExpiredIssues(issues)).To(Equal(0))
+		})
+
+		It("does not fire on an unparseable ten-character value", func() {
+			writeSDM(
+				vaultPath,
+				tasksDir,
+				"status: in_progress\npage_type: task\ntask_identifier: 11111111-1111-4111-a111-111111111111\ndefer_date: 2026-13-45\n",
+				"expired-unparseable.md",
+			)
+			issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+			Expect(err).To(BeNil())
+			Expect(countExpiredIssues(issues)).To(Equal(0))
+		})
+
+		It("does not fire with created_by: recurring-task-creator", func() {
+			writeSDM(
+				vaultPath,
+				tasksDir,
+				"status: in_progress\npage_type: task\ntask_identifier: 11111111-1111-4111-a111-111111111111\ndefer_date: 2026-11-13\ncreated_by: recurring-task-creator\n",
+				"expired-recurring-creator.md",
+			)
+			issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+			Expect(err).To(BeNil())
+			Expect(countExpiredIssues(issues)).To(Equal(0))
+		})
+
+		It("does not fire with a non-empty recurring key", func() {
+			writeSDM(
+				vaultPath,
+				tasksDir,
+				"status: in_progress\npage_type: task\ntask_identifier: 11111111-1111-4111-a111-111111111111\ndefer_date: 2026-11-13\nrecurring: weekly\n",
+				"expired-recurring-key.md",
+			)
+			issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+			Expect(err).To(BeNil())
+			Expect(countExpiredIssues(issues)).To(Equal(0))
+		})
+
+		It("ExecuteFile surfaces EXPIRED_DEFER_DATE with the same description", func() {
+			fixture := "---\nstatus: in_progress\npage_type: task\ntask_identifier: 11111111-1111-4111-a111-111111111111\ndefer_date: 2026-11-13\n---\n# Test\n"
+			taskPath := filepath.Join(vaultPath, tasksDir, "expired-both-paths.md")
+			Expect(os.WriteFile(taskPath, []byte(fixture), 0600)).To(Succeed())
+
+			lintIssues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+			Expect(err).To(BeNil())
+			var lintDesc string
+			foundLint := false
+			for _, i := range lintIssues {
+				if i.IssueType == ops.IssueTypeExpiredDeferDate {
+					lintDesc = i.Description
+					foundLint = true
+				}
+			}
+			Expect(foundLint).To(BeTrue(), "lint path should surface EXPIRED_DEFER_DATE")
+
+			validateIssues, err := lintOp.ExecuteFile(
+				ctx,
+				ops.PageTypeTask,
+				taskPath,
+				"expired-both-paths",
+				"personal",
+			)
+			Expect(err).To(BeNil())
+			var validateDesc string
+			foundValidate := false
+			for _, i := range validateIssues {
+				if i.IssueType == ops.IssueTypeExpiredDeferDate {
+					validateDesc = i.Description
+					foundValidate = true
+				}
+			}
+			Expect(foundValidate).To(BeTrue(), "validate path should surface EXPIRED_DEFER_DATE")
+			Expect(validateDesc).To(Equal(lintDesc),
+				"lint and validate must produce the same description string")
+		})
+
+		It("is task-scoped: PageTypeGoal reports nothing", func() {
+			writeSDM(
+				vaultPath,
+				tasksDir,
+				"status: in_progress\npage_type: task\ntask_identifier: 11111111-1111-4111-a111-111111111111\ndefer_date: 2026-11-13\n",
+				"expired-scoped.md",
+			)
+
+			goalIssues, err := lintOp.Execute(ctx, ops.PageTypeGoal, vaultPath, tasksDir, "", false)
+			Expect(err).To(BeNil())
+			Expect(countExpiredIssues(goalIssues)).To(Equal(0))
+
+			taskIssues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+			Expect(err).To(BeNil())
+			Expect(countExpiredIssues(taskIssues)).To(Equal(1))
+		})
+
+		It("is mutually exclusive with HOLD_WITH_DEFER_DATE", func() {
+			writeSDM(
+				vaultPath,
+				tasksDir,
+				"status: hold\npage_type: task\ntask_identifier: 11111111-1111-4111-a111-111111111111\ndefer_date: 2026-11-13\n",
+				"expired-hold.md",
+			)
+			issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+			Expect(err).To(BeNil())
+			Expect(countHoldIssues(issues)).To(Equal(1))
+			Expect(countExpiredIssues(issues)).To(Equal(0))
+		})
+
+		It("stays non-fixable and leaves the file byte-identical", func() {
+			original := "---\nstatus: in_progress\npage_type: task\ntask_identifier: 11111111-1111-4111-a111-111111111111\ndefer_date: 2026-11-13\n---\n# Test\n"
+			taskPath := filepath.Join(vaultPath, tasksDir, "expired-no-fix.md")
+			Expect(os.WriteFile(taskPath, []byte(original), 0600)).To(Succeed())
+
+			issues, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", true)
+			Expect(err).To(BeNil())
+			Expect(countExpiredIssues(issues)).To(Equal(1))
+
+			content, err := os.ReadFile(taskPath) //#nosec G304 -- test file
+			Expect(err).To(BeNil())
+			Expect(string(content)).To(Equal(original))
+		})
+
+		It("--fix can create the state by promoting next to in_progress", func() {
+			writeSDM(
+				vaultPath,
+				tasksDir,
+				"status: next\npage_type: task\ntask_identifier: 11111111-1111-4111-a111-111111111111\ndefer_date: 2026-11-13\n",
+				"expired-fix-promote.md",
+			)
+
+			first, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", true)
+			Expect(err).To(BeNil())
+			Expect(countSDMIssues(first)).To(Equal(1))
+			Expect(countExpiredIssues(first)).To(Equal(0))
+
+			second, err := lintOp.Execute(ctx, ops.PageTypeTask, vaultPath, tasksDir, "", false)
+			Expect(err).To(BeNil())
+			Expect(countExpiredIssues(second)).To(Equal(1))
+		})
+	})
 })
 
 var _ = Describe("LintOperation - Page Type Scoping", func() {
@@ -2982,7 +3231,7 @@ var _ = Describe("LintOperation - Page Type Scoping", func() {
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		lintOp = ops.NewLintOperation()
+		lintOp = ops.NewLintOperation(libtime.NewCurrentDateTime())
 
 		var err error
 		vaultPath, err = os.MkdirTemp("", "vault-pagetype-test-*")
@@ -3152,7 +3401,7 @@ Body text.
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		lintOp = ops.NewLintOperation()
+		lintOp = ops.NewLintOperation(libtime.NewCurrentDateTime())
 
 		var err error
 		vaultPath, err = os.MkdirTemp("", "vault-quoted-bool-test-*")
@@ -3340,7 +3589,7 @@ var _ = Describe("LintOperation APPROVED_RECORD_IN_TODO_INBOX", func() {
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		lintOp = ops.NewLintOperation()
+		lintOp = ops.NewLintOperation(libtime.NewCurrentDateTime())
 		var err error
 		vaultPath, err = os.MkdirTemp("", "vault-approved-record-*")
 		Expect(err).To(BeNil())

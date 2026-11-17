@@ -526,6 +526,8 @@ Any task with a calendar date (`planned_date`, `defer_date`, or `due_date`) is a
 
 A task at `status: hold` carrying a `defer_date` is reported separately by `task lint` / `task validate` as `HOLD_WITH_DEFER_DATE`. It is not auto-fixable because both resolutions are legitimate: promote to `in_progress` (the date is a resume date) or clear the date (the block is real and open-ended). Two exemptions apply, and the rule is **not** mechanically enforced for them: instances created by the recurring task creator (`created_by: recurring-task-creator`) and tasks carrying a non-empty `recurring:` key, because for those the `defer_date` is a schedule date rather than a snooze. The rule is task-scoped — `task lint` / `task validate` only — and does not apply to goal / topic / theme / objective / vision pages.
 
+A task left at `status: in_progress` with a `defer_date` earlier than today is reported by `task lint` / `task validate` as `EXPIRED_DEFER_DATE`. The date test is date-only in local time, so a defer later today is not expired. The finding is not auto-fixable — the disposition is a judgement (finish the task, re-defer to a future date, or hold it with a reason) — and it is task-scoped, like the hold rule. The same two exemptions apply: `created_by: recurring-task-creator` and a non-empty `recurring:` key, whose `defer_date` is a schedule date rather than a snooze.
+
 Recurring tasks reset on `complete` rather than archive — `recurring:` frontmatter drives the deferral cycle.
 
 ## Vault-Specific Examples

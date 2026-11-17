@@ -30,10 +30,21 @@ var (
 	statusRegex           = regexp.MustCompile(`(?m)^status:\s*['"]?([a-z_]+)['"]?\s*$`)
 	phaseRegex            = regexp.MustCompile(`(?m)^phase:\s*['"]?([a-z_]+)['"]?\s*$`)
 	checkboxRegex         = regexp.MustCompile(`(?m)^[\s]*[-*]\s+\[([ xX])\]`)
-	goalsInlineRegex      = regexp.MustCompile(`(?m)^goals:\s*\[(.*?)\]`)
-	goalsMultilineRegex   = regexp.MustCompile(`(?ms)^goals:\s*\n((?:\s*-\s*.+\n?)+)`)
-	goalItemRegex         = regexp.MustCompile(`(?m)^\s*-\s*['"]?(.+?)['"]?\s*$`)
-	dateRegex             = regexp.MustCompile(
+	// The two goals regexes are line-bounded on purpose: no `s` (dotall) flag, so
+	// `.`/`[^\n]` cannot span lines, and `[ \t]` instead of `\s` because `\s`
+	// matches `\n` and would let the key separator cross a line boundary. This
+	// keeps the captured list inside the `goals:` block and stops at the next
+	// top-level key, so later lists (themes:, metrics_sessions:, ...) are never
+	// mistaken for goal entries.
+	goalsInlineRegex = regexp.MustCompile(`(?m)^goals:[ \t]*\[(.*?)\]`)
+	// This regex used to be `(?ms)^goals:\s*\n((?:\s*-\s*.+\n?)+)`. The dotall
+	// `.+` swallowed every following frontmatter line, so the goal reader ran
+	// past the end of the goals list into later keys and produced 4662 false
+	// ORPHAN_GOAL findings across 1450 distinct values on the private-personal
+	// vault (2026-11-17). `[^\n]*` bounds each item to a single line.
+	goalsMultilineRegex = regexp.MustCompile(`(?m)^goals:[ \t]*\n((?:[ \t]*-[ \t]*[^\n]*\n?)+)`)
+	goalItemRegex       = regexp.MustCompile(`(?m)^\s*-\s*['"]?(.+?)['"]?\s*$`)
+	dateRegex           = regexp.MustCompile(
 		`(?m)^(planned_date|defer_date|due_date):\s*['"]?([^\s'"]+)?['"]?\s*$`,
 	)
 	// createdRegex and completedStatusRegex tolerate a trailing YAML comment and
@@ -561,10 +572,17 @@ func (l *lintOperation) parseMultilineGoalsList(
 	return orphanGoals
 }
 
-// extractGoalName strips wikilink brackets and whitespace from a goal name
+// extractGoalName strips wikilink brackets and whitespace from a goal name.
+//
+// It also unescapes YAML single-quote doubling: a single-quoted YAML scalar
+// escapes `'` as `''`, so `- '[[attention-controller Is the Fleet''s Single
+// Source of Session State]]'` must resolve to the goal file `attention-controller
+// Is the Fleet's Single Source of Session State.md`. Without the unescape the
+// lookup misses and ORPHAN_GOAL fires falsely.
 func (l *lintOperation) extractGoalName(raw string) string {
 	goalName := strings.TrimPrefix(raw, "[[")
 	goalName = strings.TrimSuffix(goalName, "]]")
+	goalName = strings.ReplaceAll(goalName, "''", "'")
 	return strings.TrimSpace(goalName)
 }
 

@@ -20,6 +20,16 @@ import (
 	"github.com/bborbe/vault-cli/pkg/ops"
 )
 
+func orphanGoalIssues(issues []ops.LintIssue) []ops.LintIssue {
+	var out []ops.LintIssue
+	for _, i := range issues {
+		if i.IssueType == ops.IssueTypeOrphanGoal {
+			out = append(out, i)
+		}
+	}
+	return out
+}
+
 var _ = Describe("LintOperation", func() {
 	var (
 		ctx       context.Context
@@ -1689,6 +1699,153 @@ status: todo
 			)
 			Expect(err).To(BeNil())
 			Expect(issues).To(HaveLen(1))
+		})
+	})
+
+	Context("with goals followed by themes and metrics_sessions lists", func() {
+		BeforeEach(func() {
+			taskContent := `---
+status: todo
+page_type: task
+goals:
+  - "[[Existing Goal]]"
+themes:
+  - "[[Leverage Autonomous Agents]]"
+metrics_sessions:
+  - session_id: 76a00500-0000-4000-8000-000000000000
+    started_at: "2026-11-17T17:30:33Z"
+task_identifier: 12341234-1234-4234-8234-123412341234
+---
+# Task with goals and later lists
+`
+			taskPath := filepath.Join(vaultPath, tasksDir, "Task.md")
+			Expect(os.WriteFile(taskPath, []byte(taskContent), 0600)).To(Succeed())
+
+			goalContent := `---
+status: in_progress
+---
+# Existing Goal
+`
+			goalPath := filepath.Join(vaultPath, goalsDir, "Existing Goal.md")
+			Expect(os.WriteFile(goalPath, []byte(goalContent), 0600)).To(Succeed())
+		})
+
+		It("does not report later list items as missing goals", func() {
+			issues, err := lintOp.Execute(
+				ctx,
+				ops.PageTypeTask,
+				vaultPath,
+				tasksDir,
+				goalsDir,
+				false,
+			)
+			Expect(err).To(BeNil())
+			Expect(orphanGoalIssues(issues)).To(BeEmpty())
+		})
+	})
+
+	Context("with a genuine orphan goal in a block list", func() {
+		BeforeEach(func() {
+			taskContent := `---
+status: todo
+page_type: task
+goals:
+  - "[[Missing Goal]]"
+themes:
+  - "[[Leverage Autonomous Agents]]"
+task_identifier: 23452345-2345-4345-8345-234523452345
+---
+# Task with orphan goal and theme list
+`
+			taskPath := filepath.Join(vaultPath, tasksDir, "Task.md")
+			Expect(os.WriteFile(taskPath, []byte(taskContent), 0600)).To(Succeed())
+		})
+
+		It("reports exactly the orphan goal", func() {
+			issues, err := lintOp.Execute(
+				ctx,
+				ops.PageTypeTask,
+				vaultPath,
+				tasksDir,
+				goalsDir,
+				false,
+			)
+			Expect(err).To(BeNil())
+			Expect(orphanGoalIssues(issues)).To(HaveLen(1))
+			Expect(orphanGoalIssues(issues)[0].Description).To(ContainSubstring("Missing Goal"))
+		})
+	})
+
+	Context("with a flow-list goals followed by a theme list", func() {
+		BeforeEach(func() {
+			taskContent := `---
+status: todo
+page_type: task
+goals: ["[[Missing Goal]]"]
+themes: ["[[Leverage Autonomous Agents]]"]
+task_identifier: 34563456-3456-4456-8456-345634563456
+---
+# Task with flow-list goals and theme
+`
+			taskPath := filepath.Join(vaultPath, tasksDir, "Task.md")
+			Expect(os.WriteFile(taskPath, []byte(taskContent), 0600)).To(Succeed())
+		})
+
+		It("reports only the flow-list orphan goal", func() {
+			issues, err := lintOp.Execute(
+				ctx,
+				ops.PageTypeTask,
+				vaultPath,
+				tasksDir,
+				goalsDir,
+				false,
+			)
+			Expect(err).To(BeNil())
+			Expect(orphanGoalIssues(issues)).To(HaveLen(1))
+			Expect(orphanGoalIssues(issues)[0].Description).To(ContainSubstring("Missing Goal"))
+			Expect(orphanGoalIssues(issues)[0].Description).
+				NotTo(ContainSubstring("Leverage Autonomous Agents"))
+		})
+	})
+
+	Context("with an escaped apostrophe in a goal name", func() {
+		BeforeEach(func() {
+			taskContent := `---
+status: todo
+page_type: task
+goals:
+  - '[[attention-controller Is the Fleet''s Single Source of Session State]]'
+task_identifier: 45674567-4567-4567-8567-456745674567
+---
+# Task with escaped apostrophe goal
+`
+			taskPath := filepath.Join(vaultPath, tasksDir, "Task.md")
+			Expect(os.WriteFile(taskPath, []byte(taskContent), 0600)).To(Succeed())
+
+			goalContent := `---
+status: in_progress
+---
+# Goal with apostrophe
+`
+			goalPath := filepath.Join(
+				vaultPath,
+				goalsDir,
+				"attention-controller Is the Fleet's Single Source of Session State.md",
+			)
+			Expect(os.WriteFile(goalPath, []byte(goalContent), 0600)).To(Succeed())
+		})
+
+		It("resolves the doubled apostrophe to the real goal file", func() {
+			issues, err := lintOp.Execute(
+				ctx,
+				ops.PageTypeTask,
+				vaultPath,
+				tasksDir,
+				goalsDir,
+				false,
+			)
+			Expect(err).To(BeNil())
+			Expect(orphanGoalIssues(issues)).To(BeEmpty())
 		})
 	})
 })

@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: scope ORPHAN_GOAL detection to the goals: block so later frontmatter lists are not reported as missing goals
+
 ## v0.197.0
 
 - feat: add `pkg/index`, a shared metadata-only page index (frontmatter, name, path, mtime and pre-parsed Open Questions per page, never the body) with the ported stat-diff refresh contract, lazy on-disk body reads and an optional bolt cache (store format version 2)

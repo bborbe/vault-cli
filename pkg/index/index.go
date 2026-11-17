@@ -110,10 +110,15 @@ const (
 	// buildReload lists the folder and re-reads every file, ignoring
 	// fingerprints.
 	buildReload
+	// buildHydrate loads the key's stored entries, seeds them as the stat-diff
+	// baseline and lists the folder. It is used only for a key with no published
+	// snapshot whose store has not been consulted yet.
+	buildHydrate
 )
 
 // storeDelta is one publication's change: the entries it re-read and the names
-// it dropped.
+// it dropped. It is computed under the index mutex and written to the store
+// after the build is released, so no reader waits on store I/O.
 // StoredEntry is one indexed file's record: the metadata-only entry, or nil when
 // the file was excluded, plus the pre-read fingerprint. It never holds a body.
 type StoredEntry struct {
@@ -166,6 +171,8 @@ func (b *build) covers(kind buildKind, needSeq uint64) bool {
 	switch b.kind {
 	case buildCold, buildReload:
 		return true
+	case buildHydrate:
+		return kind == buildCold || kind == buildStatDiff || kind == buildHydrate
 	case buildFileReads:
 		return kind == buildFileReads
 	case buildStatDiff:
@@ -179,6 +186,14 @@ type entry struct {
 	snapshot     published
 	hasSnapshot  bool
 	fingerprints map[string]FileFingerprint
+
+	// storeLoaded records that this key has consulted the store, so the store
+	// is never re-read on a later start of the same process.
+	storeLoaded bool
+	// storedBaseline records that snapshot and fingerprints hold entries seeded
+	// from the store that have not yet been stat-diffed and must never be served
+	// as they are.
+	storedBaseline bool
 
 	// fileReadSeq holds, per base filename, the read sequence of the read whose
 	// result is currently applied — the page present or removed. A name whose
@@ -264,19 +279,36 @@ type pageIndex struct {
 	currentDateTimeGetter libtime.CurrentDateTimeGetter
 	waiter                libtime.WaiterDuration
 	metrics               Metrics
+	// store hydrates each key from the on-disk cache before its first stat-diff.
+	// It is written once at construction and read under the mutex.
+	store Store
 	// warnf emits the per-file exclusion warnings. It is a field so a consumer
 	// can redirect them per index instance.
 	warnf func(format string, args ...any)
 }
 
-// NewPageIndex creates an empty page index over the given reader and lister.
-// A nil metrics records nothing.
+// NewPageIndex creates an empty page index over the given reader and lister,
+// with no store. A nil metrics records nothing.
 func NewPageIndex(
 	reader PageReader,
 	lister DirectoryLister,
 	currentDateTimeGetter libtime.CurrentDateTimeGetter,
 	waiter libtime.WaiterDuration,
 	metrics Metrics,
+) PageIndex {
+	return NewPageIndexWithStore(reader, lister, currentDateTimeGetter, waiter, metrics, nil)
+}
+
+// NewPageIndexWithStore creates an empty page index that hydrates each key from
+// store before its first stat-diff and writes each publication through to it.
+// A nil metrics records nothing; a nil store disables persistence.
+func NewPageIndexWithStore(
+	reader PageReader,
+	lister DirectoryLister,
+	currentDateTimeGetter libtime.CurrentDateTimeGetter,
+	waiter libtime.WaiterDuration,
+	metrics Metrics,
+	store Store,
 ) PageIndex {
 	if metrics == nil {
 		metrics = NewNoopMetrics()
@@ -288,6 +320,7 @@ func NewPageIndex(
 		currentDateTimeGetter: currentDateTimeGetter,
 		waiter:                waiter,
 		metrics:               metrics,
+		store:                 store,
 		warnf:                 slogWarnf,
 	}
 }

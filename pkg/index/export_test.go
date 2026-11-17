@@ -6,6 +6,7 @@ package index
 
 import (
 	"fmt"
+	"reflect"
 	"sync"
 
 	libtime "github.com/bborbe/time"
@@ -77,6 +78,21 @@ func NewPageIndexWithWarnf(
 	return idx
 }
 
+// NewPageIndexWithStoreAndWarnf builds a store-backed page index whose
+// warnings go to warnf.
+func NewPageIndexWithStoreAndWarnf(
+	reader PageReader,
+	lister DirectoryLister,
+	currentDateTimeGetter libtime.CurrentDateTimeGetter,
+	waiter libtime.WaiterDuration,
+	store Store,
+	warnf func(format string, args ...any),
+) PageIndex {
+	idx := NewPageIndexWithStore(reader, lister, currentDateTimeGetter, waiter, TestMetrics, store)
+	SetWarnf(idx, warnf)
+	return idx
+}
+
 // FingerprintSetIdentity returns an identity token for the key's recorded
 // fingerprint set. An unknown key reports "".
 func FingerprintSetIdentity(idx PageIndex, key Key) string {
@@ -107,4 +123,9 @@ func SnapshotIdentity(idx PageIndex, key Key) string {
 		return ""
 	}
 	return fmt.Sprintf("%p", e.snapshot.entries)
+}
+
+// PersistedRecordType returns the store codec's on-disk record type.
+func PersistedRecordType() reflect.Type {
+	return reflect.TypeOf(storeRecord{})
 }

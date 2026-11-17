@@ -54,8 +54,10 @@ func (p *pageIndex) RefreshFile(ctx context.Context, key Key, filename string) e
 	p.metrics.FileRead(ReadReasonEvent)
 
 	p.mu.Lock()
-	p.applyFileReadLocked(e, key, filename, seq, read, fingerprint, readErr)
+	delta := p.applyFileReadLocked(e, key, filename, seq, read, fingerprint, readErr)
 	p.mu.Unlock()
+
+	p.writeThrough(readCtx, key, delta)
 
 	if err := ctx.Err(); err != nil {
 		return errors.Wrap(ctx, err, "refresh file")

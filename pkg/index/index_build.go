@@ -94,6 +94,9 @@ func (p *pageIndex) ensure(
 // hold the mutex.
 func (p *pageIndex) pendingLocked(e *entry, refresh bool) (buildKind, uint64, bool) {
 	if !e.hasSnapshot {
+		if p.store != nil && !e.storeLoaded {
+			return buildHydrate, e.requestSeq, true
+		}
 		return buildCold, e.requestSeq, true
 	}
 	if refresh {
@@ -201,10 +204,73 @@ func (p *pageIndex) execute(ctx context.Context, key Key, b *build) {
 	switch b.kind {
 	case buildFileReads:
 		p.executeFileReads(readCtx, key, b)
+	case buildHydrate:
+		p.executeHydrate(readCtx, key, b)
 	default:
 		p.executeListing(readCtx, key, b)
 	}
 	p.release(key, b)
+	p.writeThrough(readCtx, key, b.delta)
+}
+
+// writeThrough persists one publication's delta outside the index mutex. It is
+// called after the build is released, so no reader waits on store I/O. A failed
+// write leaves the previous store content intact, does not affect what is
+// served, and is reported with exactly one warning naming the failure.
+func (p *pageIndex) writeThrough(ctx context.Context, key Key, delta *storeDelta) {
+	if p.store == nil || delta == nil || (len(delta.puts) == 0 && len(delta.deletes) == 0) {
+		return
+	}
+	if err := p.store.Write(ctx, key, delta.puts, delta.deletes); err != nil {
+		p.warnf(
+			"page index store write failed for %q/%q: %v",
+			key.VaultPath,
+			key.PagesDir,
+			err,
+		)
+	}
+}
+
+// executeHydrate loads the key's stored entries, seeds them as the stat-diff
+// baseline and runs one listing over them. The store read runs outside the
+// index mutex. A store that cannot supply entries leaves the key on the
+// full-parse path. A failed listing clears the seeded baseline so a stored
+// snapshot is never served without its stat-diff.
+func (p *pageIndex) executeHydrate(ctx context.Context, key Key, b *build) {
+	entries, ok, err := p.store.Load(ctx, key)
+	if err != nil {
+		// A store that cannot supply entries leaves the key on the full-parse
+		// path: a store failure never stops the index from starting or serving.
+		ok = false
+	}
+
+	p.mu.Lock()
+	e := p.entryLocked(key)
+	if ok {
+		seedStoredBaseline(e, entries)
+	}
+	e.storeLoaded = true
+	p.mu.Unlock()
+
+	p.executeListing(ctx, key, b)
+}
+
+// seedStoredBaseline fills the entry's snapshot and fingerprints from the stored
+// entries, in the store's key order (byte-ascending file names, which equals
+// os.ReadDir order). The caller must hold the mutex. hasSnapshot stays false:
+// the baseline is an input to the stat-diff, never a published value.
+func seedStoredBaseline(e *entry, stored []StoredEntry) {
+	entries := make([]*Entry, 0, len(stored))
+	fingerprints := make(map[string]FileFingerprint, len(stored))
+	for _, item := range stored {
+		fingerprints[item.Filename] = item.Fingerprint
+		if item.Entry != nil {
+			entries = append(entries, item.Entry)
+		}
+	}
+	e.snapshot = publish(entries)
+	e.fingerprints = fingerprints
+	e.storedBaseline = true
 }
 
 // executeFileReads re-reads exactly the write-marked files. The marks are taken
@@ -281,14 +347,14 @@ func (p *pageIndex) executeListing(ctx context.Context, key Key, b *build) {
 	e := p.entryLocked(key)
 	startSeq := e.requestSeq
 	b.startSeq = startSeq
-	baseline := e.hasSnapshot
+	baseline := e.hasSnapshot || e.storedBaseline
 	full := b.kind == buildCold || b.kind == buildReload || !baseline
 	forced := takeWriteMarksLocked(e, startSeq, full)
 	p.mu.Unlock()
 
 	reason := b.reason
 	switch {
-	case !baseline, b.kind == buildCold:
+	case !baseline, b.kind == buildCold, b.kind == buildHydrate:
 		reason = ReadReasonBuild
 	case b.kind == buildReload:
 		reason = ReadReasonReload
@@ -327,6 +393,7 @@ func (p *pageIndex) executeListing(ctx context.Context, key Key, b *build) {
 	e = p.entryLocked(key)
 	b.delta = publishListingLocked(e, entries, reads, full)
 	b.snap = e.snapshot
+	e.storedBaseline = false
 	e.dirtyResolvedSeq = startSeq
 	if full {
 		e.reloadResolvedSeq = startSeq
@@ -356,7 +423,9 @@ func takeWriteMarksLocked(e *entry, startSeq uint64, full bool) map[string]bool 
 
 // diffListingLocked compares a listing with the recorded fingerprints and
 // returns the names to re-read, and whether the pass is unchanged. An
-// unchanged pass requires a published snapshot to keep serving. The name set
+// unchanged pass requires a published snapshot to keep serving: a hydrated
+// baseline has recorded fingerprints but nothing published, so the fast path
+// would publish nothing and leave the key serving nothing. The name set
 // is equal exactly when the lengths match and every listed entry is present
 // and equal, and the missing/empty state did not flip. The caller must hold
 // the mutex.
@@ -403,7 +472,8 @@ func publishListingLocked(
 	// A publication is attributable to a bounded set of single files only when
 	// it merged into an already-published snapshot. A key's first publication
 	// publishes the whole snapshot whatever the build's kind, so it stays
-	// unbounded.
+	// unbounded: the hydrate path reaches here with full false but nothing
+	// published, which e.hasSnapshot still reports before it is set below.
 	bounded := !full && e.hasSnapshot
 	e.recordChangeLocked(listingChangedNames(full, delta), bounded, unboundedListingReason(e, bounded))
 	e.hasSnapshot = true
@@ -424,13 +494,21 @@ func unboundedListingReason(e *entry, bounded bool) string {
 }
 
 // failListing records a listing or collection failure: nothing is published,
-// the error is logged with the key, and the mark stays pending so the next
-// read retries.
+// the error is logged with the key, a stored baseline that was never
+// stat-diffed is dropped, and the mark stays pending so the next read retries.
 func (p *pageIndex) failListing(key Key, b *build, err error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	b.snap = published{}
 	b.err = err
+	e := p.entryLocked(key)
+	if e.storedBaseline {
+		// The stored baseline was never stat-diffed; never serve it.
+		e.snapshot = published{}
+		e.fingerprints = nil
+		e.storedBaseline = false
+		e.hasSnapshot = false
+	}
 	slog.Error(
 		"page index rebuild failed",
 		"vault", key.VaultPath,

@@ -76,6 +76,8 @@ injected `Metrics` interface (`FileRead(reason)`,
 - A failed listing keeps serving the previous snapshot and logs the error with
   the key; the mark stays pending, so the next read retries. A failed first
   build returns an error.
+- With a store, a key is hydrated from it and resolves exactly one stat-diff
+  before it is served; the stored records are never served as written.
 
 ## Incremental updates
 
@@ -112,3 +114,38 @@ A key is `NewKey(vault path, folder)`, which applies `filepath.Clean` to both
 parts so equivalent paths produce identical keys. A consumer derives the read
 side and the event side from the same vault config entry; a mismatch silently
 disables event refresh and leaves the folder on its rescan cadence.
+
+## Store format version 2
+
+An optional bolt store (`NewPageIndexWithStore`) persists the index as a cache,
+so a restart does not re-parse unchanged files. It is never a source of truth.
+
+- **Record.** One record per indexed file: filename, has-page flag, full
+  frontmatter, file metadata, Open Questions and fingerprint. **No body.** An
+  excluded file stores its fingerprint and no page.
+- **Frozen names**, byte-identical to vault-ui's v1 store: meta bucket
+  `vault-ui-page-index-meta`, identity key `identity`, identity JSON fields
+  `StoreFormat` / `ParserVersion`, entry bucket name
+  `vault-ui-page-index\x00<VaultPath>\x00<PagesDir>`. A v1 file is therefore
+  recognised and discarded as a format mismatch, entry buckets deleted.
+- **Identity.** `StoreFormat` is `2`; `ParserVersion` is the vault-cli module
+  version from build info (the dependency entry, or the main module when
+  vault-cli is itself main, else `(unknown)`).
+- **Discard reasons.** On open, a store whose identity is missing or empty,
+  damaged, of another store format, or of another parser version is discarded:
+  its entry buckets are deleted and one warning names the path and the reason —
+  `store format mismatch (stored N, current 2)`, `parser version mismatch`,
+  `store file missing or empty`, or `damaged`. Format is checked before parser
+  version. Opening waits at most 5 s for the file lock; any open or reconcile
+  failure yields a discarded store that serves nothing and never fails
+  construction.
+- **Writes.** Each publication writes exactly its changed and vanished entries
+  in one transaction, outside the index mutex. A failed write leaves the
+  previous content intact and logs one warning.
+- **Location.** `DefaultStorePath(app)` returns
+  `<user cache dir>/<app>/page-index.bolt`; `NewBoltStore` creates the
+  directory with mode 0700. The store never lives inside a vault.
+- **Codec.** Frontmatter is encoded through `FrontmatterMap.RawMap()` and pages
+  are rebuilt with `domain.NewPage`: a JSON codec on `domain.Page` would drop
+  every frontmatter key. Decoding never preallocates from stored counts, and
+  any decode failure discards the store.

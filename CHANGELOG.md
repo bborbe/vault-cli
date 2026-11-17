@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.196.0
 
 - fix: `goal set` now writes the flag as an unquoted YAML boolean and records `flag_set_by` / `flag_set_at` in the same write via `--by`, matching `task set`
 

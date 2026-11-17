@@ -163,6 +163,10 @@ The walk ends at `done`, and both terminal statuses end it the same way: a termi
 
 A goal with no `phase` key is exempt from the gate and cannot be approved; set `phase: todo` first. A goal that already carries `approved_by` or `approved_at` is refused rather than re-approved, and the refusal writes nothing.
 
+### The flag (`flag`)
+
+A goal's `flag` is a real YAML boolean, written by `vault-cli goal set "<name>" flag true --by <actor>` — the same contract as `task set`. The write stores `flag: true` (or `flag: false`) unquoted and, for a truthy value, records the actor as `flag_set_by` and the instant as `flag_set_at` in the **same single write**, so no reader can observe a flagged goal without its provenance. `--by` defaults to the literal `unknown`, is accepted only for the `flag` key, and a truthy flag with a blank actor is refused before anything is written. Writing `flag_set_by` or `flag_set_at` directly is refused: they exist only as evidence of the invocation that set the flag. `vault-cli goal clear "<name>" flag` removes the flag and both provenance keys together.
+
 ### Dependencies (`blocked_by`)
 
 `blocked_by` declares the goals this goal cannot start before. It is a YAML list of goal names; each entry may be a plain name (`Blocker Goal`) or a wikilink (`[[Blocker Goal]]`) — both forms resolve the same way. A scalar value (`blocked_by: Blocker Goal`) is malformed and reads as an empty list, so it never blocks. `vault-cli goal lint` reports a goal whose `blocked_by` is shaped this way; `vault-cli task validate` and `vault-cli task lint` report the task-side equivalent.

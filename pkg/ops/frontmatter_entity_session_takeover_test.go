@@ -64,7 +64,7 @@ var _ = Describe("goal/topic set session take-over", func() {
 			setOp = ops.NewGoalSetOperation(mockGoalStorage, pinned)
 			seedGoal(map[string]any{"status": "active"})
 			bind = func(value string) error {
-				return setOp.Execute(ctx, vaultPath, "Alpha", "claude_session_id", value, "", "")
+				return setOp.Execute(ctx, vaultPath, "Alpha", "claude_session_id", value, "", "", "")
 			}
 		})
 
@@ -160,7 +160,7 @@ var _ = Describe("goal/topic set session take-over", func() {
 			})
 
 			Expect(
-				setOp.Execute(ctx, vaultPath, "Alpha", "status", "active", "", ""),
+				setOp.Execute(ctx, vaultPath, "Alpha", "status", "active", "", "", ""),
 			).To(BeNil())
 
 			Expect(goal.ClaudeSessionID()).To(Equal(sessionA))
@@ -199,7 +199,7 @@ var _ = Describe("goal/topic set session take-over", func() {
 			setOp = ops.NewTopicSetOperation(mockTopicStorage, pinned)
 			seedTopic(map[string]any{"status": "active"})
 			bind = func(value string) error {
-				return setOp.Execute(ctx, vaultPath, "Alpha", "claude_session_id", value, "", "")
+				return setOp.Execute(ctx, vaultPath, "Alpha", "claude_session_id", value, "", "", "")
 			}
 		})
 
@@ -294,7 +294,7 @@ var _ = Describe("goal/topic set session take-over", func() {
 			})
 
 			Expect(
-				setOp.Execute(ctx, vaultPath, "Alpha", "status", "active", "", ""),
+				setOp.Execute(ctx, vaultPath, "Alpha", "status", "active", "", "", ""),
 			).To(BeNil())
 
 			Expect(topic.GetField("claude_session_id")).To(Equal(sessionA))
@@ -345,7 +345,7 @@ body line
 			cfg := &storage.Config{GoalsDir: "23 Goals"}
 			Expect(
 				ops.NewGoalSetOperation(storage.NewGoalStorage(cfg), pinned).
-					Execute(ctx, vaultPath, "Alpha", "claude_session_id", sessionB, "", ""),
+					Execute(ctx, vaultPath, "Alpha", "claude_session_id", sessionB, "", "", ""),
 			).To(Succeed())
 
 			raw, err := os.ReadFile(filepath.Join(goalsDir, "Alpha.md"))

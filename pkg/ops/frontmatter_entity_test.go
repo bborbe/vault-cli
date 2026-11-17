@@ -7,15 +7,21 @@ package ops_test
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	libtime "github.com/bborbe/time"
+	libtimetest "github.com/bborbe/time/test"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"gopkg.in/yaml.v3"
 
 	"github.com/bborbe/vault-cli/mocks"
 	"github.com/bborbe/vault-cli/pkg/domain"
 	"github.com/bborbe/vault-cli/pkg/ops"
+	"github.com/bborbe/vault-cli/pkg/storage"
 )
 
 var _ = Describe("NewGoalGetOperation", func() {
@@ -180,7 +186,7 @@ var _ = Describe("NewGoalSetOperation", func() {
 	})
 
 	JustBeforeEach(func() {
-		err = setOp.Execute(ctx, vaultPath, goalName, key, value, reason, gateSuccessor)
+		err = setOp.Execute(ctx, vaultPath, goalName, key, value, reason, gateSuccessor, "")
 	})
 
 	Context("setting a string field", func() {
@@ -1329,7 +1335,7 @@ var _ = Describe("NewTopicSetOperation", func() {
 	})
 
 	JustBeforeEach(func() {
-		err = setOp.Execute(ctx, vaultPath, topicName, key, value, "", "")
+		err = setOp.Execute(ctx, vaultPath, topicName, key, value, "", "", "")
 	})
 
 	Context("setting a string field", func() {
@@ -1956,5 +1962,139 @@ var _ = Describe("NewTopicShowOperation", func() {
 		It("returns an error wrapped with find topic", func() {
 			Expect(err).To(MatchError(ContainSubstring("find topic")))
 		})
+	})
+})
+
+// The goal flag contract mirrors the task flag contract: the flag is stored as
+// a real YAML boolean and its provenance is composed onto the same map and
+// persisted by the operation's single WriteGoal, so the serialized file — not
+// just the in-memory map — carries the unquoted boolean and the attribution.
+var _ = Describe("NewGoalSetOperation flag provenance", func() {
+	var (
+		ctx       context.Context
+		err       error
+		setOp     ops.EntitySetOperation
+		clearOp   ops.EntityClearOperation
+		pinned    libtime.CurrentDateTime
+		vaultPath string
+		goalsDir  string
+		goalPath  string
+	)
+
+	const goalFixture = `---
+status: in_progress
+page_type: goal
+---
+body line
+`
+
+	BeforeEach(func() {
+		ctx = context.Background()
+		pinned = libtime.NewCurrentDateTime()
+		pinned.SetNow(libtimetest.ParseDateTime("2026-09-30T08:00:00Z"))
+
+		vaultPath, err = os.MkdirTemp("", "vault-goal-flag-*")
+		Expect(err).NotTo(HaveOccurred())
+		goalsDir = filepath.Join(vaultPath, "23 Goals")
+		Expect(os.MkdirAll(goalsDir, 0755)).To(Succeed())
+		goalPath = filepath.Join(goalsDir, "Alpha.md")
+		Expect(os.WriteFile(goalPath, []byte(goalFixture), 0600)).To(Succeed())
+
+		cfg := &storage.Config{GoalsDir: "23 Goals"}
+		goalStore := storage.NewGoalStorage(cfg)
+		setOp = ops.NewGoalSetOperation(goalStore, pinned)
+		clearOp = ops.NewGoalClearOperation(goalStore)
+	})
+
+	AfterEach(func() {
+		if vaultPath != "" {
+			_ = os.RemoveAll(vaultPath)
+		}
+	})
+
+	read := func() string {
+		raw, readErr := os.ReadFile(goalPath)
+		Expect(readErr).NotTo(HaveOccurred())
+		return string(raw)
+	}
+
+	It("writes flag true as an unquoted boolean", func() {
+		Expect(setOp.Execute(
+			ctx, vaultPath, "Alpha", "flag", "true", "", "", "operator",
+		)).To(Succeed())
+
+		out := read()
+		Expect(out).To(ContainSubstring("flag: true"))
+		Expect(out).NotTo(ContainSubstring(`flag: "true"`))
+	})
+
+	It("writes flag false as an unquoted boolean", func() {
+		Expect(setOp.Execute(
+			ctx, vaultPath, "Alpha", "flag", "false", "", "", "operator",
+		)).To(Succeed())
+
+		out := read()
+		Expect(out).To(ContainSubstring("flag: false"))
+		Expect(out).NotTo(ContainSubstring(`flag: "false"`))
+	})
+
+	It("records the actor and a parseable instant in the same write", func() {
+		Expect(setOp.Execute(
+			ctx, vaultPath, "Alpha", "flag", "true", "", "", "operator",
+		)).To(Succeed())
+
+		out := read()
+		Expect(out).To(ContainSubstring("flag_set_by: operator"))
+		Expect(out).To(ContainSubstring("flag_set_at: 2026-09-30T08:00:00Z"))
+		Expect(out).NotTo(ContainSubstring(`flag_set_at: "2026-09-30T08:00:00Z"`))
+
+		var parsed map[string]any
+		Expect(yaml.Unmarshal([]byte(out), &parsed)).To(Succeed())
+		_, ok := parsed["flag_set_at"].(time.Time)
+		Expect(ok).To(BeTrue())
+	})
+
+	It("refuses a blank actor on a truthy flag and leaves the file byte-identical", func() {
+		before := read()
+
+		err = setOp.Execute(ctx, vaultPath, "Alpha", "flag", "true", "", "", "")
+
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("flag_set_by"))
+		Expect(read()).To(Equal(before))
+	})
+
+	It("refuses a direct provenance write and names the goal verb", func() {
+		before := read()
+
+		err = setOp.Execute(ctx, vaultPath, "Alpha", "flag_set_by", "someone", "", "", "operator")
+
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("goal set"))
+		Expect(read()).To(Equal(before))
+	})
+
+	It("removes the flag and both provenance keys on clear", func() {
+		Expect(setOp.Execute(
+			ctx, vaultPath, "Alpha", "flag", "true", "", "", "operator",
+		)).To(Succeed())
+		Expect(read()).To(ContainSubstring("flag_set_by: operator"))
+
+		Expect(clearOp.Execute(ctx, vaultPath, "Alpha", "flag")).To(Succeed())
+
+		out := read()
+		Expect(out).NotTo(ContainSubstring("flag:"))
+		Expect(out).NotTo(ContainSubstring("flag_set_by"))
+		Expect(out).NotTo(ContainSubstring("flag_set_at"))
+	})
+
+	It("round-trips a non-boolean goal field unchanged", func() {
+		Expect(setOp.Execute(
+			ctx, vaultPath, "Alpha", "phase", "execution", "", "", "",
+		)).To(Succeed())
+
+		out := read()
+		Expect(out).To(ContainSubstring("phase: execution"))
+		Expect(strings.Count(out, "phase:")).To(Equal(1))
 	})
 })

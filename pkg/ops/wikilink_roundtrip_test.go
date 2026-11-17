@@ -127,25 +127,25 @@ body
 			return ops.NewGoalSetOperation(
 				storage.NewGoalStorage(cfg),
 				libtime.NewCurrentDateTime(),
-			).Execute(ctx, vaultPath, name, key, value, "", "")
+			).Execute(ctx, vaultPath, name, key, value, "", "", "")
 		}),
 		Entry("theme", "21 Themes", func(
 			ctx context.Context, cfg *storage.Config, vaultPath, name, key, value string,
 		) error {
 			return ops.NewThemeSetOperation(storage.NewThemeStorage(cfg)).
-				Execute(ctx, vaultPath, name, key, value, "", "")
+				Execute(ctx, vaultPath, name, key, value, "", "", "")
 		}),
 		Entry("objective", "22 Objectives", func(
 			ctx context.Context, cfg *storage.Config, vaultPath, name, key, value string,
 		) error {
 			return ops.NewObjectiveSetOperation(storage.NewObjectiveStorage(cfg)).
-				Execute(ctx, vaultPath, name, key, value, "", "")
+				Execute(ctx, vaultPath, name, key, value, "", "", "")
 		}),
 		Entry("vision", "20 Vision", func(
 			ctx context.Context, cfg *storage.Config, vaultPath, name, key, value string,
 		) error {
 			return ops.NewVisionSetOperation(storage.NewVisionStorage(cfg)).
-				Execute(ctx, vaultPath, name, key, value, "", "")
+				Execute(ctx, vaultPath, name, key, value, "", "", "")
 		}),
 	)
 

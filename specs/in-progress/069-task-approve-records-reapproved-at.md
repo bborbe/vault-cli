@@ -1,6 +1,7 @@
 ---
-status: draft
-created: 2026-11-18
+status: approved
+approved: "2026-11-17T23:45:39Z"
+branch: dark-factory/task-approve-records-reapproved-at
 ---
 
 ## Summary

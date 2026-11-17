@@ -1,6 +1,7 @@
 ---
-status: draft
+status: approved
 created: "2026-11-16T22:40:00Z"
+queued: "2026-11-16T23:52:09Z"
 ---
 
 # Write goal flags as booleans and record their provenance

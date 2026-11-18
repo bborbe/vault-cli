@@ -1,6 +1,7 @@
 ---
-status: approved
+status: verifying
 approved: "2026-11-17T23:45:39Z"
+verifying: "2026-11-18T19:33:38Z"
 branch: dark-factory/task-approve-records-reapproved-at
 ---
 

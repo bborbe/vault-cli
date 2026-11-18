@@ -13,7 +13,17 @@ import (
 	"github.com/bborbe/vault-cli/mocks"
 	"github.com/bborbe/vault-cli/pkg/domain"
 	"github.com/bborbe/vault-cli/pkg/ops"
+	"github.com/bborbe/vault-cli/pkg/storage"
 )
+
+// completeTopicContent is a closure-complete topic body: every Success Criteria
+// and Completion Gate box is ticked.
+func completeTopicContent(status string) domain.Content {
+	return domain.Content(
+		"---\nstatus: " + status + "\n---\n# Success Criteria\n- [x] done\n" +
+			"# Completion Gate\n- [x] gated\n",
+	)
+}
 
 var _ = Describe("TopicCompleteOperation", func() {
 	var (
@@ -22,6 +32,7 @@ var _ = Describe("TopicCompleteOperation", func() {
 		result           ops.MutationResult
 		op               ops.TopicCompleteOperation
 		mockTopicStorage *mocks.TopicStorage
+		mockGoalStorage  *mocks.GoalStorage
 		vaultPath        string
 		topicName        string
 		vaultName        string
@@ -31,7 +42,8 @@ var _ = Describe("TopicCompleteOperation", func() {
 	BeforeEach(func() {
 		ctx = context.Background()
 		mockTopicStorage = &mocks.TopicStorage{}
-		op = ops.NewTopicCompleteOperation(mockTopicStorage)
+		mockGoalStorage = &mocks.GoalStorage{}
+		op = ops.NewTopicCompleteOperation(mockTopicStorage, mockGoalStorage)
 		vaultPath = "/path/to/vault"
 		topicName = "my-topic"
 		vaultName = "test-vault"
@@ -39,7 +51,7 @@ var _ = Describe("TopicCompleteOperation", func() {
 		topic = domain.NewTopic(
 			map[string]any{"status": "in_progress"},
 			domain.FileMetadata{Name: topicName, FilePath: "/vault/Topics/my-topic.md"},
-			domain.Content("---\nstatus: in_progress\n---\n"),
+			completeTopicContent("in_progress"),
 		)
 		mockTopicStorage.FindTopicByNameReturns(topic, nil)
 		mockTopicStorage.WriteTopicReturns(nil)
@@ -87,7 +99,7 @@ var _ = Describe("TopicCompleteOperation", func() {
 			topic = domain.NewTopic(
 				map[string]any{},
 				domain.FileMetadata{Name: topicName, FilePath: "/vault/Topics/my-topic.md"},
-				domain.Content(""),
+				completeTopicContent(""),
 			)
 			mockTopicStorage.FindTopicByNameReturns(topic, nil)
 		})
@@ -105,7 +117,7 @@ var _ = Describe("TopicCompleteOperation", func() {
 			topic = domain.NewTopic(
 				map[string]any{"status": "whatever"},
 				domain.FileMetadata{Name: topicName, FilePath: "/vault/Topics/my-topic.md"},
-				domain.Content(""),
+				completeTopicContent("whatever"),
 			)
 			mockTopicStorage.FindTopicByNameReturns(topic, nil)
 		})
@@ -123,19 +135,110 @@ var _ = Describe("TopicCompleteOperation", func() {
 			topic = domain.NewTopic(
 				map[string]any{"status": domain.TopicStatusCompleted},
 				domain.FileMetadata{Name: topicName, FilePath: "/vault/Topics/my-topic.md"},
-				domain.Content(""),
+				completeTopicContent(domain.TopicStatusCompleted),
 			)
 			mockTopicStorage.FindTopicByNameReturns(topic, nil)
 		})
 
-		It("returns an error naming the refusal", func() {
-			Expect(err).NotTo(BeNil())
-			Expect(err.Error()).To(ContainSubstring("topic \"my-topic\" is already completed"))
+		It("returns no error", func() {
+			Expect(err).To(BeNil())
+			Expect(result.Success).To(BeTrue())
 		})
 
-		It("returns a failed result", func() {
-			Expect(result.Success).To(BeFalse())
-			Expect(result.Error).To(ContainSubstring("already completed"))
+		It("does not write the topic", func() {
+			Expect(mockTopicStorage.WriteTopicCallCount()).To(Equal(0))
+		})
+	})
+
+	Context("topic already aborted", func() {
+		BeforeEach(func() {
+			topic = domain.NewTopic(
+				map[string]any{"status": "aborted"},
+				domain.FileMetadata{Name: topicName, FilePath: "/vault/Topics/my-topic.md"},
+				completeTopicContent("aborted"),
+			)
+			mockTopicStorage.FindTopicByNameReturns(topic, nil)
+		})
+
+		It("returns no error", func() {
+			Expect(err).To(BeNil())
+			Expect(result.Success).To(BeTrue())
+		})
+
+		It("does not write the topic", func() {
+			Expect(mockTopicStorage.WriteTopicCallCount()).To(Equal(0))
+		})
+	})
+
+	Context("open Completion Gate box blocks completion", func() {
+		BeforeEach(func() {
+			topic = domain.NewTopic(
+				map[string]any{"status": "in_progress"},
+				domain.FileMetadata{Name: topicName, FilePath: "/vault/Topics/my-topic.md"},
+				domain.Content(
+					"---\nstatus: in_progress\n---\n# Success Criteria\n- [x] done\n"+
+						"# Completion Gate\n- [ ] an open gate\n",
+				),
+			)
+			mockTopicStorage.FindTopicByNameReturns(topic, nil)
+		})
+
+		It("returns an error naming the gate", func() {
+			Expect(err).NotTo(BeNil())
+			Expect(err.Error()).To(ContainSubstring("an open gate"))
+		})
+
+		It("does not write the topic", func() {
+			Expect(mockTopicStorage.WriteTopicCallCount()).To(Equal(0))
+		})
+	})
+
+	Context("non-terminal member goal blocks completion", func() {
+		BeforeEach(func() {
+			topic = domain.NewTopic(
+				map[string]any{"status": "in_progress"},
+				domain.FileMetadata{Name: topicName, FilePath: "/vault/Topics/my-topic.md"},
+				domain.Content(
+					"---\nstatus: in_progress\n---\n# Success Criteria\n- [x] done\n"+
+						"# Completion Gate\n- [x] gated\n# Goals\n- [[my-member]]\n",
+				),
+			)
+			mockTopicStorage.FindTopicByNameReturns(topic, nil)
+			member := domain.NewGoal(
+				map[string]any{"status": "in_progress"},
+				domain.FileMetadata{Name: "my-member"},
+				domain.Content(""),
+			)
+			mockGoalStorage.FindGoalByNameReturns(member, nil)
+		})
+
+		It("returns an error naming the member", func() {
+			Expect(err).NotTo(BeNil())
+			Expect(err.Error()).To(ContainSubstring("my-member"))
+		})
+
+		It("does not write the topic", func() {
+			Expect(mockTopicStorage.WriteTopicCallCount()).To(Equal(0))
+		})
+	})
+
+	Context("member goal missing from the vault blocks completion", func() {
+		BeforeEach(func() {
+			topic = domain.NewTopic(
+				map[string]any{"status": "in_progress"},
+				domain.FileMetadata{Name: topicName, FilePath: "/vault/Topics/my-topic.md"},
+				domain.Content(
+					"---\nstatus: in_progress\n---\n# Success Criteria\n- [x] done\n"+
+						"# Completion Gate\n- [x] gated\n# Goals\n- [[missing-member]]\n",
+				),
+			)
+			mockTopicStorage.FindTopicByNameReturns(topic, nil)
+			mockGoalStorage.FindGoalByNameReturns(nil, storage.ErrNotFound)
+		})
+
+		It("returns an error naming the missing member", func() {
+			Expect(err).NotTo(BeNil())
+			Expect(err.Error()).To(ContainSubstring("missing-member"))
 		})
 
 		It("does not write the topic", func() {

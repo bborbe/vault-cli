@@ -10,7 +10,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 
 ## Unreleased
 
-- fix: refuse `--force` on `task complete` and `goal complete` when stdin is not a terminal, so an agent running without a terminal cannot bypass the closing check with it
+- fix: refuse `--force` on `task complete` and `goal complete` when stdin is not a terminal, so an agent running without a terminal cannot bypass the closing check with it; the extracted task-complete helper now prints warnings in both branches and wraps the session-mode error
 
 ## v0.197.1
 

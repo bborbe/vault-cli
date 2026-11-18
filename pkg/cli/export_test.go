@@ -6,6 +6,7 @@ package cli
 
 import (
 	"context"
+	"io"
 
 	"github.com/spf13/cobra"
 
@@ -46,6 +47,13 @@ func CreateResolveCommandForTest(
 // FormatRollupWeeklyPlainForTest exposes formatRollupWeeklyPlain for testing.
 func FormatRollupWeeklyPlainForTest(result ops.RollupWeeklyResult) string {
 	return formatRollupWeeklyPlain(result)
+}
+
+// PrintTaskCompleteResultForTest exposes printTaskCompleteResult with an
+// explicit writer, so both output branches are testable without swapping
+// os.Stdout.
+func PrintTaskCompleteResultForTest(w io.Writer, result ops.MutationResult) {
+	printTaskCompleteResult(w, result)
 }
 
 // GetWatchVaultsForTest exposes getWatchVaults for testing.

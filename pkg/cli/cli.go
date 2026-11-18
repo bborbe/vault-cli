@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -281,7 +282,7 @@ func createCompleteCommand(
 						return result, err
 					}
 					if !OutputFormat(*outputFormat).IsJSON() {
-						printTaskCompleteResult(result)
+						printTaskCompleteResult(os.Stdout, result)
 					}
 					return result, nil
 				},
@@ -298,14 +299,16 @@ func createCompleteCommand(
 
 // printTaskCompleteResult writes the human-readable outcome of a task
 // completion. runMutation handles the JSON case, so this is plain mode only.
-func printTaskCompleteResult(result ops.MutationResult) {
+// Warnings print in both the refusal and the success branch: the refusal
+// branch used to return early and drop them.
+func printTaskCompleteResult(w io.Writer, result ops.MutationResult) {
 	if result.Reason != "" {
-		fmt.Printf("⚠️  Cannot complete: %s\n", result.Reason)
-		return
+		fmt.Fprintf(w, "⚠️  Cannot complete: %s\n", result.Reason)
+	} else {
+		fmt.Fprintf(w, "✅ Task completed: %s\n", result.Name)
 	}
-	fmt.Printf("✅ Task completed: %s\n", result.Name)
-	for _, w := range result.Warnings {
-		fmt.Printf("⚠️  %s\n", w)
+	for _, warning := range result.Warnings {
+		fmt.Fprintf(w, "⚠️  %s\n", warning)
 	}
 }
 
@@ -553,7 +556,7 @@ func requireForceFromTerminal(ctx context.Context, force bool) error {
 	}
 	interactive, err := resolveSessionMode(ctx, "auto")
 	if err != nil {
-		return err
+		return errors.Wrap(ctx, err, "resolve session mode")
 	}
 	return requireTTYForForce(ctx, force, interactive)
 }

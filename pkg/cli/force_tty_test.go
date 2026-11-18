@@ -5,6 +5,7 @@
 package cli_test
 
 import (
+	"bytes"
 	"context"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -12,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/bborbe/vault-cli/pkg/cli"
+	"github.com/bborbe/vault-cli/pkg/ops"
 )
 
 // findSubcommand walks the built command tree to the named top-level command
@@ -64,9 +66,31 @@ var _ = Describe("force requires a terminal", func() {
 
 		It("does not gate a non-forced task complete", func() {
 			err := cli.Run(context.Background(), []string{"task", "complete", "Some Task"})
-			if err != nil {
-				Expect(err.Error()).NotTo(ContainSubstring("stdin is not a terminal"))
-			}
+			Expect(err).To(HaveOccurred(), "no task store is reachable, so this must fail before any TTY gate")
+			Expect(err.Error()).NotTo(ContainSubstring("stdin is not a terminal"))
+		})
+	})
+
+	Context("printTaskCompleteResult", func() {
+		It("prints warnings in the refusal branch", func() {
+			var buf bytes.Buffer
+			cli.PrintTaskCompleteResultForTest(&buf, ops.MutationResult{
+				Reason:   "3 subtasks are incomplete",
+				Warnings: []string{"first warning", "second warning"},
+			})
+			Expect(buf.String()).To(ContainSubstring("Cannot complete: 3 subtasks are incomplete"))
+			Expect(buf.String()).To(ContainSubstring("first warning"))
+			Expect(buf.String()).To(ContainSubstring("second warning"))
+		})
+
+		It("prints warnings in the success branch", func() {
+			var buf bytes.Buffer
+			cli.PrintTaskCompleteResultForTest(&buf, ops.MutationResult{
+				Name:     "Some Task",
+				Warnings: []string{"a warning"},
+			})
+			Expect(buf.String()).To(ContainSubstring("Task completed: Some Task"))
+			Expect(buf.String()).To(ContainSubstring("a warning"))
 		})
 	})
 

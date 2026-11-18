@@ -57,6 +57,12 @@ func GetWatchVaultsForTest(
 	return getWatchVaults(ctx, configLoader, vaultName)
 }
 
+// RequireTTYForForceForTest exposes requireTTYForForce with an explicit TTY
+// result, so both branches are tested without a pty.
+func RequireTTYForForceForTest(ctx context.Context, force bool, isTTY bool) error {
+	return requireTTYForForce(ctx, force, isTTY)
+}
+
 // ParseOpenAnswersForTest exposes parseOpenAnswers for testing, so the flag
 // grammar is pinned without spawning a binary.
 func ParseOpenAnswersForTest(

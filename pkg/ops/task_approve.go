@@ -133,7 +133,9 @@ func (o *taskApproveOperation) Execute(
 	// approved; only the phase half of the transition is missing. Advance it and
 	// preserve the record exactly as it is: no approval is written, no missing
 	// key is invented, and no owner is resolved or required, because the owner
-	// rule governs the approval act, which already happened.
+	// rule governs the approval act, which already happened. The act of
+	// re-approval is still recorded — its instant goes into reapproved_at —
+	// while the approval record itself is left untouched.
 	if hasApprovalRecord(task) {
 		// A terminal row is refused rather than advanced: moving it to planning
 		// would produce the status/phase pair checkPhaseRegression refuses and
@@ -149,6 +151,11 @@ func (o *taskApproveOperation) Execute(
 			return MutationResult{Success: false, Error: terminalErr.Error()}, terminalErr
 		}
 		task.SetPhase(domain.TaskPhasePlanning.Ptr())
+		// The re-approval is an event with a time of its own: record it in a
+		// separate key, beside the preserved approval record, in the same single
+		// write. A first approval never writes this key, so a row that carries it
+		// was re-approved and the value is when.
+		task.Set("reapproved_at", now.Time())
 		return o.write(ctx, task, vaultName)
 	}
 

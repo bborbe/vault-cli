@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat: `task approve` writes `reapproved_at` on its re-approval branch, so a re-approval is observable and timestamped where the preserved `approved_at` made it indistinguishable from a row that was never re-approved
+
 ## v0.197.1
 
 - fix: scope ORPHAN_GOAL detection to the goals: block so later frontmatter lists are not reported as missing goals

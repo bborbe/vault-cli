@@ -1,7 +1,7 @@
 ---
 spec: ["041-bug-resume-races-live-headless-turn"]
 status: draft
-created: "2026-11-19T12:00:00Z"
+created: "2026-09-30T07:13:46Z"
 ---
 
 # Confirm the non-interactive session start blocks until the headless turn exits (spec 041, prompt 1 of 3)
@@ -16,7 +16,7 @@ created: "2026-11-19T12:00:00Z"
 - Flags spec evidence greps that can never match the real source: three carry a literal double quote the source does not contain, and one of those three additionally pins a pre-spec-045 error string. This prompt verifies the correct unquoted forms instead, and forbids editing error strings to force a broken grep to pass.
 - Flags that the spec's error-string list for the shared validation helper is pre-spec-045 and must NOT be applied — the shipped strings are the current contract, and "restoring" the spec's forms would revert a later fix.
 - Replaces the spec's `git`-based scenario guard with a content checksum: `git` is masked in this container, so the spec's `git diff --exit-code HEAD` cannot run and must never be written as a verification step.
-- Makes no production-code change: verification plus two test-only backfills. The repository-wide gate (`make precommit`, spec AC13) runs in prompt 2, the last prompt that changes Go code.
+- Makes no production-code change: verification plus two test-only backfills.
 </summary>
 
 <objective>
@@ -26,22 +26,22 @@ Prove — and backfill the two gaps in — the already-shipped half of spec 041:
 <context>
 Read `CLAUDE.md` for project conventions.
 
-**Read this first — the spec's Design section is stale on two points.** `specs/in-progress/041-bug-resume-races-live-headless-turn.md` was written against v0.116.4. The `claude_session.go` half of it shipped and was then refined by spec 042 (per-session flock locker) and spec 045 (a validated turn result outranks a non-zero child exit). The spec's Design still quotes the pre-045 shapes — in particular its `validateSessionTurn` error strings and its bare `case exitErr := <-done:` handler. Those are superseded; see requirements 4 and 6. Do NOT "restore" them.
+**Read this first — the spec's Design section is stale on two points.** `specs/in-progress/041-bug-resume-races-live-headless-turn.md` was written against v0.116.4. The `claude_session.go` half of it shipped and was then refined by spec 042 (per-session flock locker) and spec 045 (a validated turn result outranks a non-zero child exit). The spec's Design still quotes the pre-045 shapes — in particular its `validateSessionTurn` error strings and its bare `case exitErr := <-done:` handler. Those are superseded; see requirements 4 and 5. Do NOT "restore" them.
 
 Read fully (in this order):
 - `pkg/ops/claude_session.go` — the whole file (364 lines). This is the file under test.
-- `pkg/ops/export_test.go` — the whole file (61 lines); it exposes the unexported constant at line 15.
+- `pkg/ops/export_test.go` — the whole file (26 lines); it exposes the unexported constant.
 - `pkg/ops/claude_session_test.go` — the whole file (764 lines); the `Context("non-interactive branch", ...)` starts at line 256.
 - `pkg/ops/claude_session_detach_test.go` — the whole file (60 lines); the detachment integration test.
 - `docs/work-on-session-lifecycle.md` — the durable design record this implementation realizes. Its task-path sections currently describe a pre-spawn write; fixing that is prompt 3's job — do NOT edit the doc here.
-- `pkg/ops/workon_session_writeback_test.go` — read the task and goal `BeforeEach` blocks only (lines 110-155 and 195-240), to see how a fake `detachRun` writes a valid turn JSON line to the caller-owned `stdout *os.File` before feeding `done`. That is the established fake shape.
+- `pkg/ops/workon_session_writeback_test.go` — read the task and goal `BeforeEach` blocks only, to see how a fake `detachRun` writes a valid turn JSON line to the caller-owned `stdout *os.File` before feeding `done`. That is the established fake shape.
 
 Coding-plugin docs (in-container paths):
 - `/home/node/.claude/plugins/marketplaces/coding/docs/go-error-wrapping-guide.md` — the `errors.Wrapf(ctx, ...)` / `errors.Wrap(ctx, ...)` / `errors.Errorf(ctx, ...)` idiom from `github.com/bborbe/errors`; never `fmt.Errorf`, never a bare `return err`, never `context.Background()` inside `pkg/`.
 - `/home/node/.claude/plugins/marketplaces/coding/docs/go-concurrency-patterns.md` — why the raw `go func`s in this file are deliberate (documented inline in the source).
 - `/home/node/.claude/plugins/marketplaces/coding/docs/go-testing-guide.md` — Ginkgo v2 / Gomega conventions used by this repo.
 
-**`git` is MASKED in this container.** This repo uses `.dark-factory.yaml` `workflow: worktree`, which masks `.git` (a character device pointing at `/dev/null`), so EVERY `git` invocation fails with `fatal: not a git repository`. There is no HEAD to diff against. The spec's AC10 guard `git diff --exit-code HEAD -- scenarios/005-work-on-resume-auto-invokes-subtask.md` therefore CANNOT run here and MUST NOT appear as a verification step — the daemon's executor does not check verification exit codes, so a failed git command would be silently recorded as a pass. Verify "scenario 005 is unchanged" with the content checksum in `<verification>` instead. The spec's `git` form stays a HOST/operator-side check (see the spec's Verification ladder); do not attempt it here.
+**`git` is MASKED in this container.** `.git` is a character device (`crw-rw-rw-`, pointing at `/dev/null`), so EVERY `git` invocation fails with `fatal: not a git repository`. There is no HEAD to diff against. The spec's AC10 guard `git diff --exit-code HEAD -- scenarios/005-work-on-resume-auto-invokes-subtask.md` therefore CANNOT run here and MUST NOT appear as a verification step — the daemon's executor does not check verification exit codes, so a failed git command would be silently recorded as a pass. Verify "scenario 005 is unchanged" with the content checksum in `<verification>` instead. The spec's `git` form stays a HOST/operator-side check (see the spec's Verification ladder); do not attempt it here.
 </context>
 
 <requirements>
@@ -95,10 +95,10 @@ The target state for this prompt ALREADY EXISTS in the tree. Your job is to read
    ```go
    const SessionTurnTimeout = sessionTurnTimeout
    ```
-   with a comment noting it is a test-only alias: asserting against it locks the WIRING (StartSession hands the constant, not a stray literal) but NOT the value, because a retune moves both sides — so tests must also assert the literal `30 * libtime.Minute`. The file must also carry `var DefaultSessionLockDir = defaultSessionLockDir` (spec 042's export) — that is expected; leave it untouched. Leave the rest of the file (rollup, closure-gate exports) untouched.
+   with a comment noting it is a test-only alias: asserting against it locks the WIRING (StartSession hands the constant, not a stray literal) but NOT the value, because a retune moves both sides — so tests must also assert the literal `30 * libtime.Minute`. The file must also carry `var DefaultSessionLockDir = defaultSessionLockDir` (spec 042's export) — that is expected; leave it untouched.
 
-9. **Confirm the existing test matrix in `pkg/ops/claude_session_test.go`.** In `Context("non-interactive branch", ...)` (line 256) confirm these specs exist and match:
-   - "blocks until the detached child exits" (line 327) — a blocking waiter, `Consistently(returned, "100ms").ShouldNot(Receive())` before `doneCh <- nil`, then `Eventually(returned).Should(Receive(BeNil()))`; the waiter receives the bound through `windowCh` and it is asserted equal to BOTH `ops.SessionTurnTimeout` and `30 * libtime.Minute`.
+9. **Confirm the existing test matrix in `pkg/ops/claude_session_test.go`.** In `Context("non-interactive branch", ...)` confirm these specs exist and match:
+   - "blocks until the detached child exits" — a blocking waiter, `Consistently(returned, "100ms").ShouldNot(Receive())` before `doneCh <- nil`, then `Eventually(returned).Should(Receive(BeNil()))`; the waiter receives the bound through `windowCh` and it is asserted equal to BOTH `ops.SessionTurnTimeout` and `30 * libtime.Minute`.
    - "passes the session id and name to the detached runner" — clean exit with valid JSON returns nil, and argv carries `--session-id`, `--print`, `-n`, the name, and the cwd.
    - "validates the turn and rejects a zero-turn result", "validates the turn and rejects an is_error result", "rejects an unparseable turn result".
    - "treats a child exit error as an error" — the error contains `"exit status 1"` AND `"exited with error"`. No assertion anywhere may still use `"exited during startup"`.
@@ -131,7 +131,7 @@ The target state for this prompt ALREADY EXISTS in the tree. Your job is to read
    ```
    Do NOT rename the `windowCh` CHANNEL, and do not touch any other identifier. Pure rename, zero behaviour change. This backfill exists only so the spec's AC1 evidence grep (`Expect(capturedWindow).To(Equal(ops.SessionTurnTimeout))`) resolves against the real file.
 
-11. **BACKFILL — assert the temp output file is removed after a clean exit.** No existing test covers AC2's "the temp file is removed" half. Add ONE spec at the end of `Context("non-interactive branch", ...)` (after "wraps a spawn failure", before the context's closing `})` at line 623). Capture the file's path from the `stdout *os.File` the fake receives — do NOT glob `os.TempDir()`, which is shared state and makes the assertion racy against any concurrent or leaked file. `validTurnJSON`, `blockWaiter`, `starter`, `ctx` and `locker` are all in scope there. Add exactly:
+11. **BACKFILL — assert the temp output file is removed after a clean exit.** No existing test covers AC2's "the temp file is removed" half. Add ONE spec at the end of `Context("non-interactive branch", ...)` (after "wraps a spawn failure"). Capture the file's path from the `stdout *os.File` the fake receives — do NOT glob `os.TempDir()`, which is shared state and makes the assertion racy against any concurrent or leaked file. `validTurnJSON`, `blockWaiter`, `starter`, `ctx` and `locker` are all in scope there. Add exactly:
    ```go
    It("removes the temp output file after a clean exit", func() {
        var outPath string
@@ -173,7 +173,7 @@ Failure-mode coverage carried by this prompt (spec's Failure Modes table): row 1
 
 <constraints>
 - Do NOT commit — dark-factory handles git (and `.git` is masked in this container, so no git command can run anyway). Change nothing in `scenarios/005-work-on-resume-auto-invokes-subtask.md`.
-- **NEVER write a `git` command into `<verification>` or anywhere else in this prompt's execution.** `.git` is masked here; every invocation fails with `fatal: not a git repository`, and the daemon records a failed verification command as a pass. The spec's AC10 `git diff --exit-code HEAD` guard is a HOST/operator-side check and is replaced here by the sha256 content pin.
+- **NEVER write a `git` command into `<verification>` or anywhere else in this prompt's execution.** `git` is masked here; every invocation fails with `fatal: not a git repository`, and the daemon records a failed verification command as a pass. The spec's AC10 `git diff --exit-code HEAD` guard is a HOST/operator-side check and is replaced here by the sha256 content pin.
 - Interactive branch behaviour unchanged. `defaultCommandRunner`, the 5-minute TTY cap, and `scenarios/005-work-on-resume-auto-invokes-subtask.md` are untouched. The only interactive-branch change already in place is the shared-helper extraction — behaviour-preserving, same checks, same strings. Do NOT re-extract or change it.
 - Detachment preserved: `exec.Command` (NOT `CommandContext`), `Setpgid`, and stdout/stderr handling that lets the child survive the parent. NEVER SIGKILL the child on timeout — `--max-turns` is inert (`maxTurns` is -1), so the 30-minute bound is a wait-channel select, not a context kill. Do NOT resurrect `"claude session start timed out"`.
 - Never offer a broken Resume: on any failure (child exit error, `is_error`, zero turns, bound expiry, context cancel) `StartSession` returns an error so the caller persists nothing. Returning nil on cancellation is wrong.
@@ -183,7 +183,6 @@ Failure-mode coverage carried by this prompt (spec's Failure Modes table): row 1
 - Do NOT alter error strings to satisfy a grep pattern. Three of the spec's evidence greps carry a literal double quote the source does not contain (see `<verification>`); the source strings are correct as written.
 - Do NOT touch `pkg/ops/workon.go`, `pkg/ops/goal_workon.go`, `pkg/ops/workon_test.go`, `pkg/ops/goal_workon_test.go`, `pkg/ops/workon_session_writeback_test.go`, or `docs/work-on-session-lifecycle.md` in this prompt — the caller-side reorder is prompt 2 and the doc reword is prompt 3.
 - Do NOT add a double-Start guard and do NOT add any config knob — both are spec Non-goals.
-- Do NOT run `make precommit` in this prompt. It is slow and is the authoritative gate for the batch in prompt 2, the last prompt that changes Go code. `make test` here is the scoped gate.
 - Existing tests must still pass.
 </constraints>
 
@@ -220,4 +219,6 @@ SYNTAX + TESTS:
 gofmt -e -l pkg/ops/claude_session.go pkg/ops/claude_session_test.go pkg/ops/export_test.go   # must list NO files
 make test                                                                                    # must exit 0
 ```
+
+FULL GATE — `make precommit` at the repo root must exit 0. If it fails on something this prompt introduced, fix it and re-run only the failing target (`make lint`, `make gosec`, `make errcheck`, ...), then `make precommit` once more. This is the batch's authoritative full-gate check (AC13), which prompt 3 runs last; running it here as well keeps the tree green for prompt 2, which builds on it.
 </verification>

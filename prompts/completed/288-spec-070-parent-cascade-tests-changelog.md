@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [070-parent-closure-cascade-on-complete]
+summary: 'Added the parent-cascade verification surface: JSON-envelope and single-write-path unit tests, 14 end-to-end integration cases for task→goal and goal→topic cascades including refusal, ordering, wikilink, recurring, and JSON paths, flattened nested parent reports, and the Unreleased changelog entry'
+execution_id: vault-cli-parent-cascade-exec-288-spec-070-parent-cascade-tests-changelog
+dark-factory-version: v0.198.17
 created: "2026-11-19T20:10:00Z"
 queued: "2026-11-19T20:08:41Z"
+started: "2026-11-19T21:48:36Z"
+completed: "2026-11-19T21:55:24Z"
 branch: dark-factory/parent-closure-cascade-on-complete
 ---
 

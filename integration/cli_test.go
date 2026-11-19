@@ -2787,6 +2787,524 @@ This is my task.
 		})
 	})
 
+	Describe("vault-cli parent closure cascade", func() {
+		const (
+			linkedTask   = "---\nstatus: todo\ngoals:\n    - '[[my-goal]]'\n---\n# Linked\n"
+			completeGoal = "---\nstatus: in_progress\n---\n# Success Criteria\n" +
+				"- [x] done\n# Definition of Done\n- [x] done\n"
+			goalWithTopic = "---\nstatus: in_progress\ntopics:\n    - '[[my-topic]]'\n---\n" +
+				"# Success Criteria\n- [x] done\n# Definition of Done\n- [x] done\n"
+			completeTopic = "---\nstatus: in_progress\n---\n# My Topic\n## Goals\n" +
+				"- [[my-goal]]\n# Success Criteria\n- [x] done\n# Completion Gate\n- [x] done\n"
+		)
+
+		It("task complete cascades a fully checked parent goal", func() {
+			vaultPath, configPath, cleanup := createTempVaultWithGoals(
+				map[string]string{"my-task": linkedTask},
+				map[string]string{"my-goal": completeGoal},
+			)
+			defer cleanup()
+
+			goalPath := filepath.Join(vaultPath, "Goals", "my-goal.md")
+			runCommand := func(args ...string) *gexec.Session {
+				fullArgs := append([]string{"--config", configPath, "--vault", "test"}, args...)
+				session, err := gexec.Start(
+					exec.Command(binPath, fullArgs...),
+					GinkgoWriter,
+					GinkgoWriter,
+				)
+				Expect(err).NotTo(HaveOccurred())
+				return session
+			}
+
+			session := runCommand("task", "complete", "my-task")
+			Eventually(session).Should(gexec.Exit(0))
+			Expect(string(session.Out.Contents())).To(ContainSubstring("parent my-goal: completed"))
+			content, err := os.ReadFile(goalPath) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(content)).To(ContainSubstring("status: completed"))
+		})
+
+		It("goal complete cascades a fully checked parent topic", func() {
+			vaultPath, configPath, cleanup := createTempVaultWithTopicPages(
+				"Topics",
+				map[string]string{"my-topic": completeTopic},
+				map[string]string{"my-goal": goalWithTopic},
+			)
+			defer cleanup()
+
+			topicPath := filepath.Join(vaultPath, "Topics", "my-topic.md")
+			runCommand := func(args ...string) *gexec.Session {
+				fullArgs := append([]string{"--config", configPath, "--vault", "test"}, args...)
+				session, err := gexec.Start(
+					exec.Command(binPath, fullArgs...),
+					GinkgoWriter,
+					GinkgoWriter,
+				)
+				Expect(err).NotTo(HaveOccurred())
+				return session
+			}
+
+			session := runCommand("goal", "complete", "my-goal")
+			Eventually(session).Should(gexec.Exit(0))
+			Expect(string(session.Out.Contents())).To(ContainSubstring("parent my-topic: completed"))
+			content, err := os.ReadFile(topicPath) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(content)).To(ContainSubstring("status: completed"))
+		})
+
+		It("task complete reports a refused goal and still exits 0", func() {
+			vaultPath, configPath, cleanup := createTempVaultWithGoals(
+				map[string]string{"my-task": linkedTask},
+				map[string]string{
+					"my-goal": "---\nstatus: in_progress\n---\n# Success Criteria\n" +
+						"- [ ] an open criterion\n# Definition of Done\n- [x] done\n",
+				},
+			)
+			defer cleanup()
+
+			taskPath := filepath.Join(vaultPath, "Tasks", "my-task.md")
+			goalPath := filepath.Join(vaultPath, "Goals", "my-goal.md")
+			runCommand := func(args ...string) *gexec.Session {
+				fullArgs := append([]string{"--config", configPath, "--vault", "test"}, args...)
+				session, err := gexec.Start(
+					exec.Command(binPath, fullArgs...),
+					GinkgoWriter,
+					GinkgoWriter,
+				)
+				Expect(err).NotTo(HaveOccurred())
+				return session
+			}
+
+			session := runCommand("task", "complete", "my-task")
+			Eventually(session).Should(gexec.Exit(0))
+			Expect(string(session.Out.Contents())).To(ContainSubstring(
+				"parent my-goal: refused — open: an open criterion",
+			))
+			taskContent, err := os.ReadFile(taskPath) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(taskContent)).To(ContainSubstring("status: completed"))
+			goalContent, err := os.ReadFile(goalPath) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(goalContent)).To(ContainSubstring("status: in_progress"))
+		})
+
+		It("goal complete reports a refused topic and still exits 0", func() {
+			vaultPath, configPath, cleanup := createTempVaultWithTopicPages(
+				"Topics",
+				map[string]string{
+					"my-topic": "---\nstatus: in_progress\n---\n# My Topic\n## Goals\n" +
+						"- [[my-goal]]\n# Success Criteria\n- [x] done\n" +
+						"# Completion Gate\n- [ ] an open gate item\n",
+				},
+				map[string]string{"my-goal": goalWithTopic},
+			)
+			defer cleanup()
+
+			goalPath := filepath.Join(vaultPath, "Goals", "my-goal.md")
+			topicPath := filepath.Join(vaultPath, "Topics", "my-topic.md")
+			runCommand := func(args ...string) *gexec.Session {
+				fullArgs := append([]string{"--config", configPath, "--vault", "test"}, args...)
+				session, err := gexec.Start(
+					exec.Command(binPath, fullArgs...),
+					GinkgoWriter,
+					GinkgoWriter,
+				)
+				Expect(err).NotTo(HaveOccurred())
+				return session
+			}
+
+			session := runCommand("goal", "complete", "my-goal")
+			Eventually(session).Should(gexec.Exit(0))
+			Expect(string(session.Out.Contents())).To(ContainSubstring(
+				"parent my-topic: refused — open: an open gate item",
+			))
+			goalContent, err := os.ReadFile(goalPath) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(goalContent)).To(ContainSubstring("status: completed"))
+			topicContent, err := os.ReadFile(topicPath) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(topicContent)).To(ContainSubstring("status: in_progress"))
+		})
+
+		It("task complete attempts two goals in document order", func() {
+			_, configPath, cleanup := createTempVaultWithGoals(
+				map[string]string{
+					"my-task": "---\nstatus: todo\ngoals:\n    - '[[goal-one]]'\n" +
+						"    - '[[goal-two]]'\n---\n# Linked\n",
+				},
+				map[string]string{
+					"goal-one": completeGoal,
+					"goal-two": "---\nstatus: in_progress\n---\n# Success Criteria\n" +
+						"- [ ] an open criterion\n# Definition of Done\n- [x] done\n",
+				},
+			)
+			defer cleanup()
+
+			runCommand := func(args ...string) *gexec.Session {
+				fullArgs := append([]string{"--config", configPath, "--vault", "test"}, args...)
+				session, err := gexec.Start(
+					exec.Command(binPath, fullArgs...),
+					GinkgoWriter,
+					GinkgoWriter,
+				)
+				Expect(err).NotTo(HaveOccurred())
+				return session
+			}
+
+			session := runCommand("task", "complete", "my-task")
+			Eventually(session).Should(gexec.Exit(0))
+			out := string(session.Out.Contents())
+			Expect(regexp.MustCompile(`(?m)^parent `).FindAllString(out, -1)).To(HaveLen(2))
+			Expect(strings.Index(out, "parent goal-one: completed")).
+				To(BeNumerically("<", strings.Index(out, "parent goal-two: refused")))
+		})
+
+		It("task complete cascades the topics of an already-completed goal", func() {
+			vaultPath, configPath, cleanup := createTempVaultWithTopicPages(
+				"Topics",
+				map[string]string{"my-topic": completeTopic},
+				map[string]string{
+					"my-goal": "---\nstatus: completed\ntopics:\n    - '[[my-topic]]'\n---\n" +
+						"# Success Criteria\n- [x] done\n# Definition of Done\n- [x] done\n",
+				},
+			)
+			defer cleanup()
+
+			taskPath := filepath.Join(vaultPath, "Tasks", "my-task.md")
+			Expect(os.WriteFile(taskPath, []byte(linkedTask), 0600)).To(Succeed())
+
+			runCommand := func(args ...string) *gexec.Session {
+				fullArgs := append([]string{"--config", configPath, "--vault", "test"}, args...)
+				session, err := gexec.Start(
+					exec.Command(binPath, fullArgs...),
+					GinkgoWriter,
+					GinkgoWriter,
+				)
+				Expect(err).NotTo(HaveOccurred())
+				return session
+			}
+
+			plain := runCommand("task", "complete", "my-task")
+			Eventually(plain).Should(gexec.Exit(0))
+			Expect(string(plain.Out.Contents())).To(ContainSubstring("parent my-goal: completed"))
+			Expect(string(plain.Out.Contents())).To(ContainSubstring("parent my-topic: completed"))
+
+			jsonSession := runCommand("task", "complete", "my-task", "--output", "json")
+			Eventually(jsonSession).Should(gexec.Exit(0))
+			var payload map[string]any
+			Expect(json.Unmarshal(jsonSession.Out.Contents(), &payload)).To(Succeed())
+			parents, ok := payload["parents"].([]any)
+			Expect(ok).To(BeTrue())
+			Expect(parents).To(HaveLen(2))
+			entries := map[string]map[string]any{}
+			for _, raw := range parents {
+				entry, isMap := raw.(map[string]any)
+				Expect(isMap).To(BeTrue())
+				name, isString := entry["name"].(string)
+				Expect(isString).To(BeTrue())
+				entries[name] = entry
+			}
+			Expect(entries).To(HaveKey("my-goal"))
+			Expect(entries["my-goal"]["result"]).To(Equal("completed"))
+			Expect(entries["my-goal"]).NotTo(HaveKey("open_items"))
+			Expect(entries).To(HaveKey("my-topic"))
+			Expect(entries["my-topic"]["result"]).To(Equal("completed"))
+
+			topicContent, err := os.ReadFile(filepath.Join(vaultPath, "Topics", "my-topic.md")) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(topicContent)).To(ContainSubstring("status: completed"))
+		})
+
+		It("task complete with no goals prints no parent line and omits parents in JSON", func() {
+			_, configPath, cleanup := createTempVaultWithGoals(
+				map[string]string{"my-task": "---\nstatus: todo\n---\n# Plain\n"},
+				nil,
+			)
+			defer cleanup()
+
+			runCommand := func(args ...string) *gexec.Session {
+				fullArgs := append([]string{"--config", configPath, "--vault", "test"}, args...)
+				session, err := gexec.Start(
+					exec.Command(binPath, fullArgs...),
+					GinkgoWriter,
+					GinkgoWriter,
+				)
+				Expect(err).NotTo(HaveOccurred())
+				return session
+			}
+
+			plain := runCommand("task", "complete", "my-task")
+			Eventually(plain).Should(gexec.Exit(0))
+			Expect(string(plain.Out.Contents())).NotTo(MatchRegexp(`(?m)^parent `))
+
+			jsonSession := runCommand("task", "complete", "my-task", "--output", "json")
+			Eventually(jsonSession).Should(gexec.Exit(0))
+			var payload map[string]any
+			Expect(json.Unmarshal(jsonSession.Out.Contents(), &payload)).To(Succeed())
+			Expect(payload).NotTo(HaveKey("parents"))
+		})
+
+		It("goal complete with no topics prints no parent line and omits parents in JSON", func() {
+			_, configPath, cleanup := createTempVaultWithGoals(
+				map[string]string{},
+				map[string]string{"my-goal": completeGoal},
+			)
+			defer cleanup()
+
+			runCommand := func(args ...string) *gexec.Session {
+				fullArgs := append([]string{"--config", configPath, "--vault", "test"}, args...)
+				session, err := gexec.Start(
+					exec.Command(binPath, fullArgs...),
+					GinkgoWriter,
+					GinkgoWriter,
+				)
+				Expect(err).NotTo(HaveOccurred())
+				return session
+			}
+
+			plain := runCommand("goal", "complete", "my-goal")
+			Eventually(plain).Should(gexec.Exit(0))
+			Expect(string(plain.Out.Contents())).NotTo(MatchRegexp(`(?m)^parent `))
+
+			jsonSession := runCommand("goal", "complete", "my-goal", "--output", "json")
+			Eventually(jsonSession).Should(gexec.Exit(0))
+			var payload map[string]any
+			Expect(json.Unmarshal(jsonSession.Out.Contents(), &payload)).To(Succeed())
+			Expect(payload).NotTo(HaveKey("parents"))
+		})
+
+		It("task complete closes task, goal and topic in one run", func() {
+			vaultPath, configPath, cleanup := createTempVaultWithTopicPages(
+				"Topics",
+				map[string]string{"my-topic": completeTopic},
+				map[string]string{"my-goal": goalWithTopic},
+			)
+			defer cleanup()
+
+			taskPath := filepath.Join(vaultPath, "Tasks", "my-task.md")
+			Expect(os.WriteFile(taskPath, []byte(linkedTask), 0600)).To(Succeed())
+
+			runCommand := func(args ...string) *gexec.Session {
+				fullArgs := append([]string{"--config", configPath, "--vault", "test"}, args...)
+				session, err := gexec.Start(
+					exec.Command(binPath, fullArgs...),
+					GinkgoWriter,
+					GinkgoWriter,
+				)
+				Expect(err).NotTo(HaveOccurred())
+				return session
+			}
+
+			Eventually(runCommand("task", "complete", "my-task")).Should(gexec.Exit(0))
+
+			for _, path := range []string{
+				taskPath,
+				filepath.Join(vaultPath, "Goals", "my-goal.md"),
+				filepath.Join(vaultPath, "Topics", "my-topic.md"),
+			} {
+				content, err := os.ReadFile(path) //#nosec G304 -- test file
+				Expect(err).NotTo(HaveOccurred())
+				Expect(string(content)).To(ContainSubstring("status: completed"))
+			}
+		})
+
+		It("task complete reports the parents array shape in JSON", func() {
+			_, configPath, cleanup := createTempVaultWithGoals(
+				map[string]string{
+					"my-task": "---\nstatus: todo\ngoals:\n    - '[[goal-one]]'\n" +
+						"    - '[[goal-two]]'\n---\n# Linked\n",
+				},
+				map[string]string{
+					"goal-one": completeGoal,
+					"goal-two": "---\nstatus: in_progress\n---\n# Success Criteria\n" +
+						"- [ ] an open criterion\n# Definition of Done\n- [x] done\n",
+				},
+			)
+			defer cleanup()
+
+			runCommand := func(args ...string) *gexec.Session {
+				fullArgs := append([]string{"--config", configPath, "--vault", "test"}, args...)
+				session, err := gexec.Start(
+					exec.Command(binPath, fullArgs...),
+					GinkgoWriter,
+					GinkgoWriter,
+				)
+				Expect(err).NotTo(HaveOccurred())
+				return session
+			}
+
+			jsonSession := runCommand("task", "complete", "my-task", "--output", "json")
+			Eventually(jsonSession).Should(gexec.Exit(0))
+			var payload map[string]any
+			Expect(json.Unmarshal(jsonSession.Out.Contents(), &payload)).To(Succeed())
+			parents, ok := payload["parents"].([]any)
+			Expect(ok).To(BeTrue())
+			Expect(parents).To(HaveLen(2))
+
+			entries := map[string]map[string]any{}
+			for _, raw := range parents {
+				entry, isMap := raw.(map[string]any)
+				Expect(isMap).To(BeTrue())
+				name, isString := entry["name"].(string)
+				Expect(isString).To(BeTrue())
+				entries[name] = entry
+			}
+			Expect(entries["goal-one"]["result"]).To(Equal("completed"))
+			Expect(entries["goal-one"]).NotTo(HaveKey("open_items"))
+			Expect(entries["goal-two"]["result"]).To(Equal("refused"))
+			openItems, isSlice := entries["goal-two"]["open_items"].([]any)
+			Expect(isSlice).To(BeTrue())
+			Expect(openItems).NotTo(BeEmpty())
+			Expect(openItems[0]).To(Equal("an open criterion"))
+		})
+
+		It("goal complete reports the parents array shape in JSON", func() {
+			_, configPath, cleanup := createTempVaultWithTopicPages(
+				"Topics",
+				map[string]string{
+					"topic-ok": completeTopic,
+					"topic-open": "---\nstatus: in_progress\n---\n# My Topic\n## Goals\n" +
+						"- [[my-goal]]\n# Success Criteria\n- [x] done\n" +
+						"# Completion Gate\n- [ ] an open gate item\n",
+				},
+				map[string]string{
+					"my-goal": "---\nstatus: in_progress\ntopics:\n    - '[[topic-ok]]'\n" +
+						"    - '[[topic-open]]'\n---\n# Success Criteria\n- [x] done\n" +
+						"# Definition of Done\n- [x] done\n",
+				},
+			)
+			defer cleanup()
+
+			runCommand := func(args ...string) *gexec.Session {
+				fullArgs := append([]string{"--config", configPath, "--vault", "test"}, args...)
+				session, err := gexec.Start(
+					exec.Command(binPath, fullArgs...),
+					GinkgoWriter,
+					GinkgoWriter,
+				)
+				Expect(err).NotTo(HaveOccurred())
+				return session
+			}
+
+			jsonSession := runCommand("goal", "complete", "my-goal", "--output", "json")
+			Eventually(jsonSession).Should(gexec.Exit(0))
+			var payload map[string]any
+			Expect(json.Unmarshal(jsonSession.Out.Contents(), &payload)).To(Succeed())
+			parents, ok := payload["parents"].([]any)
+			Expect(ok).To(BeTrue())
+			Expect(parents).To(HaveLen(2))
+
+			entries := map[string]map[string]any{}
+			for _, raw := range parents {
+				entry, isMap := raw.(map[string]any)
+				Expect(isMap).To(BeTrue())
+				name, isString := entry["name"].(string)
+				Expect(isString).To(BeTrue())
+				entries[name] = entry
+			}
+			Expect(entries["topic-ok"]["result"]).To(Equal("completed"))
+			Expect(entries["topic-ok"]).NotTo(HaveKey("open_items"))
+			Expect(entries["topic-open"]["result"]).To(Equal("refused"))
+			openItems, isSlice := entries["topic-open"]["open_items"].([]any)
+			Expect(isSlice).To(BeTrue())
+			Expect(openItems).NotTo(BeEmpty())
+			Expect(openItems[0]).To(Equal("an open gate item"))
+		})
+
+		It("task complete resolves a labelled wikilink goal", func() {
+			vaultPath, configPath, cleanup := createTempVaultWithGoals(
+				map[string]string{
+					"my-task": "---\nstatus: todo\ngoals:\n    - '[[my-goal|label]]'\n---\n# Linked\n",
+				},
+				map[string]string{"my-goal": completeGoal},
+			)
+			defer cleanup()
+
+			goalPath := filepath.Join(vaultPath, "Goals", "my-goal.md")
+			runCommand := func(args ...string) *gexec.Session {
+				fullArgs := append([]string{"--config", configPath, "--vault", "test"}, args...)
+				session, err := gexec.Start(
+					exec.Command(binPath, fullArgs...),
+					GinkgoWriter,
+					GinkgoWriter,
+				)
+				Expect(err).NotTo(HaveOccurred())
+				return session
+			}
+
+			session := runCommand("task", "complete", "my-task")
+			Eventually(session).Should(gexec.Exit(0))
+			Expect(string(session.Out.Contents())).To(ContainSubstring("parent my-goal: completed"))
+			content, err := os.ReadFile(goalPath) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(content)).To(ContainSubstring("status: completed"))
+		})
+
+		It("task complete resolves a heading wikilink goal", func() {
+			vaultPath, configPath, cleanup := createTempVaultWithGoals(
+				map[string]string{
+					"my-task": "---\nstatus: todo\ngoals:\n    - '[[my-goal#Heading]]'\n---\n# Linked\n",
+				},
+				map[string]string{"my-goal": completeGoal},
+			)
+			defer cleanup()
+
+			goalPath := filepath.Join(vaultPath, "Goals", "my-goal.md")
+			runCommand := func(args ...string) *gexec.Session {
+				fullArgs := append([]string{"--config", configPath, "--vault", "test"}, args...)
+				session, err := gexec.Start(
+					exec.Command(binPath, fullArgs...),
+					GinkgoWriter,
+					GinkgoWriter,
+				)
+				Expect(err).NotTo(HaveOccurred())
+				return session
+			}
+
+			session := runCommand("task", "complete", "my-task")
+			Eventually(session).Should(gexec.Exit(0))
+			Expect(string(session.Out.Contents())).To(ContainSubstring("parent my-goal: completed"))
+			content, err := os.ReadFile(goalPath) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(content)).To(ContainSubstring("status: completed"))
+		})
+
+		It("task complete on a recurring task does not cascade", func() {
+			vaultPath, configPath, cleanup := createTempVaultWithGoals(
+				map[string]string{
+					"my-task": "---\nstatus: todo\nrecurring: 1d\ngoals:\n" +
+						"    - '[[my-goal]]'\n---\n# Recurring\n",
+				},
+				map[string]string{"my-goal": completeGoal},
+			)
+			defer cleanup()
+
+			taskPath := filepath.Join(vaultPath, "Tasks", "my-task.md")
+			goalPath := filepath.Join(vaultPath, "Goals", "my-goal.md")
+			runCommand := func(args ...string) *gexec.Session {
+				fullArgs := append([]string{"--config", configPath, "--vault", "test"}, args...)
+				session, err := gexec.Start(
+					exec.Command(binPath, fullArgs...),
+					GinkgoWriter,
+					GinkgoWriter,
+				)
+				Expect(err).NotTo(HaveOccurred())
+				return session
+			}
+
+			session := runCommand("task", "complete", "my-task")
+			Eventually(session).Should(gexec.Exit(0))
+			Expect(string(session.Out.Contents())).NotTo(MatchRegexp(`(?m)^parent `))
+			taskContent, err := os.ReadFile(taskPath) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(taskContent)).NotTo(ContainSubstring("status: completed"))
+			goalContent, err := os.ReadFile(goalPath) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(goalContent)).To(ContainSubstring("status: in_progress"))
+		})
+	})
+
 	Describe("vault-cli non-close-out transitions unaffected", func() {
 		var vaultPath, configPath string
 		var cleanup func()

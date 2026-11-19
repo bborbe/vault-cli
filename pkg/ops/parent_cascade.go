@@ -49,6 +49,7 @@ func cascadeParents(
 		result, err := attempt(ctx, name)
 		if result.Success {
 			attempts = append(attempts, ParentAttempt{Name: name, Result: ParentResultCompleted})
+			attempts = append(attempts, result.Parents...)
 			continue
 		}
 		attempts = append(attempts, ParentAttempt{
@@ -56,6 +57,7 @@ func cascadeParents(
 			Result:    ParentResultRefused,
 			OpenItems: refusalItems(result, err),
 		})
+		attempts = append(attempts, result.Parents...)
 	}
 	return attempts
 }

@@ -1,7 +1,6 @@
 ---
-status: generating
+status: approved
 approved: "2026-11-17T16:55:24Z"
-generating: "2026-11-19T04:06:28Z"
 branch: dark-factory/pkg-index-metadata-page-index
 ---
 

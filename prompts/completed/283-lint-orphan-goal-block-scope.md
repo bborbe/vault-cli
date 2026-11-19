@@ -1,12 +1,12 @@
 ---
-status: completed
+status: committing
 summary: 'Scoped ORPHAN_GOAL detection to the goals: block with line-bounded regexes, unescaped YAML single-quote doubling in goal names, added four regression contexts, and a CHANGELOG entry.'
 execution_id: vault-cli-orphan-goal-exec-283-lint-orphan-goal-block-scope
 dark-factory-version: v0.199.1
 created: "2026-11-17T18:45:00Z"
 queued: "2026-11-17T18:18:01Z"
 started: "2026-11-17T20:44:20Z"
-completed: "2026-11-19T04:06:32Z"
+completed: "2026-11-17T20:58:11Z"
 ---
 
 # Scope ORPHAN_GOAL detection to the `goals:` block

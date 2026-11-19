@@ -77,6 +77,9 @@ type MutationResult struct {
 	InProgress int    `json:"inprogress,omitempty"`
 	Completed  int    `json:"completed,omitempty"`
 	Total      int    `json:"total,omitempty"`
+	// OpenItems lists every closure item that blocks a goal or topic close, in
+	// document order. Populated only on a closure-gate refusal.
+	OpenItems []string `json:"open_items,omitempty"`
 }
 
 // Execute marks a task as complete and updates the associated goal.

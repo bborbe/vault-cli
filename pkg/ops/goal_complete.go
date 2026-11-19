@@ -6,8 +6,6 @@ package ops
 
 import (
 	"context"
-	"fmt"
-	"strings"
 
 	"github.com/bborbe/errors"
 	libtime "github.com/bborbe/time"
@@ -70,15 +68,29 @@ func (g *goalCompleteOperation) Execute(
 		)
 	}
 
-	if goal.Status() == domain.GoalStatusCompleted {
-		msg := fmt.Sprintf("goal %q is already completed", goalName)
-		return MutationResult{Success: false, Error: msg}, errors.Errorf(ctx, "%s", msg)
+	if goal.Status() == domain.GoalStatusCompleted || goal.Status() == domain.GoalStatusAborted {
+		return MutationResult{Success: true, Name: goal.Name, Vault: vaultName}, nil
 	}
 
+	var members []closureMember
 	if !force {
-		if result, err := g.checkOpenTasks(ctx, vaultPath, goalName); err != nil {
-			return result, err
+		members, err = g.linkedTaskMembers(ctx, vaultPath, goalName)
+		if err != nil {
+			return MutationResult{Success: false, Error: err.Error()}, err
 		}
+	}
+
+	verdict, err := checkClosureGate(ctx, closureKindGoal, string(goal.Content), members)
+	if err != nil {
+		return MutationResult{Success: false, Error: err.Error()}, err
+	}
+	if verdict.Outcome == closureOutcomeTerminal {
+		return MutationResult{Success: true, Name: goal.Name, Vault: vaultName}, nil
+	}
+	if verdict.Outcome != closureOutcomeClose {
+		msg := closureRefusalMessage("goal", verdict.OpenItems)
+		return MutationResult{Success: false, Error: msg, OpenItems: verdict.OpenItems},
+			errors.Errorf(ctx, "%s", msg)
 	}
 
 	// One-step close-out: persist reason and successor before the status
@@ -140,61 +152,34 @@ func (g *goalCompleteOperation) setCompletedStatus(
 	return MutationResult{}, nil
 }
 
-func (g *goalCompleteOperation) checkOpenTasks(
+// linkedTaskMembers returns every task linked to the goal, as closure members.
+// It is the only reader of the task relation; the gate decides which statuses
+// are open.
+func (g *goalCompleteOperation) linkedTaskMembers(
 	ctx context.Context,
 	vaultPath string,
 	goalName string,
-) (MutationResult, error) {
+) ([]closureMember, error) {
 	tasks, err := g.taskStorage.ListTasks(ctx, vaultPath)
 	if err != nil {
-		return MutationResult{
-			Success: false,
-			Error:   err.Error(),
-		}, errors.Wrap(
-			ctx,
-			err,
-			"list tasks",
-		)
+		return nil, errors.Wrap(ctx, err, "list tasks")
 	}
 
-	var openTasks []*domain.Task
+	members := make([]closureMember, 0, len(tasks))
 	for _, task := range tasks {
 		if !taskLinkedToGoal(task, goalName) {
 			continue
 		}
-		if task.Status() == domain.TaskStatusNext ||
-			task.Status() == domain.TaskStatusTodo ||
-			task.Status() == domain.TaskStatusInProgress {
-			openTasks = append(openTasks, task)
-		}
+		members = append(members, closureMember{Name: task.Name, Status: string(task.Status())})
 	}
-
-	if len(openTasks) > 0 {
-		taskList := joinTaskNames(openTasks)
-		msg := fmt.Sprintf(
-			"cannot complete goal: %d task(s) still open: %s",
-			len(openTasks),
-			taskList,
-		)
-		return MutationResult{Success: false, Error: msg}, errors.Errorf(ctx, "%s", msg)
-	}
-
-	return MutationResult{}, nil
+	return members, nil
 }
 
 func taskLinkedToGoal(task *domain.Task, goalName string) bool {
-	for _, g := range task.Goals() {
-		if g == goalName {
+	for _, goal := range task.Goals() {
+		if normaliseGoalLink(goal) == goalName {
 			return true
 		}
 	}
 	return false
-}
-
-func joinTaskNames(tasks []*domain.Task) string {
-	names := make([]string, len(tasks))
-	for i, t := range tasks {
-		names[i] = fmt.Sprintf("%s (%s)", t.Name, t.Status())
-	}
-	return strings.Join(names, ", ")
 }

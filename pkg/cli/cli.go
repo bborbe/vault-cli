@@ -135,6 +135,14 @@ func runMutation(
 	})
 }
 
+// printOpenItems writes one stdout line per closure-gate item. A refusal must
+// name what is open on stdout; the error itself goes to stderr via Execute.
+func printOpenItems(items []string) {
+	for _, item := range items {
+		fmt.Println(item)
+	}
+}
+
 // NewRootCommand builds and returns the root cobra command for vault-cli.
 // Callers can set args and I/O streams before calling ExecuteContext.
 func NewRootCommand(ctx context.Context) *cobra.Command {
@@ -1556,6 +1564,9 @@ func createGoalCompleteCommand(
 						gateSuccessor,
 					)
 					if err != nil {
+						if !OutputFormat(*outputFormat).IsJSON() {
+							printOpenItems(result.OpenItems)
+						}
 						return result, err
 					}
 					if !OutputFormat(*outputFormat).IsJSON() {
@@ -1862,9 +1873,13 @@ func createTopicCompleteCommand(
 				func(ctx context.Context, vault *config.Vault) (ops.MutationResult, error) {
 					storageConfig := storage.NewConfigFromVault(vault)
 					topicStore := storage.NewTopicStorage(storageConfig)
-					completeOp := ops.NewTopicCompleteOperation(topicStore)
+					goalStore := storage.NewGoalStorage(storageConfig)
+					completeOp := ops.NewTopicCompleteOperation(topicStore, goalStore)
 					result, err := completeOp.Execute(ctx, vault.Path, topicName, vault.Name)
 					if err != nil {
+						if !OutputFormat(*outputFormat).IsJSON() {
+							printOpenItems(result.OpenItems)
+						}
 						return result, err
 					}
 					if !OutputFormat(*outputFormat).IsJSON() {

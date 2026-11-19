@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: `goal complete` and `topic complete` refuse to close a page whose own closure evidence is incomplete, name every open item on stdout and in `--output json` under `open_items`, and treat an already-completed or aborted page as a no-op instead of an error
+
 ## v0.198.1
 
 - fix: refuse `--force` on `task complete` and `goal complete` when stdin is not a terminal, so an agent running without a terminal cannot bypass the closing check with it; the extracted task-complete helper now prints warnings in both branches and wraps the session-mode error

@@ -17,6 +17,12 @@ import (
 	"github.com/bborbe/vault-cli/pkg/ops"
 )
 
+// completeGoalContent is a closure-complete goal body. The absent
+// # Definition of Done section is grandfathered (no created), so it closes.
+func completeGoalContent(status string) domain.Content {
+	return domain.Content("---\nstatus: " + status + "\n---\n# Success Criteria\n- [x] done\n")
+}
+
 var _ = Describe("GoalCompleteOperation", func() {
 	var (
 		ctx             context.Context
@@ -50,7 +56,7 @@ var _ = Describe("GoalCompleteOperation", func() {
 		goal = domain.NewGoal(
 			map[string]any{"status": "active", "aborted_reason": "test reason", "gate_successor": "none"},
 			domain.FileMetadata{Name: goalName},
-			domain.Content(""),
+			completeGoalContent("active"),
 		)
 		mockGoalStorage.FindGoalByNameReturns(goal, nil)
 		mockGoalStorage.WriteGoalReturns(nil)
@@ -91,9 +97,170 @@ var _ = Describe("GoalCompleteOperation", func() {
 			mockGoalStorage.FindGoalByNameReturns(goal, nil)
 		})
 
-		It("returns error", func() {
+		It("returns no error", func() {
+			Expect(err).To(BeNil())
+			Expect(result.Success).To(BeTrue())
+			Expect(result.Name).To(Equal(goalName))
+		})
+
+		It("does not write goal", func() {
+			Expect(mockGoalStorage.WriteGoalCallCount()).To(Equal(0))
+		})
+
+		It("reports no open items", func() {
+			Expect(result.OpenItems).To(BeEmpty())
+		})
+	})
+
+	Context("goal already aborted", func() {
+		BeforeEach(func() {
+			_ = goal.SetStatus(domain.GoalStatusAborted)
+			mockGoalStorage.FindGoalByNameReturns(goal, nil)
+		})
+
+		It("returns no error", func() {
+			Expect(err).To(BeNil())
+			Expect(result.Success).To(BeTrue())
+			Expect(result.Name).To(Equal(goalName))
+		})
+
+		It("does not write goal", func() {
+			Expect(mockGoalStorage.WriteGoalCallCount()).To(Equal(0))
+		})
+	})
+
+	Context("open criterion blocks completion", func() {
+		BeforeEach(func() {
+			goal = domain.NewGoal(
+				map[string]any{"status": "in_progress"},
+				domain.FileMetadata{Name: goalName},
+				domain.Content(
+					"---\nstatus: in_progress\n---\n# Success Criteria\n- [ ] an open criterion\n"+
+						"# Definition of Done\n- [x] done\n",
+				),
+			)
+			mockGoalStorage.FindGoalByNameReturns(goal, nil)
+		})
+
+		It("returns an error naming the criterion", func() {
 			Expect(err).NotTo(BeNil())
-			Expect(err.Error()).To(ContainSubstring("already completed"))
+			Expect(err.Error()).To(ContainSubstring("an open criterion"))
+		})
+
+		It("does not write goal", func() {
+			Expect(mockGoalStorage.WriteGoalCallCount()).To(Equal(0))
+		})
+
+		It("reports the single open item", func() {
+			Expect(result.OpenItems).To(HaveLen(1))
+		})
+	})
+
+	Context("force does not bypass an open criterion", func() {
+		BeforeEach(func() {
+			force = true
+			goal = domain.NewGoal(
+				map[string]any{"status": "in_progress"},
+				domain.FileMetadata{Name: goalName},
+				domain.Content(
+					"---\nstatus: in_progress\n---\n# Success Criteria\n- [ ] an open criterion\n"+
+						"# Definition of Done\n- [x] done\n",
+				),
+			)
+			mockGoalStorage.FindGoalByNameReturns(goal, nil)
+		})
+
+		It("returns an error naming the criterion", func() {
+			Expect(err).NotTo(BeNil())
+			Expect(err.Error()).To(ContainSubstring("an open criterion"))
+		})
+
+		It("does not write goal", func() {
+			Expect(mockGoalStorage.WriteGoalCallCount()).To(Equal(0))
+		})
+
+		It("reports the open item", func() {
+			Expect(result.OpenItems).To(ContainElement(ContainSubstring("an open criterion")))
+		})
+	})
+
+	Context("bracketed goal link blocks completion", func() {
+		BeforeEach(func() {
+			task := domain.NewTask(
+				map[string]any{"status": "todo"},
+				domain.FileMetadata{Name: "linked-task"},
+				domain.Content(""),
+			)
+			task.SetGoals([]string{"[[" + goalName + "]]"})
+			mockTaskStorage.ListTasksReturns([]*domain.Task{task}, nil)
+		})
+
+		It("returns an error naming the task", func() {
+			Expect(err).NotTo(BeNil())
+			Expect(err.Error()).To(ContainSubstring("linked-task"))
+		})
+
+		It("does not write goal", func() {
+			Expect(mockGoalStorage.WriteGoalCallCount()).To(Equal(0))
+		})
+	})
+
+	Context("bare goal link blocks completion", func() {
+		BeforeEach(func() {
+			task := domain.NewTask(
+				map[string]any{"status": "todo"},
+				domain.FileMetadata{Name: "linked-task"},
+				domain.Content(""),
+			)
+			task.SetGoals([]string{goalName})
+			mockTaskStorage.ListTasksReturns([]*domain.Task{task}, nil)
+		})
+
+		It("returns an error naming the task", func() {
+			Expect(err).NotTo(BeNil())
+			Expect(err.Error()).To(ContainSubstring("linked-task"))
+		})
+
+		It("does not write goal", func() {
+			Expect(mockGoalStorage.WriteGoalCallCount()).To(Equal(0))
+		})
+	})
+
+	Context("aliased goal link blocks completion", func() {
+		BeforeEach(func() {
+			task := domain.NewTask(
+				map[string]any{"status": "todo"},
+				domain.FileMetadata{Name: "linked-task"},
+				domain.Content(""),
+			)
+			task.SetGoals([]string{"[[" + goalName + "|label]]"})
+			mockTaskStorage.ListTasksReturns([]*domain.Task{task}, nil)
+		})
+
+		It("returns an error naming the task", func() {
+			Expect(err).NotTo(BeNil())
+			Expect(err.Error()).To(ContainSubstring("linked-task"))
+		})
+
+		It("does not write goal", func() {
+			Expect(mockGoalStorage.WriteGoalCallCount()).To(Equal(0))
+		})
+	})
+
+	Context("heading-suffixed goal link blocks completion", func() {
+		BeforeEach(func() {
+			task := domain.NewTask(
+				map[string]any{"status": "todo"},
+				domain.FileMetadata{Name: "linked-task"},
+				domain.Content(""),
+			)
+			task.SetGoals([]string{"[[" + goalName + "#heading]]"})
+			mockTaskStorage.ListTasksReturns([]*domain.Task{task}, nil)
+		})
+
+		It("returns an error naming the task", func() {
+			Expect(err).NotTo(BeNil())
+			Expect(err.Error()).To(ContainSubstring("linked-task"))
 		})
 
 		It("does not write goal", func() {
@@ -262,7 +429,7 @@ var _ = Describe("GoalCompleteOperation", func() {
 			goal = domain.NewGoal(
 				map[string]any{"status": "active"},
 				domain.FileMetadata{Name: goalName},
-				domain.Content(""),
+				completeGoalContent("active"),
 			)
 			mockGoalStorage.FindGoalByNameReturns(goal, nil)
 		})
@@ -294,7 +461,7 @@ var _ = Describe("GoalCompleteOperation", func() {
 			goal = domain.NewGoal(
 				map[string]any{"status": "active"},
 				domain.FileMetadata{Name: goalName},
-				domain.Content(""),
+				completeGoalContent("active"),
 			)
 			mockGoalStorage.FindGoalByNameReturns(goal, nil)
 			reason = "achieved"
@@ -325,7 +492,7 @@ var _ = Describe("GoalCompleteOperation", func() {
 			goal = domain.NewGoal(
 				map[string]any{"status": "in_progress", "phase": "planning"},
 				domain.FileMetadata{Name: goalName},
-				domain.Content(""),
+				completeGoalContent("in_progress"),
 			)
 			mockGoalStorage.FindGoalByNameReturns(goal, nil)
 		})
@@ -345,7 +512,7 @@ var _ = Describe("GoalCompleteOperation", func() {
 			goal = domain.NewGoal(
 				map[string]any{"status": "in_progress", "phase": "execution"},
 				domain.FileMetadata{Name: goalName},
-				domain.Content(""),
+				completeGoalContent("in_progress"),
 			)
 			mockGoalStorage.FindGoalByNameReturns(goal, nil)
 		})

@@ -30,3 +30,29 @@ var PersistGoalSessionID = persistGoalSessionID
 
 // PersistTopicSessionID exposes persistTopicSessionID for the external ops_test package.
 var PersistTopicSessionID = persistTopicSessionID
+
+// CheckClosureGate exposes checkClosureGate for the external ops_test package.
+var CheckClosureGate = checkClosureGate
+
+// ParseGoalSectionMembers exposes parseGoalSectionMembers for ops_test.
+var ParseGoalSectionMembers = parseGoalSectionMembers
+
+// Closure kinds and outcomes for ops_test.
+const (
+	ClosureKindGoal            = closureKindGoal
+	ClosureKindTopic           = closureKindTopic
+	ClosureOutcomeOpen         = closureOutcomeOpen
+	ClosureOutcomeUnmeasurable = closureOutcomeUnmeasurable
+	ClosureOutcomeClose        = closureOutcomeClose
+	ClosureOutcomeTerminal     = closureOutcomeTerminal
+)
+
+// ClosureKind and ClosureOutcome expose the gate's enum types to ops_test.
+type ClosureKind = closureKind
+
+type ClosureOutcome = closureOutcome
+
+// ClosureMember and ClosureVerdict expose the gate's value types to ops_test.
+type ClosureMember = closureMember
+
+type ClosureVerdict = closureVerdict

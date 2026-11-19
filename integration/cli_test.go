@@ -2077,7 +2077,8 @@ This is my task.
 			vaultPath, configPath, cleanup = createTempVaultWithGoals(
 				map[string]string{},
 				map[string]string{
-					"my-goal": "---\nstatus: in_progress\n---\n# My Goal\n",
+					"my-goal": "---\nstatus: in_progress\n---\n# My Goal\n" +
+						"# Success Criteria\n- [x] done\n",
 				},
 			)
 		})
@@ -2193,7 +2194,8 @@ This is my task.
 			vaultPath, configPath, cleanup = createTempVaultWithGoals(
 				map[string]string{},
 				map[string]string{
-					"my-goal": "---\nstatus: in_progress\nphase: execution\n---\n# My Goal\n",
+					"my-goal": "---\nstatus: in_progress\nphase: execution\n---\n# My Goal\n" +
+						"# Success Criteria\n- [x] done\n",
 				},
 			)
 		})
@@ -2287,6 +2289,501 @@ This is my task.
 		It("goal approve refusal leaves the phase untouched", func() {
 			Eventually(runCommand("goal", "approve", "my-goal")).ShouldNot(gexec.Exit(0))
 			Expect(readGoal()).To(ContainSubstring("phase: execution"))
+		})
+	})
+
+	Describe("vault-cli goal and topic closure gate", func() {
+		It("goal complete refuses an open Success Criteria box and leaves status in_progress", func() {
+			vaultPath, configPath, cleanup := createTempVaultWithGoals(
+				map[string]string{},
+				map[string]string{
+					"my-goal": "---\nstatus: in_progress\n---\n# Success Criteria\n" +
+						"- [ ] an open criterion\n# Definition of Done\n- [x] done\n",
+				},
+			)
+			defer cleanup()
+
+			goalPath := filepath.Join(vaultPath, "Goals", "my-goal.md")
+			readFile := func() string {
+				content, err := os.ReadFile(goalPath) //#nosec G304 -- test file
+				Expect(err).NotTo(HaveOccurred())
+				return string(content)
+			}
+			runCommand := func(args ...string) *gexec.Session {
+				fullArgs := append([]string{"--config", configPath, "--vault", "test"}, args...)
+				session, err := gexec.Start(
+					exec.Command(binPath, fullArgs...),
+					GinkgoWriter,
+					GinkgoWriter,
+				)
+				Expect(err).NotTo(HaveOccurred())
+				return session
+			}
+
+			session := runCommand("goal", "complete", "my-goal")
+			Eventually(session).Should(gexec.Exit(1))
+			Expect(string(session.Out.Contents())).To(ContainSubstring("an open criterion"))
+			Expect(readFile()).To(ContainSubstring("status: in_progress"))
+		})
+
+		It("goal complete closes a fully ticked goal with terminal linked tasks", func() {
+			vaultPath, configPath, cleanup := createTempVaultWithGoals(
+				map[string]string{
+					"linked-task": "---\nstatus: completed\ngoals:\n    - '[[my-goal]]'\n---\n# Linked\n",
+				},
+				map[string]string{
+					"my-goal": "---\nstatus: in_progress\n---\n# Success Criteria\n" +
+						"- [x] done\n# Definition of Done\n- [x] done\n",
+				},
+			)
+			defer cleanup()
+
+			goalPath := filepath.Join(vaultPath, "Goals", "my-goal.md")
+			runCommand := func(args ...string) *gexec.Session {
+				fullArgs := append([]string{"--config", configPath, "--vault", "test"}, args...)
+				session, err := gexec.Start(
+					exec.Command(binPath, fullArgs...),
+					GinkgoWriter,
+					GinkgoWriter,
+				)
+				Expect(err).NotTo(HaveOccurred())
+				return session
+			}
+
+			Eventually(runCommand("goal", "complete", "my-goal")).Should(gexec.Exit(0))
+			content, err := os.ReadFile(goalPath) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(content)).To(ContainSubstring("status: completed"))
+		})
+
+		It("goal complete refuses an open task linked as a wikilink", func() {
+			vaultPath, configPath, cleanup := createTempVaultWithGoals(
+				map[string]string{
+					"linked-task": "---\nstatus: todo\ngoals:\n    - '[[my-goal]]'\n---\n# Linked\n",
+				},
+				map[string]string{
+					"my-goal": "---\nstatus: in_progress\n---\n# Success Criteria\n" +
+						"- [x] done\n# Definition of Done\n- [x] done\n",
+				},
+			)
+			defer cleanup()
+
+			goalPath := filepath.Join(vaultPath, "Goals", "my-goal.md")
+			runCommand := func(args ...string) *gexec.Session {
+				fullArgs := append([]string{"--config", configPath, "--vault", "test"}, args...)
+				session, err := gexec.Start(
+					exec.Command(binPath, fullArgs...),
+					GinkgoWriter,
+					GinkgoWriter,
+				)
+				Expect(err).NotTo(HaveOccurred())
+				return session
+			}
+
+			session := runCommand("goal", "complete", "my-goal")
+			Eventually(session).Should(gexec.Exit(1))
+			Expect(string(session.Out.Contents())).To(ContainSubstring("linked-task"))
+			content, err := os.ReadFile(goalPath) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(content)).To(ContainSubstring("status: in_progress"))
+		})
+
+		It("goal complete refuses an open task linked as a bare name", func() {
+			vaultPath, configPath, cleanup := createTempVaultWithGoals(
+				map[string]string{
+					"linked-task": "---\nstatus: todo\ngoals:\n    - my-goal\n---\n# Linked\n",
+				},
+				map[string]string{
+					"my-goal": "---\nstatus: in_progress\n---\n# Success Criteria\n" +
+						"- [x] done\n# Definition of Done\n- [x] done\n",
+				},
+			)
+			defer cleanup()
+
+			_ = vaultPath
+			runCommand := func(args ...string) *gexec.Session {
+				fullArgs := append([]string{"--config", configPath, "--vault", "test"}, args...)
+				session, err := gexec.Start(
+					exec.Command(binPath, fullArgs...),
+					GinkgoWriter,
+					GinkgoWriter,
+				)
+				Expect(err).NotTo(HaveOccurred())
+				return session
+			}
+
+			session := runCommand("goal", "complete", "my-goal")
+			Eventually(session).Should(gexec.Exit(1))
+			Expect(string(session.Out.Contents())).To(ContainSubstring("linked-task"))
+		})
+
+		It("goal complete closes a pre-cutoff goal with no Definition of Done", func() {
+			vaultPath, configPath, cleanup := createTempVaultWithGoals(
+				map[string]string{},
+				map[string]string{
+					"my-goal": "---\nstatus: in_progress\ncreated: \"2026-01-05\"\n---\n" +
+						"# Success Criteria\n- [x] done\n",
+				},
+			)
+			defer cleanup()
+
+			goalPath := filepath.Join(vaultPath, "Goals", "my-goal.md")
+			runCommand := func(args ...string) *gexec.Session {
+				fullArgs := append([]string{"--config", configPath, "--vault", "test"}, args...)
+				session, err := gexec.Start(
+					exec.Command(binPath, fullArgs...),
+					GinkgoWriter,
+					GinkgoWriter,
+				)
+				Expect(err).NotTo(HaveOccurred())
+				return session
+			}
+
+			Eventually(runCommand("goal", "complete", "my-goal")).Should(gexec.Exit(0))
+			content, err := os.ReadFile(goalPath) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(content)).To(ContainSubstring("status: completed"))
+		})
+
+		It("goal complete refuses a goal whose Definition of Done section holds no box", func() {
+			vaultPath, configPath, cleanup := createTempVaultWithGoals(
+				map[string]string{},
+				map[string]string{
+					"my-goal": "---\nstatus: in_progress\n---\n# Success Criteria\n" +
+						"- [x] done\n# Definition of Done\n",
+				},
+			)
+			defer cleanup()
+
+			_ = vaultPath
+			runCommand := func(args ...string) *gexec.Session {
+				fullArgs := append([]string{"--config", configPath, "--vault", "test"}, args...)
+				session, err := gexec.Start(
+					exec.Command(binPath, fullArgs...),
+					GinkgoWriter,
+					GinkgoWriter,
+				)
+				Expect(err).NotTo(HaveOccurred())
+				return session
+			}
+
+			session := runCommand("goal", "complete", "my-goal")
+			Eventually(session).Should(gexec.Exit(1))
+			Expect(string(session.Out.Contents())).To(ContainSubstring("# Definition of Done"))
+		})
+
+		It("goal complete refuses a post-cutoff goal with no Definition of Done", func() {
+			vaultPath, configPath, cleanup := createTempVaultWithGoals(
+				map[string]string{},
+				map[string]string{
+					"my-goal": "---\nstatus: in_progress\ncreated: \"2026-07-01\"\n---\n" +
+						"# Success Criteria\n- [x] done\n",
+				},
+			)
+			defer cleanup()
+
+			_ = vaultPath
+			runCommand := func(args ...string) *gexec.Session {
+				fullArgs := append([]string{"--config", configPath, "--vault", "test"}, args...)
+				session, err := gexec.Start(
+					exec.Command(binPath, fullArgs...),
+					GinkgoWriter,
+					GinkgoWriter,
+				)
+				Expect(err).NotTo(HaveOccurred())
+				return session
+			}
+
+			session := runCommand("goal", "complete", "my-goal")
+			Eventually(session).Should(gexec.Exit(1))
+			Expect(string(session.Out.Contents())).To(ContainSubstring("# Definition of Done"))
+		})
+
+		It("topic complete refuses an open Completion Gate box", func() {
+			vaultPath, configPath, cleanup := createTempVaultWithTopicPages(
+				"Topics",
+				map[string]string{
+					"my-topic": "---\nstatus: in_progress\n---\n# Success Criteria\n" +
+						"- [x] done\n# Completion Gate\n- [ ] an open gate\n",
+				},
+				nil,
+			)
+			defer cleanup()
+
+			topicPath := filepath.Join(vaultPath, "Topics", "my-topic.md")
+			runCommand := func(args ...string) *gexec.Session {
+				fullArgs := append([]string{"--config", configPath, "--vault", "test"}, args...)
+				session, err := gexec.Start(
+					exec.Command(binPath, fullArgs...),
+					GinkgoWriter,
+					GinkgoWriter,
+				)
+				Expect(err).NotTo(HaveOccurred())
+				return session
+			}
+
+			session := runCommand("topic", "complete", "my-topic")
+			Eventually(session).Should(gexec.Exit(1))
+			Expect(string(session.Out.Contents())).To(ContainSubstring("an open gate"))
+			content, err := os.ReadFile(topicPath) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(content)).To(ContainSubstring("status: in_progress"))
+		})
+
+		It("topic complete refuses a non-terminal member goal", func() {
+			vaultPath, configPath, cleanup := createTempVaultWithTopicPages(
+				"Topics",
+				map[string]string{
+					"my-topic": "---\nstatus: in_progress\n---\n# Topic\n## Goals\n" +
+						"- [[Member Goal]]\n# Success Criteria\n- [x] done\n" +
+						"# Completion Gate\n- [x] gated\n",
+				},
+				map[string]string{
+					"Member Goal": "---\nstatus: in_progress\n---\n# Member Goal\n",
+				},
+			)
+			defer cleanup()
+
+			_ = vaultPath
+			runCommand := func(args ...string) *gexec.Session {
+				fullArgs := append([]string{"--config", configPath, "--vault", "test"}, args...)
+				session, err := gexec.Start(
+					exec.Command(binPath, fullArgs...),
+					GinkgoWriter,
+					GinkgoWriter,
+				)
+				Expect(err).NotTo(HaveOccurred())
+				return session
+			}
+
+			session := runCommand("topic", "complete", "my-topic")
+			Eventually(session).Should(gexec.Exit(1))
+			Expect(string(session.Out.Contents())).To(ContainSubstring("Member Goal"))
+		})
+
+		It("topic complete reads a member under a ### sub-heading inside ## Goals", func() {
+			vaultPath, configPath, cleanup := createTempVaultWithTopicPages(
+				"Topics",
+				map[string]string{
+					"my-topic": "---\nstatus: in_progress\n---\n# Topic\n## Goals\n" +
+						"### Lever A\n- [[Member Goal]]\n# Success Criteria\n- [x] done\n" +
+						"# Completion Gate\n- [x] gated\n",
+				},
+				map[string]string{
+					"Member Goal": "---\nstatus: in_progress\n---\n# Member Goal\n",
+				},
+			)
+			defer cleanup()
+
+			_ = vaultPath
+			runCommand := func(args ...string) *gexec.Session {
+				fullArgs := append([]string{"--config", configPath, "--vault", "test"}, args...)
+				session, err := gexec.Start(
+					exec.Command(binPath, fullArgs...),
+					GinkgoWriter,
+					GinkgoWriter,
+				)
+				Expect(err).NotTo(HaveOccurred())
+				return session
+			}
+
+			session := runCommand("topic", "complete", "my-topic")
+			Eventually(session).Should(gexec.Exit(1))
+			Expect(string(session.Out.Contents())).To(ContainSubstring("Member Goal"))
+		})
+
+		It("topic complete reads a member under ## inside # Goals", func() {
+			vaultPath, configPath, cleanup := createTempVaultWithTopicPages(
+				"Topics",
+				map[string]string{
+					"my-topic": "---\nstatus: in_progress\n---\n# Topic\n# Goals\n## Sub\n" +
+						"- [[Member Goal]]\n# Success Criteria\n- [x] done\n" +
+						"# Completion Gate\n- [x] gated\n",
+				},
+				map[string]string{
+					"Member Goal": "---\nstatus: in_progress\n---\n# Member Goal\n",
+				},
+			)
+			defer cleanup()
+
+			_ = vaultPath
+			runCommand := func(args ...string) *gexec.Session {
+				fullArgs := append([]string{"--config", configPath, "--vault", "test"}, args...)
+				session, err := gexec.Start(
+					exec.Command(binPath, fullArgs...),
+					GinkgoWriter,
+					GinkgoWriter,
+				)
+				Expect(err).NotTo(HaveOccurred())
+				return session
+			}
+
+			session := runCommand("topic", "complete", "my-topic")
+			Eventually(session).Should(gexec.Exit(1))
+			Expect(string(session.Out.Contents())).To(ContainSubstring("Member Goal"))
+		})
+
+		It("topic complete closes a fully ticked topic with terminal member goals", func() {
+			vaultPath, configPath, cleanup := createTempVaultWithTopicPages(
+				"Topics",
+				map[string]string{
+					"my-topic": "---\nstatus: in_progress\n---\n# Topic\n## Goals\n" +
+						"- [[Member Goal]]\n# Success Criteria\n- [x] done\n" +
+						"# Completion Gate\n- [x] gated\n",
+				},
+				map[string]string{
+					"Member Goal": "---\nstatus: completed\n---\n# Member Goal\n",
+				},
+			)
+			defer cleanup()
+
+			topicPath := filepath.Join(vaultPath, "Topics", "my-topic.md")
+			runCommand := func(args ...string) *gexec.Session {
+				fullArgs := append([]string{"--config", configPath, "--vault", "test"}, args...)
+				session, err := gexec.Start(
+					exec.Command(binPath, fullArgs...),
+					GinkgoWriter,
+					GinkgoWriter,
+				)
+				Expect(err).NotTo(HaveOccurred())
+				return session
+			}
+
+			Eventually(runCommand("topic", "complete", "my-topic")).Should(gexec.Exit(0))
+			content, err := os.ReadFile(topicPath) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(content)).To(ContainSubstring("status: completed"))
+		})
+
+		It("goal complete prints one line per open item and reports them in open_items", func() {
+			vaultPath, configPath, cleanup := createTempVaultWithGoals(
+				map[string]string{},
+				map[string]string{
+					"my-goal": "---\nstatus: in_progress\n---\n# Success Criteria\n" +
+						"- [ ] first open item\n- [ ] second open item\n" +
+						"# Definition of Done\n- [x] done\n",
+				},
+			)
+			defer cleanup()
+
+			_ = vaultPath
+			runCommand := func(args ...string) *gexec.Session {
+				fullArgs := append([]string{"--config", configPath, "--vault", "test"}, args...)
+				session, err := gexec.Start(
+					exec.Command(binPath, fullArgs...),
+					GinkgoWriter,
+					GinkgoWriter,
+				)
+				Expect(err).NotTo(HaveOccurred())
+				return session
+			}
+
+			plain := runCommand("goal", "complete", "my-goal")
+			Eventually(plain).Should(gexec.Exit(1))
+			lines := strings.Split(strings.TrimSpace(string(plain.Out.Contents())), "\n")
+			Expect(lines).To(HaveLen(2))
+
+			jsonSession := runCommand("goal", "complete", "my-goal", "--output", "json")
+			Eventually(jsonSession).Should(gexec.Exit(1))
+			var payload map[string]any
+			Expect(json.Unmarshal(jsonSession.Out.Contents(), &payload)).To(Succeed())
+			openItems, ok := payload["open_items"].([]any)
+			Expect(ok).To(BeTrue())
+			Expect(openItems).To(HaveLen(2))
+		})
+
+		It("goal complete is a no-op on an already-completed goal", func() {
+			vaultPath, configPath, cleanup := createTempVaultWithGoals(
+				map[string]string{},
+				map[string]string{
+					"my-goal": "---\nstatus: completed\n---\n# My Goal\n",
+				},
+			)
+			defer cleanup()
+
+			goalPath := filepath.Join(vaultPath, "Goals", "my-goal.md")
+			sha256OfFile := func() string {
+				data, err := os.ReadFile(goalPath) //#nosec G304 -- test file
+				Expect(err).NotTo(HaveOccurred())
+				return fmt.Sprintf("%x", sha256.Sum256(data))
+			}
+			runCommand := func(args ...string) *gexec.Session {
+				fullArgs := append([]string{"--config", configPath, "--vault", "test"}, args...)
+				session, err := gexec.Start(
+					exec.Command(binPath, fullArgs...),
+					GinkgoWriter,
+					GinkgoWriter,
+				)
+				Expect(err).NotTo(HaveOccurred())
+				return session
+			}
+
+			before := sha256OfFile()
+			Eventually(runCommand("goal", "complete", "my-goal")).Should(gexec.Exit(0))
+			Expect(sha256OfFile()).To(Equal(before))
+		})
+
+		It("goal complete is a no-op on an aborted goal", func() {
+			vaultPath, configPath, cleanup := createTempVaultWithGoals(
+				map[string]string{},
+				map[string]string{
+					"my-goal": "---\nstatus: aborted\n---\n# My Goal\n",
+				},
+			)
+			defer cleanup()
+
+			goalPath := filepath.Join(vaultPath, "Goals", "my-goal.md")
+			sha256OfFile := func() string {
+				data, err := os.ReadFile(goalPath) //#nosec G304 -- test file
+				Expect(err).NotTo(HaveOccurred())
+				return fmt.Sprintf("%x", sha256.Sum256(data))
+			}
+			runCommand := func(args ...string) *gexec.Session {
+				fullArgs := append([]string{"--config", configPath, "--vault", "test"}, args...)
+				session, err := gexec.Start(
+					exec.Command(binPath, fullArgs...),
+					GinkgoWriter,
+					GinkgoWriter,
+				)
+				Expect(err).NotTo(HaveOccurred())
+				return session
+			}
+
+			before := sha256OfFile()
+			Eventually(runCommand("goal", "complete", "my-goal")).Should(gexec.Exit(0))
+			Expect(sha256OfFile()).To(Equal(before))
+		})
+
+		It("topic complete is a no-op on an aborted topic", func() {
+			vaultPath, configPath, cleanup := createTempVaultWithTopicPages(
+				"Topics",
+				map[string]string{
+					"my-topic": "---\nstatus: aborted\n---\n# My Topic\n",
+				},
+				nil,
+			)
+			defer cleanup()
+
+			topicPath := filepath.Join(vaultPath, "Topics", "my-topic.md")
+			sha256OfFile := func() string {
+				data, err := os.ReadFile(topicPath) //#nosec G304 -- test file
+				Expect(err).NotTo(HaveOccurred())
+				return fmt.Sprintf("%x", sha256.Sum256(data))
+			}
+			runCommand := func(args ...string) *gexec.Session {
+				fullArgs := append([]string{"--config", configPath, "--vault", "test"}, args...)
+				session, err := gexec.Start(
+					exec.Command(binPath, fullArgs...),
+					GinkgoWriter,
+					GinkgoWriter,
+				)
+				Expect(err).NotTo(HaveOccurred())
+				return session
+			}
+
+			before := sha256OfFile()
+			Eventually(runCommand("topic", "complete", "my-topic")).Should(gexec.Exit(0))
+			Expect(sha256OfFile()).To(Equal(before))
 		})
 	})
 
@@ -6198,17 +6695,24 @@ page_type: goal
 			Expect(afterRemove).To(Equal(afterSecond - 1))
 		})
 
-		It("topic complete moves the status to completed and refuses a second complete", func() {
+		It("topic complete moves the status to completed and is a no-op on a second complete", func() {
 			vaultPath, configPath, cleanup := createTempVaultWithTopicPages(
 				"Topics",
 				map[string]string{
-					"Round Trip": "---\nstatus: in_progress\n---\n# Round Trip\n",
+					"Round Trip": "---\nstatus: in_progress\n---\n# Round Trip\n" +
+						"# Success Criteria\n- [x] done\n# Completion Gate\n- [x] gated\n",
 				},
 				nil,
 			)
 			defer cleanup()
 
 			topicPath := filepath.Join(vaultPath, "Topics", "Round Trip.md")
+
+			sha256OfFile := func(path string) string {
+				data, err := os.ReadFile(path) //#nosec G304 -- test file
+				Expect(err).NotTo(HaveOccurred())
+				return fmt.Sprintf("%x", sha256.Sum256(data))
+			}
 
 			completeCmd := exec.Command(
 				binPath, "--config", configPath, "--vault", "test",
@@ -6222,17 +6726,17 @@ page_type: goal
 			Expect(err).NotTo(HaveOccurred())
 			Expect(string(completed)).To(ContainSubstring("status: completed"))
 
+			beforeSecond := sha256OfFile(topicPath)
+
 			secondCmd := exec.Command(
 				binPath, "--config", configPath, "--vault", "test",
 				"topic", "complete", "Round Trip",
 			)
 			secondSession, err := gexec.Start(secondCmd, GinkgoWriter, GinkgoWriter)
 			Expect(err).NotTo(HaveOccurred())
-			Eventually(secondSession).Should(gexec.Exit(1))
+			Eventually(secondSession).Should(gexec.Exit(0))
 
-			afterSecond, err := os.ReadFile(topicPath)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(afterSecond).To(Equal(completed))
+			Expect(sha256OfFile(topicPath)).To(Equal(beforeSecond))
 		})
 
 		It("topic defer writes defer_date for a relative and an absolute date", func() {

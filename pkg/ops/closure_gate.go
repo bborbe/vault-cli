@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/bborbe/errors"
 
@@ -115,7 +116,7 @@ func checkClosureGate(
 		}, nil
 	}
 
-	items, unmeasurable := closureSectionItems(kind, body, stringField(fields, "created"))
+	items, unmeasurable := closureSectionItems(kind, body, createdField(fields))
 	items = append(items, closureMemberItems(kind, members)...)
 
 	outcome := closureOutcomeClose
@@ -264,6 +265,46 @@ func isTerminalStatus(status string) bool {
 // stringField reads a string field, treating a non-string value as empty.
 func stringField(fields map[string]any, key string) string {
 	value, _ := fields[key].(string)
+	return value
+}
+
+// closureDateLayout is the date-only shape the grandfathering cutoff compares.
+const closureDateLayout = "2006-01-02"
+
+// createdField reads the `created` frontmatter value as a bare ISO date.
+//
+// ⚠️ The value must be COERCED, never type-asserted to string. YAML resolves an
+// unquoted `created: 2026-07-01` — and an unquoted RFC3339 timestamp — to
+// time.Time, so a string-only accessor yields "", which is indistinguishable
+// from an absent field and therefore GRANDFATHERS the Definition of Done. That
+// fails open: a post-cutoff goal with no DoD closes unexamined, which is the one
+// case the exemption must refuse. Measured 2026-11-19: 70 live goal pages in the
+// Personal vault carry the unquoted form.
+//
+// An absent field returns "" (genuinely grandfathered). A present value of an
+// unreadable type returns its raw spelling, so the caller refuses it as
+// "not an ISO date" rather than exempting the page.
+func createdField(fields map[string]any) string {
+	value, ok := fields["created"]
+	if !ok {
+		return ""
+	}
+	switch typed := value.(type) {
+	case time.Time:
+		return typed.Format(closureDateLayout)
+	case string:
+		return trimToDate(typed)
+	default:
+		return fmt.Sprintf("%v", value)
+	}
+}
+
+// trimToDate returns the date part of a timestamp, or the input unchanged when
+// it carries no time component.
+func trimToDate(value string) string {
+	if index := strings.IndexAny(value, "T "); index > 0 {
+		return value[:index]
+	}
 	return value
 }
 

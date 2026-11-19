@@ -1987,7 +1987,7 @@ This is my task.
 				cleanup()
 			})
 
-			It("completes with --force despite incomplete subtasks and without close-out fields", func() {
+			It("refuses --force when stdin is not a terminal and leaves the task unchanged", func() {
 				cmd := exec.Command(
 					binPath,
 					"--config", configPath,
@@ -1996,14 +1996,13 @@ This is my task.
 				)
 				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 				Expect(err).NotTo(HaveOccurred())
-				Eventually(session).Should(gexec.Exit(0))
+				Eventually(session).Should(gexec.Exit(1))
+				Expect(session.Err).To(gbytes.Say("stdin is not a terminal"))
 
 				taskPath := filepath.Join(vaultPath, "Tasks", "my-task.md")
 				content, err := os.ReadFile(taskPath) //#nosec G304 -- test file
 				Expect(err).NotTo(HaveOccurred())
-				Expect(string(content)).To(ContainSubstring("status: completed"))
-				Expect(string(content)).NotTo(ContainSubstring("aborted_reason:"))
-				Expect(string(content)).NotTo(ContainSubstring("gate_successor:"))
+				Expect(string(content)).To(Equal("---\nstatus: in_progress\n---\n# My Task\n\n- [ ] not done\n"))
 			})
 		})
 	})

@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: refuse `--force` on `task complete` and `goal complete` when stdin is not a terminal, so an agent running without a terminal cannot bypass the closing check with it; the extracted task-complete helper now prints warnings in both branches and wraps the session-mode error
+
 ## v0.198.0
 
 - feat: `task approve` writes `reapproved_at` on its re-approval branch, so a re-approval is observable and timestamped where the preserved `approved_at` made it indistinguishable from a row that was never re-approved

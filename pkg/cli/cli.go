@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -248,6 +249,9 @@ func createCompleteCommand(
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			taskName := args[0]
+			if err := requireForceFromTerminal(ctx, force); err != nil {
+				return err
+			}
 			vaults, err := getVaults(ctx, configLoader, vaultName)
 			if err != nil {
 				return errors.Wrap(ctx, err, "get vaults")
@@ -278,14 +282,7 @@ func createCompleteCommand(
 						return result, err
 					}
 					if !OutputFormat(*outputFormat).IsJSON() {
-						if result.Reason != "" {
-							fmt.Printf("⚠️  Cannot complete: %s\n", result.Reason)
-						} else {
-							fmt.Printf("✅ Task completed: %s\n", result.Name)
-						}
-						for _, w := range result.Warnings {
-							fmt.Printf("⚠️  %s\n", w)
-						}
+						printTaskCompleteResult(os.Stdout, result)
 					}
 					return result, nil
 				},
@@ -298,6 +295,21 @@ func createCompleteCommand(
 	cmd.Flags().StringVar(&reason, "reason", "", "Close-out reason (aborted_reason); required for aborted, optional for completed")
 	cmd.Flags().StringVar(&gateSuccessor, "gate-successor", "", "Where any risk gate moves, or 'none' (gate_successor); required for aborted, optional for completed")
 	return cmd
+}
+
+// printTaskCompleteResult writes the human-readable outcome of a task
+// completion. runMutation handles the JSON case, so this is plain mode only.
+// Warnings print in both the refusal and the success branch: the refusal
+// branch used to return early and drop them.
+func printTaskCompleteResult(w io.Writer, result ops.MutationResult) {
+	if result.Reason != "" {
+		fmt.Fprintf(w, "⚠️  Cannot complete: %s\n", result.Reason)
+	} else {
+		fmt.Fprintf(w, "✅ Task completed: %s\n", result.Name)
+	}
+	for _, warning := range result.Warnings {
+		fmt.Fprintf(w, "⚠️  %s\n", warning)
+	}
 }
 
 func createDeferCommand(
@@ -532,6 +544,34 @@ func resolveSessionMode(ctx context.Context, mode string) (bool, error) {
 			mode,
 		)
 	}
+}
+
+// requireForceFromTerminal refuses --force when stdin is not a terminal.
+// A forced complete overrides the closing check, so it must be confirmable
+// by a human at a terminal; an agent piping input, or a process running with
+// stdin redirected, must not be able to take the override.
+func requireForceFromTerminal(ctx context.Context, force bool) error {
+	if !force {
+		return nil
+	}
+	interactive, err := resolveSessionMode(ctx, "auto")
+	if err != nil {
+		return errors.Wrap(ctx, err, "resolve session mode")
+	}
+	return requireTTYForForce(ctx, force, interactive)
+}
+
+// requireTTYForForce returns an error when force is set and isTTY is false.
+// It is separate from requireForceFromTerminal so both branches are
+// unit-testable without allocating a pty.
+func requireTTYForForce(ctx context.Context, force bool, isTTY bool) error {
+	if !force || isTTY {
+		return nil
+	}
+	return errors.Errorf(
+		ctx,
+		"--force requires an interactive terminal: stdin is not a terminal, so the override cannot be confirmed by a human; drop --force or re-run from a terminal",
+	)
 }
 
 func createTaskListCommand(
@@ -1483,6 +1523,9 @@ func createGoalCompleteCommand(
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			goalName := args[0]
+			if err := requireForceFromTerminal(ctx, force); err != nil {
+				return err
+			}
 			vaults, err := getVaults(ctx, configLoader, vaultName)
 			if err != nil {
 				return errors.Wrap(ctx, err, "get vaults")

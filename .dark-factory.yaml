@@ -1,12 +1,12 @@
 autoGeneratePrompts: true
 autoRelease: false
 maxContainers: 8
-pr: false
+pr: true
 preflightCommand: "make precommit"
 preflightInterval: "8h"
 testCommand: "make test"
 validationPrompt: docs/dod.md
-workflow: direct
+workflow: worktree
 env:
   GOPATH: /home/node/go
   GOCACHE: /home/node/.cache/go-build

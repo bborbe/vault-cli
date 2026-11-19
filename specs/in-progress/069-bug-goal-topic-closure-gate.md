@@ -1,7 +1,8 @@
 ---
-status: approved
+status: verifying
 approved: "2026-11-18T19:46:38Z"
 generating: "2026-11-18T22:54:58Z"
+verifying: "2026-11-18T23:19:37Z"
 branch: dark-factory/bug-goal-topic-closure-gate
 ---
 

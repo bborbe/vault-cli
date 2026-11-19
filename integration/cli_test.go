@@ -4384,6 +4384,47 @@ body line
 			}
 		})
 
+		It("AC1/AC2/AC4: a re-approval writes a timestamp-typed reapproved_at, preserves approved_at, and the field reader returns it", func() {
+			vaultPath, configPath, cleanup = createTempVault(map[string]string{
+				"Alpha": approvedBothFrontmatter,
+			})
+			taskFile := filepath.Join(vaultPath, "Tasks", "Alpha.md")
+
+			session := runEntityCommand("task", "approve", "Alpha")
+			Eventually(session).Should(gexec.Exit(0))
+
+			after := readFile(taskFile)
+			reapprovedAt := strings.Trim(valueOf(after, "reapproved_at"), `"`)
+			Expect(reapprovedAt).NotTo(BeEmpty(), "reapproved_at must be written on re-approval")
+			_, parseErr := time.Parse(time.RFC3339, reapprovedAt)
+			Expect(parseErr).NotTo(HaveOccurred(), "reapproved_at %q is not RFC3339", reapprovedAt)
+			// AC4: the preserved approval record did not move.
+			Expect(valueOf(after, "approved_at")).To(Equal("2026-01-01T00:00:00Z"))
+			Expect(valueOf(after, "approved_by")).To(Equal("someone"))
+			Expect(valueOf(after, "phase")).To(Equal("planning"))
+
+			// AC2: the existing generic field reader returns the value back. Only a
+			// non-empty value is asserted — the reader renders a timestamp-typed value
+			// with Go's %v form, not necessarily RFC3339.
+			getSession := runEntityCommand("task", "get", "Alpha", "reapproved_at")
+			Eventually(getSession).Should(gexec.Exit(0))
+			Expect(strings.TrimSpace(string(getSession.Out.Contents()))).NotTo(BeEmpty())
+		})
+
+		It("AC3: a first approval writes no reapproved_at", func() {
+			vaultPath, configPath, cleanup = createTempVaultWithCurrentUser(map[string]string{
+				"Alpha": todoFrontmatter,
+			})
+			taskFile := filepath.Join(vaultPath, "Tasks", "Alpha.md")
+
+			session := runEntityCommand("task", "approve", "Alpha")
+			Eventually(session).Should(gexec.Exit(0))
+
+			after := readFile(taskFile)
+			Expect(after).NotTo(ContainSubstring("reapproved_at"))
+			Expect(valueOf(after, "approved_at")).NotTo(BeEmpty())
+		})
+
 		It("AC6b: a terminal row at phase todo is refused, including the `done` alias", func() {
 			// Both the canonical terminal status and its legacy alias must refuse
 			// end-to-end: `done` normalizes to `completed`, so a raw comparison

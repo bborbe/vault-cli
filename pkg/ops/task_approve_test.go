@@ -284,6 +284,148 @@ var _ = Describe("TaskApproveOperation", func() {
 		}),
 	)
 
+	It("records reapproved_at as a bare time.Time on the re-approval branch", func() {
+		seedTask(map[string]any{
+			"status": "next", "phase": "todo",
+			"approved_by": "someone", "approved_at": "2026-01-01T00:00:00Z",
+		})
+
+		_, execErr := approveOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator", "", "")
+		Expect(execErr).To(BeNil())
+
+		Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
+		_, written := mockStorage.WriteTaskArgsForCall(0)
+		Expect(written.Phase()).To(Equal(domain.TaskPhasePlanning.Ptr()))
+		raw, ok := written.Get("reapproved_at").(time.Time)
+		Expect(ok).To(BeTrue())
+		Expect(raw.Equal(pinned.Now().Time())).To(BeTrue())
+		// The approval record itself is preserved byte-for-byte.
+		Expect(written.Get("approved_by")).To(Equal("someone"))
+		Expect(written.Get("approved_at")).To(Equal("2026-01-01T00:00:00Z"))
+	})
+
+	It("serializes reapproved_at unquoted and round-trips it as a time.Time", func() {
+		seedTask(map[string]any{
+			"status": "next", "phase": "todo",
+			"approved_by": "someone", "approved_at": "2026-01-01T00:00:00Z",
+		})
+
+		_, execErr := approveOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator", "", "")
+		Expect(execErr).To(BeNil())
+
+		_, written := mockStorage.WriteTaskArgsForCall(0)
+		out, marshalErr := yaml.Marshal(written.RawMap())
+		Expect(marshalErr).NotTo(HaveOccurred())
+		Expect(string(out)).To(ContainSubstring("reapproved_at: 2026-03-03T12:00:00Z"))
+		Expect(string(out)).NotTo(ContainSubstring(`reapproved_at: "2026-03-03T12:00:00Z"`))
+
+		var roundTripped map[string]any
+		Expect(yaml.Unmarshal(out, &roundTripped)).To(Succeed())
+		rt, ok := roundTripped["reapproved_at"].(time.Time)
+		Expect(ok).To(BeTrue())
+		Expect(rt.Equal(pinned.Now().Time())).To(BeTrue())
+	})
+
+	It("writes no reapproved_at on a first approval", func() {
+		seedTask(map[string]any{"status": "next", "phase": "todo", "assignee": "someone"})
+
+		_, execErr := approveOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator", "", "")
+		Expect(execErr).To(BeNil())
+
+		_, written := mockStorage.WriteTaskArgsForCall(0)
+		Expect(written.Get("reapproved_at")).To(BeNil())
+		Expect(written.Get("approved_at")).NotTo(BeNil())
+	})
+
+	DescribeTable("writes reapproved_at for any presence-only approval record",
+		func(fields map[string]any) {
+			seedTask(fields)
+			// Snapshot before Execute: domain.NewTask stores the caller's map by
+			// reference, so reading fields[...] afterwards would compare the
+			// written map against itself.
+			seededBy := fields["approved_by"]
+			seededAt := fields["approved_at"]
+
+			_, execErr := approveOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator", "", "")
+			Expect(execErr).To(BeNil())
+
+			Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
+			_, written := mockStorage.WriteTaskArgsForCall(0)
+			raw, ok := written.Get("reapproved_at").(time.Time)
+			Expect(ok).To(BeTrue())
+			Expect(raw.Equal(pinned.Now().Time())).To(BeTrue())
+			expectSameValue := func(actual, expected any) {
+				if expected == nil {
+					Expect(actual).To(BeNil())
+					return
+				}
+				Expect(actual).To(Equal(expected))
+			}
+			expectSameValue(written.Get("approved_by"), seededBy)
+			expectSameValue(written.Get("approved_at"), seededAt)
+		},
+		Entry("only approved_by", map[string]any{
+			"status": "next", "phase": "todo", "approved_by": "someone",
+		}),
+		Entry("only approved_at", map[string]any{
+			"status": "next", "phase": "todo", "approved_at": "2026-01-01T00:00:00Z",
+		}),
+		Entry("an empty approved_by value counts as present", map[string]any{
+			"status": "next", "phase": "todo", "approved_by": "",
+		}),
+		Entry("a present-but-null approved_by", map[string]any{
+			"status": "next", "phase": "todo", "approved_by": nil,
+		}),
+		Entry("an unparseable approved_at", map[string]any{
+			"status": "next", "phase": "todo", "approved_at": "not-a-date",
+		}),
+	)
+
+	It("refreshes reapproved_at on a second re-approval", func() {
+		seedTask(map[string]any{
+			"status": "next", "phase": "todo",
+			"approved_by": "someone", "approved_at": "2026-01-01T00:00:00Z",
+		})
+
+		_, execErr := approveOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator", "", "")
+		Expect(execErr).To(BeNil())
+		_, firstWritten := mockStorage.WriteTaskArgsForCall(0)
+		firstRaw, ok := firstWritten.Get("reapproved_at").(time.Time)
+		Expect(ok).To(BeTrue())
+		Expect(firstRaw.Equal(pinned.Now().Time())).To(BeTrue())
+
+		// A fresh map literal, not the first one: domain.NewTask stores the map by
+		// reference, so a reused map would already read phase: planning and the
+		// second call would be refused by the inbox guard.
+		seedTask(map[string]any{
+			"status": "next", "phase": "todo",
+			"approved_by": "someone", "approved_at": "2026-01-01T00:00:00Z",
+		})
+		pinned.SetNow(libtimetest.ParseDateTime("2026-03-03T12:00:05Z"))
+
+		_, execErr = approveOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator", "", "")
+		Expect(execErr).To(BeNil())
+
+		Expect(mockStorage.WriteTaskCallCount()).To(Equal(2))
+		_, secondWritten := mockStorage.WriteTaskArgsForCall(1)
+		secondRaw, ok := secondWritten.Get("reapproved_at").(time.Time)
+		Expect(ok).To(BeTrue())
+		Expect(secondRaw.Equal(pinned.Now().Time())).To(BeTrue())
+		Expect(secondRaw.Equal(firstRaw)).To(BeFalse())
+	})
+
+	It("refuses a zero clock on the re-approval branch with zero writes", func() {
+		seedTask(map[string]any{"status": "next", "phase": "todo", "approved_by": "someone"})
+		zero := libtime.NewCurrentDateTime()
+		zero.SetNow(libtime.DateTime(time.Time{}))
+		zeroOp := ops.NewTaskApproveOperation(mockStorage, zero)
+
+		_, execErr := zeroOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator", "", "")
+		Expect(execErr).To(HaveOccurred())
+		Expect(execErr.Error()).To(ContainSubstring("approved_at"))
+		Expect(mockStorage.WriteTaskCallCount()).To(Equal(0))
+	})
+
 	It("still refuses an approved row that is past the inbox", func() {
 		seedTask(map[string]any{
 			"status": "in_progress", "phase": "execution",

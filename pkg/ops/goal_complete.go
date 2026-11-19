@@ -28,22 +28,29 @@ type GoalCompleteOperation interface {
 }
 
 // NewGoalCompleteOperation creates a new goal complete operation.
+//
+// The parent-topic close runs through topicCompleteOperation, so the closure
+// rule and the topic close sequence exist once: the goal close never writes a
+// topic itself.
 func NewGoalCompleteOperation(
 	goalStorage storage.GoalStorage,
 	taskStorage storage.TaskStorage,
 	currentDateTime libtime.CurrentDateTime,
+	topicCompleteOperation TopicCompleteOperation,
 ) GoalCompleteOperation {
 	return &goalCompleteOperation{
-		goalStorage:     goalStorage,
-		taskStorage:     taskStorage,
-		currentDateTime: currentDateTime,
+		goalStorage:            goalStorage,
+		taskStorage:            taskStorage,
+		currentDateTime:        currentDateTime,
+		topicCompleteOperation: topicCompleteOperation,
 	}
 }
 
 type goalCompleteOperation struct {
-	goalStorage     storage.GoalStorage
-	taskStorage     storage.TaskStorage
-	currentDateTime libtime.CurrentDateTime
+	goalStorage            storage.GoalStorage
+	taskStorage            storage.TaskStorage
+	currentDateTime        libtime.CurrentDateTime
+	topicCompleteOperation TopicCompleteOperation
 }
 
 // Execute marks a goal as completed, optionally blocking if open tasks exist.
@@ -69,7 +76,9 @@ func (g *goalCompleteOperation) Execute(
 	}
 
 	if goal.Status() == domain.GoalStatusCompleted || goal.Status() == domain.GoalStatusAborted {
-		return MutationResult{Success: true, Name: goal.Name, Vault: vaultName}, nil
+		result := MutationResult{Success: true, Name: goal.Name, Vault: vaultName}
+		result.Parents = g.cascadeTopics(ctx, vaultPath, vaultName, goal)
+		return result, nil
 	}
 
 	var members []closureMember
@@ -85,7 +94,9 @@ func (g *goalCompleteOperation) Execute(
 		return MutationResult{Success: false, Error: err.Error()}, err
 	}
 	if verdict.Outcome == closureOutcomeTerminal {
-		return MutationResult{Success: true, Name: goal.Name, Vault: vaultName}, nil
+		result := MutationResult{Success: true, Name: goal.Name, Vault: vaultName}
+		result.Parents = g.cascadeTopics(ctx, vaultPath, vaultName, goal)
+		return result, nil
 	}
 	if verdict.Outcome != closureOutcomeClose {
 		msg := closureRefusalMessage("goal", verdict.OpenItems)
@@ -116,7 +127,29 @@ func (g *goalCompleteOperation) Execute(
 		)
 	}
 
-	return MutationResult{Success: true, Name: goal.Name, Vault: vaultName}, nil
+	result := MutationResult{Success: true, Name: goal.Name, Vault: vaultName}
+	result.Parents = g.cascadeTopics(ctx, vaultPath, vaultName, goal)
+	return result, nil
+}
+
+// cascadeTopics attempts every topic declared in the goal's `topics:` list, in
+// document order. It runs only once the goal is terminal: a topic's gate
+// requires its member goals terminal, so an open goal could only refuse. The
+// topics of an already-terminal goal are still attempted, which is how a
+// topic closes on a later run after its goal closed earlier.
+func (g *goalCompleteOperation) cascadeTopics(
+	ctx context.Context,
+	vaultPath string,
+	vaultName string,
+	goal *domain.Goal,
+) []ParentAttempt {
+	return cascadeParents(
+		ctx,
+		goal.Topics(),
+		func(ctx context.Context, topicName string) (MutationResult, error) {
+			return g.topicCompleteOperation.Execute(ctx, vaultPath, topicName, vaultName)
+		},
+	)
 }
 
 // setCompletedStatus persists the one-step close-out fields (when provided)

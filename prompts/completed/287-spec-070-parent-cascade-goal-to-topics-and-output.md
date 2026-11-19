@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [070-parent-closure-cascade-on-complete]
+summary: Wired goal→topic cascade into GoalCompleteOperation, printed both hops in text/JSON, added Topics accessors, tests, and docs
+execution_id: vault-cli-parent-cascade-exec-287-spec-070-parent-cascade-goal-to-topics-and-output
+dark-factory-version: v0.198.17
 created: "2026-11-19T20:10:00Z"
 queued: "2026-11-19T20:08:41Z"
+started: "2026-11-19T21:42:05Z"
+completed: "2026-11-19T21:48:33Z"
 branch: dark-factory/parent-closure-cascade-on-complete
 ---
 

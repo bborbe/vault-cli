@@ -56,6 +56,12 @@ func PrintTaskCompleteResultForTest(w io.Writer, result ops.MutationResult) {
 	printTaskCompleteResult(w, result)
 }
 
+// PrintParentsForTest exposes printParents with an explicit writer, so the
+// cascade report lines are testable without swapping os.Stdout.
+func PrintParentsForTest(w io.Writer, attempts []ops.ParentAttempt) {
+	printParents(w, attempts)
+}
+
 // GetWatchVaultsForTest exposes getWatchVaults for testing.
 func GetWatchVaultsForTest(
 	ctx context.Context,

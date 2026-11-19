@@ -50,6 +50,9 @@ func (p Page) PageType() string { return p.GetString("page_type") }
 // Goals reads "goals" key via GetStringSlice.
 func (p Page) Goals() []string { return p.GetStringSlice("goals") }
 
+// Topics reads "topics" key via GetStringSlice.
+func (p Page) Topics() []string { return p.GetStringSlice("topics") }
+
 // BlockedBy reads the "blocked_by" key as a list of blocker names.
 // Only a YAML list is accepted (plain names or [[wikilinks]]); a scalar value
 // is malformed and reads as an empty list, so malformed data never blocks.

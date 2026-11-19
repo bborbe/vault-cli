@@ -110,6 +110,10 @@ func (f GoalFrontmatter) TargetDate() *libtime.DateOrDateTime {
 // Tags reads "tags" key via GetStringSlice.
 func (f GoalFrontmatter) Tags() []string { return f.GetStringSlice("tags") }
 
+// Topics reads "topics" key via GetStringSlice. It is the goal->topic parent
+// relation the completion cascade walks; each entry may be a wikilink.
+func (f GoalFrontmatter) Topics() []string { return f.GetStringSlice("topics") }
+
 // BlockedBy reads the "blocked_by" key as a list of blocker names.
 // Only a YAML list is accepted (plain names or [[wikilinks]]); a scalar value
 // is malformed and reads as an empty list, so malformed data never blocks.

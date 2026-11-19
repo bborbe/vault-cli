@@ -143,6 +143,24 @@ func printOpenItems(items []string) {
 	}
 }
 
+// printParents writes one stdout line per cascade attempt. A completed parent
+// prints "parent <name>: completed"; a refusal prints the parent's open items.
+// The child's own outcome line is printed by the command before this runs.
+func printParents(w io.Writer, attempts []ops.ParentAttempt) {
+	for _, attempt := range attempts {
+		if attempt.Result == ops.ParentResultCompleted {
+			fmt.Fprintf(w, "parent %s: completed\n", attempt.Name)
+			continue
+		}
+		fmt.Fprintf(
+			w,
+			"parent %s: refused — open: %s\n",
+			attempt.Name,
+			strings.Join(attempt.OpenItems, "; "),
+		)
+	}
+}
+
 // NewRootCommand builds and returns the root cobra command for vault-cli.
 // Callers can set args and I/O streams before calling ExecuteContext.
 func NewRootCommand(ctx context.Context) *cobra.Command {
@@ -284,6 +302,10 @@ func createCompleteCommand(
 						goalStore,
 						taskStore,
 						currentDateTime,
+						ops.NewTopicCompleteOperation(
+							storage.NewTopicStorage(storageConfig),
+							goalStore,
+						),
 					)
 					completeOp := ops.NewCompleteOperation(
 						taskStore,
@@ -298,6 +320,7 @@ func createCompleteCommand(
 					}
 					if !OutputFormat(*outputFormat).IsJSON() {
 						printTaskCompleteResult(os.Stdout, result)
+						printParents(os.Stdout, result.Parents)
 					}
 					return result, nil
 				},
@@ -1556,10 +1579,12 @@ func createGoalCompleteCommand(
 					storageConfig := storage.NewConfigFromVault(vault)
 					goalStore := storage.NewGoalStorage(storageConfig)
 					taskStore := storage.NewTaskStorage(storageConfig)
+					topicStore := storage.NewTopicStorage(storageConfig)
 					completeOp := ops.NewGoalCompleteOperation(
 						goalStore,
 						taskStore,
 						currentDateTime,
+						ops.NewTopicCompleteOperation(topicStore, goalStore),
 					)
 					result, err := completeOp.Execute(
 						ctx,
@@ -1578,6 +1603,7 @@ func createGoalCompleteCommand(
 					}
 					if !OutputFormat(*outputFormat).IsJSON() {
 						fmt.Printf("✅ Goal completed: %s\n", result.Name)
+						printParents(os.Stdout, result.Parents)
 					}
 					return result, nil
 				},

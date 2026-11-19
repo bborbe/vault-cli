@@ -17,7 +17,6 @@ env:
   # container's HTTP_PROXY intercepts it and `make test` fails with
   # "stub attention store never answered" (scripts/session-self-exit-test.sh).
   NO_PROXY: "127.0.0.1,localhost"
-  no_proxy: "127.0.0.1,localhost"
 extraMounts:
   - src: ${GOPATH}/pkg
     dst: /home/node/go/pkg

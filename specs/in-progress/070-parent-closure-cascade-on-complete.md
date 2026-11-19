@@ -1,6 +1,8 @@
 ---
-status: approved
+status: prompted
 approved: "2026-11-19T14:50:14Z"
+generating: "2026-11-19T19:40:53Z"
+prompted: "2026-11-19T19:50:16Z"
 branch: dark-factory/parent-closure-cascade-on-complete
 ---
 

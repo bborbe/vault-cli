@@ -41,25 +41,32 @@ type CompleteOperation interface {
 // No GoalStorage: completion no longer writes the goal's `# Tasks` list. The
 // dependency is absent rather than ignored so that nothing can quietly start
 // writing it again — see the comment in Execute for why.
+//
+// The parent-goal close runs through goalCompleteOperation, so the closure rule
+// and the goal close sequence exist once and the task close never writes a goal
+// itself.
 func NewCompleteOperation(
 	taskStorage storage.TaskStorage,
 	dailyNoteStorage storage.DailyNoteStorage,
 	currentDateTime libtime.CurrentDateTime,
 	interactionCounter InteractionCounter,
+	goalCompleteOperation GoalCompleteOperation,
 ) CompleteOperation {
 	return &completeOperation{
-		taskStorage:        taskStorage,
-		dailyNoteStorage:   dailyNoteStorage,
-		currentDateTime:    currentDateTime,
-		interactionCounter: interactionCounter,
+		taskStorage:           taskStorage,
+		dailyNoteStorage:      dailyNoteStorage,
+		currentDateTime:       currentDateTime,
+		interactionCounter:    interactionCounter,
+		goalCompleteOperation: goalCompleteOperation,
 	}
 }
 
 type completeOperation struct {
-	taskStorage        storage.TaskStorage
-	dailyNoteStorage   storage.DailyNoteStorage
-	currentDateTime    libtime.CurrentDateTime
-	interactionCounter InteractionCounter
+	taskStorage           storage.TaskStorage
+	dailyNoteStorage      storage.DailyNoteStorage
+	currentDateTime       libtime.CurrentDateTime
+	interactionCounter    InteractionCounter
+	goalCompleteOperation GoalCompleteOperation
 }
 
 // MutationResult represents the result of a mutation operation.
@@ -80,6 +87,9 @@ type MutationResult struct {
 	// OpenItems lists every closure item that blocks a goal or topic close, in
 	// document order. Populated only on a closure-gate refusal.
 	OpenItems []string `json:"open_items,omitempty"`
+	// Parents reports one entry per parent page the completion cascade
+	// attempted, in document order. Omitted when no attempt ran.
+	Parents []ParentAttempt `json:"parents,omitempty"`
 }
 
 // Execute marks a task as complete and updates the associated goal.
@@ -171,7 +181,42 @@ func (c *completeOperation) Execute(
 		slog.Warn("complete warning", "warning", warning)
 	}
 
-	return MutationResult{Success: true, Name: task.Name, Vault: vaultName, Warnings: warnings}, nil
+	result := MutationResult{
+		Success:  true,
+		Name:     task.Name,
+		Vault:    vaultName,
+		Warnings: warnings,
+	}
+	c.applyParentCascade(ctx, vaultPath, task, vaultName, &result)
+	return result, nil
+}
+
+// applyParentCascade attempts to close each goal the task declares in its
+// `goals:` frontmatter, recording one ParentAttempt per attempt in result.
+// A refusal never fails the child: cascadeParents swallows the parent's error
+// and the caller still returns the completed task.
+func (c *completeOperation) applyParentCascade(
+	ctx context.Context,
+	vaultPath string,
+	task *domain.Task,
+	vaultName string,
+	result *MutationResult,
+) {
+	result.Parents = cascadeParents(
+		ctx,
+		task.Goals(),
+		func(ctx context.Context, goalName string) (MutationResult, error) {
+			return c.goalCompleteOperation.Execute(
+				ctx,
+				vaultPath,
+				goalName,
+				vaultName,
+				false,
+				"",
+				"",
+			)
+		},
+	)
 }
 
 // applyCompletionMetrics writes the passive metrics fields into the task before

@@ -21,20 +21,21 @@ import (
 
 var _ = Describe("CompleteOperation", func() {
 	var (
-		ctx                    context.Context
-		err                    error
-		result                 ops.MutationResult
-		completeOp             ops.CompleteOperation
-		mockTaskStorage        *mocks.TaskStorage
-		mockGoalStorage        *mocks.GoalStorage
-		mockDailyNoteStorage   *mocks.DailyNoteStorage
-		mockInteractionCounter *mocks.InteractionCounter
-		vaultPath              string
-		taskName               string
-		task                   *domain.Task
-		force                  bool
-		reason                 string
-		gateSuccessor          string
+		ctx                       context.Context
+		err                       error
+		result                    ops.MutationResult
+		completeOp                ops.CompleteOperation
+		mockTaskStorage           *mocks.TaskStorage
+		mockGoalStorage           *mocks.GoalStorage
+		mockDailyNoteStorage      *mocks.DailyNoteStorage
+		mockInteractionCounter    *mocks.InteractionCounter
+		mockGoalCompleteOperation *mocks.GoalCompleteOperation
+		vaultPath                 string
+		taskName                  string
+		task                      *domain.Task
+		force                     bool
+		reason                    string
+		gateSuccessor             string
 	)
 
 	BeforeEach(func() {
@@ -43,6 +44,11 @@ var _ = Describe("CompleteOperation", func() {
 		mockGoalStorage = &mocks.GoalStorage{}
 		mockDailyNoteStorage = &mocks.DailyNoteStorage{}
 		mockInteractionCounter = &mocks.InteractionCounter{}
+		mockGoalCompleteOperation = &mocks.GoalCompleteOperation{}
+		mockGoalCompleteOperation.ExecuteReturns(
+			ops.MutationResult{Success: true, Name: "Test Goal"},
+			nil,
+		)
 		currentDateTime := libtime.NewCurrentDateTime()
 		currentDateTime.SetNow(libtimetest.ParseDateTime("2026-03-03T12:00:00Z"))
 		completeOp = ops.NewCompleteOperation(
@@ -50,6 +56,7 @@ var _ = Describe("CompleteOperation", func() {
 			mockDailyNoteStorage,
 			currentDateTime,
 			mockInteractionCounter,
+			mockGoalCompleteOperation,
 		)
 		vaultPath = "/path/to/vault"
 		taskName = "my-task"
@@ -305,6 +312,125 @@ var _ = Describe("CompleteOperation", func() {
 		It("still completes the task itself", func() {
 			Expect(err).To(BeNil())
 			Expect(mockTaskStorage.WriteTaskCallCount()).To(BeNumerically(">", 0))
+		})
+
+		It("cascades to the declared goal", func() {
+			Expect(mockGoalCompleteOperation.ExecuteCallCount()).To(Equal(1))
+			actualCtx, actualVaultPath, actualGoalName, actualVaultName, actualForce, actualReason, actualSuccessor := mockGoalCompleteOperation.ExecuteArgsForCall(
+				0,
+			)
+			Expect(actualCtx).To(Equal(ctx))
+			Expect(actualVaultPath).To(Equal(vaultPath))
+			Expect(actualGoalName).To(Equal("Test Goal"))
+			Expect(actualVaultName).To(Equal("test-vault"))
+			Expect(actualForce).To(BeFalse())
+			Expect(actualReason).To(Equal(""))
+			Expect(actualSuccessor).To(Equal(""))
+		})
+	})
+
+	Context("parent cascade", func() {
+		Context("completed parent", func() {
+			BeforeEach(func() {
+				task.SetGoals([]string{"Test Goal"})
+			})
+
+			It("reports a completed parent", func() {
+				Expect(err).To(BeNil())
+				Expect(result.Success).To(BeTrue())
+				Expect(result.Parents).To(HaveLen(1))
+				Expect(result.Parents[0].Name).To(Equal("Test Goal"))
+				Expect(result.Parents[0].Result).To(Equal(ops.ParentResultCompleted))
+				Expect(result.Parents[0].OpenItems).To(BeEmpty())
+			})
+		})
+
+		Context("refused parent", func() {
+			BeforeEach(func() {
+				task.SetGoals([]string{"Test Goal"})
+				mockGoalCompleteOperation.ExecuteReturns(
+					ops.MutationResult{Success: false, OpenItems: []string{"an open criterion"}},
+					ErrTest,
+				)
+			})
+
+			It("reports a refused parent and still completes the task", func() {
+				Expect(err).To(BeNil())
+				Expect(result.Success).To(BeTrue())
+				Expect(result.Parents).To(HaveLen(1))
+				Expect(result.Parents[0].Result).To(Equal(ops.ParentResultRefused))
+				Expect(result.Parents[0].OpenItems).To(Equal([]string{"an open criterion"}))
+				Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
+			})
+		})
+
+		Context("wikilink parent name", func() {
+			BeforeEach(func() {
+				task.SetGoals([]string{"[[Test Goal|label]]"})
+			})
+
+			It("normalises a wikilink parent name", func() {
+				Expect(mockGoalCompleteOperation.ExecuteCallCount()).To(Equal(1))
+				_, _, actualGoalName, _, _, _, _ := mockGoalCompleteOperation.ExecuteArgsForCall(0)
+				Expect(actualGoalName).To(Equal("Test Goal"))
+				Expect(result.Parents[0].Name).To(Equal("Test Goal"))
+			})
+		})
+
+		Context("two goals", func() {
+			BeforeEach(func() {
+				task.SetGoals([]string{"Goal B", "Goal A"})
+			})
+
+			It("attempts every goal in document order", func() {
+				Expect(mockGoalCompleteOperation.ExecuteCallCount()).To(Equal(2))
+				_, _, firstGoal, _, _, _, _ := mockGoalCompleteOperation.ExecuteArgsForCall(0)
+				_, _, secondGoal, _, _, _, _ := mockGoalCompleteOperation.ExecuteArgsForCall(1)
+				Expect(firstGoal).To(Equal("Goal B"))
+				Expect(secondGoal).To(Equal("Goal A"))
+				Expect(result.Parents).To(HaveLen(2))
+				Expect(result.Parents[0].Name).To(Equal("Goal B"))
+				Expect(result.Parents[1].Name).To(Equal("Goal A"))
+			})
+		})
+
+		Context("recurring task with goals", func() {
+			BeforeEach(func() {
+				task.SetRecurring("1d")
+				task.SetGoals([]string{"Test Goal"})
+				task.Content = `---
+status: in_progress
+recurring: 1d
+---
+# My Task
+
+No checkboxes here.
+`
+			})
+
+			It("does not cascade a recurring task", func() {
+				Expect(mockGoalCompleteOperation.ExecuteCallCount()).To(Equal(0))
+				Expect(result.Parents).To(BeEmpty())
+			})
+		})
+
+		Context("task refuses to complete", func() {
+			BeforeEach(func() {
+				task.Content = `---
+status: todo
+---
+# My Task
+
+- [ ] still open
+`
+				task.SetGoals([]string{"Test Goal"})
+				force = false
+			})
+
+			It("does not cascade when the task refuses to complete", func() {
+				Expect(err).NotTo(BeNil())
+				Expect(mockGoalCompleteOperation.ExecuteCallCount()).To(Equal(0))
+			})
 		})
 	})
 

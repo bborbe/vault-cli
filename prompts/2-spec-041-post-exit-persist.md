@@ -1,7 +1,7 @@
 ---
 spec: ["041-bug-resume-races-live-headless-turn"]
 status: draft
-created: "2026-09-30T07:13:46Z"
+created: "2026-11-19T12:00:00Z"
 ---
 
 # Persist the task session id only after the headless turn exits (spec 041, prompt 2 of 3)
@@ -12,9 +12,9 @@ created: "2026-09-30T07:13:46Z"
 - Reworks the task-side sequencing tests: the "write precedes the spawn" assertions invert, the "write before spawning" test becomes "write after the child exits" and gains an explicit ordering assertion, and the clear-based failure tests are replaced by a "persists nothing" assertion.
 - Rewords the stale pre-spawn and liveness-window comments in the write-back test file to the post-exit, no-clear semantics. Every on-disk assertion in that file stays byte-identical — the ids never land either way, so only the prose and titles change.
 - Confirms the goal path and its tests are already in the target state and leaves them untouched.
-- Runs the spec's AC7-9 evidence gate plus the full repository gate.
-- IMPORTANT FLAG FOR THE HUMAN REVIEWER: the task-side half of this spec was deliberately REVERTED in the tree after the spec was approved, because persisting only after the turn left the field empty while the child ran and the child's own session-connect then bound the task to a live, unrelated session. This prompt implements the spec as approved and re-applies the reversion's opposite; the reviewer must adjudicate at audit time (details and the two options are in the comment at the top of `<requirements>`). The docs prompt is coupled to that decision.
-- Carries no git commands: `git` is masked in this container, and the scenario-005 guard is prompt 1's content checksum.
+- Runs the spec's AC7-9 evidence gate plus the repository-wide gate (`make precommit`, spec AC13) — this is the last prompt in the batch that changes Go code, so the full gate belongs here.
+- IMPORTANT FLAG FOR THE HUMAN REVIEWER: the task-side half of this spec is currently in the REVERTED state — the tree pre-persists the id and compensates on failure, and `CHANGELOG.md` records that reversion (see the bullet at the "persist the fresh `claude_session_id` … before the headless Claude session is spawned" entry). This prompt implements the approved spec and reverses that; the reviewer must adjudicate at audit time (details and the two options are in the comment at the top of `<requirements>`). The docs prompt is coupled to that decision.
+- Carries no git commands: `.git` is masked in this container, and the scenario-005 guard is prompt 1's content checksum.
 </summary>
 
 <objective>
@@ -25,10 +25,10 @@ Make the task path of `work-on` persist `claude_session_id` only after the detac
 Read `CLAUDE.md` for project conventions.
 
 Read fully (in this order):
-- `pkg/ops/workon.go` — the whole file (541 lines). Focus on `handleClaudeSession`, `persistSessionAndMetrics`, `clearSessionAndMetrics`, and `sessionFailureResult`.
-- `pkg/ops/goal_workon.go` — the whole file (240 lines). This is the structural TEMPLATE the reordered task path must match: its `handleClaudeSession` starts the turn first and persists only after it returns cleanly, on both branches, with no compensating clear.
-- `pkg/ops/workon_test.go` — the whole file (1144 lines). The contexts this prompt reworks are `"success"`, `"when the session id write precedes the spawn"`, `"when the pre-spawn persist re-read fails"`, `"when persisting the session id before spawning"`, and `"when the spawn fails"`.
-- `pkg/ops/goal_workon_test.go` — read `Context("when persisting the goal session id after the child exits", ...)` (~line 356) and `Context("goal work-on persists nothing for a failed turn", ...)` (~line 644) to confirm the goal path is already in the target state. Do not modify this file.
+- `pkg/ops/workon.go` — the whole file (586 lines). Focus on `handleClaudeSession` (line 438), `persistSessionAndMetrics` (line 378), `clearSessionAndMetrics` (line 407), and `sessionFailureResult` (line 278).
+- `pkg/ops/goal_workon.go` — the whole file (267 lines). This is the structural TEMPLATE the reordered task path must match: its `handleClaudeSession` (line 226) starts the turn first and persists only after it returns cleanly, on both branches, with no compensating clear.
+- `pkg/ops/workon_test.go` — the whole file (1292 lines). The contexts this prompt reworks are `"success"` (line 95), `"when the session id write precedes the spawn"` (line 162), `"when the pre-spawn persist re-read fails"` (line 1073), `"when persisting the session id before spawning"` (line 1102), and `"when the spawn fails"` (line 1178).
+- `pkg/ops/goal_workon_test.go` — read `Context("when persisting the goal session id after the child exits", ...)` (line 358) and `Context("goal work-on persists nothing for a failed turn", ...)` (line 650) to confirm the goal path is already in the target state. Do not modify this file.
 - `pkg/ops/workon_session_writeback_test.go` — the whole file (524 lines). Note the shared `newStarter(detachRun)` helper, the `pinnedSessionID` constant, and that every success-path fake already writes a valid turn-JSON line to the caller-owned `stdout *os.File` and then feeds `done <- nil` with a blocking waiter.
 - `docs/work-on-session-lifecycle.md` — the design record. Its task-path sections currently describe the pre-spawn ordering; prompt 3 rewords them. Do NOT edit the doc here.
 
@@ -36,18 +36,18 @@ Coding-plugin docs (in-container paths):
 - `/home/node/.claude/plugins/marketplaces/coding/docs/go-error-wrapping-guide.md` — the `errors.Wrapf(ctx, ...)` / `errors.Wrap(ctx, ...)` / `errors.Errorf(ctx, ...)` idiom from `github.com/bborbe/errors`.
 - `/home/node/.claude/plugins/marketplaces/coding/docs/go-testing-guide.md` — Ginkgo v2 / Gomega conventions, Counterfeiter mocks.
 
-**`git` is MASKED in this container.** `.git` is a character device (`crw-rw-rw-`), so every `git` invocation fails with `fatal: not a git repository`. This prompt issues no git commands; do not add any. The spec's AC10 `git diff --exit-code HEAD -- scenarios/005-...` guard cannot run here and is replaced by a content checksum in prompt 1 — do not repeat or reinvent it here. Nothing in this prompt modifies `scenarios/005-work-on-resume-auto-invokes-subtask.md`.
+**`.git` is MASKED in this container.** This repo uses `.dark-factory.yaml` `workflow: worktree`, which masks `.git` (a character device), so every `git` invocation fails with `fatal: not a git repository`. This prompt issues no git commands; do not add any. The spec's AC10 `git diff --exit-code HEAD -- scenarios/005-...` guard cannot run here and is replaced by a content checksum in prompt 1 — do not repeat or reinvent it here. Nothing in this prompt modifies `scenarios/005-work-on-resume-auto-invokes-subtask.md`.
 </context>
 
 <requirements>
-<!-- ⚠️ HUMAN REVIEWER — READ BEFORE APPROVING: THIS PROMPT CONTRADICTS A SHIPPED, LIVE-REPRODUCED FIX ⚠️
+<!-- ⚠️ HUMAN REVIEWER — READ BEFORE APPROVING: THIS PROMPT REVERSES A SHIPPED, DOCUMENTED REVERSION ⚠️
 
 The task-side half of spec 041 was REVERTED in the tree AFTER the spec was approved:
 
-- The spec-041 task-side reorder (persist claude_session_id only AFTER the turn, no compensating clear) landed in workon.go, was released, and was then REVERTED by a later commit, "fix(workon): persist the fresh session id before the headless turn". Its stated rationale: with the field left empty for the whole turn, the child's own `/vault-cli:work-on-task` session-connect did not find an id, fell back to scanning the transcript directory by mtime, and wrote a LIVE UNRELATED session's id into the field. Reproduced live 2026-09-01 on a probe task: it spawned session 892ab117 and ended up bound to 34d27423, a live session on a different task. The post-turn persist then no-op'd because the field was no longer empty. The reversion re-adopted spec 040's persist-before-spawn plus a re-read-based compensating clear, on the task path only.
+- The spec-041 task-side reorder (persist claude_session_id only AFTER the turn, no compensating clear) landed in workon.go, was released, and was then REVERTED. The reversion's rationale, recorded in the CHANGELOG bullet that describes "persists the fresh `claude_session_id` and its `metrics_sessions` entry to the task file before the headless Claude session is spawned": with the field left empty for the whole turn, the child's own `/vault-cli:work-on-task` session-connect did not find an id, fell back to scanning the transcript directory by mtime, and wrote a live, unrelated session's id into the field. The reversion re-adopted spec 040's persist-before-spawn plus a re-read-based compensating clear, on the task path only.
 - The reversion did NOT touch claude_session.go's block-until-exit + validation (spec 041 prompt 1), the spec 042 per-session lock, or goal_workon.go (which still persists post-exit).
 
-The current tree therefore FAILS spec 041 AC7 (`grep -c 'After(childExitAt)' pkg/ops/workon_test.go` == 0) and AC9 (`grep -c 'clearSessionAndMetrics' pkg/ops/workon.go` == 3).
+The current tree therefore FAILS spec 041 AC7 (`grep -c 'After(childExitAt)' pkg/ops/workon_test.go` == 0) and AC9 (`grep -c 'clearSessionAndMetrics' pkg/ops/workon.go` == 3). That is expected, and it is exactly what this prompt changes.
 
 WHY THIS IS NOT MERELY A STYLE REVERSAL — the exact regression mechanism: `persistSessionAndMetrics` only writes the id when the refreshed task's field is EMPTY (`if refreshed.ClaudeSessionID() == ""`), then returns the MINTED id unconditionally. Under post-exit ordering, if the child's session-connect already wrote a foreign id during the turn, the guard skips the write, the function still returns the minted id, and `Execute` reports that id to the Vault UI — which then offers Resume for the FOREIGN session. That is the reversion's bug, unchanged.
 
@@ -67,13 +67,13 @@ For the executing agent: implement the requirements below as written. The approv
    ```
    If ANY of these is 0, STOP and report `"status":"failed"` with message `"spec-041 prompt 2 precondition missing: prompt 1 not yet deployed"`. Do NOT proceed and do NOT re-implement prompt 1's work.
 
-2. **Reorder the fresh-start path of `workon.go`'s `handleClaudeSession` to start-then-persist.** Replace the block that begins at the `// Persist id + metrics BEFORE the child exists, on both branches, ...` comment and ends at the function's closing `return sessionID, nil`, with exactly:
+2. **Reorder the fresh-start path of `workon.go`'s `handleClaudeSession` to start-then-persist.** The current block runs from the comment `// Persist id + metrics BEFORE the child exists, on both branches, ...` (line 461) through the function's closing `return sessionID, nil` (line 479). Replace it with exactly:
    ```go
    	// Captured BEFORE the spawn — the turn's true start, not the write time.
    	startedAt := libtime.DateOrDateTime(w.currentDateTime.Now().Time())
-   	if err := w.starter.StartSession(ctx, sessionID, prompt, sessionDir, task.Name, isInteractive); err != nil {
-   		// No compensating clear needed: nothing was written for this id, so there is
-   		// nothing to undo. Frontmatter the child wrote before failing stays untouched.
+   	if err := starter.StartSession(ctx, sessionID, prompt, sessionDir, task.Name, isInteractive); err != nil {
+   		// Nothing was written for this id, so there is nothing to undo. Frontmatter
+   		// the child wrote before failing stays untouched.
    		return "", errors.Wrap(ctx, err, "start claude session")
    	}
    	sessionID, err := persistSessionAndMetrics(ctx, vaultPath, task.Name, sessionID, startedAt, w.taskStorage)
@@ -81,26 +81,26 @@ For the executing agent: implement the requirements below as written. The approv
    ```
    Keep the preceding lines (`prompt := fmt.Sprintf(...)`, `sessionID := w.uuidGenerator()`, `slog.Info("starting claude session", ...)`) and the bootstrap comment above `prompt` exactly as they are. DELETE: the `// Persist id + metrics BEFORE the child exists ...` comment, the pre-spawn `persistSessionAndMetrics` call and its `"persist claude session before spawn"` wrap, and the whole `if clearErr := w.clearSessionAndMetrics(...)` compensating-clear block.
 
-   Signature note: `handleClaudeSession` returns `(string, error)` — two values. The spec's Design snippet shows `return "", nil, errors.Wrap(...)` (three values); that is a spec typo and does NOT compile here. Use the two-value form above, which is exactly `goal_workon.go`'s pattern. The `sessionID, err := ...` line compiles because `sessionID` is already declared in the scope and `err` is newly introduced by it.
+   Two signature notes. (a) `handleClaudeSession` returns `(string, error)` — two values. The spec's Design snippet shows `return "", nil, errors.Wrap(...)` (three values); that is a spec typo and does NOT compile here. Use the two-value form above, which is exactly `goal_workon.go`'s pattern. (b) Call `starter.StartSession(...)` — the METHOD PARAMETER named `starter` (`starter ClaudeSessionStarter`, line 445) — NOT `w.starter`. Both exist on this type, but the method deliberately operates on the resolved pair it was handed; using `w.starter` would bypass the launcher resolution that produced it. The `sessionID, err := ...` line compiles because `sessionID` is already declared in the scope and `err` is newly introduced by it.
 
-   The cached-session path at the top of `handleClaudeSession` (the `if existing := task.ClaudeSessionID(); existing != ""` branch) must be UNCHANGED. Note that `persistSessionAndMetrics` is called from two places in this file — the cached path (keep) and the fresh path (this reorder). It has no other callers anywhere in the repo.
+   The cached-session path at the top of `handleClaudeSession` (the `if existing := task.ClaudeSessionID(); existing != ""` branch, line 447) must be UNCHANGED. Note that `persistSessionAndMetrics` is called from two places in this file — the cached path (keep) and the fresh path (this reorder). It has no other callers anywhere in the repo.
 
-3. **Delete the dead `clearSessionAndMetrics` method from `workon.go`.** Remove the whole method — its doc comment and body. Its only call site was the block deleted in requirement 2. Do not add a replacement, and do not add any other clearing mechanism (the spec's Non-goals forbid it). After this, `grep -rn 'clearSessionAndMetrics' pkg/` must return nothing. `ClearClaudeSessionID()` on the domain type stays — `pkg/ops/complete.go` still uses it.
+3. **Delete the dead `clearSessionAndMetrics` method from `workon.go`.** Remove the whole method (line 407) — its doc comment and body. Its only call site was the block deleted in requirement 2. Do not add a replacement, and do not add any other clearing mechanism (the spec's Non-goals forbid it). After this, `grep -rn 'clearSessionAndMetrics' pkg/` must return nothing. `ClearClaudeSessionID()` on the domain type stays — `pkg/ops/complete.go` still uses it.
 
 4. **Reword the `workon.go` doc comments that describe the pre-spawn design.**
-   - `persistSessionAndMetrics`'s comment: replace `Used pre-spawn on the fresh-start path (the session id is new and must be on disk before the child exists) and on the cached-session path (the id already exists and is preserved).` with `Used post-exit on the fresh-start path (the session id is new and is persisted only after the headless turn completes cleanly) and on the cached-session path (the id already exists and is preserved).` Leave the surrounding sentences about the load-bearing re-read and the empty-id rule as they are.
-   - `handleClaudeSession`'s comment: replace it with the wording `goal_workon.go` already uses for the same method — on both branches the session id is persisted only AFTER the headless turn has finished cleanly, so an id on disk means the session is resumable rather than merely that one was started; nothing is written on any failure path, so there is no compensating clear, and frontmatter the child wrote before failing stays untouched so the Vault UI correctly keeps offering Start. Keep the cached-session sentence.
-   - `sessionFailureResult`'s comment says the warnings are `the accumulated warnings (including any compensating-clear warning)`. Reword that clause — there is no clear, so the warnings are only the assignee and daily-note ones. Do not change the function's behaviour.
+   - `persistSessionAndMetrics`'s comment (line 367): replace `Used pre-spawn on the fresh-start path (the session id is new and must be on disk before the child exists) and on the cached-session path (the id already exists and is preserved).` with `Used post-exit on the fresh-start path (the session id is new and is persisted only after the headless turn completes cleanly) and on the cached-session path (the id already exists and is preserved).` Leave the surrounding sentences about the load-bearing re-read and the empty-id rule as they are.
+   - `handleClaudeSession`'s comment (line 431): replace it with the wording `goal_workon.go` already uses for the same method — on both branches the session id is persisted only AFTER the headless turn has finished cleanly, so an id on disk means the session is resumable rather than merely that one was started; nothing is written on any failure path, so there is no rollback to run, and frontmatter the child wrote before failing stays untouched so the Vault UI correctly keeps offering Start. Keep the cached-session sentence. The replacement text must not use the word `compensating` — the drift gate in `<verification>` requires zero occurrences in `workon.go`.
+   - `sessionFailureResult`'s comment (line 275) says the warnings are `the accumulated warnings (including any compensating-clear warning)`. Reword that clause to name only the assignee and daily-note warnings. Do not change the function's behaviour, and do not reintroduce the word `compensating` — the drift gate in `<verification>` requires zero occurrences in `workon.go`.
 
-5. **Confirm `goal_workon.go` is already in the target state — do NOT change it.** Its `handleClaudeSession` must already start the turn first and persist after on both branches, return `errors.Wrap(ctx, err, "start claude session")` with no compensating clear, and keep the cached path as `return existing, nil`. `persistGoalSessionID` must already return an empty id on failure. `clearGoalSession` must not exist (`grep -c 'clearGoalSession' pkg/ops/goal_workon.go` == 0). If it all matches, leave the file untouched.
+5. **Confirm `goal_workon.go` is already in the target state — do NOT change it.** Its `handleClaudeSession` (line 226) must already start the turn first and persist after on both branches, return `errors.Wrap(ctx, err, "start claude session")` with no compensating clear, and keep the cached path as `return existing, nil`. `persistGoalSessionID` must already return an empty id on failure. `clearGoalSession` must not exist (`grep -c 'clearGoalSession' pkg/ops/goal_workon.go` == 0). If it all matches, leave the file untouched.
 
-6. **Rework `"when persisting the session id before spawning"` in `workon_test.go` to post-exit (AC7).** Rename the context to `"when persisting the session id after the child exits"`. In the variable block rename `spawnAt time.Time` to `childExitAt time.Time`, and in the fake `detachRun` rename the `spawnAt = time.Now()` assignment to `childExitAt = time.Now()` — keep it in the same position (immediately before the buffered `done` channel is fed, which is the child's exit point). The `BeforeEach` already captures `spawnedSessionID` from the `--session-id` argv, writes valid turn JSON to the `stdout *os.File`, and uses a blocking waiter; keep all of that unchanged. Rename the `It` to `"writes the session id to storage only after the child exits"` and replace its body with exactly:
+6. **Rework `"when persisting the session id before spawning"` in `workon_test.go` to post-exit (AC7).** Rename the context (line 1102) to `"when persisting the session id after the child exits"`. In the variable block rename `spawnAt time.Time` to `childExitAt time.Time`, and in the fake `detachRun` rename the `spawnAt = time.Now()` assignment to `childExitAt = time.Now()` — keep it in the same position (immediately before the buffered `done` channel is fed, which is the child's exit point). The `BeforeEach` already captures `spawnedSessionID` from the `--session-id` argv, writes valid turn JSON to the `stdout *os.File`, and uses a blocking waiter; keep all of that unchanged. Rename the `It` (line 1165) to `"writes the session id to storage only after the child exits"` and replace its body with exactly:
    ```go
    Expect(err).To(BeNil())
    Expect(writeTaskAt).NotTo(BeZero())
    Expect(childExitAt).NotTo(BeZero())
    Expect(writeTaskAt.After(childExitAt)).To(BeTrue())
-   // AC5's "id equals the value in task frontmatter" — capture the id written to
+   // AC7's "id equals the value in task frontmatter" — capture the id written to
    // storage and the id handed to detachRun and assert they are the same value.
    // Both derive from the pinned generator today, so this holds implicitly; assert
    // it explicitly so a future refactor that mints a second id cannot pass silently.
@@ -108,52 +108,53 @@ For the executing agent: implement the requirements below as written. The approv
    ```
    The old assertion `Expect(writeTaskAt.Before(spawnAt)).To(BeTrue())` must be gone. This produces AC7's `After(childExitAt)` evidence.
 
-7. **Invert `"when the session id write precedes the spawn"` in `workon_test.go`.** Rename the context to `"when the session id write follows the spawn"`, rename the `It` to `"writes the session id to storage after StartSession returns"`, and flip the final assertion from `Expect(writeSeq).To(BeNumerically("<", startSeq))` to `Expect(writeSeq).To(BeNumerically(">", startSeq))`. Leave the `WriteTaskStub` / `StartSessionStub` sequencing setup exactly as it is. The ordering is still deterministic: `Execute` writes first (empty id, so `writeSeq` is not set), then `StartSession` runs (`startSeq`), then the post-exit persist writes the id (`writeSeq`).
+7. **Invert `"when the session id write precedes the spawn"` in `workon_test.go` (line 162).** Rename the context to `"when the session id write follows the spawn"`, rename the `It` to `"writes the session id to storage after StartSession returns"`, and flip the final assertion from `Expect(writeSeq).To(BeNumerically("<", startSeq))` to `Expect(writeSeq).To(BeNumerically(">", startSeq))`. Leave the `WriteTaskStub` / `StartSessionStub` sequencing setup exactly as it is. The ordering is still deterministic: `Execute` writes first (empty id, so `writeSeq` is not set), then `StartSession` runs (`startSeq`), then the post-exit persist writes the id (`writeSeq`).
 
-8. **Replace the clear-based failure tests in `"when the spawn fails"` with a persists-nothing assertion (AC9).** In that context:
+8. **Replace the clear-based failure tests in `"when the spawn fails"` with a persists-nothing assertion (AC9).** In that context (line 1178):
    - Keep `"returns the wrapped spawn error"` and `"returns Success=false"` unchanged.
-   - DELETE the spec `"clears the pre-persisted session id and the metrics entry for the failed run"` and the whole nested `Context("when the compensating clear itself fails", ...)`.
+   - DELETE the spec `"clears the pre-persisted session id and the metrics entry for the failed run"` (line 1210) and the whole nested `Context("when the compensating clear itself fails", ...)` (line 1221).
    - ADD one spec:
      ```go
      It("persists no session id when the spawn fails", func() {
-         // Execute's write only — nothing is pre-persisted and there is no
-         // compensating clear, so a failed turn leaves no id and no metrics entry.
+         // Execute's write only — nothing was written before the turn and there is
+         // no rollback to run, so a failed turn leaves no id and no metrics entry.
          Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(1))
          Expect(writtenIDs).To(Equal([]string{""}))
          Expect(writtenMetricsSessions[0]).To(BeEmpty())
      })
      ```
-   - Reword the `BeforeEach` comment that explains the compensating-clear pointer mutation so it reads as a snapshot of what each write lands: with no pre-persist and no clear there is exactly one write, and it carries an empty id because the id is minted inside `handleClaudeSession` after `Execute` has already written the task. Keep the stub itself — it is what makes `writtenIDs` observable.
+   - Reword the `BeforeEach` comment (line 1184) that explains the pointer mutation so it reads as a snapshot of what each write lands: with nothing written before the turn and no rollback there is exactly one write, and it carries an empty id because the id is minted inside `handleClaudeSession` after `Execute` has already written the task. Keep the stub itself — it is what makes `writtenIDs` observable.
 
-9. **Rework `"when the pre-spawn persist re-read fails"` in `workon_test.go` to post-exit.** Rename the context to `"when the post-exit persist re-read fails"` and the `It` `"does not append a metrics entry when the pre-spawn re-read fails"` to `"does not append a metrics entry when the post-exit re-read fails"`. Reword the `BeforeEach` comment from `The failing call is persistSessionAndMetrics' PRE-SPAWN re-read, which runs before StartSession is ever called.` to `The failing call is persistSessionAndMetrics' POST-EXIT re-read, which runs after StartSession returns (the mock starter returns nil immediately).`, and the comment on the write-count `It` from `pre-spawn persist failed before writing` to `post-exit persist failed before writing`. The mock call indexes do NOT change: call 0 loads the task, `mockStarter.StartSessionReturns(nil)` makes no storage call, call 1 is the post-exit re-read that fails. All four `It` bodies stay byte-identical.
+9. **Rework `"when the pre-spawn persist re-read fails"` in `workon_test.go` to post-exit (line 1073).** Rename the context to `"when the post-exit persist re-read fails"` and the `It` `"does not append a metrics entry when the pre-spawn re-read fails"` to `"does not append a metrics entry when the post-exit re-read fails"`. Reword the `BeforeEach` comment from `The failing call is persistSessionAndMetrics' PRE-SPAWN re-read, which runs before StartSession is ever called.` to `The failing call is persistSessionAndMetrics' POST-EXIT re-read, which runs after StartSession returns (the mock starter returns nil immediately).`, and the comment on the write-count `It` from `pre-spawn persist failed before writing` to `post-exit persist failed before writing`. The mock call indexes do NOT change: call 0 loads the task, `mockStarter.StartSessionReturns(nil)` makes no storage call, call 1 is the post-exit re-read that fails. All four `It` bodies stay byte-identical.
 
 10. **Reword the remaining pre-spawn wording in `workon_test.go`'s `"success"` context.** Assertions and counts are unchanged; only comments and two titles change:
-    - `"calls FindTaskByName"` comment: `Twice: once to load the task, once to re-read it before the child is spawned so the fresh session id lands on disk before the child exists.` → `Twice: once to load the task, once to re-read it after the child exits so the post-exit persist lands the fresh session id without reverting the child's frontmatter writes.`
-    - `"re-reads the task from the vault path before spawning the session"`: rename to `"re-reads the task from the vault path after the child exits"` and reword its comment to `The second FindTaskByName is persistSessionAndMetrics' post-exit re-read: the session id is written to disk only after the child has exited.`
-    - `"Fresh run records one entry"` comment: `The metrics entry lands in the pre-spawn persist write: write 0 is Execute's status/assignee/phase write, write 1 is the pre-spawn persist.` → `The metrics entry lands in the post-exit persist write: write 0 is Execute's status/assignee/phase write, write 1 is the post-exit persist.`
+    - `"calls FindTaskByName"` comment (line 101): `Twice: once to load the task, once to re-read it before the child is spawned so the fresh session id lands on disk before the child exists.` → `Twice: once to load the task, once to re-read it after the child exits so the post-exit persist lands the fresh session id without reverting the child's frontmatter writes.`
+    - `"re-reads the task from the vault path before spawning the session"` (line 112): rename to `"re-reads the task from the vault path after the child exits"` and reword its comment to `The second FindTaskByName is persistSessionAndMetrics' post-exit re-read: the session id is written to disk only after the child has exited.`
+    - `"Fresh run records one entry"` comment (line 151): `The metrics entry lands in the pre-spawn persist write: write 0 is Execute's status/assignee/phase write, write 1 is the pre-spawn persist.` → `The metrics entry lands in the post-exit persist write: write 0 is Execute's status/assignee/phase write, write 1 is the post-exit persist.`
     The `Expect(mockTaskStorage.WriteTaskCallCount()).To(Equal(2))` assertion stays as it is — Execute's write plus the post-exit persist is still two.
 
 11. **Reword `pkg/ops/workon_session_writeback_test.go` to post-exit semantics — comments and titles ONLY (AC8).** The fakes already write a valid turn-JSON line to the `stdout *os.File` and exit cleanly via `done <- nil` with a blocking waiter; confirm that and do NOT change it. Every on-disk assertion in this file holds unchanged under the new ordering — the ids simply never land — so DO NOT touch any assertion. The full list of prose to change (this is every stale occurrence in the file; the drift-guard grep in `<verification>` requires all of them):
-    - The task context's `BeforeEach` comment (currently `Simulate the real headless turn: work-on persists the fresh session id and its metrics entry to the file BEFORE spawning (pre-spawn persist), then the spawned Claude session runs plan-task -> execute-task and writes its own frontmatter on top of that file inside the detached child (the detachRun fake). Nothing writes to the file after the child's own write, so the child's frontmatter survives.`) → `Simulate the real headless turn: work-on spawns the child first, then the Claude session runs plan-task -> execute-task and writes its own frontmatter on top of that file inside the detached child (the detachRun fake). Only after the child exits does work-on re-read and persist the session id, so the child's frontmatter survives.`
-    - The task `It`'s comment `The metrics entry lands in the pre-spawn persist write (real storage round-trip) and survives because nothing writes to the file after the child's own write.` → `The metrics entry lands in the post-exit persist write (real storage round-trip), which re-reads the file the child already wrote.`
-    - The goal context's `BeforeEach` comment clause `while the parent has already returned within the liveness window` → `while the parent blocks waiting for the detached turn`.
-    - Rename `Context("when the child exits non-zero inside the liveness window", ...)` → `Context("when the child exits non-zero within the turn wait", ...)`.
-    - Reword the comment `The liveness window has NOT elapsed when the child exits, so the starter must treat the exit as inside-the-window. A nil-returning waiter would race the select against the child's buffered exit; ...` → `The turn wait has NOT elapsed when the child exits, so the child-exit branch of the select wins. A nil-returning waiter would race the select against the child's buffered exit; ...` (keep the rest of the sentence about the blocking waiter).
-    - Rename the `It` `"clears the pre-persisted session id and preserves the child's frontmatter write when the child exited non-zero inside the window"` → `"persists no session id and preserves the child's frontmatter write when the child exited non-zero within the turn wait"`.
-    - Reword the body comment (the one describing the pre-spawn persist + compensating clear re-read) so it describes the post-exit, no-clear ordering: the turn failed, so nothing was ever written for this id, and the child's own `phase: planning` write is what survives.
-    - Reword the `On-disk shape:` comment (which currently says the pre-spawn persist wrote the id and the compensating clear removed it) to say no id was ever persisted on this path, so its absence from the raw file proves the invariant directly. Keep the explanatory note about the pinned accessor-call counts and the raw-file assertion — that reasoning is unchanged.
-    - Reword the comment above `Context("when the child exits non-zero after writing a valid turn result", ...)`: the pre-persisted id is no longer the mechanism — the post-exit persist runs because the validated result outranks the non-zero exit.
-    - Rename the `It` `"retains the pre-persisted session id when the turn result validated despite the non-zero exit"` → `"persists the session id when the turn result validated despite the non-zero exit"`.
-    - Reword that `It`'s comment so the retain is attributed to the post-exit persist (the validated result makes `StartSession` return nil, so the persist runs) rather than to a pre-spawn write surviving a clear.
-    - Reword the `BeforeEach` comment clause `but the blob reports the turn's own failure, so the compensating clear still fires` → `but the blob reports the turn's own failure, so the turn is rejected and nothing is persisted`.
-    - Rename the `It` `"clears the pre-persisted session id when the turn result reports its own failure"` → `"persists no session id when the turn result reports its own failure"`.
-    - Reword the trailing comment (the one about the compensating clear removing the id) to say the turn failed so nothing was ever persisted, while the child's `phase: planning` write survives.
+    - The task context's `BeforeEach` comment (line 127, currently `Simulate the real headless turn: work-on persists the fresh session id and its metrics entry to the file BEFORE spawning (pre-spawn persist), then the spawned Claude session runs plan-task -> execute-task and writes its own frontmatter on top of that file inside the detached child (the detachRun fake). Nothing writes to the file after the child's own write, so the child's frontmatter survives.`) → `Simulate the real headless turn: work-on spawns the child first, then the Claude session runs plan-task -> execute-task and writes its own frontmatter on top of that file inside the detached child (the detachRun fake). Only after the child exits does work-on re-read and persist the session id, so the child's frontmatter survives.`
+    - The task `It`'s comment (line 187) `The metrics entry lands in the pre-spawn persist write (real storage round-trip) and survives because nothing writes to the file after the child's own write.` → `The metrics entry lands in the post-exit persist write (real storage round-trip), which re-reads the file the child already wrote.`
+    - The goal context's `BeforeEach` comment clause (line 216) `while the parent has already returned within the liveness window` → `while the parent blocks waiting for the detached turn`.
+    - Rename `Context("when the child exits non-zero inside the liveness window", ...)` (line 270) → `Context("when the child exits non-zero within the turn wait", ...)`.
+    - Reword the comment at line 286: `The liveness window has NOT elapsed when the child exits, so the starter must treat the exit as inside-the-window. A nil-returning waiter would race the select against the child's buffered exit; ...` → `The turn wait has NOT elapsed when the child exits, so the child-exit branch of the select wins. A nil-returning waiter would race the select against the child's buffered exit; ...` (keep the rest of the sentence about the blocking waiter).
+    - Rename the `It` at line 318 `"clears the pre-persisted session id and preserves the child's frontmatter write when the child exited non-zero inside the window"` → `"persists no session id and preserves the child's frontmatter write when the child exited non-zero within the turn wait"`.
+    - Reword the body comment at lines 342-347 (the one describing the pre-spawn persist + compensating clear re-read) so it describes the post-exit, no-clear ordering: the turn failed, so nothing was ever written for this id, and the child's own `phase: planning` write is what survives.
+    - Reword the `On-disk shape:` comment (lines 353-359, which currently says the pre-spawn persist wrote the id and the compensating clear removed it) to say no id was ever persisted on this path, so its absence from the raw file proves the invariant directly. Keep the explanatory note about the pinned accessor-call counts and the raw-file assertion — that reasoning is unchanged.
+    - Reword the comment above `Context("when the child exits non-zero after writing a valid turn result", ...)` (lines 369-371): the pre-persisted id is no longer the mechanism — the post-exit persist runs because the validated result outranks the non-zero exit.
+    - Rename the `It` at line 412 `"retains the pre-persisted session id when the turn result validated despite the non-zero exit"` → `"persists the session id when the turn result validated despite the non-zero exit"`.
+    - Reword that `It`'s comment (lines 424-427) so the retain is attributed to the post-exit persist (the validated result makes `StartSession` return nil, so the persist runs) rather than to a pre-spawn write surviving a clear.
+    - Reword the `BeforeEach` comment clause at line 465 `but the blob reports the turn's own failure, so the compensating clear still fires` → `but the blob reports the turn's own failure, so the turn is rejected and nothing is persisted`.
+    - Rename the `It` at line 487 `"clears the pre-persisted session id when the turn result reports its own failure"` → `"persists no session id when the turn result reports its own failure"`.
+    - Reword the trailing comment (line 514, the one about the compensating clear removing the id) to say the turn failed so nothing was ever persisted, while the child's `phase: planning` write survives.
+    - Every replacement comment must avoid the tokens the drift gate greps for: `pre-spawn`, `pre-persisted`, `pre-persist`, `compensating`, `liveness`. Say "nothing was written before the turn" / "no rollback to run" / "the turn wait" instead.
     - Do NOT touch the pinned-count strings anywhere in this file: `TaskPhaseExecution`, `GoalPhaseExecution`, `session_note`, `MetricsSessions()`, `ClaudeSessionID()`. The AC8 greps must keep returning their exact counts, so your reword must not add or remove any occurrence of those tokens.
 
-12. **Confirm the goal AC7 test and the goal assertions are already correct — do not touch them.** `goal_workon_test.go`'s `"when persisting the goal session id after the child exits"` already asserts `writeGoalAt.After(childExitAt)` with both non-zero, and its `"goal work-on persists nothing for a failed turn"` context already proves the no-persist half. Leave the file unmodified.
+12. **Confirm the goal AC7 test and the goal assertions are already correct — do not touch them.** `goal_workon_test.go`'s `"when persisting the goal session id after the child exits"` (line 358) already asserts `writeGoalAt.After(childExitAt)` with both non-zero, and its `"goal work-on persists nothing for a failed turn"` context (line 650) already proves the no-persist half. Leave the file unmodified.
 
 13. **Confirm the spec's Failure Modes rows that this prompt owns.**
-    - Row 6 (claude binary missing): the `ErrStarterUnavailable` soft path is unchanged — `handleClaudeSession` returns `"", ErrStarterUnavailable` when `w.starter == nil` and `Execute` downgrades it to a warning. Confirm both `workon.go` and `goal_workon.go` still reference it.
+    - Row 6 (claude binary missing): the `ErrStarterUnavailable` soft path is unchanged — `handleClaudeSession` returns `"", ErrStarterUnavailable` when `starter == nil` (line 452) and `Execute` downgrades it to a warning. Confirm both `workon.go` and `goal_workon.go` still reference it.
     - Row 7 (post-exit persist fails): covered by requirement 9 — `persistSessionAndMetrics` returns an error AND an empty id when the re-read or the write fails, so the task keeps whatever the turn wrote and no id lands.
     - Row 9 (two Start clicks): confirm NO double-start guard was added. It is a documented residual risk and a spec Non-goal. The spec 042 per-session lock already exists and is out of this prompt's scope.
 
@@ -166,7 +167,7 @@ For the executing agent: implement the requirements below as written. The approv
 - No compensating clear: the id is never pre-written, so `clearSessionAndMetrics` must stay deleted and no replacement may be added. On failure the task simply carries no id. Do not add a double-Start guard and do not add any config knob (both are spec Non-goals / Open Question 1).
 - Persist-after-exit is race-free within the process: the child has already exited before the post-exit persist runs, so there is no concurrent writer; the re-read-modify-write preserves the child's frontmatter writes.
 - Error idiom: `errors.Wrapf(ctx, err, ...)` / `errors.Wrap(ctx, err, ...)` / `errors.Errorf(ctx, ...)` from `github.com/bborbe/errors`; no `fmt.Errorf`; no bare `return err`; no `context.Background()` in `pkg/`.
-- `ClaudeSessionStarter.StartSession`'s signature is UNCHANGED — six parameters, `mocks/claude-session-starter.go` untouched. `handleClaudeSession`'s `(string, error)` signature is UNCHANGED; the spec's three-value `return "", nil, errors.Wrap(...)` snippet is a typo and must NOT be used.
+- `ClaudeSessionStarter.StartSession`'s signature is UNCHANGED — six parameters, `mocks/claude-session-starter.go` untouched. `handleClaudeSession`'s `(string, error)` signature is UNCHANGED; the spec's three-value `return "", nil, errors.Wrap(...)` snippet is a typo and must NOT be used. Call the `starter` method PARAMETER, never `w.starter`.
 - The pinned-count tokens in `workon_session_writeback_test.go` (`TaskPhaseExecution`, `GoalPhaseExecution`, `session_note`, `MetricsSessions()`, `ClaudeSessionID()`) must remain byte-identical in count — requirement 11's reword is prose-only and must not touch an assertion.
 - `goal_workon.go` and `goal_workon_test.go` are already in the target state — do not modify them except to read and confirm.
 - Do NOT touch `pkg/ops/claude_session.go`, `pkg/ops/claude_session_test.go`, `pkg/ops/claude_session_detach_test.go`, or `pkg/ops/export_test.go` (prompt 1 owns them), and do NOT touch `docs/work-on-session-lifecycle.md`, `scenarios/002-task-lifecycle.md`, or `CHANGELOG.md` (prompt 3 owns them).
@@ -185,6 +186,7 @@ grep -c 'writtenSessionID' pkg/ops/workon_test.go                       # >= 1 (
 grep -c 'spawnedSessionID' pkg/ops/workon_test.go                       # >= 1 (AC7)
 grep -c 'ErrStarterUnavailable' pkg/ops/workon.go                       # >= 1 (Failure Modes row 6)
 grep -c 'ErrStarterUnavailable' pkg/ops/goal_workon.go                  # >= 1 (Failure Modes row 6)
+grep -c 'persists no session id when the spawn fails' pkg/ops/workon_test.go   # >= 1 (AC9)
 ! grep -q 'persist claude session before spawn' pkg/ops/workon.go       # reverted vocabulary gone
 ! grep -qE 'pre-spawn|pre-persisted|pre-persist|compensating' pkg/ops/workon.go
 ! grep -qE 'pre-spawn|pre-persisted|pre-persist|compensating' pkg/ops/workon_test.go
@@ -201,12 +203,6 @@ grep -c 'MetricsSessions()' pkg/ops/workon_session_writeback_test.go    # == 2
 grep -c 'ClaudeSessionID()' pkg/ops/workon_session_writeback_test.go    # == 2
 ```
 
-AC9 — the failure path asserts nothing was persisted:
-
-```
-grep -c 'persists no session id when the spawn fails' pkg/ops/workon_test.go   # >= 1
-```
-
 SCENARIO-005 GUARD — content pin (nothing in this prompt may touch the file; the pin is repeated so a stray edit cannot pass unnoticed):
 
 ```
@@ -220,5 +216,5 @@ gofmt -e -l pkg/ops/workon.go pkg/ops/workon_test.go pkg/ops/workon_session_writ
 make test                                                                                       # must exit 0
 ```
 
-FULL GATE — `make precommit` at the repo root must exit 0. If it fails on something this prompt introduced, fix it and re-run only the failing target (`make lint`, `make gosec`, `make errcheck`, ...), then `make precommit` once more. This is the batch's authoritative full-gate check (AC13), which prompt 3 runs last; running it here as well keeps the tree green for prompt 3, which builds on it.
+FULL GATE — `make precommit` at the repo root must exit 0. This is spec AC13 and this prompt is the batch's last Go-changing prompt, so the authoritative full gate runs here (prompt 3 is markdown/CHANGELOG-only and runs `make check-changelog` instead). If it fails on something this prompt introduced, fix it and re-run only the failing target (`make lint`, `make gosec`, `make errcheck`, ...), then `make precommit` once more.
 </verification>

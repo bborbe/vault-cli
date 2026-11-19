@@ -1,14 +1,14 @@
 ---
-status: approved
+status: completed
 spec: [070-parent-closure-cascade-on-complete]
+summary: Added the parent-cascade helper and wired the task→goal hop into CompleteOperation, with MutationResult.Parents, the GoalCompleteOperation dependency, updated constructor call sites, and full unit coverage; make precommit exits 0.
 execution_id: vault-cli-parent-cascade-exec-286-spec-070-parent-cascade-task-to-goals
 dark-factory-version: v0.198.17
 created: "2026-11-19T20:10:00Z"
 queued: "2026-11-19T20:08:41Z"
-started: "2026-11-19T20:15:08Z"
-completed: "2026-11-19T20:16:23Z"
+started: "2026-11-19T21:36:27Z"
+completed: "2026-11-19T21:42:02Z"
 branch: dark-factory/parent-closure-cascade-on-complete
-lastFailReason: 'execute prompt: docker run failed: wait command: exit status 137'
 ---
 
 # Cascade `task complete` to the task's parent goals

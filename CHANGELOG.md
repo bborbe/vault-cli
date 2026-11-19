@@ -12,6 +12,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 
 - fix: `goal complete` and `topic complete` refuse to close a page whose own closure evidence is incomplete, name every open item on stdout and in `--output json` under `open_items`, and treat an already-completed or aborted page as a no-op instead of an error
 
+## v0.198.1
+
+- fix: refuse `--force` on `task complete` and `goal complete` when stdin is not a terminal, so an agent running without a terminal cannot bypass the closing check with it; the extracted task-complete helper now prints warnings in both branches and wraps the session-mode error
+
 ## v0.198.0
 
 - feat: `task approve` writes `reapproved_at` on its re-approval branch, so a re-approval is observable and timestamped where the preserved `approved_at` made it indistinguishable from a row that was never re-approved

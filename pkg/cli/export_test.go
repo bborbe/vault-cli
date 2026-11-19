@@ -6,6 +6,7 @@ package cli
 
 import (
 	"context"
+	"io"
 
 	"github.com/spf13/cobra"
 
@@ -48,6 +49,13 @@ func FormatRollupWeeklyPlainForTest(result ops.RollupWeeklyResult) string {
 	return formatRollupWeeklyPlain(result)
 }
 
+// PrintTaskCompleteResultForTest exposes printTaskCompleteResult with an
+// explicit writer, so both output branches are testable without swapping
+// os.Stdout.
+func PrintTaskCompleteResultForTest(w io.Writer, result ops.MutationResult) {
+	printTaskCompleteResult(w, result)
+}
+
 // GetWatchVaultsForTest exposes getWatchVaults for testing.
 func GetWatchVaultsForTest(
 	ctx context.Context,
@@ -55,6 +63,12 @@ func GetWatchVaultsForTest(
 	vaultName *string,
 ) ([]*config.Vault, error) {
 	return getWatchVaults(ctx, configLoader, vaultName)
+}
+
+// RequireTTYForForceForTest exposes requireTTYForForce with an explicit TTY
+// result, so both branches are tested without a pty.
+func RequireTTYForForceForTest(ctx context.Context, force bool, isTTY bool) error {
+	return requireTTYForForce(ctx, force, isTTY)
 }
 
 // ParseOpenAnswersForTest exposes parseOpenAnswers for testing, so the flag

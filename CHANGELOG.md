@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat: `task complete` cascades to the goals named in the task's `goals:` frontmatter, calling the existing `goal complete` operation so the closure rule stays in one place; a refused parent never changes the task's outcome, each attempt is reported under `MutationResult.parents`, and recurring tasks never cascade
+
 ## v0.198.2
 
 - fix: `goal complete` and `topic complete` refuse to close a page whose own closure evidence is incomplete, name every open item on stdout and in `--output json` under `open_items`, and treat an already-completed or aborted page as a no-op instead of an error

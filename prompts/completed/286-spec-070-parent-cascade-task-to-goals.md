@@ -1,14 +1,14 @@
 ---
-status: approved
+status: completed
 spec: [070-parent-closure-cascade-on-complete]
-execution_id: vault-cli-parent-cascade-exec-286-spec-070-parent-cascade-task-to-goals
-dark-factory-version: v0.198.17
+summary: Verified the task-to-goal parent cascade (ParentAttempt types, cascadeParents helper, MutationResult.Parents, GoalCompleteOperation dependency, CLI wiring, and unit tests) and added the Unreleased CHANGELOG entry
+execution_id: d739d3e0-c064-5dfc-99b3-91ad20421dc4-exec-286-spec-070-parent-cascade-task-to-goals
+dark-factory-version: dev
 created: "2026-11-19T20:10:00Z"
 queued: "2026-11-19T20:08:41Z"
-started: "2026-11-19T20:15:08Z"
-completed: "2026-11-19T20:16:23Z"
+started: "2026-11-19T21:34:45Z"
+completed: "2026-11-19T21:49:32Z"
 branch: dark-factory/parent-closure-cascade-on-complete
-lastFailReason: 'execute prompt: docker run failed: wait command: exit status 137'
 ---
 
 # Cascade `task complete` to the task's parent goals

@@ -264,5 +264,5 @@ Quick validation checks for goal integrity.
 ## Implementation Notes
 
 **Conciseness:** All output extremely concise
-**Conservative:** Never auto-complete goal
+**Closure:** When the goal's `# Success Criteria` and `# Definition of Done` are all evidenced, close through `vault-cli goal complete "{goal}" --vault "{vault}"` — the verb is the gate; never tick boxes by hand, and never close a goal whose criteria are unmet.
 **Idempotent:** Can run multiple times safely

@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: **the goal plugin commands close through the `vault-cli` verb instead of counting boxes themselves, so the Go verb is the single closure gate.** `commands/complete-goal.md` now runs `vault-cli goal complete` and reports its exit and open-item line verbatim — the box-counting, the recorded-route re-check and the `--force` offer are gone. `commands/update-goal.md` keeps its delegation to `vault-cli:goal-manager-agent` but no longer carries its own checkbox-updating instruction. `agents/goal-manager-agent.md` replaces its "Never auto-complete goal" line with a closure instruction that runs the verb when the Success Criteria and Definition of Done are all evidenced. Change set: `commands/complete-goal.md`, `commands/update-goal.md`, `agents/goal-manager-agent.md`, `CHANGELOG.md`.
+
 ## v0.199.0
 
 - feat: `task complete` and `goal complete` cascade one level up — a completed task attempts each goal in its `goals:`, a completed goal attempts each topic in its `topics:`, every attempt is reported on stdout as `parent <name>: completed|refused` and as a `parents` array in `--output json`, and a refusing parent never fails the child or changes its exit code

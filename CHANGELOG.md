@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.199.2
 
 - fix: `goal complete` cascades to a topic that lists the goal under its `## Goals` section even when the goal carries no `topics:` frontmatter — the two membership readers now agree, and a topic-scan failure is reported as a refused parent instead of being silent
 

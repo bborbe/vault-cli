@@ -1,10 +1,10 @@
 ---
-description: Update goal with completed work, subtask checkboxes, management summary, and next-step suggestion — delegates to goal-manager-agent
+description: Update goal with completed work, close through the vault-cli verb when done, management summary, and next-step suggestion — delegates to goal-manager-agent
 allowed-tools: Task
 argument-hint: (detects from conversation)
 ---
 
-Update goal progress: auto-detect goal from the current conversation, refresh subtask checkbox state, update success criteria, refresh the management summary, calculate metrics, and suggest the next step.
+Update goal progress: auto-detect goal from the current conversation, close through `vault-cli goal complete` when the goal's Success Criteria and Definition of Done are all evidenced, refresh the management summary, calculate metrics, and suggest the next step.
 
 ## Process
 
@@ -23,8 +23,7 @@ The agent handles:
 - Detect goal from conversation context (wiki-links, file paths, mentions)
 - Read goal structure + subtask statuses (resolved against `tasks_dir` for the active vault)
 - Analyze conversation for completed work
-- Update subtask checkboxes
-- Update success-criteria checkboxes when matched
+- Close through `vault-cli goal complete` when the goal's Success Criteria and Definition of Done are all evidenced — the verb is the gate; the agent never ticks boxes by hand
 - Determine if the change is noteworthy
 - If noteworthy: append to `## Recent Progress` and refresh `## Current Status` / management summary
 - If noteworthy: append a goal-level entry to today's daily note

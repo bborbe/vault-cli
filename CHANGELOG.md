@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.199.3
 
 - fix: a wikilink that carries a directory path — `[[24 Goals/Some Goal]]` — now resolves to `Some Goal` in both membership readers, so a topic whose `## Goals` writes its members that way cascades on `goal complete` and its members resolve on `topic complete`. `normaliseGoalLink` strips the leading path; a name is a filename, so a `/` can only be a separator
 

@@ -517,8 +517,10 @@ func parseGoalSectionMembers(content string) []string {
 	return names
 }
 
-// normaliseGoalLink strips the wikilink wrapper and any alias/heading suffix
-// so '[[Some Goal]]', '[[Some Goal|label]]' and 'Some Goal' compare equal.
+// normaliseGoalLink strips the wikilink wrapper, any alias/heading suffix and
+// any leading directory path so '[[24 Goals/Some Goal]]', '[[Some Goal]]',
+// '[[Some Goal|label]]' and 'Some Goal' compare equal. A goal or topic name is
+// a filename, so a '/' can only be a path separator and never part of the name.
 func normaliseGoalLink(link string) string {
 	name := strings.TrimSpace(link)
 	name = strings.TrimPrefix(name, "[[")
@@ -528,6 +530,9 @@ func normaliseGoalLink(link string) string {
 	}
 	if index := strings.Index(name, "#"); index >= 0 {
 		name = name[:index]
+	}
+	if index := strings.LastIndex(name, "/"); index >= 0 {
+		name = name[index+1:]
 	}
 	return strings.TrimSpace(name)
 }

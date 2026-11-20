@@ -2827,6 +2827,27 @@ This is my task.
 			Expect(string(content)).To(ContainSubstring("status: completed"))
 		})
 
+		It("goal complete closes a topic that lists the goal as a path-qualified wikilink", func() {
+			vaultPath, configPath, cleanup := createTempVaultWithTopicPages(
+				"Topics",
+				map[string]string{
+					"my-topic": "---\nstatus: in_progress\n---\n## Goals\n- [[24 Goals/my-goal]]\n" +
+						"# Success Criteria\n- [x] done\n# Completion Gate\n- [x] done\n",
+				},
+				map[string]string{"my-goal": memberGoalNoTopics},
+			)
+			defer cleanup()
+
+			topicPath := filepath.Join(vaultPath, "Topics", "my-topic.md")
+
+			session := runCommand(configPath, "goal", "complete", "my-goal")
+			Eventually(session).Should(gexec.Exit(0))
+			Expect(string(session.Out.Contents())).To(ContainSubstring("parent my-topic: completed"))
+			content, err := os.ReadFile(topicPath) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(content)).To(ContainSubstring("status: completed"))
+		})
+
 		It("goal complete leaves a topic that names the goal outside Goals untouched", func() {
 			vaultPath, configPath, cleanup := createTempVaultWithTopicPages(
 				"Topics",

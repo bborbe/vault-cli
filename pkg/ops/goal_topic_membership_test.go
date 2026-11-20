@@ -111,6 +111,24 @@ var _ = Describe("goal to topic cascade membership", func() {
 		}))
 	})
 
+	It("completes a topic that lists the goal as a path-qualified wikilink", func() {
+		topic := topicWithGoals("my-topic", "", "24 Goals/"+goalName)
+		mockTopics.ListTopicsReturns([]*domain.Topic{topic}, nil)
+		mockTopics.FindTopicByNameReturns(topic, nil)
+
+		execute()
+
+		Expect(err).To(BeNil())
+		Expect(mockTopics.WriteTopicCallCount()).To(Equal(1))
+		_, writtenTopic := mockTopics.WriteTopicArgsForCall(0)
+		Expect(writtenTopic.GetField("status")).To(Equal(domain.TopicStatusCompleted))
+		Expect(result.Parents).To(HaveLen(1))
+		Expect(result.Parents[0]).To(Equal(ops.ParentAttempt{
+			Name:   "my-topic",
+			Result: ops.ParentResultCompleted,
+		}))
+	})
+
 	It("does not treat a goal named outside the Goals section as a member", func() {
 		topic := topicWithGoals("my-topic", "This goal mentions [[my-goal]] in prose.\n")
 		mockTopics.ListTopicsReturns([]*domain.Topic{topic}, nil)

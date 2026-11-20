@@ -42,9 +42,11 @@ Anything that does not pass is reported and left open, and the command still suc
 - The closure gate shipped in `pkg/ops/closure_gate.go` and is reachable from the working
   tree; spec 069 is at `verifying`, so its code is merged but not yet formally closed.
   This spec depends on that code, not on 069's lifecycle state.
-- A goal page's `topics:` frontmatter and a task page's `goals:` frontmatter are the
-  authoritative parent declarations. Both hold wikilinks (`[[Name]]`), so parent names
-  are normalised through the existing `normaliseGoalLink` helper before lookup.
+- A goal's parent set is every topic that names it — either through the goal page's
+  `topics:` frontmatter or through the topic page's `## Goals` section; the two are
+  equivalent for closure. A task page's `goals:` frontmatter is the task's parent
+  declaration. All hold wikilinks (`[[Name]]`), so parent names are normalised through
+  the existing `normaliseGoalLink` helper before lookup.
 - `topics:` is currently read by no Go code. The cascade is its first consumer, and it
   reads the field through the frontmatter map (`GetStringSlice("topics")`); a `Topics()`
   accessor mirrors the existing `Goals()` accessor on `Page`.
@@ -104,7 +106,7 @@ Anything that does not pass is reported and left open, and the command still suc
 ## Desired Behavior
 
 1. `task complete` closes the task exactly as today, then reads the task's `goals:` list and attempts each goal in document order.
-2. `goal complete` closes the goal exactly as today, then reads the goal's `topics:` list and attempts each topic in document order.
+2. `goal complete` closes the goal exactly as today, then resolves every topic that names it — by the goal's `topics:` list or by the topic page's `## Goals` section — and attempts each: declared topics in document order first, discovered topics after.
 3. An attempt calls the parent's existing complete operation with `force=false` and no reason or successor. The cascade never re-implements the parent's close sequence.
 4. An already-terminal parent (`status: completed`, or `aborted`, which reports the same `completed` result) reports `completed` with no write, and still cascades one level up — so a topic can close on a later run even when its goal closed earlier.
 5. `Success == true` records `completed`; `Success == false` records `refused` with the operation's `OpenItems` (or, when it carries none, the returned error text).

@@ -6,6 +6,8 @@ package storage
 
 import (
 	"context"
+	"io/fs"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -17,6 +19,54 @@ import (
 
 type topicStorage struct {
 	*baseStorage
+}
+
+// ListTopics returns every topic page in the vault's configured topics directory.
+// An unreadable or unparseable topic file is skipped with a warning, mirroring
+// ListPages; a missing directory returns an empty list, and a directory-walk
+// failure is returned.
+func (t *topicStorage) ListTopics(
+	ctx context.Context,
+	vaultPath string,
+) ([]*domain.Topic, error) {
+	targetDir := filepath.Join(vaultPath, t.config.TopicsDir)
+
+	entries, err := os.ReadDir(targetDir)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			slog.Debug("topics directory does not exist; returning empty list", "dir", targetDir)
+			return nil, nil
+		}
+		return nil, errors.Wrap(ctx, err, "read directory "+targetDir)
+	}
+
+	topics := make([]*domain.Topic, 0, len(entries))
+	for _, entry := range entries {
+		select {
+		case <-ctx.Done():
+			return topics, errors.Wrap(ctx, ctx.Err(), "context cancelled")
+		default:
+		}
+
+		if entry.IsDir() {
+			continue
+		}
+		if !strings.HasSuffix(entry.Name(), ".md") {
+			continue
+		}
+
+		name := strings.TrimSuffix(entry.Name(), ".md")
+		filePath := filepath.Join(targetDir, entry.Name())
+
+		topic, err := t.readTopicFromPath(ctx, filePath, name, vaultPath)
+		if err != nil {
+			slog.Warn("skipping unreadable topic", "file", filePath, "error", err)
+			continue
+		}
+		topics = append(topics, topic)
+	}
+
+	return topics, nil
 }
 
 // isTopicNameWithinDir reports whether name resolves to a markdown path inside dir.

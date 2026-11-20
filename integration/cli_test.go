@@ -2787,6 +2787,81 @@ This is my task.
 		})
 	})
 
+	Describe("vault-cli goal to topic cascade membership", func() {
+		const (
+			memberGoalNoTopics = "---\nstatus: in_progress\n---\n# Success Criteria\n" +
+				"- [x] done\n# Definition of Done\n- [x] done\n"
+			topicListingGoal = "---\nstatus: in_progress\n---\n## Goals\n- [[my-goal]]\n" +
+				"# Success Criteria\n- [x] done\n# Completion Gate\n- [x] done\n"
+			controlTopic = "---\nstatus: in_progress\n---\n# Control\n" +
+				"This prose names [[my-goal]] outside the Goals section.\n" +
+				"## Goals\n# Success Criteria\n- [x] done\n# Completion Gate\n- [x] done\n"
+		)
+
+		runCommand := func(configPath string, args ...string) *gexec.Session {
+			fullArgs := append([]string{"--config", configPath, "--vault", "test"}, args...)
+			session, err := gexec.Start(
+				exec.Command(binPath, fullArgs...),
+				GinkgoWriter,
+				GinkgoWriter,
+			)
+			Expect(err).NotTo(HaveOccurred())
+			return session
+		}
+
+		It("goal complete closes a topic that names the goal only in its Goals section", func() {
+			vaultPath, configPath, cleanup := createTempVaultWithTopicPages(
+				"Topics",
+				map[string]string{"my-topic": topicListingGoal},
+				map[string]string{"my-goal": memberGoalNoTopics},
+			)
+			defer cleanup()
+
+			topicPath := filepath.Join(vaultPath, "Topics", "my-topic.md")
+
+			session := runCommand(configPath, "goal", "complete", "my-goal")
+			Eventually(session).Should(gexec.Exit(0))
+			Expect(string(session.Out.Contents())).To(ContainSubstring("parent my-topic: completed"))
+			content, err := os.ReadFile(topicPath) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(content)).To(ContainSubstring("status: completed"))
+		})
+
+		It("goal complete leaves a topic that names the goal outside Goals untouched", func() {
+			vaultPath, configPath, cleanup := createTempVaultWithTopicPages(
+				"Topics",
+				map[string]string{
+					"my-topic":   topicListingGoal,
+					"zz-control": controlTopic,
+				},
+				map[string]string{"my-goal": memberGoalNoTopics},
+			)
+			defer cleanup()
+
+			controlPath := filepath.Join(vaultPath, "Topics", "zz-control.md")
+
+			session := runCommand(configPath, "goal", "complete", "my-goal")
+			Eventually(session).Should(gexec.Exit(0))
+			Expect(string(session.Out.Contents())).NotTo(ContainSubstring("parent zz-control"))
+			content, err := os.ReadFile(controlPath) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(content)).To(ContainSubstring("status: in_progress"))
+		})
+
+		It("goal complete with no member topic prints no parent line", func() {
+			_, configPath, cleanup := createTempVaultWithTopicPages(
+				"Topics",
+				map[string]string{"zz-control": controlTopic},
+				map[string]string{"my-goal": memberGoalNoTopics},
+			)
+			defer cleanup()
+
+			session := runCommand(configPath, "goal", "complete", "my-goal")
+			Eventually(session).Should(gexec.Exit(0))
+			Expect(string(session.Out.Contents())).NotTo(MatchRegexp(`(?m)^parent `))
+		})
+	})
+
 	Describe("vault-cli parent closure cascade", func() {
 		const (
 			linkedTask   = "---\nstatus: todo\ngoals:\n    - '[[my-goal]]'\n---\n# Linked\n"

@@ -188,6 +188,20 @@ type Storage struct {
 		result2 []string
 		result3 error
 	}
+	ListTopicsStub        func(context.Context, string) ([]*domain.Topic, error)
+	listTopicsMutex       sync.RWMutex
+	listTopicsArgsForCall []struct {
+		arg1 context.Context
+		arg2 string
+	}
+	listTopicsReturns struct {
+		result1 []*domain.Topic
+		result2 error
+	}
+	listTopicsReturnsOnCall map[int]struct {
+		result1 []*domain.Topic
+		result2 error
+	}
 	ReadDailyNoteStub        func(context.Context, string, string) (string, error)
 	readDailyNoteMutex       sync.RWMutex
 	readDailyNoteArgsForCall []struct {
@@ -1185,6 +1199,71 @@ func (fake *Storage) ListTasksTolerantReturnsOnCall(i int, result1 []*domain.Tas
 		result2 []string
 		result3 error
 	}{result1, result2, result3}
+}
+
+func (fake *Storage) ListTopics(arg1 context.Context, arg2 string) ([]*domain.Topic, error) {
+	fake.listTopicsMutex.Lock()
+	ret, specificReturn := fake.listTopicsReturnsOnCall[len(fake.listTopicsArgsForCall)]
+	fake.listTopicsArgsForCall = append(fake.listTopicsArgsForCall, struct {
+		arg1 context.Context
+		arg2 string
+	}{arg1, arg2})
+	stub := fake.ListTopicsStub
+	fakeReturns := fake.listTopicsReturns
+	fake.recordInvocation("ListTopics", []interface{}{arg1, arg2})
+	fake.listTopicsMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *Storage) ListTopicsCallCount() int {
+	fake.listTopicsMutex.RLock()
+	defer fake.listTopicsMutex.RUnlock()
+	return len(fake.listTopicsArgsForCall)
+}
+
+func (fake *Storage) ListTopicsCalls(stub func(context.Context, string) ([]*domain.Topic, error)) {
+	fake.listTopicsMutex.Lock()
+	defer fake.listTopicsMutex.Unlock()
+	fake.ListTopicsStub = stub
+}
+
+func (fake *Storage) ListTopicsArgsForCall(i int) (context.Context, string) {
+	fake.listTopicsMutex.RLock()
+	defer fake.listTopicsMutex.RUnlock()
+	argsForCall := fake.listTopicsArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2
+}
+
+func (fake *Storage) ListTopicsReturns(result1 []*domain.Topic, result2 error) {
+	fake.listTopicsMutex.Lock()
+	defer fake.listTopicsMutex.Unlock()
+	fake.ListTopicsStub = nil
+	fake.listTopicsReturns = struct {
+		result1 []*domain.Topic
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *Storage) ListTopicsReturnsOnCall(i int, result1 []*domain.Topic, result2 error) {
+	fake.listTopicsMutex.Lock()
+	defer fake.listTopicsMutex.Unlock()
+	fake.ListTopicsStub = nil
+	if fake.listTopicsReturnsOnCall == nil {
+		fake.listTopicsReturnsOnCall = make(map[int]struct {
+			result1 []*domain.Topic
+			result2 error
+		})
+	}
+	fake.listTopicsReturnsOnCall[i] = struct {
+		result1 []*domain.Topic
+		result2 error
+	}{result1, result2}
 }
 
 func (fake *Storage) ReadDailyNote(arg1 context.Context, arg2 string, arg3 string) (string, error) {

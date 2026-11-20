@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: `goal complete` cascades to a topic that lists the goal under its `## Goals` section even when the goal carries no `topics:` frontmatter — the two membership readers now agree, and a topic-scan failure is reported as a refused parent instead of being silent
+
 ## v0.199.0
 
 - feat: `task complete` and `goal complete` cascade one level up — a completed task attempts each goal in its `goals:`, a completed goal attempts each topic in its `topics:`, every attempt is reported on stdout as `parent <name>: completed|refused` and as a `parents` array in `--output json`, and a refusing parent never fails the child or changes its exit code

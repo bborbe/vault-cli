@@ -23,31 +23,49 @@ func completeGoalContent(status string) domain.Content {
 	return domain.Content("---\nstatus: " + status + "\n---\n# Success Criteria\n- [x] done\n")
 }
 
+// goalWithTopics builds a closure-complete goal whose frontmatter declares the
+// given topics, so the parent cascade has a relation to walk.
+func goalWithTopics(status string, topics []string) *domain.Goal {
+	return domain.NewGoal(
+		map[string]any{"status": status, "topics": topics},
+		domain.FileMetadata{Name: "my-goal"},
+		completeGoalContent(status),
+	)
+}
+
 var _ = Describe("GoalCompleteOperation", func() {
 	var (
-		ctx             context.Context
-		err             error
-		result          ops.MutationResult
-		op              ops.GoalCompleteOperation
-		mockGoalStorage *mocks.GoalStorage
-		mockTaskStorage *mocks.TaskStorage
-		currentDateTime libtime.CurrentDateTime
-		vaultPath       string
-		goalName        string
-		vaultName       string
-		force           bool
-		reason          string
-		gateSuccessor   string
-		goal            *domain.Goal
+		ctx                        context.Context
+		err                        error
+		result                     ops.MutationResult
+		op                         ops.GoalCompleteOperation
+		mockGoalStorage            *mocks.GoalStorage
+		mockTaskStorage            *mocks.TaskStorage
+		mockTopicCompleteOperation *mocks.TopicCompleteOperation
+		currentDateTime            libtime.CurrentDateTime
+		vaultPath                  string
+		goalName                   string
+		vaultName                  string
+		force                      bool
+		reason                     string
+		gateSuccessor              string
+		goal                       *domain.Goal
 	)
 
 	BeforeEach(func() {
 		ctx = context.Background()
 		mockGoalStorage = &mocks.GoalStorage{}
 		mockTaskStorage = &mocks.TaskStorage{}
+		mockTopicCompleteOperation = &mocks.TopicCompleteOperation{}
+		mockTopicCompleteOperation.ExecuteReturns(ops.MutationResult{Success: true}, nil)
 		currentDateTime = libtime.NewCurrentDateTime()
 		currentDateTime.SetNow(libtimetest.ParseDateTime("2026-03-17T12:00:00Z"))
-		op = ops.NewGoalCompleteOperation(mockGoalStorage, mockTaskStorage, currentDateTime)
+		op = ops.NewGoalCompleteOperation(
+			mockGoalStorage,
+			mockTaskStorage,
+			currentDateTime,
+			mockTopicCompleteOperation,
+		)
 		vaultPath = "/path/to/vault"
 		goalName = "my-goal"
 		vaultName = "test-vault"
@@ -560,6 +578,110 @@ var _ = Describe("GoalCompleteOperation", func() {
 
 		It("returns error", func() {
 			Expect(err).NotTo(BeNil())
+		})
+	})
+
+	Context("parent cascade", func() {
+		Context("goal with no topics", func() {
+			It("does not cascade", func() {
+				Expect(mockTopicCompleteOperation.ExecuteCallCount()).To(Equal(0))
+				Expect(result.Parents).To(BeEmpty())
+			})
+		})
+
+		Context("goal declaring a topic", func() {
+			BeforeEach(func() {
+				mockGoalStorage.FindGoalByNameReturns(
+					goalWithTopics("active", []string{"My Topic"}),
+					nil,
+				)
+			})
+
+			It("cascades to the declared topic", func() {
+				Expect(mockTopicCompleteOperation.ExecuteCallCount()).To(Equal(1))
+				ctxArg, vaultPathArg, topicNameArg, vaultNameArg :=
+					mockTopicCompleteOperation.ExecuteArgsForCall(0)
+				Expect(ctxArg).To(Equal(ctx))
+				Expect(vaultPathArg).To(Equal(vaultPath))
+				Expect(topicNameArg).To(Equal("My Topic"))
+				Expect(vaultNameArg).To(Equal(vaultName))
+				Expect(result.Parents).To(HaveLen(1))
+				Expect(result.Parents[0].Result).To(Equal(ops.ParentResultCompleted))
+			})
+		})
+
+		Context("topic refuses", func() {
+			BeforeEach(func() {
+				mockGoalStorage.FindGoalByNameReturns(
+					goalWithTopics("active", []string{"My Topic"}),
+					nil,
+				)
+				mockTopicCompleteOperation.ExecuteReturns(
+					ops.MutationResult{Success: false, OpenItems: []string{"gate item"}},
+					ErrTest,
+				)
+			})
+
+			It("reports a refused topic and still completes the goal", func() {
+				Expect(err).To(BeNil())
+				Expect(result.Success).To(BeTrue())
+				Expect(result.Parents).To(HaveLen(1))
+				Expect(result.Parents[0].Result).To(Equal(ops.ParentResultRefused))
+				Expect(result.Parents[0].OpenItems).To(Equal([]string{"gate item"}))
+				Expect(mockGoalStorage.WriteGoalCallCount()).To(Equal(1))
+			})
+		})
+
+		Context("topic declared as a wikilink", func() {
+			BeforeEach(func() {
+				mockGoalStorage.FindGoalByNameReturns(
+					goalWithTopics("active", []string{"[[My Topic|label]]"}),
+					nil,
+				)
+			})
+
+			It("normalises the wikilink topic name", func() {
+				Expect(mockTopicCompleteOperation.ExecuteCallCount()).To(Equal(1))
+				_, _, topicNameArg, _ := mockTopicCompleteOperation.ExecuteArgsForCall(0)
+				Expect(topicNameArg).To(Equal("My Topic"))
+			})
+		})
+
+		Context("goal already completed", func() {
+			BeforeEach(func() {
+				mockGoalStorage.FindGoalByNameReturns(
+					goalWithTopics("completed", []string{"My Topic"}),
+					nil,
+				)
+			})
+
+			It("cascades from an already-completed goal", func() {
+				Expect(mockTopicCompleteOperation.ExecuteCallCount()).To(Equal(1))
+				Expect(result.Parents).To(HaveLen(1))
+				Expect(result.Parents[0].Result).To(Equal(ops.ParentResultCompleted))
+				Expect(mockGoalStorage.WriteGoalCallCount()).To(Equal(0))
+			})
+		})
+
+		Context("goal refuses", func() {
+			BeforeEach(func() {
+				mockGoalStorage.FindGoalByNameReturns(
+					domain.NewGoal(
+						map[string]any{"status": "in_progress", "topics": []string{"My Topic"}},
+						domain.FileMetadata{Name: goalName},
+						domain.Content(
+							"---\nstatus: in_progress\n---\n# Success Criteria\n- [ ] an open criterion\n"+
+								"# Definition of Done\n- [x] done\n",
+						),
+					),
+					nil,
+				)
+			})
+
+			It("does not cascade", func() {
+				Expect(err).NotTo(BeNil())
+				Expect(mockTopicCompleteOperation.ExecuteCallCount()).To(Equal(0))
+			})
 		})
 	})
 })

@@ -181,6 +181,22 @@ Blocked state is derived and is never written. Nothing sets `status: hold` from 
 
 Where it surfaces: `vault-cli goal list --output json` emits `blocked_by` (the raw list) and a computed `blocked` boolean for any goal that declares a dependency list; a goal with no `blocked_by` emits neither key. `/vault-cli:next-task` does not recommend a goal or task whose `blocked` flag is true.
 
+### Topics (`topics`)
+
+`topics` names the topics this goal belongs to — the goal→topic parent relation the completion cascade walks. It is a YAML list of topic names; each entry may be a plain name (`My Topic`) or a wikilink. `[[My Topic]]`, `[[My Topic|label]]` and `[[My Topic#Heading]]` all resolve to the same topic. A scalar value (`topics: My Topic`) is malformed and comma-splits on read; correct it to a list.
+
+Completing a goal closes it and then attempts every declared topic with the same closure gate, in document order:
+
+```
+vault-cli goal complete "<name>"
+```
+
+A topic that refuses does not fail the goal: the goal stays completed, the refusal is reported as `parent <topic>: refused — open: <item>`, and the command exits 0. A topic that is already `completed` reports `parent <topic>: completed` and is not rewritten; its own attempt still happens, so a topic can close on a later run after its goal closed earlier.
+
+The cascade runs one level down from the task as well: `vault-cli task complete` closes the task, then every goal in the task's `goals:`, and each goal then attempts its `topics:`. Cascading stops at topic level — a topic's own parents are not attempted. A recurring task never cascades, because it never changes status.
+
+`--output json` carries a `parents` array of `{name, result, open_items}` entries; `result` is `completed` or `refused`, and `open_items` is omitted on a completed entry. The cascade is in-process and fires only on a new complete; nothing retroactively closes pages that are already open.
+
 ### Session (`claude_session_id`)
 
 `claude_session_id` records the session serving this goal — the manager session that armed it. It is written by the producer — claude-supervisor's manager-resolve step — through the existing generic `vault-cli goal set "<subject>" claude_session_id "$CLAUDE_CODE_SESSION_ID"` verb (and `topic set` on a topic page). This repo adds no setter and no CLI flag of its own; the field is set through those generic verbs, so it is not unsettable. A task page carries the same key meaning the session working that task. When `goal set` / `topic set` replaces a different uuid owner with a non-empty id, the outgoing id is appended to `metrics_sessions` (`session_id` + `started_at`) in the same write; a first bind, the same id, a blank value, or a display-name → uuid rewrite records nothing.

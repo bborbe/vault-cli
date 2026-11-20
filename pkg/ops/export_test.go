@@ -56,3 +56,6 @@ type ClosureOutcome = closureOutcome
 type ClosureMember = closureMember
 
 type ClosureVerdict = closureVerdict
+
+// CascadeParents exposes cascadeParents for the external ops_test package.
+var CascadeParents = cascadeParents

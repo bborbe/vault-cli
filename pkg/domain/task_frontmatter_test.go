@@ -261,6 +261,28 @@ var _ = Describe("TaskFrontmatter", func() {
 		})
 	})
 
+	Describe("GoalCloseExempt", func() {
+		DescribeTable("coerces the stored value",
+			func(stored any, expected bool) {
+				fm = domain.NewTaskFrontmatter(map[string]any{"goal_close_exempt": stored})
+				Expect(fm.GoalCloseExempt()).To(Equal(expected))
+			},
+			Entry("bool true", true, true),
+			Entry("bool false", false, false),
+			Entry("string true", "true", true),
+			Entry("string yes", "yes", true),
+			Entry("string TRUE uppercase", "TRUE", true),
+			Entry("string no", "no", false),
+			Entry("unparseable string", "banana", false),
+			Entry("nil value", nil, false),
+		)
+
+		It("returns false for a missing key", func() {
+			fm = domain.NewTaskFrontmatter(map[string]any{"status": "todo"})
+			Expect(fm.GoalCloseExempt()).To(BeFalse())
+		})
+	})
+
 	Describe("BlockedBy", func() {
 		DescribeTable("reads a list and rejects scalars",
 			func(stored any, expected []string) {

@@ -340,6 +340,107 @@ var _ = Describe("GoalCompleteOperation", func() {
 		})
 	})
 
+	Context("exempt open task does not block completion", func() {
+		BeforeEach(func() {
+			tasks := []*domain.Task{
+				func() *domain.Task {
+					t := domain.NewTask(
+						map[string]any{"status": "next", "goal_close_exempt": true},
+						domain.FileMetadata{Name: "repair-row"},
+						domain.Content(""),
+					)
+					t.SetGoals([]string{goalName})
+					return t
+				}(),
+			}
+			mockTaskStorage.ListTasksReturns(tasks, nil)
+		})
+
+		It("returns no error", func() {
+			Expect(err).To(BeNil())
+		})
+
+		It("does not name the exempt task in a refusal", func() {
+			Expect(result.OpenItems).To(BeEmpty())
+		})
+
+		It("writes goal as completed", func() {
+			Expect(mockGoalStorage.WriteGoalCallCount()).To(Equal(1))
+			_, writtenGoal := mockGoalStorage.WriteGoalArgsForCall(0)
+			Expect(writtenGoal.Status()).To(Equal(domain.GoalStatusCompleted))
+		})
+	})
+
+	Context("exempt rows do not mask a genuine open task", func() {
+		BeforeEach(func() {
+			tasks := []*domain.Task{
+				func() *domain.Task {
+					t := domain.NewTask(
+						map[string]any{"status": "next", "goal_close_exempt": true},
+						domain.FileMetadata{Name: "repair-row"},
+						domain.Content(""),
+					)
+					t.SetGoals([]string{goalName})
+					return t
+				}(),
+				func() *domain.Task {
+					t := domain.NewTask(
+						map[string]any{"status": "in_progress"},
+						domain.FileMetadata{Name: "re-check"},
+						domain.Content(""),
+					)
+					t.SetGoals([]string{goalName})
+					return t
+				}(),
+			}
+			mockTaskStorage.ListTasksReturns(tasks, nil)
+		})
+
+		It("refuses and names only the genuine task", func() {
+			Expect(err).NotTo(BeNil())
+			Expect(err.Error()).To(ContainSubstring("cannot complete goal"))
+			Expect(err.Error()).To(ContainSubstring("re-check"))
+			Expect(err.Error()).NotTo(ContainSubstring("repair-row"))
+			Expect(result.OpenItems).To(HaveLen(1))
+		})
+
+		It("does not write goal", func() {
+			Expect(mockGoalStorage.WriteGoalCallCount()).To(Equal(0))
+		})
+	})
+
+	Context("marker on a task linked to another goal does not affect this goal", func() {
+		BeforeEach(func() {
+			tasks := []*domain.Task{
+				func() *domain.Task {
+					t := domain.NewTask(
+						map[string]any{"status": "next", "goal_close_exempt": true},
+						domain.FileMetadata{Name: "other-exempt"},
+						domain.Content(""),
+					)
+					t.SetGoals([]string{"other-goal"})
+					return t
+				}(),
+				func() *domain.Task {
+					t := domain.NewTask(
+						map[string]any{"status": "todo"},
+						domain.FileMetadata{Name: "own-task"},
+						domain.Content(""),
+					)
+					t.SetGoals([]string{goalName})
+					return t
+				}(),
+			}
+			mockTaskStorage.ListTasksReturns(tasks, nil)
+		})
+
+		It("still refuses on the unmarked task of this goal", func() {
+			Expect(err).NotTo(BeNil())
+			Expect(err.Error()).To(ContainSubstring("own-task"))
+			Expect(err.Error()).NotTo(ContainSubstring("other-exempt"))
+		})
+	})
+
 	Context("completed tasks do not block", func() {
 		BeforeEach(func() {
 			tasks := []*domain.Task{

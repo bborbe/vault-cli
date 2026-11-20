@@ -46,6 +46,13 @@ const (
 type closureMember struct {
 	Name   string
 	Status string
+	// Exempt marks a member the goal's own record places outside its closure
+	// population — a task that carries the `goals:` link only so an instrument
+	// (e.g. a regression sweep) can find it, not as a deliverable. An exempt
+	// member never blocks a close whatever its status; the marker is read from
+	// task frontmatter (`goal_close_exempt: true`) by linkedTaskMembers, so the
+	// exemption narrows the population and never disables the gate.
+	Exempt bool
 }
 
 // closureVerdict is the result of checkClosureGate.
@@ -223,9 +230,14 @@ func grandfatherDefinitionOfDone(created string, body string) (bool, string) {
 }
 
 // closureMemberItems returns the refusal items for non-terminal members.
+// An exempt member is skipped before its status is consulted: it is outside the
+// goal's closure population, so it neither blocks nor appears in the refusal.
 func closureMemberItems(kind closureKind, members []closureMember) []string {
 	var items []string
 	for _, member := range members {
+		if member.Exempt {
+			continue
+		}
 		if !closureMemberOpen(kind, member.Status) {
 			continue
 		}

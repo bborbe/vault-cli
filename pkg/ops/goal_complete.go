@@ -256,6 +256,11 @@ func (g *goalCompleteOperation) setCompletedStatus(
 // linkedTaskMembers returns every task linked to the goal, as closure members.
 // It is the only reader of the task relation; the gate decides which statuses
 // are open.
+//
+// A task carrying `goal_close_exempt: true` is still returned as a member, with
+// Exempt set, so the gate — not this reader — owns the population rule. Reading
+// one more key from the already-parsed TaskFrontmatter adds no I/O: ListTasks
+// parses every task's frontmatter regardless.
 func (g *goalCompleteOperation) linkedTaskMembers(
 	ctx context.Context,
 	vaultPath string,
@@ -271,7 +276,11 @@ func (g *goalCompleteOperation) linkedTaskMembers(
 		if !taskLinkedToGoal(task, goalName) {
 			continue
 		}
-		members = append(members, closureMember{Name: task.Name, Status: string(task.Status())})
+		members = append(members, closureMember{
+			Name:   task.Name,
+			Status: string(task.Status()),
+			Exempt: task.GoalCloseExempt(),
+		})
 	}
 	return members, nil
 }

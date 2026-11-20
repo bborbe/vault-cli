@@ -283,6 +283,53 @@ var _ = Describe("Closure gate", func() {
 			"",
 		),
 		Entry(
+			"exempt open member does not block",
+			ops.ClosureKindGoal,
+			"---\nstatus: in_progress\n---\n# Success Criteria\n- [x] done\n"+
+				"# Definition of Done\n- [x] done\n",
+			[]ops.ClosureMember{{Name: "repair-row", Status: "next", Exempt: true}},
+			false,
+			ops.ClosureOutcomeClose,
+			0,
+			"",
+		),
+		Entry(
+			"exempt open member does not mask a genuine open member",
+			ops.ClosureKindGoal,
+			"---\nstatus: in_progress\n---\n# Success Criteria\n- [x] done\n"+
+				"# Definition of Done\n- [x] done\n",
+			[]ops.ClosureMember{
+				{Name: "repair-row", Status: "next", Exempt: true},
+				{Name: "re-check", Status: "in_progress"},
+			},
+			false,
+			ops.ClosureOutcomeOpen,
+			1,
+			"re-check",
+		),
+		Entry(
+			"exempt member does not mask an open Success Criteria box",
+			ops.ClosureKindGoal,
+			"---\nstatus: in_progress\n---\n# Success Criteria\n- [ ] an open criterion\n"+
+				"# Definition of Done\n- [x] done\n",
+			[]ops.ClosureMember{{Name: "repair-row", Status: "next", Exempt: true}},
+			false,
+			ops.ClosureOutcomeOpen,
+			1,
+			"an open criterion",
+		),
+		Entry(
+			"unmarked open member still blocks",
+			ops.ClosureKindGoal,
+			"---\nstatus: in_progress\n---\n# Success Criteria\n- [x] done\n"+
+				"# Definition of Done\n- [x] done\n",
+			[]ops.ClosureMember{{Name: "ordinary-task", Status: "todo"}},
+			false,
+			ops.ClosureOutcomeOpen,
+			1,
+			"ordinary-task",
+		),
+		Entry(
 			"topic with no Goals section",
 			ops.ClosureKindTopic,
 			"---\nstatus: in_progress\n---\n# Success Criteria\n- [x] done\n"+

@@ -185,6 +185,8 @@ Where it surfaces: `vault-cli goal list --output json` emits `blocked_by` (the r
 
 `topics` names the topics this goal belongs to — the goal→topic parent relation the completion cascade walks. It is a YAML list of topic names; each entry may be a plain name (`My Topic`) or a wikilink. `[[My Topic]]`, `[[My Topic|label]]` and `[[My Topic#Heading]]` all resolve to the same topic. A scalar value (`topics: My Topic`) is malformed and comma-splits on read; correct it to a list.
 
+Membership in a topic is granted **either** by listing it here **or** by appearing under that topic page's `## Goals` section, and `goal complete` cascades on both. The two are equivalent for closure: a goal with no `topics:` still closes a topic whose `## Goals` names it. Naming the goal in the goal's own `topics:` is the cheaper read — it is one field lookup rather than a scan of every topic page — so prefer it when the relation is known at the goal.
+
 Completing a goal closes it and then attempts every declared topic with the same closure gate, in document order:
 
 ```

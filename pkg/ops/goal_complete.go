@@ -6,6 +6,7 @@ package ops
 
 import (
 	"context"
+	"sort"
 
 	"github.com/bborbe/errors"
 	libtime "github.com/bborbe/time"
@@ -37,12 +38,14 @@ func NewGoalCompleteOperation(
 	taskStorage storage.TaskStorage,
 	currentDateTime libtime.CurrentDateTime,
 	topicCompleteOperation TopicCompleteOperation,
+	topicStorage storage.TopicStorage,
 ) GoalCompleteOperation {
 	return &goalCompleteOperation{
 		goalStorage:            goalStorage,
 		taskStorage:            taskStorage,
 		currentDateTime:        currentDateTime,
 		topicCompleteOperation: topicCompleteOperation,
+		topicStorage:           topicStorage,
 	}
 }
 
@@ -51,6 +54,7 @@ type goalCompleteOperation struct {
 	taskStorage            storage.TaskStorage
 	currentDateTime        libtime.CurrentDateTime
 	topicCompleteOperation TopicCompleteOperation
+	topicStorage           storage.TopicStorage
 }
 
 // Execute marks a goal as completed, optionally blocking if open tasks exist.
@@ -132,24 +136,88 @@ func (g *goalCompleteOperation) Execute(
 	return result, nil
 }
 
-// cascadeTopics attempts every topic declared in the goal's `topics:` list, in
-// document order. It runs only once the goal is terminal: a topic's gate
-// requires its member goals terminal, so an open goal could only refuse. The
-// topics of an already-terminal goal are still attempted, which is how a
-// topic closes on a later run after its goal closed earlier.
+// cascadeTopics attempts every topic that names the goal, either through the
+// goal's declared `topics:` list or through the topic page's `## Goals` section.
+// Declared topics run first in document order, then discovered topics sorted by
+// name, with duplicates removed. It runs only once the goal is terminal: a
+// topic's gate requires its member goals terminal, so an open goal could only
+// refuse. The topics of an already-terminal goal are still attempted, which is
+// how a topic closes on a later run after its goal closed earlier.
+//
+// A failure to scan the topics directory never fails the goal close: the
+// declared names are still attempted and the scan failure is appended as a
+// refused `<topics scan>` entry so it is visible rather than silent.
 func (g *goalCompleteOperation) cascadeTopics(
 	ctx context.Context,
 	vaultPath string,
 	vaultName string,
 	goal *domain.Goal,
 ) []ParentAttempt {
-	return cascadeParents(
+	names := goal.Topics()
+
+	var scanErr error
+	topics, err := g.topicStorage.ListTopics(ctx, vaultPath)
+	if err != nil {
+		scanErr = err
+	} else {
+		names = append(names, discoveredTopicNames(goal, topics, names)...)
+	}
+
+	attempts := cascadeParents(
 		ctx,
-		goal.Topics(),
+		names,
 		func(ctx context.Context, topicName string) (MutationResult, error) {
 			return g.topicCompleteOperation.Execute(ctx, vaultPath, topicName, vaultName)
 		},
 	)
+	if scanErr != nil {
+		attempts = append(attempts, ParentAttempt{
+			Name:      "<topics scan>",
+			Result:    ParentResultRefused,
+			OpenItems: []string{scanErr.Error()},
+		})
+	}
+	return attempts
+}
+
+// discoveredTopicNames returns the topics whose `## Goals` section names goal,
+// sorted by name. A name already declared in declared is skipped so the
+// declared order stays observable and no topic is attempted twice.
+func discoveredTopicNames(
+	goal *domain.Goal,
+	topics []*domain.Topic,
+	declared []string,
+) []string {
+	goalName := normaliseGoalLink(goal.Name)
+	seen := make(map[string]bool, len(declared))
+	for _, name := range declared {
+		seen[normaliseGoalLink(name)] = true
+	}
+
+	var names []string
+	for _, topic := range topics {
+		if !goalSectionNames(goalName, string(topic.Content)) {
+			continue
+		}
+		normalised := normaliseGoalLink(topic.Name)
+		if seen[normalised] {
+			continue
+		}
+		seen[normalised] = true
+		names = append(names, topic.Name)
+	}
+	sort.Strings(names)
+	return names
+}
+
+// goalSectionNames reports whether the topic content's Goals section names goal.
+func goalSectionNames(goalName string, content string) bool {
+	for _, member := range parseGoalSectionMembers(content) {
+		if member == goalName {
+			return true
+		}
+	}
+	return false
 }
 
 // setCompletedStatus persists the one-step close-out fields (when provided)

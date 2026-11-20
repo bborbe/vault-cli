@@ -105,6 +105,11 @@ type VisionStorage interface {
 type TopicStorage interface {
 	WriteTopic(ctx context.Context, topic *domain.Topic) error
 	FindTopicByName(ctx context.Context, vaultPath string, name string) (*domain.Topic, error)
+	// ListTopics returns every topic page in the vault's configured topics
+	// directory. An unreadable or unparseable topic file is skipped with a warning,
+	// mirroring ListPages; a missing directory returns an empty list, and a
+	// directory-walk failure is returned.
+	ListTopics(ctx context.Context, vaultPath string) ([]*domain.Topic, error)
 }
 
 //counterfeiter:generate -o ../../mocks/daily-note-storage.go --fake-name DailyNoteStorage . DailyNoteStorage

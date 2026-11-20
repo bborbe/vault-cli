@@ -41,6 +41,7 @@ var _ = Describe("GoalCompleteOperation", func() {
 		op                         ops.GoalCompleteOperation
 		mockGoalStorage            *mocks.GoalStorage
 		mockTaskStorage            *mocks.TaskStorage
+		mockTopicStorage           *mocks.TopicStorage
 		mockTopicCompleteOperation *mocks.TopicCompleteOperation
 		currentDateTime            libtime.CurrentDateTime
 		vaultPath                  string
@@ -56,6 +57,8 @@ var _ = Describe("GoalCompleteOperation", func() {
 		ctx = context.Background()
 		mockGoalStorage = &mocks.GoalStorage{}
 		mockTaskStorage = &mocks.TaskStorage{}
+		mockTopicStorage = &mocks.TopicStorage{}
+		mockTopicStorage.ListTopicsReturns(nil, nil)
 		mockTopicCompleteOperation = &mocks.TopicCompleteOperation{}
 		mockTopicCompleteOperation.ExecuteReturns(ops.MutationResult{Success: true}, nil)
 		currentDateTime = libtime.NewCurrentDateTime()
@@ -65,6 +68,7 @@ var _ = Describe("GoalCompleteOperation", func() {
 			mockTaskStorage,
 			currentDateTime,
 			mockTopicCompleteOperation,
+			mockTopicStorage,
 		)
 		vaultPath = "/path/to/vault"
 		goalName = "my-goal"

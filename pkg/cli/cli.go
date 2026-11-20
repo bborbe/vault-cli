@@ -298,14 +298,13 @@ func createCompleteCommand(
 					if err != nil {
 						return ops.MutationResult{}, err
 					}
+					topicStore := storage.NewTopicStorage(storageConfig)
 					goalCompleteOp := ops.NewGoalCompleteOperation(
 						goalStore,
 						taskStore,
 						currentDateTime,
-						ops.NewTopicCompleteOperation(
-							storage.NewTopicStorage(storageConfig),
-							goalStore,
-						),
+						ops.NewTopicCompleteOperation(topicStore, goalStore),
+						topicStore,
 					)
 					completeOp := ops.NewCompleteOperation(
 						taskStore,
@@ -1585,6 +1584,7 @@ func createGoalCompleteCommand(
 						taskStore,
 						currentDateTime,
 						ops.NewTopicCompleteOperation(topicStore, goalStore),
+						topicStore,
 					)
 					result, err := completeOp.Execute(
 						ctx,

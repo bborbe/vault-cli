@@ -46,6 +46,7 @@ var _ = Describe("parent cascade single close path", func() {
 			mockTaskStorage,
 			currentDateTime,
 			topicOp,
+			mockTopicStorage,
 		)
 		completeOp = ops.NewCompleteOperation(
 			mockTaskStorage,

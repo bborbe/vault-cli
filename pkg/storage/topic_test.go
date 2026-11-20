@@ -362,6 +362,72 @@ Body text.
 		})
 	})
 
+	Describe("ListTopics", func() {
+		It("returns every topic file", func() {
+			Expect(os.WriteFile(
+				filepath.Join(topicsDir, "Attention Routing.md"),
+				[]byte(topicContent()),
+				0600,
+			)).To(Succeed())
+			Expect(os.WriteFile(
+				filepath.Join(topicsDir, "Second Topic.md"),
+				[]byte(topicContent()),
+				0600,
+			)).To(Succeed())
+
+			topics, err := store.ListTopics(ctx, vaultDir)
+			Expect(err).To(BeNil())
+			Expect(topics).To(HaveLen(2))
+			names := []string{topics[0].Name, topics[1].Name}
+			Expect(names).To(ConsistOf("Attention Routing", "Second Topic"))
+		})
+
+		It("ignores a non-markdown file and a subdirectory", func() {
+			Expect(os.WriteFile(
+				filepath.Join(topicsDir, "Attention Routing.md"),
+				[]byte(topicContent()),
+				0600,
+			)).To(Succeed())
+			Expect(os.WriteFile(
+				filepath.Join(topicsDir, "notes.txt"),
+				[]byte("not a topic"),
+				0600,
+			)).To(Succeed())
+			Expect(os.MkdirAll(filepath.Join(topicsDir, "sub"), 0750)).To(Succeed())
+
+			topics, err := store.ListTopics(ctx, vaultDir)
+			Expect(err).To(BeNil())
+			Expect(topics).To(HaveLen(1))
+			Expect(topics[0].Name).To(Equal("Attention Routing"))
+		})
+
+		It("skips an unparseable topic file and returns the rest", func() {
+			Expect(os.WriteFile(
+				filepath.Join(topicsDir, "Attention Routing.md"),
+				[]byte(topicContent()),
+				0600,
+			)).To(Succeed())
+			Expect(os.WriteFile(
+				filepath.Join(topicsDir, "NoFrontmatter.md"),
+				[]byte("# No frontmatter here\n"),
+				0600,
+			)).To(Succeed())
+
+			topics, err := store.ListTopics(ctx, vaultDir)
+			Expect(err).To(BeNil())
+			Expect(topics).To(HaveLen(1))
+			Expect(topics[0].Name).To(Equal("Attention Routing"))
+		})
+
+		It("returns an empty list with a nil error for a missing topics directory", func() {
+			customStore := storage.NewStorage(&storage.Config{TopicsDir: "Custom Topics"})
+
+			topics, err := customStore.ListTopics(ctx, vaultDir)
+			Expect(err).To(BeNil())
+			Expect(topics).To(BeEmpty())
+		})
+	})
+
 	Describe("absent directories", func() {
 		It("returns an ErrNotFound-class error when the configured directory is absent", func() {
 			customStore := storage.NewStorage(&storage.Config{TopicsDir: "Custom Topics"})

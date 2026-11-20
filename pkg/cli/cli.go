@@ -1545,6 +1545,20 @@ func createGoalCommands(
 	return cmd
 }
 
+// goalCompleteLong is the `goal complete --help` text. It is a package constant
+// so the command builder stays within the function-length budget.
+const goalCompleteLong = `Mark a goal as complete.
+
+The closure gate refuses while the goal's # Success Criteria or # Definition of
+Done carries an open box, or while any task linked to the goal by frontmatter
+` + "`goals:`" + ` is still open (status next/todo/in_progress).
+
+A linked task that carries ` + "`goal_close_exempt: true`" + ` in its frontmatter is
+outside the goal's closure population — it keeps its ` + "`goals:`" + ` link so an
+instrument can find it, but it never blocks the close. Use it only for rows a
+goal's own record excludes from its Definition of Done; an unmarked open task
+still refuses.`
+
 func createGoalCompleteCommand(
 	ctx context.Context,
 	configLoader *config.Loader,
@@ -1557,6 +1571,7 @@ func createGoalCompleteCommand(
 	cmd := &cobra.Command{
 		Use:   "complete <goal-name>",
 		Short: "Mark a goal as complete",
+		Long:  goalCompleteLong,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			goalName := args[0]

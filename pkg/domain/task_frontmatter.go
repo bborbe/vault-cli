@@ -43,6 +43,16 @@ func (f TaskFrontmatter) PageType() string { return f.GetString("page_type") }
 // Goals reads "goals" key via GetStringSlice.
 func (f TaskFrontmatter) Goals() []string { return f.GetStringSlice("goals") }
 
+// GoalCloseExempt reads the "goal_close_exempt" key via GetBool coercion.
+//
+// A true value means the task carries its `goals:` link so an instrument can
+// find it (a regression sweep enumerating by frontmatter `goals:`) and is not a
+// deliverable of the goal it names, so `goal complete` must not count it as an
+// open closure item. The task stays linked and keeps its status; only the gate's
+// population narrows. False for a missing key or an unrecognised value, so an
+// unmarked task is always counted.
+func (f TaskFrontmatter) GoalCloseExempt() bool { return f.GetBool("goal_close_exempt") }
+
 // BlockedBy reads the "blocked_by" key as a list of blocker names.
 // Only a YAML list is accepted (plain names or [[wikilinks]]); a scalar value
 // is malformed and reads as an empty list, so malformed data never blocks.

@@ -5,6 +5,8 @@ argument-hint: "<goal-name-or-path> [--non-interactive]"
 
 <objective>
 Mark a goal complete by calling `vault-cli goal complete`, which is the single closure gate: it reads the goal's `# Success Criteria` and `# Definition of Done` boxes plus its linked tasks and refuses on any open item. This command never counts boxes itself and offers no bypass.
+
+A linked task that carries `goal_close_exempt: true` in its frontmatter is outside the goal's closure population: it keeps its `goals:` link (so an instrument such as a regression sweep can find it) but is never counted as an open closure item. The marker is per-task and read from frontmatter — never infer an exemption from a task's title. An unmarked open task still refuses.
 </objective>
 
 <process>

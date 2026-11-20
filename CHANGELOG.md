@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat: `goal complete` honours a per-task closure-population exemption. A task that carries the goal link but is marked `goal_close_exempt: true` in its frontmatter is no longer counted as an open closure item — it keeps its `goals:` link so an instrument (a regression sweep) still finds it, but never blocks the close. The marker narrows the population: an unmarked open task, an open `# Success Criteria`/`# Definition of Done` box, and any genuine open DoD member still refuse. `commands/complete-goal.md` and `vault-cli goal complete --help` document the marker
+
 ## v0.199.3
 
 - fix: a wikilink that carries a directory path — `[[24 Goals/Some Goal]]` — now resolves to `Some Goal` in both membership readers, so a topic whose `## Goals` writes its members that way cascades on `goal complete` and its members resolve on `topic complete`. `normaliseGoalLink` strips the leading path; a name is a filename, so a `/` can only be a separator

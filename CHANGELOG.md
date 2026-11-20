@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.199.0
 
 - feat: `task complete` and `goal complete` cascade one level up — a completed task attempts each goal in its `goals:`, a completed goal attempts each topic in its `topics:`, every attempt is reported on stdout as `parent <name>: completed|refused` and as a `parents` array in `--output json`, and a refusing parent never fails the child or changes its exit code
 

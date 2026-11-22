@@ -156,8 +156,11 @@ Validation is not optional. `claude` reports a `session_id` even for a turn that
 no work or failed outright, so an unvalidated id would be handed to the operator as
 resumable when it is not — the same class of lie this fix exists to remove. The
 validation verdict, not the process exit status, is what decides: a turn whose result
-is `num_turns: 0`, `is_error: true`, or unparseable is an error, and no id is
-persisted. The same shared `validateSessionTurn` still serves both branches.
+is `num_turns: 0` or `is_error: true` is an error, and so is one whose output carries
+no valid turn result at its start — no id is persisted in any of those cases. Trailing
+bytes after the result are ignored: the first JSON value in the captured output is the
+turn result, whatever follows it. The same shared `validateSessionTurn` still serves
+both branches.
 
 A temp **file** rather than a pipe is deliberate: the child writes to an inherited fd
 with no reader, so there is no pipe-buffer deadlock and no EPIPE if the parent goes

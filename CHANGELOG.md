@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: accept a headless turn whose captured stdout carries trailing bytes after the JSON result
+
 ## v0.200.1
 
 - docs: `task-writing.md` makes `hold` operator-only — agents never set or propose it; a task blocked by another task keeps its status and phase and carries only `blocked_by:`

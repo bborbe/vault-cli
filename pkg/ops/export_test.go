@@ -59,3 +59,8 @@ type ClosureVerdict = closureVerdict
 
 // CascadeParents exposes cascadeParents for the external ops_test package.
 var CascadeParents = cascadeParents
+
+// ErrClaudeOutputUnparseable exposes errClaudeOutputUnparseable for the external
+// ops_test package so tests can assert the sentinel with errors.Is. Test-only: this
+// file is a _test.go file and is not part of the package's public API.
+var ErrClaudeOutputUnparseable = errClaudeOutputUnparseable

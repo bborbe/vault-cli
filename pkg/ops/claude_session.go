@@ -5,6 +5,7 @@
 package ops
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	stderrors "errors"
@@ -327,9 +328,16 @@ func validateSessionTurn(ctx context.Context, output []byte) error {
 		IsError   bool   `json:"is_error"`
 		Result    string `json:"result"`
 	}
-	if err := json.Unmarshal(output, &result); err != nil {
+	// Decode exactly one JSON value from the start of the buffer and ignore any
+	// suffix. The captured stdout file is the child's stdout fd, so anything else
+	// writing to that fd appends bytes after the turn's JSON object; requiring the
+	// whole buffer to be one document would discard a turn that completed. A buffer
+	// with no valid JSON at its start (empty, truncated, or a scalar) still fails
+	// here, so the unparseable path and its compensating clear are unchanged.
+	dec := json.NewDecoder(bytes.NewReader(output))
+	if err := dec.Decode(&result); err != nil {
 		// The sentinel is the wrapped cause on purpose so errors.Is can match it; the
-		// underlying unmarshal error is flattened into the text rather than chained.
+		// underlying decode error is flattened into the text rather than chained.
 		// Do not "fix" this back to errors.Wrap(ctx, err, ...) — that breaks the
 		// errors.Is check in runDetachedTurn and silently restores the old behaviour
 		// of reporting a bare exit status for output that actually parsed.

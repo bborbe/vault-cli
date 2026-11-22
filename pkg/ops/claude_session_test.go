@@ -410,6 +410,120 @@ var _ = Describe("ClaudeSessionStarter", func() {
 			err := starter.StartSession(ctx, "session-abc", "prompt", "/my/vault", "", false)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("parse claude output"))
+			Expect(errors.Is(err, ops.ErrClaudeOutputUnparseable)).To(BeTrue())
+		})
+
+		It("accepts a turn result followed by a trailing separator", func() {
+			bw := blockWaiter
+			starter = ops.NewClaudeSessionStarterWithRunner(
+				"/usr/local/bin/claude",
+				nil,
+				func(_ []string, _ string, stdout *os.File) (<-chan error, error) {
+					_, _ = stdout.WriteString(
+						`{"session_id":"s","num_turns":1,"is_error":false,"result":"done","usage":{"input_tokens":5}}` + "\n---\n",
+					)
+					done := make(chan error, 1)
+					done <- nil
+					return done, nil
+				},
+				libtime.WaiterDurationFunc(func(_ context.Context, _ libtime.Duration) error {
+					<-bw
+					return nil
+				}),
+				locker,
+			)
+			err := starter.StartSession(ctx, "session-abc", "prompt", "/my/vault", "", false)
+			Expect(err).To(BeNil())
+		})
+
+		It("accepts a turn result followed by a brace-bearing suffix", func() {
+			bw := blockWaiter
+			starter = ops.NewClaudeSessionStarterWithRunner(
+				"/usr/local/bin/claude",
+				nil,
+				func(_ []string, _ string, stdout *os.File) (<-chan error, error) {
+					_, _ = stdout.WriteString(validTurnJSON + "\n---\n{}")
+					done := make(chan error, 1)
+					done <- nil
+					return done, nil
+				},
+				libtime.WaiterDurationFunc(func(_ context.Context, _ libtime.Duration) error {
+					<-bw
+					return nil
+				}),
+				locker,
+			)
+			err := starter.StartSession(ctx, "session-abc", "prompt", "/my/vault", "", false)
+			Expect(err).To(BeNil())
+		})
+
+		It("rejects a truncated turn result with the unparseable sentinel", func() {
+			bw := blockWaiter
+			starter = ops.NewClaudeSessionStarterWithRunner(
+				"/usr/local/bin/claude",
+				nil,
+				func(_ []string, _ string, stdout *os.File) (<-chan error, error) {
+					_, _ = stdout.WriteString(`{"session_id":"s","num_turns":1`)
+					done := make(chan error, 1)
+					done <- nil
+					return done, nil
+				},
+				libtime.WaiterDurationFunc(func(_ context.Context, _ libtime.Duration) error {
+					<-bw
+					return nil
+				}),
+				locker,
+			)
+			err := starter.StartSession(ctx, "session-abc", "prompt", "/my/vault", "", false)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("parse claude output"))
+			Expect(errors.Is(err, ops.ErrClaudeOutputUnparseable)).To(BeTrue())
+		})
+
+		It("rejects a JSON scalar with the unparseable sentinel", func() {
+			bw := blockWaiter
+			starter = ops.NewClaudeSessionStarterWithRunner(
+				"/usr/local/bin/claude",
+				nil,
+				func(_ []string, _ string, stdout *os.File) (<-chan error, error) {
+					_, _ = stdout.WriteString(`true`)
+					done := make(chan error, 1)
+					done <- nil
+					return done, nil
+				},
+				libtime.WaiterDurationFunc(func(_ context.Context, _ libtime.Duration) error {
+					<-bw
+					return nil
+				}),
+				locker,
+			)
+			err := starter.StartSession(ctx, "session-abc", "prompt", "/my/vault", "", false)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("parse claude output"))
+			Expect(errors.Is(err, ops.ErrClaudeOutputUnparseable)).To(BeTrue())
+		})
+
+		It("rejects a JSON null via the empty-session_id predicate, not the sentinel", func() {
+			bw := blockWaiter
+			starter = ops.NewClaudeSessionStarterWithRunner(
+				"/usr/local/bin/claude",
+				nil,
+				func(_ []string, _ string, stdout *os.File) (<-chan error, error) {
+					_, _ = stdout.WriteString(`null`)
+					done := make(chan error, 1)
+					done <- nil
+					return done, nil
+				},
+				libtime.WaiterDurationFunc(func(_ context.Context, _ libtime.Duration) error {
+					<-bw
+					return nil
+				}),
+				locker,
+			)
+			err := starter.StartSession(ctx, "session-abc", "prompt", "/my/vault", "", false)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("empty session_id"))
+			Expect(errors.Is(err, ops.ErrClaudeOutputUnparseable)).To(BeFalse())
 		})
 
 		It("treats a child exit error as an error", func() {

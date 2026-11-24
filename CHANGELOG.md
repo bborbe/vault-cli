@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- chore: remove 8 stale vulnerability ignores (withdrawn advisory, module absent from go.mod, or version outside the affected range)
+
 ## v0.200.2
 
 - fix: accept a headless turn whose captured stdout carries trailing bytes after the JSON result

@@ -129,6 +129,10 @@ func (c *completeOperation) Execute(
 		}
 	}
 
+	if result, blocked := openPullRequestRefusal(string(task.Content), taskName, vaultName); blocked {
+		return result, nil
+	}
+
 	// One-step close-out: persist reason and successor before the status
 	// transition so both land in a single WriteTask. Fields are written only
 	// when provided — the two-step close-out (fields already in the file) works

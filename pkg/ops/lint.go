@@ -138,6 +138,11 @@ const (
 	IssueTypeCompletedGoalMissingCreated IssueType = "COMPLETED_GOAL_MISSING_CREATED"
 	IssueTypeApprovedRecordInTodoInbox   IssueType = "APPROVED_RECORD_IN_TODO_INBOX"
 	IssueTypeExpiredDeferDate            IssueType = "EXPIRED_DEFER_DATE"
+	// IssueTypePROpenOnFinishedTask reports a task that reached a terminal
+	// status while one of its `# Pull Requests` entries still reads open. The
+	// task's terminal state and its pull request's state must agree; see
+	// PullRequestTaskBindingGuide.
+	IssueTypePROpenOnFinishedTask IssueType = "PR_OPEN_ON_FINISHED_TASK"
 )
 
 // PageTypeGoal is the lint page type `vault-cli goal lint` passes. The
@@ -409,6 +414,47 @@ func (l *lintOperation) collectLintIssues(
 	// Identifier checks are task-only — see PageTypeTask.
 	issues = append(issues, l.taskIdentifierIssues(pageType, filePath, frontmatterYAML)...)
 
+	// A finished task must not still own an open pull request — task-only.
+	issues = append(issues, l.pullRequestOpenOnFinishedTaskIssues(pageType, filePath, frontmatterYAML, string(content))...)
+
+	return issues
+}
+
+// pullRequestOpenOnFinishedTaskIssues reports a task whose status is terminal
+// while a `# Pull Requests` entry still declares an open pull request. The rule
+// is task-only and never fixable: closing the pull request is a deliberate
+// action, and rewriting the entry to say `closed` would record a closure that
+// did not happen.
+func (l *lintOperation) pullRequestOpenOnFinishedTaskIssues(
+	pageType string,
+	filePath string,
+	frontmatterYAML string,
+	content string,
+) []LintIssue {
+	if pageType != PageTypeTask {
+		return nil
+	}
+	statusMatches := statusRegex.FindStringSubmatch(frontmatterYAML)
+	if len(statusMatches) < 2 {
+		return nil
+	}
+	status := statusMatches[1]
+	if !isTerminalTaskStatus(status) {
+		return nil
+	}
+	issues := make([]LintIssue, 0, 2)
+	for _, entry := range OpenPullRequests(content) {
+		issues = append(issues, LintIssue{
+			FilePath:  filePath,
+			IssueType: IssueTypePROpenOnFinishedTask,
+			Description: fmt.Sprintf(
+				"status is %q but pull request %s is still open — close the pull request or reopen the task",
+				status,
+				entry.Key,
+			),
+			Fixable: false,
+		})
+	}
 	return issues
 }
 

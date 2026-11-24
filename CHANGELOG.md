@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat: bind every pull request to a task. A task's `# Pull Requests` section now carries a lifecycle state per entry (`— open`, `— merged`, `— closed`), and two checks enforce that a task's terminal state and its pull request's state agree. New lint rule `PR_OPEN_ON_FINISHED_TASK` reports a `completed` or `aborted` task whose entry still reads `open`, and `vault-cli task complete` refuses while any entry is open (`--force` overrides). Entries the parser cannot classify are treated as unknown, never as open, so the thousands of free-form sections written before this convention never fire the rule. Rationale and the private-vs-Seibert split: `Pull Request Task Binding Guide` in the private-personal vault.
+
 ## v0.200.2
 
 - fix: accept a headless turn whose captured stdout carries trailing bytes after the JSON result

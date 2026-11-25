@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: **`session-close` Phase 4.5 no longer hard-flags a deliberately stopped anchor task.** The phase flagged every touched `in_progress` anchor, including a row the operator had retired with `/supervisor:stop` — asking them to resolve a retirement they had already made. A third case now clears the flag: `stopped: true` whose `stop_date` is **newer** than the task's `flag_set_at` is a recorded stand-down, and the closer carries it as `later (on <task> stand-down)` instead of offering to resolve it. The test is ordering, not presence — a stop **older** than the flag keeps the hard flag, because the operator re-flagged the row after stopping it, and a missing or unparseable stamp is fail-closed and keeps it too. Measured 2026-11-24 on `Classify the Heat-Pump Penetration Seal`: flag cleared 17:10, stopped 18:05:33, deliberately re-flagged 19:36:58 — a presence-only test would ignore the operator's newest mark on exactly that row. Change set: `commands/session-close.md`, `CHANGELOG.md`.
+
 ## v0.200.4
 
 - chore: remove orphaned section comments left in `.trivyignore` by the stale-ignore sweep

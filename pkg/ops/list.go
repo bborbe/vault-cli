@@ -160,6 +160,29 @@ func formatFlagSetAt(fm domain.FrontmatterMap) string {
 	return t.UTC().Format("2006-01-02T15:04:05Z")
 }
 
+// stoppedAfterFlag reports whether the operator stopped this row AFTER flagging
+// it, which makes it a deliberate retirement rather than live work.
+//
+// The test is ordering, not presence: a row flagged again after its stop still
+// lists — that is the operator's newest mark. A missing or unparseable stamp is
+// fail-closed, because absent evidence never re-surfaces a retired row.
+//
+// ⚠️ The two stamps are read with GetTime, never GetString+time.Parse: a
+// YAML-parsed page carries them as time.Time, which GetString renders in Go's
+// own layout and time.Parse(time.RFC3339) rejects — that mistake makes every
+// stopped row invisible while a string-only fixture keeps the suite green.
+func stoppedAfterFlag(fm domain.FrontmatterMap) bool {
+	if !fm.GetBool("stopped") {
+		return false
+	}
+	stopDate := fm.GetTime("stop_date")
+	flagSetAt := fm.GetTime("flag_set_at")
+	if stopDate == nil || flagSetAt == nil {
+		return true
+	}
+	return !flagSetAt.After(*stopDate)
+}
+
 // filterTasks filters tasks by status, assignee, and goal.
 func filterTasks(
 	tasks []*domain.Page,
@@ -170,6 +193,11 @@ func filterTasks(
 ) []*domain.Page {
 	filteredTasks := make([]*domain.Page, 0, len(tasks))
 	for _, task := range tasks {
+		// Before shouldIncludeTask: that helper returns true early when showAll
+		// is set, so a check placed inside it would be bypassed by --all.
+		if stoppedAfterFlag(task.FrontmatterMap) {
+			continue
+		}
 		if !shouldIncludeTask(task, statusFilters, showAll, assigneeFilter, goalFilter) {
 			continue
 		}

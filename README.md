@@ -92,6 +92,9 @@ vault-cli task list --status deferred              # Filter by status
 vault-cli task list --all                          # Show all tasks
 vault-cli task list --assignee alice               # Filter by assignee
 
+`task list` omits a task the operator stopped **after** flagging it (`stopped: true`
+with `stop_date` newer than `flag_set_at`). A row re-flagged after its stop still
+lists. `task get` and every other verb are unchanged.
 vault-cli task show "Build vault-cli Go Tool"      # Show full task detail
 vault-cli task answer "Build vault-cli Go Tool" --answer 1="<text>"  # Record answers into the task's Open Questions section (repeat --answer per question)
 vault-cli task complete "Build vault-cli Go Tool" --reason "..." --gate-successor none  # Mark task as complete

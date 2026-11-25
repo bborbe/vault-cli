@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- fix: **`vault-cli task list` no longer lists a task the operator stopped after flagging it.** A retired row keeps `status: in_progress`, so it read as live work in every listing. The rule is **ordering, not presence** — a row is omitted only when its `stop_date` is newer than its `flag_set_at`, so a row re-flagged after its stop still lists (that is the operator's newest mark). A stopped row with a missing or unparseable stamp is omitted too: absent evidence never re-surfaces a retired row. The check sits in `filterTasks` before `shouldIncludeTask`, because that helper returns true early when `--all` is set. `task get` and every other verb are unchanged, so a stopped row stays readable by name. Change set: `pkg/ops/list.go`, `pkg/ops/list_standdown_test.go`, `CHANGELOG.md`.
+
 ## v0.200.5
 
 - fix: **`session-close` Phase 4.5 no longer hard-flags a deliberately stopped anchor task.** The phase flagged every touched `in_progress` anchor, including a row the operator had retired with `/supervisor:stop` — asking them to resolve a retirement they had already made. A third case now clears the flag: `stopped: true` whose `stop_date` is **newer** than the task's `flag_set_at` is a recorded stand-down, and the closer carries it as `later (on <task> stand-down)` instead of offering to resolve it. The test is ordering, not presence — a stop **older** than the flag keeps the hard flag, because the operator re-flagged the row after stopping it, and a missing or unparseable stamp is fail-closed and keeps it too. Measured 2026-11-24 on `Classify the Heat-Pump Penetration Seal`: flag cleared 17:10, stopped 18:05:33, deliberately re-flagged 19:36:58 — a presence-only test would ignore the operator's newest mark on exactly that row. Change set: `commands/session-close.md`, `CHANGELOG.md`.

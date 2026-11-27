@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.200.7
 
 - fix: **`vault-cli topic set <name> flag true --by <actor>` now records `flag_set_by` and `flag_set_at`, and clearing the flag removes both.** The topic set path ignored the actor and wrote no provenance (and stored the flag as the string `"true"`), so a topic flagged from the Vault UI carried no setter and claude-wrapper's flagged tick refused it as `flag-provenance-unrecorded`. Topics now mirror goals: a real YAML boolean, provenance composed onto the same write, a blank actor refused with the file untouched, a direct `flag_set_by` / `flag_set_at` write refused, and `flag false` / `clear flag` dropping the provenance keys. The Vault UI already passes `operator` for task, goal and topic, so it needs only this release. Change set: `pkg/ops/frontmatter_entity.go`, `pkg/domain/topic_frontmatter.go`, `pkg/ops/frontmatter_entity_test.go`, `CHANGELOG.md`.
 

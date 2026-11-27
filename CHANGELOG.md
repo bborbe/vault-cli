@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- chore: update github.com/bborbe/boltkv to v1.17.1, github.com/bborbe/collection to v1.21.9, github.com/bborbe/cqrs to v0.6.18, github.com/bborbe/errors to v1.7.1, github.com/bborbe/kafka to v1.30.4, github.com/bborbe/kv to v1.21.31, github.com/bborbe/log to v1.7.10, github.com/bborbe/run to v1.13.0, github.com/bborbe/time to v1.27.30, github.com/bborbe/validation to v1.5.12
+
 ## v0.200.6
 
 - fix: **`vault-cli task list` no longer lists a task the operator stopped after flagging it.** A retired row keeps `status: in_progress`, so it read as live work in every listing. The rule is **ordering, not presence** — a row is omitted only when its `stop_date` is newer than its `flag_set_at`, so a row re-flagged after its stop still lists (that is the operator's newest mark). A stopped row with a missing or unparseable stamp is omitted too: absent evidence never re-surfaces a retired row. The check sits in `filterTasks` before `shouldIncludeTask`, because that helper returns true early when `--all` is set. `task get` and every other verb are unchanged, so a stopped row stays readable by name. Change set: `pkg/ops/list.go`, `pkg/ops/list_standdown_test.go`, `CHANGELOG.md`.

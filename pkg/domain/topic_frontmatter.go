@@ -10,6 +10,7 @@ import (
 
 	"github.com/bborbe/errors"
 	libtime "github.com/bborbe/time"
+	"github.com/bborbe/validation"
 )
 
 // TopicFrontmatter holds the YAML frontmatter for a Topic.
@@ -147,13 +148,39 @@ func (f *TopicFrontmatter) SetField(ctx context.Context, key, value string) erro
 		return f.setPhaseField(ctx, value)
 	case "defer_date":
 		return f.setDeferDateFromString(ctx, value)
+	case "flag":
+		return f.setFlagField(ctx, value)
 	default:
 		f.Set(key, value)
 	}
 	return nil
 }
 
-// ClearField removes a frontmatter field by key.
+// setFlagField parses a boolean string and stores the flag as a real YAML bool,
+// or clears the flag and its provenance on empty. Accepted values match the goal
+// path: "true"/"yes" and "false"/"no", case-insensitive, whitespace trimmed.
+func (f *TopicFrontmatter) setFlagField(ctx context.Context, value string) error {
+	if value == "" {
+		f.ClearField("flag")
+		return nil
+	}
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "true", "yes":
+		f.Set("flag", true)
+	case "false", "no":
+		f.Set("flag", false)
+	default:
+		return errors.Wrapf(ctx, validation.Error, "invalid flag value '%s' (accepted values: true/yes/false/no)", value)
+	}
+	return nil
+}
+
+// ClearField removes a frontmatter field by key. Clearing "flag" also removes
+// flag_set_by and flag_set_at, so a cleared flag leaves no stale writer behind.
 func (f *TopicFrontmatter) ClearField(key string) {
 	f.Delete(key)
+	if key == "flag" {
+		f.Delete("flag_set_by")
+		f.Delete("flag_set_at")
+	}
 }

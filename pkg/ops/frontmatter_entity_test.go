@@ -2098,3 +2098,120 @@ body line
 		Expect(strings.Count(out, "phase:")).To(Equal(1))
 	})
 })
+
+// The topic flag contract mirrors the goal one: the flag is a real YAML boolean
+// and its provenance (flag_set_by, flag_set_at) is composed onto the same map
+// and persisted by the operation's single WriteTopic. Without it the Vault UI's
+// topic flag toggle writes an unattributed flag that every provenance-gated
+// reader refuses.
+var _ = Describe("NewTopicSetOperation flag provenance", func() {
+	var (
+		ctx       context.Context
+		err       error
+		setOp     ops.EntitySetOperation
+		clearOp   ops.EntityClearOperation
+		pinned    libtime.CurrentDateTime
+		vaultPath string
+		topicPath string
+	)
+
+	const topicFixture = `---
+status: in_progress
+page_type: topic
+---
+body line
+`
+
+	BeforeEach(func() {
+		ctx = context.Background()
+		pinned = libtime.NewCurrentDateTime()
+		pinned.SetNow(libtimetest.ParseDateTime("2026-09-30T08:00:00Z"))
+
+		vaultPath, err = os.MkdirTemp("", "vault-topic-flag-*")
+		Expect(err).NotTo(HaveOccurred())
+		topicsDir := filepath.Join(vaultPath, "23 Topics")
+		Expect(os.MkdirAll(topicsDir, 0755)).To(Succeed())
+		topicPath = filepath.Join(topicsDir, "Alpha.md")
+		Expect(os.WriteFile(topicPath, []byte(topicFixture), 0600)).To(Succeed())
+
+		topicStore := storage.NewTopicStorage(&storage.Config{TopicsDir: "23 Topics"})
+		setOp = ops.NewTopicSetOperation(topicStore, pinned)
+		clearOp = ops.NewTopicClearOperation(topicStore)
+	})
+
+	AfterEach(func() {
+		if vaultPath != "" {
+			_ = os.RemoveAll(vaultPath)
+		}
+	})
+
+	read := func() string {
+		raw, readErr := os.ReadFile(topicPath)
+		Expect(readErr).NotTo(HaveOccurred())
+		return string(raw)
+	}
+
+	It("records the actor and a parseable instant next to an unquoted boolean flag", func() {
+		Expect(setOp.Execute(
+			ctx, vaultPath, "Alpha", "flag", "true", "", "", "operator",
+		)).To(Succeed())
+
+		out := read()
+		Expect(out).To(ContainSubstring("flag: true"))
+		Expect(out).NotTo(ContainSubstring(`flag: "true"`))
+		Expect(out).To(ContainSubstring("flag_set_by: operator"))
+		Expect(out).To(ContainSubstring("flag_set_at: 2026-09-30T08:00:00Z"))
+
+		var parsed map[string]any
+		Expect(yaml.Unmarshal([]byte(out), &parsed)).To(Succeed())
+		_, ok := parsed["flag_set_at"].(time.Time)
+		Expect(ok).To(BeTrue())
+	})
+
+	It("refuses a blank actor on a truthy flag and leaves the file byte-identical", func() {
+		before := read()
+
+		err = setOp.Execute(ctx, vaultPath, "Alpha", "flag", "true", "", "", "")
+
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("flag_set_by"))
+		Expect(read()).To(Equal(before))
+	})
+
+	It("refuses a direct provenance write and names the topic verb", func() {
+		before := read()
+
+		err = setOp.Execute(ctx, vaultPath, "Alpha", "flag_set_by", "someone", "", "", "operator")
+
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("topic set"))
+		Expect(read()).To(Equal(before))
+	})
+
+	It("removes the provenance keys when the flag is set false", func() {
+		Expect(setOp.Execute(
+			ctx, vaultPath, "Alpha", "flag", "true", "", "", "operator",
+		)).To(Succeed())
+		Expect(setOp.Execute(
+			ctx, vaultPath, "Alpha", "flag", "false", "", "", "operator",
+		)).To(Succeed())
+
+		out := read()
+		Expect(out).To(ContainSubstring("flag: false"))
+		Expect(out).NotTo(ContainSubstring("flag_set_by"))
+		Expect(out).NotTo(ContainSubstring("flag_set_at"))
+	})
+
+	It("removes the flag and both provenance keys on clear", func() {
+		Expect(setOp.Execute(
+			ctx, vaultPath, "Alpha", "flag", "true", "", "", "operator",
+		)).To(Succeed())
+
+		Expect(clearOp.Execute(ctx, vaultPath, "Alpha", "flag")).To(Succeed())
+
+		out := read()
+		Expect(out).NotTo(ContainSubstring("flag:"))
+		Expect(out).NotTo(ContainSubstring("flag_set_by"))
+		Expect(out).NotTo(ContainSubstring("flag_set_at"))
+	})
+})

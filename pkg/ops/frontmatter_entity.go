@@ -357,14 +357,22 @@ type topicSetOperation struct {
 //
 // reason and gateSuccessor are part of the frozen EntitySetOperation signature but
 // carry no meaning for topics: there is no blocked_by list contract and no close-out
-// status, so neither is consulted here.
+// status, so neither is consulted here. actor is consulted only for the "flag"
+// key, where it is recorded as flag_set_by.
 func (o *topicSetOperation) Execute(
 	ctx context.Context,
-	vaultPath, entityName, key, value, reason, gateSuccessor, _ string,
+	vaultPath, entityName, key, value, reason, gateSuccessor, actor string,
 ) error {
 	topic, err := o.topicStorage.FindTopicByName(ctx, vaultPath, entityName)
 	if err != nil {
 		return errors.Wrap(ctx, err, "find topic")
+	}
+
+	// Refuse a direct provenance write before anything is mutated — see
+	// flagProvenanceSetRefusal. Nothing below runs on this path, so the topic
+	// file stays byte-identical.
+	if err := flagProvenanceSetRefusal(ctx, "topic", entityName, key); err != nil {
+		return err
 	}
 
 	// Read the owner before any mutation: the append below must record the id
@@ -387,6 +395,18 @@ func (o *topicSetOperation) Execute(
 			SessionID: previous,
 			StartedAt: libtime.DateOrDateTime(o.currentDateTime.Now().Time()),
 		})
+	}
+
+	// Flag provenance is composed onto the same map as the flag itself, so the
+	// single WriteTopic below persists all three keys together. A blank actor
+	// is refused before any mutation, leaving the file byte-identical.
+	if key == "flag" {
+		if err := writeFlagProvenance(
+			ctx, &topic.FrontmatterMap,
+			value, actor, "topic", entityName, o.currentDateTime,
+		); err != nil {
+			return err
+		}
 	}
 
 	if err := topic.SetField(ctx, key, value); err != nil {

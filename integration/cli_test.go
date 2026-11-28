@@ -145,6 +145,59 @@ vaults:
 	}
 }
 
+// createTempVaultWithManagerResolver creates a temporary vault whose config
+// enables require_manager_on_approve and points manager_resolver_script at a
+// stub shell script carrying the given body. The script file is written 0755
+// with a `#!/bin/sh` first line: an executable file without a shebang fails
+// exec with `exec format error`.
+func createTempVaultWithManagerResolver(
+	tasks map[string]string,
+	scriptBody string,
+) (vaultPath string, configPath string, cleanup func()) {
+	var err error
+	vaultPath, err = os.MkdirTemp("", "vault-*")
+	Expect(err).NotTo(HaveOccurred())
+
+	tasksDir := filepath.Join(vaultPath, "Tasks")
+	err = os.MkdirAll(tasksDir, 0755)
+	Expect(err).NotTo(HaveOccurred())
+
+	for name, content := range tasks {
+		taskPath := filepath.Join(tasksDir, name+".md")
+		err = os.WriteFile(taskPath, []byte(content), 0600)
+		Expect(err).NotTo(HaveOccurred())
+	}
+
+	scriptPath := filepath.Join(vaultPath, "manager-for.sh")
+	err = os.WriteFile(scriptPath, []byte("#!/bin/sh\n"+scriptBody), 0o755)
+	Expect(err).NotTo(HaveOccurred())
+
+	configContent := fmt.Sprintf(`default_vault: test
+current_user: tester@example.com
+require_manager_on_approve: true
+manager_resolver_script: %s
+vaults:
+  test:
+    name: test
+    path: %s
+    tasks_dir: Tasks
+    goals_dir: Goals
+    claude_script: "claude-not-installed-for-tests"
+`, scriptPath, vaultPath)
+
+	configFile, err := os.CreateTemp("", "vault-config-*.yaml")
+	Expect(err).NotTo(HaveOccurred())
+	_, err = configFile.WriteString(configContent)
+	Expect(err).NotTo(HaveOccurred())
+	err = configFile.Close()
+	Expect(err).NotTo(HaveOccurred())
+
+	return vaultPath, configFile.Name(), func() {
+		_ = os.RemoveAll(vaultPath)
+		_ = os.Remove(configFile.Name())
+	}
+}
+
 // createTempVaultWithTopics creates a temporary vault whose config sets
 // topics_dir, and returns the vault path, the config path and a cleanup func.
 func createTempVaultWithTopics(topicsDir string) (vaultPath string, configPath string, cleanup func()) {
@@ -5630,6 +5683,104 @@ body line
 			Eventually(session).Should(gexec.Exit(0))
 			Expect(string(session.Out.Contents())).To(ContainSubstring("approve"))
 			Expect(string(session.Out.Contents())).To(ContainSubstring("--assignee"))
+		})
+	})
+
+	Describe("task approve requires a live manager", func() {
+		var vaultPath, configPath string
+		var cleanup func()
+
+		AfterEach(func() {
+			cleanup()
+		})
+
+		runApprove := func() *gexec.Session {
+			session, err := gexec.Start(
+				exec.Command(binPath, "--config", configPath, "--vault", "test", "task", "approve", "Alpha"),
+				GinkgoWriter,
+				GinkgoWriter,
+			)
+			Expect(err).NotTo(HaveOccurred())
+			return session
+		}
+
+		sha256OfFile := func(path string) string {
+			data, err := os.ReadFile(path) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			sum := sha256.Sum256(data)
+			return fmt.Sprintf("%x", sum)
+		}
+
+		valueOf := func(content, key string) string {
+			for _, line := range strings.Split(content, "\n") {
+				if strings.HasPrefix(line, key+": ") {
+					return strings.TrimPrefix(line, key+": ")
+				}
+			}
+			return ""
+		}
+
+		// A row waiting in the inbox, linked to a goal the stub script answers for.
+		todoWithGoal := `---
+assignee: someone
+goals:
+  - Some Goal
+page_type: task
+phase: todo
+priority: 1
+status: next
+task_identifier: 11111111-1111-4111-8111-111111111111
+---
+body line
+`
+
+		It("approves and records manager_at_approval when a manager is found", func() {
+			vaultPath, configPath, cleanup = createTempVaultWithManagerResolver(
+				map[string]string{"Alpha": todoWithGoal},
+				`echo '{"manager":"goal-manager"}'
+`,
+			)
+			taskFile := filepath.Join(vaultPath, "Tasks", "Alpha.md")
+
+			session := runApprove()
+			Eventually(session).Should(gexec.Exit(0))
+
+			after, err := os.ReadFile(taskFile) //#nosec G304 -- test file
+			Expect(err).NotTo(HaveOccurred())
+			Expect(valueOf(string(after), "phase")).To(Equal("planning"))
+			Expect(valueOf(string(after), "manager_at_approval")).To(Equal("goal-manager"))
+		})
+
+		It("refuses with nothing written when no manager resolves", func() {
+			vaultPath, configPath, cleanup = createTempVaultWithManagerResolver(
+				map[string]string{"Alpha": todoWithGoal},
+				`echo '{"manager":null}'
+`,
+			)
+			taskFile := filepath.Join(vaultPath, "Tasks", "Alpha.md")
+			before := sha256OfFile(taskFile)
+
+			session := runApprove()
+			Eventually(session).Should(gexec.Exit(1))
+			Expect(string(session.Err.Contents())).To(ContainSubstring("Some Goal"))
+			Expect(string(session.Err.Contents())).To(ContainSubstring("no manager"))
+			Expect(sha256OfFile(taskFile)).To(Equal(before))
+		})
+
+		It("refuses an unreadable fleet with nothing written", func() {
+			vaultPath, configPath, cleanup = createTempVaultWithManagerResolver(
+				map[string]string{"Alpha": todoWithGoal},
+				`echo 'fleet down' >&2
+exit 2
+`,
+			)
+			taskFile := filepath.Join(vaultPath, "Tasks", "Alpha.md")
+			before := sha256OfFile(taskFile)
+
+			session := runApprove()
+			Eventually(session).Should(gexec.Exit(1))
+			Expect(string(session.Err.Contents())).To(ContainSubstring("fleet unreadable"))
+			Expect(sha256OfFile(taskFile)).To(Equal(before))
 		})
 	})
 

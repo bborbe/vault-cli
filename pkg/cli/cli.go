@@ -2876,6 +2876,28 @@ const taskApprovePreservationHelp = "An existing approved_at is preserved on re-
 	"re-approval and refreshed by each one, so a reader can tell a row re-approved a " +
 	"minute ago from one that was never re-approved."
 
+// taskApproveManagerHelp is the manager-gate paragraph of `task approve`'s long
+// help, kept out of the constructor for the same length reason.
+const taskApproveManagerHelp = "When require_manager_on_approve is enabled, a task whose goal " +
+	"resolves no live manager is refused and nothing is written; an unreadable fleet is " +
+	"refused rather than approved. A successful approval then records manager_at_approval. " +
+	"The gate is off unless the config key is set."
+
+// managerResolverForApprove reads the manager-gate config per invocation and
+// returns the resolver the approval operation uses, or nil when the gate is
+// off. Reading it here (not at command build) keeps `--help` config-free.
+func managerResolverForApprove(
+	ctx context.Context,
+	configLoader *config.Loader,
+) ops.ManagerResolver {
+	requireManager, _ := (*configLoader).RequireManagerOnApprove(ctx)
+	if !requireManager {
+		return nil
+	}
+	script, _ := (*configLoader).ManagerResolverScript(ctx)
+	return ops.NewScriptManagerResolver(script)
+}
+
 // createTaskApproveCommand builds `vault-cli task approve`, the CLI surface over
 // the pkg/ops approval operation. It performs the recorded todo -> planning
 // transition and, unlike the other mutation verbs, exits non-zero when a
@@ -2903,7 +2925,8 @@ func createTaskApproveCommand(
 			"an open by approving a row.\n\n" +
 			"An operator-set flag (flag: true, flag_set_by operator or legacy) is also an " +
 			"approval: `task work-on` moves such a todo task to planning without writing " +
-			"approved_by / approved_at.",
+			"approved_by / approved_at.\n\n" +
+			taskApproveManagerHelp,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			taskName := args[0]
@@ -2924,11 +2947,16 @@ func createTaskApproveCommand(
 
 			currentDateTime := libtime.NewCurrentDateTime()
 
+			// The manager gate is read per invocation, never at command build
+			// time, so `--help` needs no config and a changed config takes effect
+			// on the next run. Off unless require_manager_on_approve is set.
+			managerResolver := managerResolverForApprove(ctx, configLoader)
+
 			dispatcher := ops.NewVaultDispatcher()
 			err = dispatcher.FirstSuccess(ctx, vaults, func(vault *config.Vault) error {
 				storageConfig := storage.NewConfigFromVault(vault)
 				taskStore := storage.NewTaskStorage(storageConfig)
-				approveOp := ops.NewTaskApproveOperation(taskStore, currentDateTime)
+				approveOp := ops.NewTaskApproveOperation(taskStore, currentDateTime, managerResolver)
 				result, err := approveOp.Execute(
 					ctx,
 					vault.Path,

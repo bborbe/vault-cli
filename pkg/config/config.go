@@ -20,6 +20,14 @@ type Config struct {
 	DefaultVault string           `yaml:"default_vault"`
 	Vaults       map[string]Vault `yaml:"vaults"`
 	Notification Notification     `yaml:"notification,omitempty"`
+	// RequireManagerOnApprove makes `task approve` refuse a task whose goal
+	// resolves no live manager. Off by default so other vaults and the existing
+	// suite are unchanged; `private-personal` turns it on.
+	RequireManagerOnApprove bool `yaml:"require_manager_on_approve"`
+	// ManagerResolverScript is the executable that answers "which live manager
+	// owns this subject". Empty means search the installed claude-supervisor
+	// plugin.
+	ManagerResolverScript string `yaml:"manager_resolver_script,omitempty"`
 }
 
 // Notification carries the optional escalation-publish settings. An empty
@@ -277,6 +285,8 @@ type Loader interface {
 	GetVault(ctx context.Context, vaultName string) (*Vault, error)
 	GetAllVaults(ctx context.Context) ([]*Vault, error)
 	GetCurrentUser(ctx context.Context) (string, error)
+	RequireManagerOnApprove(ctx context.Context) (bool, error)
+	ManagerResolverScript(ctx context.Context) (string, error)
 }
 
 // NewLoader creates a new config loader.
@@ -441,6 +451,26 @@ func (c *configLoader) GetCurrentUser(ctx context.Context) (string, error) {
 		return "", errors.Errorf(ctx, "current_user not configured")
 	}
 	return config.CurrentUser, nil
+}
+
+// RequireManagerOnApprove reports whether `task approve` must refuse a task
+// whose goal resolves no live manager. It returns false when the key is unset.
+func (c *configLoader) RequireManagerOnApprove(ctx context.Context) (bool, error) {
+	config, err := c.Load(ctx)
+	if err != nil {
+		return false, errors.Wrap(ctx, err, "load config")
+	}
+	return config.RequireManagerOnApprove, nil
+}
+
+// ManagerResolverScript returns the configured manager resolver script path,
+// or "" when unset.
+func (c *configLoader) ManagerResolverScript(ctx context.Context) (string, error) {
+	config, err := c.Load(ctx)
+	if err != nil {
+		return "", errors.Wrap(ctx, err, "load config")
+	}
+	return config.ManagerResolverScript, nil
 }
 
 // resolveTemplatePath resolves a template field value to an absolute path.

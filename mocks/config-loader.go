@@ -76,6 +76,32 @@ type Loader struct {
 		result1 *config.Config
 		result2 error
 	}
+	ManagerResolverScriptStub        func(context.Context) (string, error)
+	managerResolverScriptMutex       sync.RWMutex
+	managerResolverScriptArgsForCall []struct {
+		arg1 context.Context
+	}
+	managerResolverScriptReturns struct {
+		result1 string
+		result2 error
+	}
+	managerResolverScriptReturnsOnCall map[int]struct {
+		result1 string
+		result2 error
+	}
+	RequireManagerOnApproveStub        func(context.Context) (bool, error)
+	requireManagerOnApproveMutex       sync.RWMutex
+	requireManagerOnApproveArgsForCall []struct {
+		arg1 context.Context
+	}
+	requireManagerOnApproveReturns struct {
+		result1 bool
+		result2 error
+	}
+	requireManagerOnApproveReturnsOnCall map[int]struct {
+		result1 bool
+		result2 error
+	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -398,6 +424,134 @@ func (fake *Loader) LoadReturnsOnCall(i int, result1 *config.Config, result2 err
 	}
 	fake.loadReturnsOnCall[i] = struct {
 		result1 *config.Config
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *Loader) ManagerResolverScript(arg1 context.Context) (string, error) {
+	fake.managerResolverScriptMutex.Lock()
+	ret, specificReturn := fake.managerResolverScriptReturnsOnCall[len(fake.managerResolverScriptArgsForCall)]
+	fake.managerResolverScriptArgsForCall = append(fake.managerResolverScriptArgsForCall, struct {
+		arg1 context.Context
+	}{arg1})
+	stub := fake.ManagerResolverScriptStub
+	fakeReturns := fake.managerResolverScriptReturns
+	fake.recordInvocation("ManagerResolverScript", []interface{}{arg1})
+	fake.managerResolverScriptMutex.Unlock()
+	if stub != nil {
+		return stub(arg1)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *Loader) ManagerResolverScriptCallCount() int {
+	fake.managerResolverScriptMutex.RLock()
+	defer fake.managerResolverScriptMutex.RUnlock()
+	return len(fake.managerResolverScriptArgsForCall)
+}
+
+func (fake *Loader) ManagerResolverScriptCalls(stub func(context.Context) (string, error)) {
+	fake.managerResolverScriptMutex.Lock()
+	defer fake.managerResolverScriptMutex.Unlock()
+	fake.ManagerResolverScriptStub = stub
+}
+
+func (fake *Loader) ManagerResolverScriptArgsForCall(i int) context.Context {
+	fake.managerResolverScriptMutex.RLock()
+	defer fake.managerResolverScriptMutex.RUnlock()
+	argsForCall := fake.managerResolverScriptArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *Loader) ManagerResolverScriptReturns(result1 string, result2 error) {
+	fake.managerResolverScriptMutex.Lock()
+	defer fake.managerResolverScriptMutex.Unlock()
+	fake.ManagerResolverScriptStub = nil
+	fake.managerResolverScriptReturns = struct {
+		result1 string
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *Loader) ManagerResolverScriptReturnsOnCall(i int, result1 string, result2 error) {
+	fake.managerResolverScriptMutex.Lock()
+	defer fake.managerResolverScriptMutex.Unlock()
+	fake.ManagerResolverScriptStub = nil
+	if fake.managerResolverScriptReturnsOnCall == nil {
+		fake.managerResolverScriptReturnsOnCall = make(map[int]struct {
+			result1 string
+			result2 error
+		})
+	}
+	fake.managerResolverScriptReturnsOnCall[i] = struct {
+		result1 string
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *Loader) RequireManagerOnApprove(arg1 context.Context) (bool, error) {
+	fake.requireManagerOnApproveMutex.Lock()
+	ret, specificReturn := fake.requireManagerOnApproveReturnsOnCall[len(fake.requireManagerOnApproveArgsForCall)]
+	fake.requireManagerOnApproveArgsForCall = append(fake.requireManagerOnApproveArgsForCall, struct {
+		arg1 context.Context
+	}{arg1})
+	stub := fake.RequireManagerOnApproveStub
+	fakeReturns := fake.requireManagerOnApproveReturns
+	fake.recordInvocation("RequireManagerOnApprove", []interface{}{arg1})
+	fake.requireManagerOnApproveMutex.Unlock()
+	if stub != nil {
+		return stub(arg1)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *Loader) RequireManagerOnApproveCallCount() int {
+	fake.requireManagerOnApproveMutex.RLock()
+	defer fake.requireManagerOnApproveMutex.RUnlock()
+	return len(fake.requireManagerOnApproveArgsForCall)
+}
+
+func (fake *Loader) RequireManagerOnApproveCalls(stub func(context.Context) (bool, error)) {
+	fake.requireManagerOnApproveMutex.Lock()
+	defer fake.requireManagerOnApproveMutex.Unlock()
+	fake.RequireManagerOnApproveStub = stub
+}
+
+func (fake *Loader) RequireManagerOnApproveArgsForCall(i int) context.Context {
+	fake.requireManagerOnApproveMutex.RLock()
+	defer fake.requireManagerOnApproveMutex.RUnlock()
+	argsForCall := fake.requireManagerOnApproveArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *Loader) RequireManagerOnApproveReturns(result1 bool, result2 error) {
+	fake.requireManagerOnApproveMutex.Lock()
+	defer fake.requireManagerOnApproveMutex.Unlock()
+	fake.RequireManagerOnApproveStub = nil
+	fake.requireManagerOnApproveReturns = struct {
+		result1 bool
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *Loader) RequireManagerOnApproveReturnsOnCall(i int, result1 bool, result2 error) {
+	fake.requireManagerOnApproveMutex.Lock()
+	defer fake.requireManagerOnApproveMutex.Unlock()
+	fake.RequireManagerOnApproveStub = nil
+	if fake.requireManagerOnApproveReturnsOnCall == nil {
+		fake.requireManagerOnApproveReturnsOnCall = make(map[int]struct {
+			result1 bool
+			result2 error
+		})
+	}
+	fake.requireManagerOnApproveReturnsOnCall[i] = struct {
+		result1 bool
 		result2 error
 	}{result1, result2}
 }

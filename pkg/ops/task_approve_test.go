@@ -47,7 +47,7 @@ var _ = Describe("TaskApproveOperation", func() {
 
 		pinned = libtime.NewCurrentDateTime()
 		pinned.SetNow(libtimetest.ParseDateTime("2026-03-03T12:00:00Z"))
-		approveOp = ops.NewTaskApproveOperation(mockStorage, pinned)
+		approveOp = ops.NewTaskApproveOperation(mockStorage, pinned, nil)
 
 		seedTask(map[string]any{"status": "next", "phase": "todo", "assignee": "someone"})
 	})
@@ -207,7 +207,7 @@ var _ = Describe("TaskApproveOperation", func() {
 	It("refuses a zero clock with zero writes", func() {
 		zero := libtime.NewCurrentDateTime()
 		zero.SetNow(libtime.DateTime(time.Time{}))
-		zeroOp := ops.NewTaskApproveOperation(mockStorage, zero)
+		zeroOp := ops.NewTaskApproveOperation(mockStorage, zero, nil)
 
 		_, execErr := zeroOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator", "", "")
 		Expect(execErr).To(HaveOccurred())
@@ -418,7 +418,7 @@ var _ = Describe("TaskApproveOperation", func() {
 		seedTask(map[string]any{"status": "next", "phase": "todo", "approved_by": "someone"})
 		zero := libtime.NewCurrentDateTime()
 		zero.SetNow(libtime.DateTime(time.Time{}))
-		zeroOp := ops.NewTaskApproveOperation(mockStorage, zero)
+		zeroOp := ops.NewTaskApproveOperation(mockStorage, zero, nil)
 
 		_, execErr := zeroOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator", "", "")
 		Expect(execErr).To(HaveOccurred())
@@ -573,6 +573,116 @@ var _ = Describe("TaskApproveOperation", func() {
 			Expect(execErr).To(BeNil())
 			Expect(result.Success).To(BeTrue())
 			Expect(mockStorage.ListTasksStrictCallCount()).To(Equal(0))
+		})
+	})
+
+	Describe("manager gate", func() {
+		var resolver *mocks.ManagerResolver
+
+		BeforeEach(func() {
+			resolver = &mocks.ManagerResolver{}
+			approveOp = ops.NewTaskApproveOperation(mockStorage, pinned, resolver)
+		})
+
+		It("refuses when the goal resolves no manager, with zero writes", func() {
+			seedTask(map[string]any{
+				"status": "next", "phase": "todo", "assignee": "someone",
+				"goals": []string{"Some Goal"},
+			})
+			resolver.LiveManagerForGoalReturns("", false, nil)
+
+			_, execErr := approveOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator", "", "")
+			Expect(execErr).To(HaveOccurred())
+			Expect(execErr.Error()).To(ContainSubstring("Some Goal"))
+			Expect(execErr.Error()).To(ContainSubstring("no manager"))
+			Expect(mockStorage.WriteTaskCallCount()).To(Equal(0))
+		})
+
+		It("refuses an unreadable fleet, naming the goal and the instrument", func() {
+			seedTask(map[string]any{
+				"status": "next", "phase": "todo", "assignee": "someone",
+				"goals": []string{"Some Goal"},
+			})
+			resolver.LiveManagerForGoalReturns("", false, liberrors.New(ctx, "fleet down"))
+
+			_, execErr := approveOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator", "", "")
+			Expect(execErr).To(HaveOccurred())
+			Expect(execErr.Error()).To(ContainSubstring("Some Goal"))
+			Expect(execErr.Error()).To(ContainSubstring("cannot read live manager state"))
+			Expect(execErr.Error()).To(ContainSubstring("fleet down"))
+			Expect(mockStorage.WriteTaskCallCount()).To(Equal(0))
+		})
+
+		It("records the manager on a successful approval", func() {
+			seedTask(map[string]any{
+				"status": "next", "phase": "todo", "assignee": "someone",
+				"goals": []string{"Some Goal"},
+			})
+			resolver.LiveManagerForGoalReturns("goal-manager", true, nil)
+
+			result, execErr := approveOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator", "", "")
+			Expect(execErr).To(BeNil())
+			Expect(result.Success).To(BeTrue())
+
+			Expect(mockStorage.WriteTaskCallCount()).To(Equal(1))
+			_, written := mockStorage.WriteTaskArgsForCall(0)
+			Expect(written.GetString("manager_at_approval")).To(Equal("goal-manager"))
+			Expect(written.GetString("approved_by")).To(Equal("operator"))
+			Expect(written.Phase()).To(Equal(domain.TaskPhasePlanning.Ptr()))
+		})
+
+		It("keeps the gate off when the resolver is nil", func() {
+			approveOp = ops.NewTaskApproveOperation(mockStorage, pinned, nil)
+			seedTask(map[string]any{
+				"status": "next", "phase": "todo", "assignee": "someone",
+				"goals": []string{"Some Goal"},
+			})
+
+			result, execErr := approveOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator", "", "")
+			Expect(execErr).To(BeNil())
+			Expect(result.Success).To(BeTrue())
+
+			_, written := mockStorage.WriteTaskArgsForCall(0)
+			Expect(written.Get("manager_at_approval")).To(BeNil())
+		})
+
+		It("names (no goal) when the task has no goals and no managed_by", func() {
+			seedTask(map[string]any{"status": "next", "phase": "todo", "assignee": "someone"})
+			resolver.LiveManagerForGoalReturns("", false, nil)
+
+			_, execErr := approveOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator", "", "")
+			Expect(execErr).To(HaveOccurred())
+			Expect(execErr.Error()).To(ContainSubstring("(no goal)"))
+			Expect(execErr.Error()).To(ContainSubstring("no manager"))
+			Expect(mockStorage.WriteTaskCallCount()).To(Equal(0))
+		})
+
+		It("resolves managed_by before goals", func() {
+			seedTask(map[string]any{
+				"status": "next", "phase": "todo", "assignee": "someone",
+				"managed_by": "Managed Subject",
+				"goals":      []string{"Some Goal"},
+			})
+			resolver.LiveManagerForGoalReturns("managed", true, nil)
+
+			_, execErr := approveOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator", "", "")
+			Expect(execErr).To(BeNil())
+			Expect(resolver.LiveManagerForGoalCallCount()).To(Equal(1))
+			_, subject, _ := resolver.LiveManagerForGoalArgsForCall(0)
+			Expect(subject).To(Equal("Managed Subject"))
+		})
+
+		It("normalises a wikilink before resolving it", func() {
+			seedTask(map[string]any{
+				"status": "next", "phase": "todo", "assignee": "someone",
+				"goals": []string{"[[Some Goal]]"},
+			})
+			resolver.LiveManagerForGoalReturns("goal-manager", true, nil)
+
+			_, execErr := approveOp.Execute(ctx, "/vault", "Alpha", "vault-a", "operator", "", "")
+			Expect(execErr).To(BeNil())
+			_, subject, _ := resolver.LiveManagerForGoalArgsForCall(0)
+			Expect(subject).To(Equal("Some Goal"))
 		})
 	})
 })

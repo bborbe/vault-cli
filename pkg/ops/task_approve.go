@@ -60,16 +60,21 @@ type TaskApproveOperation interface {
 func NewTaskApproveOperation(
 	taskStorage storage.TaskStorage,
 	currentDateTime libtime.CurrentDateTime,
+	managerResolver ManagerResolver,
 ) TaskApproveOperation {
 	return &taskApproveOperation{
 		taskStorage:     taskStorage,
 		currentDateTime: currentDateTime,
+		managerResolver: managerResolver,
 	}
 }
 
 type taskApproveOperation struct {
 	taskStorage     storage.TaskStorage
 	currentDateTime libtime.CurrentDateTime
+	// managerResolver is nil when require_manager_on_approve is off, which
+	// leaves the approval semantics exactly as they were before the gate.
+	managerResolver ManagerResolver
 }
 
 // Execute approves a task waiting in the approval inbox.
@@ -137,26 +142,25 @@ func (o *taskApproveOperation) Execute(
 	// re-approval is still recorded — its instant goes into reapproved_at —
 	// while the approval record itself is left untouched.
 	if hasApprovalRecord(task) {
-		// A terminal row is refused rather than advanced: moving it to planning
-		// would produce the status/phase pair checkPhaseRegression refuses and
-		// detectStatusPhaseMismatch reports — the same pair the lint rule marks
-		// non-fixable. Refusing keeps approve and lint in agreement about a
-		// finished row instead of having each repair what the other refuses.
-		if status := task.Status(); status == domain.TaskStatusCompleted || status == domain.TaskStatusAborted {
-			terminalErr := errors.Errorf(
-				ctx,
-				"refusing to advance %q: it carries an approval record at phase %q but its status is %q; advancing the phase would produce the status/phase pair checkPhaseRegression refuses. A finished row is not re-opened by an approval — decide deliberately whether it is mis-phased",
-				taskName, string(domain.TaskPhaseTodo), status,
-			)
-			return MutationResult{Success: false, Error: terminalErr.Error()}, terminalErr
+		return o.advanceApprovedTask(ctx, task, taskName, now, vaultName)
+	}
+
+	// The manager gate. When require_manager_on_approve is on, an approval may
+	// leave the inbox only when its goal resolves a live manager, and an
+	// unreadable fleet is refused rather than approved. Nothing is written on
+	// either refusal.
+	//
+	// The operator-flag path is deliberately exempt: `task work-on` advances a
+	// `flag: true` row to planning without this operation, and that flag is the
+	// operator's own dispatch, not dispatch-by-omission. The exemption lives in
+	// pkg/ops/workon.go and is intentionally unchanged here.
+	managerAtApproval := ""
+	if o.managerResolver != nil {
+		managerName, err := o.requireLiveManager(ctx, taskName, task, vaultPath)
+		if err != nil {
+			return MutationResult{Success: false, Error: err.Error()}, err
 		}
-		task.SetPhase(domain.TaskPhasePlanning.Ptr())
-		// The re-approval is an event with a time of its own: record it in a
-		// separate key, beside the preserved approval record, in the same single
-		// write. A first approval never writes this key, so a row that carries it
-		// was re-approved and the value is when.
-		task.Set("reapproved_at", now.Time())
-		return o.write(ctx, task, vaultName)
+		managerAtApproval = managerName
 	}
 
 	// Resolve the owner after every guard and before any mutation. Refusing here
@@ -174,6 +178,11 @@ func (o *taskApproveOperation) Execute(
 	task.SetPhase(domain.TaskPhasePlanning.Ptr())
 	task.Set("approved_by", approvedBy)
 	task.Set("approved_at", now.Time())
+	// Record the manager that satisfied the gate in the same single write. The
+	// key is absent when the gate is off.
+	if o.managerResolver != nil {
+		task.Set("manager_at_approval", managerAtApproval)
+	}
 	// Only write the owner when it differs: a task already carrying the owner
 	// the flag or the config would produce is not dirtied by an assignee write.
 	if owner != task.Assignee() {
@@ -214,6 +223,91 @@ func (o *taskApproveOperation) write(
 func hasApprovalRecord(task *domain.Task) bool {
 	keys := task.Keys()
 	return slices.Contains(keys, "approved_by") || slices.Contains(keys, "approved_at")
+}
+
+// requireLiveManager resolves the task's subjects in order — `managed_by`
+// first, then each `goals:` entry — and returns the first live manager found.
+// It refuses when the fleet cannot be read, and refuses when no subject
+// resolves a manager, so an approval never leaves the inbox unowned.
+func (o *taskApproveOperation) requireLiveManager(
+	ctx context.Context,
+	taskName string,
+	task *domain.Task,
+	vaultPath string,
+) (string, error) {
+	subjects := approvalSubjects(task)
+	named := subjects
+	if len(named) == 0 {
+		named = []string{"(no goal)"}
+	}
+
+	for _, subject := range named {
+		name, found, err := o.managerResolver.LiveManagerForGoal(ctx, subject, vaultPath)
+		if err != nil {
+			return "", errors.Errorf(
+				ctx,
+				"refusing to approve %q: cannot read live manager state for %q: %v; nothing was written",
+				taskName, subject, err,
+			)
+		}
+		if found {
+			return name, nil
+		}
+	}
+
+	return "", errors.Errorf(
+		ctx,
+		"refusing to approve %q: goal %q resolves no manager; nothing was written; start a manager for the goal first",
+		taskName, named[0],
+	)
+}
+
+// advanceApprovedTask completes the phase half of a transition for a todo row
+// that already carries an approval record. It preserves the record exactly as
+// it is, invents no missing key, and resolves no owner.
+func (o *taskApproveOperation) advanceApprovedTask(
+	ctx context.Context,
+	task *domain.Task,
+	taskName string,
+	now libtime.DateTime,
+	vaultName string,
+) (MutationResult, error) {
+	// A terminal row is refused rather than advanced: moving it to planning
+	// would produce the status/phase pair checkPhaseRegression refuses and
+	// detectStatusPhaseMismatch reports — the same pair the lint rule marks
+	// non-fixable. Refusing keeps approve and lint in agreement about a
+	// finished row instead of having each repair what the other refuses.
+	if status := task.Status(); status == domain.TaskStatusCompleted || status == domain.TaskStatusAborted {
+		terminalErr := errors.Errorf(
+			ctx,
+			"refusing to advance %q: it carries an approval record at phase %q but its status is %q; advancing the phase would produce the status/phase pair checkPhaseRegression refuses. A finished row is not re-opened by an approval — decide deliberately whether it is mis-phased",
+			taskName, string(domain.TaskPhaseTodo), status,
+		)
+		return MutationResult{Success: false, Error: terminalErr.Error()}, terminalErr
+	}
+	task.SetPhase(domain.TaskPhasePlanning.Ptr())
+	// The re-approval is an event with a time of its own: record it in a
+	// separate key, beside the preserved approval record, in the same single
+	// write. A first approval never writes this key, so a row that carries it
+	// was re-approved and the value is when.
+	task.Set("reapproved_at", now.Time())
+	return o.write(ctx, task, vaultName)
+}
+
+// approvalSubjects returns the task's manager subjects in precedence order:
+// a normalised `managed_by` first, then each normalised `goals:` entry. Empty
+// entries are dropped, so a malformed link never becomes a subject.
+func approvalSubjects(task *domain.Task) []string {
+	var subjects []string
+	if managedBy := normaliseGoalLink(task.GetString("managed_by")); managedBy != "" {
+		subjects = append(subjects, managedBy)
+	}
+	for _, goal := range task.Goals() {
+		if name := normaliseGoalLink(goal); name != "" {
+			subjects = append(subjects, name)
+		}
+	}
+	return subjects
 }
 
 // resolveOwner fixes the task's owner by the precedence the approval contract

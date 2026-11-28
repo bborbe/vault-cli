@@ -74,6 +74,29 @@ notification:
 
 The publish is bounded to a single attempt of five seconds. A failure or an unreachable broker is logged, never fails the command, never changes its exit code or output, and never delays it past that bound.
 
+### Manager gate (optional)
+
+By default `vault-cli task approve` does not consult a manager fleet. Set
+`require_manager_on_approve: true` to make an approval leave the inbox only
+when the task's goal resolves a live manager:
+
+```yaml
+require_manager_on_approve: true
+manager_resolver_script: ~/.claude/plugins/marketplaces/claude-supervisor/scripts/manager-for.py
+```
+
+- `require_manager_on_approve` — off unless set. When on, a task whose goal
+  resolves no live manager is refused with nothing written, and an unreadable
+  fleet is refused rather than approved. A successful approval records
+  `manager_at_approval`. An operator-flagged `todo` row advanced by
+  `task work-on` is exempt: the flag is the operator's own dispatch.
+- `manager_resolver_script` — the executable that answers which live manager
+  owns a subject. Empty means vault-cli searches the installed
+  claude-supervisor plugin (`~/.claude/plugins/cache/*/supervisor/*/scripts/manager-for.py`,
+  newest first, then the marketplace checkout). The script is called as
+  `--goal <subject> --vault <path> --json` and prints
+  `{"manager":"<name>"|null}`; exit 2 means the fleet could not be read.
+
 ## Usage
 
 ### Global Flags
